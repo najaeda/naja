@@ -5516,8 +5516,10 @@ class SNLSVConstructorImpl {
       };
       auto lhsBits = collectBits(lhsNet);
       if (lhsBits.empty()) {
+        // LCOV_EXCL_START
         setFailureReason("failed to resolve LHS bits");
-        return false; // LCOV_EXCL_LINE
+        return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> valueBits;
@@ -5544,11 +5546,13 @@ class SNLSVConstructorImpl {
 
       auto shiftWidth = getIntegralExpressionBitWidth(shiftAmountExpr);
       if (!shiftWidth || !*shiftWidth) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "failed to resolve shift amount width ("
                << describeExpression(shiftAmountExpr) << ")";
         setFailureReason(reason.str());
-        return false; // LCOV_EXCL_LINE
+        return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> shiftBits;
@@ -5616,8 +5620,10 @@ class SNLSVConstructorImpl {
       };
       auto lhsBits = collectBits(lhsNet);
       if (lhsBits.empty()) {
+        // LCOV_EXCL_START
         setFailureReason("failed to resolve LHS bits");
-        return false; // LCOV_EXCL_LINE
+        return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> valueBits;
@@ -5629,8 +5635,10 @@ class SNLSVConstructorImpl {
         return false;
       }
       if (valueBits.empty()) {
+        // LCOV_EXCL_START
         setFailureReason("failed to resolve non-empty value bits");
-        return false; // LCOV_EXCL_LINE
+        return false;
+        // LCOV_EXCL_STOP
       }
 
       auto* signFillBit = valueBits.back();
@@ -6572,6 +6580,10 @@ class SNLSVConstructorImpl {
         }
 
         const Expression* initializer = loopVar->getInitializer();
+        // Slang materializes a non-null initializer expression for declared
+        // for-loop variables in current versions, so this fallback and
+        // missing-initializer diagnostic are defensive and not reachable.
+        // LCOV_EXCL_START
         if (!initializer && forStmt.initializers.size() == 1) {
           initializer = forStmt.initializers.front();
         }
@@ -6582,6 +6594,7 @@ class SNLSVConstructorImpl {
           failureReason = reason.str();
           return false;
         }
+        // LCOV_EXCL_STOP
         const Symbol* resolvedLoopSymbol = loopVar;
         if (!extractForLoopInitializerValue(*initializer, loopVar, resolvedLoopSymbol, loopValue)) {
           std::ostringstream reason;

@@ -985,6 +985,43 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousGateAssignBitwiseNotUnknownOperandReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_gate_assign_bitwise_not_unknown_operand_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_gate_assign_bitwise_not_unknown_operand_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_gate_assign_bitwise_not_unknown_operand_unsupported(
+  input  logic a,
+  output logic y
+);
+  assign y = a & ~1'bx;
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {
+      "Unsupported operand in continuous gate assign",
+      "gate=and",
+      "failed to resolve bitwise-not operand bits"
+    });
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignFunctionCaseInsideAssignmentBodyUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -1302,6 +1339,139 @@ endmodule
     top,
     "continuous_assign_function_case_inside_range_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignSimpleReturnFunctionScalarMaterializedArgSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_simple_return_function_scalar_materialized_arg_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_simple_return_function_scalar_materialized_arg_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_simple_return_function_scalar_materialized_arg_supported(
+  input  logic a,
+  input  logic b,
+  output logic y
+);
+  function automatic logic id(input logic x);
+    return x;
+  endfunction
+  assign y = id(a ^ b);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_simple_return_function_scalar_materialized_arg_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignProceduralReturnFunctionMaterializedArgsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_procedural_return_function_materialized_args_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_procedural_return_function_materialized_args_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_procedural_return_function_materialized_args_supported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  input  logic       sel,
+  input  logic       en,
+  output logic [3:0] y_bus,
+  output logic       y_scalar
+);
+  function automatic logic [3:0] pass_bus(input logic [3:0] x);
+    logic [3:0] tmp;
+    tmp = x;
+    return tmp;
+  endfunction
+
+  function automatic logic pass_scalar(input logic x);
+    logic tmp;
+    tmp = x;
+    return tmp;
+  endfunction
+
+  assign y_bus = pass_bus(a ^ b);
+  assign y_scalar = pass_scalar(sel & en);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_procedural_return_function_materialized_args_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_bus")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_scalar")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignFunctionCaseInsideDefaultOneSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_function_case_inside_default_one_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_function_case_inside_default_one_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_function_case_inside_default_one_supported(
+  input  logic [5:0] op,
+  output logic       y_dyn,
+  output logic       y_below,
+  output logic       y_in
+);
+  function automatic logic is_not_amo(input logic [5:0] op_i);
+    case (op_i) inside
+      [6'd4 : 6'd17]: return 1'b0;
+      default:        return 1'b1;
+    endcase
+  endfunction
+  assign y_dyn   = is_not_amo(op);
+  assign y_below = is_not_amo(6'd3);
+  assign y_in    = is_not_amo(6'd8);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_function_case_inside_default_one_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_dyn")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_below")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_in")), nullptr);
 }
 
 TEST_F(
@@ -3280,6 +3450,117 @@ endmodule
   EXPECT_GE(orGateCount, 1u);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousReductionXorXnorMixedRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_reduction_xor_xnor_mixed_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_reduction_xor_xnor_mixed_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_reduction_xor_xnor_mixed_rhs_supported(
+  input  logic a,
+  input  logic b,
+  input  logic c,
+  output logic y_xor_chain,
+  output logic y_xor_flip_left,
+  output logic y_xor_flip_right,
+  output logic y_xor_skip_zero,
+  output logic y_xor_double_one_a,
+  output logic y_xor_double_one_b,
+  output logic y_xnor_chain
+);
+  assign y_xor_chain        = ^{a, b, c};
+  assign y_xor_flip_left    = ^{1'b1, a};
+  assign y_xor_flip_right   = ^{a, 1'b1};
+  assign y_xor_skip_zero    = ^{a, 1'b0};
+  assign y_xor_double_one_a = ^{a, 1'b1, 1'b1};
+  assign y_xor_double_one_b = ^{1'b1, 1'b1, a};
+  assign y_xnor_chain       = ~^{a, b};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_reduction_xor_xnor_mixed_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_chain")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_flip_left")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_flip_right")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_skip_zero")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_double_one_a")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xor_double_one_b")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_xnor_chain")), nullptr);
+
+  size_t xorGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "xor") {
+      ++xorGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_GE(xorGateCount, 1u);
+  EXPECT_GE(notGateCount, 1u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalNotReductionOrChainSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_logical_not_reduction_or_chain_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_logical_not_reduction_or_chain_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_logical_not_reduction_or_chain_supported(
+  input  logic a,
+  input  logic b,
+  output logic y
+);
+  assign y = !{a, b};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_logical_not_reduction_or_chain_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+
+  size_t orGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "or") {
+      ++orGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_GE(orGateCount, 1u);
+  EXPECT_GE(notGateCount, 1u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseGateOperandCaseEqualitySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -3758,6 +4039,236 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopExternalControlInitializerSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_external_control_initializer_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_external_control_initializer_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_external_control_initializer_supported(
+  input  logic [3:0] in,
+  output logic [3:0] y
+);
+  always_comb begin
+    automatic int i;
+    y = 4'b0;
+    for (i = 0; i < 4; i++) begin
+      y[i] = in[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_for_loop_external_control_initializer_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(4, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopExternalControlNonConstantInitializerReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_external_control_non_constant_initializer_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_for_loop_external_control_non_constant_initializer_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_external_control_non_constant_initializer_reported_unsupported(
+  input  logic [3:0] in,
+  input  logic [1:0] start_i,
+  output logic       y
+);
+  always_comb begin
+    automatic int i;
+    y = 1'b0;
+    for (i = start_i; i < 1; i++) begin
+      y = in[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported non-constant for-loop initializer RHS expression"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopExternalControlInitializerNonSymbolLHSReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_external_control_initializer_non_symbol_lhs_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_for_loop_external_control_initializer_non_symbol_lhs_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_external_control_initializer_non_symbol_lhs_reported_unsupported(
+  input  logic [3:0] in,
+  output logic       y
+);
+  always_comb begin
+    automatic int i;
+    y = 1'b0;
+    for ({i} = 0; i < 1; i++) begin
+      y = in[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported non-constant for-loop initializer RHS expression"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopDeclaredControlNonConstantInitializerReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_declared_control_non_constant_initializer_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_declared_control_non_constant_initializer_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_declared_control_non_constant_initializer_reported_unsupported(
+  input  logic [1:0] start_i,
+  output logic       y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = start_i; i < 1; i++) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported non-constant for-loop initializer for control variable 'i'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopDeclaredControlInitializerAssignmentToDifferentSymbolReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_for_loop_declared_control_initializer_assignment_to_different_symbol_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_for_loop_declared_control_initializer_assignment_to_different_symbol_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_declared_control_initializer_assignment_to_different_symbol_reported_unsupported(
+  output logic y
+);
+  always_comb begin
+    automatic int j;
+    y = 1'b0;
+    for (int i = (j = 0); i < 1; i++) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported non-constant for-loop initializer for control variable 'i'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopInitializerStructureMultipleDeclaredControlsReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_initializer_structure_multiple_declared_controls_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_initializer_structure_multiple_declared_controls_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_initializer_structure_multiple_declared_controls_reported_unsupported(
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = 0, j = 0; i < 1; i++) begin
+      y = j[0];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported for-loop initializer structure"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombForLoopCompoundOrAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4057,6 +4568,315 @@ endmodule
   EXPECT_EQ(64, yNet->getWidth());
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopConstantInt64BinaryOpsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_constant_int64_binary_ops_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_constant_int64_binary_ops_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_constant_int64_binary_ops_supported(
+  input  logic [31:0] in,
+  output logic [0:0]  y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[i + 0];
+      y[i] = in[i - 0];
+      y[i] = in[i * 1];
+      y[i] = in[(i + 1) / 1];
+      y[i] = in[(i + 1) % 2];
+      y[i] = in[i << 0];
+      y[i] = in[2 >> i];
+      y[i] = in[$signed(i) >>> 0];
+      y[i] = in[i & 0];
+      y[i] = in[i | 1];
+      y[i] = in[i ^ 1];
+      y[i] = in[i < 1];
+      y[i] = in[i <= 0];
+      y[i] = in[i > 0];
+      y[i] = in[i >= 0];
+      y[i] = in[i == 0];
+      y[i] = in[i != 0];
+      y[i] = in[i && 1];
+      y[i] = in[i || 0];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_constant_int64_binary_ops_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopConstantMultiplyLiteralRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_constant_multiply_literal_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_constant_multiply_literal_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_constant_multiply_literal_rhs_supported(
+  output logic [2:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 3; i++) begin
+      y[i] = i * 3;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_constant_multiply_literal_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(3, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopConstantMultiplyOverflowReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_constant_multiply_overflow_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_constant_multiply_overflow_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_constant_multiply_overflow_reported_unsupported(
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = 2; i < 3; i++) begin
+      y = i * 64'hFFFFFFFFFFFFFFFF;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module 'always_comb_for_loop_constant_multiply_overflow_reported_unsupported'",
+     "unable to resolve always_comb RHS bits for BinaryOp op=*"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopDivideByZeroBoundReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_divide_by_zero_selector_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_divide_by_zero_selector_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_divide_by_zero_selector_reported_unsupported(
+  input  logic [3:0] in,
+  output logic [0:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[(i + 1) / 0];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module 'always_comb_for_loop_divide_by_zero_selector_reported_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopModByZeroBoundReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_mod_by_zero_selector_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_mod_by_zero_selector_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_mod_by_zero_selector_reported_unsupported(
+  input  logic [3:0] in,
+  output logic [0:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[(i + 1) % 0];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module 'always_comb_for_loop_mod_by_zero_selector_reported_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopShiftLeftOutOfRangeSelectorFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_shift_left_out_of_range_selector_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_shift_left_out_of_range_selector_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_shift_left_out_of_range_selector_fallback_supported(
+  input  logic [3:0] in,
+  output logic [0:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[i << 64];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_for_loop_shift_left_out_of_range_selector_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopShiftRightOutOfRangeSelectorFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_shift_right_out_of_range_selector_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_shift_right_out_of_range_selector_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_shift_right_out_of_range_selector_fallback_supported(
+  input  logic [3:0] in,
+  output logic [0:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[i >> 64];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_for_loop_shift_right_out_of_range_selector_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopArithmeticShiftRightOutOfRangeSelectorFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_arithmetic_shift_right_out_of_range_selector_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_arithmetic_shift_right_out_of_range_selector_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_arithmetic_shift_right_out_of_range_selector_fallback_supported(
+  input  logic [3:0] in,
+  output logic [0:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y[i] = in[i >>> 64];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_for_loop_arithmetic_shift_right_out_of_range_selector_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4231,6 +5051,78 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombConcatenationFallbackCanonicalWidthReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_concat_fallback_canonical_width_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_concat_fallback_canonical_width_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_concat_fallback_canonical_width_reported_unsupported(
+  input  logic        lsb_i,
+  output logic [32:0] y_o
+);
+  always_comb begin
+    y_o = {int'(1.5), lsb_i};
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module 'always_comb_concat_fallback_canonical_width_reported_unsupported'",
+     "unable to resolve always_comb RHS bits for Concatenation"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombConcatenationZeroWidthTypedOperandSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_concat_zero_width_typed_operand_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_concat_zero_width_typed_operand_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_concat_zero_width_typed_operand_supported(
+  input  logic       lsb_i,
+  output logic [0:0] y_o
+);
+  localparam int unsigned PAD_W = 0;
+  typedef logic [PAD_W-1:0] pad_t;
+  pad_t pad_q;
+
+  always_comb begin
+    y_o = {pad_q, lsb_i};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_concat_zero_width_typed_operand_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getNet(NLName("y_o"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_NE(dynamic_cast<SNLBitNet*>(yNet), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombConstantConditionSkipsOutOfRangeElementSelectBranch) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4369,6 +5261,60 @@ endmodule
   EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombCaseReturnFunctionCallMultiSelectorMergeOrSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_case_return_function_call_multi_selector_merge_or_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_case_return_function_call_multi_selector_merge_or_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_return_function_call_multi_selector_merge_or_supported(
+  input  logic [3:0] op_i,
+  output logic [1:0] data_size_o
+);
+  function automatic logic [1:0] extract_transfer_size(input logic [3:0] op);
+    unique case (op)
+      4'h0, 4'h1: return 2'b00;
+      4'h2: return 2'b01;
+      default: return 2'b10;
+    endcase
+  endfunction
+
+  always_comb begin
+    data_size_o = extract_transfer_size(op_i);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_case_return_function_call_multi_selector_merge_or_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_GE(orGateCount, 1u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombShiftLeftSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4491,6 +5437,58 @@ endmodule
     }
   }
   EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractVariableRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_condition_subtract_variable_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_condition_subtract_variable_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_condition_subtract_variable_rhs_supported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  input  logic [3:0] c,
+  output logic       y
+);
+  always_comb begin
+    y = 1'b0;
+    if (a == (b - c)) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_variable_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t faCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(notGateCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionUnaryNotLogicalAndSupported) {
@@ -4841,6 +5839,86 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectConstantBaseHasFixedRangeSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_rhs_indexed_range_select_constant_base_has_fixed_range_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_constant_base_has_fixed_range_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_indexed_range_select_constant_base_has_fixed_range_supported(
+  input  logic [63:0] in0_i,
+  input  logic [63:0] in1_i,
+  output logic [7:0]  y_o
+);
+  logic [63:0] arr [0:1];
+  always_comb begin
+    arr[0] = in0_i;
+    arr[1] = in1_i;
+    y_o = arr[1][16+:8];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_indexed_range_select_constant_base_has_fixed_range_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectConstantConcatFallbackIndexedDownSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_rhs_indexed_range_select_constant_concat_fallback_indexed_down_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_constant_concat_fallback_indexed_down_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_indexed_range_select_constant_concat_fallback_indexed_down_supported(
+  input  logic [31:0] hi_i,
+  input  logic [31:0] lo_i,
+  output logic [7:0]  y_o
+);
+  always_comb begin
+    y_o = {hi_i, lo_i}[23-:8];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName(
+      "always_comb_rhs_indexed_range_select_constant_concat_fallback_indexed_down_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombRHSIndexedRangeSelectLargeSelectorMultiplyFallbackIndexedDownSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4957,6 +6035,44 @@ endmodule
   auto top =
     library_->getSNLDesign(NLName("always_comb_rhs_conditional_unpacked_dynamic_select_supported"));
   ASSERT_NE(top, nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSElementSelectUnpackedSingleBitElementWidthFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_rhs_element_select_unpacked_single_bit_element_width_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_element_select_unpacked_single_bit_element_width_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_element_select_unpacked_single_bit_element_width_fallback_supported(
+  input  logic mem [0:1][0:0],
+  input  logic idx,
+  output logic y [0:0]
+);
+  always_comb begin
+    y = mem[idx];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_element_select_unpacked_single_bit_element_width_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSUnpackedIndexedRangeSelectSupported) {
@@ -5437,6 +6553,45 @@ endmodule
   EXPECT_NE(top->getNet(NLName("lt")), nullptr);
   EXPECT_NE(top->getNet(NLName("le")), nullptr);
   EXPECT_NE(top->getNet(NLName("mix")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalOpsSignedSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_relational_ops_signed_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_relational_ops_signed_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_relational_ops_signed_supported(
+  input  logic signed [3:0] a,
+  input  logic signed [3:0] b,
+  output logic              gt,
+  output logic              ge,
+  output logic              lt,
+  output logic              le
+);
+  assign gt = a > b;
+  assign ge = a >= b;
+  assign lt = a < b;
+  assign le = a <= b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_relational_ops_signed_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("gt")), nullptr);
+  EXPECT_NE(top->getNet(NLName("ge")), nullptr);
+  EXPECT_NE(top->getNet(NLName("lt")), nullptr);
+  EXPECT_NE(top->getNet(NLName("le")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
