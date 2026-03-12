@@ -293,6 +293,7 @@ class SNLDesign final: public NLObject {
     void incrementRevisionCount() { revisionCount_++; }
     int getRevisionCount() const { return revisionCount_; }
     void recursiveRevisionIncrement();
+
   private:
     SNLDesign(NLLibrary* library, Type type, const NLName& name);
     SNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);

@@ -322,3 +322,26 @@ TEST_F(SNLPathTest0, testInstanceDestroy2) {
     EXPECT_EQ(2, path.size());
   }
 }
+
+TEST_F(SNLPathTest0, testInstanceDestroy3) {
+  auto top = h0Instance_->getDesign();
+  
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim0" };
+  auto path0 = SNLPath(top, pathDescriptor0);
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h1", "h2", "prim1" };
+  auto path1 = SNLPath(top, pathDescriptor1);
+  EXPECT_FALSE(path0.empty());
+  EXPECT_FALSE(path1.empty());
+  EXPECT_EQ(4, path0.size());
+  EXPECT_EQ(4, path1.size());
+  
+  EXPECT_TRUE(path0.getPathDescriptor() ==
+            pathDescriptor0);
+
+  std::vector<NLName> expectedNames = { NLName("h0"),
+                                        NLName("h1"),
+                                        NLName("h2"),
+                                        NLName("prim1") };
+  EXPECT_TRUE(path1.getPathNames() ==
+            expectedNames);
+}
