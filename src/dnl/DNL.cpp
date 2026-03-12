@@ -246,7 +246,7 @@ std::string DNLInstanceFull::getFullPath() const {
   }
   std::string fullPath;
   for (auto it = path.rbegin(); it != path.rend(); ++it) {
-    fullPath += (*it)->getName().getString() + "/";
+    fullPath += ((*it)->getName().getString() != "" ? (*it)->getName().getString() : std::to_string((*it)->getID())) + "/";
   }
   return fullPath;
 }

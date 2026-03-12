@@ -272,6 +272,16 @@ class DNLTerminalFull {
 
 class DNLIso {
  public:
+
+  // Iso type ENUM : STANDART, CONST0, CONST1, SHADOW
+  enum IsoType {
+    STANDART,
+    CONST0,
+    CONST1,
+    AMBIGUOUS,
+    SHADOW
+  };
+
   DNLIso(DNLID id = DNLID_MAX);
   /**
    * \brief Clear the DNLIso.
@@ -332,10 +342,19 @@ class DNLIso {
   }
   virtual ~DNLIso() {}
 
+  void setIsoType(IsoType isoType) { isoType_ = isoType; }
+
+  bool isConstant0() const { return isoType_ == IsoType::CONST0; }
+  bool isConstant1() const { return isoType_ == IsoType::CONST1; }
+  bool isConstant() const { return isConstant0() || isConstant1(); }
+
+  IsoType getType() const { return isoType_; }
+
  private:
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> drivers_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> readers_;
   DNLID id_ = DNLID_MAX;
+  IsoType isoType_ = IsoType::STANDART;
 };
 
 class DNLComplexIso : public DNLIso {
@@ -400,12 +419,17 @@ class DNLIsoDB {
    * \brief Add a shadow DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the shadow DNLIso.
    */
-  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); shadowIsos_.push_back(isoid); }
+  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); getIsoFromIsoID(isoid).setIsoType(DNLIso::IsoType::SHADOW); shadowIsos_.push_back(isoid); }
   /**
    * \brief Add a constant 0 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the constant 0 DNLIso.
    */
   void addConstant0Iso(DNLID isoid) { constant0Isos_.insert(isoid); }
+  /**
+   * \brief Remove a constant 0 DNLIso from the DNLIsoDB.
+   * \param isoid The DNL ID of the constant 0 DNLIso.
+   */
+  void removeConstant0Iso(DNLID isoid) { constant0Isos_.erase(isoid); }
   /**
    * \brief Get the constant 0 DNLIso in the DNLIsoDB.
    * \return The constant 0 DNLIso in the DNLIsoDB.
@@ -416,6 +440,11 @@ class DNLIsoDB {
    * \param isoid The DNL ID of the constant 1 DNLIso.
    */
   void addConstant1Iso(DNLID isoid) { constant1Isos_.insert(isoid); }
+  /**
+   * \brief Remove a constant 1 DNLIso from the DNLIsoDB.
+   * \param isoid The DNL ID of the constant 1 DNLIso.
+   */
+  void removeConstant1Iso(DNLID isoid) { constant1Isos_.erase(isoid); }
   /**
    * \brief Get the constant 1 DNLIso in the DNLIsoDB.
    * \return The constant 1 DNLIso in the DNLIsoDB.
@@ -457,12 +486,12 @@ class DNLIsoDBBuilder {
    * \brief Register a constant 0 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the DNLIso.
    */
-  void addConstantIso0(DNLID iso) { db_.addConstant0Iso(iso); }
+  void addConstantIso0(DNLID iso) { db_.addConstant0Iso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONST0); }
   /**
    * \brief Register a constant 1 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the DNLIso.
    */
-  void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); }
+  void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONST1); }
   /**
    * \brief Add a DNLIso to the DNLIsoDB.
    * \return The added DNLIso.

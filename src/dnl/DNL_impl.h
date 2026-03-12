@@ -68,7 +68,16 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     }
     if (fterm.getSnlBitTerm()->getNet() &&
         !fterm.getDNLInstance().getSNLModel()->isAssign()) {
-      if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant1()) {
+      if (updateConst && DNLIso.isConstant()) {
+        // check if contradicting constant, if yes set to AMBIGUOUS and remove from const isos
+        if (DNLIso.isConstant1() && fterm.getSnlBitTerm()->getNet()->isConstant0()) {
+          db_.removeConstant1Iso(DNLIso.getIsoID());
+          DNLIso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (DNLIso.isConstant0() && fterm.getSnlBitTerm()->getNet()->isConstant1()) {
+          db_.removeConstant0Iso(DNLIso.getIsoID());
+          DNLIso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        }
+      } else if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant1()) {
         addConstantIso1(DNLIso.getIsoID());
       } else if (updateConst &&
                  fterm.getSnlBitTerm()->getNet()->isConstant0()) {
@@ -106,7 +115,16 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     // Going inside the module
     if (!fterm.getDNLInstance().isTop() &&
         fterm.getSnlTerm()->getNet() != nullptr) {
-      if (updateConst && fterm.getSnlTerm()->getNet()->isConstant1()) {
+      if (updateConst && DNLIso.isConstant()) {
+        // check if contradicting constant, if yes set to AMBIGUOUS and remove from const isos
+        if (DNLIso.isConstant1() && fterm.getSnlTerm()->getNet()->isConstant0()) {
+          db_.removeConstant1Iso(DNLIso.getIsoID());
+          DNLIso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (DNLIso.isConstant0() && fterm.getSnlTerm()->getNet()->isConstant1()) {
+          db_.removeConstant0Iso(DNLIso.getIsoID());
+          DNLIso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        }
+      } else if (updateConst && fterm.getSnlTerm()->getNet()->isConstant1()) {
         addConstantIso1(DNLIso.getIsoID());
       } else if (updateConst && fterm.getSnlTerm()->getNet()->isConstant0()) {
         addConstantIso0(DNLIso.getIsoID());

@@ -41,6 +41,10 @@ class SNLTruthTable {
     return *this;
   }
 
+  bool isNull() const {
+    return size_ == std::numeric_limits<uint32_t>::max();
+  }
+
   // Enforce size ≤ 6 BEFORE touching BitVecDynamic
   explicit SNLTruthTable(uint32_t size, uint64_t bits, const std::vector<uint64_t>& dependencies = std::vector<uint64_t>()) : dependencies_(dependencies) {
     if (size > 6) {

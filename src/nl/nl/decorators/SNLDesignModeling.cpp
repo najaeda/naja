@@ -274,7 +274,10 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   // LCOV_EXCL_START
   // ensure there's at least one truth table
   if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) == 0) {
-    throw naja::NL::NLException("Design has an empty truth table");
+    std::ostringstream reason;
+    reason << "Design <" << term->getDesign()->getName().getString()
+           << "> has no truth table";
+    throw naja::NL::NLException(reason.str());
   }
   // LCOV_EXCL_STOP
   auto design = term->getDesign();
@@ -878,6 +881,14 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLDesign* design) {
 }
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
+  if (NLDB0::isDB0Primitive(design)) {
+    auto tt = NLDB0::getPrimitiveTruthTable(design);
+    if (tt.isNull()) {
+      return 0;
+    } else {
+      return 1;
+    }
+  }
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
   if (property != nullptr) {
@@ -1008,6 +1019,17 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
       termID2outputID[bitTermIdx] = outputIndex++;
     }
     bitTermIdx++;
+  }
+  if (NLDB0::isDB0Primitive(design)) {
+    // throw an error in case outputIndex is not 1
+    if (outputIndex != 1) {
+      std::ostringstream reason;
+      reason << "Design <" << design->getName().getString()
+             << "> is a DB0 primitive but has " << outputIndex
+             << " outputs instead of 1";
+      throw NLException(reason.str());
+    }
+    return NLDB0::getPrimitiveTruthTable(design);
   }
   if (termID2outputID.size() == 1) {
     if (NLDB0::isDB0Primitive(design)) {
