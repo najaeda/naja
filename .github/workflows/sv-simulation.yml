@@ -58,7 +58,7 @@ jobs:
         docker run --rm \
           -v ${{ github.workspace }}:/work \
           --entrypoint /bin/bash \
-          verilator/verilator:v5.022 \
+          verilator/verilator:v5.046 \
           -c 'set -euo pipefail
               cd /work/test/nl/formats/systemverilog/benchmarks
               for bench in \
