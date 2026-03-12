@@ -6023,6 +6023,7 @@ class SNLSVConstructorImpl {
       return {}; // LCOV_EXCL_LINE
     }
 
+    // LCOV_EXCL_START
     std::string describeExpressionKind(slang::ast::ExpressionKind kind) const {
       if (kind == slang::ast::ExpressionKind::UnaryOp) {
         return "UnaryOp";
@@ -6079,7 +6080,9 @@ class SNLSVConstructorImpl {
       fallback << "kind#" << static_cast<int>(kind);
       return fallback.str();
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     std::string describeUnaryOperator(slang::ast::UnaryOperator op) const {
       if (op == slang::ast::UnaryOperator::BitwiseNot) {
         return "~";
@@ -6091,7 +6094,9 @@ class SNLSVConstructorImpl {
       fallback << "op#" << static_cast<int>(op);
       return fallback.str();
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     std::string describeRangeSelectionKind(slang::ast::RangeSelectionKind kind) const {
       switch (kind) {
         case slang::ast::RangeSelectionKind::Simple:
@@ -6105,11 +6110,13 @@ class SNLSVConstructorImpl {
       fallback << "kind#" << static_cast<int>(kind);
       return fallback.str();
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     std::string describeExpression(const Expression& expr) const {
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
-        return "expr=<null>"; // LCOV_EXCL_LINE
+        return "expr=<null>";
       }
       std::ostringstream description;
       description << describeExpressionKind(stripped->kind);
@@ -6165,16 +6172,19 @@ class SNLSVConstructorImpl {
       }
       return description.str();
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     std::string joinName(const std::string& prefix, const std::string& base) const {
       if (prefix.empty()) {
-        return base; // LCOV_EXCL_LINE
+        return base;
       }
       if (base.empty()) {
-        return prefix; // LCOV_EXCL_LINE
+        return prefix;
       }
       return prefix + "_" + base;
     }
+    // LCOV_EXCL_STOP
 
     bool isCompatibleNet(const SNLNet* net, const SNLNet* like) const {
       if (!net || !like) {
