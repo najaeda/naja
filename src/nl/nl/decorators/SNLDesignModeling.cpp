@@ -261,7 +261,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   std::map<size_t, size_t> outputFlatID2FlatID;
   size_t outputID = 0, flatIdx = 0;
   for (auto const& ft : flatTerms) {
-    if (ft->getDirection() == naja::NL::SNLTerm::Direction::Output) {
+    if (ft->getDirection() != naja::NL::SNLTerm::Direction::Input) {
       outputFlatID2FlatID[outputID++] = flatIdx;
     }
     ++flatIdx;
@@ -853,7 +853,7 @@ void SNLDesignModeling::setTruthTables(
   }
   const auto& outputs =
       design->getBitTerms().getSubCollection([](const SNLBitTerm* t) {
-        return t->getDirection() == SNLTerm::Direction::Output;
+        return t->getDirection() != SNLTerm::Direction::Input;
       });
   if (outputs.size() != truthTables.size()) {
     std::ostringstream reason;

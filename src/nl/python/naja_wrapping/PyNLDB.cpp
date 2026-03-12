@@ -250,19 +250,22 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* elaborated_ast_json_path = nullptr;  // Optional: string
   int pretty_print_elaborated_ast_json = 1;  // Default: true
   int include_source_info_in_elaborated_ast_json = 1;  // Default: true
+  PyObject* flist = nullptr;  // Optional: string path passed as slang -f
+  PyObject* diagnostics_report_path = nullptr;  // Optional: string
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
-    "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json",
+    "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
+    "diagnostics_report_path",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOpp:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOO:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
-    &include_source_info_in_elaborated_ast_json)) {
+    &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -305,9 +308,32 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     options.elaboratedASTJsonPath =
       std::filesystem::path(PyUnicode_AsUTF8(elaborated_ast_json_path));
   }
+  if (diagnostics_report_path != nullptr &&
+      diagnostics_report_path != Py_None) {
+    if (not PyUnicode_Check(diagnostics_report_path)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: diagnostics_report_path must be a str, got: "
+          << getStringForPyObject(diagnostics_report_path);
+      setError(oss.str());
+      return nullptr;
+    }
+    options.diagnosticsReportPath =
+      std::filesystem::path(PyUnicode_AsUTF8(diagnostics_report_path));
+  }
 
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
+  if (flist != nullptr && flist != Py_None) {
+    if (not PyUnicode_Check(flist)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: flist must be a str, got: "
+          << getStringForPyObject(flist);
+      setError(oss.str());
+      return nullptr;
+    }
+    inputPaths.emplace_back(std::filesystem::path("-f"));
+    inputPaths.emplace_back(std::filesystem::path(PyUnicode_AsUTF8(flist)));
+  }
   for (int i = 0; i < PyList_Size(files); ++i) {
     PyObject* object = PyList_GetItem(files, i);
     if (not PyUnicode_Check(object)) {
@@ -420,7 +446,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
     "  elaborated_ast_json_path (str, optional): dump Slang elaborated AST JSON to this path\n"
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
-    "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)."},
+    "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
+    "  flist (str, optional): slang -f command file path\n"
+    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

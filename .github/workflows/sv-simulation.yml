@@ -80,13 +80,19 @@ jobs:
                 seq_enable_bus1_supported \
                 seq_preincrement_supported \
                 seq_reset_only_supported \
+                seq_reset_all_zero_literal_wide_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
+                seq_concurrent_assertion_ignored \
+                seq_timing_event_list_negedge_reset_supported \
                 seq_binary_non_add \
                 seq_add_non_increment \
                 seq_rhs_unresolved \
                 seq_rhs_width_mismatch \
-                seq_rhs_direct_match; do
+                seq_rhs_direct_match \
+                packed_struct_enum_ports \
+                fixed_unpacked_array_variable \
+                unsupported_generic_type; do
                 make -C "$bench" clean
                 make -C "$bench" sim
               done'
@@ -118,9 +124,15 @@ jobs:
                 seq_enable_bus1_supported \
                 seq_preincrement_supported \
                 seq_reset_only_supported \
+                seq_reset_all_zero_literal_wide_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
-                seq_rhs_direct_match; do
+                seq_concurrent_assertion_ignored \
+                seq_timing_event_list_negedge_reset_supported \
+                seq_rhs_direct_match \
+                packed_struct_enum_ports \
+                fixed_unpacked_array_variable \
+                unsupported_generic_type; do
                 generated_sv="${bench}_naja.v"
                 make -C "$bench" clean
                 make -C "$bench" sim SV="$generated_sv $primitives_sv"

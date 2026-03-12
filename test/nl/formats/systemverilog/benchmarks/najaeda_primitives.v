@@ -31,3 +31,15 @@ module dff(
     Q <= D;
   end
 endmodule
+
+module dffrn(
+  input wire C,
+  input wire D,
+  input wire RN,
+  output reg Q
+);
+  always @(posedge C or negedge RN) begin
+    if (!RN) Q <= 1'b0;
+    else Q <= D;
+  end
+endmodule

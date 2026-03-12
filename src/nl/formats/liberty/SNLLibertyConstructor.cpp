@@ -43,6 +43,43 @@ SNLTerm::Direction getSNLDirection(const std::string& direction) {
   }
 }
 
+const Yosys::LibertyAst* findDirectChild(const Yosys::LibertyAst* node, const std::string& id) {
+  for (auto child: node->children) {
+    if (child->id == id) {
+      return child;
+    }
+  }
+  return nullptr;
+}
+
+const Yosys::LibertyAst* findDirectionNode(const Yosys::LibertyAst* node) {
+  auto directionNode = findDirectChild(node, "direction");
+  if (directionNode != nullptr or node->id != "bus") {
+    return directionNode;
+  }
+
+  const Yosys::LibertyAst* inferredDirectionNode = nullptr;
+  for (auto child: node->children) {
+    if (child->id != "pin") {
+      continue;
+    }
+    auto childDirectionNode = findDirectChild(child, "direction");
+    if (childDirectionNode == nullptr) {
+      continue;
+    }
+    if (inferredDirectionNode == nullptr) {
+      inferredDirectionNode = childDirectionNode;
+      continue;
+    }
+    if (inferredDirectionNode->value != childDirectionNode->value) {
+      std::ostringstream reason;
+      reason << "Inconsistent child pin directions for bus " << node->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+  }
+  return inferredDirectionNode;
+}
+
 struct BusType {
   std::string name  {};
   int msb           {0};
@@ -136,7 +173,7 @@ void parseTerms(
       }
       SNLScalarTerm* constructedScalarTerm = nullptr;
       SNLBusTerm* constructedBusTerm = nullptr;
-      auto directionNode = child->find("direction");
+      auto directionNode = findDirectionNode(child);
       if (directionNode) {
         auto direction = directionNode->value;
         if (direction == "internal") {
@@ -198,6 +235,12 @@ void parseTerms(
       }
     }
   }
+  std::vector<SNLBitTerm*> outputs;
+  for (auto term: primitive->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Input) {
+      outputs.push_back(term);
+    }
+  }
   if (seqTermClocks.size() > 0) {
     for (const auto& pair: seqTermClocks) {
       auto term = pair.first;
@@ -211,7 +254,7 @@ void parseTerms(
         }
       }
     }
-  } else if (termFunctions.size() == 1) {
+  } else if (termFunctions.size() == 1 && outputs.size() == 1) {
     auto outputTerm = termFunctions.begin()->first;
     auto pinName = termFunctionPins[outputTerm];
     auto cellName = primitive->getName().getString();
@@ -234,12 +277,26 @@ void parseTerms(
         pinName, cellName, sourcePath, e.getReason());
       throw SNLLibertyConstructorException(reason);
     }
-  } else if (termFunctions.size() > 1) {  
+  } else if (termFunctions.size() > 0) {  
     std::vector<SNLTruthTable> truthTables;
     auto cellName = primitive->getName().getString();
     // Assuming termFunctions is ordered based on termIDs!
-    for (auto& [term, function]: termFunctions) {
-      auto pinName = termFunctionPins[term];
+    for (auto term: primitive->getBitTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Input) {
+        continue;
+      }
+    //for (auto& [term, function]: termFunctions) {
+      SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
+      if (scalarTerm == nullptr) {
+        truthTables.push_back(SNLTruthTable()); //push empty table for non-scalar terms
+        continue;
+      }
+      if (termFunctions.find(scalarTerm) == termFunctions.end()) {
+        truthTables.push_back(SNLTruthTable()); //push empty table for terms without function
+        continue;
+      }
+      auto& function = termFunctions[scalarTerm];
+      auto pinName = termFunctionPins[scalarTerm];
       auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
       try {
         //std::cerr << "Parsing function: " << function << std::endl;
