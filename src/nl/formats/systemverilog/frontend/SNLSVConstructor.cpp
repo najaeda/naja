@@ -7205,20 +7205,6 @@ class SNLSVConstructorImpl {
         return true;
       }
 
-      if (current->kind == slang::ast::StatementKind::Block) {
-        return applySequentialStatementForLhs(
-          design,
-          current->as<slang::ast::BlockStatement>().body,
-          lhsExpr,
-          lhsNet,
-          lhsBits,
-          baseName,
-          dataBits,
-          incrementerBits,
-          tempIndex,
-          failureReason);
-      }
-
       if (current->kind == slang::ast::StatementKind::List) {
         const auto& list = current->as<slang::ast::StatementList>().list;
         for (const auto* item : list) {
