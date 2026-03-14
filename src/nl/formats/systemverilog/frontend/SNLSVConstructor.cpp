@@ -7753,18 +7753,6 @@ class SNLSVConstructorImpl {
         return false;
       }
 
-      if (strippedLHS->kind == slang::ast::ExpressionKind::ElementSelect) {
-        const auto& lhsElementExpr = strippedLHS->as<slang::ast::ElementSelectExpression>();
-        int32_t selectedIndex = 0;
-        if (!getConstantInt32(lhsElementExpr.selector(), selectedIndex)) {
-          std::ostringstream reason;
-          reason << "unsupported dynamic index in always_comb assignment LHS: "
-                 << describeExpression(lhsExpr);
-          setFailureReason(reason.str());
-          return false;
-        }
-      }
-
       auto lhsWidth = getIntegralExpressionBitWidth(lhsExpr);
       if (!lhsWidth || !*lhsWidth) {
         std::ostringstream reason;
