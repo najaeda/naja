@@ -4816,14 +4816,6 @@ class SNLSVConstructorImpl {
             setFailureReason(reason.str());
             return false;
           }
-          if (operandBits.size() != targetWidth) {
-            std::ostringstream reason;
-            reason << "bitwise-not operand width mismatch: expected " << targetWidth
-                   << ", got " << operandBits.size()
-                   << " (" << describeExpression(unary.operand()) << ")";
-            setFailureReason(reason.str());
-            return false;
-          }
 
           auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
           auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
