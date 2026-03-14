@@ -1828,6 +1828,203 @@ endmodule
   EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionLiteralConfigUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_literal_config_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_literal_config_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_literal_config_unsupported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(
+    cfg_pkg::cfg_t'('{
+      NrNonIdempotentRules: 2,
+      NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+      NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000080}
+    }),
+    addr);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_config_range_check_function_literal_config_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionConfigTableElementSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_assign_config_range_check_function_config_table_element_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_config_table_element_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_config_table_element_supported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t CfgTable [0:0] = '{
+    '{
+      NrNonIdempotentRules: 1,
+      NonIdempotentAddrBase: '{64'h0000000000002000, 64'h0000000000000000},
+      NonIdempotentLength: '{64'h0000000000000040, 64'h0000000000000000}
+    }
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(CfgTable[0], addr);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_config_range_check_function_config_table_element_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("addr")), nullptr);
+  EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionConditionalConfigUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_assign_config_range_check_function_conditional_config_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_conditional_config_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_conditional_config_unsupported(
+  input logic [63:0] addr,
+  input logic        select_cfg,
+  output logic       inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg0 = '{
+    NrNonIdempotentRules: 1,
+    NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000000}
+  };
+  localparam cfg_pkg::cfg_t Cfg1 = '{
+    NrNonIdempotentRules: 1,
+    NonIdempotentAddrBase: '{64'h0000000000002000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000080, 64'h0000000000000000}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(
+    select_cfg ? Cfg0 : Cfg1,
+    addr);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_config_range_check_function_conditional_config_unsupported'"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConfigExecuteRegionsFunctionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -2483,10 +2680,55 @@ endmodule
 
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
-  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  EXPECT_THROW(
-    constructor.construct(benchmarksPath / "interface_port_skip" / "interface_port_skip.sv"),
-    SNLSVConstructorException);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "interface_port_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "interface_port_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(interface data_if;
+  logic sig;
+endinterface
+
+module interface_port_child(
+  data_if bus,
+  input logic i,
+  output logic o
+);
+  assign o = i;
+endmodule
+
+module interface_port_reported_unsupported_top(
+  input logic i,
+  output logic o
+);
+  data_if bus();
+  interface_port_child u_child(
+    .bus(bus),
+    .i(i),
+    .o(o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported interface port exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"))
+      << reason;
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported SystemVerilog interface port declaration for port: bus"))
+      << reason;
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
@@ -4934,6 +5176,40 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopSignedBoundAboveInt64ReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_signed_bound_above_int64_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_signed_bound_above_int64_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_signed_bound_above_int64_reported_unsupported(
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = 0; i < 65'sh1_0000_0000_0000_0000; i++) begin
+      y = 1'b1;
+      break;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported non-constant for-loop bound expression"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombForLoopUnsignedParameterBoundAboveInt64ReportedUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -6239,6 +6515,56 @@ endmodule
     stdoutOutput.find("Case comparison operator '===' lowered as 2-state comparison in SNL"));
 
   auto top = library_->getSNLDesign(NLName("always_comb_enum_case_no_2state_warning"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombEnumCaseLiteralItemWarns) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_enum_case_literal_item_warns";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_enum_case_literal_item_warns.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_enum_case_literal_item_warns(
+  input  logic trig_i,
+  output logic y_o
+);
+  typedef enum logic [1:0] {
+    IDLE = 2'b00,
+    RUN  = 2'b01,
+    DONE = 2'b10
+  } state_t;
+
+  state_t state_q;
+  assign state_q = trig_i ? RUN : IDLE;
+
+  always_comb begin
+    y_o = 1'b0;
+    unique case (state_q)
+      state_t'(2'b00): y_o = 1'b0;
+      RUN:   y_o = 1'b1;
+      DONE:  y_o = 1'b1;
+      default: y_o = 1'b0;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  constructor.construct(svPath);
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+  EXPECT_NE(
+    std::string::npos,
+    stdoutOutput.find("Case comparison operator '===' lowered as 2-state comparison in SNL"));
+
+  auto top = library_->getSNLDesign(NLName("always_comb_enum_case_literal_item_warns"));
   ASSERT_NE(top, nullptr);
 }
 

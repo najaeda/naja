@@ -260,17 +260,8 @@ bool isKnown2StateConstantExpr(const Expression& expr) {
       "Internal error: null expression in isKnown2StateConstantExpr");
     // LCOV_EXCL_STOP
   }
-  if (const auto* symbol = stripped->getSymbolReference()) {
-    if (symbol->kind == SymbolKind::EnumValue) {
-      return true;
-    }
-  }
-  const auto* constant = stripped->getConstant();
-  if (!constant || !constant->isInteger()) {
-    return false;
-  }
-  throw SNLSVConstructorException(
-    "Internal error: unexpected integer constant in isKnown2StateConstantExpr");
+  const auto* symbol = stripped->getSymbolReference();
+  return symbol && symbol->kind == SymbolKind::EnumValue;
 }
 
 std::optional<SNLTerm::Direction> toSNLDirection(ArgumentDirection direction) {
@@ -291,7 +282,7 @@ const char* getPortKindLabel(SymbolKind kind) {
     case SymbolKind::InterfacePort:
       return "interface port";
     case SymbolKind::MultiPort:
-      return "multi-port"; // LCOV_EXCL_LINE
+      return "multi-port";
     // LCOV_EXCL_START
     default:
       // createTerms only calls this helper for non-Port entries from getPortList.
@@ -834,21 +825,21 @@ class SNLSVConstructorImpl {
         std::error_code ec;
         std::filesystem::create_directories(parent, ec);
         // LCOV_EXCL_START
-        if (ec) { // LCOV_EXCL_LINE
-          std::ostringstream reason; // LCOV_EXCL_LINE
-          reason << "Failed to create diagnostics report directory: " << parent.string(); // LCOV_EXCL_LINE
-          throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
-        } // LCOV_EXCL_LINE
+        if (ec) {
+          std::ostringstream reason;
+          reason << "Failed to create diagnostics report directory: " << parent.string();
+          throw SNLSVConstructorException(reason.str());
+        }
         // LCOV_EXCL_STOP
       }
 
       std::ofstream output(reportPath, std::ios::out | std::ios::trunc);
       // LCOV_EXCL_START
-      if (!output) { // LCOV_EXCL_LINE
-        std::ostringstream reason; // LCOV_EXCL_LINE
-        reason << "Failed to create diagnostics report file: " << reportPath.string(); // LCOV_EXCL_LINE
-        throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
-      } // LCOV_EXCL_LINE
+      if (!output) {
+        std::ostringstream reason;
+        reason << "Failed to create diagnostics report file: " << reportPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
       // LCOV_EXCL_STOP
 
       if (!report.empty()) {
@@ -858,11 +849,11 @@ class SNLSVConstructorImpl {
       }
 
       // LCOV_EXCL_START
-      if (!output.good()) { // LCOV_EXCL_LINE
-        std::ostringstream reason; // LCOV_EXCL_LINE
-        reason << "Failed to write diagnostics report file: " << reportPath.string(); // LCOV_EXCL_LINE
-        throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
-      } // LCOV_EXCL_LINE
+      if (!output.good()) {
+        std::ostringstream reason;
+        reason << "Failed to write diagnostics report file: " << reportPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
       // LCOV_EXCL_STOP
     }
 
@@ -1130,9 +1121,6 @@ class SNLSVConstructorImpl {
 
     bool shouldSuppressCaseComparison2StateWarning(
       const slang::ast::CaseStatement& caseStmt) const {
-      if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
-        return false;
-      }
       if (!caseStmt.expr.type->getCanonicalType().isEnum()) {
         return false;
       }
@@ -1734,7 +1722,7 @@ class SNLSVConstructorImpl {
               value = (leftValue != 0 || rightValue != 0) ? 1 : 0;
               return true;
             default:
-              return false;
+              return false; // LCOV_EXCL_LINE
           }
         }
 
@@ -2110,9 +2098,6 @@ class SNLSVConstructorImpl {
       const Expression& expr,
       slang::ConstantValue& value) const {
       const auto* stripped = stripConversions(expr);
-      if (!stripped) {
-        return false;
-      }
       if (const auto* constant = stripped->getConstant()) {
         value = *constant;
         return static_cast<bool>(value);
