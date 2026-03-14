@@ -10147,59 +10147,6 @@ class SNLSVConstructorImpl {
         std::vector<const Expression*> operands;
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
-          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
-            std::string shiftFailureReason;
-            if (!createLogicalRightShiftAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange,
-                  &shiftFailureReason)) {
-              std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: >>";
-              if (!shiftFailureReason.empty()) {
-                reason << " (" << shiftFailureReason << ")";
-              }
-              reportUnsupportedElement(reason.str(), assignSourceRange);
-              continue;
-            }
-            continue;
-          }
-          if (binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
-            std::string shiftFailureReason;
-            if (!createArithmeticRightShiftAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange,
-                  &shiftFailureReason)) {
-              std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: >>>";
-              if (!shiftFailureReason.empty()) {
-                reason << " (" << shiftFailureReason << ")";
-              }
-              reportUnsupportedElement(reason.str(), assignSourceRange);
-              continue;
-            }
-            continue;
-          }
-          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
-              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft) {
-            if (!createLogicalLeftShiftAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
-              std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: "
-                     << slang::ast::OpInfo::getText(binaryExpr.op);
-              reportUnsupportedElement(reason.str(), assignSourceRange);
-            }
-            continue;
-          }
           if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
             if (!createAddAssign(
                   design,
@@ -10388,15 +10335,6 @@ class SNLSVConstructorImpl {
               ok = false;
               break;
             }
-            if (operandBits.size() != 1) {
-              std::ostringstream widthReason;
-              widthReason << "width mismatch: expected 1, got " << operandBits.size()
-                          << " (" << describeExpression(*operand) << ")";
-              failedOperandIndex = operandIndex;
-              failedOperandReason = widthReason.str();
-              ok = false;
-              break;
-            }
             inputNets.push_back(operandBits.front());
           }
           if (!ok) {
@@ -10435,6 +10373,7 @@ class SNLSVConstructorImpl {
                 gateOutNet,
                 assignSourceRange) ||
               !gateOutNet) {
+            // LCOV_EXCL_START
             std::ostringstream reason;
             reason << "Unsupported gate construction in continuous assign"
                    << " (gate=" << gateType->getString()
@@ -10442,7 +10381,8 @@ class SNLSVConstructorImpl {
                    << ", output_name=" << gateOutName
                    << ", reason=createGateInstance failed)";
             reportUnsupportedElement(reason.str(), assignSourceRange);
-            continue; // LCOV_EXCL_LINE
+            continue;
+            // LCOV_EXCL_STOP
           }
           createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
           continue;
@@ -10455,19 +10395,13 @@ class SNLSVConstructorImpl {
           } else if (lhsNet) {
             lhsAssignBits = collectBits(lhsNet);
           }
-          if (lhsAssignBits.empty()) {
-            std::ostringstream reason;
-            reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
-            continue;
-          }
 
           std::vector<SNLBitNet*> rhsBits;
           if (!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
               rhsBits.size() != lhsAssignBits.size()) {
-            std::ostringstream reason;
-            reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedElement(
+              "Unsupported RHS in continuous assign in module '" + moduleName + "'",
+              assignSourceRange);
             continue;
           }
           for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
@@ -10591,13 +10525,6 @@ class SNLSVConstructorImpl {
           continue;
         }
         const Expression* connectionExpr = stripConnectionLValueArgConversions(*expr);
-        if (!connectionExpr) {
-          std::ostringstream reason;
-          reason << "Unsupported instance connection expression for port '" << portName
-                 << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
-          continue;
-        }
         auto net = resolveExpressionNet(inst->getDesign(), *connectionExpr);
 
         auto resolveSelectableConnectionBits =
