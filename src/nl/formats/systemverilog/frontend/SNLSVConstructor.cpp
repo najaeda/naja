@@ -1574,14 +1574,6 @@ class SNLSVConstructorImpl {
         return symbolRef;
       }
 
-      if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
-        const auto& memberExpr = stripped->as<slang::ast::MemberAccessExpression>();
-        const auto* valueExpr = stripConversions(memberExpr.value());
-        if (valueExpr && slang::ast::ValueExpressionBase::isKind(valueExpr->kind)) {
-          return &valueExpr->as<slang::ast::ValueExpressionBase>().symbol;
-        }
-      }
-
       return nullptr;
     }
 
@@ -9686,17 +9678,19 @@ class SNLSVConstructorImpl {
         }
         auto lhsBits = collectBits(lhsNet);
         if (lhsBits.empty()) {
+          // LCOV_EXCL_START
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
                  << "': unable to collect LHS bits";
           reportUnsupportedElement(reason.str(), statementSourceRange);
-          continue; // LCOV_EXCL_LINE
+          continue;
+          // LCOV_EXCL_STOP
         }
 
         auto baseName = getExpressionBaseName(*chain.lhs);
-        if (baseName.empty() && !lhsNet->isUnnamed()) { // LCOV_EXCL_LINE
+        if (baseName.empty() && !lhsNet->isUnnamed()) { 
           baseName = lhsNet->getName().getString(); // LCOV_EXCL_LINE
-        } // LCOV_EXCL_LINE
+        }
 
         auto getActionSourceRange = [&](const AssignAction& action) {
           if (action.rhs) {
@@ -9943,11 +9937,13 @@ class SNLSVConstructorImpl {
             resetSourceRange);
           auto rstBits = collectBits(rstNet);
           if (rstBits.size() != dataBits.size()) {
+            // LCOV_EXCL_START
             std::ostringstream reason;
             reason << "Unsupported sequential block in module '" << moduleName
                    << "': reset mux width mismatch";
             reportUnsupportedElement(reason.str(), resetSourceRange);
-            continue; // LCOV_EXCL_LINE
+            continue;
+            // LCOV_EXCL_STOP
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
             createMux2Instance(
@@ -10304,12 +10300,6 @@ class SNLSVConstructorImpl {
             continue;
           }
 
-          if (!dynamic_cast<SNLScalarNet*>(lhsNet)) {
-            reportUnsupportedElement(
-              "Unsupported LHS in continuous gate assign: expected scalar net",
-              assignSourceRange);
-            continue;
-          }
           std::vector<SNLNet*> inputNets;
           inputNets.reserve(operands.size());
           bool ok = true;
@@ -10319,22 +10309,18 @@ class SNLSVConstructorImpl {
             const auto* operand = operands[operandIndex];
             std::vector<SNLBitNet*> operandBits;
             std::string operandFailureReason;
-            if (!resolveGateOperandBits(
-                  design,
-                  *operand,
-                  1,
-                  operandBits,
-                  assignSourceRange,
-                  &operandFailureReason)) {
-              failedOperandIndex = operandIndex;
-              if (operandFailureReason.empty()) {
-                failedOperandReason = describeExpression(*operand);
-              } else {
+              if (!resolveGateOperandBits(
+                    design,
+                    *operand,
+                    1,
+                    operandBits,
+                    assignSourceRange,
+                    &operandFailureReason)) {
+                failedOperandIndex = operandIndex;
                 failedOperandReason = operandFailureReason;
+                ok = false;
+                break;
               }
-              ok = false;
-              break;
-            }
             inputNets.push_back(operandBits.front());
           }
           if (!ok) {

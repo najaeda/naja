@@ -2760,6 +2760,22 @@ endmodule
   EXPECT_EQ(4, y->getWidth());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_mul_unknown_operand_unsupported" /
+      "continuous_mul_unknown_operand_unsupported.sv");
+    FAIL() << "Expected unsupported multiply operand expression";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: *"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -2804,6 +2820,22 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_sub_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_sub_unknown_operand_unsupported" /
+      "continuous_sub_unknown_operand_unsupported.sv");
+    FAIL() << "Expected unsupported subtraction operand expression";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: -"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
@@ -3159,6 +3191,22 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsuppor
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported binary expression in continuous assign: <<<"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_shift_right_unknown_amount_unsupported" /
+      "continuous_shift_right_unknown_amount_unsupported.sv");
+    FAIL() << "Expected unsupported unknown right-shift amount expression";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: >>>"));
   }
 }
 
