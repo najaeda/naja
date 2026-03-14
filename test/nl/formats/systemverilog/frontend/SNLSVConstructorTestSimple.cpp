@@ -5069,6 +5069,144 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopConstantInt64UnaryOpsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_constant_int64_unary_ops_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_constant_int64_unary_ops_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic DebugEn;
+} cfg_t;
+
+module always_comb_for_loop_constant_int64_unary_ops_supported #(
+  parameter cfg_t Cfg = '{DebugEn: 1'b0}
+) (
+  output logic [3:0] y
+);
+  localparam int ONE = 1;
+  localparam int ZERO = 0;
+  always_comb begin
+    y = '0;
+    for (int i = +ONE; i < 2; i++) begin
+      y[0] = 1'b1;
+      break;
+    end
+    for (int i = ~ZERO; i < 0; i++) begin
+      y[1] = 1'b1;
+      break;
+    end
+    for (int k = 0; k < 1; k++) begin
+      for (int i = !k; i < 2; i++) begin
+        y[2] = 1'b1;
+        break;
+      end
+    end
+    for (int i = -ONE; i < 0; i++) begin
+      y[3] = 1'b1;
+      break;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_constant_int64_unary_ops_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(4, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopUnaryNonConstantInitializerReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_for_loop_unary_non_constant_initializer_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_unary_non_constant_initializer_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_unary_non_constant_initializer_reported_unsupported(
+  input  logic start_i,
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = !start_i; i < 1; i++) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported non-constant for-loop initializer for control variable 'i'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopUnaryUnsupportedInitializerOperatorReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "always_comb_for_loop_unary_unsupported_initializer_operator_reported_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_for_loop_unary_unsupported_initializer_operator_reported_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_unary_unsupported_initializer_operator_reported_unsupported(
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int k = 0; k < 1; k++) begin
+      for (int i = ++k; i < 1; i++) begin
+        y = 1'b1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module "
+     "'always_comb_for_loop_unary_unsupported_initializer_operator_reported_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombForLoopConstantMultiplyLiteralRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
