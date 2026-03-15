@@ -8113,6 +8113,39 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSElementSelectNonIntegralSliceUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_element_select_non_integral_slice_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_element_select_non_integral_slice_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_element_select_non_integral_slice_unsupported;
+  logic [7:0] mem_q [0:1][0:1];
+  logic [7:0] mem_n [0:1][0:1];
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[0] = mem_q[1];
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb element-select assignment width"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombRHSMemberAccessElementSelectUnderBinarySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
