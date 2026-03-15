@@ -1195,9 +1195,6 @@ class SNLSVConstructorImpl {
         return; // LCOV_EXCL_LINE
       }
       auto* fromInfos = from->getRTLInfos();
-      if (!fromInfos) {
-        return;
-      }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoCloneCalls;
       svPerfReport_.rtlInfoClonedEntries += fromInfos->getInfos().size();
@@ -1721,8 +1718,10 @@ class SNLSVConstructorImpl {
             case slang::ast::BinaryOperator::LogicalOr:
               value = (leftValue != 0 || rightValue != 0) ? 1 : 0;
               return true;
+            // LCOV_EXCL_START
             default:
-              return false; // LCOV_EXCL_LINE
+              return false;
+            // LCOV_EXCL_STOP
           }
         }
 
@@ -2504,8 +2503,6 @@ class SNLSVConstructorImpl {
                 return true;
               }
             }
-          } else if (unwrapped->kind == slang::ast::StatementKind::Block) {
-            return findRangeCheckCallInStatement(&unwrapped->as<slang::ast::BlockStatement>().body);
           }
           return false;
         };

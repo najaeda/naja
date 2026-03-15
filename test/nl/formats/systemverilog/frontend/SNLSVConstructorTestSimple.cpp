@@ -1489,6 +1489,56 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignFunctionCaseInsideMultipleItemExpressionsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_function_case_inside_multiple_item_expressions_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_function_case_inside_multiple_item_expressions_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_function_case_inside_multiple_item_expressions_supported(
+  input logic [5:0] op,
+  output logic y
+);
+  function automatic logic is_amo(input logic [5:0] op_i);
+    case (op_i) inside
+      6'd4, 6'd17: begin
+        return 1'b1;
+      end
+      default: return 1'b0;
+    endcase
+  endfunction
+  assign y = is_amo(op);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_function_case_inside_multiple_item_expressions_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("op")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_GE(orGateCount, 1u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignSimpleReturnFunctionScalarMaterializedArgSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -1823,6 +1873,70 @@ endmodule
 
   auto top =
     library_->getSNLDesign(NLName("continuous_assign_config_range_check_function_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("addr")), nullptr);
+  EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionLoopBodyListSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_loop_body_list_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_loop_body_list_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = 1'b0;
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_loop_body_list_supported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 2,
+    NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000080}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_config_range_check_function_loop_body_list_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("addr")), nullptr);
   EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
@@ -4266,6 +4380,42 @@ endmodule
 
   auto top = library_->getSNLDesign(
     NLName("always_comb_structured_assignment_pattern_default_signal_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("stall_raw")), nullptr);
+  EXPECT_NE(top->getNet(NLName("stall_i")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombStructuredAssignmentPatternDefaultExactWidthSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_structured_assignment_pattern_default_exact_width_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_structured_assignment_pattern_default_exact_width_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_structured_assignment_pattern_default_exact_width_supported(
+  input  logic [3:0] stall_i,
+  output logic [3:0] stall_raw
+);
+  always_comb begin
+    stall_raw = '{default: stall_i};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_structured_assignment_pattern_default_exact_width_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("stall_raw")), nullptr);
   EXPECT_NE(top->getNet(NLName("stall_i")), nullptr);
