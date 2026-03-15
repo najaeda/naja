@@ -4547,6 +4547,56 @@ endmodule
   EXPECT_EQ(2u, notGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseGateLogicalShortcutBranchesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_logical_shortcut_branches_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_logical_shortcut_branches_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_logical_shortcut_branches_supported(
+  input logic a,
+  input logic b,
+  output logic y_lhs_zero_and,
+  output logic y_lhs_one_or,
+  output logic y_lhs_one_and_rhs,
+  output logic y_same_and,
+  output logic y_rhs_one_or,
+  output logic y_lhs_zero_or_rhs,
+  output logic y_same_or
+);
+  always_comb begin
+    y_lhs_zero_and    = (a & 1'b0) && b;
+    y_lhs_one_or      = (a | 1'b1) || b;
+    y_lhs_one_and_rhs = (a | 1'b1) && b;
+    y_same_and        = a && (b | 1'b1);
+    y_rhs_one_or      = a || (b | 1'b1);
+    y_lhs_zero_or_rhs = (a & 1'b0) || b;
+    y_same_or         = a || (b & 1'b0);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_logical_shortcut_branches_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_lhs_zero_and")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_lhs_one_or")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_lhs_one_and_rhs")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_same_and")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_rhs_one_or")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_lhs_zero_or_rhs")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_same_or")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseGateReductionOrOperandTreeSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4715,6 +4765,44 @@ endmodule
      "'continuous_reduction_operand_resolve_bits_failure_unsupported'"});
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousLogicalNotResolveBitsFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_logical_not_resolve_bits_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_logical_not_resolve_bits_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_logical_not_resolve_bits_failure_unsupported(
+  input  logic [3:0] a,
+  output logic       y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = !bad_fn(a);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_logical_not_resolve_bits_failure_unsupported'"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousReductionXorXnorMixedRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4780,6 +4868,42 @@ endmodule
   EXPECT_GE(notGateCount, 1u);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousReductionNorNandConstantFlipShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_reduction_nor_nand_constant_flip_shortcuts_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_reduction_nor_nand_constant_flip_shortcuts_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_reduction_nor_nand_constant_flip_shortcuts_supported(
+  input  logic a,
+  output logic y_nor_const0,
+  output logic y_nand_const1
+);
+  assign y_nor_const0  = ~|{a, 1'b1};
+  assign y_nand_const1 = ~&{a, 1'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_reduction_nor_nand_constant_flip_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_nor_const0")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_nand_const1")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalNotReductionOrChainSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4824,6 +4948,45 @@ endmodule
   }
   EXPECT_GE(orGateCount, 1u);
   EXPECT_GE(notGateCount, 1u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousLogicalNotConstantShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_logical_not_constant_shortcuts_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_logical_not_constant_shortcuts_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_logical_not_constant_shortcuts_supported(
+  input  logic a,
+  output logic y_break_one,
+  output logic y_skip_zero,
+  output logic y_all_zero
+);
+  assign y_break_one = !{a, 1'b1};
+  assign y_skip_zero = !{a, 1'b0};
+  assign y_all_zero  = !{a && 1'b0, 1'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_logical_not_constant_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_break_one")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_skip_zero")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_all_zero")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseGateOperandCaseEqualitySupported) {
@@ -4905,6 +5068,43 @@ endmodule
   auto top = library_->getSNLDesign(NLName("gate_operand_inside_set_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateLogicalRHSResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_logical_rhs_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_logical_rhs_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_logical_rhs_resolve_failure_unsupported(
+  input logic a,
+  input logic [3:0] b,
+  output logic y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  always_comb begin
+    y = a && bad_fn(b);
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb RHS bits"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {

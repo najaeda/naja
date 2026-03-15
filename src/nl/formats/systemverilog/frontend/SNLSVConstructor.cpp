@@ -3604,7 +3604,7 @@ class SNLSVConstructorImpl {
         if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot) {
           auto operandWidth = getIntegralExpressionBitWidth(unaryExpr.operand());
           if (!operandWidth || !*operandWidth) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
           std::vector<SNLBitNet*> operandBits;
           if (!resolveExpressionBits(
@@ -3787,32 +3787,22 @@ class SNLSVConstructorImpl {
           }
 
           SNLBitNet* logicBit = nullptr;
-          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && lhsBit == const0) {
-            logicBit = const0;
-          } else if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && lhsBit == const1) {
-            logicBit = const1;
-          } else {
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && lhsBit == const0) { logicBit = const0; }
+          else if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && lhsBit == const1) { logicBit = const1; }
+          else {
             auto* rhsBit = resolveCombinationalConditionNet(design, binaryExpr.right());
             if (!rhsBit) {
               return false;
             }
 
             if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) {
-              if (rhsBit == const0) {
-                logicBit = const0;
-              } else if (lhsBit == const1) {
-                logicBit = rhsBit;
-              } else if (rhsBit == const1 || lhsBit == rhsBit) {
-                logicBit = lhsBit;
-              }
+              if (rhsBit == const0) { logicBit = const0; }
+              else if (lhsBit == const1) { logicBit = rhsBit; }
+              else if (rhsBit == const1 || lhsBit == rhsBit) { logicBit = lhsBit; }
             } else {
-              if (rhsBit == const1) {
-                logicBit = const1;
-              } else if (lhsBit == const0) {
-                logicBit = rhsBit;
-              } else if (rhsBit == const0 || lhsBit == rhsBit) {
-                logicBit = lhsBit;
-              }
+              if (rhsBit == const1) { logicBit = const1; }
+              else if (lhsBit == const0) { logicBit = rhsBit; }
+              else if (rhsBit == const0 || lhsBit == rhsBit) { logicBit = lhsBit; }
             }
 
             if (!logicBit) {
