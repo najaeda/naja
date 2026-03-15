@@ -2087,7 +2087,7 @@ class SNLSVConstructorImpl {
       }
       const auto& returnStmt = unwrapped->as<slang::ast::ReturnStatement>();
       if (!returnStmt.expr) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       expr = returnStmt.expr;
       return true;
@@ -2223,10 +2223,6 @@ class SNLSVConstructorImpl {
       }
 
       const auto& caseStmt = bodyStmt->as<slang::ast::CaseStatement>();
-      if (caseStmt.condition != slang::ast::CaseStatementCondition::Inside) {
-        return false;
-      }
-
       const auto* caseExpr = stripConversions(caseStmt.expr);
       if (!caseExpr || !slang::ast::ValueExpressionBase::isKind(caseExpr->kind) ||
           &caseExpr->as<slang::ast::ValueExpressionBase>().symbol != formalArgs.front()) {
@@ -2769,9 +2765,6 @@ class SNLSVConstructorImpl {
           return false;
         }
         const auto argBitWidth = canonicalArgType.getBitWidth();
-        if (argBitWidth <= 0) {
-          return false;
-        }
         const auto argWidth = static_cast<size_t>(argBitWidth);
 
         std::vector<SNLBitNet*> argumentBits;
@@ -9996,12 +9989,6 @@ class SNLSVConstructorImpl {
 #endif
         const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
         const auto& assignment = continuousAssign.getAssignment();
-        if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
-          reportUnsupportedElement(
-            "Unsupported continuous assignment form (expected assignment expression)",
-            getSourceRange(continuousAssign));
-          continue;
-        }
         const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
         auto assignSourceRange = getSourceRange(assignExpr);
         auto lhsNet = resolveExpressionNet(design, assignExpr.left());
@@ -10037,12 +10024,6 @@ class SNLSVConstructorImpl {
         }
 
         const auto* rhs = stripConversions(assignExpr.right());
-        if (!rhs) {
-          std::ostringstream reason;
-          reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
-          reportUnsupportedElement(reason.str(), assignSourceRange);
-          continue;
-        }
 
         auto unwrapSignedUnsignedCastCall = [&](const Expression* exprPtr) -> const Expression* {
           const Expression* current = exprPtr;

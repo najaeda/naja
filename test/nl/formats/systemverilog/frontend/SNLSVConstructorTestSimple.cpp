@@ -3922,6 +3922,22 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountUnsuppo
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmountUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_logical_shift_right_unknown_amount_unsupported" /
+      "continuous_logical_shift_right_unknown_amount_unsupported.sv");
+    FAIL() << "Expected unsupported unknown logical right-shift amount expression";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: >>"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
