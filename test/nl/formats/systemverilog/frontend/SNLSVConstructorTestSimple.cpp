@@ -1370,6 +1370,41 @@ endmodule
      "'continuous_assign_conditional_condition_resolve_failure_unsupported'"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignInsideItemResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_inside_item_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_inside_item_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_inside_item_resolve_failure_unsupported(
+  input  logic [3:0] a,
+  output logic       y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = a inside {bad_fn(a)};
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_inside_item_resolve_failure_unsupported'"});
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignBitwiseNotResolveExpressionBitsFailureUnsupported) {
@@ -7679,6 +7714,38 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombScalarShiftLeftSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_scalar_shift_left_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_scalar_shift_left_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_scalar_shift_left_supported(
+  input  logic in,
+  input  logic shamt,
+  output logic y
+);
+  always_comb begin
+    y = in << shamt;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_scalar_shift_left_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombEnumCaseNo2StateWarning) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -8557,6 +8624,144 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_rhs_streaming_concatenation_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSStreamingConcatenationWithClauseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_streaming_concatenation_with_clause_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_streaming_concatenation_with_clause_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_streaming_concatenation_with_clause_supported(
+  input  logic [7:0] data_i [0:3],
+  output logic [15:0] data_o
+);
+  always_comb begin
+    data_o = {<<8{data_i with [1+:2]}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_rhs_streaming_concatenation_with_clause_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSStreamingConcatenationImplicitSliceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_streaming_concatenation_implicit_slice_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_rhs_streaming_concatenation_implicit_slice_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_streaming_concatenation_implicit_slice_supported(
+  input  logic [15:0] data_i,
+  output logic [15:0] data_o
+);
+  always_comb begin
+    data_o = {>>{data_i}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_streaming_concatenation_implicit_slice_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSStreamingConcatenationWithClauseSubArraySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_streaming_concatenation_with_clause_sub_array_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_rhs_streaming_concatenation_with_clause_sub_array_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_streaming_concatenation_with_clause_sub_array_supported(
+  input  logic [7:0] data_i [0:3][0:1],
+  output logic [31:0] data_o
+);
+  always_comb begin
+    data_o = {<<8{data_i with [1+:2]}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_streaming_concatenation_with_clause_sub_array_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSStreamingConcatenationDynamicWithWidthUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_streaming_concatenation_dynamic_with_width_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_rhs_streaming_concatenation_dynamic_with_width_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_streaming_concatenation_dynamic_with_width_unsupported(
+  input  logic [7:0] data_i [0:3],
+  input  logic [1:0] len_i,
+  output logic [31:0] data_o
+);
+  always_comb begin
+    data_o = {<<{data_i with [0+:len_i]}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module "
+     "'always_comb_rhs_streaming_concatenation_dynamic_with_width_unsupported'",
+     "unable to resolve always_comb RHS bits for Streaming"});
 }
 
 TEST_F(
