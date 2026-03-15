@@ -424,7 +424,7 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
       parser = std::make_unique<Yosys::LibertyParser>(*inStream);
     } catch (const naja::liberty::YosysLibertyException& e) {
       auto reason = buildParserFileErrorReason(path, e.getReason());
-      throw naja::liberty::YosysLibertyException(reason);
+      throw SNLLibertyConstructorException(reason);
     }
     auto ast = parser->ast;
     //LCOV_EXCL_START

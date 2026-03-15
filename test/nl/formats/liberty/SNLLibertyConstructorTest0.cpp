@@ -14,7 +14,6 @@
 
 #include "SNLLibertyConstructor.h"
 
-#include "YosysLibertyException.h"
 #include "SNLLibertyConstructorException.h"
 
 using namespace naja::NL;
@@ -133,8 +132,8 @@ TEST_F(SNLLibertyConstructorTest0, testWrongSyntaxFile) {
       / std::filesystem::path("syntax_error.lib"));
   try {
     constructor.construct(testPath);
-    FAIL() << "Expected YosysLibertyException";
-  } catch (const naja::liberty::YosysLibertyException& e) {
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
     auto reason = e.getReason();
     EXPECT_NE(std::string::npos, reason.find(testPath.string()));
     EXPECT_NE(std::string::npos, reason.find("line 1"));
@@ -166,8 +165,8 @@ TEST_F(SNLLibertyConstructorTest0, testDetailedParserErrorMessage) {
   SNLLibertyConstructor constructor(library_);
   try {
     constructor.construct(tempPath);
-    FAIL() << "Expected YosysLibertyException";
-  } catch (const naja::liberty::YosysLibertyException& e) {
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
     auto reason = e.getReason();
     EXPECT_NE(std::string::npos, reason.find(tempPath.string()));
     EXPECT_NE(std::string::npos, reason.find("line 1"));

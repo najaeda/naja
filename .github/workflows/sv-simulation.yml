@@ -58,7 +58,7 @@ jobs:
         docker run --rm \
           -v ${{ github.workspace }}:/work \
           --entrypoint /bin/bash \
-          verilator/verilator:v5.022 \
+          verilator/verilator:v5.046 \
           -c 'set -euo pipefail
               cd /work/test/nl/formats/systemverilog/benchmarks
               for bench in \
@@ -127,12 +127,9 @@ jobs:
                 seq_reset_all_zero_literal_wide_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
-                seq_concurrent_assertion_ignored \
                 seq_timing_event_list_negedge_reset_supported \
                 seq_rhs_direct_match \
-                packed_struct_enum_ports \
-                fixed_unpacked_array_variable \
-                unsupported_generic_type; do
+                packed_struct_enum_ports; do
                 generated_sv="${bench}_naja.v"
                 make -C "$bench" clean
                 make -C "$bench" sim SV="$generated_sv $primitives_sv"

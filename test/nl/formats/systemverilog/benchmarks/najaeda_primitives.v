@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Primitive behavioral shims used to simulate najaeda-generated Verilog.
-module fa(
+// Canonical module names are naja_* to match NLDB0 primitive names.
+
+module naja_fa(
   input wire A,
   input wire B,
   input wire CI,
@@ -13,7 +15,7 @@ module fa(
   assign {CO, S} = A + B + CI;
 endmodule
 
-module mux2(
+module naja_mux2(
   input wire A,
   input wire B,
   input wire S,
@@ -22,7 +24,7 @@ module mux2(
   assign Y = S ? B : A;
 endmodule
 
-module dff(
+module naja_dff(
   input wire C,
   input wire D,
   output reg Q
@@ -32,7 +34,7 @@ module dff(
   end
 endmodule
 
-module dffrn(
+module naja_dffrn(
   input wire C,
   input wire D,
   input wire RN,
@@ -41,5 +43,42 @@ module dffrn(
   always @(posedge C or negedge RN) begin
     if (!RN) Q <= 1'b0;
     else Q <= D;
+  end
+endmodule
+
+module naja_dffe(
+  input wire C,
+  input wire D,
+  input wire E,
+  output reg Q
+);
+  always @(posedge C) begin
+    if (E) Q <= D;
+  end
+endmodule
+
+module naja_dffre(
+  input wire C,
+  input wire D,
+  input wire E,
+  input wire R,
+  output reg Q
+);
+  always @(posedge C or posedge R) begin
+    if (R) Q <= 1'b0;
+    else if (E) Q <= D;
+  end
+endmodule
+
+module naja_dffse(
+  input wire C,
+  input wire D,
+  input wire E,
+  input wire S,
+  output reg Q
+);
+  always @(posedge C or posedge S) begin
+    if (S) Q <= 1'b1;
+    else if (E) Q <= D;
   end
 endmodule
