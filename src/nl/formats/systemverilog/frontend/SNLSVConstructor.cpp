@@ -3744,13 +3744,6 @@ class SNLSVConstructorImpl {
             return false;
           }
 
-          if (insideBit == const1 || eqBit == const1) {
-            insideBit = const1;
-            continue;
-          }
-          if (eqBit == const0) {
-            continue;
-          }
           if (insideBit == const0) {
             insideBit = eqBit;
             continue;
