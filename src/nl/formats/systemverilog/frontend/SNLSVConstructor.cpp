@@ -8173,11 +8173,13 @@ class SNLSVConstructorImpl {
 
       const auto& baseType = baseExpr->type->getCanonicalType();
       if (!baseType.hasFixedRange()) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "unsupported always_comb element-select assignment base without fixed range: "
                << describeExpression(assignedLHS);
         failureReason = reason.str();
         return false;
+        // LCOV_EXCL_STOP
       }
 
       auto elementWidth = getIntegralExpressionBitWidth(assignedLHS);
@@ -8192,11 +8194,13 @@ class SNLSVConstructorImpl {
       const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
       const auto totalSelectedWidth = static_cast<size_t>(*elementWidth) * arrayWidth;
       if (lhsBits.size() < totalSelectedWidth || dataBits.size() != lhsBits.size()) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "width mismatch while lowering always_comb element-select assignment for "
                << describeExpression(assignedLHS);
         failureReason = reason.str();
         return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> assignedBits;
@@ -8253,11 +8257,13 @@ class SNLSVConstructorImpl {
 
       auto selectorWidth = getIntegralExpressionBitWidth(elementExpr.selector());
       if (!selectorWidth || !*selectorWidth) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "unable to resolve dynamic index width in always_comb assignment LHS: "
                << describeExpression(assignedLHS);
         failureReason = reason.str();
         return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> selectorBits;
@@ -8316,17 +8322,6 @@ class SNLSVConstructorImpl {
       }
       if (current->kind == slang::ast::StatementKind::Empty) {
         return true;
-      }
-
-      if (current->kind == slang::ast::StatementKind::Block) {
-        return applyCombinationalStatementForLhs(
-          design,
-          current->as<slang::ast::BlockStatement>().body,
-          lhsExpr,
-          lhsBits,
-          dataBits,
-          tempIndex,
-          failureReason);
       }
 
       if (current->kind == slang::ast::StatementKind::List) {

@@ -5402,6 +5402,40 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombCompoundAddAssignmentUnknownRHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_compound_add_assignment_unknown_rhs_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_compound_add_assignment_unknown_rhs_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_compound_add_assignment_unknown_rhs_unsupported(
+  input  logic [3:0] seed_i,
+  output logic [3:0] sum_o
+);
+  always_comb begin
+    sum_o = seed_i;
+    sum_o += 4'bx001;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb compound assignment RHS bits"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombForLoopBreakSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -8008,6 +8042,77 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSConstantElementSelectOutOfRangeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_constant_element_select_out_of_range_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_constant_element_select_out_of_range_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_constant_element_select_out_of_range_unsupported(
+  input logic [63:0] data_i
+);
+  logic [63:0] mem_q [0:1];
+  logic [63:0] mem_n [0:1];
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[2] = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"constant element-select index out of range in always_comb assignment"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectUnknownBitsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_dynamic_element_select_unknown_bits_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_dynamic_element_select_unknown_bits_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_unknown_bits_unsupported(
+  input  logic        sel_i,
+  input  logic [63:0] data_i
+);
+  logic [63:0] mem_q [0:1];
+  logic [63:0] mem_n [0:1];
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[sel_i ? 1'b0 : 1'bx] = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve dynamic index bits in always_comb assignment LHS"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombRHSMemberAccessElementSelectUnderBinarySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -9120,6 +9225,97 @@ endmodule
     }
   }
   EXPECT_EQ(32u, ffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentResetConstantElementSelectOutOfRangeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_multi_assignment_reset_constant_element_select_out_of_range_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_reset_constant_element_select_out_of_range_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_reset_constant_element_select_out_of_range_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [7:0] q_d,
+  input  logic [7:0] r_d
+);
+  logic [1:0][7:0] q;
+  logic [1:0][7:0] r;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      q <= '0;
+      r <= '0;
+    end else begin
+      q[2] <= q_d;
+      r[2] <= r_d;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"constant element-select index out of range in sequential assignment"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentResetDynamicElementSelectUnknownBitsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_multi_assignment_reset_dynamic_element_select_unknown_bits_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_reset_dynamic_element_select_unknown_bits_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_reset_dynamic_element_select_unknown_bits_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       sel_i,
+  input  logic [7:0] q_d,
+  input  logic [7:0] r_d
+);
+  logic [1:0][7:0] q;
+  logic [1:0][7:0] r;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      q <= '0;
+      r <= '0;
+    end else begin
+      q[sel_i ? 1'b0 : 1'bx] <= q_d;
+      r[sel_i ? 1'b0 : 1'bx] <= r_d;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve dynamic index bits in sequential assignment LHS"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
