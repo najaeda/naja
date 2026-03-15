@@ -1576,6 +1576,110 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignSimpleReturnFunctionRecursiveUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_simple_return_function_recursive_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_simple_return_function_recursive_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_simple_return_function_recursive_unsupported(
+  input  logic a,
+  output logic y
+);
+  function automatic logic recurse(input logic x);
+    return recurse(x);
+  endfunction
+  assign y = recurse(a);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_simple_return_function_recursive_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignSimpleReturnFunctionNonIntegralFormalUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_simple_return_function_non_integral_formal_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_simple_return_function_non_integral_formal_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_simple_return_function_non_integral_formal_unsupported(
+  output logic y
+);
+  function automatic logic is_empty(input string s);
+    return (s.len() == 0);
+  endfunction
+  assign y = is_empty("abc");
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_simple_return_function_non_integral_formal_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignSimpleReturnFunctionArgumentResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "continuous_assign_simple_return_function_argument_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_simple_return_function_argument_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_simple_return_function_argument_resolve_failure_unsupported(
+  output logic y
+);
+  function automatic logic id(input logic x);
+    return x;
+  endfunction
+  assign y = id(1'bx);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_simple_return_function_argument_resolve_failure_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignProceduralReturnFunctionMaterializedArgsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

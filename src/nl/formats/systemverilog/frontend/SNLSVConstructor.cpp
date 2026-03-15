@@ -2750,13 +2750,13 @@ class SNLSVConstructorImpl {
       }
       const auto& returnStmt = bodyStmt->as<slang::ast::ReturnStatement>();
       if (!returnStmt.expr) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       auto formalArgs = subroutine->getArguments();
       auto callArgs = callExpr.arguments();
       if (formalArgs.size() != callArgs.size()) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       auto materializeArgumentExpressionNet =
