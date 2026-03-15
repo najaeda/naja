@@ -1297,6 +1297,86 @@ endmodule
      "'continuous_assign_conditional_resolve_expression_bits_failure_unsupported'"});
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignBitwiseNotResolveExpressionBitsFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_assign_bitwise_not_resolve_expression_bits_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_assign_bitwise_not_resolve_expression_bits_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_bitwise_not_resolve_expression_bits_failure_unsupported(
+  input  logic [3:0] a,
+  output logic [3:0] y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = {~bad_fn(a)};
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_bitwise_not_resolve_expression_bits_failure_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignUnaryPlusResolveExpressionBitsFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_assign_unary_plus_resolve_expression_bits_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_assign_unary_plus_resolve_expression_bits_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_unary_plus_resolve_expression_bits_failure_unsupported(
+  input  logic [3:0] a,
+  output logic [3:0] y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = {+bad_fn(a)};
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_unary_plus_resolve_expression_bits_failure_unsupported'"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4254,6 +4334,123 @@ endmodule
   EXPECT_EQ(4u, notGateCount);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousUnaryPlusMixedConstAndVariableBitsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_unary_plus_mixed_const_and_variable_bits_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_unary_plus_mixed_const_and_variable_bits_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_unary_plus_mixed_const_and_variable_bits_supported(
+  input  logic a,
+  output logic [2:0] y
+);
+  assign y = {+{a, 1'b0, 1'b1}};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_unary_plus_mixed_const_and_variable_bits_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(3, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousBitwiseNotMixedConstAndVariableBitsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_bitwise_not_mixed_const_and_variable_bits_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_bitwise_not_mixed_const_and_variable_bits_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_bitwise_not_mixed_const_and_variable_bits_supported(
+  input  logic a,
+  output logic [2:0] y
+);
+  assign y = {~{a, 1'b0, 1'b1}};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_bitwise_not_mixed_const_and_variable_bits_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(3, yNet->getWidth());
+
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(1u, notGateCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousUnaryMinusMixedConstAndVariableBitsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_unary_minus_mixed_const_and_variable_bits_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_unary_minus_mixed_const_and_variable_bits_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_unary_minus_mixed_const_and_variable_bits_supported(
+  input  logic a,
+  output logic [2:0] y
+);
+  assign y = {-{a, 1'b0, 1'b1}};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_unary_minus_mixed_const_and_variable_bits_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(3, yNet->getWidth());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseGateOperandLiteralSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -4438,6 +4635,84 @@ endmodule
     }
   }
   EXPECT_GE(orGateCount, 1u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousReductionOrAndConstantShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_reduction_or_and_constant_shortcuts_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_reduction_or_and_constant_shortcuts_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_reduction_or_and_constant_shortcuts_supported(
+  input  logic a,
+  output logic y_or_skip_zero,
+  output logic y_or_break_one,
+  output logic y_and_skip_one,
+  output logic y_and_break_zero
+);
+  assign y_or_skip_zero  = |{a, 1'b0};
+  assign y_or_break_one  = |{a, 1'b1};
+  assign y_and_skip_one  = &{a, 1'b1};
+  assign y_and_break_zero = &{a, 1'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_reduction_or_and_constant_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_or_skip_zero")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_or_break_one")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_and_skip_one")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_and_break_zero")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousReductionOperandResolveBitsFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_reduction_operand_resolve_bits_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_reduction_operand_resolve_bits_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_reduction_operand_resolve_bits_failure_unsupported(
+  input  logic [3:0] a,
+  output logic       y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = |bad_fn(a);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_reduction_operand_resolve_bits_failure_unsupported'"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousReductionXorXnorMixedRHSSupported) {

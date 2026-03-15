@@ -3452,7 +3452,7 @@ class SNLSVConstructorImpl {
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseXnor) {
           auto operandWidth = getIntegralExpressionBitWidth(unaryExpr.operand());
           if (!operandWidth || !*operandWidth) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
           std::vector<SNLBitNet*> operandBits;
           if (!resolveExpressionBits(
