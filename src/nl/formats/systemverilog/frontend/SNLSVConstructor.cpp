@@ -4098,23 +4098,8 @@ class SNLSVConstructorImpl {
         size_t concatWidth = 0;
         if (auto concatExprWidth = getIntegralExpressionBitWidth(replicationExpr.concat())) {
           concatWidth = *concatExprWidth;
-        } else {
-          const auto& concatCanonical = replicationExpr.concat().type->getCanonicalType();
-          if (!concatCanonical.isIntegral()) {
-            return false; // LCOV_EXCL_LINE
-          }
-          const auto bitWidth = concatCanonical.getBitWidth();
-          if (bitWidth < 0) {
-            return false; // LCOV_EXCL_LINE
-          }
-          concatWidth = static_cast<size_t>(bitWidth);
         }
 
-        if (concatWidth == 0 || repeatCount == 0) {
-          bits.clear();
-          resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
-          return true;
-        }
         if (repeatCount > (std::numeric_limits<size_t>::max() / concatWidth)) {
           return false; // LCOV_EXCL_LINE
         }

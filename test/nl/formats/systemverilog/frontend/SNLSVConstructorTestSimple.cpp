@@ -1297,6 +1297,79 @@ endmodule
      "'continuous_assign_conditional_resolve_expression_bits_failure_unsupported'"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalShortcutSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_conditional_shortcut_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_conditional_shortcut_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_shortcut_supported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  input  logic       sel,
+  output logic [3:0] y_true,
+  output logic [3:0] y_false
+);
+  assign y_true  = (sel || 1'b1) ? a : b;
+  assign y_false = (sel && 1'b0) ? a : b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_assign_conditional_shortcut_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_true")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_false")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConditionalConditionResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_assign_conditional_condition_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_conditional_condition_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_condition_resolve_failure_unsupported(
+  input  logic [3:0] a,
+  output logic [3:0] y
+);
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+  assign y = bad_cond(a) ? 4'hf : 4'h0;
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_conditional_condition_resolve_failure_unsupported'"});
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignBitwiseNotResolveExpressionBitsFailureUnsupported) {
@@ -3546,6 +3619,76 @@ endmodule
   constructor.construct(svPath);
 
   auto top = library_->getSNLDesign(NLName("continuous_mul_left_const_one_bit_shortcut_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyLeftConstZeroFactorShortcutSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_mul_left_const_zero_factor_shortcut_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_mul_left_const_zero_factor_shortcut_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_mul_left_const_zero_factor_shortcut_supported_top(
+  input logic [3:0] a,
+  output logic [3:0] y
+);
+  // Exercises leftIsConst + factor == 0 scaled-multiply shortcut.
+  always_comb begin
+    y = 4'b0000 * a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_mul_left_const_zero_factor_shortcut_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyLeftConstOneFactorShortcutSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_mul_left_const_one_factor_shortcut_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_mul_left_const_one_factor_shortcut_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_mul_left_const_one_factor_shortcut_supported_top(
+  input logic [3:0] a,
+  output logic [3:0] y
+);
+  // Exercises leftIsConst + factor == 1 scaled-multiply shortcut.
+  always_comb begin
+    y = 4'b0001 * a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_mul_left_const_one_factor_shortcut_supported_top"));
   ASSERT_NE(top, nullptr);
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
@@ -7199,6 +7342,43 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("branch_result")), nullptr);
   EXPECT_NE(top->getNet(NLName("flu_result_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombReplicationConcatResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_replication_concat_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_replication_concat_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_replication_concat_resolve_failure_unsupported(
+  input  logic [3:0] a,
+  output logic [7:0] y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+
+  always_comb begin
+    y = {2{bad_fn(a)}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb RHS bits for Replication"});
 }
 
 TEST_F(
