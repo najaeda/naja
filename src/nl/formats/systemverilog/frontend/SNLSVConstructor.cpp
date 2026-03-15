@@ -2651,12 +2651,12 @@ class SNLSVConstructorImpl {
           auto* lhsBit = lhsBits[bitIndex];
           auto* notLhs = makeNot(lhsBit);
           if (!notLhs) {
-            return nullptr;
+            return nullptr; // LCOV_EXCL_LINE
           }
           if (constantBit) {
             auto* ltCandidate = makeAnd(eqBit, notLhs);
             if (!ltCandidate) {
-              return nullptr;
+              return nullptr; // LCOV_EXCL_LINE
             }
             ltBit = makeOr(ltBit, ltCandidate);
             eqBit = makeAnd(eqBit, lhsBit);
@@ -2664,7 +2664,7 @@ class SNLSVConstructorImpl {
             eqBit = makeAnd(eqBit, notLhs);
           }
           if (!ltBit || !eqBit) {
-            return nullptr;
+            return nullptr; // LCOV_EXCL_LINE
           }
         }
         return ltBit;
@@ -2692,7 +2692,7 @@ class SNLSVConstructorImpl {
           UnsignedConstant65{*maybeBase, false});
         auto* geBase = makeNot(ltBase);
         if (!ltBase || !geBase) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
 
         std::vector<SNLBitNet*> addressBits65 = addressBits64;
@@ -2702,16 +2702,16 @@ class SNLSVConstructorImpl {
         const UnsignedConstant65 limitValue{limitLowValue, limitHighBit};
         auto* ltLimit = buildUnsignedLessThanConstant(addressBits65, limitValue);
         if (!ltLimit) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
 
         auto* matchBit = makeAnd(geBase, ltLimit);
         if (!matchBit) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
         accumulatedMatch = makeOr(accumulatedMatch, matchBit);
         if (!accumulatedMatch) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
       }
 

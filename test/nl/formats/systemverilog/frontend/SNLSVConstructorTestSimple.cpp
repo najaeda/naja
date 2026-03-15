@@ -1944,6 +1944,258 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionWrongArityUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_wrong_arity_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_wrong_arity_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(
+    cfg_t Cfg,
+    logic [63:0] address,
+    logic extra_i);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return extra_i ? 1'b0 : |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_wrong_arity_unsupported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 2,
+    NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000080}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr, 1'b0);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_config_range_check_function_wrong_arity_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionRefFormalUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_config_range_check_function_ref_formal_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_config_range_check_function_ref_formal_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(
+    input cfg_t Cfg,
+    ref logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module always_comb_config_range_check_function_ref_formal_unsupported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 2,
+    NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000080}
+  };
+
+  always_comb begin
+    inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr);
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported combinational block in module "
+     "'always_comb_config_range_check_function_ref_formal_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionUnknownLengthUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_unknown_length_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_unknown_length_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 1;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_unknown_length_unsupported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 1,
+    NonIdempotentAddrBase: '{64'h0000000000001000},
+    NonIdempotentLength: '{64'h00000000000000x0}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_config_range_check_function_unknown_length_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConfigRangeCheckFunctionOversizedBaseUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_oversized_base_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_config_range_check_function_oversized_base_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 1;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [64:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] =
+        range_check(65'h1_0000_0000_0000_0000, Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_oversized_base_unsupported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 1,
+    NonIdempotentAddrBase: '{64'h0000000000001000},
+    NonIdempotentLength: '{64'h0000000000000010}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_config_range_check_function_oversized_base_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignConfigRangeCheckFunctionLiteralConfigUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
