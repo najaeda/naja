@@ -1061,6 +1061,50 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousGateAssignGenericOperandResolveFailureReportedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "continuous_gate_assign_generic_operand_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_gate_assign_generic_operand_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_gate_assign_generic_operand_resolve_failure_unsupported(
+  input  logic       a,
+  input  logic [3:0] b,
+  output logic       y
+);
+  function automatic logic bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 1'b1;
+      default:          bad_fn = 1'b0;
+    endcase
+  endfunction
+  assign y = a & bad_fn(b);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {
+      "Unsupported operand in continuous gate assign",
+      "gate=and",
+      "failed to resolve operand bits"
+    });
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignFunctionCaseInsideAssignmentBodyUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4510,6 +4554,51 @@ endmodule
   }
   EXPECT_EQ(4u, andGateCount);
   EXPECT_EQ(4u, notGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateOnBusLHSUnaryOperandConstShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_lhs_bus_unary_const_shortcuts_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_lhs_bus_unary_const_shortcuts_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_lhs_bus_unary_const_shortcuts_supported(
+  input logic [3:0] a,
+  input logic [1:0] b,
+  output logic [3:0] y
+);
+  assign y = a & ~{b[1], 1'b0, 1'b1, b[0]};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_lhs_bus_unary_const_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(4u, andGateCount);
+  EXPECT_EQ(2u, notGateCount);
 }
 
 TEST_F(
@@ -8368,6 +8457,46 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectConstantSelectorFixedRangeFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_constant_selector_fixed_range_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_constant_selector_fixed_range_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_indexed_range_select_constant_selector_fixed_range_fallback_supported(
+  output logic [15:0] y_o
+);
+  logic [63:0][7:0] arr;
+  always_comb begin
+    y_o[7:0]  = arr[12+:8];
+    y_o[15:8] = arr[19-:8];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName(
+      "always_comb_rhs_indexed_range_select_constant_selector_fixed_range_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombRHSIndexedRangeSelectLargeSelectorMultiplyFallbackIndexedDownSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -9323,6 +9452,40 @@ endmodule
   EXPECT_NE(top->getNet(NLName("ge")), nullptr);
   EXPECT_NE(top->getNet(NLName("lt")), nullptr);
   EXPECT_NE(top->getNet(NLName("le")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalBusLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_relational_bus_lhs_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_relational_bus_lhs_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_relational_bus_lhs_unsupported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  output logic [3:0] y
+);
+  assign y = a < b;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported relational expression with bus LHS";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: <"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
