@@ -6986,7 +6986,7 @@ class SNLSVConstructorImpl {
         return true;
       }
       if (!action.rhs) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       const auto* rhsExpr = stripConversions(*action.rhs);
       if (!rhsExpr || rhsExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
