@@ -1542,10 +1542,10 @@ class SNLSVConstructorImpl {
     }
 
     void requestCurrentForLoopBreak() const {
-      if (!hasActiveForLoopContext()) {
+      if (!hasActiveForLoopContext()) { // LCOV_EXCL_START
         throw SNLSVConstructorException(
           "Internal error: break statement outside active for-loop context");
-      }
+      } // LCOV_EXCL_STOP
       activeForLoopBreaks_.back() = true;
     }
 
@@ -2444,7 +2444,7 @@ class SNLSVConstructorImpl {
         auto rangeCallArgs = rangeCallExpr.arguments();
         if (rangeCallArgs.size() != 3 ||
             !rangeCallArgs[0] || !rangeCallArgs[1] || !rangeCallArgs[2]) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
         baseExpr = rangeCallArgs[0];
         lenExpr = rangeCallArgs[1];
@@ -2826,14 +2826,17 @@ class SNLSVConstructorImpl {
 
       const Statement* bodyStmt = unwrapStatement(subroutine->getBody());
       if (!bodyStmt) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
+      // unwrapStatement() above already strips nested Block statements.
+      // LCOV_EXCL_START
       if (bodyStmt->kind == slang::ast::StatementKind::Block) {
         bodyStmt = unwrapStatement(bodyStmt->as<slang::ast::BlockStatement>().body);
         if (!bodyStmt) {
           return false;
         }
       }
+      // LCOV_EXCL_STOP
       if (bodyStmt->kind != slang::ast::StatementKind::List) {
         return false;
       }
@@ -2860,17 +2863,17 @@ class SNLSVConstructorImpl {
       }
       const auto& returnStatement = returnStmt->as<slang::ast::ReturnStatement>();
       if (!returnStatement.expr) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       if (!returnStmtIndex) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       --returnStmtIndex;
 
       const Expression* trackedLhsExpr = nullptr;
       const auto* strippedReturnExpr = stripConversions(*returnStatement.expr);
       if (!strippedReturnExpr) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       if (slang::ast::ValueExpressionBase::isKind(strippedReturnExpr->kind) ||
           strippedReturnExpr->kind == slang::ast::ExpressionKind::MemberAccess) {
@@ -2891,7 +2894,7 @@ class SNLSVConstructorImpl {
       auto formalArgs = subroutine->getArguments();
       auto callArgs = callExpr.arguments();
       if (formalArgs.size() != callArgs.size()) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       auto materializeArgumentExpressionNet =
@@ -2905,7 +2908,7 @@ class SNLSVConstructorImpl {
         }
         const auto argBitWidth = canonicalArgType.getBitWidth();
         if (argBitWidth <= 0) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
         const auto argWidth = static_cast<size_t>(argBitWidth);
 
@@ -2980,7 +2983,7 @@ class SNLSVConstructorImpl {
       }
       auto lhsBits = collectBits(lhsNet);
       if (lhsBits.empty()) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       std::vector<SNLBitNet*> dataBits = lhsBits;
