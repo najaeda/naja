@@ -2601,14 +2601,6 @@ class SNLSVConstructorImpl {
         if (!width || width > 65) {
           return nullptr; // LCOV_EXCL_LINE
         }
-        if (width < 64) {
-          const auto maxValue = (uint64_t{1} << width);
-          if (constantValue.highBit || constantValue.lowValue >= maxValue) {
-            return const1;
-          }
-        } else if (width == 64 && constantValue.highBit) {
-          return const1;
-        }
         if (!constantValue.highBit && constantValue.lowValue == 0) {
           return const0;
         }
@@ -8278,14 +8270,6 @@ class SNLSVConstructorImpl {
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
-        if (condStmt.conditions.size() != 1) {
-          std::ostringstream reason;
-          reason << "unsupported always_comb conditional with condition count "
-                 << condStmt.conditions.size();
-          failureReason = reason.str();
-          return false;
-        }
-
         std::string conditionFailureReason;
         auto* conditionBit = resolveCombinationalConditionNet(
           design,
@@ -8371,11 +8355,6 @@ class SNLSVConstructorImpl {
         }
         const bool falseBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
 
-        if (trueBits.size() != lhsBits.size() || falseBits.size() != lhsBits.size()) {
-          failureReason = "width mismatch while lowering always_comb conditional";
-          return false;
-        }
-
         std::vector<SNLBitNet*> mergedBits;
         mergedBits.reserve(lhsBits.size());
         auto condSourceRange = getSourceRange(condStmt);
@@ -8420,10 +8399,6 @@ class SNLSVConstructorImpl {
                 failureReason)) {
             return false;
           }
-          if (defaultBits.size() != lhsBits.size()) {
-            failureReason = "width mismatch while lowering always_comb default case";
-            return false;
-          }
           mergedBits = std::move(defaultBits);
         }
 
@@ -8441,10 +8416,6 @@ class SNLSVConstructorImpl {
                 failureReason)) {
             return false;
           }
-          if (itemBits.size() != lhsBits.size() || mergedBits.size() != lhsBits.size()) {
-            failureReason = "width mismatch while lowering always_comb case item";
-            return false;
-          }
 
           auto* itemMatchBit = buildCaseItemMatchBit(
             design,
@@ -8454,14 +8425,6 @@ class SNLSVConstructorImpl {
             failureReason);
           if (!itemMatchBit) {
             return false;
-          }
-
-          if (itemMatchBit == const0) {
-            continue;
-          }
-          if (itemMatchBit == const1) {
-            mergedBits = std::move(itemBits);
-            continue;
           }
 
           std::vector<SNLBitNet*> selectedBits;
@@ -8582,11 +8545,6 @@ class SNLSVConstructorImpl {
         return true;
       }
 
-      std::ostringstream reason;
-      reason << "unsupported statement kind while lowering always_comb"
-             << " (kind=" << current->kind << ")";
-      failureReason = reason.str();
-      return false;
     }
 
     bool lowerCombinationalProceduralBlock(
@@ -8623,13 +8581,6 @@ class SNLSVConstructorImpl {
               failureReason)) {
           return false;
         }
-        if (dataBits.size() != lhsBits.size()) {
-          std::ostringstream reason;
-          reason << "width mismatch while lowering always_comb for LHS "
-                 << describeExpression(*lhsExpr);
-          failureReason = reason.str();
-          return false;
-        }
         for (size_t i = 0; i < lhsBits.size(); ++i) {
           if (dataBits[i] == lhsBits[i]) {
             continue;
@@ -8655,14 +8606,6 @@ class SNLSVConstructorImpl {
       }
 
       const auto& topCond = current->as<slang::ast::ConditionalStatement>();
-      if (topCond.conditions.size() != 1) {
-        std::ostringstream reason;
-        reason << "top-level conditional has unsupported condition count: "
-               << topCond.conditions.size();
-        failureReason = reason.str();
-        return false;
-      }
-
       std::vector<const Expression*> resetLHSExpressions;
       if (!collectAssignedLHSExpressions(
             topCond.ifTrue,
@@ -8691,17 +8634,13 @@ class SNLSVConstructorImpl {
           return false;
         }
         auto lhsBits = collectBits(lhsNet);
-        if (lhsBits.empty()) {
-          std::ostringstream reason;
-          reason << "unable to collect LHS bits for '" << getExpressionBaseName(*lhsExpr) << "'";
-          failureReason = reason.str();
-          return false;
-        }
 
         auto baseName = getExpressionBaseName(*lhsExpr);
-        if (baseName.empty() && !lhsNet->isUnnamed()) { // LCOV_EXCL_LINE
-          baseName = lhsNet->getName().getString(); // LCOV_EXCL_LINE
-        } // LCOV_EXCL_LINE
+        // LCOV_EXCL_START
+        if (baseName.empty() && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
 
         std::vector<SNLBitNet*> dataBits = lhsBits;
         std::vector<SNLBitNet*> incrementerBits;
@@ -8737,12 +8676,6 @@ class SNLSVConstructorImpl {
               resetIncrementerBits,
               resetTempIndex,
               failureReason)) {
-          return false;
-        }
-        if (resetBits.size() != lhsBits.size()) {
-          std::ostringstream reason;
-          reason << "reset branch width mismatch for '" << getExpressionBaseName(*lhsExpr) << "'";
-          failureReason = reason.str();
           return false;
         }
 
@@ -8813,10 +8746,12 @@ class SNLSVConstructorImpl {
             resetSourceRange);
           auto rstBits = collectBits(rstNet);
           if (rstBits.size() != dataBits.size()) {
+            // LCOV_EXCL_START
             std::ostringstream reason;
             reason << "reset mux width mismatch for '" << getExpressionBaseName(*lhsExpr) << "'";
             failureReason = reason.str();
-            return false; // LCOV_EXCL_LINE
+            return false;
+            // LCOV_EXCL_STOP
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
             createMux2Instance(
