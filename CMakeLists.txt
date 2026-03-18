@@ -58,6 +58,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
+option(ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+  "Enable internal SystemVerilog constructor performance reporting instrumentation" OFF)
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
 set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.17.0/include)

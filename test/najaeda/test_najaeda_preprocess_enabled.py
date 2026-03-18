@@ -34,6 +34,22 @@ class NajaEDAPreprocessEnabledTest(unittest.TestCase):
         self.assertEqual(1, term.get_msb())
         self.assertEqual(0, term.get_lsb())
 
+    def testPreprocessTimescaleDisabled(self):
+        design_files = [os.path.join(verilog_benchmarks, "preprocess_timescale_top.v")]
+        with self.assertRaises(Exception):
+            netlist.load_verilog(design_files)
+
+    def testPreprocessTimescaleEnabled(self):
+        design_files = [os.path.join(verilog_benchmarks, "preprocess_timescale_top.v")]
+        top = netlist.load_verilog(
+            design_files,
+            config=netlist.VerilogConfig(preprocess_enabled=True),
+        )
+        self.assertIsNotNone(top)
+        self.assertEqual("timescale_top", top.get_model_name())
+        self.assertIsNotNone(top.get_term("a"))
+        self.assertIsNotNone(top.get_term("y"))
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()

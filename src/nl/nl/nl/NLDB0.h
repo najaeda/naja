@@ -78,15 +78,45 @@ class NLDB0 {
     static SNLScalarTerm* getMux2Select();
     static SNLScalarTerm* getMux2Output();
     static SNLDesign* getDFF();
+    /// \brief Plain edge-triggered D flip-flop.
+    /// Pins: C (clock), D (data), Q (output).
     static SNLScalarTerm* getDFFClock();
     static SNLScalarTerm* getDFFData();
     static SNLScalarTerm* getDFFOutput();
+    /// \brief Edge-triggered D flip-flop with active-low asynchronous reset.
+    /// Pins: C (clock), D (data), RN (reset low active), Q (output).
     static SNLDesign* getDFFRN();
     static bool isDFFRN(const SNLDesign* design);
     static SNLScalarTerm* getDFFRNClock();
     static SNLScalarTerm* getDFFRNData();
     static SNLScalarTerm* getDFFRNResetN();
     static SNLScalarTerm* getDFFRNOutput();
+    /// \brief Edge-triggered D flip-flop with clock enable.
+    /// Pins: C (clock), D (data), E (enable), Q (output).
+    static SNLDesign* getDFFE();
+    static bool isDFFE(const SNLDesign* design);
+    static SNLScalarTerm* getDFFEClock();
+    static SNLScalarTerm* getDFFEData();
+    static SNLScalarTerm* getDFFEEnable();
+    static SNLScalarTerm* getDFFEOutput();
+    /// \brief Edge-triggered D flip-flop with clock enable and asynchronous reset.
+    /// Pins: C (clock), D (data), E (enable), R (reset), Q (output).
+    static SNLDesign* getDFFRE();
+    static bool isDFFRE(const SNLDesign* design);
+    static SNLScalarTerm* getDFFREClock();
+    static SNLScalarTerm* getDFFREData();
+    static SNLScalarTerm* getDFFREEnable();
+    static SNLScalarTerm* getDFFREReset();
+    static SNLScalarTerm* getDFFREOutput();
+    /// \brief Edge-triggered D flip-flop with clock enable and asynchronous set.
+    /// Pins: C (clock), D (data), E (enable), S (set), Q (output).
+    static SNLDesign* getDFFSE();
+    static bool isDFFSE(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSEClock();
+    static SNLScalarTerm* getDFFSEData();
+    static SNLScalarTerm* getDFFSEEnable();
+    static SNLScalarTerm* getDFFSESet();
+    static SNLScalarTerm* getDFFSEOutput();
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);

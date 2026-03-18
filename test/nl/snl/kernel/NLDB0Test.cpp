@@ -94,6 +94,7 @@ TEST_F(NLDB0Test, testFA) {
   ASSERT_NE(nullptr, fa);
   EXPECT_TRUE(NLDB0::isFA(fa));
   EXPECT_TRUE(NLDB0::isDB0Primitive(fa));
+  EXPECT_EQ(NLName("naja_fa"), fa->getName());
   EXPECT_FALSE(NLDB0::isAssign(fa));
   EXPECT_FALSE(NLDB0::isMux2(fa));
 
@@ -140,6 +141,7 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   auto mux2 = NLDB0::getMux2();
   ASSERT_NE(nullptr, mux2);
   EXPECT_TRUE(NLDB0::isMux2(mux2));
+  EXPECT_EQ(NLName("naja_mux2"), mux2->getName());
   ASSERT_NE(nullptr, NLDB0::getMux2InputA());
   ASSERT_NE(nullptr, NLDB0::getMux2InputB());
   ASSERT_NE(nullptr, NLDB0::getMux2Select());
@@ -166,6 +168,7 @@ TEST_F(NLDB0Test, testDFFRN) {
   ASSERT_NE(nullptr, dffrn);
   EXPECT_TRUE(NLDB0::isDFFRN(dffrn));
   EXPECT_TRUE(NLDB0::isDB0Primitive(dffrn));
+  EXPECT_EQ(NLName("naja_dffrn"), dffrn->getName());
   EXPECT_FALSE(NLDB0::isDFFRN(NLDB0::getDFF()));
 
   auto clock = NLDB0::getDFFRNClock();
@@ -184,6 +187,54 @@ TEST_F(NLDB0Test, testDFFRN) {
   EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, resetN->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+}
+
+TEST_F(NLDB0Test, testDFFE_DFFRE_DFFSE) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffe = NLDB0::getDFFE();
+  ASSERT_NE(nullptr, dffe);
+  EXPECT_TRUE(NLDB0::isDFFE(dffe));
+  EXPECT_EQ(NLName("naja_dffe"), dffe->getName());
+  ASSERT_NE(nullptr, NLDB0::getDFFEClock());
+  ASSERT_NE(nullptr, NLDB0::getDFFEData());
+  ASSERT_NE(nullptr, NLDB0::getDFFEEnable());
+  ASSERT_NE(nullptr, NLDB0::getDFFEOutput());
+  EXPECT_EQ(NLName("C"), NLDB0::getDFFEClock()->getName());
+  EXPECT_EQ(NLName("D"), NLDB0::getDFFEData()->getName());
+  EXPECT_EQ(NLName("E"), NLDB0::getDFFEEnable()->getName());
+  EXPECT_EQ(NLName("Q"), NLDB0::getDFFEOutput()->getName());
+
+  auto dffre = NLDB0::getDFFRE();
+  ASSERT_NE(nullptr, dffre);
+  EXPECT_TRUE(NLDB0::isDFFRE(dffre));
+  EXPECT_EQ(NLName("naja_dffre"), dffre->getName());
+  ASSERT_NE(nullptr, NLDB0::getDFFREClock());
+  ASSERT_NE(nullptr, NLDB0::getDFFREData());
+  ASSERT_NE(nullptr, NLDB0::getDFFREEnable());
+  ASSERT_NE(nullptr, NLDB0::getDFFREReset());
+  ASSERT_NE(nullptr, NLDB0::getDFFREOutput());
+  EXPECT_EQ(NLName("C"), NLDB0::getDFFREClock()->getName());
+  EXPECT_EQ(NLName("D"), NLDB0::getDFFREData()->getName());
+  EXPECT_EQ(NLName("E"), NLDB0::getDFFREEnable()->getName());
+  EXPECT_EQ(NLName("R"), NLDB0::getDFFREReset()->getName());
+  EXPECT_EQ(NLName("Q"), NLDB0::getDFFREOutput()->getName());
+
+  auto dffse = NLDB0::getDFFSE();
+  ASSERT_NE(nullptr, dffse);
+  EXPECT_TRUE(NLDB0::isDFFSE(dffse));
+  EXPECT_EQ(NLName("naja_dffse"), dffse->getName());
+  ASSERT_NE(nullptr, NLDB0::getDFFSEClock());
+  ASSERT_NE(nullptr, NLDB0::getDFFSEData());
+  ASSERT_NE(nullptr, NLDB0::getDFFSEEnable());
+  ASSERT_NE(nullptr, NLDB0::getDFFSESet());
+  ASSERT_NE(nullptr, NLDB0::getDFFSEOutput());
+  EXPECT_EQ(NLName("C"), NLDB0::getDFFSEClock()->getName());
+  EXPECT_EQ(NLName("D"), NLDB0::getDFFSEData()->getName());
+  EXPECT_EQ(NLName("E"), NLDB0::getDFFSEEnable()->getName());
+  EXPECT_EQ(NLName("S"), NLDB0::getDFFSESet()->getName());
+  EXPECT_EQ(NLName("Q"), NLDB0::getDFFSEOutput()->getName());
 }
 
 TEST_F(NLDB0Test, testNULLUniverse) {
@@ -214,6 +265,26 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFRNData());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNResetN());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFE());
+  EXPECT_FALSE(NLDB0::isDFFE(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFEClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFEData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFEEnable());
+  EXPECT_EQ(nullptr, NLDB0::getDFFEOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRE());
+  EXPECT_FALSE(NLDB0::isDFFRE(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFREClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFREData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFREEnable());
+  EXPECT_EQ(nullptr, NLDB0::getDFFREReset());
+  EXPECT_EQ(nullptr, NLDB0::getDFFREOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSE());
+  EXPECT_FALSE(NLDB0::isDFFSE(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFSEClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSEData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSEEnable());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSESet());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSEOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }

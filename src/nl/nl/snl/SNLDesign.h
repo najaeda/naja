@@ -22,6 +22,7 @@ class SNLBusNetBit;
 class SNLScalarTerm;
 class SNLBusTerm;
 class SNLBusTermBit;
+class SNLRTLInfos;
 
 /**
  * @class SNLDesign
@@ -38,6 +39,7 @@ class SNLDesign final: public NLObject {
     friend class SNLScalarNet;
     friend class SNLBusNet;
     friend class SNLParameter;
+    friend class SNLRTLInfos;
     using super = NLObject;
 
     class Type {
@@ -216,6 +218,8 @@ class SNLDesign final: public NLObject {
     NajaCollection<SNLParameter*> getParameters() const;
 
     NajaCollection<SNLAttribute> getAttributes() const;
+    SNLRTLInfos* getRTLInfos() const { return rtlInfos_; }
+    bool hasRTLInfos() const { return rtlInfos_ != nullptr; }
 
     NLID::DesignID getID() const { return id_; }
     NLID getNLID() const;
@@ -349,7 +353,7 @@ class SNLDesign final: public NLObject {
     int                                 revisionCount_      {0};
     NLName                              name_               {};
     Type                                type_               { Type::Standard };
-    NLLibrary*                          library_;
+    NLLibrary*                          library_            {nullptr};
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
     SNLDesignTerms                      terms_              {};
     SNLDesignObjectNameIDMap            termNameIDMap_      {};
@@ -359,6 +363,7 @@ class SNLDesign final: public NLObject {
     SNLDesignNets                       nets_               {};
     SNLDesignObjectNameIDMap            netNameIDMap_       {};
     SNLDesignParameters                 parameters_         {};
+    SNLRTLInfos*                        rtlInfos_           {nullptr};
 };
 
 }  // namespace naja::NL
