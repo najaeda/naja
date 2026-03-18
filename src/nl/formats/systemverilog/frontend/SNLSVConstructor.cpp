@@ -9033,7 +9033,7 @@ class SNLSVConstructorImpl {
         reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }
-      return {};
+      return {}; // LCOV_EXCL_LINE
     }
 
     const Expression* getClockExpression(const TimingControl& timing) {
@@ -9115,7 +9115,7 @@ class SNLSVConstructorImpl {
       for (const auto* eventCtrl : eventList.events) {
         if (!eventCtrl ||
             eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
-          continue;
+          continue; // LCOV_EXCL_LINE
         }
         const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
         if (!skippedClock &&
@@ -9157,7 +9157,7 @@ class SNLSVConstructorImpl {
       const Expression& resetSignalExpr) const {
       const auto* condition = stripConversions(resetConditionExpr);
       if (!condition) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       return sameLhs(condition, &resetSignalExpr);
     }
@@ -9877,7 +9877,7 @@ class SNLSVConstructorImpl {
             }
             auto args = callExpr.arguments();
             if (args.size() != 1 || !args[0]) {
-              break;
+              break; // LCOV_EXCL_LINE
             }
             current = stripConversions(*args[0]);
           }
