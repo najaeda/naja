@@ -312,6 +312,15 @@ int main(int argc, char* argv[]) {
       }
       auto* currentPrimitivesLibrary =
         NLLibrary::create(currentDB, NLLibrary::Type::Primitives, NLName("PRIMS"));
+      SNLLibertyConstructor libertyConstructor(currentPrimitivesLibrary);
+      Paths libertyPrimitivesPaths;
+      libertyPrimitivesPaths.reserve(primitivesPaths.size());
+      auto constructLibertyPrimitives = [&]() {
+        if (not libertyPrimitivesPaths.empty()) {
+          libertyConstructor.construct(libertyPrimitivesPaths);
+          libertyPrimitivesPaths.clear();
+        }
+      };
       for (const auto& path : primitivesPaths) {
         NAJA_LOG_INFO("Parsing primitives file: {}", path.string());
         auto extension = path.extension();
@@ -319,15 +328,16 @@ int main(int argc, char* argv[]) {
           NAJA_LOG_CRITICAL("Primitives path should end with an extension");
           std::exit(EXIT_FAILURE);
         } else if (extension == ".py") {
+          constructLibertyPrimitives();
           SNLPyLoader::loadPrimitives(currentPrimitivesLibrary, path);
         } else if (extension == ".lib" || extension == ".gz") {
-          SNLLibertyConstructor constructor(currentPrimitivesLibrary);
-          constructor.construct(path);
+          libertyPrimitivesPaths.push_back(path);
         } else {
           NAJA_LOG_CRITICAL("Unknow extension in Primitives path");
           std::exit(EXIT_FAILURE);
         }
       }
+      constructLibertyPrimitives();
       return currentPrimitivesLibrary;
     };
     {
@@ -359,18 +369,8 @@ int main(int argc, char* argv[]) {
         auto designLibrary = NLLibrary::create(db, NLName("DESIGN"));
         SNLVRLConstructor constructor(designLibrary);
         const auto start{std::chrono::steady_clock::now()};
-        {
-          std::ostringstream oss;
-          oss << "Parsing verilog file(s): ";
-          size_t i = 0;
-          for (auto path : inputPaths) {
-            if (i++ >= 4) {
-              oss << std::endl;
-              i = 0;
-            }
-            oss << path << " ";
-          }
-          NAJA_LOG_INFO(oss.str());
+        for (const auto& path : inputPaths) {
+          NAJA_LOG_INFO("Parsing verilog file: {}", path.string());
         }
         constructor.construct(inputPaths);
         auto top = SNLUtils::findTop(designLibrary);
