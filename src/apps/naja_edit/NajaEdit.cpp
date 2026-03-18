@@ -320,7 +320,7 @@ int main(int argc, char* argv[]) {
           std::exit(EXIT_FAILURE);
         } else if (extension == ".py") {
           SNLPyLoader::loadPrimitives(currentPrimitivesLibrary, path);
-        } else if (extension == ".lib") {
+        } else if (extension == ".lib" || extension == ".gz") {
           SNLLibertyConstructor constructor(currentPrimitivesLibrary);
           constructor.construct(path);
         } else {
