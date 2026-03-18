@@ -16,6 +16,7 @@ set(NL_SOURCES
 
 set(SNL_SOURCES
   snl/SNLAttributes.cpp
+  snl/SNLRTLInfos.cpp
   snl/SNLDesignObject.cpp
   snl/SNLNet.cpp snl/SNLBusNet.cpp
   snl/SNLBitNet.cpp snl/SNLScalarNet.cpp snl/SNLBusNetBit.cpp
@@ -66,6 +67,7 @@ set(HEADERS
   nl/NLException.h
   decorators/NLLibraryTruthTables.h
   snl/SNLAttributes.h
+  snl/SNLRTLInfos.h
   snl/SNLDesign.h
   snl/SNLDesignObject.h
   snl/SNLNet.h snl/SNLBusNet.h

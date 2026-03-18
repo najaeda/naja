@@ -14,6 +14,12 @@ set(HEADERS
 add_library(naja_snl_systemverilog STATIC ${SOURCES})
 set_property(TARGET naja_snl_systemverilog PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+if(ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
+  target_compile_definitions(
+    naja_snl_systemverilog
+    PRIVATE NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
+endif()
+
 target_link_libraries(naja_snl_systemverilog naja_nl slang::slang)
 
 target_include_directories(naja_snl_systemverilog PUBLIC

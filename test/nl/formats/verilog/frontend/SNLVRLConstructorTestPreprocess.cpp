@@ -69,3 +69,30 @@ TEST_F(SNLVRLConstructorTestPreprocess, testPreprocessEnabled) {
   EXPECT_EQ(1, childA->getMSB());
   EXPECT_EQ(0, childA->getLSB());
 }
+
+TEST_F(SNLVRLConstructorTestPreprocess, testTimescalePreprocessDisabled) {
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  auto path = benchmarksPath/"preprocess_timescale_top.v";
+
+  SNLVRLConstructor constructor(library_);
+  EXPECT_THROW(
+    constructor.construct(naja::verilog::VerilogConstructor::Paths{path}),
+    SNLVRLConstructorException);
+}
+
+TEST_F(SNLVRLConstructorTestPreprocess, testTimescalePreprocessEnabled) {
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  auto path = benchmarksPath/"preprocess_timescale_top.v";
+
+  auto lib2 = NLLibrary::create(db_, NLName("MYLIB2"));
+  SNLVRLConstructor constructor(lib2);
+  constructor.config_.preprocessEnabled_ = true;
+  constructor.construct(naja::verilog::VerilogConstructor::Paths{path});
+
+  auto top = SNLUtils::findTop(lib2);
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ("timescale_top", top->getName().getString());
+  EXPECT_EQ(2, top->getTerms().size());
+  EXPECT_NE(top->getScalarTerm(NLName("a")), nullptr);
+  EXPECT_NE(top->getScalarTerm(NLName("y")), nullptr);
+}

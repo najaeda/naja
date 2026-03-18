@@ -25,6 +25,7 @@
 #include "SNLMacros.h"
 #include "SNLDesignModeling.h"
 #include "SNLExceptions.h"
+#include "SNLRTLInfos.h"
 
 namespace naja::NL {
 
@@ -135,6 +136,9 @@ void SNLDesign::postCreateAndSetID() {
 
 void SNLDesign::commonPreDestroy() {
   NAJA_LOG_TRACE("Destroying {}", getDescription());
+  if (rtlInfos_) {
+    rtlInfos_->destroy();
+  }
   struct destroyInstanceFromDesign {
     void operator()(SNLInstance* instance) {
       instance->destroyFromDesign();
