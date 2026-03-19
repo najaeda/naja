@@ -44,6 +44,20 @@ TEST_F(SNLGateTruthTableTest, testAndGate) {
     EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x80000000);
 }
 
+TEST_F(SNLGateTruthTableTest, testNandGate) {
+    auto nand2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nand, 2);
+    ASSERT_NE(nand2, nullptr);
+    auto tt = NLDB0::getPrimitiveTruthTable(nand2);
+    EXPECT_EQ(tt.size(), 2);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0b0111);
+
+    auto nand6 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nand, 6);
+    ASSERT_NE(nand6, nullptr);
+    tt = NLDB0::getPrimitiveTruthTable(nand6);
+    EXPECT_EQ(tt.size(), 6);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x7FFFFFFFFFFFFFFFULL);
+}
+
 TEST_F(SNLGateTruthTableTest, testOrGate) {
     auto or2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 2);
     ASSERT_NE(or2, nullptr);
@@ -62,8 +76,14 @@ TEST_F(SNLGateTruthTableTest, testOrGate) {
     tt = NLDB0::getPrimitiveTruthTable(or5);
     EXPECT_EQ(tt.size(), 5);
     EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFFFFFE);
-
     EXPECT_EQ(SNLDesignModeling::getTruthTable(or5), tt);
+
+    auto or6 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 6);
+    ASSERT_NE(or6, nullptr);
+    tt = NLDB0::getPrimitiveTruthTable(or6);
+    EXPECT_EQ(tt.size(), 6);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFFFFFFFFFFFFFEULL);
+    EXPECT_EQ(SNLDesignModeling::getTruthTable(or6), tt);
 }
 
 TEST_F(SNLGateTruthTableTest, testNorGate) {
@@ -124,6 +144,20 @@ TEST_F(SNLGateTruthTableTest, testXnorGate) {
     tt = NLDB0::getPrimitiveTruthTable(xnor4);
     EXPECT_EQ(tt.size(), 4);
     EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x9669);
+}
+
+TEST_F(SNLGateTruthTableTest, testUnaryGates) {
+    auto buf = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+    ASSERT_NE(buf, nullptr);
+    EXPECT_EQ(SNLTruthTable::Buf(), NLDB0::getPrimitiveTruthTable(buf));
+    EXPECT_EQ(SNLTruthTable::Buf(), SNLDesignModeling::getTruthTable(buf));
+    EXPECT_TRUE(SNLDesignModeling::isBuf(buf));
+
+    auto inv = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1);
+    ASSERT_NE(inv, nullptr);
+    EXPECT_EQ(SNLTruthTable::Inv(), NLDB0::getPrimitiveTruthTable(inv));
+    EXPECT_EQ(SNLTruthTable::Inv(), SNLDesignModeling::getTruthTable(inv));
+    EXPECT_TRUE(SNLDesignModeling::isInv(inv));
 }
 
 TEST_F(SNLGateTruthTableTest, testUnsupportedGates) {
