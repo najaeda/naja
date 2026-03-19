@@ -1736,10 +1736,14 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(self, path: str):
+    def dump_verilog(
+            self,
+            path: str,
+            config: "VerilogDumpConfig" = None):
         """Dump the verilog of this instance.
 
         :param str path: the file path where to dump the verilog.
+        :param config: the configuration to use when dumping the verilog.
         :rtype: None
         :raises ValueError: if the path does not end with .v.
         :raises FileNotFoundError: if the directory of the path does not exist.
@@ -1750,11 +1754,16 @@ class Instance:
         dir_path = os.path.dirname(path) or "."
         if not os.path.exists(dir_path):
             raise FileNotFoundError(f"The directory {dir_path} does not exist")
+        if config is None:
+            config = VerilogDumpConfig()
         top_name = get_top().get_name()
         logging.info(
             f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
-        self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
+        self.__get_snl_model().dumpVerilog(
+            dir_path,
+            os.path.basename(path),
+            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes)
         execution_time = time.time() - start_time
         logging.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
@@ -1860,6 +1869,11 @@ class VerilogConfig:
                 f"{self.conflicting_design_name_policy!r}. "
                 "Expected one of: forbid, first, last, verify."
             )
+
+
+@dataclass
+class VerilogDumpConfig:
+    dumpRTLInfosAsAttributes: bool = False
 
 
 @dataclass

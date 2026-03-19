@@ -109,18 +109,29 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   return PySNLDesign_Link(newDesign);
 }
 
-static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args) {
-  const char* arg0 = nullptr;
-  const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "ss:SNLDesign.dumpVerilog", &arg0, &arg1)) {
+static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+  const char* path = nullptr;
+  const char* topFileName = nullptr;
+  int dumpRTLInfosAsAttributes = 0;
+
+  static const char* const kwords[] = {
+    "path", "top_file_name", "dumpRTLInfosAsAttributes",
+    nullptr
+  };
+
+  if (not PyArg_ParseTupleAndKeywords(
+    args, kwargs, "ss|p:SNLDesign.dumpVerilog",
+    const_cast<char**>(kwords),
+    &path, &topFileName, &dumpRTLInfosAsAttributes)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.dumpVerilog()")
   TRY
   SNLVRLDumper dumper;
-  dumper.setTopFileName(arg1);
-  dumper.dumpDesign(selfObject, std::filesystem::path(arg0));
+  dumper.setTopFileName(topFileName);
+  dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;
 }
@@ -643,7 +654,7 @@ PyMethodDef PySNLDesign_Methods[] = {
     "destroy this SNLDesign."},
   { "clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
     "clone this SNLDesign."},
-  { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS,
+  { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS|METH_KEYWORDS,
     "dump verilog file of this SNLDesign."},
   { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
     "dump full dot file for this SNLDesign."},
