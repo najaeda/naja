@@ -187,6 +187,36 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
 
+  def testDesignDumpVerilogOptions(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    sv_file = os.path.join(
+      formats_path, "systemverilog", "benchmarks", "simple", "simple.sv")
+
+    top = db.loadSystemVerilog([sv_file])
+    self.assertIsNotNone(top)
+
+    with tempfile.TemporaryDirectory() as dump_dir:
+      without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(without_rtl_infos))
+      with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+
+      with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(with_rtl_infos),
+        dumpRTLInfosAsAttributes=True)
+      with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertIn("sv_src_file", dumped_text)
+
   def testDestroy(self):
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)
