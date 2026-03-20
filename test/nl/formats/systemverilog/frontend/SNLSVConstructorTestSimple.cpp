@@ -2010,6 +2010,47 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignProceduralReturnFunctionUnsupportedStatementKindUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "continuous_assign_procedural_return_function_unsupported_statement_kind_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_assign_procedural_return_function_unsupported_statement_kind_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_procedural_return_function_unsupported_statement_kind_unsupported(
+  input  logic a,
+  output logic y
+);
+  function automatic logic passthrough(input logic x);
+    while (x) begin
+      x = 1'b0;
+    end
+    return x;
+  endfunction
+
+  assign y = passthrough(a);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_procedural_return_function_unsupported_statement_kind_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignProceduralReturnFunctionImportedBodyUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

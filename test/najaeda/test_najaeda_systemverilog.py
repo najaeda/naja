@@ -53,6 +53,27 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         self.assertTrue(os.path.exists(json_path))
         self.assertTrue(os.path.exists(diagnostics_path))
 
+    def test_dump_verilog_with_config(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        top = netlist.load_systemverilog(design_files)
+        self.assertIsNotNone(top)
+
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as dump_dir:
+            without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
+            top.dump_verilog(without_rtl_infos)
+            with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
+                dumped_text = dumped_file.read()
+            self.assertNotIn("sv_src_file", dumped_text)
+
+            with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
+            top.dump_verilog(
+                with_rtl_infos,
+                config=netlist.VerilogDumpConfig(dumpRTLInfosAsAttributes=True),
+            )
+            with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
+                dumped_text = dumped_file.read()
+            self.assertIn("sv_src_file", dumped_text)
+
     def test_load_systemverilog_with_flist(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
         flist_path = os.path.join(najaeda_test_path, "simple_najaeda.f")

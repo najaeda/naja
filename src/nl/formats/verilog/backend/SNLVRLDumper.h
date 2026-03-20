@@ -74,7 +74,7 @@ class SNLVRLDumper {
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
-        bool        dumpRTLInfosAsAttributes_ {false};
+        bool        dumpRTLInfosAsAttributes_ {true};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
