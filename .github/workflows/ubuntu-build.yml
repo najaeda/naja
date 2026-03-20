@@ -24,6 +24,10 @@ jobs:
         compiler:
           - { cc: gcc,   cxx: g++ }
           - { cc: clang, cxx: clang++ }
+        exclude:
+          # clang-14 (Ubuntu 22.04 default) lacks std::source_location (C++20, needs clang 15+)
+          - os: ubuntu-22.04
+            compiler: { cc: clang, cxx: clang++ }
 
     steps:
     - uses: actions/checkout@v6
