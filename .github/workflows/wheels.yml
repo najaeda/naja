@@ -197,7 +197,11 @@ jobs:
         env:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-          CIBW_ENVIRONMENT_MACOS: SKLEARN_SKIP_NETWORK_TESTS=1 MACOSX_DEPLOYMENT_TARGET=11.0
+          CIBW_ENVIRONMENT_MACOS: >-
+            SKLEARN_SKIP_NETWORK_TESTS=1
+            MACOSX_DEPLOYMENT_TARGET=11.0
+            CC=/usr/bin/clang
+            CXX=/usr/bin/clang++
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}

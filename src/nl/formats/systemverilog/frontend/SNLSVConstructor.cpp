@@ -8543,6 +8543,11 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      std::ostringstream reason;
+      reason << "unsupported statement kind while lowering always_comb block"
+             << " (kind=" << current->kind << ")";
+      failureReason = reason.str();
+      return false;
     }
 
     bool lowerCombinationalProceduralBlock(
