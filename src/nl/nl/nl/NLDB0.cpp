@@ -311,7 +311,8 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
       // LCOV_EXCL_STOP
     }
   }
-  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
+  std::string designName = design->getLibrary()->getName().getString() + "." + design->getName().getString();
+  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type: " + designName);
 }
 
 SNLDesign* NLDB0::getAssign() {
