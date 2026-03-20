@@ -55,6 +55,7 @@ jobs:
           --exclude '${{github.workspace}}/build/' \
           --gcov-ignore-parse-errors \
           --exclude-throw-branches \
+          --exclude-unreachable-branches \
           --xml coverage.xml
 
     - name: Upload coverage to Codecov
