@@ -19,18 +19,21 @@ jobs:
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    env:
+      CC:  clang
+      CXX: clang++
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: true
 
     - name: Install boost & capnproto
       # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev lcov libtbb-dev libtbb-dev clang
-      
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev lcov libtbb-dev clang
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -38,10 +41,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build -j 4 --config ${{env.BUILD_TYPE}}
-      env:
-        CC:   clang
-        CXX:  clang++
+      run: cmake --build ${{github.workspace}}/build -j $(nproc) --config ${{env.BUILD_TYPE}}
 
     - name: Test
       working-directory: ${{github.workspace}}/build
@@ -55,14 +55,12 @@ jobs:
            lcov --directory . --capture --output-file coverage.info
            lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/test/*' '*/naja/thirdparty/*'
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      uses: codecov/codecov-action@v5
       with:
         fail_ci_if_error: true
-        file: ${{github.workspace}}/build/coverage.info
+        files: ${{github.workspace}}/build/coverage.info
         disable_search: true
-        files: coverage.info
         flags: unittests
         name: codecov-umbrella
         verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}
