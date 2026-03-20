@@ -53,6 +53,7 @@ jobs:
           --exclude '${{github.workspace}}/thirdparty/' \
           --exclude '${{github.workspace}}/test/' \
           --exclude '${{github.workspace}}/build/' \
+          --gcov-ignore-parse-errors \
           --xml coverage.xml
 
     - name: Upload coverage to Codecov

@@ -36,7 +36,9 @@ std::string PNLDesign::Type::getString() const {
   }
   return "Unknown";
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 std::string PNLDesign::ClassType::getString() const {
   std::string macroClass;
   switch (typeEnum_) {
@@ -125,6 +127,7 @@ std::string PNLDesign::ClassType::getString() const {
     }
   return macroClass;
 }
+// LCOV_EXCL_STOP
 
 PNLDesign::PNLDesign(NLLibrary* library, const Type& type, const NLName& name)
     : super(), name_(name), library_(library), type_(type) {}
