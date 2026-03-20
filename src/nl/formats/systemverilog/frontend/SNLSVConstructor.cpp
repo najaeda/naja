@@ -148,7 +148,7 @@ std::optional<std::string> getDriverFailureDetails(
   if (!parseDiags.empty()) {
     parseDiags.sort(driver.sourceManager);
     const auto parseDetails =
-      slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags); // LCOV_EXCL_LINE
+      slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags);
     if (!parseDetails.empty()) {
       details << parseDetails;
       hasDetails = true;
