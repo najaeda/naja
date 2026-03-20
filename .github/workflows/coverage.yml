@@ -29,7 +29,7 @@ jobs:
 
     - name: Install boost & capnproto
       # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev lcov libtbb-dev
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev gcovr libtbb-dev
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -42,20 +42,24 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.  
+      # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -VV -C ${{env.BUILD_TYPE}}
-      
-    - name: lcov
+
+    - name: gcovr
       working-directory: ${{github.workspace}}/build
       run: |
-           lcov --directory . --capture --output-file coverage.info --ignore-errors mismatch --rc geninfo_unexecuted_blocks=1
-           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/test/*' '*/naja/thirdparty/*'
+        gcovr --root ${{github.workspace}} \
+          --exclude '${{github.workspace}}/thirdparty/' \
+          --exclude '${{github.workspace}}/test/' \
+          --exclude '${{github.workspace}}/build/' \
+          --xml coverage.xml
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         fail_ci_if_error: true
-        files: ${{github.workspace}}/build/coverage.info
+        files: ${{github.workspace}}/build/coverage.xml
         disable_search: true
         flags: unittests
         name: codecov-umbrella
