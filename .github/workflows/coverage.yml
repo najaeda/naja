@@ -48,7 +48,17 @@ jobs:
 
     - name: gcovr
       working-directory: ${{github.workspace}}/build
-      run: gcovr --root ${{github.workspace}} --config ${{github.workspace}}/.github/workflows/gcovr.cfg --xml coverage.xml
+      run: |
+        gcovr \
+          --root ${{github.workspace}} \
+          --config ${{github.workspace}}/.github/workflows/gcovr.cfg \
+          --exclude ${{github.workspace}}/thirdparty/ \
+          --exclude ${{github.workspace}}/test/ \
+          --exclude ${{github.workspace}}/build/ \
+          --exclude ${{github.workspace}}/src/apps/ \
+          --exclude ${{github.workspace}}/src/app_snippet/ \
+          --exclude ${{github.workspace}}/src/nl/snippets/ \
+          --xml coverage.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
