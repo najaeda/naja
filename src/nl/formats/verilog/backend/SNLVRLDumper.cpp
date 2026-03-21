@@ -1184,6 +1184,22 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (NLDB0::isMemory(instance->getModel())) {
+    emitNajaMemModel_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mem ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
   if (NLDB0::isGate(instance->getModel())) {
     auto gateName = NLDB0::getGateName(instance->getModel());
     o << gateName << " ";
@@ -1502,6 +1518,78 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   o << '\n';
 }
 
+void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
+  o << "module naja_mem #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter DEPTH = 1,\n";
+  o << "  parameter ABITS = 1,\n";
+  o << "  parameter RD_PORTS = 1,\n";
+  o << "  parameter WR_PORTS = 1,\n";
+  o << "  parameter RST_ENABLE = 0,\n";
+  o << "  parameter RST_ASYNC = 0,\n";
+  o << "  parameter RST_ACTIVE_LOW = 0,\n";
+  o << "  parameter INIT = 1'b0\n";
+  o << ") (\n";
+  o << "  input CLK,\n";
+  o << "  input RST,\n";
+  o << "  input [RD_PORTS*ABITS-1:0] RADDR,\n";
+  o << "  output reg [RD_PORTS*WIDTH-1:0] RDATA,\n";
+  o << "  input [WR_PORTS*ABITS-1:0] WADDR,\n";
+  o << "  input [WR_PORTS*WIDTH-1:0] WDATA,\n";
+  o << "  input [WR_PORTS-1:0] WE\n";
+  o << ");\n\n";
+  o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
+  o << "  integer i;\n";
+  o << "  integer rp;\n";
+  o << "  integer wp;\n";
+  o << "  integer later;\n";
+  o << "  reg allow_write;\n";
+  o << "  reg [ABITS-1:0] addr_value;\n\n";
+  o << "  task automatic load_init;\n";
+  o << "    integer init_idx;\n";
+  o << "    begin\n";
+  o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
+  o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "    end\n";
+  o << "  endtask\n\n";
+  o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
+  o << "  always @* begin\n";
+  o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
+  o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";
+  o << "      if (addr_value < DEPTH)\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_value];\n";
+  o << "      else\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
+  o << "    end\n";
+  o << "  end\n\n";
+  o << "  always @(posedge CLK";
+  o << " or ";
+  o << "posedge RST";
+  o << " or ";
+  o << "negedge RST";
+  o << ") begin\n";
+  o << "    if (RST_ASYNC && reset_active) begin\n";
+  o << "      load_init();\n";
+  o << "    end else begin\n";
+  o << "      if (!RST_ASYNC && reset_active)\n";
+  o << "        load_init();\n";
+  o << "      else begin\n";
+  o << "        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
+  o << "          allow_write = WE[wp];\n";
+  o << "          addr_value = WADDR[wp*ABITS +: ABITS];\n";
+  o << "          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
+  o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
+  o << "              allow_write = 1'b0;\n";
+  o << "          end\n";
+  o << "          if (allow_write && addr_value < DEPTH)\n";
+  o << "            mem[addr_value] <= WDATA[wp*WIDTH +: WIDTH];\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end\n";
+  o << "  end\n";
+  o << "endmodule //naja_mem\n";
+}
+
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   std::string context("dumpDesign(stream): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
@@ -1510,6 +1598,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpDesignStreamDuration,
     detailedPerfReport_.dumpDesignStreamCalls);
+  emitNajaMemModel_ = false;
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
@@ -1527,6 +1616,10 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   } else {
     dumpOneDesign(design, o);
   }
+  if (emitNajaMemModel_) {
+    o << '\n';
+    dumpNajaMemModel(o);
+  }
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
@@ -1537,8 +1630,13 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpLibraryStreamDuration,
     detailedPerfReport_.dumpLibraryStreamCalls);
+  emitNajaMemModel_ = false;
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
+  }
+  if (emitNajaMemModel_) {
+    o << '\n';
+    dumpNajaMemModel(o);
   }
 }
 

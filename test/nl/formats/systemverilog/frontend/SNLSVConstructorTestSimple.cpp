@@ -16,6 +16,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBitNet.h"
+#include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
@@ -16537,6 +16538,318 @@ endmodule
     }
   }
   EXPECT_EQ(2u, ffCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+    if (NLDB0::isMux2(inst->getModel())) {
+      ++mux2Count;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ(0u, mux2Count);
+
+  auto* model = memoryInst->getModel();
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(NLDB0::isMemory(model));
+  EXPECT_EQ("4", model->getParameter(NLName("DEPTH"))->getValue());
+  EXPECT_EQ("8", model->getParameter(NLName("WIDTH"))->getValue());
+
+  auto* widthParam = memoryInst->getInstParameter(NLName("WIDTH"));
+  auto* depthParam = memoryInst->getInstParameter(NLName("DEPTH"));
+  auto* abitsParam = memoryInst->getInstParameter(NLName("ABITS"));
+  auto* rdPortsParam = memoryInst->getInstParameter(NLName("RD_PORTS"));
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
+  ASSERT_NE(nullptr, widthParam);
+  ASSERT_NE(nullptr, depthParam);
+  ASSERT_NE(nullptr, abitsParam);
+  ASSERT_NE(nullptr, rdPortsParam);
+  ASSERT_NE(nullptr, wrPortsParam);
+  ASSERT_NE(nullptr, rstEnableParam);
+  EXPECT_EQ("8", widthParam->getValue());
+  EXPECT_EQ("4", depthParam->getValue());
+  EXPECT_EQ("2", abitsParam->getValue());
+  EXPECT_EQ("1", rdPortsParam->getValue());
+  EXPECT_EQ("1", wrPortsParam->getValue());
+  EXPECT_EQ("0", rstEnableParam->getValue());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "qd_memory_inference_supported");
+  std::ifstream dumpedFile(dumpedVerilog);
+  ASSERT_TRUE(dumpedFile.good());
+  std::string dumpedText{
+    std::istreambuf_iterator<char>(dumpedFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mem #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".DEPTH(4)"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("naja_mux2"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_reset_init_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      mem_q <= '{8'h00, 8'h11, 8'h22, 8'h33};
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_reset_init_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
+  auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
+  auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
+  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, rstEnableParam);
+  ASSERT_NE(nullptr, rstAsyncParam);
+  ASSERT_NE(nullptr, rstActiveLowParam);
+  ASSERT_NE(nullptr, initParam);
+  EXPECT_EQ("1", rstEnableParam->getValue());
+  EXPECT_EQ("1", rstAsyncParam->getValue());
+  EXPECT_EQ("1", rstActiveLowParam->getValue());
+  EXPECT_EQ("32'b00110011001000100001000100000000", initParam->getValue());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "qd_memory_inference_reset_init_supported");
+  std::ifstream dumpedFile(dumpedVerilog);
+  ASSERT_TRUE(dumpedFile.good());
+  std::string dumpedText{
+    std::istreambuf_iterator<char>(dumpedFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(std::string::npos, dumpedText.find("module naja_mem #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".RST_ENABLE(1)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".RST_ASYNC(1)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".RST_ACTIVE_LOW(1)"));
+  EXPECT_NE(
+    std::string::npos,
+    dumpedText.find(".INIT(32'b00110011001000100001000100000000)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceConditionalSideLogicSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_conditional_side_logic_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_conditional_side_logic_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_conditional_side_logic_supported(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic [1:0] addr_i,
+  input  logic [1:0] alt_addr_i,
+  input  logic [7:0] data_i,
+  input  logic [7:0] alt_data_i,
+  output logic [7:0] data_o,
+  output logic       side_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    side_o = sel_i;
+    mem_d = mem_q;
+    if (sel_i) begin
+      mem_d[addr_i] = data_i;
+    end else begin
+      mem_d[alt_addr_i] = alt_data_i;
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_conditional_side_logic_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("side_o")), nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceCaseAndForSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_case_and_for_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_case_and_for_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_case_and_for_supported(
+  input  logic       clk_i,
+  input  logic [1:0] mode_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  input  logic [1:0] token_i,
+  output logic [7:0] data_o,
+  output logic       flag_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    flag_o = 1'b0;
+    mem_d = mem_q;
+    case (mode_i)
+      2'b00: begin
+        for (int i = 0; i < 2; i++) begin
+          mem_d[i] = {7'b0, token_i[i]};
+        end
+      end
+      2'b01: begin
+        mem_d[addr_i] = data_i;
+      end
+      default: begin
+        flag_o = 1'b1;
+      end
+    endcase
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_case_and_for_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("flag_o")), nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("3", wrPortsParam->getValue());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {

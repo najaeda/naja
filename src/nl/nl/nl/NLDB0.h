@@ -4,6 +4,7 @@
 
 
 #pragma once
+#include <cstddef>
 #include "SNLTruthTable.h"
 
 namespace naja::NL {
@@ -29,6 +30,32 @@ class SNLBusTerm;
 class NLDB0 {
   friend class NLUniverse;
   public:
+    enum class MemoryResetMode {
+      None,
+      AsyncLow,
+      AsyncHigh,
+      SyncLow,
+      SyncHigh
+    };
+
+    struct MemorySignature {
+      size_t          width      {0};
+      size_t          depth      {0};
+      size_t          abits      {0};
+      size_t          readPorts  {0};
+      size_t          writePorts {0};
+      MemoryResetMode resetMode  {MemoryResetMode::None};
+
+      bool operator==(const MemorySignature& other) const {
+        return width == other.width &&
+               depth == other.depth &&
+               abits == other.abits &&
+               readPorts == other.readPorts &&
+               writePorts == other.writePorts &&
+               resetMode == other.resetMode;
+      }
+    };
+
     class GateType {
       public:
         enum GateTypeEnum {
@@ -53,6 +80,7 @@ class NLDB0 {
     static NLLibrary* getDB0RootLibrary();
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
+    static bool isMemory(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -130,6 +158,7 @@ class NLDB0 {
     static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
     ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
     static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
+    static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };

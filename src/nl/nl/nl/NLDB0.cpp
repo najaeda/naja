@@ -10,14 +10,128 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
+#include "SNLParameter.h"
 #include "SNLDesignModeling.h"
 
 #include <cstdint>
 #include <limits>
+#include <sstream>
 #if defined(_MSC_VER)
   #include <intrin.h>
 #endif
 namespace {
+  constexpr const char* MemoryPrefix = "naja_mem__";
+
+  std::string getMemoryResetModeSuffix(naja::NL::NLDB0::MemoryResetMode mode) {
+    switch (mode) {
+      case naja::NL::NLDB0::MemoryResetMode::None:
+        return "none";
+      case naja::NL::NLDB0::MemoryResetMode::AsyncLow:
+        return "async_low";
+      case naja::NL::NLDB0::MemoryResetMode::AsyncHigh:
+        return "async_high";
+      case naja::NL::NLDB0::MemoryResetMode::SyncLow:
+        return "sync_low";
+      case naja::NL::NLDB0::MemoryResetMode::SyncHigh:
+        return "sync_high";
+    }
+    return "unknown"; // LCOV_EXCL_LINE
+  }
+
+  std::string getMemoryInternalName(const naja::NL::NLDB0::MemorySignature& signature) {
+    std::ostringstream name;
+    name << MemoryPrefix
+         << "w" << signature.width
+         << "_d" << signature.depth
+         << "_a" << signature.abits
+         << "_r" << signature.readPorts
+         << "_w" << signature.writePorts
+         << "_rst_" << getMemoryResetModeSuffix(signature.resetMode);
+    return name.str();
+  }
+
+  void createMemoryPrimitive(
+    naja::NL::NLLibrary* rootLibrary,
+    const naja::NL::NLDB0::MemorySignature& signature) {
+    using namespace naja::NL;
+    auto memory = SNLDesign::create(
+      rootLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getMemoryInternalName(signature)));
+
+    SNLParameter::create(
+      memory, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(signature.width));
+    SNLParameter::create(
+      memory, NLName("DEPTH"), SNLParameter::Type::Decimal, std::to_string(signature.depth));
+    SNLParameter::create(
+      memory, NLName("ABITS"), SNLParameter::Type::Decimal, std::to_string(signature.abits));
+    SNLParameter::create(
+      memory,
+      NLName("RD_PORTS"),
+      SNLParameter::Type::Decimal,
+      std::to_string(signature.readPorts));
+    SNLParameter::create(
+      memory,
+      NLName("WR_PORTS"),
+      SNLParameter::Type::Decimal,
+      std::to_string(signature.writePorts));
+    SNLParameter::create(
+      memory,
+      NLName("RST_ENABLE"),
+      SNLParameter::Type::Decimal,
+      signature.resetMode == NLDB0::MemoryResetMode::None ? "0" : "1");
+    SNLParameter::create(
+      memory,
+      NLName("RST_ASYNC"),
+      SNLParameter::Type::Decimal,
+      (signature.resetMode == NLDB0::MemoryResetMode::AsyncLow ||
+       signature.resetMode == NLDB0::MemoryResetMode::AsyncHigh)
+        ? "1"
+        : "0");
+    SNLParameter::create(
+      memory,
+      NLName("RST_ACTIVE_LOW"),
+      SNLParameter::Type::Decimal,
+      (signature.resetMode == NLDB0::MemoryResetMode::AsyncLow ||
+       signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
+        ? "1"
+        : "0");
+    SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "1'b0");
+
+    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
+    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+    SNLBusTerm::create(
+      memory,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1),
+      0,
+      NLName("RADDR"));
+    SNLBusTerm::create(
+      memory,
+      SNLTerm::Direction::Output,
+      static_cast<NLID::Bit>(signature.readPorts * signature.width - 1),
+      0,
+      NLName("RDATA"));
+    SNLBusTerm::create(
+      memory,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1),
+      0,
+      NLName("WADDR"));
+    SNLBusTerm::create(
+      memory,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.writePorts * signature.width - 1),
+      0,
+      NLName("WDATA"));
+    SNLBusTerm::create(
+      memory,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.writePorts - 1),
+      0,
+      NLName("WE"));
+  }
+
   inline bool parity64(uint64_t x) {
 #if defined(_MSC_VER)
     return (__popcnt64(x) & 1) != 0;
@@ -231,7 +345,18 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
   return design and isDB0Library(design->getLibrary());
 }
 
+bool NLDB0::isMemory(const SNLDesign* design) {
+  if (!isDB0Primitive(design) || !design || design->isUnnamed()) {
+    return false;
+  }
+  const auto& name = design->getName().getString();
+  return name.rfind(MemoryPrefix, 0) == 0;
+}
+
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isMemory(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
+  }
   if (isAssign(design)) {
     return SNLTruthTable::Buf();
   }
@@ -340,6 +465,23 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
     }
   }
   throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
+}
+
+SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
+  auto* primitives = getDB0RootLibrary();
+  if (!primitives) {
+    return nullptr;
+  }
+  if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
+      signature.readPorts == 0 || signature.writePorts == 0) {
+    throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
+  }
+  const auto name = NLName(getMemoryInternalName(signature));
+  if (auto* existing = primitives->getSNLDesign(name)) {
+    return existing;
+  }
+  createMemoryPrimitive(primitives, signature);
+  return primitives->getSNLDesign(name);
 }
 
 SNLDesign* NLDB0::getAssign() {

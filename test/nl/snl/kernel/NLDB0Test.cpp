@@ -160,6 +160,59 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   EXPECT_EQ(0xCAULL, bits);
 }
 
+TEST_F(NLDB0Test, testMemoryPrimitive) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::MemorySignature signature;
+  signature.width = 8;
+  signature.depth = 16;
+  signature.abits = 4;
+  signature.readPorts = 2;
+  signature.writePorts = 3;
+  signature.resetMode = NLDB0::MemoryResetMode::AsyncLow;
+
+  auto* memory0 = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(nullptr, memory0);
+  EXPECT_TRUE(memory0->isPrimitive());
+  EXPECT_TRUE(NLDB0::isDB0Primitive(memory0));
+  EXPECT_TRUE(NLDB0::isMemory(memory0));
+  EXPECT_EQ(NLName("naja_mem__w8_d16_a4_r2_w3_rst_async_low"), memory0->getName());
+
+  auto* memory1 = NLDB0::getOrCreateMemory(signature);
+  EXPECT_EQ(memory0, memory1);
+
+  ASSERT_NE(nullptr, memory0->getScalarTerm(NLName("CLK")));
+  ASSERT_NE(nullptr, memory0->getScalarTerm(NLName("RST")));
+  auto* raddr = memory0->getBusTerm(NLName("RADDR"));
+  auto* rdata = memory0->getBusTerm(NLName("RDATA"));
+  auto* waddr = memory0->getBusTerm(NLName("WADDR"));
+  auto* wdata = memory0->getBusTerm(NLName("WDATA"));
+  auto* we = memory0->getBusTerm(NLName("WE"));
+  ASSERT_NE(nullptr, raddr);
+  ASSERT_NE(nullptr, rdata);
+  ASSERT_NE(nullptr, waddr);
+  ASSERT_NE(nullptr, wdata);
+  ASSERT_NE(nullptr, we);
+  EXPECT_EQ(8, raddr->getWidth());
+  EXPECT_EQ(16, rdata->getWidth());
+  EXPECT_EQ(12, waddr->getWidth());
+  EXPECT_EQ(24, wdata->getWidth());
+  EXPECT_EQ(3, we->getWidth());
+
+  EXPECT_EQ("8", memory0->getParameter(NLName("WIDTH"))->getValue());
+  EXPECT_EQ("16", memory0->getParameter(NLName("DEPTH"))->getValue());
+  EXPECT_EQ("4", memory0->getParameter(NLName("ABITS"))->getValue());
+  EXPECT_EQ("2", memory0->getParameter(NLName("RD_PORTS"))->getValue());
+  EXPECT_EQ("3", memory0->getParameter(NLName("WR_PORTS"))->getValue());
+  EXPECT_EQ("1", memory0->getParameter(NLName("RST_ENABLE"))->getValue());
+  EXPECT_EQ("1", memory0->getParameter(NLName("RST_ASYNC"))->getValue());
+  EXPECT_EQ("1", memory0->getParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+  EXPECT_EQ("1'b0", memory0->getParameter(NLName("INIT"))->getValue());
+
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(memory0), NLException);
+}
+
 TEST_F(NLDB0Test, testDFFRN) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
