@@ -9,6 +9,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
+#include <sstream>
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -56,6 +57,13 @@ const SNLRTLInfos* getRTLInfos(const NLObject* object) {
 bool hasRTLInfo(const NLObject* object, const std::string& name) {
   auto rtlInfos = getRTLInfos(object);
   return rtlInfos && rtlInfos->hasInfo(NLName(name));
+}
+
+std::string readTextFile(const std::filesystem::path& path) {
+  std::ifstream file(path);
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
 }
 
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
@@ -16621,14 +16629,11 @@ endmodule
   EXPECT_EQ("0", rstEnableParam->getValue());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "qd_memory_inference_supported");
-  std::ifstream dumpedFile(dumpedVerilog);
-  ASSERT_TRUE(dumpedFile.good());
-  std::string dumpedText{
-    std::istreambuf_iterator<char>(dumpedFile),
-    std::istreambuf_iterator<char>()};
+  std::string dumpedText = readTextFile(dumpedVerilog);
   EXPECT_NE(std::string::npos, dumpedText.find("naja_mem #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
   EXPECT_NE(std::string::npos, dumpedText.find(".DEPTH(4)"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("module naja_mem #("));
   EXPECT_EQ(std::string::npos, dumpedText.find("naja_mux2"));
 }
 
@@ -16701,18 +16706,21 @@ endmodule
   EXPECT_EQ("32'b00110011001000100001000100000000", initParam->getValue());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "qd_memory_inference_reset_init_supported");
-  std::ifstream dumpedFile(dumpedVerilog);
-  ASSERT_TRUE(dumpedFile.good());
-  std::string dumpedText{
-    std::istreambuf_iterator<char>(dumpedFile),
-    std::istreambuf_iterator<char>()};
-  EXPECT_NE(std::string::npos, dumpedText.find("module naja_mem #("));
+  std::string dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mem #("));
+  EXPECT_EQ(std::string::npos, dumpedText.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ASYNC(1)"));
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ACTIVE_LOW(1)"));
   EXPECT_NE(
     std::string::npos,
     dumpedText.find(".INIT(32'b00110011001000100001000100000000)"));
+
+  const auto primitiveDumpPath = dumpedVerilog.parent_path() / "primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitiveDumpPath));
+  std::string primitiveDump = readTextFile(primitiveDumpPath);
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceConditionalSideLogicSupported) {
@@ -16850,6 +16858,534 @@ endmodule
   auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
   ASSERT_NE(nullptr, wrPortsParam);
   EXPECT_EQ("3", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceSharedSequentialResetLoopSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_shared_sequential_reset_loop_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_shared_sequential_reset_loop_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_shared_sequential_reset_loop_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       en_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o,
+  output logic       flag_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+  logic       flag_q;
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_comb begin
+    mem_next = mem_d;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      flag_q <= 1'b0;
+      for (int i = 0; i < 4; i++) begin
+        if (i == 0) begin
+          mem_q[i] <= 8'h11;
+        end else if (i == 1) begin
+          mem_q[i] <= 8'h22;
+        end else begin
+          mem_q[i] <= 8'h00;
+        end
+      end
+    end else begin
+      flag_q <= en_i;
+      mem_q <= mem_next;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+  assign flag_o = flag_q;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_shared_sequential_reset_loop_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("flag_o")), nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
+  auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
+  auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
+  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, rstEnableParam);
+  ASSERT_NE(nullptr, rstAsyncParam);
+  ASSERT_NE(nullptr, rstActiveLowParam);
+  ASSERT_NE(nullptr, initParam);
+  EXPECT_EQ("1", rstEnableParam->getValue());
+  EXPECT_EQ("1", rstAsyncParam->getValue());
+  EXPECT_EQ("1", rstActiveLowParam->getValue());
+  EXPECT_EQ("32'b00000000000000000010001000010001", initParam->getValue());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top, "qd_memory_inference_shared_sequential_reset_loop_supported");
+  std::string dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mem #("));
+  EXPECT_EQ(std::string::npos, dumpedText.find("module naja_mem #("));
+  EXPECT_NE(
+    std::string::npos,
+    dumpedText.find(".INIT(32'b00000000000000000010001000010001)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDNextMemoryInferenceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_next_memory_inference_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_next_memory_inference_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_next_memory_inference_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_comb begin
+    mem_next = mem_d;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_next;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_next_memory_inference_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("1", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDNextIndexedCommitMemoryInferenceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_next_indexed_commit_memory_inference_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_next_indexed_commit_memory_inference_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_next_indexed_commit_memory_inference_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      if (i < 2) begin
+        mem_next[i] = mem_d[i];
+      end else begin
+        mem_next[i] = mem_q[i];
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_next;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_next_indexed_commit_memory_inference_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("1", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDNextLocalCommitFieldFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_next_local_commit_field_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_next_local_commit_field_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_next_local_commit_field_fallback_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [1:0] mode_i,
+  input  logic [1:0] access_i,
+  input  logic [3:0] payload_i,
+  output logic [7:0] data_o
+);
+  typedef struct packed {
+    logic [1:0] mode;
+    logic [1:0] access;
+    logic [3:0] payload;
+  } entry_t;
+
+  entry_t mem_q [0:3];
+  entry_t mem_d [0:3];
+  entry_t mem_next [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i].mode = mode_i;
+    mem_d[addr_i].access = access_i;
+    mem_d[addr_i].payload = payload_i;
+  end
+
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      mem_next[i] = mem_d[i];
+      if (mem_d[i].mode == 2'b11) begin
+        mem_next[i].mode = mem_q[i].mode;
+      end
+      if (mem_d[i].access == 2'b01) begin
+        mem_next[i] = mem_q[i];
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_next;
+  end
+
+  assign data_o = {mem_q[addr_i].mode, mem_q[addr_i].access, mem_q[addr_i].payload};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_next_local_commit_field_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  auto* widthParam = memoryInst->getInstParameter(NLName("WIDTH"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  ASSERT_NE(nullptr, widthParam);
+  EXPECT_EQ("3", wrPortsParam->getValue());
+  EXPECT_EQ("8", widthParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferencePartialFieldWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_partial_field_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_partial_field_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_partial_field_writes_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [5:0] payload_i,
+  output logic [5:0] payload_o,
+  output logic [1:0] reserved_o
+);
+  typedef struct packed {
+    logic [5:0] payload;
+    logic [1:0] reserved;
+  } entry_t;
+
+  entry_t mem_q [0:3];
+  entry_t mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i].reserved = 2'b00;
+    mem_d[addr_i].payload = payload_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign payload_o = mem_q[addr_i].payload;
+  assign reserved_o = mem_q[addr_i].reserved;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_partial_field_writes_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  auto* widthParam = memoryInst->getInstParameter(NLName("WIDTH"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  ASSERT_NE(nullptr, widthParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+  EXPECT_EQ("8", widthParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferencePartialSliceWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_partial_slice_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_partial_slice_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_partial_slice_writes_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [3:0] upper_i,
+  input  logic [1:0] lower_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i][7:4] = upper_i;
+    mem_d[addr_i][1:0] = lower_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_partial_slice_writes_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNestedInferredMemoryModulesKeepPerDesignStateSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "nested_inferred_memory_modules_keep_per_design_state_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "nested_inferred_memory_modules_keep_per_design_state_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module leaf_mem(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+
+module mid_wrap(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  leaf_mem u_leaf (
+    .clk_i (clk_i),
+    .addr_i(addr_i),
+    .data_i(data_i),
+    .data_o(data_o)
+  );
+endmodule
+
+module top_wrap(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  mid_wrap u_mid (
+    .clk_i (clk_i),
+    .addr_i(addr_i),
+    .data_i(data_i),
+    .data_o(data_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("top_wrap"));
+  auto* mid = library_->getSNLDesign(NLName("mid_wrap"));
+  auto* leaf = library_->getSNLDesign(NLName("leaf_mem"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, mid);
+  ASSERT_NE(nullptr, leaf);
+
+  size_t topMemoryCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ++topMemoryCount;
+    }
+  }
+  EXPECT_EQ(0, topMemoryCount);
+
+  size_t midMemoryCount = 0;
+  for (auto* inst : mid->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ++midMemoryCount;
+    }
+  }
+  EXPECT_EQ(0, midMemoryCount);
+
+  size_t leafMemoryCount = 0;
+  for (auto* inst : leaf->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ++leafMemoryCount;
+    }
+  }
+  EXPECT_EQ(1, leafMemoryCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {

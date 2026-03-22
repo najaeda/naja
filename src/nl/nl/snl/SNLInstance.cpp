@@ -42,6 +42,28 @@ void printTerms(const naja::NL::SNLInstance::Terms& terms, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
+std::string describeDesign(const naja::NL::SNLDesign* design) {
+  return design ? design->getString() : std::string("null");
+}
+
+std::string describeBitTerm(const naja::NL::SNLBitTerm* term) {
+  if (!term) {
+    return "null";
+  }
+  std::ostringstream stream;
+  stream << term->getString() << " [design=" << describeDesign(term->getDesign()) << "]";
+  return stream.str();
+}
+
+std::string describeBitNet(const naja::NL::SNLBitNet* net) {
+  if (!net) {
+    return "null";
+  }
+  std::ostringstream stream;
+  stream << net->getString() << " [design=" << describeDesign(net->getDesign()) << "]";
+  return stream.str();
+}
+
 }
 
 namespace naja::NL {
@@ -215,11 +237,24 @@ void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
     SNLBitTerm* bitTerm = terms[i];
     assert(bitTerm);
     if (getModel() not_eq bitTerm->getDesign()) {
-      throw NLException("setTermsNets error with incompatible instance and terminal");
+      std::ostringstream reason;
+      reason << "setTermsNets error with incompatible instance and terminal at index " << i
+             << ": instance=" << getString()
+             << " [design=" << describeDesign(getDesign())
+             << ", model=" << describeDesign(getModel()) << "]"
+             << ", terminal=" << describeBitTerm(bitTerm);
+      throw NLException(reason.str());
     }
     auto bitNet = nets[i];
     if (bitNet and bitNet->getDesign() not_eq getDesign()) {
-      throw NLException("setTermsNets error with incompatible instance and net");
+      std::ostringstream reason;
+      reason << "setTermsNets error with incompatible instance and net at index " << i
+             << ": instance=" << getString()
+             << " [design=" << describeDesign(getDesign())
+             << ", model=" << describeDesign(getModel()) << "]"
+             << ", terminal=" << describeBitTerm(bitTerm)
+             << ", net=" << describeBitNet(bitNet);
+      throw NLException(reason.str());
     }
     SNLInstTerm* instTerm = getInstTerm(bitTerm);
     instTerm->setNet(bitNet);

@@ -1616,10 +1616,6 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   } else {
     dumpOneDesign(design, o);
   }
-  if (emitNajaMemModel_) {
-    o << '\n';
-    dumpNajaMemModel(o);
-  }
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
@@ -1634,10 +1630,6 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
-  if (emitNajaMemModel_) {
-    o << '\n';
-    dumpNajaMemModel(o);
-  }
 }
 
 std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
@@ -1650,6 +1642,13 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   return "top.v";
 } 
 
+std::string SNLVRLDumper::getPrimitiveFileName() const {
+  if (configuration_.hasLibraryFileName()) {
+    return configuration_.getLibraryFileName();
+  }
+  return "primitives.v";
+}
+
 std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
@@ -1659,6 +1658,19 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   }
   return "library.v";
 } 
+
+void SNLVRLDumper::dumpNajaMemPrimitiveFile(const std::filesystem::path& path) {
+  std::filesystem::path filePath = path/getPrimitiveFileName();
+  std::ofstream outFile;
+  outFile.open(filePath);
+  NajaUtils::createBanner(
+    outFile,
+    "Verilog file for naja primitives",
+    "//"
+  );
+  outFile << '\n';
+  dumpNajaMemModel(outFile);
+}
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
   std::string context("dumpDesign(path): ");
@@ -1694,6 +1706,9 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     );
     outFile << '\n';
     dumpDesign(design, outFile);
+    if (emitNajaMemModel_) {
+      dumpNajaMemPrimitiveFile(path);
+    }
   } else {
     SNLVRLDumper streamDumper;
     SNLVRLDumper::Configuration configuration(configuration_);
@@ -1701,6 +1716,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     streamDumper.setConfiguration(configuration);
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+    bool emitNajaMemModel = false;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
       std::filesystem::path filePath = path/getTopFileName(design);
@@ -1713,6 +1729,10 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       );
       outFile << '\n';
       streamDumper.dumpDesign(design, outFile);
+      emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
+    }
+    if (emitNajaMemModel) {
+      dumpNajaMemPrimitiveFile(path);
     }
   }
 }
@@ -1750,6 +1770,9 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
     );
     outFile << '\n';
     dumpLibrary(library, outFile);
+    if (emitNajaMemModel_) {
+      dumpNajaMemPrimitiveFile(path);
+    }
   } else {
     for (auto design: library->getSNLDesigns()) {
       dumpDesign(design, path);

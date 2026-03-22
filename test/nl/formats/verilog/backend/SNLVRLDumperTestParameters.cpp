@@ -32,6 +32,17 @@ using namespace naja::NL;
 #define SNL_VRL_DUMPER_REFERENCES_PATH "Undefined"
 #endif
 
+namespace {
+
+std::string readTextFile(const std::filesystem::path& path) {
+  std::ifstream file(path);
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
+}
+
+}
+
 class SNLVRLDumperTestParameters: public ::testing::Test {
   protected:
     void SetUp() override {
@@ -41,6 +52,53 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       model_ = SNLDesign::create(library, NLName("model"));
       top_ = SNLDesign::create(library, NLName("top"));
     }
+
+    SNLInstance* createMemoryInstance() {
+      NLDB0::MemorySignature signature;
+      signature.width = 8;
+      signature.depth = 16;
+      signature.abits = 4;
+      signature.readPorts = 2;
+      signature.writePorts = 2;
+      signature.resetMode = NLDB0::MemoryResetMode::AsyncHigh;
+
+      auto* memory = NLDB0::getOrCreateMemory(signature);
+      if (nullptr == memory) {
+        return nullptr;
+      }
+
+      auto* clk = SNLScalarNet::create(top_, NLName("clk"));
+      auto* rst = SNLScalarNet::create(top_, NLName("rst"));
+      auto* raddr = SNLBusNet::create(top_, 7, 0, NLName("raddr"));
+      auto* rdata = SNLBusNet::create(top_, 15, 0, NLName("rdata"));
+      auto* waddr = SNLBusNet::create(top_, 7, 0, NLName("waddr"));
+      auto* wdata = SNLBusNet::create(top_, 15, 0, NLName("wdata"));
+      auto* we = SNLBusNet::create(top_, 1, 0, NLName("we"));
+
+      auto* ins = SNLInstance::create(top_, memory, NLName("mem0"));
+      ins->setTermNet(memory->getScalarTerm(NLName("CLK")), clk);
+      ins->setTermNet(memory->getScalarTerm(NLName("RST")), rst);
+      ins->setTermNet(memory->getBusTerm(NLName("RADDR")), raddr);
+      ins->setTermNet(memory->getBusTerm(NLName("RDATA")), rdata);
+      ins->setTermNet(memory->getBusTerm(NLName("WADDR")), waddr);
+      ins->setTermNet(memory->getBusTerm(NLName("WDATA")), wdata);
+      ins->setTermNet(memory->getBusTerm(NLName("WE")), we);
+
+      SNLInstParameter::create(ins, memory->getParameter(NLName("WIDTH")), "8");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("DEPTH")), "16");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("ABITS")), "4");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("RD_PORTS")), "2");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("WR_PORTS")), "2");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ENABLE")), "1");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ASYNC")), "1");
+      SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ACTIVE_LOW")), "0");
+      SNLInstParameter::create(
+        ins,
+        memory->getParameter(NLName("INIT")),
+        "128'h00112233445566778899AABBCCDDEEFF");
+      return ins;
+    }
+
     void TearDown() override {
       NLUniverse::get()->destroy();
     }
@@ -119,46 +177,7 @@ TEST_F(SNLVRLDumperTestParameters, testErrors1) {
 }
 
 TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
-  NLDB0::MemorySignature signature;
-  signature.width = 8;
-  signature.depth = 16;
-  signature.abits = 4;
-  signature.readPorts = 2;
-  signature.writePorts = 2;
-  signature.resetMode = NLDB0::MemoryResetMode::AsyncHigh;
-
-  auto* memory = NLDB0::getOrCreateMemory(signature);
-  ASSERT_NE(nullptr, memory);
-
-  auto* clk = SNLScalarNet::create(top_, NLName("clk"));
-  auto* rst = SNLScalarNet::create(top_, NLName("rst"));
-  auto* raddr = SNLBusNet::create(top_, 7, 0, NLName("raddr"));
-  auto* rdata = SNLBusNet::create(top_, 15, 0, NLName("rdata"));
-  auto* waddr = SNLBusNet::create(top_, 7, 0, NLName("waddr"));
-  auto* wdata = SNLBusNet::create(top_, 15, 0, NLName("wdata"));
-  auto* we = SNLBusNet::create(top_, 1, 0, NLName("we"));
-
-  auto* ins = SNLInstance::create(top_, memory, NLName("mem0"));
-  ins->setTermNet(memory->getScalarTerm(NLName("CLK")), clk);
-  ins->setTermNet(memory->getScalarTerm(NLName("RST")), rst);
-  ins->setTermNet(memory->getBusTerm(NLName("RADDR")), raddr);
-  ins->setTermNet(memory->getBusTerm(NLName("RDATA")), rdata);
-  ins->setTermNet(memory->getBusTerm(NLName("WADDR")), waddr);
-  ins->setTermNet(memory->getBusTerm(NLName("WDATA")), wdata);
-  ins->setTermNet(memory->getBusTerm(NLName("WE")), we);
-
-  SNLInstParameter::create(ins, memory->getParameter(NLName("WIDTH")), "8");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("DEPTH")), "16");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("ABITS")), "4");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("RD_PORTS")), "2");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("WR_PORTS")), "2");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ENABLE")), "1");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ASYNC")), "1");
-  SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ACTIVE_LOW")), "0");
-  SNLInstParameter::create(
-    ins,
-    memory->getParameter(NLName("INIT")),
-    "128'h00112233445566778899AABBCCDDEEFF");
+  ASSERT_NE(nullptr, createMemoryInstance());
 
   std::ostringstream out;
   SNLVRLDumper dumper;
@@ -177,7 +196,34 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_NE(
     std::string::npos,
     dumped.find(".INIT(128'h00112233445566778899AABBCCDDEEFF)"));
-  EXPECT_NE(std::string::npos, dumped.find("module naja_mem #("));
-  EXPECT_NE(std::string::npos, dumped.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
-  EXPECT_NE(std::string::npos, dumped.find("if (allow_write && addr_value < DEPTH)"));
+  EXPECT_EQ(std::string::npos, dumped.find("module naja_mem #("));
+  EXPECT_EQ(std::string::npos, dumped.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
+  EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_value < DEPTH)"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
+  ASSERT_NE(nullptr, createMemoryInstance());
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testMemoryPrimitiveFileDump";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.dumpDesign(top_, outPath);
+
+  const auto topDump = readTextFile(outPath / "top.v");
+  EXPECT_NE(std::string::npos, topDump.find("naja_mem #("));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_mem #("));
+
+  const auto primitivePath = outPath / "primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitivePath));
+  const auto primitiveDump = readTextFile(primitivePath);
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (allow_write && addr_value < DEPTH)"));
 }

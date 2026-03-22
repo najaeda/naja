@@ -202,6 +202,7 @@ class SNLVRLDumper {
     void finalizeDetailedPerfSession();
 
     std::string getTopFileName(const SNLDesign* top) const;
+    std::string getPrimitiveFileName() const;
     std::string getLibraryFileName(const NLLibrary* library) const;
     struct DesignAnonymousNaming {
       using TermNames = std::map<NLID::DesignObjectID, std::string>;
@@ -226,6 +227,7 @@ class SNLVRLDumper {
     static std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpNajaMemModel(std::ostream& o);
+    void dumpNajaMemPrimitiveFile(const std::filesystem::path& path);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
