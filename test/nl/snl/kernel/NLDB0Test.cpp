@@ -352,6 +352,42 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_EQ(raddr->getWidth() / 2, readInputs.size());
 }
 
+TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto checkMemory = [](NLDB0::MemoryResetMode mode,
+                        const char* expectedName,
+                        const char* expectedAsync,
+                        const char* expectedActiveLow) {
+    NLDB0::MemorySignature signature;
+    signature.width = 4;
+    signature.depth = 8;
+    signature.abits = 3;
+    signature.readPorts = 1;
+    signature.writePorts = 1;
+    signature.resetMode = mode;
+
+    auto* memory = NLDB0::getOrCreateMemory(signature);
+    ASSERT_NE(nullptr, memory);
+    EXPECT_EQ(NLName(expectedName), memory->getName());
+    EXPECT_EQ("1", memory->getParameter(NLName("RST_ENABLE"))->getValue());
+    EXPECT_EQ(expectedAsync, memory->getParameter(NLName("RST_ASYNC"))->getValue());
+    EXPECT_EQ(expectedActiveLow, memory->getParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+  };
+
+  checkMemory(
+    NLDB0::MemoryResetMode::SyncLow,
+    "naja_mem__w4_d8_a3_r1_w1_rst_sync_low",
+    "0",
+    "1");
+  checkMemory(
+    NLDB0::MemoryResetMode::SyncHigh,
+    "naja_mem__w4_d8_a3_r1_w1_rst_sync_high",
+    "0",
+    "0");
+}
+
 TEST_F(NLDB0Test, testDFFRN) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -442,6 +478,7 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getFAOutputS());
   EXPECT_EQ(nullptr, NLDB0::getFAOutputCO());
   EXPECT_EQ(nullptr, NLDB0::getMux2());
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateMux2(2));
   EXPECT_FALSE(NLDB0::isMux2(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getMux2InputA());
   EXPECT_EQ(nullptr, NLDB0::getMux2InputB());
@@ -478,6 +515,13 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFSESet());
   EXPECT_EQ(nullptr, NLDB0::getDFFSEOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
+  NLDB0::MemorySignature signature;
+  signature.width = 4;
+  signature.depth = 8;
+  signature.abits = 3;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateMemory(signature));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 
@@ -501,6 +545,15 @@ TEST_F(NLDB0Test, testErrors) {
   EXPECT_FALSE(NLDB0::isNOutputGate(model));
   EXPECT_FALSE(NLDB0::isGate(model));
   EXPECT_EQ(std::string(), NLDB0::getGateName(model));
+  EXPECT_EQ(nullptr, NLDB0::getGateSingleTerm(model));
+  EXPECT_EQ(nullptr, NLDB0::getGateNTerms(model));
+  NLDB0::MemorySignature invalidMemorySignature;
+  invalidMemorySignature.depth = 8;
+  invalidMemorySignature.abits = 3;
+  invalidMemorySignature.readPorts = 1;
+  invalidMemorySignature.writePorts = 1;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(invalidMemorySignature), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateMux2(0), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Unknown, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 0), NLException);

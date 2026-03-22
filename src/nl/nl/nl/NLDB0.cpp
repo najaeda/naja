@@ -45,12 +45,9 @@ namespace {
     return name.str();
   }
 
-  naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm* busTerm) {
+  naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm& busTerm) {
     naja::NL::SNLDesignModeling::BitTerms bitTerms;
-    if (!busTerm) {
-      return bitTerms;
-    }
-    for (auto* bitTerm: busTerm->getBits()) {
+    for (auto* bitTerm: busTerm.getBits()) {
       bitTerms.push_back(bitTerm);
     }
     return bitTerms;
@@ -172,13 +169,13 @@ namespace {
     auto* waddr = memory->getBusTerm(NLName("WADDR"));
     auto* wdata = memory->getBusTerm(NLName("WDATA"));
     auto* we = memory->getBusTerm(NLName("WE"));
-    auto rdataBits = collectBitTerms(rdata);
+    auto rdataBits = collectBitTerms(*rdata);
     SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
 
-    SNLDesignModeling::BitTerms writeInputs = collectBitTerms(waddr);
-    auto wdataBits = collectBitTerms(wdata);
+    SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
+    auto wdataBits = collectBitTerms(*wdata);
     writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
-    auto weBits = collectBitTerms(we);
+    auto weBits = collectBitTerms(*we);
     writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
     writeInputs.push_back(rst);
     SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
@@ -543,7 +540,7 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
       // LCOV_EXCL_STOP
     }
   }
-  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
+  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type"); // LCOV_EXCL_LINE
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
