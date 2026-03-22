@@ -85,6 +85,34 @@ std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
   return outPath / fileName;
 }
 
+size_t getMux2Width(const SNLInstance* instance) {
+  if (!instance || !NLDB0::isMux2(instance->getModel())) {
+    return 0;
+  }
+  if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthInstParam->getValue()));
+  }
+  auto* widthParam = instance->getModel()->getParameter(NLName("WIDTH"));
+  if (!widthParam) {
+    return 0;
+  }
+  return static_cast<size_t>(std::stoull(widthParam->getValue()));
+}
+
+size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isMux2(inst->getModel())) {
+      continue;
+    }
+    if (width != 0 && getMux2Width(inst) != width) {
+      continue;
+    }
+    ++count;
+  }
+  return count;
+}
+
 void expectUnsupportedConstruct(
   SNLSVConstructor& constructor,
   const std::filesystem::path& svPath,
@@ -5775,16 +5803,104 @@ endmodule
   ASSERT_NE(reqOut, nullptr);
   EXPECT_EQ(9, reqOut->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 9));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 
-  size_t mux2Count = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    }
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "continuous_conditional_member_select_supported");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(9)"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("naja_mux2__w9"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseVectorUsesWideMuxPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_case_vector_wide_mux_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
   }
-  EXPECT_EQ(9u, mux2Count);
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_case_vector_wide_mux_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_vector_wide_mux_supported(
+  input  logic       sel,
+  input  logic [7:0] a,
+  input  logic [7:0] b,
+  output logic [7:0] y
+);
+  always_comb begin
+    case (sel)
+      1'b0: y = a;
+      default: y = b;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_case_vector_wide_mux_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "always_comb_case_vector_wide_mux_supported");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombDynamicPackedReadWriteUsesWideMuxPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_dynamic_packed_read_write_wide_mux_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_dynamic_packed_read_write_wide_mux_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_dynamic_packed_read_write_wide_mux_supported(
+  input  logic       idx,
+  input  logic [7:0] data_i,
+  input  logic [1:0][7:0] state_i,
+  output logic [7:0] selected_o,
+  output logic [1:0][7:0] updated_o
+);
+  always_comb begin
+    updated_o = state_i;
+    updated_o[idx] = data_i;
+    selected_o = state_i[idx];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_dynamic_packed_read_write_wide_mux_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(4u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "always_comb_dynamic_packed_read_write_wide_mux_supported");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {
@@ -13279,18 +13395,16 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   size_t ffCount = 0;
-  size_t muxCount = 0;
   for (auto inst : top->getInstances()) {
     if ((dffModel && inst->getModel() == dffModel) ||
         (dffrnModel && inst->getModel() == dffrnModel)) {
       ++ffCount;
     }
-    if (inst->getModel() == NLDB0::getMux2()) {
-      ++muxCount;
-    }
   }
   EXPECT_EQ(17u, ffCount);
-  EXPECT_GE(muxCount, 18u);
+  EXPECT_EQ(9u, countMux2Instances(top));
+  EXPECT_EQ(3u, countMux2Instances(top, 1));
+  EXPECT_EQ(6u, countMux2Instances(top, 8));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "seq_multi_assignment_else_block_supported");
@@ -14718,22 +14832,21 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetAllZeroLiteralWideSupport
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel) {
       ++dffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     }
   }
   EXPECT_EQ(128u, dffCount);
-  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 128));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_all_zero_literal_wide_supported");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(128)"));
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -14747,22 +14860,21 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideConstantSupported) {
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel) {
       ++dffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     }
   }
   EXPECT_EQ(128u, dffCount);
-  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 128));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_rhs_wide_const_supported");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(128)"));
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -14802,20 +14914,17 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel) {
       ++dffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     }
   }
   EXPECT_EQ(16u, dffCount);
-  EXPECT_EQ(16u, mux2Count);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 16));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalparamFallbackSupported) {
@@ -14829,20 +14938,17 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalpar
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel) {
       ++dffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     }
   }
   EXPECT_EQ(128u, dffCount);
-  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 128));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultZeroSupported) {
@@ -14917,21 +15023,18 @@ endmodule
 
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffrnModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
   size_t ffCount = 0;
-  size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
       ++ffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     }
   }
   EXPECT_EQ(7u, ffCount);
-  EXPECT_EQ(7u, mux2Count);
+  EXPECT_EQ(1u, countMux2Instances(top));
+  EXPECT_EQ(1u, countMux2Instances(top, 7));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
@@ -15603,25 +15706,22 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryNotSupported) {
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t mux2Count = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == dffModel) {
       ++dffCount;
-    } else if (inst->getModel() == mux2Model) {
-      ++mux2Count;
     } else if (NLDB0::isGate(inst->getModel()) &&
                NLDB0::getGateName(inst->getModel()) == "not") {
       ++notGateCount;
     }
   }
   EXPECT_EQ(16u, dffCount);
-  EXPECT_EQ(32u, mux2Count);
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(4u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top, 1));
   EXPECT_EQ(4u, notGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_cond_unary_not_supported");

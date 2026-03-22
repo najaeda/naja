@@ -6,9 +6,14 @@
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
+#include "NLBitDependencies.h"
+#include "NLLibraryTruthTables.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLDesignModeling.h"
 #include "NLException.h"
+#include <algorithm>
 using namespace naja::NL;
 
 class NLDB0Test: public ::testing::Test {
@@ -141,14 +146,30 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   auto mux2 = NLDB0::getMux2();
   ASSERT_NE(nullptr, mux2);
   EXPECT_TRUE(NLDB0::isMux2(mux2));
-  EXPECT_EQ(NLName("naja_mux2"), mux2->getName());
-  ASSERT_NE(nullptr, NLDB0::getMux2InputA());
-  ASSERT_NE(nullptr, NLDB0::getMux2InputB());
-  ASSERT_NE(nullptr, NLDB0::getMux2Select());
-  ASSERT_NE(nullptr, NLDB0::getMux2Output());
+  EXPECT_EQ(NLName("naja_mux2__w1"), mux2->getName());
+  auto* inA = NLDB0::getMux2InputA(mux2);
+  auto* inB = NLDB0::getMux2InputB(mux2);
+  auto* sel = NLDB0::getMux2Select(mux2);
+  auto* out = NLDB0::getMux2Output(mux2);
+  ASSERT_NE(nullptr, inA);
+  ASSERT_NE(nullptr, inB);
+  ASSERT_NE(nullptr, sel);
+  ASSERT_NE(nullptr, out);
+  EXPECT_EQ(1, inA->getWidth());
+  EXPECT_EQ(1, inB->getWidth());
+  EXPECT_EQ(1, out->getWidth());
+  EXPECT_EQ(NLName("A"), inA->getName());
+  EXPECT_EQ(NLName("B"), inB->getName());
+  EXPECT_EQ(NLName("S"), sel->getName());
+  EXPECT_EQ(NLName("Y"), out->getName());
 
   auto tt = NLDB0::getPrimitiveTruthTable(mux2);
+  EXPECT_EQ(tt, SNLDesignModeling::getTruthTable(mux2));
+  EXPECT_EQ(1u, SNLDesignModeling::getTruthTableCount(mux2));
   EXPECT_EQ(3u, tt.size());
+  EXPECT_EQ(
+    std::vector<size_t>({0, 1, 2}),
+    NLBitDependencies::decodeBits(tt.getDependencies()));
 
   uint64_t bits = 0;
   for (uint64_t i = 0; i < (1ULL << tt.size()); ++i) {
@@ -158,6 +179,107 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   }
   // Truth table for Y = S ? B : A, with A/B/S mapped to input bits 0/1/2.
   EXPECT_EQ(0xCAULL, bits);
+  for (uint64_t row = 0; row < (1ULL << tt.size()); ++row) {
+    const bool a = row & 0x1ULL;
+    const bool b = row & 0x2ULL;
+    const bool s = row & 0x4ULL;
+    EXPECT_EQ(s ? b : a, tt.bits().bit(row)) << "row " << row;
+  }
+
+  auto* mux232 = NLDB0::getOrCreateMux2(32);
+  ASSERT_NE(nullptr, mux232);
+  EXPECT_TRUE(NLDB0::isMux2(mux232));
+  EXPECT_EQ(NLName("naja_mux2__w32"), mux232->getName());
+  EXPECT_EQ(tt, NLDB0::getPrimitiveTruthTable(mux232));
+  EXPECT_EQ(32u, SNLDesignModeling::getTruthTableCount(mux232));
+  EXPECT_EQ(tt, SNLDesignModeling::getTruthTable(mux232));
+  auto* mux232A = NLDB0::getMux2InputA(mux232);
+  auto* mux232B = NLDB0::getMux2InputB(mux232);
+  auto* mux232S = NLDB0::getMux2Select(mux232);
+  auto* mux232Y = NLDB0::getMux2Output(mux232);
+  ASSERT_NE(nullptr, mux232A);
+  ASSERT_NE(nullptr, mux232B);
+  ASSERT_NE(nullptr, mux232S);
+  ASSERT_NE(nullptr, mux232Y);
+  EXPECT_EQ(32, mux232A->getWidth());
+  EXPECT_EQ(32, mux232B->getWidth());
+  EXPECT_EQ(32, mux232Y->getWidth());
+
+  for (auto* bitTerm: mux232Y->getBits()) {
+    auto bitTT = SNLDesignModeling::getTruthTable(mux232, bitTerm->getFlatID());
+    EXPECT_TRUE(bitTT.isInitialized());
+    EXPECT_EQ(tt, bitTT);
+    EXPECT_EQ(
+      std::vector<size_t>({0, 1, 2}),
+      NLBitDependencies::decodeBits(bitTT.getDependencies()));
+  }
+
+  auto truthTables = NLLibraryTruthTables::construct(NLDB0::getDB0RootLibrary());
+  auto it = truthTables.find(tt);
+  ASSERT_NE(truthTables.end(), it);
+  EXPECT_NE(it->second.end(), std::find(it->second.begin(), it->second.end(), mux232));
+}
+
+TEST_F(NLDB0Test, testWideMux2ModelingArcs) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* mux24 = NLDB0::getOrCreateMux2(4);
+  ASSERT_NE(nullptr, mux24);
+
+  auto* inA = NLDB0::getMux2InputA(mux24);
+  auto* inB = NLDB0::getMux2InputB(mux24);
+  auto* sel = NLDB0::getMux2Select(mux24);
+  auto* out = NLDB0::getMux2Output(mux24);
+  ASSERT_NE(nullptr, inA);
+  ASSERT_NE(nullptr, inB);
+  ASSERT_NE(nullptr, sel);
+  ASSERT_NE(nullptr, out);
+
+  for (size_t bit = 0; bit < out->getWidth(); ++bit) {
+    auto* aBit = inA->getBit(bit);
+    auto* bBit = inB->getBit(bit);
+    auto* yBit = out->getBit(bit);
+    ASSERT_NE(nullptr, aBit);
+    ASSERT_NE(nullptr, bBit);
+    ASSERT_NE(nullptr, yBit);
+
+    auto muxInputs = std::vector(
+      SNLDesignModeling::getCombinatorialInputs(yBit).begin(),
+      SNLDesignModeling::getCombinatorialInputs(yBit).end());
+    EXPECT_EQ(3u, muxInputs.size());
+    EXPECT_NE(muxInputs.end(), std::find(muxInputs.begin(), muxInputs.end(), aBit));
+    EXPECT_NE(muxInputs.end(), std::find(muxInputs.begin(), muxInputs.end(), bBit));
+    EXPECT_NE(muxInputs.end(), std::find(muxInputs.begin(), muxInputs.end(), sel));
+    EXPECT_EQ(
+      muxInputs.end(),
+      std::find(muxInputs.begin(), muxInputs.end(), inA->getBit((bit + 1) % out->getWidth())));
+    EXPECT_EQ(
+      muxInputs.end(),
+      std::find(muxInputs.begin(), muxInputs.end(), inB->getBit((bit + 1) % out->getWidth())));
+
+    auto fromA = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(aBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(aBit).end());
+    EXPECT_EQ(1u, fromA.size());
+    EXPECT_EQ(yBit, fromA.front());
+
+    auto fromB = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(bBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(bBit).end());
+    EXPECT_EQ(1u, fromB.size());
+    EXPECT_EQ(yBit, fromB.front());
+  }
+
+  auto selectOutputs = std::vector(
+    SNLDesignModeling::getCombinatorialOutputs(sel).begin(),
+    SNLDesignModeling::getCombinatorialOutputs(sel).end());
+  EXPECT_EQ(out->getWidth(), selectOutputs.size());
+  for (size_t bit = 0; bit < out->getWidth(); ++bit) {
+    EXPECT_NE(
+      selectOutputs.end(),
+      std::find(selectOutputs.begin(), selectOutputs.end(), out->getBit(bit)));
+  }
 }
 
 TEST_F(NLDB0Test, testMemoryPrimitive) {
@@ -211,6 +333,23 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_EQ("1'b0", memory0->getParameter(NLName("INIT"))->getValue());
 
   EXPECT_THROW(NLDB0::getPrimitiveTruthTable(memory0), NLException);
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(memory0));
+  EXPECT_TRUE(SNLDesignModeling::isSequential(memory0));
+
+  auto* clk = memory0->getScalarTerm(NLName("CLK"));
+  auto* rst = memory0->getScalarTerm(NLName("RST"));
+  ASSERT_NE(nullptr, clk);
+  ASSERT_NE(nullptr, rst);
+
+  auto clockOutputs = SNLDesignModeling::getClockRelatedOutputs(clk);
+  EXPECT_EQ(rdata->getWidth(), clockOutputs.size());
+
+  auto clockInputs = SNLDesignModeling::getClockRelatedInputs(clk);
+  EXPECT_EQ(waddr->getWidth() + wdata->getWidth() + we->getWidth() + 1, clockInputs.size());
+
+  auto readInputs = SNLDesignModeling::getCombinatorialInputs(
+    static_cast<SNLBitTerm*>(rdata->getBit(0)));
+  EXPECT_EQ(raddr->getWidth() / 2, readInputs.size());
 }
 
 TEST_F(NLDB0Test, testDFFRN) {

@@ -6662,6 +6662,21 @@ class SNLSVConstructorImpl {
           return false;
         }
 
+        if (leftBits == rightBits) {
+          bits = leftBits;
+          return true;
+        }
+
+        if (targetWidth > 1) {
+          return createMux2Instance(
+            design,
+            selectBit,
+            rightBits,
+            leftBits,
+            bits,
+            getSourceRange(*stripped));
+        }
+
         bits.clear();
         bits.reserve(targetWidth);
         auto conditionalSourceRange = getSourceRange(*stripped);
@@ -7314,8 +7329,27 @@ class SNLSVConstructorImpl {
                           continue;
                         }
 
+                        std::vector<SNLBitNet*> candidateBits(
+                          valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                          valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+                        if (elementWidth > 1 && equalsIndexBit != const1) {
+                          std::vector<SNLBitNet*> muxedBits;
+                          if (!createMux2Instance(
+                                design,
+                                equalsIndexBit,
+                                selectedBits,
+                                candidateBits,
+                                muxedBits,
+                                elementSourceRange)) {
+                            return false;
+                          }
+                          selectedBits = std::move(muxedBits);
+                          index += step;
+                          continue;
+                        }
+
                         for (size_t elemBit = 0; elemBit < elementWidth; ++elemBit) {
-                          auto* candidateBit = valueBits[offset + elemBit];
+                          auto* candidateBit = candidateBits[elemBit];
                           if (equalsIndexBit == const1) {
                             selectedBits[elemBit] = candidateBit;
                             continue;
@@ -7600,6 +7634,21 @@ class SNLSVConstructorImpl {
                             return false; // LCOV_EXCL_LINE
                           }
                           if (equalsIndexBit != const0) {
+                            if (selectedWidth > 1 && equalsIndexBit != const1) {
+                              std::vector<SNLBitNet*> muxedBits;
+                              if (!createMux2Instance(
+                                    design,
+                                    equalsIndexBit,
+                                    selectedBits,
+                                    candidateBits,
+                                    muxedBits,
+                                    rangeSourceRange)) {
+                                return false;
+                              }
+                              selectedBits = std::move(muxedBits);
+                              startIndex += step;
+                              continue;
+                            }
                             for (size_t bit = 0; bit < selectedWidth; ++bit) {
                               auto* candidateBit = candidateBits[bit];
                               if (equalsIndexBit == const1) {
@@ -8729,6 +8778,110 @@ class SNLSVConstructorImpl {
       return bits;
     }
 
+    struct PackedNetRef {
+      SNLNet* net {nullptr};
+      NLID::Bit msb {0};
+      NLID::Bit lsb {0};
+    };
+
+    size_t getPackedNetRefWidth(const PackedNetRef& ref) const {
+      if (!ref.net) {
+        return 0;
+      }
+      if (dynamic_cast<SNLScalarNet*>(ref.net)) {
+        return 1;
+      }
+      return static_cast<size_t>(ref.msb >= ref.lsb ? ref.msb - ref.lsb + 1 : ref.lsb - ref.msb + 1);
+    }
+
+    PackedNetRef getPackedNetRef(SNLNet* net) const {
+      if (auto* bus = dynamic_cast<SNLBusNet*>(net)) {
+        return PackedNetRef{net, bus->getMSB(), bus->getLSB()};
+      }
+      return PackedNetRef{net, 0, 0};
+    }
+
+    bool tryGetPackedNetRef(const std::vector<SNLBitNet*>& bits, PackedNetRef& ref) const {
+      if (bits.empty()) {
+        return false;
+      }
+      if (bits.size() == 1) {
+        ref = PackedNetRef{bits.front(), 0, 0};
+        return true;
+      }
+
+      auto* firstBusBit = dynamic_cast<SNLBusNetBit*>(bits.front());
+      if (!firstBusBit) {
+        return false;
+      }
+      auto* bus = firstBusBit->getBus();
+      for (size_t i = 1; i < bits.size(); ++i) {
+        auto* currentBusBit = dynamic_cast<SNLBusNetBit*>(bits[i]);
+        auto* previousBusBit = dynamic_cast<SNLBusNetBit*>(bits[i - 1]);
+        if (!currentBusBit || !previousBusBit || currentBusBit->getBus() != bus) {
+          return false;
+        }
+        const auto delta = currentBusBit->getBit() - previousBusBit->getBit();
+        if (delta != 1 && delta != -1) {
+          return false;
+        }
+      }
+      auto* lastBusBit = dynamic_cast<SNLBusNetBit*>(bits.back());
+      if (!lastBusBit) {
+        return false;
+      }
+      ref = PackedNetRef{bus, lastBusBit->getBit(), firstBusBit->getBit()};
+      return true;
+    }
+
+    std::vector<SNLBitNet*> collectBits(const PackedNetRef& ref) {
+      if (!ref.net) {
+        return {}; // LCOV_EXCL_LINE
+      }
+      if (auto* bit = dynamic_cast<SNLBitNet*>(ref.net)) {
+        return {bit};
+      }
+      std::vector<SNLBitNet*> bits;
+      auto* bus = static_cast<SNLBusNet*>(ref.net);
+      const auto step = ref.lsb <= ref.msb ? 1 : -1;
+      for (auto bit = ref.lsb; bit != ref.msb + step; bit += step) {
+        if (auto* busBit = bus->getBit(bit)) {
+          bits.push_back(busBit);
+        }
+      }
+      return bits;
+    }
+
+    SNLNet* materializeBitsAsNet(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& bits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (bits.empty()) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      if (bits.size() == 1) {
+        return bits.front();
+      }
+      auto* net = SNLBusNet::create(
+        design,
+        static_cast<NLID::Bit>(bits.size() - 1),
+        0);
+      annotateSourceInfo(net, sourceRange);
+      connectBusNetBits(design, net, bits, sourceRange);
+      return net;
+    }
+
+    PackedNetRef getOrMaterializePackedNetRef(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& bits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      PackedNetRef ref;
+      if (tryGetPackedNetRef(bits, ref)) {
+        return ref;
+      }
+      return getPackedNetRef(materializeBitsAsNet(design, bits, sourceRange));
+    }
+
     SNLBitNet* getSingleBitNet(SNLNet* net) {
       if (!net) {
         return nullptr;
@@ -9163,29 +9316,80 @@ class SNLSVConstructorImpl {
     void createMux2Instance(
       SNLDesign* design,
       SNLBitNet* select,
+      const PackedNetRef& inA,
+      const PackedNetRef& inB,
+      SNLNet* outNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (!select || !inA.net || !inB.net || !outNet) {
+        return; // LCOV_EXCL_LINE
+      }
+      const auto width = outNet->getWidth();
+      if (width != getPackedNetRefWidth(inA) || width != getPackedNetRefWidth(inB)) {
+        throw SNLSVConstructorException("Internal error: mux width mismatch");
+      }
+
+      auto* mux2 = NLDB0::getOrCreateMux2(width);
+      auto* inst = SNLInstance::create(design, mux2);
+      annotateSourceInfo(inst, sourceRange);
+      auto* aTerm = NLDB0::getMux2InputA(mux2);
+      auto* bTerm = NLDB0::getMux2InputB(mux2);
+      auto* sTerm = NLDB0::getMux2Select(mux2);
+      auto* yTerm = NLDB0::getMux2Output(mux2);
+      inst->setTermNet(aTerm, inA.net, inA.msb, inA.lsb);
+      inst->setTermNet(bTerm, inB.net, inB.msb, inB.lsb);
+      inst->setTermNet(sTerm, select);
+      inst->setTermNet(yTerm, outNet);
+    }
+
+    void createMux2Instance(
+      SNLDesign* design,
+      SNLBitNet* select,
       SNLBitNet* inA,
       SNLBitNet* inB,
       SNLBitNet* outNet,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      auto mux2 = NLDB0::getMux2();
-      auto inst = SNLInstance::create(design, mux2);
-      annotateSourceInfo(inst, sourceRange);
-      auto aTerm = NLDB0::getMux2InputA();
-      auto bTerm = NLDB0::getMux2InputB();
-      auto sTerm = NLDB0::getMux2Select();
-      auto yTerm = NLDB0::getMux2Output();
-      if (auto instTerm = inst->getInstTerm(aTerm)) {
-        instTerm->setNet(inA);
+      createMux2Instance(
+        design,
+        select,
+        PackedNetRef{inA, 0, 0},
+        PackedNetRef{inB, 0, 0},
+        outNet,
+        sourceRange);
+    }
+
+    bool createMux2Instance(
+      SNLDesign* design,
+      SNLBitNet* select,
+      const std::vector<SNLBitNet*>& inA,
+      const std::vector<SNLBitNet*>& inB,
+      std::vector<SNLBitNet*>& outBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      SNLNet* explicitOutNet = nullptr) {
+      if (inA.size() != inB.size() || inA.empty()) {
+        return false;
       }
-      if (auto instTerm = inst->getInstTerm(bTerm)) {
-        instTerm->setNet(inB);
+      auto inARef = getOrMaterializePackedNetRef(design, inA, sourceRange);
+      auto inBRef = getOrMaterializePackedNetRef(design, inB, sourceRange);
+      SNLNet* outNet = explicitOutNet;
+      if (outNet) {
+        if (outNet->getWidth() != inA.size()) {
+          return false;
+        }
+      } else if (inA.size() == 1) {
+        auto* outBit = SNLScalarNet::create(design);
+        annotateSourceInfo(outBit, sourceRange);
+        outNet = outBit;
+      } else {
+        auto* outBus = SNLBusNet::create(
+          design,
+          static_cast<NLID::Bit>(inA.size() - 1),
+          0);
+        annotateSourceInfo(outBus, sourceRange);
+        outNet = outBus;
       }
-      if (auto instTerm = inst->getInstTerm(sTerm)) {
-        instTerm->setNet(select);
-      }
-      if (auto instTerm = inst->getInstTerm(yTerm)) {
-        instTerm->setNet(outNet);
-      }
+      createMux2Instance(design, select, inARef, inBRef, outNet, sourceRange);
+      outBits = collectBits(outNet);
+      return true;
     }
 
     bool createFAInstance(
@@ -10197,18 +10401,14 @@ class SNLSVConstructorImpl {
         }
 
         std::vector<SNLBitNet*> mergedBits;
-        mergedBits.reserve(lhsBits.size());
-        for (size_t i = 0; i < lhsBits.size(); ++i) {
-          auto* outBit = SNLScalarNet::create(design);
-          annotateSourceInfo(outBit, condSourceRange);
-          createMux2Instance(
-            design,
-            condNet,
-            falseBits[i],
-            trueBits[i],
-            outBit,
-            condSourceRange);
-          mergedBits.push_back(outBit);
+        if (!createMux2Instance(
+              design,
+              condNet,
+              falseBits,
+              trueBits,
+              mergedBits,
+              condSourceRange)) {
+          return false;
         }
         dataBits = std::move(mergedBits);
         return true;
@@ -10275,6 +10475,27 @@ class SNLSVConstructorImpl {
               auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
               auto elementSourceRange = getSourceRange(*assignedLHS);
               auto updateSlice = [&](size_t offset, SNLBitNet* selectBit) {
+                std::vector<SNLBitNet*> currentBits(
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(offset + static_cast<size_t>(*elementWidth)));
+                if (static_cast<size_t>(*elementWidth) > 1 && selectBit != const0 && selectBit != const1) {
+                  std::vector<SNLBitNet*> updatedBits;
+                  if (!createMux2Instance(
+                        design,
+                        selectBit,
+                        currentBits,
+                        assignedBits,
+                        updatedBits,
+                        elementSourceRange)) {
+                    throw SNLSVConstructorException(
+                      "Internal error: failed to build wide mux for sequential element-select assignment");
+                  }
+                  std::copy(
+                    updatedBits.begin(),
+                    updatedBits.end(),
+                    dataBits.begin() + static_cast<std::ptrdiff_t>(offset));
+                  return;
+                }
                 for (size_t elemBit = 0; elemBit < static_cast<size_t>(*elementWidth); ++elemBit) {
                   auto* candidateBit = assignedBits[elemBit];
                   if (selectBit == const1) {
@@ -11120,6 +11341,27 @@ class SNLSVConstructorImpl {
       auto elementSourceRange = getSourceRange(assignedLHS);
 
       auto updateSlice = [&](size_t offset, SNLBitNet* selectBit) {
+        std::vector<SNLBitNet*> currentBits(
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset),
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset + static_cast<size_t>(*elementWidth)));
+        if (static_cast<size_t>(*elementWidth) > 1 && selectBit != const0 && selectBit != const1) {
+          std::vector<SNLBitNet*> updatedBits;
+          if (!createMux2Instance(
+                design,
+                selectBit,
+                currentBits,
+                assignedBits,
+                updatedBits,
+                elementSourceRange)) {
+            throw SNLSVConstructorException(
+              "Internal error: failed to build wide mux for always_comb element-select assignment");
+          }
+          std::copy(
+            updatedBits.begin(),
+            updatedBits.end(),
+            dataBits.begin() + static_cast<std::ptrdiff_t>(offset));
+          return;
+        }
         for (size_t elemBit = 0; elemBit < static_cast<size_t>(*elementWidth); ++elemBit) {
           auto* candidateBit = assignedBits[elemBit];
           if (selectBit == const1) {
@@ -11352,24 +11594,26 @@ class SNLSVConstructorImpl {
         }
         const bool falseBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
 
-        std::vector<SNLBitNet*> mergedBits;
-        mergedBits.reserve(lhsBits.size());
         auto condSourceRange = getSourceRange(condStmt);
-        for (size_t i = 0; i < lhsBits.size(); ++i) {
-          if (trueBits[i] == falseBits[i]) {
-            mergedBits.push_back(trueBits[i]);
-            continue;
+        if (trueBits == falseBits) {
+          dataBits = std::move(trueBits);
+          ++tempIndex;
+          if (hasLoopContext) {
+            // Only propagate breaks that are unconditional across branches.
+            setCurrentForLoopBreakRequested(incomingBreak || (trueBreak && falseBreak));
           }
-          auto* outBit = SNLScalarNet::create(design);
-          annotateSourceInfo(outBit, condSourceRange);
-          createMux2Instance(
-            design,
-            conditionBit,
-            falseBits[i],
-            trueBits[i],
-            outBit,
-            condSourceRange);
-          mergedBits.push_back(outBit);
+          return true;
+        }
+        std::vector<SNLBitNet*> mergedBits;
+        if (!createMux2Instance(
+              design,
+              conditionBit,
+              falseBits,
+              trueBits,
+              mergedBits,
+              condSourceRange)) {
+          failureReason = "unable to merge always_comb conditional branches";
+          return false;
         }
         dataBits = std::move(mergedBits);
         ++tempIndex;
@@ -11424,24 +11668,21 @@ class SNLSVConstructorImpl {
             return false;
           }
 
-          std::vector<SNLBitNet*> selectedBits;
-          selectedBits.reserve(lhsBits.size());
           auto itemSourceRange = getSourceRange(*itemIt->stmt);
-          for (size_t i = 0; i < lhsBits.size(); ++i) {
-            if (itemBits[i] == mergedBits[i]) {
-              selectedBits.push_back(itemBits[i]);
-              continue;
-            }
-            auto* outBit = SNLScalarNet::create(design);
-            annotateSourceInfo(outBit, itemSourceRange);
-            createMux2Instance(
-              design,
-              itemMatchBit,
-              mergedBits[i],
-              itemBits[i],
-              outBit,
-              itemSourceRange);
-            selectedBits.push_back(outBit);
+          if (itemBits == mergedBits) {
+            mergedBits = std::move(itemBits);
+            ++tempIndex;
+            continue;
+          }
+          std::vector<SNLBitNet*> selectedBits;
+          if (!createMux2Instance(
+                design,
+                itemMatchBit,
+                mergedBits,
+                itemBits,
+                selectedBits,
+                itemSourceRange)) {
+            return false;
           }
           mergedBits = std::move(selectedBits);
           ++tempIndex;
@@ -12746,14 +12987,19 @@ class SNLSVConstructorImpl {
               continue;
               // LCOV_EXCL_STOP
             }
-            for (size_t i = 0; i < dataBits.size(); ++i) {
-              createMux2Instance(
-                design,
-                enableNet,
-                dataBits[i],
-                enableBits[i],
-                enBits[i],
-                enableSourceRange);
+            if (!createMux2Instance(
+                  design,
+                  enableNet,
+                  dataBits,
+                  enableBits,
+                  enBits,
+                  enableSourceRange,
+                  enNet)) {
+              std::ostringstream reason;
+              reason << "Unsupported sequential block in module '" << moduleName
+                     << "': unable to build enable mux";
+              reportUnsupportedElement(reason.str(), enableSourceRange);
+              continue;
             }
             dataBits = std::move(enBits);
           }
@@ -12790,14 +13036,19 @@ class SNLSVConstructorImpl {
             continue;
             // LCOV_EXCL_STOP
           }
-          for (size_t i = 0; i < dataBits.size(); ++i) {
-            createMux2Instance(
-              design,
-              resetNet,
-              dataBits[i],
-              resetBits[i],
-              rstBits[i],
-              resetSourceRange);
+          if (!createMux2Instance(
+                design,
+                resetNet,
+                dataBits,
+                resetBits,
+                rstBits,
+                resetSourceRange,
+                rstNet)) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': unable to build reset mux";
+            reportUnsupportedElement(reason.str(), resetSourceRange);
+            continue;
           }
           dataBits = std::move(rstBits);
         }

@@ -99,6 +99,25 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       return ins;
     }
 
+    SNLInstance* createWideMux2Instance(size_t width = 8) {
+      auto* mux2 = NLDB0::getOrCreateMux2(width);
+      if (nullptr == mux2) {
+        return nullptr;
+      }
+
+      auto* a = SNLBusNet::create(top_, static_cast<NLID::Bit>(width - 1), 0, NLName("mux_a"));
+      auto* b = SNLBusNet::create(top_, static_cast<NLID::Bit>(width - 1), 0, NLName("mux_b"));
+      auto* y = SNLBusNet::create(top_, static_cast<NLID::Bit>(width - 1), 0, NLName("mux_y"));
+      auto* s = SNLScalarNet::create(top_, NLName("mux_s"));
+
+      auto* ins = SNLInstance::create(top_, mux2, NLName("mux0"));
+      ins->setTermNet(NLDB0::getMux2InputA(mux2), a);
+      ins->setTermNet(NLDB0::getMux2InputB(mux2), b);
+      ins->setTermNet(NLDB0::getMux2Select(mux2), s);
+      ins->setTermNet(NLDB0::getMux2Output(mux2), y);
+      return ins;
+    }
+
     void TearDown() override {
       NLUniverse::get()->destroy();
     }
@@ -176,6 +195,33 @@ TEST_F(SNLVRLDumperTestParameters, testErrors1) {
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 }
 
+TEST_F(SNLVRLDumperTestParameters, testDefaultInstanceParametersAreOmitted) {
+  ASSERT_TRUE(top_);
+  ASSERT_TRUE(model_);
+
+  auto* sameDecimal = SNLParameter::create(model_, NLName("SAME_DEC"), SNLParameter::Type::Decimal, "8");
+  auto* sameBoolean = SNLParameter::create(model_, NLName("SAME_BOOL"), SNLParameter::Type::Boolean, "0");
+  auto* sameString = SNLParameter::create(model_, NLName("SAME_STR"), SNLParameter::Type::String, "HELLO");
+  auto* diffDecimal = SNLParameter::create(model_, NLName("DIFF_DEC"), SNLParameter::Type::Decimal, "2");
+
+  auto* ins = SNLInstance::create(top_, model_, NLName("ins"));
+  SNLInstParameter::create(ins, sameDecimal, "8");
+  SNLInstParameter::create(ins, sameBoolean, "FALSE");
+  SNLInstParameter::create(ins, sameString, "HELLO");
+  SNLInstParameter::create(ins, diffDecimal, "3");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("model #("));
+  EXPECT_NE(std::string::npos, dumped.find(".DIFF_DEC(3)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".SAME_DEC("));
+  EXPECT_EQ(std::string::npos, dumped.find(".SAME_BOOL("));
+  EXPECT_EQ(std::string::npos, dumped.find(".SAME_STR("));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 
@@ -192,7 +238,7 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".WR_PORTS(2)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ASYNC(1)"));
-  EXPECT_NE(std::string::npos, dumped.find(".RST_ACTIVE_LOW(0)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".RST_ACTIVE_LOW(0)"));
   EXPECT_NE(
     std::string::npos,
     dumped.find(".INIT(128'h00112233445566778899AABBCCDDEEFF)"));
@@ -226,4 +272,70 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("if (allow_write && addr_value < DEPTH)"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testWideMuxInstanceDump) {
+  ASSERT_NE(nullptr, createWideMux2Instance());
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, dumped.find(".WIDTH(8)"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w8"));
+  EXPECT_EQ(std::string::npos, dumped.find("module naja_mux2 #("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxInstanceDumpOmitsDefaultWidth) {
+  ASSERT_NE(nullptr, createWideMux2Instance(1));
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_mux2 mux0 ("));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_mux2 #("));
+  EXPECT_EQ(std::string::npos, dumped.find(".WIDTH(1)"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w1"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
+  ASSERT_NE(nullptr, createWideMux2Instance());
+  ASSERT_NE(nullptr, createMemoryInstance());
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testWideMuxAndMemoryPrimitiveFileDump";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.dumpDesign(top_, outPath);
+
+  const auto topDump = readTextFile(outPath / "top.v");
+  EXPECT_NE(std::string::npos, topDump.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, topDump.find(".WIDTH(8)"));
+  EXPECT_NE(std::string::npos, topDump.find("naja_mem #("));
+  EXPECT_EQ(std::string::npos, topDump.find("naja_mux2__w8"));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_mux2 #("));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_mem #("));
+
+  const auto primitiveDump = readTextFile(outPath / "primitives.v");
+  auto countSubstring = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string::npos) {
+      ++count;
+      pos += needle.size();
+    }
+    return count;
+  };
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mux2 #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mem #("));
 }

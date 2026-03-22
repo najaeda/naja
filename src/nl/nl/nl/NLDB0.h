@@ -99,12 +99,17 @@ class NLDB0 {
     static SNLTruthTable getFASumTruthTable();
     ///\return truth table for Carry-out output: majority(A,B,CI) (3 inputs, bits=0xE8)
     static SNLTruthTable getFACoutTruthTable();
+    static SNLDesign* getOrCreateMux2(size_t width);
     static SNLDesign* getMux2();
     static bool isMux2(const SNLDesign* design);
-    static SNLScalarTerm* getMux2InputA();
-    static SNLScalarTerm* getMux2InputB();
+    static SNLBusTerm* getMux2InputA(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2InputA();
+    static SNLBusTerm* getMux2InputB(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2InputB();
+    static SNLScalarTerm* getMux2Select(const SNLDesign* mux2);
     static SNLScalarTerm* getMux2Select();
-    static SNLScalarTerm* getMux2Output();
+    static SNLBusTerm* getMux2Output(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2Output();
     static SNLDesign* getDFF();
     /// \brief Plain edge-triggered D flip-flop.
     /// Pins: C (clock), D (data), Q (output).

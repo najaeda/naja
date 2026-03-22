@@ -9,6 +9,7 @@
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLParameter.h"
 #include "SNLDesignModeling.h"
@@ -16,11 +17,44 @@
 #include <cstdint>
 #include <limits>
 #include <sstream>
+#include <vector>
 #if defined(_MSC_VER)
   #include <intrin.h>
 #endif
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
+  constexpr const char* Mux2Prefix = "naja_mux2__w";
+
+  naja::NL::SNLTruthTable getMux2TruthTable() {
+    uint64_t bits = 0;
+    for (uint64_t i = 0; i < 8; ++i) {
+      bool a = (i & 0x1) != 0;
+      bool b = (i & 0x2) != 0;
+      bool s = (i & 0x4) != 0;
+      bool y = s ? b : a;
+      if (y) {
+        bits |= (1ULL << i);
+      }
+    }
+    return naja::NL::SNLTruthTable(3, bits);
+  }
+
+  std::string getMux2InternalName(size_t width) {
+    std::ostringstream name;
+    name << Mux2Prefix << width;
+    return name.str();
+  }
+
+  naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm* busTerm) {
+    naja::NL::SNLDesignModeling::BitTerms bitTerms;
+    if (!busTerm) {
+      return bitTerms;
+    }
+    for (auto* bitTerm: busTerm->getBits()) {
+      bitTerms.push_back(bitTerm);
+    }
+    return bitTerms;
+  }
 
   std::string getMemoryResetModeSuffix(naja::NL::NLDB0::MemoryResetMode mode) {
     switch (mode) {
@@ -130,6 +164,38 @@ namespace {
       static_cast<NLID::Bit>(signature.writePorts - 1),
       0,
       NLName("WE"));
+
+    auto* clk = memory->getScalarTerm(NLName("CLK"));
+    auto* rst = memory->getScalarTerm(NLName("RST"));
+    auto* raddr = memory->getBusTerm(NLName("RADDR"));
+    auto* rdata = memory->getBusTerm(NLName("RDATA"));
+    auto* waddr = memory->getBusTerm(NLName("WADDR"));
+    auto* wdata = memory->getBusTerm(NLName("WDATA"));
+    auto* we = memory->getBusTerm(NLName("WE"));
+    auto rdataBits = collectBitTerms(rdata);
+    SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
+
+    SNLDesignModeling::BitTerms writeInputs = collectBitTerms(waddr);
+    auto wdataBits = collectBitTerms(wdata);
+    writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
+    auto weBits = collectBitTerms(we);
+    writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
+    writeInputs.push_back(rst);
+    SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+
+    for (size_t readPort = 0; readPort < signature.readPorts; ++readPort) {
+      naja::NL::SNLDesignModeling::BitTerms readAddrBits;
+      for (size_t bit = 0; bit < signature.abits; ++bit) {
+        readAddrBits.push_back(static_cast<SNLBitTerm*>(
+          raddr->getBit(static_cast<NLID::Bit>(readPort * signature.abits + bit))));
+      }
+      naja::NL::SNLDesignModeling::BitTerms readDataBits;
+      for (size_t bit = 0; bit < signature.width; ++bit) {
+        readDataBits.push_back(static_cast<SNLBitTerm*>(
+          rdata->getBit(static_cast<NLID::Bit>(readPort * signature.width + bit))));
+      }
+      SNLDesignModeling::addCombinatorialArcs(readAddrBits, readDataBits);
+    }
   }
 
   inline bool parity64(uint64_t x) {
@@ -219,14 +285,37 @@ namespace {
     SNLDesignModeling::addInputsToClockArcs({dffseData, dffseEnable, dffseSet}, dffseClock);
   }
 
-  void createMux2Primitive(naja::NL::NLLibrary* rootLibrary) {
+  void createMux2Primitive(naja::NL::NLLibrary* rootLibrary, size_t width) {
     using namespace naja::NL;
-    auto mux2 = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_mux2"));
-    auto inA = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("A"));
-    auto inB = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("B"));
+    auto mux2 = SNLDesign::create(
+      rootLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getMux2InternalName(width)));
+    SNLParameter::create(
+      mux2, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
+    auto inA = SNLBusTerm::create(
+      mux2, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("A"));
+    auto inB = SNLBusTerm::create(
+      mux2, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("B"));
     auto sel = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("S"));
-    auto out = SNLScalarTerm::create(mux2, SNLTerm::Direction::Output, NLName("Y"));
-    SNLDesignModeling::addCombinatorialArcs({inA, inB, sel}, {out});
+    auto out = SNLBusTerm::create(
+      mux2, SNLTerm::Direction::Output, static_cast<NLID::Bit>(width - 1), 0, NLName("Y"));
+
+    std::vector<SNLTruthTable> truthTables(width, getMux2TruthTable());
+    SNLDesignModeling::setTruthTables(mux2, truthTables);
+
+    for (size_t bit = 0; bit < width; ++bit) {
+      auto* inABit = inA->getBit(static_cast<NLID::Bit>(bit));
+      auto* inBBit = inB->getBit(static_cast<NLID::Bit>(bit));
+      auto* outBit = out->getBit(static_cast<NLID::Bit>(bit));
+      SNLDesignModeling::BitTerms inputs;
+      inputs.push_back(inABit);
+      inputs.push_back(inBBit);
+      inputs.push_back(sel);
+      SNLDesignModeling::BitTerms outputs;
+      outputs.push_back(outBit);
+      SNLDesignModeling::addCombinatorialArcs(inputs, outputs);
+    }
   }
 }
 
@@ -304,7 +393,7 @@ NLDB* NLDB0::create(NLUniverse* universe) {
 
   createAssignPrimitive(rootLibrary);
   createFAPrimitive(rootLibrary);
-  createMux2Primitive(rootLibrary);
+  createMux2Primitive(rootLibrary, 1);
   createDFFPrimitive(rootLibrary);
   createDFFRNPrimitive(rootLibrary);
   createDFFEPrimitive(rootLibrary);
@@ -364,17 +453,7 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
     throw NLException("NLDB0::getPrimitiveTruthTable: FA has two outputs, use getFASumTruthTable/getFACoutTruthTable");
   }
   if (isMux2(design)) {
-    uint64_t bits = 0;
-    for (uint64_t i = 0; i < 8; ++i) {
-      bool a = (i & 0x1) != 0;
-      bool b = (i & 0x2) != 0;
-      bool s = (i & 0x4) != 0;
-      bool y = s ? b : a;
-      if (y) {
-        bits |= (1ULL << i);
-      }
-    }
-    return SNLTruthTable(3, bits);
+    return getMux2TruthTable();
   }
 
   if (isNOutputGate(design)) {
@@ -582,40 +661,72 @@ SNLDesign* NLDB0::getMux2() {
   return nullptr;
 }
 
-bool NLDB0::isMux2(const SNLDesign* design) {
-  return design and design == getMux2();
+SNLDesign* NLDB0::getOrCreateMux2(size_t width) {
+  auto* primitives = getDB0RootLibrary();
+  if (!primitives) {
+    return nullptr;
+  }
+  if (width == 0) {
+    throw NLException("NLDB0::getOrCreateMux2: invalid width");
+  }
+  const auto name = NLName(getMux2InternalName(width));
+  if (auto* existing = primitives->getSNLDesign(name)) {
+    return existing;
+  }
+  createMux2Primitive(primitives, width);
+  return primitives->getSNLDesign(name);
 }
 
-SNLScalarTerm* NLDB0::getMux2InputA() {
-  auto mux2 = getMux2();
+bool NLDB0::isMux2(const SNLDesign* design) {
+  if (!isDB0Primitive(design) || !design || design->isUnnamed()) {
+    return false;
+  }
+  const auto& name = design->getName().getString();
+  return name.rfind(Mux2Prefix, 0) == 0;
+}
+
+SNLBusTerm* NLDB0::getMux2InputA(const SNLDesign* mux2) {
   if (mux2) {
-    return mux2->getScalarTerm(NLID::DesignObjectID(0));
+    return mux2->getBusTerm(NLName("A"));
   }
   return nullptr;
 }
 
-SNLScalarTerm* NLDB0::getMux2InputB() {
-  auto mux2 = getMux2();
+SNLBusTerm* NLDB0::getMux2InputA() {
+  return getMux2InputA(getMux2());
+}
+
+SNLBusTerm* NLDB0::getMux2InputB(const SNLDesign* mux2) {
   if (mux2) {
-    return mux2->getScalarTerm(NLID::DesignObjectID(1));
+    return mux2->getBusTerm(NLName("B"));
+  }
+  return nullptr;
+}
+
+SNLBusTerm* NLDB0::getMux2InputB() {
+  return getMux2InputB(getMux2());
+}
+
+SNLScalarTerm* NLDB0::getMux2Select(const SNLDesign* mux2) {
+  if (mux2) {
+    return mux2->getScalarTerm(NLName("S"));
   }
   return nullptr;
 }
 
 SNLScalarTerm* NLDB0::getMux2Select() {
-  auto mux2 = getMux2();
+  return getMux2Select(getMux2());
+}
+
+SNLBusTerm* NLDB0::getMux2Output(const SNLDesign* mux2) {
   if (mux2) {
-    return mux2->getScalarTerm(NLID::DesignObjectID(2));
+    return mux2->getBusTerm(NLName("Y"));
   }
   return nullptr;
 }
 
-SNLScalarTerm* NLDB0::getMux2Output() {
-  auto mux2 = getMux2();
-  if (mux2) {
-    return mux2->getScalarTerm(NLID::DesignObjectID(3));
-  }
-  return nullptr;
+SNLBusTerm* NLDB0::getMux2Output() {
+  return getMux2Output(getMux2());
 }
 
 SNLDesign* NLDB0::getDFF() {
