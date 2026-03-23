@@ -229,6 +229,73 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_NE(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleDetectedAsUserBlackBox) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "empty_port_only_blackbox";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "empty_port_only_blackbox.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module unread(\n"
+         << "  input logic d_i\n"
+         << ");\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto unread = library_->getSNLDesign(NLName("unread"));
+  ASSERT_NE(unread, nullptr);
+  EXPECT_TRUE(unread->isUserBlackBox());
+  EXPECT_TRUE(unread->isBlackBox());
+  EXPECT_TRUE(unread->isLeaf());
+  EXPECT_EQ(1, unread->getTerms().size());
+  EXPECT_EQ(1, unread->getNets().size());
+  EXPECT_TRUE(unread->getInstances().empty());
+  EXPECT_NE(unread->getScalarTerm(NLName("d_i")), nullptr);
+  EXPECT_NE(unread->getScalarNet(NLName("d_i")), nullptr);
+  EXPECT_EQ(unread, SNLUtils::findTop(library_));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanBeDisabled) {
+  SNLSVConstructor constructor(library_);
+  constructor.config_.blackboxDetection_ = false;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "empty_port_only_standard";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "empty_port_only_standard.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module unread(\n"
+         << "  input logic d_i\n"
+         << ");\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto unread = library_->getSNLDesign(NLName("unread"));
+  ASSERT_NE(unread, nullptr);
+  EXPECT_TRUE(unread->isStandard());
+  EXPECT_FALSE(unread->isBlackBox());
+  EXPECT_FALSE(unread->isLeaf());
+  EXPECT_EQ(1, unread->getTerms().size());
+  EXPECT_EQ(1, unread->getNets().size());
+  EXPECT_TRUE(unread->getInstances().empty());
+  EXPECT_NE(unread->getScalarTerm(NLName("d_i")), nullptr);
+  EXPECT_NE(unread->getScalarNet(NLName("d_i")), nullptr);
+  EXPECT_EQ(unread, SNLUtils::findTop(library_));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaPathsOverload) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

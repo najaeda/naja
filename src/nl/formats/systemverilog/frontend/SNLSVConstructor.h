@@ -15,6 +15,12 @@ class NLLibrary;
 class SNLSVConstructor {
   public:
     using Paths = std::vector<std::filesystem::path>;
+    struct Config {
+      bool blackboxDetection_ {true};  ///< If true, detect empty port-only modules as blackboxes.
+    };
+
+    Config config_ {};
+
     struct ConstructOptions {
       std::optional<std::filesystem::path> elaboratedASTJsonPath {};
       std::optional<std::filesystem::path> diagnosticsReportPath {};
