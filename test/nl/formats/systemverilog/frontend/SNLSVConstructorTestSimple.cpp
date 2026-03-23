@@ -16823,6 +16823,225 @@ endmodule
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
 }
 
+TEST_F(SNLSVConstructorTestSimple,
+       parseQDMemoryInferenceResetInitPackedArrayElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_packed_array_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_reset_init_packed_array_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_packed_array_element_select_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  localparam logic [0:3][7:0] INIT_PACKED = '{8'h11, 8'h22, 8'h33, 8'h44};
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        if (i == 0) begin
+          mem_q[i] <= INIT_PACKED[0];
+        end else if (i == 1) begin
+          mem_q[i] <= INIT_PACKED[1];
+        end else if (i == 2) begin
+          mem_q[i] <= INIT_PACKED[2];
+        end else begin
+          mem_q[i] <= INIT_PACKED[3];
+        end
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_reset_init_packed_array_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseQDMemoryInferenceResetInitStructMemberAccessSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_struct_member_access_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_reset_init_struct_member_access_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_struct_member_access_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  typedef struct packed {
+    logic [7:0] payload;
+    logic       valid;
+  } init_t;
+
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  localparam init_t INIT0 = '{payload: 8'h12, valid: 1'b0};
+  localparam init_t INIT1 = '{payload: 8'h23, valid: 1'b1};
+  localparam init_t INIT2 = '{payload: 8'h34, valid: 1'b0};
+  localparam init_t INIT3 = '{payload: 8'h45, valid: 1'b1};
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        if (i == 0) begin
+          mem_q[i] <= INIT0.payload;
+        end else if (i == 1) begin
+          mem_q[i] <= INIT1.payload;
+        end else if (i == 2) begin
+          mem_q[i] <= INIT2.payload;
+        end else begin
+          mem_q[i] <= INIT3.payload;
+        end
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_reset_init_struct_member_access_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseQDMemoryInferenceResetInitRangeSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_range_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_reset_init_range_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_range_select_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  localparam logic [31:0] INIT_WORD = 32'h44332211;
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        if (i == 0) begin
+          mem_q[i] <= INIT_WORD[7:0];
+        end else if (i == 1) begin
+          mem_q[i] <= INIT_WORD[15:8];
+        end else if (i == 2) begin
+          mem_q[i] <= INIT_WORD[23:16];
+        end else begin
+          mem_q[i] <= INIT_WORD[31:24];
+        end
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("qd_memory_inference_reset_init_range_select_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceConditionalSideLogicSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
