@@ -21,13 +21,28 @@ namespace naja::NL {
 
 class SNLTruthTable {
  public:
+  // Enum for generic type for N input truth table { NONE, OR, NOR, AND, NAND, XOR, XNOR}
+  enum class GenericType {
+    NONE,
+    OR,
+    NOR,
+    AND,
+    NAND,
+    XOR,
+    XNOR
+  };
+  
   SNLTruthTable() : size_(0) {}
+
+  SNLTruthTable(size_t size, GenericType genericType) : size_(size), genericType_(genericType) 
+  {}
 
   // user‐provided copy‐ctor
   SNLTruthTable(const SNLTruthTable& o)
     : size_(o.size_),
       bits_(o.bits_),
-      dependencies_(o.dependencies_)
+      dependencies_(o.dependencies_),
+      genericType_(o.genericType_)
   {}
 
   // explicit copy‐assignment to match
@@ -37,6 +52,7 @@ class SNLTruthTable {
       size_ = o.size_;
       bits_ = o.bits_;
       dependencies_ = o.dependencies_;
+      genericType_ = o.genericType_;
     }
     return *this;
   }
@@ -103,12 +119,15 @@ class SNLTruthTable {
   static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, {1}); }
 
   bool operator==(const SNLTruthTable& o) const {
-    return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_;
+    return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_ &&
+           genericType_ == o.genericType_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
     if (size_ != o.size_)
       return size_ < o.size_;
+    if (genericType_ != o.genericType_)
+      return genericType_ < o.genericType_;
     if (bits_ != o.bits_)
       return bits_ < o.bits_;
     return dependencies_ < o.dependencies_;
@@ -128,6 +147,14 @@ class SNLTruthTable {
   bool isInitialized() const {
     return 
         !(size_ == 0 && bits_.size() == 0 && dependencies_.empty());
+  }
+
+  bool isGeneric() const {
+    return genericType_ != GenericType::NONE;
+  }
+
+  GenericType getGenericType() const {
+    return genericType_;
   }
 
   using ConstantInput = std::pair<uint32_t, bool>;
@@ -239,6 +266,9 @@ class SNLTruthTable {
   //LCOV_EXCL_STOP
 
   bool all0() const {
+    if (bits().size() == 0) {
+      return false;
+    }
     if (size() <= 6) {
       uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
       uint64_t mask = (rows < 64
@@ -254,6 +284,9 @@ class SNLTruthTable {
   }
 
   bool all1() const {
+    if (bits().size() == 0) {
+      return false;
+    }
     if (size() <= 6) {
       uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
       uint64_t mask = (rows < 64
@@ -291,6 +324,7 @@ class SNLTruthTable {
   uint32_t size_{0};
   NLBitVecDynamic bits_{0};
   std::vector<uint64_t> dependencies_{};
+  GenericType genericType_{GenericType::NONE};
 };
 
 }  // namespace naja::NL

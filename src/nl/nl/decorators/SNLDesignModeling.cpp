@@ -15,6 +15,7 @@
 #include "NLDB0.h"
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
+#include "SNLScalarTerm.h"
 
 // Common macros to unify repeated calculations without changing behavior
 #define TT_NCHUNKS_FROM_BITS(nBits) \
@@ -279,6 +280,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
            << "> has no truth table";
     throw naja::NL::NLException(reason.str());
   }
+
   // LCOV_EXCL_STOP
   auto design = term->getDesign();
   auto property = getTruthTableProperty(design);
@@ -867,15 +869,20 @@ void SNLDesignModeling::setTruthTables(
 }
 
 bool SNLDesignModeling::areDependenciesDefined(const SNLDesign* design) {
+  size_t numOfNonInputs = 0;
   for (const auto& term : design->getBitTerms()) {
     if (term->getDirection() != SNLTerm::Direction::Input) {
+      numOfNonInputs++;
       SNLTruthTable tt =
           SNLDesignModeling::getTruthTable(design, term->getOrderID());
-      auto deps = tt.getDependencies();
+      const auto& deps = tt.getDependencies();
       if (naja::NL::NLBitDependencies::countBitsForVector(deps) == 0) {
         return false;
       }
     }
+  }
+  if (numOfNonInputs == 0) {
+    return false;
   }
   return true;
 }
@@ -1022,6 +1029,19 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
   }
   if (NLDB0::isDB0Primitive(design)) {
     // throw an error in case outputIndex is not 1
+    // check if FA design
+    if (NLDB0::isFA(design)) {
+      if (NLDB0::getFAOutputS()->getID() == flatTermID) {
+        return NLDB0::getFASumTruthTable();
+      } else if (NLDB0::getFAOutputCO()->getID() == flatTermID) {
+        return NLDB0::getFACoutTruthTable();
+      } else {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID << " is not an output in FA design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+    }
     if (outputIndex != 1) {
       std::ostringstream reason;
       reason << "Design <" << design->getName().getString()

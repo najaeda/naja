@@ -272,9 +272,6 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 
   if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
-    if (size > 6) {
-      throw NLException("NLDB0::getPrimitiveTruthTable: gate with more than 6 inputs is not supported");
-    }
     auto type = GateType(design->getLibrary()->getName().getString());
     const size_t combinations = (1ULL << size);
     const uint64_t fullMask =
@@ -282,55 +279,27 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
                          : ((1ULL << combinations) - 1);
     switch (type) {
       case GateType::And: {
-
-        // Only input 11..1 produces output 1
-        uint64_t bits = 1ULL << (combinations - 1);
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::AND);
         return tt;
       }
       case GateType::Nand: {
-        // All combinations except 11..1 produce output 1
-        uint64_t bits = fullMask & ~(1ULL << (combinations - 1));
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NAND);
         return tt;
       }
-      case GateType::Or: {
-        // All combinations except 00..0 produce output 1
-        uint64_t bits = fullMask;
-        bits &= ~1ULL; // clear bit for input 00..0
-
-        SNLTruthTable tt(size, bits);
+      case GateType::Or: {        
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::OR);
         return tt;
       }
       case GateType::Nor: {
-        // Only input 00..0 produces output 1
-        uint64_t bits = 1ULL;
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NOR);
         return tt;
       }
       case GateType::Xor: {
-        uint64_t bits = 0;
-        for (size_t i = 0; i < combinations; ++i) {
-          // XOR: output 1 if an odd number of input bits are set
-          if (parity64(i)) {
-            bits |= (1ULL << i);
-          }
-        }
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XOR);
         return tt;
       }
       case GateType::Xnor: {
-        uint64_t bits = 0;
-        for (size_t i = 0; i < combinations; ++i) {
-          // XNOR: output 1 if an even number of input bits are set
-          if (not parity64(i)) {
-            bits |= (1ULL << i);
-          }
-        }
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XNOR);
         return tt;  
       }
       // LCOV_EXCL_START
