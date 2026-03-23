@@ -273,10 +273,6 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
     auto type = GateType(design->getLibrary()->getName().getString());
-    const size_t combinations = (1ULL << size);
-    const uint64_t fullMask =
-      combinations == 64 ? std::numeric_limits<uint64_t>::max()
-                         : ((1ULL << combinations) - 1);
     switch (type) {
       case GateType::And: {
         SNLTruthTable tt(size, SNLTruthTable::GenericType::AND);

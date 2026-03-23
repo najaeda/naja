@@ -13,6 +13,14 @@ using namespace naja::NL;
 
 class SNLGateTruthTableTest: public ::testing::Test {
   protected:
+    void expectGenericGate(const SNLTruthTable& tt,
+                           uint32_t size,
+                           SNLTruthTable::GenericType type) {
+      EXPECT_EQ(tt.size(), size);
+      EXPECT_TRUE(tt.isGeneric());
+      EXPECT_EQ(tt.getGenericType(), type);
+    }
+
     void SetUp() override {
       auto universe = NLUniverse::create();
       auto db = NLDB::create(universe);
@@ -28,61 +36,52 @@ TEST_F(SNLGateTruthTableTest, testAndGate) {
     auto and2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2);
     ASSERT_NE(and2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(and2);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0b1000);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::AND);
 
     auto and4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 4);
     ASSERT_NE(and4, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(and4);
-    EXPECT_EQ(tt.size(), 4);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x8000);
+    expectGenericGate(tt, 4, SNLTruthTable::GenericType::AND);
 
     auto and5 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 5);
     ASSERT_NE(and5, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(and5);
-    EXPECT_EQ(tt.size(), 5);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x80000000);
+    expectGenericGate(tt, 5, SNLTruthTable::GenericType::AND);
 }
 
 TEST_F(SNLGateTruthTableTest, testNandGate) {
     auto nand2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nand, 2);
     ASSERT_NE(nand2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(nand2);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0b0111);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::NAND);
 
     auto nand6 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nand, 6);
     ASSERT_NE(nand6, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(nand6);
-    EXPECT_EQ(tt.size(), 6);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x7FFFFFFFFFFFFFFFULL);
+    expectGenericGate(tt, 6, SNLTruthTable::GenericType::NAND);
 }
 
 TEST_F(SNLGateTruthTableTest, testOrGate) {
     auto or2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 2);
     ASSERT_NE(or2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(or2);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0b1110);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::OR);
 
     auto or4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 4);
     ASSERT_NE(or4, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(or4);
-    EXPECT_EQ(tt.size(), 4);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFE);
+    expectGenericGate(tt, 4, SNLTruthTable::GenericType::OR);
 
     auto or5 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 5);
     ASSERT_NE(or5, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(or5);
-    EXPECT_EQ(tt.size(), 5);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFFFFFE);
+    expectGenericGate(tt, 5, SNLTruthTable::GenericType::OR);
     EXPECT_EQ(SNLDesignModeling::getTruthTable(or5), tt);
 
     auto or6 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 6);
     ASSERT_NE(or6, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(or6);
-    EXPECT_EQ(tt.size(), 6);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFFFFFFFFFFFFFEULL);
+    expectGenericGate(tt, 6, SNLTruthTable::GenericType::OR);
     EXPECT_EQ(SNLDesignModeling::getTruthTable(or6), tt);
 }
 
@@ -90,60 +89,51 @@ TEST_F(SNLGateTruthTableTest, testNorGate) {
     auto nor = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nor, 2);
     ASSERT_NE(nor, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(nor);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0b0001);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::NOR);
 
     auto nor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nor, 3);
     ASSERT_NE(nor3, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(nor3);
-    EXPECT_EQ(tt.size(), 3);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x01);
+    expectGenericGate(tt, 3, SNLTruthTable::GenericType::NOR);
 
     auto nor4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nor, 4);
     ASSERT_NE(nor4, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(nor4);
-    EXPECT_EQ(tt.size(), 4);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x0001);
+    expectGenericGate(tt, 4, SNLTruthTable::GenericType::NOR);
 }
 
 TEST_F(SNLGateTruthTableTest, testXorGate) {
     auto xor2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 2);
     ASSERT_NE(xor2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(xor2);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x6);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::XOR);
 
     auto xor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 3);
     ASSERT_NE(xor3, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(xor3);
-    EXPECT_EQ(tt.size(), 3);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x96);
+    expectGenericGate(tt, 3, SNLTruthTable::GenericType::XOR);
 
     auto xor4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 4);
     ASSERT_NE(xor4, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(xor4);
-    EXPECT_EQ(tt.size(), 4);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x6996);
+    expectGenericGate(tt, 4, SNLTruthTable::GenericType::XOR);
 }
 
 TEST_F(SNLGateTruthTableTest, testXnorGate) {
     auto xnor2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 2);
     ASSERT_NE(xnor2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(xnor2);
-    EXPECT_EQ(tt.size(), 2);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x9);
+    expectGenericGate(tt, 2, SNLTruthTable::GenericType::XNOR);
 
     auto xnor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 3);
     ASSERT_NE(xnor3, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(xnor3);
-    EXPECT_EQ(tt.size(), 3);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x69);
+    expectGenericGate(tt, 3, SNLTruthTable::GenericType::XNOR);
 
     auto xnor4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 4);
     ASSERT_NE(xnor4, nullptr);
     tt = NLDB0::getPrimitiveTruthTable(xnor4);
-    EXPECT_EQ(tt.size(), 4);
-    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x9669);
+    expectGenericGate(tt, 4, SNLTruthTable::GenericType::XNOR);
 }
 
 TEST_F(SNLGateTruthTableTest, testUnaryGates) {
@@ -163,7 +153,9 @@ TEST_F(SNLGateTruthTableTest, testUnaryGates) {
 TEST_F(SNLGateTruthTableTest, testUnsupportedGates) {
     auto andGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 10);
     ASSERT_NE(andGate, nullptr);
-    EXPECT_THROW(NLDB0::getPrimitiveTruthTable(andGate), NLException);
+    expectGenericGate(
+        NLDB0::getPrimitiveTruthTable(andGate), 10,
+        SNLTruthTable::GenericType::AND);
 
     auto bufGate = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 2);
     ASSERT_NE(bufGate, nullptr);
@@ -189,7 +181,9 @@ TEST_F(SNLGateTruthTableTest, testFATruthTables) {
     // Cross-check: Sum truth table equals the XOR-3 truth table
     auto xor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 3);
     ASSERT_NE(nullptr, xor3);
-    EXPECT_EQ(sumTT, NLDB0::getPrimitiveTruthTable(xor3));
+    expectGenericGate(
+        NLDB0::getPrimitiveTruthTable(xor3), 3,
+        SNLTruthTable::GenericType::XOR);
 
     // Cout = majority(A,B,CI): output 1 when at least 2 inputs are 1
     auto coutTT = NLDB0::getFACoutTruthTable();
