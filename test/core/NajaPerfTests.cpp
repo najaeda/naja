@@ -61,6 +61,15 @@ TEST(NajaPerfTests, getLogPathFromEnvFallsBackForEmptyAndLegacyEnable) {
   unsetEnvVar("NAJA_PERF_TEST_PATH");
 }
 
+TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultForNullOrEmptyEnvVarName) {
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv(nullptr, "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("", "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+}
+
 TEST(NajaPerfTests, test0) {
   std::filesystem::path logPath(NAJA_CORE_TESTS_PATH);
   NajaPerf::create(logPath/"naja_perf_test0.log", "top");
