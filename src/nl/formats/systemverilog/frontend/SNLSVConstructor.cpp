@@ -169,6 +169,18 @@ std::optional<std::string> getDriverFailureDetails(
   return reason.str();
 }
 
+bool allNetsArePortNets(SNLDesign* design) {
+  for (auto net : design->getBitNets()) {
+    if (net->isAssignConstant()) {
+      continue;
+    }
+    if (net->getBitTerms().empty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const Expression* stripConversions(const Expression& expr) {
   const Expression* current = &expr;
   while (current && current->kind == slang::ast::ExpressionKind::Conversion) {
@@ -436,8 +448,10 @@ class SNLSVConstructorImpl {
   public:
     explicit SNLSVConstructorImpl(
       NLLibrary* library,
+      const SNLSVConstructor::Config& config,
       const SNLSVConstructor::ConstructOptions& options):
       library_(library),
+      config_(config),
       options_(options)
     {}
 
@@ -996,6 +1010,12 @@ class SNLSVConstructorImpl {
         createSequentialLogic(design, body);
       }
       finalizeInferredMemories(design);
+
+      if (config_.blackboxDetection_ and design->isStandard()) {
+        if (design->getInstances().empty() and allNetsArePortNets(design)) {
+          design->setType(SNLDesign::Type::UserBlackBox);
+        }
+      }
 
       return design;
     }
@@ -13551,6 +13571,7 @@ class SNLSVConstructorImpl {
 
   private:
     NLLibrary* library_ {nullptr};
+    SNLSVConstructor::Config config_ {};
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
@@ -13596,7 +13617,7 @@ void SNLSVConstructor::construct(const std::filesystem::path& path) {
 
 void SNLSVConstructor::construct(const Paths& paths, const ConstructOptions& options) {
   NajaPerf::Scope scope("SNLSVConstructor::construct");
-  SNLSVConstructorImpl impl(library_, options);
+  SNLSVConstructorImpl impl(library_, config_, options);
   impl.construct(paths);
 }
 

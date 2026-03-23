@@ -80,6 +80,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     '/Applications/*' \
     '/opt/homebrew/*' \
     '*/test/*' \
+    '*/src/nl/formats/lefdef/*' \
     '*/thirdparty/*' \
     '*/naja/thirdparty/*'
   lcov --ignore-errors inconsistent,unsupported,mismatch,count,format,unused,corrupt \
@@ -89,6 +90,7 @@ else
   lcov --remove coverage.info --output-file coverage.info \
     '/usr/*' \
     '*/test/*' \
+    '*/src/nl/formats/lefdef/*' \
     '*/naja/thirdparty/*'
   lcov --summary coverage.info
 fi
