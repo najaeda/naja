@@ -2508,14 +2508,6 @@ class SNLSVConstructorImpl {
       const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
       InferredMemory& memory) {
       const Statement* current = unwrapStatement(stmt);
-      if (current && current->kind == slang::ast::StatementKind::List) {
-        std::vector<const Statement*> topLevelStatements;
-        collectTopLevelStatements(*current, topLevelStatements);
-        if (topLevelStatements.size() != 1) {
-          return false;
-        }
-        current = unwrapStatement(*topLevelStatements.front());
-      }
       if (!current || current->kind != slang::ast::StatementKind::Conditional) {
         return false;
       }
