@@ -302,6 +302,24 @@ TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxInstanceDumpOmitsDefaultWidth
   EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w1"));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxExplicitDefaultWidthParameterIsOmitted) {
+  auto* ins = createWideMux2Instance(1);
+  ASSERT_NE(nullptr, ins);
+  auto* widthParam = ins->getModel()->getParameter(NLName("WIDTH"));
+  ASSERT_NE(nullptr, widthParam);
+  SNLInstParameter::create(ins, widthParam, "1");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_mux2 mux0 ("));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_mux2 #("));
+  EXPECT_EQ(std::string::npos, dumped.find(".WIDTH(1)"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w1"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   ASSERT_NE(nullptr, createWideMux2Instance());
   ASSERT_NE(nullptr, createMemoryInstance());

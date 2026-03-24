@@ -131,36 +131,11 @@ namespace {
 
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
-    SNLBusTerm::create(
-      memory,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1),
-      0,
-      NLName("RADDR"));
-    SNLBusTerm::create(
-      memory,
-      SNLTerm::Direction::Output,
-      static_cast<NLID::Bit>(signature.readPorts * signature.width - 1),
-      0,
-      NLName("RDATA"));
-    SNLBusTerm::create(
-      memory,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1),
-      0,
-      NLName("WADDR"));
-    SNLBusTerm::create(
-      memory,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(signature.writePorts * signature.width - 1),
-      0,
-      NLName("WDATA"));
-    SNLBusTerm::create(
-      memory,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(signature.writePorts - 1),
-      0,
-      NLName("WE"));
+    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1), 0, NLName("RADDR"));
+    SNLBusTerm::create(memory, SNLTerm::Direction::Output, static_cast<NLID::Bit>(signature.readPorts * signature.width - 1), 0, NLName("RDATA"));
+    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1), 0, NLName("WADDR"));
+    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WDATA"));
+    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WE"));
 
     auto* clk = memory->getScalarTerm(NLName("CLK"));
     auto* rst = memory->getScalarTerm(NLName("RST"));

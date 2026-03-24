@@ -99,9 +99,6 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
 }
 
 bool isUnsignedDecimal(const std::string& value) {
-  if (value.empty()) {
-    return false;
-  }
   return std::all_of(
     value.begin(),
     value.end(),

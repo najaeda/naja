@@ -46,21 +46,15 @@ std::string describeDesign(const naja::NL::SNLDesign* design) {
   return design ? design->getString() : std::string("null");
 }
 
-std::string describeBitTerm(const naja::NL::SNLBitTerm* term) {
-  if (!term) {
-    return "null";
-  }
+std::string describeBitTerm(const naja::NL::SNLBitTerm& term) {
   std::ostringstream stream;
-  stream << term->getString() << " [design=" << describeDesign(term->getDesign()) << "]";
+  stream << term.getString() << " [design=" << describeDesign(term.getDesign()) << "]";
   return stream.str();
 }
 
-std::string describeBitNet(const naja::NL::SNLBitNet* net) {
-  if (!net) {
-    return "null";
-  }
+std::string describeBitNet(const naja::NL::SNLBitNet& net) {
   std::ostringstream stream;
-  stream << net->getString() << " [design=" << describeDesign(net->getDesign()) << "]";
+  stream << net.getString() << " [design=" << describeDesign(net.getDesign()) << "]";
   return stream.str();
 }
 
@@ -239,21 +233,19 @@ void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
     if (getModel() not_eq bitTerm->getDesign()) {
       std::ostringstream reason;
       reason << "setTermsNets error with incompatible instance and terminal at index " << i
-             << ": instance=" << getString()
-             << " [design=" << describeDesign(getDesign())
+             << ": instance=" << getString() << " [design=" << describeDesign(getDesign())
              << ", model=" << describeDesign(getModel()) << "]"
-             << ", terminal=" << describeBitTerm(bitTerm);
+             << ", terminal=" << describeBitTerm(*bitTerm);
       throw NLException(reason.str());
     }
     auto bitNet = nets[i];
     if (bitNet and bitNet->getDesign() not_eq getDesign()) {
       std::ostringstream reason;
       reason << "setTermsNets error with incompatible instance and net at index " << i
-             << ": instance=" << getString()
-             << " [design=" << describeDesign(getDesign())
+             << ": instance=" << getString() << " [design=" << describeDesign(getDesign())
              << ", model=" << describeDesign(getModel()) << "]"
-             << ", terminal=" << describeBitTerm(bitTerm)
-             << ", net=" << describeBitNet(bitNet);
+             << ", terminal=" << describeBitTerm(*bitTerm)
+             << ", net=" << describeBitNet(*bitNet);
       throw NLException(reason.str());
     }
     SNLInstTerm* instTerm = getInstTerm(bitTerm);
