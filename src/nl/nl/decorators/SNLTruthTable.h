@@ -34,8 +34,19 @@ class SNLTruthTable {
   
   SNLTruthTable() : size_(0) {}
 
-  SNLTruthTable(size_t size, GenericType genericType) : size_(size), genericType_(genericType) 
-  {}
+  SNLTruthTable(size_t size,
+                GenericType genericType,
+                const std::vector<uint64_t>& dependencies)
+      : size_(size), dependencies_(dependencies), genericType_(genericType) {
+    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) &&
+        size > 0) {
+      std::ostringstream oss;
+      oss << "Dependencies size mismatch: expected "
+          << (size / 64 + ((size % 64) > 0 ? 1 : 0))
+          << ", got " << dependencies_.size();
+      throw NLException(oss.str());
+    }
+  }
 
   // user‐provided copy‐ctor
   SNLTruthTable(const SNLTruthTable& o)

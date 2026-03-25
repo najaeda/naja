@@ -5,6 +5,7 @@
 
 #include "gtest/gtest.h"
 
+#include "NLBitDependencies.h"
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "NLException.h"
@@ -19,6 +20,11 @@ class SNLGateTruthTableTest: public ::testing::Test {
       EXPECT_EQ(tt.size(), size);
       EXPECT_TRUE(tt.isGeneric());
       EXPECT_EQ(tt.getGenericType(), type);
+      const auto deps = NLBitDependencies::decodeBits(tt.getDependencies());
+      ASSERT_EQ(deps.size(), size);
+      for (uint32_t i = 0; i < size; ++i) {
+        EXPECT_EQ(deps[i], i);
+      }
     }
 
     void SetUp() override {

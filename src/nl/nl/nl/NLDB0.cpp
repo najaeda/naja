@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #if defined(_MSC_VER)
   #include <intrin.h>
 #endif
@@ -24,6 +25,15 @@ namespace {
 #else
     return __builtin_parityll(x);
 #endif
+  }
+
+  std::vector<uint64_t> buildFullDependencies(size_t size) {
+    if (size == 0) {
+      return {};
+    }
+    std::vector<size_t> deps(size);
+    std::iota(deps.begin(), deps.end(), 0);
+    return naja::NL::NLBitDependencies::encodeBits(deps);
   }
 
   void createAssignPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -272,30 +282,31 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 
   if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+    const auto deps = buildFullDependencies(size);
     auto type = GateType(design->getLibrary()->getName().getString());
     switch (type) {
       case GateType::And: {
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::AND);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::AND, deps);
         return tt;
       }
       case GateType::Nand: {
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::NAND);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NAND, deps);
         return tt;
       }
       case GateType::Or: {        
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::OR);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::OR, deps);
         return tt;
       }
       case GateType::Nor: {
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::NOR);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NOR, deps);
         return tt;
       }
       case GateType::Xor: {
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::XOR);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XOR, deps);
         return tt;
       }
       case GateType::Xnor: {
-        SNLTruthTable tt(size, SNLTruthTable::GenericType::XNOR);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XNOR, deps);
         return tt;  
       }
       // LCOV_EXCL_START
