@@ -18,9 +18,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     bool updateDriverIsoID,
     bool updateConst) {
   std::stack<DNLID> stack;
-  std::vector<bool>& visited = visitedDB.visited;
+  auto& visited = visitedDB.visited;
   visited.resize(dnl_.getDNLTerms().size());
-  visited.assign(visited.size(), false);
+  visited.reset();
   stack.push(term.getID());
   // Collect all terms on this iso
   while (!stack.empty()) {
@@ -547,4 +547,3 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
                         fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
                     DNLIso, visitedDB);
 }
-

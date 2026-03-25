@@ -5,6 +5,7 @@
 
 
 #pragma once
+#include <boost/dynamic_bitset.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -54,9 +55,7 @@ class DNLInstanceFull;
 typedef DNL<DNLInstanceFull, DNLTerminalFull> DNLFull;
 
 struct visited {
-    std::vector<bool> visited;
-    std::vector<bool> toVisitAsInstTerm;
-    std::vector<bool> toVisitAsBitTerm;
+    boost::dynamic_bitset<> visited;
 };
 
 struct SNLBitTermCompare {
