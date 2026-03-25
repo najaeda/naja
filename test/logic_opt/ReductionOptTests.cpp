@@ -83,7 +83,7 @@ TEST_F(ReductionOptTests, test) {
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
+  EXPECT_EQ(SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)), and2TruthTable);
 }
 
 TEST_F(ReductionOptTests, testTruthTablesMap) {
@@ -474,7 +474,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
+  EXPECT_EQ(SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)), and2TruthTable);
 }
 
 TEST_F(ReductionOptTests, testTruthTablesMap_bne) {

@@ -31,6 +31,7 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "NLBitDependencies.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
@@ -296,9 +297,14 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.setTruthTable()")
-  auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
-  size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
-  SNLTruthTable truthTable(size, tt);
+  std::vector<size_t> deps;
+  for (auto term: selfObject->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      deps.push_back(term->getOrderID());
+    }
+  }
+  size_t size = deps.size();
+  SNLTruthTable truthTable(size, tt, NLBitDependencies::encodeBits(deps));
   try {
     SNLDesignModeling::setTruthTable(selfObject, truthTable);
   } catch (const NLException& e) {
@@ -319,7 +325,15 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
     setError("malformed SNLDesign.setTruthTables method");
     return nullptr;
   }
+  METHOD_HEAD("SNLDesign.setTruthTables()")
   std::vector<SNLTruthTable> truthTables;
+  std::vector<size_t> deps;
+  for (auto term: selfObject->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      deps.push_back(term->getOrderID());
+    }
+  }
+  auto encodedDeps = NLBitDependencies::encodeBits(deps);
   for (int i=0; i<PyList_Size(arg0); ++i) {
     PyObject* item = PyList_GetItem(arg0, i);
     if (not PyLong_Check(item)) {
@@ -340,9 +354,10 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
       return nullptr;
     }
     uint64_t mask = PyLong_AsUnsignedLongLong(item);;
-    truthTables.push_back(SNLTruthTable(size, mask));
+    auto tableDeps =
+        deps.empty() ? SNLTruthTable::fullDependencies(size) : encodedDeps;
+    truthTables.push_back(SNLTruthTable(size, mask, tableDeps));
   }
-  METHOD_HEAD("SNLDesign.setTruthTables()")
   try {
     SNLDesignModeling::setTruthTables(selfObject, truthTables);
   } catch (const NLException& e) {

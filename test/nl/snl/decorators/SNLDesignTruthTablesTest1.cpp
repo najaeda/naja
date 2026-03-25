@@ -22,14 +22,14 @@ class SNLDesignTruthTablesTest1: public ::testing::Test {
       {
         auto logic0 = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("logic0"));
         SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, NLName("O"));
-        SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0, 0b0));
+        SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0, 0b0, SNLTruthTable::fullDependencies(0)));
       }
 
       // logic1: const1
       {
         auto logic1 = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("logic1"));
         SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, NLName("O"));
-        SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0, 0b1));
+        SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0, 0b1, SNLTruthTable::fullDependencies(0)));
       }
 
       // inv: inverter (1→0)
@@ -37,7 +37,7 @@ class SNLDesignTruthTablesTest1: public ::testing::Test {
         auto inv = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("inv"));
         SNLScalarTerm::create(inv, SNLTerm::Direction::Input,  NLName("I"));
         SNLScalarTerm::create(inv, SNLTerm::Direction::Output, NLName("O"));
-        SNLDesignModeling::setTruthTable(inv, SNLTruthTable(1, 0b01));
+        SNLDesignModeling::setTruthTable(inv, SNLTruthTable(1, 0b01, SNLTruthTable::fullDependencies(1)));
       }
 
       // buf: buffer (0→1)
@@ -46,7 +46,7 @@ class SNLDesignTruthTablesTest1: public ::testing::Test {
         SNLScalarTerm::create(buf, SNLTerm::Direction::Input,  NLName("I"));
         SNLScalarTerm::create(buf, SNLTerm::Direction::Output, NLName("O"));
         // FIXED: call setTruthTable, not setTruthTablesatted
-        SNLDesignModeling::setTruthTable(buf, SNLTruthTable(1, 0b10));
+        SNLDesignModeling::setTruthTable(buf, SNLTruthTable(1, 0b10, SNLTruthTable::fullDependencies(1)));
       }
     }
 
@@ -107,7 +107,7 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   auto designs  = NLLibrary::create(prims_->getDB());
   auto non_prim = SNLDesign::create(designs, NLName("non_prim"));
   EXPECT_THROW(
-    SNLDesignModeling::setTruthTable(non_prim, SNLTruthTable(1, 0b1)),
+    SNLDesignModeling::setTruthTable(non_prim, SNLTruthTable(1, 0b1, SNLTruthTable::fullDependencies(1))),
     NLException
   );
 
@@ -117,7 +117,7 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   SNLScalarTerm::create(error, SNLTerm::Direction::Output, NLName("O0"));
   SNLScalarTerm::create(error, SNLTerm::Direction::Output, NLName("O1"));
   EXPECT_THROW(
-    SNLDesignModeling::setTruthTable(error, SNLTruthTable(1, 0b10)),
+    SNLDesignModeling::setTruthTable(error, SNLTruthTable(1, 0b10, SNLTruthTable::fullDependencies(1))),
     NLException
   );
   {
@@ -127,7 +127,8 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Input,  NLName("I1"));
   auto o0 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O0"));
   auto o1 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O1"));
-  SNLTruthTable tt0(2, 0b10), tt1(2, 0b01);
+  SNLTruthTable tt0(2, 0b10, SNLTruthTable::fullDependencies(2)),
+      tt1(2, 0b01, SNLTruthTable::fullDependencies(2));
   SNLDesignModeling::setTruthTables(multiple_outputs, {tt0, tt1});
 
   EXPECT_THROW(
@@ -144,13 +145,17 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   {
   // multi-chunk + two outputs
   auto multiple_outputs2 = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("multiple_outputs2"));
-  SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Input,  NLName("I0"));
-  SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Input,  NLName("I1"));
+  for (size_t i = 0; i < 7; ++i) {
+    SNLScalarTerm::create(
+        multiple_outputs2, SNLTerm::Direction::Input,
+        NLName("I" + std::to_string(i)));
+  }
   auto o0 = SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O0"));
   auto o1 = SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O1"));
   std::vector<bool> bitVect(128);
   for (size_t i = 0; i < bitVect.size(); ++i) bitVect[i] = (i % 2);
-  SNLTruthTable tt0Big(7, bitVect), tt1Big(7, bitVect);
+  SNLTruthTable tt0Big(7, bitVect, SNLTruthTable::fullDependencies(7)),
+      tt1Big(7, bitVect, SNLTruthTable::fullDependencies(7));
   EXPECT_FALSE(tt0Big.all0());
   EXPECT_FALSE(tt0Big.all1());
 
@@ -174,16 +179,21 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   {
   // hybrid 4-output (mask, mask, vector, mask)
   auto hybrid = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("hybrid"));
-  auto i0 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I0"));
-  auto i1 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I1"));
+  for (size_t i = 0; i < 7; ++i) {
+    SNLScalarTerm::create(
+        hybrid, SNLTerm::Direction::Input,
+        NLName("I" + std::to_string(i)));
+  }
   auto o0 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O0"));
   auto o1 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O1"));
   auto o2 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O2"));
   auto o3 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O3"));
-  SNLTruthTable tt0hybrid(2, 0b10), tt1hybrid(2, 0b01), tt3hybrid(2, 0b01);
+  SNLTruthTable tt0hybrid(2, 0b10, SNLTruthTable::fullDependencies(2)),
+      tt1hybrid(2, 0b01, SNLTruthTable::fullDependencies(2)),
+      tt3hybrid(2, 0b01, SNLTruthTable::fullDependencies(2));
   std::vector<bool> bitVect2(128);
   for (size_t i = 0; i < bitVect2.size(); ++i) bitVect2[i] = (i % 2);
-  SNLTruthTable tt2hybrid(7, bitVect2);
+  SNLTruthTable tt2hybrid(7, bitVect2, SNLTruthTable::fullDependencies(7));
 
   SNLDesignModeling::setTruthTables(hybrid, {tt0hybrid, tt1hybrid, tt2hybrid, tt3hybrid});
 
@@ -198,14 +208,18 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   }
   // single big mask
   auto singleLarge = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("singleLarge"));
-  SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Input,  NLName("I0"));
-  SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Input,  NLName("I1"));
+  for (size_t i = 0; i < 7; ++i) {
+    SNLScalarTerm::create(
+        singleLarge, SNLTerm::Direction::Input,
+        NLName("I" + std::to_string(i)));
+  }
   SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Output, NLName("O0"));
   std::vector<bool> bitVectSingleLarge(128);
   for (size_t i = 0; i < bitVectSingleLarge.size(); ++i) {
     bitVectSingleLarge[i] = (i % 2);
   }
-  SNLTruthTable tt0singleLarge(7, bitVectSingleLarge);
+  SNLTruthTable tt0singleLarge(7, bitVectSingleLarge,
+                               SNLTruthTable::fullDependencies(7));
 
   SNLDesignModeling::setTruthTable(singleLarge, tt0singleLarge);
   EXPECT_EQ(tt0singleLarge, SNLDesignModeling::getTruthTable(singleLarge));
@@ -217,7 +231,8 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   for (size_t i = 0; i < bitVectSingleLargeError.size(); ++i) {
     bitVectSingleLargeError[i] = (i % 2);
   }
-  SNLTruthTable tt0singleLargeError(7, bitVectSingleLargeError);
+  SNLTruthTable tt0singleLargeError(
+      7, bitVectSingleLargeError, SNLTruthTable::fullDependencies(7));
   std::vector<SNLTruthTable> singleLargeErrorTables = {tt0singleLargeError, tt0singleLargeError};
   EXPECT_THROW(
     SNLDesignModeling::setTruthTables(singleLargeError, singleLargeErrorTables),
@@ -233,7 +248,7 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
 TEST_F(SNLDesignTruthTablesTest1, IndexedGetThrowsOutOfRange) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_o"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
-  SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10));
+  SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, SNLTruthTable::fullDependencies(1)));
 
   EXPECT_ANY_THROW(
     SNLDesignModeling::getTruthTable(D, /*outputID=*/1)
@@ -289,8 +304,8 @@ TEST_F(SNLDesignTruthTablesTest1, SingleGetAfterMultiTableInstallationThrows) {
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O0"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
 
-  SNLTruthTable t0(2, uint64_t{1});
-  SNLTruthTable t1(2, uint64_t{2});
+  SNLTruthTable t0(2, uint64_t{1}, SNLTruthTable::fullDependencies(2));
+  SNLTruthTable t1(2, uint64_t{2}, SNLTruthTable::fullDependencies(2));
   SNLDesignModeling::setTruthTables(D, {t0, t1});
 
   EXPECT_THROW(
@@ -304,7 +319,7 @@ TEST_F(SNLDesignTruthTablesTest1, GetTruthTableOutOfRangeID) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("out_of_range"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
 
-  SNLTruthTable t0(1, 0b1);
+  SNLTruthTable t0(1, 0b1, SNLTruthTable::fullDependencies(1));
   SNLDesignModeling::setTruthTable(D, t0);
 
   EXPECT_THROW(
@@ -321,7 +336,7 @@ TEST_F(SNLDesignTruthTablesTest1, GetTruthTableOutOfRangeID) {
 TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_InvalidOutputIndex_Throws) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_out"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
-  SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10));
+  SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, SNLTruthTable::fullDependencies(1)));
 
   // only one output exists, index 1 is out of range
   EXPECT_THROW(
@@ -398,8 +413,8 @@ TEST_F(SNLDesignTruthTablesTest1, MultipleTables_ThenGetTruthTable_Throws) {
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
 
   // install two distinct truth tables
-  SNLTruthTable t0(2, uint64_t{1});
-  SNLTruthTable t1(2, uint64_t{2});
+  SNLTruthTable t0(2, uint64_t{1}, SNLTruthTable::fullDependencies(2));
+  SNLTruthTable t1(2, uint64_t{2}, SNLTruthTable::fullDependencies(2));
   SNLDesignModeling::setTruthTables(D, {t0, t1});
 
   // calling the single‐table overload without outputID should fail
@@ -432,7 +447,7 @@ TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_AlreadyHasProperty_Throws) {
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
 
   // First installation succeeds
-  SNLTruthTable t0(1, uint64_t{1});
+  SNLTruthTable t0(1, uint64_t{1}, SNLTruthTable::fullDependencies(1));
   ASSERT_NO_THROW(
     SNLDesignModeling::setTruthTables(D, { t0 })
   );
@@ -445,23 +460,23 @@ TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_AlreadyHasProperty_Throws) {
 }
 
 //-----------------------------------------------------------------------------
-// Exception when declaredInputs == 0 but two chunks follow (special‐case mismatch)
+// Exception when declaredInputs == 0 but extra chunks follow (flat-term-aware mismatch)
 //-----------------------------------------------------------------------------
 TEST_F(SNLDesignTruthTablesTest1, DeclaredInputsZero_TwoChunks_Throws) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("zero_mismatch"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
 
-  // Manually create the underlying property to simulate two trailing chunks
+  // One output means one bit chunk + one dependency chunk is valid.
+  // Add one extra trailing chunk to make the property malformed.
   auto P = naja::NajaDumpableProperty::create(
       static_cast<naja::NajaObject*>(D),
       "SNLDesignTruthTableProperty"
   );
   P->addUInt64Value(0);  // declaredInputs = 0
   P->addUInt64Value(0);  // chunk 0
-  P->addUInt64Value(1);  // chunk 1
+  P->addUInt64Value(1);  // dependency chunk
+  P->addUInt64Value(2);  // unexpected extra chunk
 
-  // special‐case: declaredInputs == 0 && tableSize == 2 → expectedChunks = 1,
-  // but tableSize is actually 2, so we should get a mismatch exception
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
     NLException
@@ -624,7 +639,7 @@ TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_NonPrimitiveDesignThrows) {
   auto D       = SNLDesign::create(designs, NLName("non_primitive"));
 
   // Any non‐empty vector should trigger the “non‐primitive” exception
-  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u) };
+  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u, SNLTruthTable::fullDependencies(1)) };
   EXPECT_THROW(
     SNLDesignModeling::setTruthTables(D, tables),
     NLException
@@ -639,7 +654,7 @@ TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_WrongOutputCountThrows) {
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
 
   // Provide only one table → mismatch
-  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u) };
+  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u, SNLTruthTable::fullDependencies(1)) };
   EXPECT_THROW(
     SNLDesignModeling::setTruthTables(D, tables),
     NLException

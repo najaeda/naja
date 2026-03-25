@@ -8,6 +8,7 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLException.h"
+#include "NajaDumpableProperty.h"
 
 #include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
@@ -369,9 +370,19 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromTT) {
   auto top = SNLDesign::create(designs, NLName("top"));
   // create an instance of the design
   auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
-  //set truth table
   std::vector<u_int64_t> deps;
-  SNLDesignModeling::setTruthTables(design, { SNLTruthTable(2, 0x5, deps) , SNLTruthTable(2, 0x5, deps)});
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTables(
+          design, {SNLTruthTable(2, 0x5, deps), SNLTruthTable(2, 0x5, deps)}),
+      NLException);
+  auto property = naja::NajaDumpableProperty::create(
+      static_cast<naja::NajaObject*>(design), "SNLDesignTruthTableProperty");
+  property->addUInt64Value(2);
+  property->addUInt64Value(0x5);
+  property->addUInt64Value(0);
+  property->addUInt64Value(2);
+  property->addUInt64Value(0x5);
+  property->addUInt64Value(0);
   // Test all inputs are returned for combinatorial quarie for each output
   EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 2);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o1).size(), 2);
@@ -445,7 +456,14 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTTWithEmptyDeps) {
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 1);
   std::vector<u_int64_t> deps;
-  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps)),
+      NLException);
+  auto property = naja::NajaDumpableProperty::create(
+      static_cast<naja::NajaObject*>(design), "SNLDesignTruthTableProperty");
+  property->addUInt64Value(2);
+  property->addUInt64Value(0x5);
+  property->addUInt64Value(0);
   // Test all inputs are returned for combinatorial quarie for each output
   EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 2);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(ins0->getInstTerm(o)).size(), 2);
