@@ -17,16 +17,16 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     bool updateReadersIsoID,
     bool updateDriverIsoID,
     bool updateConst) {
+  // if isoid already define for term so return
   std::stack<DNLID> stack;
-  auto& visited = visitedDB.visited;
-  visited.resize(dnl_.getDNLTerms().size());
-  visited.reset();
+  auto& visited = visitedDB;
+  visited.beginTraversal(dnl_.getDNLTerms().size());
   stack.push(term.getID());
   // Collect all terms on this iso
   while (!stack.empty()) {
     DNLID fid = stack.top();
     stack.pop();
-    if (visited[fid]) {
+    if (visited.test(fid)) {
       continue;
     }
     const DNLTerminal& fterm = dnl_.getNonConstDNLTerminalFromID(fid);
@@ -90,7 +90,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         DNLID finstTermId = finstance.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (visited[finstTermId]) {
+        if (visited.test(finstTermId)) {
           netAlreadyVisited = true;
           break;  // If the term was visited, by definition the current net was handled.
         }
@@ -104,7 +104,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           if (fbitTermId == fid) {
             continue;
           }
-          if (visited[fbitTermId]) {
+          if (visited.test(fbitTermId)) {
             break;  // If the term was visited, by definition the current net was handled.
           }
           assert(fbitTermId != DNLID_MAX);
@@ -136,7 +136,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         DNLID finstTermId = fparent.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (visited[finstTermId]) {
+        if (visited.test(finstTermId)) {
           netAlreadyVisited = true;
           break;  // If the term was visited, by definition the current net was handled.
         }
@@ -153,7 +153,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           /*if (fbitTermId == fid) {
             continue;
           }*/
-          if (visited[fbitTermId]) {
+          if (visited.test(fbitTermId)) {
             break;  // If the term was visited, by definition the current net was handled.
           }
           assert(fbitTermId != DNLID_MAX);
@@ -161,7 +161,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         }
       }
     }
-    visited[fid] = true;
+    visited.set(fid);
   }
 }
 

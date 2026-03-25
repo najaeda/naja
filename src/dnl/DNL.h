@@ -5,7 +5,7 @@
 
 
 #pragma once
-#include <boost/dynamic_bitset.hpp>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -55,7 +55,34 @@ class DNLInstanceFull;
 typedef DNL<DNLInstanceFull, DNLTerminalFull> DNLFull;
 
 struct visited {
-    boost::dynamic_bitset<> visited;
+    void resize(size_t nBits) {
+      words.resize((nBits + 63) / 64);
+    }
+
+    void beginTraversal(size_t nBits) {
+      resize(nBits);
+      for (uint32_t wordIndex : touchedWords) {
+        words[wordIndex] = 0;
+      }
+      touchedWords.clear();
+    }
+
+    bool test(size_t bit) const {
+      return (words[bit >> 6] & (uint64_t{1} << (bit & 63))) != 0;
+    }
+
+    void set(size_t bit) {
+      const size_t wordIndex = bit >> 6;
+      const uint64_t mask = uint64_t{1} << (bit & 63);
+      uint64_t& word = words[wordIndex];
+      if (word == 0) {
+        touchedWords.push_back(static_cast<uint32_t>(wordIndex));
+      }
+      word |= mask;
+    }
+
+    std::vector<uint64_t> words;
+    std::vector<uint32_t> touchedWords;
 };
 
 struct SNLBitTermCompare {
