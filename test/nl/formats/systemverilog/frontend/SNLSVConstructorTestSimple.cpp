@@ -16868,6 +16868,56 @@ endmodule
   EXPECT_NE(nullptr, top->getNet(NLName("mem_q_mem_dummy_rdata")));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceNonBitstreamElementFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_non_bitstream_element_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_non_bitstream_element_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_non_bitstream_element_fallback(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  typedef struct {
+    logic [7:0] data;
+    string      tag;
+  } entry_t;
+
+  entry_t mem_q [0:3];
+  entry_t mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (sel_i) begin
+      mem_d[addr_i].data = data_i;
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i].data;
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement pattern for sequential lowering"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -17262,6 +17312,236 @@ endmodule
   } catch (const SNLSVConstructorException& e) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitUnknownBitsFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_unknown_bits_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_reset_init_unknown_bits_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_unknown_bits_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      mem_q <= '{8'hxx, 8'h11, 8'h22, 8'h33};
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported sequential array assignment after unknown-bit reset init";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitNonConstantFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_non_constant_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_reset_init_non_constant_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_non_constant_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        mem_q[i] <= data_i;
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported sequential array assignment after non-constant reset init";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("unsupported statement pattern for sequential lowering"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitNarrowEntryZeroExtendSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_narrow_entry_zero_extend_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_reset_init_narrow_entry_zero_extend_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_narrow_entry_zero_extend_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        if (i == 0) begin
+          mem_q[i] <= 4'h1;
+        end else if (i == 1) begin
+          mem_q[i] <= 4'h2;
+        end else if (i == 2) begin
+          mem_q[i] <= 4'h3;
+        end else begin
+          mem_q[i] <= 4'h4;
+        end
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_reset_init_narrow_entry_zero_extend_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, initParam);
+  EXPECT_EQ("32'b00000100000000110000001000000001", initParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceResetInitOversizedEntryFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_oversized_entry_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_reset_init_oversized_entry_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_oversized_entry_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        mem_q[i] <= 16'h1234;
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported sequential array assignment after oversized reset init";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("unsupported statement pattern for sequential lowering"));
   }
 }
 
@@ -17919,6 +18199,52 @@ endmodule
     svPath,
     {"unsupported compound assignment in always_comb without current LHS bits",
      "unsupported statement pattern for sequential lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceNestedBaseCopyFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_nested_base_copy_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_nested_base_copy_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_nested_base_copy_fallback(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (sel_i) begin
+      mem_d = mem_q;
+    end
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement pattern for sequential lowering"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceCaseAndForSupported) {

@@ -1475,7 +1475,7 @@ class SNLSVConstructorImpl {
             current = &current->as<slang::ast::MemberAccessExpression>().value();
             continue;
           default:
-            return false;
+            return false; // LCOV_EXCL_LINE
         }
       }
       return false; // LCOV_EXCL_LINE
@@ -1547,7 +1547,7 @@ class SNLSVConstructorImpl {
       const slang::ConstantValue& value,
       std::vector<bool>& bits) const {
       if (!value) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       if (value.isInteger()) {
         const auto& intValue = value.integer();
@@ -1574,7 +1574,7 @@ class SNLSVConstructorImpl {
       if (converted && converted.isInteger()) {
         return flattenConstantValueToBits(converted, bits);
       }
-      return false;
+      return false; // LCOV_EXCL_LINE
     }
 
     std::optional<size_t> getExpressionBitstreamWidth(const Expression& expr) const {
