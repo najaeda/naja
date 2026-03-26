@@ -38,6 +38,135 @@
 
 namespace {
 
+bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
+  return design &&
+         (design == naja::NL::NLDB0::getDFF() ||
+          naja::NL::NLDB0::isDFFRN(design) ||
+          naja::NL::NLDB0::isDFFE(design) ||
+          naja::NL::NLDB0::isDFFRE(design) ||
+          naja::NL::NLDB0::isDFFSE(design));
+}
+
+naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* design) {
+  if (design == naja::NL::NLDB0::getDFF()) {
+    return naja::NL::NLDB0::getDFFClock();
+  }
+  if (naja::NL::NLDB0::isDFFRN(design)) {
+    return naja::NL::NLDB0::getDFFRNClock();
+  }
+  if (naja::NL::NLDB0::isDFFE(design)) {
+    return naja::NL::NLDB0::getDFFEClock();
+  }
+  if (naja::NL::NLDB0::isDFFRE(design)) {
+    return naja::NL::NLDB0::getDFFREClock();
+  }
+  if (naja::NL::NLDB0::isDFFSE(design)) {
+    return naja::NL::NLDB0::getDFFSEClock();
+  }
+  return nullptr;
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*> getDB0ClockRelatedInputs(
+    naja::NL::SNLBitTerm* clock) {
+  auto design = clock->getDesign();
+  auto db0Clock = getDB0SequentialClockTerm(design);
+  if (clock != db0Clock) {
+    return naja::NajaCollection<naja::NL::SNLBitTerm*>();
+  }
+  return design->getBitTerms().getSubCollection(
+      [db0Clock](const naja::NL::SNLBitTerm* term) {
+        return term != db0Clock &&
+               term->getDirection() != naja::NL::SNLTerm::Direction::Output;
+      });
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*> getDB0ClockRelatedOutputs(
+    naja::NL::SNLBitTerm* clock) {
+  auto design = clock->getDesign();
+  auto db0Clock = getDB0SequentialClockTerm(design);
+  if (clock != db0Clock) {
+    return naja::NajaCollection<naja::NL::SNLBitTerm*>();
+  }
+  return design->getBitTerms().getSubCollection(
+      [](const naja::NL::SNLBitTerm* term) {
+        return term->getDirection() == naja::NL::SNLTerm::Direction::Output;
+      });
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*> getDB0InputRelatedClocks(
+    naja::NL::SNLBitTerm* input) {
+  auto design = input->getDesign();
+  auto db0Clock = getDB0SequentialClockTerm(design);
+  if (!db0Clock || input == db0Clock ||
+      input->getDirection() == naja::NL::SNLTerm::Direction::Output) {
+    return naja::NajaCollection<naja::NL::SNLBitTerm*>();
+  }
+  return naja::NajaCollection(new naja::NajaSingletonCollection(db0Clock))
+      .getParentTypeCollection<naja::NL::SNLBitTerm*>();
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*> getDB0OutputRelatedClocks(
+    naja::NL::SNLBitTerm* output) {
+  auto db0Clock = getDB0SequentialClockTerm(output->getDesign());
+  if (!db0Clock ||
+      output->getDirection() != naja::NL::SNLTerm::Direction::Output) {
+    return naja::NajaCollection<naja::NL::SNLBitTerm*>();
+  }
+  return naja::NajaCollection(new naja::NajaSingletonCollection(db0Clock))
+      .getParentTypeCollection<naja::NL::SNLBitTerm*>();
+}
+
+naja::NajaCollection<naja::NL::SNLInstTerm*> getDB0ClockRelatedInputs(
+    naja::NL::SNLInstTerm* clock) {
+  auto instance = clock->getInstance();
+  auto db0Clock = getDB0SequentialClockTerm(instance->getModel());
+  if (!db0Clock || clock->getBitTerm() != db0Clock) {
+    return naja::NajaCollection<naja::NL::SNLInstTerm*>();
+  }
+  return instance->getInstTerms().getSubCollection(
+      [db0Clock](const naja::NL::SNLInstTerm* term) {
+        return term->getBitTerm() != db0Clock &&
+               term->getBitTerm()->getDirection() != naja::NL::SNLTerm::Direction::Output;
+      });
+}
+
+naja::NajaCollection<naja::NL::SNLInstTerm*> getDB0ClockRelatedOutputs(
+    naja::NL::SNLInstTerm* clock) {
+  auto instance = clock->getInstance();
+  auto db0Clock = getDB0SequentialClockTerm(instance->getModel());
+  if (!db0Clock || clock->getBitTerm() != db0Clock) {
+    return naja::NajaCollection<naja::NL::SNLInstTerm*>();
+  }
+  return instance->getInstTerms().getSubCollection(
+      [](const naja::NL::SNLInstTerm* term) {
+        return term->getBitTerm()->getDirection() == naja::NL::SNLTerm::Direction::Output;
+      });
+}
+
+naja::NajaCollection<naja::NL::SNLInstTerm*> getDB0InputRelatedClocks(
+    naja::NL::SNLInstTerm* input) {
+  auto instance = input->getInstance();
+  auto db0Clock = getDB0SequentialClockTerm(instance->getModel());
+  if (!db0Clock || input->getBitTerm() == db0Clock ||
+      input->getBitTerm()->getDirection() == naja::NL::SNLTerm::Direction::Output) {
+    return naja::NajaCollection<naja::NL::SNLInstTerm*>();
+  }
+  return naja::NajaCollection<naja::NL::SNLInstTerm*>(
+      new naja::NajaSingletonCollection(instance->getInstTerm(db0Clock)));
+}
+
+naja::NajaCollection<naja::NL::SNLInstTerm*> getDB0OutputRelatedClocks(
+    naja::NL::SNLInstTerm* output) {
+  auto instance = output->getInstance();
+  auto db0Clock = getDB0SequentialClockTerm(instance->getModel());
+  if (!db0Clock ||
+      output->getBitTerm()->getDirection() != naja::NL::SNLTerm::Direction::Output) {
+    return naja::NajaCollection<naja::NL::SNLInstTerm*>();
+  }
+  return naja::NajaCollection<naja::NL::SNLInstTerm*>(
+      new naja::NajaSingletonCollection(instance->getInstTerm(db0Clock)));
+}
+
 class SNLDesignModelingProperty : public naja::NajaPrivateProperty {
  public:
   using Inherit = naja::NajaPrivateProperty;
@@ -847,44 +976,73 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs(
     SNLBitTerm* clock){
+    if (isDB0SequentialPrimitive(clock->getDesign())) {
+      return getDB0ClockRelatedInputs(clock);
+    }
     GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedInputs_)}
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs(
-    SNLBitTerm* clock){GET_RELATED_OBJECTS(SNLBitTerm,
+    SNLBitTerm* clock){
+                                           if (isDB0SequentialPrimitive(clock->getDesign())) {
+                                             return getDB0ClockRelatedOutputs(clock);
+                                           }
+                                           GET_RELATED_OBJECTS(SNLBitTerm,
                                            clock,
                                            getDesign(),
                                            getClockRelatedOutputs_)}
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks(
     SNLBitTerm* input){
+    if (isDB0SequentialPrimitive(input->getDesign())) {
+      return getDB0InputRelatedClocks(input);
+    }
     GET_RELATED_OBJECTS(SNLBitTerm, input, getDesign(), getInputRelatedClocks_)}
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks(
-    SNLBitTerm* output){GET_RELATED_OBJECTS(SNLBitTerm,
+    SNLBitTerm* output){
+                                            if (isDB0SequentialPrimitive(output->getDesign())) {
+                                              return getDB0OutputRelatedClocks(output);
+                                            }
+                                            GET_RELATED_OBJECTS(SNLBitTerm,
                                             output,
                                             getDesign(),
                                             getOutputRelatedClocks_)}
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs(
-    SNLInstTerm* clock){GET_RELATED_OBJECTS(SNLInstTerm,
+    SNLInstTerm* clock){
+                                            if (isDB0SequentialPrimitive(clock->getInstance()->getModel())) {
+                                              return getDB0ClockRelatedInputs(clock);
+                                            }
+                                            GET_RELATED_OBJECTS(SNLInstTerm,
                                             clock,
                                             getInstance() -> getModel(),
                                             getClockRelatedInputs_)}
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs(
-    SNLInstTerm* clock){GET_RELATED_OBJECTS(SNLInstTerm,
+    SNLInstTerm* clock){
+                                            if (isDB0SequentialPrimitive(clock->getInstance()->getModel())) {
+                                              return getDB0ClockRelatedOutputs(clock);
+                                            }
+                                            GET_RELATED_OBJECTS(SNLInstTerm,
                                             clock,
                                             getInstance()->getModel(),
                                             getClockRelatedOutputs_)}
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks(
-    SNLInstTerm* input){GET_RELATED_OBJECTS(SNLInstTerm,
+    SNLInstTerm* input){
+                                            if (isDB0SequentialPrimitive(input->getInstance()->getModel())) {
+                                              return getDB0InputRelatedClocks(input);
+                                            }
+                                            GET_RELATED_OBJECTS(SNLInstTerm,
                                             input,
                                             getInstance()->getModel(),
                                             getInputRelatedClocks_)}
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(
     SNLInstTerm* output) {
+  if (isDB0SequentialPrimitive(output->getInstance()->getModel())) {
+    return getDB0OutputRelatedClocks(output);
+  }
   GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(),
                       getOutputRelatedClocks_)
 }
@@ -973,6 +1131,9 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLBitTerm* term) {
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
+    if (isDB0SequentialPrimitive(design)) {
+      return 0;
+    }
     auto tt = NLDB0::getPrimitiveTruthTable(design);
     if (tt.isNull()) {
       return 0;
@@ -1016,6 +1177,9 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
+    if (isDB0SequentialPrimitive(design)) {
+      return SNLTruthTable();
+    }
     return NLDB0::getPrimitiveTruthTable(design);
   }
   auto property = getTruthTableProperty(design);
@@ -1095,6 +1259,9 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
                                                size_t flatTermID) {
+  if (NLDB0::isDB0Primitive(design) && isDB0SequentialPrimitive(design)) {
+    return SNLTruthTable();
+  }
   auto property = getTruthTableProperty(design);
   std::map<size_t, NLID::DesignObjectID> termID2outputID;
   NLID::DesignObjectID outputIndex = 0;
@@ -1223,6 +1390,9 @@ bool SNLDesignModeling::hasModeling(const SNLDesign* design) {
 }
 
 bool SNLDesignModeling::isSequential(const SNLDesign* design) {
+  if (isDB0SequentialPrimitive(design)) {
+    return true;
+  }
   auto property = getProperty(design);
   if (property) {
     auto modeling = property->getModeling();
