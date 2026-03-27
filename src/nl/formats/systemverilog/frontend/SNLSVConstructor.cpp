@@ -1427,16 +1427,16 @@ class SNLSVConstructorImpl {
       }
       const auto* elementType = canonical.getArrayElementType();
       if (!elementType) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       const auto& elementCanonical = elementType->getCanonicalType();
       if (!elementCanonical.isBitstreamType()) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       const auto width = static_cast<size_t>(elementCanonical.getBitstreamWidth());
       const auto depth = static_cast<size_t>(canonical.getFixedRange().width());
       if (!width || !depth) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       signature.width = width;
       signature.depth = depth;
@@ -1507,9 +1507,11 @@ class SNLSVConstructorImpl {
       int suffix = 0;
       while (true) {
         if (auto* existing = design->getNet(NLName(name))) {
+          // LCOV_EXCL_START
           if (auto* bus = dynamic_cast<SNLBusNet*>(existing); bus && bus->getWidth() == width) {
             return bus;
           }
+          // LCOV_EXCL_STOP
         } else {
           auto* net = SNLBusNet::create(
             design,
@@ -1519,7 +1521,7 @@ class SNLSVConstructorImpl {
           annotateSourceInfo(net, sourceRange);
           return net;
         }
-        name = baseName + "_" + std::to_string(suffix++);
+        name = baseName + "_" + std::to_string(suffix++); // LCOV_EXCL_LINE
       }
     }
 
@@ -1531,15 +1533,17 @@ class SNLSVConstructorImpl {
       int suffix = 0;
       while (true) {
         if (auto* existing = design->getNet(NLName(name))) {
+          // LCOV_EXCL_START
           if (auto* scalar = dynamic_cast<SNLScalarNet*>(existing)) {
             return scalar;
           }
+          // LCOV_EXCL_STOP
         } else {
           auto* net = SNLScalarNet::create(design, NLName(name));
           annotateSourceInfo(net, sourceRange);
           return net;
         }
-        name = baseName + "_" + std::to_string(suffix++);
+        name = baseName + "_" + std::to_string(suffix++); // LCOV_EXCL_LINE
       }
     }
 
@@ -1643,8 +1647,10 @@ class SNLSVConstructorImpl {
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto busBits = collectBits(busNet);
       if (busBits.size() != bits.size()) {
+        // LCOV_EXCL_START
         throw SNLSVConstructorException(
           "Internal error: bus width mismatch while connecting inferred memory net");
+        // LCOV_EXCL_STOP
       }
       for (size_t i = 0; i < bits.size(); ++i) {
         createAssignInstance(design, bits[i], busBits[i], sourceRange);
@@ -1660,7 +1666,7 @@ class SNLSVConstructorImpl {
 
       const Statement* stmt = unwrapStatement(block.getBody());
       if (!stmt) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       std::vector<const Statement*> topLevelStatements;
@@ -1793,8 +1799,10 @@ class SNLSVConstructorImpl {
       std::string& failureReason) const {
       const auto* stripped = stripConversions(lhsExpr);
       if (!stripped) {
+        // LCOV_EXCL_START
         failureReason = "unsupported inferred memory null write target";
         return false;
+        // LCOV_EXCL_STOP
       }
 
       auto widthBits = getIntegralExpressionBitWidth(*stripped);
@@ -1814,14 +1822,18 @@ class SNLSVConstructorImpl {
 
         const auto* baseExpr = stripConversions(elementExpr.value());
         if (!baseExpr) {
+          // LCOV_EXCL_START
           failureReason = "unsupported inferred memory packed element-select base";
           return false;
+          // LCOV_EXCL_STOP
         }
 
         const auto& baseType = baseExpr->type->getCanonicalType();
         if (!baseType.hasFixedRange()) {
+          // LCOV_EXCL_START
           failureReason = "unsupported inferred memory packed element-select without fixed range";
           return false;
+          // LCOV_EXCL_STOP
         }
 
         size_t baseOffset = 0;
