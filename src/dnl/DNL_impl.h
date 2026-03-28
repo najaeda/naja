@@ -68,6 +68,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     }
     if (fterm.getSnlBitTerm()->getNet() &&
         !fterm.getDNLInstance().getSNLModel()->isAssign()) {
+      DNLIso.addNet(fterm.getSnlBitTerm()->getNet());
       if (updateConst && DNLIso.isConstant()) {
         // check if contradicting constant, if yes set to AMBIGUOUS and remove from const isos
         if (DNLIso.isConstant1() && fterm.getSnlBitTerm()->getNet()->isConstant0()) {
@@ -115,6 +116,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     // Going inside the module
     if (!fterm.getDNLInstance().isTop() &&
         fterm.getSnlTerm()->getNet() != nullptr) {
+      DNLIso.addNet(fterm.getSnlTerm()->getNet());
       if (updateConst && DNLIso.isConstant()) {
         // check if contradicting constant, if yes set to AMBIGUOUS and remove from const isos
         if (DNLIso.isConstant1() && fterm.getSnlTerm()->getNet()->isConstant0()) {
@@ -543,7 +545,14 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
   DNLIsoDB fidb;
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb, *this);
   visited visitedDB;
-  fidbb.treatDriver(getDNLTerminalFromID(
-                        fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
-                    DNLIso, visitedDB);
+  const auto& iso = fidb_.getIsoFromIsoIDconst(dnlIsoId);
+  DNLID seed = DNLID_MAX;
+  if (!iso.getDrivers().empty()) {
+    seed = iso.getDrivers()[0];
+  } else if (!iso.getReaders().empty()) {
+    seed = iso.getReaders()[0];
+  } else {
+    return;
+  }
+  fidbb.treatDriver(getDNLTerminalFromID(seed), DNLIso, visitedDB);
 }

@@ -1134,12 +1134,17 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     if (isDB0SequentialPrimitive(design)) {
       return 0;
     }
-    auto tt = NLDB0::getPrimitiveTruthTable(design);
-    if (tt.isNull()) {
-      return 0;
-    } else {
-      return 1;
+    size_t tableCount = 0;
+    for (const auto* term : design->getBitTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Input) {
+        continue;
+      }
+      auto tt = getTruthTable(design, term->getOrderID());
+      if (!tt.isNull()) {
+        ++tableCount;
+      }
     }
+    return tableCount;
   }
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;

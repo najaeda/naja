@@ -21,6 +21,7 @@
 #include "tbb/enumerable_thread_specific.h"
 
 #include "NLUniverse.h"
+#include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
