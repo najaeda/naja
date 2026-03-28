@@ -224,42 +224,6 @@ std::string dumpName(const std::string& name) {
   return name;
 }
 
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
-  if (not bits.empty()) {
-    if (bits[0]->isAssignConstant()) {
-      dumpConstantRange(bits, firstElement, concatenation, o);
-    } else {
-      if (not firstElement) {
-        o += ", ";
-        concatenation = true;
-      } else {
-        firstElement = false;
-      }
-      naja::NL::SNLBusNetBit* rangeMSBBit = static_cast<naja::NL::SNLBusNetBit*>(bits[0]);
-      naja::NL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
-      naja::NL::SNLBusNetBit* rangeLSBBit =static_cast<naja::NL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::NL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
-      naja::NL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::NL::NLID::Bit busMSB = bus->getMSB();
-      naja::NL::NLID::Bit busLSB = bus->getLSB();
-      if (rangeMSB == busMSB and rangeLSB == busLSB) {
-        o += dumpName(bus->getName().getString());
-      } else if (rangeMSB == rangeLSB) {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += "]";
-      } else {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += ":";
-        o += std::to_string(rangeLSB);
-        o += "]";
-      }
-      bits.clear();
-    }
-  }
-}
-
 std::string getBusBitConcatenationString(
   const std::vector<const naja::NL::SNLBusNetBit*>& bits,
   const auto& bitNetToString) {
