@@ -806,7 +806,6 @@ void SNLVRLDumper::dumpAttributes(
   const NLObject* object,
   std::ostream& o,
   AttributeDumpSite site) {
-  // LCOV_EXCL_START
   DetailedPerfScopedTimer timer(
     detailedPerfReport_,
     detailedPerfReport_.dumpAttributesDuration,
