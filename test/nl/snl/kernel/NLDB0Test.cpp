@@ -420,6 +420,11 @@ TEST_F(NLDB0Test, testDFFRN) {
 TEST_F(NLDB0Test, testDFFE_DFFRE_DFFSE) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
+  auto rootLibrary = NLDB0::getDB0RootLibrary();
+  ASSERT_NE(nullptr, rootLibrary);
+  EXPECT_EQ(nullptr, rootLibrary->getSNLDesign(NLName("naja_dffe")));
+  EXPECT_EQ(nullptr, rootLibrary->getSNLDesign(NLName("naja_dffre")));
+  EXPECT_EQ(nullptr, rootLibrary->getSNLDesign(NLName("naja_dffse")));
 
   auto dffe = NLDB0::getDFFE();
   ASSERT_NE(nullptr, dffe);

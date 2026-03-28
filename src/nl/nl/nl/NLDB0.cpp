@@ -24,6 +24,9 @@
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
+  constexpr const char* DFFEName = "naja_dffe";
+  constexpr const char* DFFREName = "naja_dffre";
+  constexpr const char* DFFSEName = "naja_dffse";
 
   naja::NL::SNLTruthTable getMux2TruthTable() {
     uint64_t bits = 0;
@@ -43,6 +46,25 @@ namespace {
     std::ostringstream name;
     name << Mux2Prefix << width;
     return name.str();
+  }
+
+  template<typename CreatePrimitive>
+  naja::NL::SNLDesign* getOrCreateRootPrimitive(const char* name, CreatePrimitive createPrimitive) {
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    auto primitiveName = naja::NL::NLName(name);
+    if (auto* existing = rootLibrary->getSNLDesign(primitiveName)) {
+      return existing;
+    }
+    createPrimitive(rootLibrary);
+    return rootLibrary->getSNLDesign(primitiveName);
+  }
+
+  bool isNamedRootPrimitive(const naja::NL::SNLDesign* design, const char* name) {
+    return design && naja::NL::NLDB0::isDB0Primitive(design) && !design->isUnnamed() &&
+           design->getName() == naja::NL::NLName(name);
   }
 
   naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm& busTerm) {
@@ -224,7 +246,7 @@ namespace {
 
   void createDFFEPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
-    auto dffe = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_dffe"));
+    auto dffe = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFEName));
     auto dffeClock = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("C"));
     auto dffeData = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("D"));
     auto dffeEnable = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("E"));
@@ -235,7 +257,7 @@ namespace {
 
   void createDFFREPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
-    auto dffre = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_dffre"));
+    auto dffre = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFREName));
     auto dffreClock = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("C"));
     auto dffreData = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("D"));
     auto dffreEnable = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("E"));
@@ -247,7 +269,7 @@ namespace {
 
   void createDFFSEPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
-    auto dffse = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_dffse"));
+    auto dffse = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFSEName));
     auto dffseClock = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("C"));
     auto dffseData = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("D"));
     auto dffseEnable = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("E"));
@@ -368,9 +390,6 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   createMux2Primitive(rootLibrary, 1);
   createDFFPrimitive(rootLibrary);
   createDFFRNPrimitive(rootLibrary);
-  createDFFEPrimitive(rootLibrary);
-  createDFFREPrimitive(rootLibrary);
-  createDFFSEPrimitive(rootLibrary);
 
   return db;
 }
@@ -780,22 +799,17 @@ SNLScalarTerm* NLDB0::getDFFRNOutput() {
 }
 
 SNLDesign* NLDB0::getDFFE() {
-  auto primitives = getDB0RootLibrary();
-  if (primitives) {
-    // Static primitive, created sixth in NLDB0::create().
-    return primitives->getSNLDesign(NLID::DesignID(5));
-  }
-  return nullptr;
+  return getOrCreateRootPrimitive(DFFEName, createDFFEPrimitive);
 }
 
 bool NLDB0::isDFFE(const SNLDesign* design) {
-  return design and design == getDFFE();
+  return isNamedRootPrimitive(design, DFFEName);
 }
 
 SNLScalarTerm* NLDB0::getDFFEClock() {
   auto dffe = getDFFE();
   if (dffe) {
-    return dffe->getScalarTerm(NLID::DesignObjectID(0));
+    return dffe->getScalarTerm(NLName("C"));
   }
   return nullptr;
 }
@@ -803,7 +817,7 @@ SNLScalarTerm* NLDB0::getDFFEClock() {
 SNLScalarTerm* NLDB0::getDFFEData() {
   auto dffe = getDFFE();
   if (dffe) {
-    return dffe->getScalarTerm(NLID::DesignObjectID(1));
+    return dffe->getScalarTerm(NLName("D"));
   }
   return nullptr;
 }
@@ -811,7 +825,7 @@ SNLScalarTerm* NLDB0::getDFFEData() {
 SNLScalarTerm* NLDB0::getDFFEEnable() {
   auto dffe = getDFFE();
   if (dffe) {
-    return dffe->getScalarTerm(NLID::DesignObjectID(2));
+    return dffe->getScalarTerm(NLName("E"));
   }
   return nullptr;
 }
@@ -819,28 +833,23 @@ SNLScalarTerm* NLDB0::getDFFEEnable() {
 SNLScalarTerm* NLDB0::getDFFEOutput() {
   auto dffe = getDFFE();
   if (dffe) {
-    return dffe->getScalarTerm(NLID::DesignObjectID(3));
+    return dffe->getScalarTerm(NLName("Q"));
   }
   return nullptr;
 }
 
 SNLDesign* NLDB0::getDFFRE() {
-  auto primitives = getDB0RootLibrary();
-  if (primitives) {
-    // Static primitive, created seventh in NLDB0::create().
-    return primitives->getSNLDesign(NLID::DesignID(6));
-  }
-  return nullptr;
+  return getOrCreateRootPrimitive(DFFREName, createDFFREPrimitive);
 }
 
 bool NLDB0::isDFFRE(const SNLDesign* design) {
-  return design and design == getDFFRE();
+  return isNamedRootPrimitive(design, DFFREName);
 }
 
 SNLScalarTerm* NLDB0::getDFFREClock() {
   auto dffre = getDFFRE();
   if (dffre) {
-    return dffre->getScalarTerm(NLID::DesignObjectID(0));
+    return dffre->getScalarTerm(NLName("C"));
   }
   return nullptr;
 }
@@ -848,7 +857,7 @@ SNLScalarTerm* NLDB0::getDFFREClock() {
 SNLScalarTerm* NLDB0::getDFFREData() {
   auto dffre = getDFFRE();
   if (dffre) {
-    return dffre->getScalarTerm(NLID::DesignObjectID(1));
+    return dffre->getScalarTerm(NLName("D"));
   }
   return nullptr;
 }
@@ -856,7 +865,7 @@ SNLScalarTerm* NLDB0::getDFFREData() {
 SNLScalarTerm* NLDB0::getDFFREEnable() {
   auto dffre = getDFFRE();
   if (dffre) {
-    return dffre->getScalarTerm(NLID::DesignObjectID(2));
+    return dffre->getScalarTerm(NLName("E"));
   }
   return nullptr;
 }
@@ -864,7 +873,7 @@ SNLScalarTerm* NLDB0::getDFFREEnable() {
 SNLScalarTerm* NLDB0::getDFFREReset() {
   auto dffre = getDFFRE();
   if (dffre) {
-    return dffre->getScalarTerm(NLID::DesignObjectID(3));
+    return dffre->getScalarTerm(NLName("R"));
   }
   return nullptr;
 }
@@ -872,28 +881,23 @@ SNLScalarTerm* NLDB0::getDFFREReset() {
 SNLScalarTerm* NLDB0::getDFFREOutput() {
   auto dffre = getDFFRE();
   if (dffre) {
-    return dffre->getScalarTerm(NLID::DesignObjectID(4));
+    return dffre->getScalarTerm(NLName("Q"));
   }
   return nullptr;
 }
 
 SNLDesign* NLDB0::getDFFSE() {
-  auto primitives = getDB0RootLibrary();
-  if (primitives) {
-    // Static primitive, created eighth in NLDB0::create().
-    return primitives->getSNLDesign(NLID::DesignID(7));
-  }
-  return nullptr;
+  return getOrCreateRootPrimitive(DFFSEName, createDFFSEPrimitive);
 }
 
 bool NLDB0::isDFFSE(const SNLDesign* design) {
-  return design and design == getDFFSE();
+  return isNamedRootPrimitive(design, DFFSEName);
 }
 
 SNLScalarTerm* NLDB0::getDFFSEClock() {
   auto dffse = getDFFSE();
   if (dffse) {
-    return dffse->getScalarTerm(NLID::DesignObjectID(0));
+    return dffse->getScalarTerm(NLName("C"));
   }
   return nullptr;
 }
@@ -901,7 +905,7 @@ SNLScalarTerm* NLDB0::getDFFSEClock() {
 SNLScalarTerm* NLDB0::getDFFSEData() {
   auto dffse = getDFFSE();
   if (dffse) {
-    return dffse->getScalarTerm(NLID::DesignObjectID(1));
+    return dffse->getScalarTerm(NLName("D"));
   }
   return nullptr;
 }
@@ -909,7 +913,7 @@ SNLScalarTerm* NLDB0::getDFFSEData() {
 SNLScalarTerm* NLDB0::getDFFSEEnable() {
   auto dffse = getDFFSE();
   if (dffse) {
-    return dffse->getScalarTerm(NLID::DesignObjectID(2));
+    return dffse->getScalarTerm(NLName("E"));
   }
   return nullptr;
 }
@@ -917,7 +921,7 @@ SNLScalarTerm* NLDB0::getDFFSEEnable() {
 SNLScalarTerm* NLDB0::getDFFSESet() {
   auto dffse = getDFFSE();
   if (dffse) {
-    return dffse->getScalarTerm(NLID::DesignObjectID(3));
+    return dffse->getScalarTerm(NLName("S"));
   }
   return nullptr;
 }
@@ -925,7 +929,7 @@ SNLScalarTerm* NLDB0::getDFFSESet() {
 SNLScalarTerm* NLDB0::getDFFSEOutput() {
   auto dffse = getDFFSE();
   if (dffse) {
-    return dffse->getScalarTerm(NLID::DesignObjectID(4));
+    return dffse->getScalarTerm(NLName("Q"));
   }
   return nullptr;
 }
