@@ -125,9 +125,6 @@ std::string getEmittedDefaultParameterValue(
   const naja::NL::SNLParameter* parameter) {
   using namespace naja::NL;
   const auto& parameterName = parameter->getName();
-  if (NLDB0::isMux2(instance->getModel()) && parameterName == NLName("WIDTH")) {
-    return "1";
-  }
   if (NLDB0::isMemory(instance->getModel())) {
     if (parameterName == NLName("WIDTH") ||
         parameterName == NLName("DEPTH") ||

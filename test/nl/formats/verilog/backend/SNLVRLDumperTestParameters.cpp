@@ -118,6 +118,32 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       return ins;
     }
 
+    SNLInstance* createMixedConstBusMux2Instance() {
+      auto* mux2 = NLDB0::getOrCreateMux2(4);
+      if (nullptr == mux2) {
+        return nullptr;
+      }
+
+      auto* const0 = SNLScalarNet::create(top_);
+      const0->setType(SNLNet::Type::Assign0);
+      auto* const1 = SNLScalarNet::create(top_);
+      const1->setType(SNLNet::Type::Assign1);
+      auto* sourceBus = SNLBusNet::create(top_, 1, 0, NLName("source_bus"));
+      auto* b = SNLBusNet::create(top_, 3, 0, NLName("mux_b"));
+      auto* y = SNLBusNet::create(top_, 3, 0, NLName("mux_y"));
+      auto* s = SNLScalarNet::create(top_, NLName("mux_s"));
+
+      auto* ins = SNLInstance::create(top_, mux2, NLName("mux0"));
+      auto* aTerm = NLDB0::getMux2InputA(mux2);
+      ins->setTermNet(aTerm, 3, 3, const1, 0, 0);
+      ins->setTermNet(aTerm, 2, 2, const0, 0, 0);
+      ins->setTermNet(aTerm, 1, 0, sourceBus, 1, 0);
+      ins->setTermNet(NLDB0::getMux2InputB(mux2), b);
+      ins->setTermNet(NLDB0::getMux2Select(mux2), s);
+      ins->setTermNet(NLDB0::getMux2Output(mux2), y);
+      return ins;
+    }
+
     void TearDown() override {
       NLUniverse::get()->destroy();
     }
@@ -286,6 +312,19 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".WIDTH(8)"));
   EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w8"));
   EXPECT_EQ(std::string::npos, dumped.find("module naja_mux2 #("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
+  ASSERT_NE(nullptr, createMixedConstBusMux2Instance());
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_mux2 #("));
+  EXPECT_NE(std::string::npos, dumped.find(".WIDTH(4)"));
+  EXPECT_NE(std::string::npos, dumped.find(".A({2'b10, source_bus})")) << dumped;
 }
 
 TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxInstanceDumpOmitsDefaultWidth) {
