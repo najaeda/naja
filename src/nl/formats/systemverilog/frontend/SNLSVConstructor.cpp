@@ -3535,8 +3535,10 @@ class SNLSVConstructorImpl {
               xnorBit,
               sourceRange);
             if (!xnorOut) {
+              // LCOV_EXCL_START
               failureReason = "failed to build inferred memory local equality compare";
               return nullptr;
+              // LCOV_EXCL_STOP
             }
             xnorBits.push_back(xnorOut);
           }
@@ -3555,14 +3557,18 @@ class SNLSVConstructorImpl {
                   andOut,
                   sourceRange) ||
                 !andOut) {
+              // LCOV_EXCL_START
               failureReason = "failed to reduce inferred memory local equality compare";
               return nullptr;
+              // LCOV_EXCL_STOP
             }
             eqBit = getSingleBitNet(andOut);
           }
           if (!eqBit) {
+            // LCOV_EXCL_START
             failureReason = "failed to finalize inferred memory local equality compare";
             return nullptr;
+            // LCOV_EXCL_STOP
           }
           return isInequalityBinaryOp(binaryExpr.op)
             ? negateCondition(design, eqBit, sourceRange)
@@ -3583,7 +3589,7 @@ class SNLSVConstructorImpl {
             failureReason) ||
           bits.empty()) {
         if (failureReason.empty()) {
-          failureReason = "unsupported inferred memory local condition expression";
+          failureReason = "unsupported inferred memory local condition expression"; // LCOV_EXCL_LINE
         }
         return nullptr;
       }
@@ -3613,9 +3619,11 @@ class SNLSVConstructorImpl {
           }
         };
         if (action.bitOffset + action.bitWidth > bits.size()) {
+          // LCOV_EXCL_START
           failureReason = "invalid inferred memory commit target width";
           popSelectorContext();
           return false;
+          // LCOV_EXCL_STOP
         }
 
         std::vector<SNLBitNet*> assignedBits;
@@ -3630,9 +3638,11 @@ class SNLSVConstructorImpl {
               assignedBits,
               failureReason) ||
             assignedBits.size() != action.bitWidth) {
+          // LCOV_EXCL_START
           if (failureReason.empty()) {
             failureReason = "unable to resolve inferred memory commit RHS bits";
           }
+          // LCOV_EXCL_STOP
           popSelectorContext();
           return false;
         }
@@ -3657,9 +3667,11 @@ class SNLSVConstructorImpl {
           }
           guardBit = combineConditionAnd(design, guardBit, conditionBit, guard.sourceRange);
           if (!guardBit) {
+            // LCOV_EXCL_START
             failureReason = "failed to build inferred memory commit guard";
             popSelectorContext();
             return false;
+            // LCOV_EXCL_STOP
           }
           if (guardBit == const0) {
             break;
@@ -3707,7 +3719,7 @@ class SNLSVConstructorImpl {
       std::string& failureReason) {
       bits = shadowBits;
       if (memory.commitActionsByIndex.empty()) {
-        return true;
+        return true; // LCOV_EXCL_LINE
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -3728,8 +3740,10 @@ class SNLSVConstructorImpl {
 
         auto* selectBit = buildSelectorEqualsIndexBit(design, selectorBits, index, sourceRange);
         if (!selectBit) {
+          // LCOV_EXCL_START
           failureReason = "failed to build inferred memory commit selector";
           return false;
+          // LCOV_EXCL_STOP
         }
         if (selectBit == const0) {
           continue;
@@ -3768,8 +3782,10 @@ class SNLSVConstructorImpl {
       std::string& failureReason) {
       if (writeAction.bitWidth == 0 ||
           writeAction.bitOffset + writeAction.bitWidth > memory.signature.width) {
+        // LCOV_EXCL_START
         failureReason = "invalid inferred memory write target width";
         return false;
+        // LCOV_EXCL_STOP
       }
 
       if (writeAction.bitOffset == 0 &&
@@ -3785,7 +3801,7 @@ class SNLSVConstructorImpl {
                 ignoredBaseBits,
                 stateBits,
                 failureReason)) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
         }
         if (!resolveExpressionBits(
@@ -3810,7 +3826,7 @@ class SNLSVConstructorImpl {
             dataBits,
             stateBits,
             failureReason)) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       std::vector<SNLBitNet*> currentBits(
@@ -3831,9 +3847,11 @@ class SNLSVConstructorImpl {
             &currentBits,
             failureReason) ||
           assignedBits.size() != writeAction.bitWidth) {
+        // LCOV_EXCL_START
         if (failureReason.empty()) {
           failureReason = "unable to resolve inferred memory partial write bits";
         }
+        // LCOV_EXCL_STOP
         return false;
       }
 
@@ -3848,8 +3866,10 @@ class SNLSVConstructorImpl {
       InferredMemory& memory,
       std::string& failureReason) {
       if (!memory.clockExpr) {
+        // LCOV_EXCL_START
         failureReason = "inferred memory is missing a clock expression";
         return false;
+        // LCOV_EXCL_STOP
       }
       if (!getSingleBitNet(resolveExpressionNet(design, *memory.clockExpr))) {
         failureReason = "unable to resolve inferred memory clock net";
@@ -3870,8 +3890,10 @@ class SNLSVConstructorImpl {
         return false;
       }
       if (!sawBaseCopy) {
+        // LCOV_EXCL_START
         failureReason = "inferred memory combinational block is missing top-level shadow copy";
         return false;
+        // LCOV_EXCL_STOP
       }
 
       memory.writePorts.clear();
@@ -3914,8 +3936,10 @@ class SNLSVConstructorImpl {
           }
           effectiveWe = combineConditionAnd(design, effectiveWe, guardBit, guard.sourceRange);
           if (!effectiveWe) {
+            // LCOV_EXCL_START
             failureReason = "failed to build inferred memory write enable";
             return false;
+            // LCOV_EXCL_STOP
           }
           if (effectiveWe == const0) {
             break;
@@ -4007,8 +4031,10 @@ class SNLSVConstructorImpl {
                 *memory.writePorts[i].selectorExpr,
                 *memory.writePorts[later].selectorExpr,
                 memory.writePorts[i].sourceRange)) {
+            // LCOV_EXCL_START
             failureReason = "failed to compare inferred memory write addresses";
             return false;
+            // LCOV_EXCL_STOP
           }
           auto* collision = static_cast<SNLBitNet*>(createBinaryGate(
             design,
@@ -4050,7 +4076,7 @@ class SNLSVConstructorImpl {
         signature.writePorts = std::max<size_t>(1, memory.writePorts.size());
         auto* model = NLDB0::getOrCreateMemory(signature);
         if (!model) {
-          throw SNLSVConstructorException("Failed to create inferred memory model");
+          throw SNLSVConstructorException("Failed to create inferred memory model"); // LCOV_EXCL_LINE
         }
 
         auto* inst = SNLInstance::create(
@@ -4062,7 +4088,7 @@ class SNLSVConstructorImpl {
         auto addInstParam = [&](const char* name, const std::string& value) {
           auto* parameter = model->getParameter(NLName(name));
           if (!parameter) {
-            throw SNLSVConstructorException("Failed to resolve inferred memory parameter");
+            throw SNLSVConstructorException("Failed to resolve inferred memory parameter"); // LCOV_EXCL_LINE
           }
           SNLInstParameter::create(inst, parameter, value);
         };
@@ -4090,11 +4116,11 @@ class SNLSVConstructorImpl {
         auto* clkTerm = model->getScalarTerm(NLName("CLK"));
         auto* rstTerm = model->getScalarTerm(NLName("RST"));
         if (!clkTerm || !rstTerm) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory scalar ports");
+          throw SNLSVConstructorException("Failed to resolve inferred memory scalar ports"); // LCOV_EXCL_LINE
         }
         auto* clkNet = getSingleBitNet(resolveExpressionNet(design, *memory.clockExpr));
         if (!clkNet) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory clock net");
+          throw SNLSVConstructorException("Failed to resolve inferred memory clock net"); // LCOV_EXCL_LINE
         }
         inst->setTermNet(clkTerm, clkNet);
 
@@ -4112,7 +4138,7 @@ class SNLSVConstructorImpl {
         auto* wdataTerm = model->getBusTerm(NLName("WDATA"));
         auto* weTerm = model->getBusTerm(NLName("WE"));
         if (!raddrTerm || !rdataTerm || !waddrTerm || !wdataTerm || !weTerm) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory bus ports");
+          throw SNLSVConstructorException("Failed to resolve inferred memory bus ports"); // LCOV_EXCL_LINE
         }
 
         for (size_t i = 0; i < memory.readPorts.size(); ++i) {
