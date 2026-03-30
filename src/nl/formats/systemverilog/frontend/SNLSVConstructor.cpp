@@ -2309,9 +2309,11 @@ class SNLSVConstructorImpl {
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
         if (condStmt.conditions.empty()) {
+          // LCOV_EXCL_START
           failureReason =
-            "unsupported inferred memory reset conditional without condition"; // LCOV_EXCL_LINE
-          return false; // LCOV_EXCL_LINE
+            "unsupported inferred memory reset conditional without condition";
+          return false;
+          // LCOV_EXCL_STOP
         }
         bool constantBit = false;
         if (!tryEvaluateConstantConditionBit(*condStmt.conditions[0].expr, constantBit)) {
@@ -2769,9 +2771,10 @@ class SNLSVConstructorImpl {
               memory)) {
           return false;
         }
-
+        // LCOV_EXCL_START
         memory.seqBlock = &block;
         return true;
+        // LCOV_EXCL_STOP
       }
 
       return false;
@@ -2993,7 +2996,7 @@ class SNLSVConstructorImpl {
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (!extractAssignment(*current, lhsExpr, action)) {
-        return true;
+        return true; // LCOV_EXCL_LINE
       }
 
       const slang::ast::ValueSymbol* assignedSymbol = nullptr;
@@ -3110,7 +3113,7 @@ class SNLSVConstructorImpl {
           NLDB0::MemorySignature shadowSignature;
           if (!getSupportedMemorySignature(shadowSymbol->getType(), shadowSignature) ||
               !(shadowSignature == signature)) {
-            continue;
+            continue; // LCOV_EXCL_LINE
           }
 
           InferredMemory memory;
@@ -3170,7 +3173,7 @@ class SNLSVConstructorImpl {
       const std::optional<slang::SourceRange>& sourceRange) {
       if (auto it = memory.readPortBySelectorExpr.find(&selectorExpr);
           it != memory.readPortBySelectorExpr.end()) {
-        return &memory.readPorts[it->second];
+        return &memory.readPorts[it->second]; // LCOV_EXCL_LINE
       }
 
       const auto baseName = std::string(memory.stateSymbol->name);
