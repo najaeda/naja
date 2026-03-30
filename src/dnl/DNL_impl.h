@@ -16,7 +16,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     visited& visitedDB,
     bool updateReadersIsoID,
     bool updateDriverIsoID,
-    bool updateConst) {
+    std::function<void(DNLID)> updateConst) {
   // if isoid already define for term so return
   std::stack<DNLID> stack;
   auto& visited = visitedDB;
@@ -29,18 +29,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     if (visited.test(fid)) {
       continue;
     }
-    const DNLTerminal& fterm = dnl_.getNonConstDNLTerminalFromID(fid);
+    const DNLTerminal& fterm = dnl_.getDNLTerminalFromID(fid);
     if (fterm.getDNLInstance().isTop()) {
       if (fterm.getSnlBitTerm()->getDirection() ==
           SNLTerm::Direction::DirectionEnum::Output) {
         DNLIso.addReader(fid);
         if (updateReadersIsoID) {
-          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+          updateConst(fid);
         }
       } else {
         DNLIso.addDriver(fid);
         if (updateDriverIsoID) {
-          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+          updateConst(fid);
         }
       }
     } else if (fterm.getDNLInstance()
@@ -52,18 +52,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           SNLTerm::Direction::DirectionEnum::Input) {
         DNLIso.addReader(fid);
         if (updateReadersIsoID) {
-          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+          updateConst(fid);
         }
       } else {
         DNLIso.addDriver(fid);
         if (updateDriverIsoID) {
-          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+          updateConst(fid);
         }
       }
     } else {
       DNLIso.addHierTerm(fid);
       if (updateReadersIsoID) {
-        dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+        updateConst(fid);
       }
     }
     if (fterm.getSnlBitTerm()->getNet() &&
@@ -369,6 +369,7 @@ DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
 template <class DNLInstance, class DNLTerminal>
 void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   // iterate on all leaf drivers
+  auto& mutableDnl = const_cast<DNL<DNLInstance, DNLTerminal>&>(dnl_);
   std::vector<DNLID> tasks;
   for (DNLID leaf : dnl_.getLeaves()) {
     if (dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first != DNLID_MAX) {
@@ -376,15 +377,15 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
            term <= dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
            term++) {
         assert(DNLID_MAX != term);
-        if (dnl_.getNonConstDNLTerminalFromID(term)
-                    .getSnlTerm()
+        const auto& termRef = dnl_.getDNLTerminalFromID(term);
+        if (termRef.getSnlTerm()
                     ->getDirection() !=
                 SNLTerm::Direction::DirectionEnum::Input &&
-            dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+            termRef.getSnlTerm()->getNet()) {
           DNLIso& DNLIso = addIsoToDB();
 
           tasks.push_back(term);
-          dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+          mutableDnl.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
         }
       }
     }
@@ -393,14 +394,14 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     for (DNLID term = dnl_.getTop().getTermIndexes().first;
          term <= dnl_.getTop().getTermIndexes().second; term++) {
       assert(DNLID_MAX != term);
-      if (dnl_.getNonConstDNLTerminalFromID(term)
-                  .getSnlBitTerm()
+      const auto& termRef = dnl_.getDNLTerminalFromID(term);
+      if (termRef.getSnlBitTerm()
                   ->getDirection() !=
               SNLTerm::Direction::DirectionEnum::Output &&
-          dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+          termRef.getSnlBitTerm()->getNet()) {
         DNLIso& DNLIso = addIsoToDB();
         tasks.push_back(term);
-        dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+        mutableDnl.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
       }
     }
   }
@@ -418,11 +419,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
+            const auto& taskTerm = dnl_.getDNLTerminalFromID(tasks[i]);
+            auto& iso =
+                db_.getIsoFromIsoID(taskTerm.getIsoID());
             treatDriver(
-                dnl_.getNonConstDNLTerminalFromID(tasks[i]),
-                db_.getIsoFromIsoID(
-                    dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                visit.local(), true, false, true);
+                taskTerm,
+                iso,
+                visit.local(),
+                true,
+                false,
+                [&mutableDnl, &iso](DNLID fid) {
+                  mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                });
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
             printf("treatDriver %lu %lu\n",
@@ -439,10 +447,16 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     // LCOV_EXCL_STOP
 #endif
     for (auto task : tasks) {
-      treatDriver(dnl_.getNonConstDNLTerminalFromID(task),
-                  db_.getIsoFromIsoID(
-                      dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-                  visit.local(), true, false, true);
+      const auto& taskTerm = dnl_.getDNLTerminalFromID(task);
+      auto& iso = db_.getIsoFromIsoID(taskTerm.getIsoID());
+      treatDriver(taskTerm,
+                  iso,
+                  visit.local(),
+                  true,
+                  false,
+                  [&mutableDnl, &iso](DNLID fid) {
+                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                  });
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
@@ -469,7 +483,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   }
   for (DNLID driver : tasks) {
     DNLIso& DNLIso = addIsoToDB();
-    dnl_.getNonConstDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
+    mutableDnl.getNonConstDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
   }
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
@@ -482,11 +496,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
+            const auto& taskTerm = dnl_.getDNLTerminalFromID(tasks[i]);
+            auto& iso =
+                db_.getIsoFromIsoID(taskTerm.getIsoID());
             treatDriver(
-                dnl_.getNonConstDNLTerminalFromID(tasks[i]),
-                db_.getIsoFromIsoID(
-                    dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                visit.local(), true, true, true);
+                taskTerm,
+                iso,
+                visit.local(),
+                true,
+                true,
+                [&mutableDnl, &iso](DNLID fid) {
+                  mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                });
           }
         },
         tbb::simple_partitioner());
@@ -497,10 +518,16 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     // LCOV_EXCL_STOP
 #endif
     for (auto task : tasks) {
-      treatDriver(dnl_.getNonConstDNLTerminalFromID(task),
-                  db_.getIsoFromIsoID(
-                      dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-                  visit.local(), true, true, true);
+      const auto& taskTerm = dnl_.getDNLTerminalFromID(task);
+      auto& iso = db_.getIsoFromIsoID(taskTerm.getIsoID());
+      treatDriver(taskTerm,
+                  iso,
+                  visit.local(),
+                  true,
+                  true,
+                  [&mutableDnl, &iso](DNLID fid) {
+                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                  });
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
@@ -524,7 +551,14 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         term.getIsoID() == DNLID_MAX) {
       DNLIso& dnlIso = addIsoToDB();
       term.setIsoID(dnlIso.getIsoID());
-      treatDriver(term, dnlIso, visit.local(), true, true, true);
+      treatDriver(term,
+                  dnlIso,
+                  visit.local(),
+                  true,
+                  true,
+                  [&mutableDnl, &dnlIso](DNLID fid) {
+                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(dnlIso.getIsoID());
+                  });
       assert(dnlIso.getDrivers().size() == 0);
     }
   }

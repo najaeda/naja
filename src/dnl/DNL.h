@@ -6,6 +6,7 @@
 
 #pragma once
 #include <cstdint>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -502,8 +503,12 @@ class DNLIsoDBBuilder {
    * \param updateDriverIsoID Update the driver iso ID.
    * \param updateConst Update the constant iso.
    */
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, 
-  bool updateReadersIsoID = false, bool updateDriverIsoID = false, bool updateConst = false);
+  void treatDriver(const DNLTerminal& term,
+                   DNLIso& DNLIso,
+                   visited& visitedDB,
+                   bool updateReadersIsoID = false,
+                   bool updateDriverIsoID = false,
+                   std::function<void(DNLID)> updateConst = {});
   /**
    * \brief Process the DNLIsoDBBuilder.
    */
@@ -525,7 +530,7 @@ class DNLIsoDBBuilder {
    */
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
-  DNL<DNLInstance, DNLTerminal> dnl_;
+  const DNL<DNLInstance, DNLTerminal>& dnl_;
 };
 
 template <class DNLInstance, class DNLTerminal>
