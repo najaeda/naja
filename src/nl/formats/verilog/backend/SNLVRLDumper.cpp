@@ -99,13 +99,60 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
 }
 
 bool isUnsignedDecimal(const std::string& value) {
-  if (value.empty()) {
-    return false;
-  }
   return std::all_of(
     value.begin(),
     value.end(),
     [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+std::string normalizeParameterValue(
+  naja::NL::SNLParameter::Type type,
+  const std::string& value) {
+  if (type != naja::NL::SNLParameter::Type::Boolean) {
+    return value;
+  }
+  if (value == "0" || value == "FALSE") {
+    return "0";
+  }
+  if (value == "1" || value == "TRUE") {
+    return "1";
+  }
+  return value;
+}
+
+std::string getEmittedDefaultParameterValue(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLParameter* parameter) {
+  using namespace naja::NL;
+  const auto& parameterName = parameter->getName();
+  if (NLDB0::isMemory(instance->getModel())) {
+    if (parameterName == NLName("WIDTH") ||
+        parameterName == NLName("DEPTH") ||
+        parameterName == NLName("ABITS") ||
+        parameterName == NLName("RD_PORTS") ||
+        parameterName == NLName("WR_PORTS")) {
+      return "1";
+    }
+    if (parameterName == NLName("RST_ENABLE") ||
+        parameterName == NLName("RST_ASYNC") ||
+        parameterName == NLName("RST_ACTIVE_LOW")) {
+      return "0";
+    }
+    if (parameterName == NLName("INIT")) {
+      return "1'b0";
+    }
+  }
+  return parameter->getValue();
+}
+
+bool shouldDumpInstParameter(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLInstParameter* instParameter) {
+  const auto* parameter = instParameter->getParameter();
+  return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
+         normalizeParameterValue(
+           parameter->getType(),
+           getEmittedDefaultParameterValue(instance, parameter));
 }
 
 std::string dumpName(const std::string& name) {
@@ -172,42 +219,6 @@ std::string dumpName(const std::string& name) {
     return "\\" + name + " ";
   }
   return name;
-}
-
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
-  if (not bits.empty()) {
-    if (bits[0]->isAssignConstant()) {
-      dumpConstantRange(bits, firstElement, concatenation, o);
-    } else {
-      if (not firstElement) {
-        o += ", ";
-        concatenation = true;
-      } else {
-        firstElement = false;
-      }
-      naja::NL::SNLBusNetBit* rangeMSBBit = static_cast<naja::NL::SNLBusNetBit*>(bits[0]);
-      naja::NL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
-      naja::NL::SNLBusNetBit* rangeLSBBit =static_cast<naja::NL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::NL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
-      naja::NL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::NL::NLID::Bit busMSB = bus->getMSB();
-      naja::NL::NLID::Bit busLSB = bus->getLSB();
-      if (rangeMSB == busMSB and rangeLSB == busLSB) {
-        o += dumpName(bus->getName().getString());
-      } else if (rangeMSB == rangeLSB) {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += "]";
-      } else {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += ":";
-        o += std::to_string(rangeLSB);
-        o += "]";
-      }
-      bits.clear();
-    }
-  }
 }
 
 std::string getBusBitConcatenationString(
@@ -1013,13 +1024,50 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     bool firstElement = true;
     std::string connectionStr;
     ContiguousNetBits contiguousBits;
+    auto dumpRangeWithNaming = [&](ContiguousNetBits& bits) {
+      if (bits.empty()) {
+        return;
+      }
+      if (bits[0]->isAssignConstant()) {
+        dumpConstantRange(bits, firstElement, concatenation, connectionStr);
+        return;
+      }
+      if (not firstElement) {
+        connectionStr += ", ";
+        concatenation = true;
+      } else {
+        firstElement = false;
+      }
+      auto* rangeMSBBit = static_cast<SNLBusNetBit*>(bits[0]);
+      auto rangeMSB = rangeMSBBit->getBit();
+      auto* rangeLSBBit = static_cast<SNLBusNetBit*>(bits[bits.size() - 1]);
+      auto rangeLSB = rangeLSBBit->getBit();
+      auto* bus = rangeMSBBit->getBus();
+      auto busName = getNetName(bus, naming);
+      auto busMSB = bus->getMSB();
+      auto busLSB = bus->getLSB();
+      if (rangeMSB == busMSB && rangeLSB == busLSB) {
+        connectionStr += dumpName(busName.getString());
+      } else if (rangeMSB == rangeLSB) {
+        connectionStr += dumpName(busName.getString()) + "[";
+        connectionStr += std::to_string(rangeMSB);
+        connectionStr += "]";
+      } else {
+        connectionStr += dumpName(busName.getString()) + "[";
+        connectionStr += std::to_string(rangeMSB);
+        connectionStr += ":";
+        connectionStr += std::to_string(rangeLSB);
+        connectionStr += "]";
+      }
+      bits.clear();
+    };
     for (auto net: termNets) {
       if (net) {
         if (net->isAssignConstant()) {
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
             if (not previousBit->isAssignConstant()) {
-              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              dumpRangeWithNaming(contiguousBits);
               contiguousBits = { net };
             } else {
               contiguousBits.push_back(net);
@@ -1028,7 +1076,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
             contiguousBits.push_back(net);
           }
         } else if (dynamic_cast<SNLScalarNet*>(net)) {
-          dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+          dumpRangeWithNaming(contiguousBits);
           NLName netName = getNetName(net, naming);
           if (not firstElement) {
             connectionStr += ", ";
@@ -1043,7 +1091,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
             if (previousBit->isAssignConstant()) {
-              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              dumpRangeWithNaming(contiguousBits);
               contiguousBits = { busNetBit };
             } else {
               SNLBusNetBit* previousBusBit = static_cast<SNLBusNetBit*>(previousBit);
@@ -1052,7 +1100,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
                 or (previousBusBit->getBit() == busNetBit->getBit()-1))) {
                 contiguousBits.push_back(busNetBit);
               } else {
-                dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+                dumpRangeWithNaming(contiguousBits);
                 contiguousBits = { busNetBit };
               }
             }
@@ -1061,7 +1109,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           }
         }
       } else {
-        dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+        dumpRangeWithNaming(contiguousBits);
         //dump dummy bit
         if (not firstElement) {
           connectionStr += ", ";
@@ -1073,7 +1121,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
       }
     }
     if (not contiguousBits.empty()) {
-      dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+      dumpRangeWithNaming(contiguousBits);
     }
     o << "  ." + term->getName().getString() + "(";
     if (concatenation) {
@@ -1145,10 +1193,22 @@ void SNLVRLDumper::dumpInstanceInterface(
 void SNLVRLDumper::dumpInstParameters(
   const SNLInstance* instance,
   std::ostream& o) {
-  if (not instance->getInstParameters().empty()) {
+  std::vector<const SNLInstParameter*> dumpedParameters;
+  for (auto instParameter: instance->getInstParameters()) {
+    if (shouldDumpInstParameter(instance, instParameter)) {
+      dumpedParameters.push_back(instParameter);
+    }
+  }
+  std::sort(
+    dumpedParameters.begin(),
+    dumpedParameters.end(),
+    [](const SNLInstParameter* lhs, const SNLInstParameter* rhs) {
+      return lhs->getName().getString() < rhs->getName().getString();
+    });
+  if (not dumpedParameters.empty()) {
     bool first = true;
     o << "#(" << '\n';
-    for (auto instParameter: instance->getInstParameters()) {
+    for (auto instParameter: dumpedParameters) {
       if (not first) {
         o << "," << '\n';
       }
@@ -1184,6 +1244,49 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (NLDB0::isMux2(instance->getModel())) {
+    emitNajaMux2Model_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    std::string widthValue = "1";
+    if (auto* widthParam = instance->getModel()->getParameter(NLName("WIDTH"))) {
+      widthValue = widthParam->getValue();
+    }
+    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+      widthValue = widthInstParam->getValue();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mux2 ";
+    if (widthValue != "1") {
+      o << "#(" << '\n';
+      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << ") ";
+    }
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (NLDB0::isMemory(instance->getModel())) {
+    emitNajaMemModel_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mem ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
   if (NLDB0::isGate(instance->getModel())) {
     auto gateName = NLDB0::getGateName(instance->getModel());
     o << gateName << " ";
@@ -1457,8 +1560,18 @@ void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpParametersDuration,
     detailedPerfReport_.dumpParametersCalls);
-  bool atLeastOne = false;
+  std::vector<const SNLParameter*> parameters;
   for (auto parameter: design->getParameters()) {
+    parameters.push_back(parameter);
+  }
+  std::sort(
+    parameters.begin(),
+    parameters.end(),
+    [](const SNLParameter* lhs, const SNLParameter* rhs) {
+      return lhs->getName().getString() < rhs->getName().getString();
+    });
+  bool atLeastOne = false;
+  for (auto parameter: parameters) {
     atLeastOne = true;
     dumpParameter(parameter, o);
   }
@@ -1502,6 +1615,91 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   o << '\n';
 }
 
+void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
+  o << "module naja_mux2 #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input [WIDTH-1:0] A,\n";
+  o << "  input [WIDTH-1:0] B,\n";
+  o << "  input S,\n";
+  o << "  output [WIDTH-1:0] Y\n";
+  o << ");\n";
+  o << "  assign Y = S ? B : A;\n";
+  o << "endmodule //naja_mux2\n";
+}
+
+void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
+  o << "module naja_mem #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter DEPTH = 1,\n";
+  o << "  parameter ABITS = 1,\n";
+  o << "  parameter RD_PORTS = 1,\n";
+  o << "  parameter WR_PORTS = 1,\n";
+  o << "  parameter RST_ENABLE = 0,\n";
+  o << "  parameter RST_ASYNC = 0,\n";
+  o << "  parameter RST_ACTIVE_LOW = 0,\n";
+  o << "  parameter INIT = 1'b0\n";
+  o << ") (\n";
+  o << "  input CLK,\n";
+  o << "  input RST,\n";
+  o << "  input [RD_PORTS*ABITS-1:0] RADDR,\n";
+  o << "  output reg [RD_PORTS*WIDTH-1:0] RDATA,\n";
+  o << "  input [WR_PORTS*ABITS-1:0] WADDR,\n";
+  o << "  input [WR_PORTS*WIDTH-1:0] WDATA,\n";
+  o << "  input [WR_PORTS-1:0] WE\n";
+  o << ");\n\n";
+  o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
+  o << "  integer i;\n";
+  o << "  integer rp;\n";
+  o << "  integer wp;\n";
+  o << "  integer later;\n";
+  o << "  reg allow_write;\n";
+  o << "  reg [ABITS-1:0] addr_value;\n\n";
+  o << "  task automatic load_init;\n";
+  o << "    integer init_idx;\n";
+  o << "    begin\n";
+  o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
+  o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "    end\n";
+  o << "  endtask\n\n";
+  o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
+  o << "  always @* begin\n";
+  o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
+  o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";
+  o << "      if (addr_value < DEPTH)\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_value];\n";
+  o << "      else\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
+  o << "    end\n";
+  o << "  end\n\n";
+  o << "  always @(posedge CLK";
+  o << " or ";
+  o << "posedge RST";
+  o << " or ";
+  o << "negedge RST";
+  o << ") begin\n";
+  o << "    if (RST_ASYNC && reset_active) begin\n";
+  o << "      load_init();\n";
+  o << "    end else begin\n";
+  o << "      if (!RST_ASYNC && reset_active)\n";
+  o << "        load_init();\n";
+  o << "      else begin\n";
+  o << "        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
+  o << "          allow_write = WE[wp];\n";
+  o << "          addr_value = WADDR[wp*ABITS +: ABITS];\n";
+  o << "          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
+  o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
+  o << "              allow_write = 1'b0;\n";
+  o << "          end\n";
+  o << "          if (allow_write && addr_value < DEPTH)\n";
+  o << "            mem[addr_value] <= WDATA[wp*WIDTH +: WIDTH];\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end\n";
+  o << "  end\n";
+  o << "endmodule //naja_mem\n";
+}
+
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   std::string context("dumpDesign(stream): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
@@ -1510,6 +1708,8 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpDesignStreamDuration,
     detailedPerfReport_.dumpDesignStreamCalls);
+  emitNajaMemModel_ = false;
+  emitNajaMux2Model_ = false;
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
@@ -1537,6 +1737,8 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpLibraryStreamDuration,
     detailedPerfReport_.dumpLibraryStreamCalls);
+  emitNajaMemModel_ = false;
+  emitNajaMux2Model_ = false;
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
@@ -1552,6 +1754,13 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   return "top.v";
 } 
 
+std::string SNLVRLDumper::getPrimitiveFileName() const {
+  if (configuration_.hasLibraryFileName()) {
+    return configuration_.getLibraryFileName();
+  }
+  return "primitives.v";
+}
+
 std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
@@ -1561,6 +1770,32 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   }
   return "library.v";
 } 
+
+void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
+  if (!emitNajaMemModel_ && !emitNajaMux2Model_) {
+    return;
+  }
+  std::filesystem::path filePath = path/getPrimitiveFileName();
+  std::ofstream outFile;
+  outFile.open(filePath);
+  NajaUtils::createBanner(
+    outFile,
+    "Verilog file for naja primitives",
+    "//"
+  );
+  outFile << '\n';
+  bool needBlankLine = false;
+  if (emitNajaMux2Model_) {
+    dumpNajaMux2Model(outFile);
+    needBlankLine = true;
+  }
+  if (emitNajaMemModel_) {
+    if (needBlankLine) {
+      outFile << '\n';
+    }
+    dumpNajaMemModel(outFile);
+  }
+}
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
   std::string context("dumpDesign(path): ");
@@ -1596,6 +1831,9 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     );
     outFile << '\n';
     dumpDesign(design, outFile);
+    if (emitNajaMemModel_ || emitNajaMux2Model_) {
+      dumpNajaPrimitiveFile(path);
+    }
   } else {
     SNLVRLDumper streamDumper;
     SNLVRLDumper::Configuration configuration(configuration_);
@@ -1603,6 +1841,8 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     streamDumper.setConfiguration(configuration);
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+    bool emitNajaMemModel = false;
+    bool emitNajaMux2Model = false;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
       std::filesystem::path filePath = path/getTopFileName(design);
@@ -1615,6 +1855,13 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       );
       outFile << '\n';
       streamDumper.dumpDesign(design, outFile);
+      emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
+      emitNajaMux2Model = emitNajaMux2Model or streamDumper.emitNajaMux2Model_;
+    }
+    emitNajaMemModel_ = emitNajaMemModel;
+    emitNajaMux2Model_ = emitNajaMux2Model;
+    if (emitNajaMemModel || emitNajaMux2Model) {
+      dumpNajaPrimitiveFile(path);
     }
   }
 }
@@ -1652,6 +1899,9 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
     );
     outFile << '\n';
     dumpLibrary(library, outFile);
+    if (emitNajaMemModel_ || emitNajaMux2Model_) {
+      dumpNajaPrimitiveFile(path);
+    }
   } else {
     for (auto design: library->getSNLDesigns()) {
       dumpDesign(design, path);

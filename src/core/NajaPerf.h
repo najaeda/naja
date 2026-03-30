@@ -37,6 +37,9 @@ class NajaPerf {
         bool        started_ {false};
     };
     static MemoryUsage getMemoryUsage();
+    static std::filesystem::path getLogPathFromEnv(
+      const char* envVarName,
+      const std::filesystem::path& defaultLogPath);
     static NajaPerf* create(const std::filesystem::path& logPath, const std::string& topName);
     static NajaPerf* get();
     ~NajaPerf();

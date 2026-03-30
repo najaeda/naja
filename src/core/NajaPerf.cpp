@@ -38,6 +38,21 @@ NajaPerf::Scope::~Scope() {
   }
 }
 
+std::filesystem::path NajaPerf::getLogPathFromEnv(
+  const char* envVarName,
+  const std::filesystem::path& defaultLogPath) {
+  if (envVarName == nullptr || *envVarName == '\0') {
+    return defaultLogPath;
+  }
+  if (const char* envValue = std::getenv(envVarName)) {
+    std::string logPath(envValue);
+    if (!logPath.empty() && logPath != "1") {
+      return logPath;
+    }
+  }
+  return defaultLogPath;
+}
+
 NajaPerf* NajaPerf::create(const std::filesystem::path& logPath, const std::string& topName) {
   if (singleton_ == nullptr) {
     singleton_ = new NajaPerf(logPath, topName);
@@ -66,7 +81,7 @@ const NajaPerf::ScopeStack& NajaPerf::getStack() {
 
 NajaPerf::NajaPerf(const std::filesystem::path& logPath, const std::string& topName):
   startClock_(std::chrono::steady_clock::now()) {
-  os_.open(logPath);
+  os_.open(logPath, std::ios::out | std::ios::trunc);
   NajaUtils::createBanner(os_, "Naja Performance Report", "#");
   os_ << std::endl;
 }
