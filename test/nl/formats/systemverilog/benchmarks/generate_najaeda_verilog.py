@@ -53,7 +53,7 @@ def generate_one(benchmarks_dir: Path, sv_rel_path: str, generated_rel_path: str
         raise FileNotFoundError(f"Missing benchmark input file: {sv_path}")
 
     netlist.reset()
-    top = netlist.load_systemverilog(str(sv_path))
+    top = netlist.load_system_verilog(str(sv_path))
     top.dump_verilog(str(generated_path))
     netlist.reset()
 
