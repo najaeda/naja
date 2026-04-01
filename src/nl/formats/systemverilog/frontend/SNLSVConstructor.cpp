@@ -540,14 +540,13 @@ class SNLSVConstructorImpl {
     void initializeSVPerfReport(const SNLSVConstructor::Paths& paths) {
       svPerfReport_ = SVPerfReport {};
 
+      std::string reportPath = "sv_constructor_perf.log";
       const char* reportEnv = std::getenv("NAJA_SV_CONSTRUCTOR_REPORT");
-      if (!reportEnv) {
-        return;
-      }
-
-      std::string reportPath(reportEnv);
-      if (reportPath.empty() || reportPath == "1") {
-        reportPath = "sv_constructor_perf.log";
+      if (reportEnv) {
+        std::string overridePath(reportEnv);
+        if (!overridePath.empty() && overridePath != "1") {
+          reportPath = std::move(overridePath);
+        }
       }
 
       svPerfReport_.enabled = true;
@@ -928,6 +927,11 @@ class SNLSVConstructorImpl {
 #endif
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const auto makePerfScopeName = [&](const char* phase) {
+        return std::string("SNLSVConstructorImpl::") + phase + "(" + defName + ")";
+      };
+#endif
       auto existingIt = nameToDesign_.find(defName);
       if (existingIt != nameToDesign_.end()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -938,6 +942,7 @@ class SNLSVConstructorImpl {
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const SVPerfScopedTimer designTimer(svPerfReport_, svPerfReport_.buildDesignDuration);
+      NajaPerf::Scope buildDesignScope(makePerfScopeName("buildDesign"));
 #endif
       auto savedInferredMemories = std::move(inferredMemories_);
       auto savedInferredMemoryByStateSymbol = std::move(inferredMemoryByStateSymbol_);
@@ -961,6 +966,7 @@ class SNLSVConstructorImpl {
 
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("createTerms"));
         ++svPerfReport_.createTermsCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createTermsDuration);
 #endif
@@ -968,6 +974,7 @@ class SNLSVConstructorImpl {
       }
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("createNets"));
         ++svPerfReport_.createNetsCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createNetsDuration);
 #endif
@@ -975,6 +982,7 @@ class SNLSVConstructorImpl {
       }
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("connectTermsToNets"));
         ++svPerfReport_.connectTermsToNetsCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -982,10 +990,21 @@ class SNLSVConstructorImpl {
 #endif
         connectTermsToNets(design);
       }
-      inferMemories(design, body);
-      prepareInferredMemories(design);
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
+#endif
+        inferMemories(design, body);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("prepareInferredMemories"));
+#endif
+        prepareInferredMemories(design);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("createContinuousAssigns"));
         ++svPerfReport_.createContinuousAssignsCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -995,6 +1014,7 @@ class SNLSVConstructorImpl {
       }
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("createInstances"));
         ++svPerfReport_.createInstancesCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createInstancesDuration);
 #endif
@@ -1002,6 +1022,7 @@ class SNLSVConstructorImpl {
       }
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("createSequentialLogic"));
         ++svPerfReport_.createSequentialLogicCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -1009,7 +1030,12 @@ class SNLSVConstructorImpl {
 #endif
         createSequentialLogic(design, body);
       }
-      finalizeInferredMemories(design);
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("finalizeInferredMemories"));
+#endif
+        finalizeInferredMemories(design);
+      }
 
       if (config_.blackboxDetection_ and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -5904,6 +5930,7 @@ class SNLSVConstructorImpl {
 
       std::vector<SNLBitNet*> dataBits = lhsBits;
       size_t tempIndex = 0;
+      CombinationalSubtreeSummaryCache subtreeSummaryCache;
       std::string lowerFailureReason;
       for (size_t i = 0; i < returnStmtIndex; ++i) {
         const auto* item = stmtList[i];
@@ -5917,7 +5944,9 @@ class SNLSVConstructorImpl {
               lhsBits,
               dataBits,
               tempIndex,
-              lowerFailureReason)) {
+              lowerFailureReason,
+              nullptr,
+              &subtreeSummaryCache)) {
           return false;
         }
       }
@@ -9419,6 +9448,134 @@ class SNLSVConstructorImpl {
       }
     }
 
+    struct CombinationalSubtreeSummary {
+      std::unordered_set<const slang::ast::ValueSymbol*> affectedSymbols {};
+      bool mayBreak {false};
+      bool hasUnknownEffects {false};
+      bool computed {false};
+    };
+
+    using CombinationalSubtreeSummaryCache =
+      std::unordered_map<const Statement*, CombinationalSubtreeSummary>;
+
+    const CombinationalSubtreeSummary& getOrComputeCombinationalSubtreeSummary(
+      const Statement& stmt,
+      CombinationalSubtreeSummaryCache& cache,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        current = &stmt; // LCOV_EXCL_LINE
+      }
+
+      auto [it, inserted] = cache.try_emplace(current);
+      auto& summary = it->second;
+      if (!inserted && summary.computed) {
+        return summary;
+      }
+
+      summary = {};
+      summary.computed = true;
+
+      auto mergeSummary = [&](const CombinationalSubtreeSummary& child) {
+        summary.mayBreak = summary.mayBreak || child.mayBreak;
+        summary.hasUnknownEffects = summary.hasUnknownEffects || child.hasUnknownEffects;
+        summary.affectedSymbols.insert(child.affectedSymbols.begin(), child.affectedSymbols.end());
+      };
+
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty) {
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        if (!declStmt.symbol.getInitializer()) {
+          return summary;
+        }
+        if (!ignoredSymbols || !ignoredSymbols->contains(&declStmt.symbol)) {
+          summary.affectedSymbols.insert(&declStmt.symbol);
+        }
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          mergeSummary(getOrComputeCombinationalSubtreeSummary(*item, cache, ignoredSymbols));
+        }
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        mergeSummary(
+          getOrComputeCombinationalSubtreeSummary(forStmt.body, cache, ignoredSymbols));
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        mergeSummary(
+          getOrComputeCombinationalSubtreeSummary(
+            conditional.ifTrue,
+            cache,
+            ignoredSymbols));
+        if (conditional.ifFalse) {
+          mergeSummary(
+            getOrComputeCombinationalSubtreeSummary(
+              *conditional.ifFalse,
+              cache,
+              ignoredSymbols));
+        }
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          mergeSummary(
+            getOrComputeCombinationalSubtreeSummary(
+              *item.stmt,
+              cache,
+              ignoredSymbols));
+        }
+        if (caseStmt.defaultCase) {
+          mergeSummary(
+            getOrComputeCombinationalSubtreeSummary(
+              *caseStmt.defaultCase,
+              cache,
+              ignoredSymbols));
+        }
+        return summary;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Break) {
+        summary.mayBreak = true;
+        return summary;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, lhsExpr, action)) {
+        lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
+        if (!shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (lhsExpr && tryGetRootValueSymbolReference(*lhsExpr, symbol)) {
+            summary.affectedSymbols.insert(symbol);
+          } else {
+            summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
+          }
+        }
+        return summary;
+      }
+
+      summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
+      return summary;
+    }
+
     const slang::ast::TimedStatement* findTimedStatement(const Statement& stmt) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
@@ -11396,10 +11553,26 @@ class SNLSVConstructorImpl {
       const std::vector<SNLBitNet*>& lhsBits,
       std::vector<SNLBitNet*>& dataBits,
       size_t& tempIndex,
-      std::string& failureReason) {
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
+      CombinationalSubtreeSummaryCache* subtreeSummaryCache = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
+      }
+      if (subtreeSummaryCache) {
+        const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+        if (tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+          const auto& subtreeSummary = getOrComputeCombinationalSubtreeSummary(
+            *current,
+            *subtreeSummaryCache,
+            ignoredSymbols);
+          if (!subtreeSummary.hasUnknownEffects &&
+              !subtreeSummary.mayBreak &&
+              !subtreeSummary.affectedSymbols.contains(trackedSymbol)) {
+            return true;
+          }
+        }
       }
       if (isIgnorableSequentialTimingStatement(*current)) {
         return true;
@@ -11421,7 +11594,9 @@ class SNLSVConstructorImpl {
                 lhsBits,
                 dataBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache)) {
             return false;
           }
           if (isCurrentForLoopBreakRequested()) {
@@ -11443,7 +11618,9 @@ class SNLSVConstructorImpl {
               lhsBits,
               dataBits,
               tempIndex,
-              failureReason);
+              failureReason,
+              ignoredSymbols,
+              subtreeSummaryCache);
           },
           failureReason);
       }
@@ -11486,7 +11663,9 @@ class SNLSVConstructorImpl {
                 lhsBits,
                 selectedBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache)) {
             return false;
           }
 
@@ -11512,7 +11691,9 @@ class SNLSVConstructorImpl {
               lhsBits,
               trueBits,
               tempIndex,
-              failureReason)) {
+              failureReason,
+              ignoredSymbols,
+              subtreeSummaryCache)) {
           return false;
         }
         const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
@@ -11529,7 +11710,9 @@ class SNLSVConstructorImpl {
                 lhsBits,
                 falseBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache)) {
             return false;
           }
         }
@@ -11580,7 +11763,9 @@ class SNLSVConstructorImpl {
                 lhsBits,
                 defaultBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache)) {
             return false;
           }
           mergedBits = std::move(defaultBits);
@@ -11597,7 +11782,9 @@ class SNLSVConstructorImpl {
                 lhsBits,
                 itemBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache)) {
             return false;
           }
 
@@ -11739,14 +11926,68 @@ class SNLSVConstructorImpl {
       const std::optional<slang::SourceRange>& sourceRange,
       std::string& failureReason,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const auto designName = design->getName().getString();
+      const auto makeCombinationalLHSScopeName =
+        [&](const Expression& lhsExpr, size_t bitWidth) {
+          std::ostringstream name;
+          name << "SNLSVConstructorImpl::lowerCombinationalProceduralBlock.lhs("
+               << designName;
+          auto baseName = getExpressionBaseName(lhsExpr);
+          if (!baseName.empty()) {
+            name << ":" << baseName;
+          }
+          if (auto lhsSourceInfo = getSourceInfo(getSourceRange(lhsExpr))) {
+            name << "@" << lhsSourceInfo->line;
+          }
+          name << ":w" << bitWidth << ")";
+          return name.str();
+        };
+      const auto makeCombinationalLHSStepScopeName =
+        [&](const char* phase,
+            const Expression& lhsExpr,
+            std::optional<size_t> bitWidth = std::nullopt,
+            std::optional<size_t> tempIndex = std::nullopt,
+            std::optional<size_t> changedBits = std::nullopt) {
+          std::ostringstream name;
+          name << "SNLSVConstructorImpl::lowerCombinationalProceduralBlock." << phase << "("
+               << designName;
+          auto baseName = getExpressionBaseName(lhsExpr);
+          if (!baseName.empty()) {
+            name << ":" << baseName;
+          }
+          if (auto lhsSourceInfo = getSourceInfo(getSourceRange(lhsExpr))) {
+            name << "@" << lhsSourceInfo->line;
+          }
+          if (bitWidth) {
+            name << ":w" << *bitWidth;
+          }
+          if (tempIndex) {
+            name << ":t" << *tempIndex;
+          }
+          if (changedBits) {
+            name << ":c" << *changedBits;
+          }
+          name << ")";
+          return name.str();
+        };
+#endif
       std::vector<const Expression*> lhsExpressions;
-      if (!collectAssignedLHSExpressions(
-            stmt,
-            lhsExpressions,
-            &failureReason,
-            true,
-            ignoredSymbols)) {
-        return false;
+      CombinationalSubtreeSummaryCache subtreeSummaryCache;
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(
+          std::string("SNLSVConstructorImpl::lowerCombinationalProceduralBlock.collectAssignedLHS(") +
+          designName + ")");
+#endif
+        if (!collectAssignedLHSExpressions(
+              stmt,
+              lhsExpressions,
+              &failureReason,
+              true,
+              ignoredSymbols)) {
+          return false;
+        }
       }
 
       for (const auto* lhsExpr : lhsExpressions) {
@@ -11754,30 +11995,69 @@ class SNLSVConstructorImpl {
           continue; // LCOV_EXCL_LINE
         }
         std::vector<SNLBitNet*> lhsBits;
-        if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason)) {
-          return false;
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(
+            makeCombinationalLHSStepScopeName("resolveLHSBits", *lhsExpr));
+#endif
+          if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason)) {
+            return false;
+          }
         }
         if (lhsBits.empty()) {
           continue; // LCOV_EXCL_LINE
         }
 
-        std::vector<SNLBitNet*> dataBits = lhsBits;
-        size_t tempIndex = 0;
-        if (!applyCombinationalStatementForLhs(
-              design,
-              stmt,
-              *lhsExpr,
-              lhsBits,
-              dataBits,
-              tempIndex,
-              failureReason)) {
-          return false;
-        }
-        for (size_t i = 0; i < lhsBits.size(); ++i) {
-          if (dataBits[i] == lhsBits[i]) {
-            continue;
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(makeCombinationalLHSScopeName(*lhsExpr, lhsBits.size()));
+#endif
+          std::vector<SNLBitNet*> dataBits = lhsBits;
+          size_t tempIndex = 0;
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(
+              makeCombinationalLHSStepScopeName(
+                "replayStatements",
+                *lhsExpr,
+                lhsBits.size()));
+#endif
+            if (!applyCombinationalStatementForLhs(
+                  design,
+                  stmt,
+                  *lhsExpr,
+                  lhsBits,
+                  dataBits,
+                  tempIndex,
+                  failureReason,
+                  ignoredSymbols,
+                  &subtreeSummaryCache)) {
+              return false;
+            }
           }
-          createAssignInstance(design, dataBits[i], lhsBits[i], sourceRange);
+          size_t changedBits = 0;
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            if (dataBits[i] != lhsBits[i]) {
+              ++changedBits;
+            }
+          }
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(
+              makeCombinationalLHSStepScopeName(
+                "emitAssigns",
+                *lhsExpr,
+                lhsBits.size(),
+                tempIndex,
+                changedBits));
+#endif
+            for (size_t i = 0; i < lhsBits.size(); ++i) {
+              if (dataBits[i] == lhsBits[i]) {
+                continue;
+              }
+              createAssignInstance(design, dataBits[i], lhsBits[i], sourceRange);
+            }
+          }
         }
       }
       return true;
@@ -12545,6 +12825,22 @@ class SNLSVConstructorImpl {
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const auto makeSequentialPerfScopeName = [&](const char* phase) {
+        return std::string("SNLSVConstructorImpl::createSequentialLogic.") + phase + "(" +
+               moduleName + ")";
+      };
+      const auto makeProceduralBlockPerfScopeName =
+        [&](const char* phase, const slang::ast::ProceduralBlockSymbol& block) {
+          std::ostringstream name;
+          name << "SNLSVConstructorImpl::createSequentialLogic." << phase << "(" << moduleName;
+          if (auto sourceInfo = getSourceInfo(getSourceRange(block))) {
+            name << ":" << sourceInfo->line;
+          }
+          name << ")";
+          return name.str();
+        };
+#endif
       for (const auto& sym : body.members()) {
         if (sym.kind != SymbolKind::ProceduralBlock) {
           continue;
@@ -12555,42 +12851,45 @@ class SNLSVConstructorImpl {
         const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
         auto blockSourceRange = getSourceRange(block);
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
+          {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-          ++svPerfReport_.alwaysCombBlocksVisited;
+            NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysCombBlock", block));
+            ++svPerfReport_.alwaysCombBlocksVisited;
 #endif
-          std::unordered_set<const slang::ast::ValueSymbol*> ignoredSymbols;
-          const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbolsPtr = nullptr;
-          for (const auto& memory : inferredMemories_) {
-            if (!memory.lowered) {
-              continue;
+            std::unordered_set<const slang::ast::ValueSymbol*> ignoredSymbols;
+            const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbolsPtr = nullptr;
+            for (const auto& memory : inferredMemories_) {
+              if (!memory.lowered) {
+                continue;
+              }
+              if (memory.combBlock == &block && memory.shadowSymbol) {
+                ignoredSymbols.insert(memory.shadowSymbol);
+              }
+              if (memory.commitBlock == &block && memory.commitSymbol) {
+                ignoredSymbols.insert(memory.commitSymbol);
+              }
             }
-            if (memory.combBlock == &block && memory.shadowSymbol) {
-              ignoredSymbols.insert(memory.shadowSymbol);
+            if (!ignoredSymbols.empty()) {
+              ignoredSymbolsPtr = &ignoredSymbols;
             }
-            if (memory.commitBlock == &block && memory.commitSymbol) {
-              ignoredSymbols.insert(memory.commitSymbol);
-            }
-          }
-          if (!ignoredSymbols.empty()) {
-            ignoredSymbolsPtr = &ignoredSymbols;
-          }
-          std::string combFailureReason;
-          if (!lowerCombinationalProceduralBlock(
-                design,
-                block.getBody(),
-                blockSourceRange,
-                combFailureReason,
-                ignoredSymbolsPtr)) {
-            std::ostringstream reason;
-            reason << "Unsupported combinational block in module '" << moduleName << "'";
-            if (!combFailureReason.empty()) {
-              reason << ": " << combFailureReason;
-            }
-            reportUnsupportedElement(reason.str(), blockSourceRange);
-          } else {
+            std::string combFailureReason;
+            if (!lowerCombinationalProceduralBlock(
+                  design,
+                  block.getBody(),
+                  blockSourceRange,
+                  combFailureReason,
+                  ignoredSymbolsPtr)) {
+              std::ostringstream reason;
+              reason << "Unsupported combinational block in module '" << moduleName << "'";
+              if (!combFailureReason.empty()) {
+                reason << ": " << combFailureReason;
+              }
+              reportUnsupportedElement(reason.str(), blockSourceRange);
+            } else {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-            ++svPerfReport_.alwaysCombBlocksLowered;
+              ++svPerfReport_.alwaysCombBlocksLowered;
 #endif
+            }
           }
           continue;
         }
@@ -12655,7 +12954,14 @@ class SNLSVConstructorImpl {
         }
 
         AlwaysFFChain chain;
-        if (!stmt || !extractAlwaysFFChain(*stmt, chain)) {
+        bool extractedAlwaysFFChain = false;
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(makeSequentialPerfScopeName("extractAlwaysFFChain"));
+#endif
+          extractedAlwaysFFChain = stmt && extractAlwaysFFChain(*stmt, chain);
+        }
+        if (!extractedAlwaysFFChain) {
           std::string multiAssignFailureReason;
           if (stmt &&
               lowerSequentialMultiAssignmentConditional(
@@ -12695,23 +13001,30 @@ class SNLSVConstructorImpl {
           chain.defaultAction = AssignAction{};
           chain.hasDefault = false;
         }
-        auto lhsNet = resolveExpressionNet(design, *chain.lhs);
-        if (!lhsNet) {
-          std::ostringstream reason;
-          reason << "Unsupported sequential block in module '" << moduleName
-                 << "': unable to resolve assignment LHS net";
-          reportUnsupportedElement(reason.str(), statementSourceRange);
-          continue;
-        }
-        auto lhsBits = collectBits(lhsNet);
-        if (lhsBits.empty()) {
-          // LCOV_EXCL_START
-          std::ostringstream reason;
-          reason << "Unsupported sequential block in module '" << moduleName
-                 << "': unable to collect LHS bits";
-          reportUnsupportedElement(reason.str(), statementSourceRange);
-          continue;
-          // LCOV_EXCL_STOP
+        SNLNet* lhsNet = nullptr;
+        std::vector<SNLBitNet*> lhsBits;
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(makeSequentialPerfScopeName("resolveLHS"));
+#endif
+          lhsNet = resolveExpressionNet(design, *chain.lhs);
+          if (!lhsNet) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': unable to resolve assignment LHS net";
+            reportUnsupportedElement(reason.str(), statementSourceRange);
+            continue;
+          }
+          lhsBits = collectBits(lhsNet);
+          if (lhsBits.empty()) {
+            // LCOV_EXCL_START
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': unable to collect LHS bits";
+            reportUnsupportedElement(reason.str(), statementSourceRange);
+            continue;
+            // LCOV_EXCL_STOP
+          }
         }
 
         auto baseName = getExpressionBaseName(*chain.lhs);
@@ -12767,35 +13080,45 @@ class SNLSVConstructorImpl {
         std::vector<SNLBitNet*> incrementerBits;
         if (needsIncrementer(chain.resetAction) || needsIncrementer(chain.enableAction) ||
             (chain.hasDefault && needsIncrementer(chain.defaultAction))) {
-          auto incNet = getOrCreateNamedNet(
-            design,
-            joinName("inc", baseName),
-            lhsNet,
-            statementSourceRange);
-          auto incBits = collectBits(incNet);
-          auto incCarryNet = getOrCreateNamedNet(
-            design,
-            joinName("inc_carry", baseName),
-            lhsNet,
-            statementSourceRange);
-          auto carryBits = collectBits(incCarryNet);
-          incrementerBits = buildIncrementer(
-            design,
-            lhsBits,
-            incBits,
-            carryBits,
-            statementSourceRange);
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(makeSequentialPerfScopeName("buildIncrementer"));
+#endif
+            auto incNet = getOrCreateNamedNet(
+              design,
+              joinName("inc", baseName),
+              lhsNet,
+              statementSourceRange);
+            auto incBits = collectBits(incNet);
+            auto incCarryNet = getOrCreateNamedNet(
+              design,
+              joinName("inc_carry", baseName),
+              lhsNet,
+              statementSourceRange);
+            auto carryBits = collectBits(incCarryNet);
+            incrementerBits = buildIncrementer(
+              design,
+              lhsBits,
+              incBits,
+              carryBits,
+              statementSourceRange);
+          }
         }
 
         std::vector<SNLBitNet*> defaultBits;
         if (chain.hasDefault) {
-          defaultBits = buildAssignBits(
-            design,
-            chain.defaultAction,
-            lhsNet,
-            lhsBits,
-            &incrementerBits,
-            defaultSourceRange);
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(makeSequentialPerfScopeName("buildDefaultBits"));
+#endif
+            defaultBits = buildAssignBits(
+              design,
+              chain.defaultAction,
+              lhsNet,
+              lhsBits,
+              &incrementerBits,
+              defaultSourceRange);
+          }
           if (defaultBits.empty()) {
             continue;
           }
@@ -12805,13 +13128,18 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> enableBits;
         if (chain.enableCond) {
-          enableBits = buildAssignBits(
-            design,
-            chain.enableAction,
-            lhsNet,
-            lhsBits,
-            &incrementerBits,
-            getActionSourceRange(chain.enableAction));
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(makeSequentialPerfScopeName("buildEnableBits"));
+#endif
+            enableBits = buildAssignBits(
+              design,
+              chain.enableAction,
+              lhsNet,
+              lhsBits,
+              &incrementerBits,
+              getActionSourceRange(chain.enableAction));
+          }
           if (enableBits.empty()) {
             continue;
           }
@@ -12819,13 +13147,18 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> resetBits;
         if (chain.resetCond) {
-          resetBits = buildAssignBits(
-            design,
-            chain.resetAction,
-            lhsNet,
-            lhsBits,
-            &incrementerBits,
-            getActionSourceRange(chain.resetAction));
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(makeSequentialPerfScopeName("buildResetBits"));
+#endif
+            resetBits = buildAssignBits(
+              design,
+              chain.resetAction,
+              lhsNet,
+              lhsBits,
+              &incrementerBits,
+              getActionSourceRange(chain.resetAction));
+          }
           if (resetBits.empty()) {
             continue;
           }
@@ -12915,38 +13248,43 @@ class SNLSVConstructorImpl {
           if (useClockEnablePrimitive) {
             dataBits = enableBits;
           } else {
-            auto enNet = getOrCreateNamedNet(
-              design,
-              joinName("en", baseName),
-              lhsNet,
-              enableSourceRange);
-            auto enBits = collectBits(enNet);
-            if (enBits.size() != dataBits.size()) {
-              // LCOV_EXCL_START
-              std::ostringstream reason;
-              reason << "Unsupported sequential block in module '" << moduleName
-                     << "': enable mux width mismatch";
-              reportUnsupportedElement(reason.str(), enableSourceRange);
-              continue;
-              // LCOV_EXCL_STOP
+            {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+              NajaPerf::Scope scope(makeSequentialPerfScopeName("buildEnableMux"));
+#endif
+              auto enNet = getOrCreateNamedNet(
+                design,
+                joinName("en", baseName),
+                lhsNet,
+                enableSourceRange);
+              auto enBits = collectBits(enNet);
+              if (enBits.size() != dataBits.size()) {
+                // LCOV_EXCL_START
+                std::ostringstream reason;
+                reason << "Unsupported sequential block in module '" << moduleName
+                       << "': enable mux width mismatch";
+                reportUnsupportedElement(reason.str(), enableSourceRange);
+                continue;
+                // LCOV_EXCL_STOP
+              }
+              if (!createMux2Instance(
+                    design,
+                    enableNet,
+                    dataBits,
+                    enableBits,
+                    enBits,
+                    enableSourceRange,
+                    enNet)) {
+                // LCOV_EXCL_START
+                std::ostringstream reason;
+                reason << "Unsupported sequential block in module '" << moduleName
+                       << "': unable to build enable mux";
+                reportUnsupportedElement(reason.str(), enableSourceRange);
+                continue;
+                // LCOV_EXCL_STOP
+              }
+              dataBits = std::move(enBits);
             }
-            if (!createMux2Instance(
-                  design,
-                  enableNet,
-                  dataBits,
-                  enableBits,
-                  enBits,
-                  enableSourceRange,
-                  enNet)) {
-              // LCOV_EXCL_START
-              std::ostringstream reason;
-              reason << "Unsupported sequential block in module '" << moduleName
-                     << "': unable to build enable mux";
-              reportUnsupportedElement(reason.str(), enableSourceRange);
-              continue;
-              // LCOV_EXCL_STOP
-            }
-            dataBits = std::move(enBits);
           }
         }
 
@@ -12954,90 +13292,100 @@ class SNLSVConstructorImpl {
             !useAsyncResetDFFRN &&
             !useAsyncResetDFFRE &&
             !useAsyncResetDFFSE) {
-          auto resetNet = resolveConditionNet(
-            design,
-            *chain.resetCond,
-            joinName("rst", baseName),
-            resetSourceRange);
-          if (!resetNet) {
-            std::ostringstream reason;
-            reason << "Unsupported sequential block in module '" << moduleName
-                   << "': unable to resolve reset condition net";
-            reportUnsupportedElement(reason.str(), resetSourceRange);
-            continue;
+          {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            NajaPerf::Scope scope(makeSequentialPerfScopeName("buildResetMux"));
+#endif
+            auto resetNet = resolveConditionNet(
+              design,
+              *chain.resetCond,
+              joinName("rst", baseName),
+              resetSourceRange);
+            if (!resetNet) {
+              std::ostringstream reason;
+              reason << "Unsupported sequential block in module '" << moduleName
+                     << "': unable to resolve reset condition net";
+              reportUnsupportedElement(reason.str(), resetSourceRange);
+              continue;
+            }
+            auto rstNet = getOrCreateNamedNet(
+              design,
+              joinName("rst", baseName),
+              lhsNet,
+              resetSourceRange);
+            auto rstBits = collectBits(rstNet);
+            if (rstBits.size() != dataBits.size()) {
+              // LCOV_EXCL_START
+              std::ostringstream reason;
+              reason << "Unsupported sequential block in module '" << moduleName
+                     << "': reset mux width mismatch";
+              reportUnsupportedElement(reason.str(), resetSourceRange);
+              continue;
+              // LCOV_EXCL_STOP
+            }
+            if (!createMux2Instance(
+                  design,
+                  resetNet,
+                  dataBits,
+                  resetBits,
+                  rstBits,
+                  resetSourceRange,
+                  rstNet)) {
+              // LCOV_EXCL_START
+              std::ostringstream reason;
+              reason << "Unsupported sequential block in module '" << moduleName
+                     << "': unable to build reset mux";
+              reportUnsupportedElement(reason.str(), resetSourceRange);
+              continue;
+              // LCOV_EXCL_STOP
+            }
+            dataBits = std::move(rstBits);
           }
-          auto rstNet = getOrCreateNamedNet(
-            design,
-            joinName("rst", baseName),
-            lhsNet,
-            resetSourceRange);
-          auto rstBits = collectBits(rstNet);
-          if (rstBits.size() != dataBits.size()) {
-            // LCOV_EXCL_START
-            std::ostringstream reason;
-            reason << "Unsupported sequential block in module '" << moduleName
-                   << "': reset mux width mismatch";
-            reportUnsupportedElement(reason.str(), resetSourceRange);
-            continue;
-            // LCOV_EXCL_STOP
-          }
-          if (!createMux2Instance(
-                design,
-                resetNet,
-                dataBits,
-                resetBits,
-                rstBits,
-                resetSourceRange,
-                rstNet)) {
-            // LCOV_EXCL_START
-            std::ostringstream reason;
-            reason << "Unsupported sequential block in module '" << moduleName
-                   << "': unable to build reset mux";
-            reportUnsupportedElement(reason.str(), resetSourceRange);
-            continue;
-            // LCOV_EXCL_STOP
-          }
-          dataBits = std::move(rstBits);
         }
 
         auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-        for (size_t i = 0; i < lhsBits.size(); ++i) {
-          if (useAsyncResetDFFRN) {
-            createDFFRNInstance(
-              design,
-              clkNet,
-              dataBits[i],
-              asyncResetControlNet,
-              lhsBits[i],
-              statementSourceRange);
-          } else if (useAsyncResetDFFRE) {
-            createDFFREInstance(
-              design,
-              clkNet,
-              dataBits[i],
-              useClockEnablePrimitive ? enableNet : constEnableOne,
-              asyncResetControlNet,
-              lhsBits[i],
-              statementSourceRange);
-          } else if (useAsyncResetDFFSE) {
-            createDFFSEInstance(
-              design,
-              clkNet,
-              dataBits[i],
-              useClockEnablePrimitive ? enableNet : constEnableOne,
-              asyncResetControlNet,
-              lhsBits[i],
-              statementSourceRange);
-          } else if (useClockEnablePrimitive) {
-            createDFFEInstance(
-              design,
-              clkNet,
-              dataBits[i],
-              enableNet,
-              lhsBits[i],
-              statementSourceRange);
-          } else {
-            createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(makeSequentialPerfScopeName("emitSequentialPrimitives"));
+#endif
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            if (useAsyncResetDFFRN) {
+              createDFFRNInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                asyncResetControlNet,
+                lhsBits[i],
+                statementSourceRange);
+            } else if (useAsyncResetDFFRE) {
+              createDFFREInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                useClockEnablePrimitive ? enableNet : constEnableOne,
+                asyncResetControlNet,
+                lhsBits[i],
+                statementSourceRange);
+            } else if (useAsyncResetDFFSE) {
+              createDFFSEInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                useClockEnablePrimitive ? enableNet : constEnableOne,
+                asyncResetControlNet,
+                lhsBits[i],
+                statementSourceRange);
+            } else if (useClockEnablePrimitive) {
+              createDFFEInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                enableNet,
+                lhsBits[i],
+                statementSourceRange);
+            } else {
+              createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
+            }
           }
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT

@@ -12,10 +12,63 @@
 #include <limits>
 #include <sstream>
 #ifdef __APPLE__
+#include <libproc.h>
 #include <mach/mach.h>
+#include <unistd.h>
 #endif
 
 namespace naja {
+
+#ifdef __APPLE__
+namespace {
+
+long bytesToKilobytes(uint64_t bytes) {
+  return static_cast<long>(bytes / 1024);
+}
+
+NajaPerf::MemoryUsage getTaskVmMemoryUsage() {
+  task_vm_info_data_t info {};
+  mach_msg_type_number_t infoCount = TASK_VM_INFO_COUNT;
+  if (task_info(
+      mach_task_self(),
+      TASK_VM_INFO,
+      reinterpret_cast<task_info_t>(&info),
+      &infoCount) != KERN_SUCCESS) {
+    return std::make_pair(NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage);
+  }
+
+  long current = NajaPerf::UnknownMemoryUsage;
+  long peak = NajaPerf::UnknownMemoryUsage;
+
+  if (infoCount >= TASK_VM_INFO_REV1_COUNT) {
+    current = bytesToKilobytes(info.phys_footprint);
+  } else if (infoCount >= TASK_VM_INFO_REV0_COUNT) {
+    current = bytesToKilobytes(info.resident_size);
+  }
+
+  if (infoCount >= TASK_VM_INFO_REV3_COUNT && info.ledger_phys_footprint_peak > 0) {
+    peak = bytesToKilobytes(static_cast<uint64_t>(info.ledger_phys_footprint_peak));
+  } else if (infoCount >= TASK_VM_INFO_REV0_COUNT) {
+    peak = bytesToKilobytes(info.resident_size_peak);
+  }
+
+  return std::make_pair(current, peak);
+}
+
+NajaPerf::MemoryUsage getProcRusageMemoryUsage() {
+#ifdef RUSAGE_INFO_V4
+  rusage_info_v4 info {};
+  if (proc_pid_rusage(getpid(), RUSAGE_INFO_V4, (rusage_info_t*)&info) == 0) {
+    return std::make_pair(
+      bytesToKilobytes(info.ri_phys_footprint),
+      bytesToKilobytes(info.ri_lifetime_max_phys_footprint));
+  }
+#endif
+  return std::make_pair(NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage);
+}
+
+}  // namespace
+#endif
 
 NajaPerf* NajaPerf::singleton_ = nullptr;
 const long NajaPerf::UnknownMemoryUsage = std::numeric_limits<long>::max();
@@ -279,26 +332,14 @@ NajaPerf::MemoryUsage NajaPerf::getMemoryUsage() {
   }
   return std::make_pair(vmRSS, vmPeak);
 #elif defined(__APPLE__)
-  // Get current task (process) information
-  mach_task_basic_info info;
-  mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
-
-  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) != KERN_SUCCESS) {
-    return std::make_pair(NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage); // Return error values
+  // resident_size / ru_maxrss under-report large macOS workloads once memory
+  // compression kicks in. Physical footprint tracks the process memory cost
+  // more closely, and proc_pid_rusage exposes a kernel-maintained lifetime peak.
+  auto usage = getProcRusageMemoryUsage();
+  if (memoryKnown(usage.first) || memoryKnown(usage.second)) {
+    return usage;
   }
-
-  // Resident set size (physical memory used by the process)
-  long vmRSS = info.resident_size / 1024; // in kilobytes
-
-  // Peak resident set size (using getrusage)
-  struct rusage r_usage;
-  if (getrusage(RUSAGE_SELF, &r_usage) != 0) {
-    return std::make_pair(vmRSS, NajaPerf::UnknownMemoryUsage); // Error fetching peak memory usage
-  }
-  
-  long vmPeak = r_usage.ru_maxrss / 1024; // in kilobytes
-
-  return std::make_pair(vmRSS, vmPeak);
+  return getTaskVmMemoryUsage();
 #endif
   return std::make_pair(NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage);
 }
