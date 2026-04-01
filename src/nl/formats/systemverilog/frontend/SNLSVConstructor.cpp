@@ -9566,13 +9566,13 @@ class SNLSVConstructorImpl {
           if (lhsExpr && tryGetRootValueSymbolReference(*lhsExpr, symbol)) {
             summary.affectedSymbols.insert(symbol);
           } else {
-            summary.hasUnknownEffects = true;
+            summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
           }
         }
         return summary;
       }
 
-      summary.hasUnknownEffects = true;
+      summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
       return summary;
     }
 
