@@ -40,7 +40,8 @@ namespace {
         bits |= (1ULL << i);
       }
     }
-    return naja::NL::SNLTruthTable(3, bits);
+    return naja::NL::SNLTruthTable(
+      3, bits, naja::NL::SNLTruthTable::fullDependencies(3));
   }
 
   std::string getMux2InternalName(size_t width) {
@@ -310,7 +311,6 @@ namespace {
       mux2, SNLTerm::Direction::Output, static_cast<NLID::Bit>(width - 1), 0, NLName("Y"));
 
     std::vector<SNLTruthTable> truthTables(width, getMux2TruthTable());
-    SNLDesignModeling::setTruthTables(mux2, truthTables);
 
     for (size_t bit = 0; bit < width; ++bit) {
       auto* inABit = inA->getBit(static_cast<NLID::Bit>(bit));
@@ -324,6 +324,7 @@ namespace {
       outputs.push_back(outBit);
       SNLDesignModeling::addCombinatorialArcs(inputs, outputs);
     }
+    SNLDesignModeling::setTruthTables(mux2, truthTables);
   }
 }
 

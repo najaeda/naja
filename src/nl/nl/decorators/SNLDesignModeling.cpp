@@ -1131,8 +1131,17 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLBitTerm* term) {
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
+    }
+    if (NLDB0::isMux2(design)) {
+      size_t tableCount = 0;
+      for (const auto* term : design->getBitTerms()) {
+        if (term->getDirection() != SNLTerm::Direction::Input) {
+          ++tableCount;
+        }
+      }
+      return tableCount;
     }
     size_t tableCount = 0;
     for (const auto* term : design->getBitTerms()) {
@@ -1182,7 +1191,7 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return SNLTruthTable();
     }
     return NLDB0::getPrimitiveTruthTable(design);
@@ -1264,19 +1273,34 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
                                                size_t flatTermID) {
-  if (NLDB0::isDB0Primitive(design) && isDB0SequentialPrimitive(design)) {
+  auto resolveOutputIndex = [&](size_t orderID,
+                                NLID::DesignObjectID& outputID,
+                                NLID::DesignObjectID& outputCount) {
+    outputID = 0;
+    outputCount = 0;
+    bool found = false;
+    size_t bitTermIdx = 0;
+    for (const auto& term : design->getBitTerms()) {
+      if (term->getDirection() != SNLTerm::Direction::Input) {
+        if (bitTermIdx == orderID) {
+          outputID = outputCount;
+          found = true;
+        }
+        ++outputCount;
+      }
+      ++bitTermIdx;
+    }
+    return found;
+  };
+
+  if (NLDB0::isDB0Primitive(design) &&
+      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design))) {
     return SNLTruthTable();
   }
   auto property = getTruthTableProperty(design);
-  std::map<size_t, NLID::DesignObjectID> termID2outputID;
-  NLID::DesignObjectID outputIndex = 0;
-  size_t bitTermIdx = 0;
-  for (const auto& term : design->getBitTerms()) {
-    if (term->getDirection() != SNLTerm::Direction::Input) {
-      termID2outputID[bitTermIdx] = outputIndex++;
-    }
-    bitTermIdx++;
-  }
+  NLID::DesignObjectID outputID = 0;
+  NLID::DesignObjectID outputCount = 0;
+  const bool isOutputTerm = resolveOutputIndex(flatTermID, outputID, outputCount);
   if (NLDB0::isDB0Primitive(design)) {
     // throw an error in case outputIndex is not 1
     // check if FA design
@@ -1292,30 +1316,40 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
     }
-    if (outputIndex != 1) {
-      std::ostringstream reason;
-      reason << "Design <" << design->getName().getString()
-             << "> is a DB0 primitive but has " << outputIndex
-             << " outputs instead of 1";
-      throw NLException(reason.str());
+    if (NLDB0::isMux2(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in mux2 design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getPrimitiveTruthTable(design);
+    } else {
+      if (outputCount != 1) {
+        std::ostringstream reason;
+        reason << "Design <" << design->getName().getString()
+               << "> is a DB0 primitive but has " << outputCount
+               << " outputs instead of 1";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getPrimitiveTruthTable(design);
     }
-    return NLDB0::getPrimitiveTruthTable(design);
   }
-  if (termID2outputID.size() == 1) {
+  if (outputCount == 1) {
     if (NLDB0::isDB0Primitive(design)) {
       return NLDB0::getPrimitiveTruthTable(design);
     }
   }
-  if (termID2outputID.find(flatTermID) == termID2outputID.end()) {
+  if (!isOutputTerm) {
     std::ostringstream reason;
     reason << "Term ID " << flatTermID << " is not an output in design <"
            << design->getName().getString() << ">";
     throw NLException(reason.str());
   }
-  NLID::DesignObjectID outputID = termID2outputID[flatTermID];
 
   if (property) {
-    if (getTruthTableCount(design) == 1) {
+    if (!NLDB0::isDB0Primitive(design) && getTruthTableCount(design) == 1) {
       return getTruthTable(design);
     }
 
