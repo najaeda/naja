@@ -4,6 +4,7 @@
 
 
 #pragma once
+#include <cstddef>
 #include "SNLTruthTable.h"
 
 namespace naja::NL {
@@ -29,6 +30,32 @@ class SNLBusTerm;
 class NLDB0 {
   friend class NLUniverse;
   public:
+    enum class MemoryResetMode {
+      None,
+      AsyncLow,
+      AsyncHigh,
+      SyncLow,
+      SyncHigh
+    };
+
+    struct MemorySignature {
+      size_t          width      {0};
+      size_t          depth      {0};
+      size_t          abits      {0};
+      size_t          readPorts  {0};
+      size_t          writePorts {0};
+      MemoryResetMode resetMode  {MemoryResetMode::None};
+
+      bool operator==(const MemorySignature& other) const {
+        return width == other.width &&
+               depth == other.depth &&
+               abits == other.abits &&
+               readPorts == other.readPorts &&
+               writePorts == other.writePorts &&
+               resetMode == other.resetMode;
+      }
+    };
+
     class GateType {
       public:
         enum GateTypeEnum {
@@ -53,6 +80,7 @@ class NLDB0 {
     static NLLibrary* getDB0RootLibrary();
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
+    static bool isMemory(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -71,12 +99,17 @@ class NLDB0 {
     static SNLTruthTable getFASumTruthTable();
     ///\return truth table for Carry-out output: majority(A,B,CI) (3 inputs, bits=0xE8)
     static SNLTruthTable getFACoutTruthTable();
+    static SNLDesign* getOrCreateMux2(size_t width);
     static SNLDesign* getMux2();
     static bool isMux2(const SNLDesign* design);
-    static SNLScalarTerm* getMux2InputA();
-    static SNLScalarTerm* getMux2InputB();
+    static SNLBusTerm* getMux2InputA(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2InputA();
+    static SNLBusTerm* getMux2InputB(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2InputB();
+    static SNLScalarTerm* getMux2Select(const SNLDesign* mux2);
     static SNLScalarTerm* getMux2Select();
-    static SNLScalarTerm* getMux2Output();
+    static SNLBusTerm* getMux2Output(const SNLDesign* mux2);
+    static SNLBusTerm* getMux2Output();
     static SNLDesign* getDFF();
     /// \brief Plain edge-triggered D flip-flop.
     /// Pins: C (clock), D (data), Q (output).
@@ -130,6 +163,7 @@ class NLDB0 {
     static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
     ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
     static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
+    static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };

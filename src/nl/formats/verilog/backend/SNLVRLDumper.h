@@ -202,6 +202,7 @@ class SNLVRLDumper {
     void finalizeDetailedPerfSession();
 
     std::string getTopFileName(const SNLDesign* top) const;
+    std::string getPrimitiveFileName() const;
     std::string getLibraryFileName(const NLLibrary* library) const;
     struct DesignAnonymousNaming {
       using TermNames = std::map<NLID::DesignObjectID, std::string>;
@@ -225,6 +226,9 @@ class SNLVRLDumper {
     static NLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
     static std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
+    void dumpNajaMux2Model(std::ostream& o);
+    void dumpNajaMemModel(std::ostream& o);
+    void dumpNajaPrimitiveFile(const std::filesystem::path& path);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
@@ -255,6 +259,8 @@ class SNLVRLDumper {
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
     DetailedPerfReport      detailedPerfReport_     {};
+    bool                    emitNajaMemModel_       {false};
+    bool                    emitNajaMux2Model_      {false};
 };
 
 } // namespace naja::NL

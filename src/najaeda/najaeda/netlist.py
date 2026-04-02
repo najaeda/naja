@@ -1919,7 +1919,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     return top
 
 
-def load_systemverilog(
+def load_system_verilog(
         files: Union[str, List[str]],
         config: SystemVerilogConfig = None) -> Instance:
     """Load SystemVerilog files into the top design.
@@ -1987,10 +1987,6 @@ def load_systemverilog(
     logging.info(
         f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
     return top
-
-
-# Compatibility alias for Python naming preference.
-load_system_verilog = load_systemverilog
 
 
 def load_liberty(files: Union[str, List[str]]):

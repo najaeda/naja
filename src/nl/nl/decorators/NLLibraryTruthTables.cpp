@@ -70,6 +70,38 @@ naja::NL::SNLTruthTable canonicalizeTruthTableForLookup(
   return naja::NL::SNLTruthTable(tt.size(), bits, deps);
 }
 
+naja::NL::SNLTruthTable getCommonTruthTable(const naja::NL::SNLDesign* design) {
+  using namespace naja::NL;
+  const auto count = SNLDesignModeling::getTruthTableCount(design);
+  if (count == 0) {
+    return {};
+  }
+  if (count == 1) {
+    return SNLDesignModeling::getTruthTable(design);
+  }
+
+  bool first = true;
+  SNLTruthTable commonTruthTable;
+  for (const auto* term: design->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto currentTruthTable = SNLDesignModeling::getTruthTable(design, term->getFlatID());
+    if (!currentTruthTable.isInitialized()) {
+      return {};
+    }
+    if (first) {
+      commonTruthTable = currentTruthTable;
+      first = false;
+      continue;
+    }
+    if (currentTruthTable != commonTruthTable) {
+      return {};
+    }
+  }
+  return commonTruthTable;
+}
+
 } // namespace
 
 namespace naja::NL {
@@ -80,7 +112,7 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
   }
   LibraryTruthTables truthTables;
   for (auto design : library->getSNLDesigns()) {
-    SNLTruthTable tt = SNLDesignModeling::getTruthTable(design);
+    SNLTruthTable tt = getCommonTruthTable(design);
     if (tt.isInitialized()) {
       auto canonicalTT = canonicalizeTruthTableForLookup(tt);
       auto it = truthTables.find(canonicalTT);

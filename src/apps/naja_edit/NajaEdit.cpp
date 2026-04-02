@@ -103,8 +103,8 @@ int main(int argc, char* argv[]) {
     .default_value(std::string("naja_edit.log"))
     .help("Dump log file (default name: naja_edit.log)");
   program.add_argument("-s", "--stats")
-    .default_value(std::string("naja_stats.log"))
-    .help("Dump stats log file named: naja_stats.log");
+    .default_value(std::string("naja_perf.log"))
+    .help("Dump performance log file (default: naja_perf.log, env override: NAJA_PERF)");
   program.add_argument("--sv_flist")
     .help("SystemVerilog slang command file path (passed as -f <file>)");
   program.add_argument("--sv_top")
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  std::filesystem::path statsPath("naja_stats.log");
+  auto statsPath = naja::NajaPerf::getLogPathFromEnv("NAJA_PERF", "naja_perf.log");
   if (program.is_used("--stats")) {
     statsPath = program.get<std::string>("--stats");
   }
