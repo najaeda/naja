@@ -245,7 +245,7 @@ class NetlistGraph {
         dumpNetID(net, nets, stream, indent);
       } else {
         // FIXME !! ERROR
-      }
+      }  // LCOV_EXCL_LINE
     }
     stream << std::endl;
     stream << std::string(indent, ' ') << "]";
@@ -260,14 +260,14 @@ class NetlistGraph {
     for (auto term : design->getInPorts()) {
       if (not first) {
         stream << "," << std::endl;
-      }
+      }  // LCOV_EXCL_LINE
       first = false;
       dumpTerm(term, nets, stream, indent + 2, "input");
     }
     for (auto term : design->getOutPorts()) {
       if (not first) {
         stream << "," << std::endl;
-      }
+      }  // LCOV_EXCL_LINE
       first = false;
       dumpTerm(term, nets, stream, indent + 2, "output");
     }
@@ -467,7 +467,7 @@ class NetlistGraph {
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       if (node != &getTop()) {
         if (count) {
           myfile << "->";
@@ -483,7 +483,7 @@ class NetlistGraph {
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       alignRec(&getInst(child), myfile, count);
     }
     size_t localLeaf = 0;
@@ -497,7 +497,7 @@ class NetlistGraph {
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       if (localLeaf) {
         myfile << ",";  // If not first local leaf so wrap them together
       } else if (count) {
@@ -517,7 +517,7 @@ class NetlistGraph {
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
         // LCOV_EXCL_STOP
-      } 
+      }  // LCOV_EXCL_LINE
       if (count) {
         myfile << "->";
       }

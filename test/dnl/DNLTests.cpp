@@ -47,6 +47,67 @@ TEST_F(DNLTests, DefaultInstanceHasNoModel) {
   EXPECT_EQ(nullptr, instance.getSNLModel());
 }
 
+TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
+  univ->setTopDesign(top);
+
+  auto* topOutput =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("topOut"));
+  ASSERT_NE(nullptr, topOutput);
+
+  SNLDesign* child = SNLDesign::create(library, NLName("child"));
+  auto* childInput =
+      SNLScalarTerm::create(child, SNLTerm::Direction::Input, NLName("childIn"));
+  ASSERT_NE(nullptr, childInput);
+  SNLInstance* childInst = SNLInstance::create(top, child, NLName("childInst"));
+  ASSERT_NE(nullptr, childInst);
+
+  auto* childInputNet = SNLScalarNet::create(child, NLName("childInputNet"));
+  ASSERT_NE(nullptr, childInputNet);
+  childInputNet->setType(SNLNet::Type::Assign1);
+  childInput->setNet(childInputNet);
+
+  DNLFull* dnl = get();
+  ASSERT_NE(nullptr, dnl);
+
+  auto childInputTerminal =
+      dnl->getTop().getChildInstance(childInst).getTerminalFromBitTerm(childInput);
+  DNLIsoDB scratchIsoDB;
+  auto& ambiguousIso = scratchIsoDB.addIso();
+  scratchIsoDB.addConstant0Iso(ambiguousIso.getIsoID());
+  ambiguousIso.setIsoType(DNLIso::IsoType::CONST0);
+
+  DNLIsoDBBuilder<DNLInstanceFull, DNLTerminalFull> builder(scratchIsoDB, *dnl);
+  visited visitedDB;
+  builder.treatDriver(
+      childInputTerminal, ambiguousIso, visitedDB, false, false, [](DNLID) {});
+  EXPECT_EQ(DNLIso::IsoType::AMBIGUOUS, ambiguousIso.getType());
+  EXPECT_EQ(0u, scratchIsoDB.getConstant0Isos().count(ambiguousIso.getIsoID()));
+
+  auto& mutableIsoDB = const_cast<DNLIsoDB&>(dnl->getDNLIsoDB());
+  auto& readerSeedIso = mutableIsoDB.addIso();
+  readerSeedIso.addReader(dnl->getTop().getTerminalFromBitTerm(topOutput).getID());
+  DNLComplexIso readerSeededIso;
+  dnl->getCustomIso(readerSeedIso.getIsoID(), readerSeededIso);
+  EXPECT_EQ(readerSeedIso.getIsoID(), readerSeededIso.getIsoID());
+  EXPECT_EQ(1u, readerSeededIso.getReaders().size());
+  EXPECT_TRUE(readerSeededIso.getDrivers().empty());
+  EXPECT_TRUE(readerSeededIso.getHierTerms().empty());
+
+  auto& emptyIso = mutableIsoDB.addIso();
+  DNLComplexIso emptyCustomIso;
+  dnl->getCustomIso(emptyIso.getIsoID(), emptyCustomIso);
+  EXPECT_EQ(emptyIso.getIsoID(), emptyCustomIso.getIsoID());
+  EXPECT_TRUE(emptyCustomIso.getReaders().empty());
+  EXPECT_TRUE(emptyCustomIso.getDrivers().empty());
+  EXPECT_TRUE(emptyCustomIso.getHierTerms().empty());
+
+  destroy();
+}
+
 // Validation of SNL data access from DNL(simple netlist)
 // Create a simple SNL netlist and then a DNL on top of it
 // and validate the access to the data
@@ -1015,4 +1076,3 @@ TEST_F (DNLTests, testIsCombinatorial) {
     
     
     
-

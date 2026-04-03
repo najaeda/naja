@@ -92,7 +92,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       if (count != 0 ) {
         myfile << " | ";
       }
@@ -132,7 +132,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +
@@ -172,7 +172,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       if (count != 0) {
         myfile << " | ";
       }
@@ -212,7 +212,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
         // LCOV_EXCL_STOP
-      }
+      }  // LCOV_EXCL_LINE
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +

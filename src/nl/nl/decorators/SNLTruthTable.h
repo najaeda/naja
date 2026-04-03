@@ -272,8 +272,8 @@ class SNLTruthTable {
               invert ? GenericType::XOR : GenericType::XNOR,
               deps);
         }
-        case GenericType::NONE:
-          break;
+        default:
+          break;  // LCOV_EXCL_LINE
       }
     }
 

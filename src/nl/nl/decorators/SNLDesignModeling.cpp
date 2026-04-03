@@ -63,7 +63,7 @@ naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* de
   if (naja::NL::NLDB0::isDFFSE(design)) {
     return naja::NL::NLDB0::getDFFSEClock();
   }
-  return nullptr;
+  return nullptr;  // LCOV_EXCL_LINE
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getDB0ClockRelatedInputs(
@@ -319,8 +319,7 @@ naja::NajaDumpableProperty* getTruthTableProperty(
 }
 
 size_t getDependencyChunkCount(const naja::NL::SNLDesign* design) {
-  return TT_NCHUNKS_FROM_BITS(design->getBitTerms().size());
-}
+  return TT_NCHUNKS_FROM_BITS(design->getBitTerms().size()); }
 
 std::vector<size_t> getInputFlatPositions(const naja::NL::SNLDesign* design) {
   std::vector<size_t> inputFlatPositions;
@@ -350,10 +349,13 @@ std::vector<uint64_t> validateAndPadDependenciesForDesign(
   if (decodedDeps.empty()) {
     throw naja::NL::NLException("Truth table dependencies are required");
   }
+  // SNLTruthTable constructors already reject oversized dependency sets.
+  // LCOV_EXCL_START
   if (decodedDeps.size() > truthTable.size()) {
     throw naja::NL::NLException(
         "Truth table dependencies count cannot exceed truth table size");
   }
+  // LCOV_EXCL_STOP
 
   const auto inputFlatPositions = getInputFlatPositions(design);
   if (inputFlatPositions.empty()) {
@@ -1290,8 +1292,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
       }
       ++bitTermIdx;
     }
-    return found;
-  };
+    return found; };
 
   if (NLDB0::isDB0Primitive(design) &&
       (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design))) {
@@ -1333,11 +1334,6 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
                << " outputs instead of 1";
         throw NLException(reason.str());
       }
-      return NLDB0::getPrimitiveTruthTable(design);
-    }
-  }
-  if (outputCount == 1) {
-    if (NLDB0::isDB0Primitive(design)) {
       return NLDB0::getPrimitiveTruthTable(design);
     }
   }

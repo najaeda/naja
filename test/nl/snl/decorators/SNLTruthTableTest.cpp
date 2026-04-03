@@ -266,6 +266,38 @@ TEST(SNLTruthTableTest, testGenericCoverageEdges) {
           .getReducedWithConstant(0, true));
 }
 
+TEST(SNLTruthTableTest, testGenericSingleInputAndEmptyEdges) {
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Buf(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, true));
+
+  SNLTruthTable empty;
+  EXPECT_FALSE(empty.all0());
+  EXPECT_FALSE(empty.all1());
+}
+
 TEST(SNLTruthTable, testMultipleConstantInputs) {
   //mux truth table
   //function		: "((S & B) | (A & !S))";

@@ -698,6 +698,21 @@ TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_WrongOutputCountThrows) {
   );
 }
 
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTable_TooManyDependenciesForSizeThrows) {
+  auto D = SNLDesign::create(
+      prims_, SNLDesign::Type::Primitive, NLName("too_many_dependencies"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTable(
+          D,
+          SNLTruthTable(
+              2,
+              0b1000,
+              NLBitDependencies::encodeBits({0, 1, 2}))),
+      NLException);
+}
+
 // 3) Cannot set an empty truth‐tables vector
 TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_EmptyVectorThrows) {
   // Create a primitive design with zero outputs

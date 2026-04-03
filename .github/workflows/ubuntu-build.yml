@@ -47,7 +47,13 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(nproc)
+      run: |
+        JOBS=$(nproc)
+        if [ "${{ matrix.compiler.cc }}" = "clang" ]; then
+          # Ubuntu clang runners can run out of memory at full parallelism.
+          JOBS=2
+        fi
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j "$JOBS"
       env:
         CC:  ${{ matrix.compiler.cc }}
         CXX: ${{ matrix.compiler.cxx }}

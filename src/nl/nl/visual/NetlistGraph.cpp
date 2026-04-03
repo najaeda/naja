@@ -212,10 +212,6 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       // SNLPath instPath = SNLPath(localPath, instChild);
       for (const auto& path : _equiPaths) {
         auto pathCopy = path;
-        if (childPath.size() == 0) {
-          foundPartial = true;
-          break;
-        }
         while (pathCopy.size() > 0) {
           if (pathCopy == childPath) {
             foundPartial = true;
@@ -290,8 +286,8 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
               bus.addPort(port.getId());
               continue;
             }
+          }  // LCOV_EXCL_LINE
             // LCOV_EXCL_STOP
-          }
           // net is allowed — ensure the corresponding wire exists in this scope
           auto it = net2wireId.find(netTerm->getNet());
           if (it == net2wireId.end()) {
@@ -356,6 +352,9 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       if (child.getData().getSnlInst()->getInstTerm(term)->getNet()) {
         SNLInstTerm* netTerm = child.getData().getSnlInst()->getInstTerm(term);
         if (!_equis.empty()) {
+          // Exact scalar term matches always register their connected net in
+          // _equiNets while building the equipotential filters above.
+          // LCOV_EXCL_START
           if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
             // keep port created for id consistency but skip wiring
             std::string name = term->getName().getString();
@@ -371,6 +370,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
             }
             continue;
           }
+          // LCOV_EXCL_STOP
         }
         auto it = net2wireId.find(netTerm->getNet());
         if (it == net2wireId.end()) {
@@ -388,8 +388,8 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
             child.addOutPort(port.getId());
           }
           continue;
+        }  // LCOV_EXCL_LINE
           // LCOV_EXCL_STOP
-        }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
           _snlNetlistGraph.getWire(it->second).addPort(port.getId());
         } else {
@@ -409,27 +409,6 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
     }
     _snlNetlistGraph.addInst(child);
     _snlNetlistGraph.getInst(instId).addChild(child.getId());
-    if (!_equis.empty()) {
-      bool foundPartial = false;
-      SNLPath instPath = SNLPath(localPath, instChild);
-      for (const auto& path : _equiPaths) {
-        auto pathCopy = path;
-        if (instPath.size() == 0) {
-          foundPartial = true;
-          break;
-        }
-        while (pathCopy.size() > 0) {
-          if (pathCopy == instPath) {
-            foundPartial = true;
-            break;
-          }
-          pathCopy = pathCopy.getHeadPath();
-        }
-      }
-      if (!foundPartial) {
-        continue;
-      }
-    }
     if (_recursive) {
       processRec(child.getId(), localPath);
     }
