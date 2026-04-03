@@ -3521,7 +3521,7 @@ class SNLSVConstructorImpl {
           auto rightWidth = getIntegralExpressionBitWidth(binaryExpr.right());
           if (!leftWidth || !rightWidth) {
             // LCOV_EXCL_START
-            failureReason = "unsupported inferred memory local equality width"; // LCOV_EXCL_LINE
+            failureReason = "unsupported inferred memory local equality width";
             return nullptr;
             // LCOV_EXCL_STOP
           }
