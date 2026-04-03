@@ -290,6 +290,7 @@ jobs:
   
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
+    if: github.repository == 'najaeda/naja' && github.event_name != 'pull_request'
     needs: [build_wheels]
     runs-on: ubuntu-latest
     #environment: pypi
@@ -311,7 +312,7 @@ jobs:
           skip-existing: true
 
   pypi-publish:
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.repository == 'najaeda/naja' && github.event_name == 'push' && github.ref_type == 'tag'
     needs: [test_upload_pypi]
     name: Upload release to PyPI
     runs-on: ubuntu-latest

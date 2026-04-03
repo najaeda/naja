@@ -54,13 +54,14 @@ jobs:
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov
+      if: github.event_name == 'pull_request' || github.repository == 'najaeda/naja'
       uses: codecov/codecov-action@v5
       with:
         directory: ${{github.workspace}}/test/najaeda/
         env_vars: OS,PYTHON
-        fail_ci_if_error: true
+        fail_ci_if_error: ${{ github.repository == 'najaeda/naja' }}
         files: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ github.repository == 'najaeda/naja' && secrets.CODECOV_TOKEN || '' }}
         verbose: true
