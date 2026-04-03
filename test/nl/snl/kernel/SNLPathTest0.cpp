@@ -260,6 +260,27 @@ TEST_F(SNLPathTest0, testErrors) {
   EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor1), NLException);
 }
 
+TEST_F(SNLPathTest0, testIDDescriptorAndUnnamedFallback) {
+  ASSERT_NE(h0Instance_, nullptr);
+  ASSERT_NE(h1Instance_, nullptr);
+  ASSERT_NE(h2Instance_, nullptr);
+  ASSERT_NE(prim0Instance_, nullptr);
+
+  SNLPath::PathIDDescriptor invalidDescriptor = {
+      h0Instance_->getID(), h1Instance_->getID(), NLID::DesignObjectID(9999)};
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), invalidDescriptor), NLException);
+
+  auto* unnamed = SNLInstance::create(h2Instance_->getModel(), prim0Instance_->getModel());
+  ASSERT_NE(nullptr, unnamed);
+  EXPECT_TRUE(unnamed->getName().empty());
+
+  auto path =
+      SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), unnamed);
+  auto names = path.getPathNames();
+  ASSERT_EQ(4u, names.size());
+  EXPECT_EQ(std::to_string(unnamed->getID()), names.back().getString());
+}
+
 TEST_F(SNLPathTest0, testInstanceDestroy0) {
   {
     auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), prim0Instance_);

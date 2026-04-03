@@ -10,6 +10,9 @@
 
 #include "NLUniverse.h"
 
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
 
 #include "SNLLibertyConstructor.h"
@@ -254,6 +257,79 @@ TEST_F(SNLLibertyConstructorTest0, testMultiOutputFunctionErrorHasLocationContex
     EXPECT_NE(std::string::npos, reason.find("cell `BAD_MULTI`"));
     EXPECT_NE(std::string::npos, reason.find("pin `Y1`"));
   }
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testMixedOutputKindsCreatePlaceholderTables) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto tempPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path("naja_liberty_mixed_outputs_" + std::to_string(stamp) + ".lib");
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output
+      << "library (MIXED_OUTPUTS) {\n"
+      << "  type (BUS2) {\n"
+      << "    base_type : array;\n"
+      << "    data_type : bit;\n"
+      << "    bit_width : 2;\n"
+      << "    bit_from : 1;\n"
+      << "    bit_to : 0;\n"
+      << "    downto : true;\n"
+      << "  }\n"
+      << "  cell (MIXED) {\n"
+      << "    pin (A) {\n"
+      << "      direction : input;\n"
+      << "    }\n"
+      << "    pin (Y) {\n"
+      << "      direction : output;\n"
+      << "      function : \"A\";\n"
+      << "    }\n"
+      << "    pin (IO) {\n"
+      << "      direction : inout;\n"
+      << "    }\n"
+      << "    bus (BO) {\n"
+      << "      bus_type : BUS2;\n"
+      << "      direction : output;\n"
+      << "    }\n"
+      << "  }\n"
+      << "}\n";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(tempPath));
+  EXPECT_EQ(NLName("MIXED_OUTPUTS"), library_->getName());
+
+  auto design = library_->getSNLDesign(NLName("MIXED"));
+  ASSERT_NE(nullptr, design);
+  auto a = design->getScalarTerm(NLName("A"));
+  ASSERT_NE(nullptr, a);
+  EXPECT_EQ(SNLTerm::Direction::Input, a->getDirection());
+  auto y = design->getScalarTerm(NLName("Y"));
+  ASSERT_NE(nullptr, y);
+  EXPECT_EQ(SNLTerm::Direction::Output, y->getDirection());
+  auto io = design->getScalarTerm(NLName("IO"));
+  ASSERT_NE(nullptr, io);
+  EXPECT_EQ(SNLTerm::Direction::InOut, io->getDirection());
+  auto bo = design->getBusTerm(NLName("BO"));
+  ASSERT_NE(nullptr, bo);
+  EXPECT_EQ(SNLTerm::Direction::Output, bo->getDirection());
+  EXPECT_EQ(1, bo->getMSB());
+  EXPECT_EQ(0, bo->getLSB());
+
+  auto yTruthTable = SNLDesignModeling::getTruthTable(design, y->getFlatID());
+  EXPECT_EQ(SNLTruthTable::Buf(), yTruthTable);
+  auto ioTruthTable = SNLDesignModeling::getTruthTable(design, io->getFlatID());
+  EXPECT_EQ(SNLTruthTable::Logic0(), ioTruthTable);
+  ASSERT_NE(nullptr, bo->getBit(1));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLDesignModeling::getTruthTable(design, bo->getBit(1)->getFlatID()));
+  ASSERT_NE(nullptr, bo->getBit(0));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLDesignModeling::getTruthTable(design, bo->getBit(0)->getFlatID()));
+
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);
 }

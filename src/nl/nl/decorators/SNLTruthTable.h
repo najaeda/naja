@@ -189,6 +189,94 @@ class SNLTruthTable {
     // new size = old size minus #constants
     uint32_t k = static_cast<uint32_t>(idxConsts.size());
     uint32_t newSize = (size_ > k ? size_ - k : 0);
+    size_t trueConstants = 0;
+    bool hasFalseConstant = false;
+    for (auto const& ic : idxConsts) {
+      if (ic.second) {
+        ++trueConstants;
+      } else {
+        hasFalseConstant = true;
+      }
+    }
+
+    if (isGeneric()) {
+      const auto deps = fullDependencies(newSize);
+      switch (genericType_) {
+        case GenericType::AND:
+          if (hasFalseConstant) {
+            return Logic0();
+          }
+          if (newSize == 0) {
+            return Logic1();
+          }
+          if (newSize == 1) {
+            return Buf();
+          }
+          return SNLTruthTable(newSize, GenericType::AND, deps);
+        case GenericType::NAND:
+          if (hasFalseConstant) {
+            return Logic1();
+          }
+          if (newSize == 0) {
+            return Logic0();
+          }
+          if (newSize == 1) {
+            return Inv();
+          }
+          return SNLTruthTable(newSize, GenericType::NAND, deps);
+        case GenericType::OR:
+          if (trueConstants > 0) {
+            return Logic1();
+          }
+          if (newSize == 0) {
+            return Logic0();
+          }
+          if (newSize == 1) {
+            return Buf();
+          }
+          return SNLTruthTable(newSize, GenericType::OR, deps);
+        case GenericType::NOR:
+          if (trueConstants > 0) {
+            return Logic0();
+          }
+          if (newSize == 0) {
+            return Logic1();
+          }
+          if (newSize == 1) {
+            return Inv();
+          }
+          return SNLTruthTable(newSize, GenericType::NOR, deps);
+        case GenericType::XOR: {
+          const bool invert = (trueConstants % 2) != 0;
+          if (newSize == 0) {
+            return invert ? Logic1() : Logic0();
+          }
+          if (newSize == 1) {
+            return invert ? Inv() : Buf();
+          }
+          return SNLTruthTable(
+              newSize,
+              invert ? GenericType::XNOR : GenericType::XOR,
+              deps);
+        }
+        case GenericType::XNOR: {
+          const bool invert = (trueConstants % 2) != 0;
+          if (newSize == 0) {
+            return invert ? Logic0() : Logic1();
+          }
+          if (newSize == 1) {
+            return invert ? Buf() : Inv();
+          }
+          return SNLTruthTable(
+              newSize,
+              invert ? GenericType::XOR : GenericType::XNOR,
+              deps);
+        }
+        case GenericType::NONE:
+          break;
+      }
+    }
+
     uint32_t newN = 1u << newSize;
     uint64_t reduced = 0;
     std::vector<bool> reducedVect(newN, false);
