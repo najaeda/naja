@@ -642,8 +642,9 @@ void SNLVRLConstructor::addAssign(
         break;
       }
       case naja::verilog::Expression::Type::CONCATENATION: {
-        const auto& concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
-        collectConcatenationBitNets(concatenation, rightNets);
+        SNLInstance::Nets bitNets;
+        auto concatenation = std::get<std::shared_ptr<naja::verilog::Concatenation>>(expression.value_);
+        collectConcatenationBitNets(*concatenation, rightNets);
         break;
       }
       default: {
@@ -791,8 +792,8 @@ void SNLVRLConstructor::currentInstancePortConnection(
       }
       case naja::verilog::Expression::Type::CONCATENATION: {
         SNLInstance::Nets bitNets;
-        const auto& concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
-        collectConcatenationBitNets(concatenation, bitNets);
+        auto concatenation = std::get<std::shared_ptr<naja::verilog::Concatenation>>(expression.value_);
+        collectConcatenationBitNets(*concatenation, bitNets);
         using BitTerms = std::vector<SNLBitTerm*>;
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         if (not busTerm) {
