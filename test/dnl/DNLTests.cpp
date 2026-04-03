@@ -41,6 +41,12 @@ class DNLTests : public ::testing::Test {
   }
 };
 
+TEST_F(DNLTests, DefaultInstanceHasNoModel) {
+  NLUniverse::create();
+  DNLInstanceFull instance;
+  EXPECT_EQ(nullptr, instance.getSNLModel());
+}
+
 // Validation of SNL data access from DNL(simple netlist)
 // Create a simple SNL netlist and then a DNL on top of it
 // and validate the access to the data
@@ -1009,6 +1015,4 @@ TEST_F (DNLTests, testIsCombinatorial) {
     
     
     
-
-
 

@@ -4,6 +4,8 @@
 
 #include "gtest/gtest.h"
 
+#include "NLBitDependencies.h"
+#include "NLDB0.h"
 #include "NLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLDesignModeling.h"
@@ -259,6 +261,41 @@ TEST_F(SNLDesignTruthTablesTest1, WrongDepsSize) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_o"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
   EXPECT_ANY_THROW(SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, {0, 1, 2})));
+}
+
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTable_EmptyDecodedDependenciesThrow) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("empty_decoded"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input, NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, std::vector<uint64_t>{0})),
+      NLException);
+}
+
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTable_OutputDependencyThrows) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("bad_dep"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input, NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTable(
+          D,
+          SNLTruthTable(1, 0b10, NLBitDependencies::encodeBits({1}))),
+      NLException);
+}
+
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTable_DependencyStorageTooLargeThrows) {
+  auto D =
+      SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("oversized_dep_storage"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input, NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTable(
+          D,
+          SNLTruthTable(1, 0b10, std::vector<uint64_t>{1, 0})),
+      NLException);
 }
 
 TEST_F(SNLDesignTruthTablesTest1, SingleChunkDeclaredTooLargeThrows) {

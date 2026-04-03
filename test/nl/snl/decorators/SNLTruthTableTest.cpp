@@ -128,6 +128,144 @@ TEST(SNLTruthTableTest, testConstants) {
   EXPECT_NE(tt2, SNLTruthTable::Logic1());
 }
 
+TEST(SNLTruthTableTest, testGenericReduction) {
+  SNLTruthTable and2(
+      2, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(2));
+  EXPECT_TRUE(and2.isGeneric());
+  EXPECT_EQ(SNLTruthTable::Buf(), and2.getReducedWithConstant(0, true));
+  EXPECT_EQ(SNLTruthTable::Logic0(), and2.getReducedWithConstant(0, false));
+
+  SNLTruthTable xor3(
+      3, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(3));
+  EXPECT_EQ(
+      SNLTruthTable(
+          2,
+          SNLTruthTable::GenericType::XNOR,
+          SNLTruthTable::fullDependencies(2)),
+      xor3.getReducedWithConstant(0, true));
+
+  SNLTruthTable xnor2(
+      2, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(2));
+  EXPECT_EQ(SNLTruthTable::Buf(), xnor2.getReducedWithConstant(0, true));
+  EXPECT_EQ(SNLTruthTable::Inv(), xnor2.getReducedWithConstant(0, false));
+}
+
+TEST(SNLTruthTableTest, testGenericCoverageEdges) {
+  EXPECT_THROW(
+      SNLTruthTable(
+          1,
+          SNLTruthTable::GenericType::AND,
+          SNLTruthTable::fullDependencies(2)),
+      NLException);
+
+  const SNLTruthTable or2(
+      2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2));
+  const SNLTruthTable nor2(
+      2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2));
+  EXPECT_LT(or2, nor2);
+
+  const SNLTruthTable nonInitialized(1, 0b10, {});
+  EXPECT_FALSE(nonInitialized.isInitialized());
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+}
+
 TEST(SNLTruthTable, testMultipleConstantInputs) {
   //mux truth table
   //function		: "((S & B) | (A & !S))";

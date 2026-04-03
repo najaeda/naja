@@ -162,6 +162,32 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
   destroy();
 }
 
+TEST_F(LoadlessRemoveLogicTests, removesOrphanBitNets) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
+  univ->setTopDesign(mod);
+
+  auto inTerm =
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+  auto usedNet = SNLScalarNet::create(mod, NLName("usedNet"));
+  SNLScalarNet::create(mod, NLName("orphanNet"));
+  inTerm->setNet(usedNet);
+
+  DNLFull* dnl = get();
+  ASSERT_NE(nullptr, dnl);
+  LoadlessLogicRemover remover;
+  remover.setRemoveLoadlessNets(true);
+  destroy();
+
+  remover.process();
+
+  ASSERT_EQ(1, mod->getBitNets().size());
+  EXPECT_EQ(usedNet, *mod->getBitNets().begin());
+  destroy();
+}
+
 TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   // Create a simple logic with a single input and output
   NLUniverse* univ = NLUniverse::create();
