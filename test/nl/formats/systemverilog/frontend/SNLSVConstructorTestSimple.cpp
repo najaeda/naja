@@ -113,6 +113,16 @@ size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
   return count;
 }
 
+size_t countFAInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 void expectUnsupportedConstruct(
   SNLSVConstructor& constructor,
   const std::filesystem::path& svPath,
@@ -16964,16 +16974,16 @@ endmodule
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_star_combinational_snippet_unsupported";
+  outPath = outPath / "always_star_combinational_snippet_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_star_combinational_snippet_unsupported.sv";
+  const auto svPath = outPath / "always_star_combinational_snippet_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
@@ -17004,18 +17014,118 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported always @* combinational snippet";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing control"))
-      << reason;
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported sequential block in module 'top': unable to resolve a single-bit clock net"))
-      << reason;
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  auto nextValue = top->getBusNet(NLName("next_value"));
+  ASSERT_NE(nextValue, nullptr);
+  EXPECT_EQ(4, nextValue->getWidth());
+
+  auto result = top->getBusNet(NLName("result"));
+  ASSERT_NE(result, nullptr);
+  EXPECT_EQ(4, result->getWidth());
+
+  auto valid = dynamic_cast<SNLBitNet*>(top->getNet(NLName("valid")));
+  ASSERT_NE(valid, nullptr);
+
+  EXPECT_EQ(2u, countMux2Instances(top, 4));
+  EXPECT_EQ(4u, countFAInstances(top));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_star_combinational_snippet_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetMatchesAlwaysComb) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_star_combinational_matches_always_comb";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
   }
+  std::filesystem::create_directory(outPath);
+
+  const auto starPath = outPath / "always_star_combinational_matches_always_comb_star.sv";
+  std::ofstream starFile(starPath);
+  ASSERT_TRUE(starFile.good());
+  starFile
+    << R"(module top_star(
+  input logic req,
+  input logic mode,
+  input logic [3:0] data,
+  output logic [3:0] result,
+  output logic valid
+);
+  logic [3:0] next_value;
+
+  always @* begin
+    next_value = data;
+
+    if (req) begin
+      if (mode) begin
+        next_value = data ^ 4'b1010;
+      end else begin
+        next_value = data + 4'b0001;
+      end
+    end
+  end
+
+  assign result = next_value;
+  assign valid = req | mode;
+endmodule
+)";
+  starFile.close();
+
+  const auto combPath = outPath / "always_star_combinational_matches_always_comb_comb.sv";
+  std::ofstream combFile(combPath);
+  ASSERT_TRUE(combFile.good());
+  combFile
+    << R"(module top_comb(
+  input logic req,
+  input logic mode,
+  input logic [3:0] data,
+  output logic [3:0] result,
+  output logic valid
+);
+  logic [3:0] next_value;
+
+  always_comb begin
+    next_value = data;
+
+    if (req) begin
+      if (mode) begin
+        next_value = data ^ 4'b1010;
+      end else begin
+        next_value = data + 4'b0001;
+      end
+    end
+  end
+
+  assign result = next_value;
+  assign valid = req | mode;
+endmodule
+)";
+  combFile.close();
+
+  constructor.construct(starPath);
+  constructor.construct(combPath);
+
+  auto topStar = library_->getSNLDesign(NLName("top_star"));
+  auto topComb = library_->getSNLDesign(NLName("top_comb"));
+  ASSERT_NE(topStar, nullptr);
+  ASSERT_NE(topComb, nullptr);
+
+  EXPECT_EQ(countMux2Instances(topStar), countMux2Instances(topComb));
+  EXPECT_EQ(countMux2Instances(topStar, 4), countMux2Instances(topComb, 4));
+  EXPECT_EQ(countFAInstances(topStar), countFAInstances(topComb));
+  EXPECT_EQ(topStar->getInstances().size(), topComb->getInstances().size());
+
+  auto starResult = topStar->getBusNet(NLName("result"));
+  auto combResult = topComb->getBusNet(NLName("result"));
+  ASSERT_NE(starResult, nullptr);
+  ASSERT_NE(combResult, nullptr);
+  EXPECT_EQ(starResult->getWidth(), combResult->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingDelayUnsupported) {

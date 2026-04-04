@@ -12571,6 +12571,10 @@ class SNLSVConstructorImpl {
       return nullptr;
     }
 
+    bool isImplicitCombinationalTimingControl(const TimingControl& timing) const {
+      return timing.kind == slang::ast::TimingControlKind::ImplicitEvent;
+    }
+
     struct AsyncEventInfo {
       const Expression* expr {nullptr};
       std::optional<slang::ast::EdgeKind> edge;
@@ -12850,42 +12854,47 @@ class SNLSVConstructorImpl {
 #endif
         const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
         auto blockSourceRange = getSourceRange(block);
+        auto lowerCombinationalBlock = [&](const Statement& combinationalStmt) {
+          std::unordered_set<const slang::ast::ValueSymbol*> ignoredSymbols;
+          const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbolsPtr = nullptr;
+          for (const auto& memory : inferredMemories_) {
+            if (!memory.lowered) {
+              continue;
+            }
+            if (memory.combBlock == &block && memory.shadowSymbol) {
+              ignoredSymbols.insert(memory.shadowSymbol);
+            }
+            if (memory.commitBlock == &block && memory.commitSymbol) {
+              ignoredSymbols.insert(memory.commitSymbol);
+            }
+          }
+          if (!ignoredSymbols.empty()) {
+            ignoredSymbolsPtr = &ignoredSymbols;
+          }
+          std::string combFailureReason;
+          if (!lowerCombinationalProceduralBlock(
+                design,
+                combinationalStmt,
+                blockSourceRange,
+                combFailureReason,
+                ignoredSymbolsPtr)) {
+            std::ostringstream reason;
+            reason << "Unsupported combinational block in module '" << moduleName << "'";
+            if (!combFailureReason.empty()) {
+              reason << ": " << combFailureReason;
+            }
+            reportUnsupportedElement(reason.str(), blockSourceRange);
+            return false;
+          }
+          return true;
+        };
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysCombBlock", block));
             ++svPerfReport_.alwaysCombBlocksVisited;
 #endif
-            std::unordered_set<const slang::ast::ValueSymbol*> ignoredSymbols;
-            const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbolsPtr = nullptr;
-            for (const auto& memory : inferredMemories_) {
-              if (!memory.lowered) {
-                continue;
-              }
-              if (memory.combBlock == &block && memory.shadowSymbol) {
-                ignoredSymbols.insert(memory.shadowSymbol);
-              }
-              if (memory.commitBlock == &block && memory.commitSymbol) {
-                ignoredSymbols.insert(memory.commitSymbol);
-              }
-            }
-            if (!ignoredSymbols.empty()) {
-              ignoredSymbolsPtr = &ignoredSymbols;
-            }
-            std::string combFailureReason;
-            if (!lowerCombinationalProceduralBlock(
-                  design,
-                  block.getBody(),
-                  blockSourceRange,
-                  combFailureReason,
-                  ignoredSymbolsPtr)) {
-              std::ostringstream reason;
-              reason << "Unsupported combinational block in module '" << moduleName << "'";
-              if (!combFailureReason.empty()) {
-                reason << ": " << combFailureReason;
-              }
-              reportUnsupportedElement(reason.str(), blockSourceRange);
-            } else {
+            if (lowerCombinationalBlock(block.getBody())) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
               ++svPerfReport_.alwaysCombBlocksLowered;
 #endif
@@ -12908,9 +12917,6 @@ class SNLSVConstructorImpl {
             inferredMemories_[inferred->second].lowered) {
           continue;
         }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        ++svPerfReport_.sequentialBlocksVisited;
-#endif
 
         const Statement* stmt = &block.getBody();
         const TimingControl* timing = nullptr;
@@ -12921,6 +12927,27 @@ class SNLSVConstructorImpl {
           }
         }
         stmt = stmt ? unwrapStatement(*stmt) : nullptr;
+
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Always &&
+            timing &&
+            stmt &&
+            isImplicitCombinationalTimingControl(*timing)) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysStarBlock", block));
+          ++svPerfReport_.alwaysCombBlocksVisited;
+#endif
+          if (lowerCombinationalBlock(*stmt)) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            ++svPerfReport_.alwaysCombBlocksLowered;
+#endif
+          }
+          continue;
+        }
+
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.sequentialBlocksVisited;
+#endif
+
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
 
         SNLBitNet* clkNet = nullptr;
