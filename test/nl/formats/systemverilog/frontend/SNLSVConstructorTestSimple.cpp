@@ -16964,6 +16964,60 @@ endmodule
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_star_combinational_snippet_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_star_combinational_snippet_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module top(
+  input logic req,
+  input logic mode,
+  input logic [3:0] data,
+  output logic [3:0] result,
+  output logic valid
+);
+  logic [3:0] next_value;
+
+  always @* begin
+    next_value = data;
+
+    if (req) begin
+      if (mode) begin
+        next_value = data ^ 4'b1010;
+      end else begin
+        next_value = data + 4'b0001;
+      end
+    end
+  end
+
+  assign result = next_value;
+  assign valid = req | mode;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported always @* combinational snippet";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing control"))
+      << reason;
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported sequential block in module 'top': unable to resolve a single-bit clock net"))
+      << reason;
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingDelayUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
