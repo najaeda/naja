@@ -53,17 +53,17 @@ before-build = "rm -rf build dist"
 before-all = '''
   brew install cmake
   echo "::group::Installing capnproto"
-  curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
+  curl -fsSLo capnproto-c++-1.1.0.tar.gz https://capnproto.org/capnproto-c++-1.1.0.tar.gz
   tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
-  make -j6 check
+  make -j6
   sudo make install
   echo "::endgroup::"
   cd ..
 
   echo "::group::Installing TBB"
-  wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  curl -fsSLo v2022.1.0.tar.gz https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
   mkdir TBB_build
   cd TBB_build
@@ -80,11 +80,11 @@ before-all = '''
   set -euo pipefail
   yum clean all
   echo "::group::Installing dependencies"
-  yum -y install wget boost-devel
+  yum -y install curl boost-devel
   echo "::endgroup::"
 
   echo "::group::Installing TBB"
-  wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  curl -fsSLo v2022.1.0.tar.gz https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
   mkdir TBB_build
   cd TBB_build
@@ -94,11 +94,11 @@ before-all = '''
   echo "::endgroup::"
   cd ..
   echo "::group::Installing capnproto"
-  curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
+  curl -fsSLo capnproto-c++-1.1.0.tar.gz https://capnproto.org/capnproto-c++-1.1.0.tar.gz
   tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
-  make -j$(nproc) check
+  make -j$(nproc)
   make install
   echo "::endgroup::"
   cd ..

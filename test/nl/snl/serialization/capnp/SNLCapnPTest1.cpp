@@ -52,7 +52,7 @@ class SNLCapNpTest1: public ::testing::Test {
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("A"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("B"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Output, NLName("Y"));
-      SNLDesignModeling::setTruthTable(prim, SNLTruthTable(2, 0x8));
+      SNLDesignModeling::setTruthTable(prim, SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)));
     }
     void TearDown() override {
       if (NLUniverse::get()) {
@@ -165,7 +165,7 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_EQ(NLName("prim"), prim->getName());
   auto primTT = SNLDesignModeling::getTruthTable(prim);
   EXPECT_TRUE(primTT.isInitialized());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), SNLDesignModeling::getTruthTable(prim));
+  EXPECT_EQ(SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)), SNLDesignModeling::getTruthTable(prim));
 
   libraries = Libraries(prims1->getLibraries().begin(), prims1->getLibraries().end());
   EXPECT_EQ(1, libraries.size());

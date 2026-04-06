@@ -52,6 +52,24 @@ NLLibraryModelingProperty* getProperty(const naja::NL::NLLibrary* library) {
   return nullptr;
 }
 
+naja::NL::SNLTruthTable canonicalizeTruthTableForLookup(
+    const naja::NL::SNLTruthTable& tt) {
+  const auto deps = naja::NL::SNLTruthTable::fullDependencies(tt.size());
+  if (tt.isGeneric()) {
+    return naja::NL::SNLTruthTable(tt.size(), tt.getGenericType(), deps);
+  }
+  if (tt.size() <= 6) {
+    return naja::NL::SNLTruthTable(
+        tt.size(), static_cast<uint64_t>(tt.bits()), deps);
+  }
+
+  std::vector<bool> bits(tt.bits().size(), false);
+  for (size_t i = 0; i < bits.size(); ++i) {
+    bits[i] = tt.bits().bit(i);
+  }
+  return naja::NL::SNLTruthTable(tt.size(), bits, deps);
+}
+
 naja::NL::SNLTruthTable getCommonTruthTable(const naja::NL::SNLDesign* design) {
   using namespace naja::NL;
   const auto count = SNLDesignModeling::getTruthTableCount(design);
@@ -96,11 +114,12 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
   for (auto design : library->getSNLDesigns()) {
     SNLTruthTable tt = getCommonTruthTable(design);
     if (tt.isInitialized()) {
-      auto it = truthTables.find(tt);
+      auto canonicalTT = canonicalizeTruthTableForLookup(tt);
+      auto it = truthTables.find(canonicalTT);
       if (it != truthTables.end()) {
         it->second.push_back(design);
       } else {
-        truthTables[tt] = {design};
+        truthTables[canonicalTT] = {design};
       }
     }
   }
@@ -123,13 +142,14 @@ NLLibraryTruthTables::getDesignForTruthTable(const NLLibrary* library, const SNL
     return std::pair(nullptr, Indexes());
   }
   Indexes indexes;
-  auto it = truthTables.find(tt);
+  auto lookupTT = canonicalizeTruthTableForLookup(tt);
+  auto it = truthTables.find(lookupTT);
   if (it == truthTables.end()) {
     //retry with reduced truth table
-    for (uint32_t i = 0; i < tt.size(); ++i) {
-      if (tt.hasNoInfluence(i)) {
-        SNLTruthTable reducedTT = tt.removeVariable(i);
-        it = truthTables.find(reducedTT);
+    for (uint32_t i = 0; i < lookupTT.size(); ++i) {
+      if (lookupTT.hasNoInfluence(i)) {
+        SNLTruthTable reducedTT = lookupTT.removeVariable(i);
+        it = truthTables.find(canonicalizeTruthTableForLookup(reducedTT));
         if (it != truthTables.end()) {
           indexes.push_back(i);
           break;

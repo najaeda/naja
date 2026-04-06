@@ -16,6 +16,30 @@
 #include <algorithm>
 using namespace naja::NL;
 
+namespace {
+
+template <typename T>
+std::vector<T*> collectTerms(const naja::NajaCollection<T*>& collection) {
+  return std::vector<T*>(collection.begin(), collection.end());
+}
+
+template <typename T>
+void expectTerms(const std::vector<T*>& actual, const std::vector<T*>& expected) {
+  EXPECT_EQ(expected.size(), actual.size());
+  for (auto* term: expected) {
+    EXPECT_NE(actual.end(), std::find(actual.begin(), actual.end(), term));
+  }
+}
+
+struct SequentialPrimitiveData {
+  SNLDesign* design {};
+  SNLScalarTerm* clock {};
+  std::vector<SNLBitTerm*> inputs;
+  std::vector<SNLBitTerm*> outputs;
+};
+
+}  // namespace
+
 class NLDB0Test: public ::testing::Test {
   protected:
     void TearDown() override {
@@ -139,6 +163,45 @@ TEST_F(NLDB0Test, testFA) {
   EXPECT_THROW(NLDB0::getPrimitiveTruthTable(fa), NLException);
 }
 
+TEST_F(NLDB0Test, testPrimitiveTruthTableFallbacksAndErrors) {
+  auto sumWithoutDB0 = NLDB0::getFASumTruthTable();
+  auto coutWithoutDB0 = NLDB0::getFACoutTruthTable();
+  EXPECT_EQ(SNLTruthTable::fullDependencies(3), sumWithoutDB0.getDependencies());
+  EXPECT_EQ(SNLTruthTable::fullDependencies(3), coutWithoutDB0.getDependencies());
+
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* fa = NLDB0::getFA();
+  ASSERT_NE(nullptr, fa);
+  EXPECT_THROW(
+      SNLDesignModeling::getTruthTable(fa, NLDB0::getFAInputA()->getFlatID()),
+      NLException);
+
+  auto* mux2 = NLDB0::getMux2();
+  ASSERT_NE(nullptr, mux2);
+  EXPECT_THROW(
+      SNLDesignModeling::getTruthTable(mux2, NLDB0::getMux2Select(mux2)->getFlatID()),
+      NLException);
+
+  auto* primitives = NLDB0::getDB0RootLibrary();
+  ASSERT_NE(nullptr, primitives);
+  auto* unsupported =
+      SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("unsupported"));
+  auto* unsupportedInput =
+      SNLScalarTerm::create(unsupported, SNLTerm::Direction::Input, NLName("I"));
+  auto* unsupportedOutput0 =
+      SNLScalarTerm::create(unsupported, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(unsupported, SNLTerm::Direction::Output, NLName("O1"));
+
+  EXPECT_TRUE(
+      collectTerms(SNLDesignModeling::getInputRelatedClocks(unsupportedInput)).empty());
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(unsupported), NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::getTruthTable(unsupported, unsupportedOutput0->getFlatID()),
+      NLException);
+}
+
 TEST_F(NLDB0Test, testMux2TruthTable) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -170,6 +233,10 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   EXPECT_EQ(
     std::vector<size_t>({0, 1, 2}),
     NLBitDependencies::decodeBits(tt.getDependencies()));
+  EXPECT_TRUE(SNLDesignModeling::areDependenciesDefined(inA->getBit(0)));
+  EXPECT_TRUE(SNLDesignModeling::areDependenciesDefined(inB->getBit(0)));
+  EXPECT_TRUE(SNLDesignModeling::areDependenciesDefined(sel));
+  EXPECT_TRUE(SNLDesignModeling::areDependenciesDefined(out->getBit(0)));
 
   uint64_t bits = 0;
   for (uint64_t i = 0; i < (1ULL << tt.size()); ++i) {
@@ -386,6 +453,137 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_high",
     "0",
     "0");
+}
+
+TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library = NLLibrary::create(db, NLName("designs"));
+  ASSERT_NE(nullptr, library);
+  auto* top = SNLDesign::create(library, NLName("top"));
+  ASSERT_NE(nullptr, top);
+
+  const std::vector<SequentialPrimitiveData> sequentialPrimitives = {
+    {
+      NLDB0::getDFF(),
+      NLDB0::getDFFClock(),
+      {NLDB0::getDFFData()},
+      {NLDB0::getDFFOutput()},
+    },
+    {
+      NLDB0::getDFFRN(),
+      NLDB0::getDFFRNClock(),
+      {NLDB0::getDFFRNData(), NLDB0::getDFFRNResetN()},
+      {NLDB0::getDFFRNOutput()},
+    },
+    {
+      NLDB0::getDFFE(),
+      NLDB0::getDFFEClock(),
+      {NLDB0::getDFFEData(), NLDB0::getDFFEEnable()},
+      {NLDB0::getDFFEOutput()},
+    },
+    {
+      NLDB0::getDFFRE(),
+      NLDB0::getDFFREClock(),
+      {NLDB0::getDFFREData(), NLDB0::getDFFREEnable(), NLDB0::getDFFREReset()},
+      {NLDB0::getDFFREOutput()},
+    },
+    {
+      NLDB0::getDFFSE(),
+      NLDB0::getDFFSEClock(),
+      {NLDB0::getDFFSEData(), NLDB0::getDFFSEEnable(), NLDB0::getDFFSESet()},
+      {NLDB0::getDFFSEOutput()},
+    },
+  };
+
+  for (const auto& primitive: sequentialPrimitives) {
+    ASSERT_NE(nullptr, primitive.design);
+    ASSERT_NE(nullptr, primitive.clock);
+    EXPECT_TRUE(NLDB0::isDB0Primitive(primitive.design));
+    EXPECT_TRUE(SNLDesignModeling::isSequential(primitive.design));
+    EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(primitive.design));
+    EXPECT_FALSE(SNLDesignModeling::getTruthTable(primitive.design).isInitialized());
+
+    for (auto* term: primitive.design->getBitTerms()) {
+      EXPECT_FALSE(SNLDesignModeling::areDependenciesDefined(term));
+      EXPECT_FALSE(
+        SNLDesignModeling::getTruthTable(primitive.design, term->getFlatID()).isInitialized());
+    }
+
+    expectTerms(
+      collectTerms(SNLDesignModeling::getClockRelatedInputs(primitive.clock)),
+      primitive.inputs);
+    expectTerms(
+      collectTerms(SNLDesignModeling::getClockRelatedOutputs(primitive.clock)),
+      primitive.outputs);
+    EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(primitive.clock).empty());
+    EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(primitive.clock).empty());
+
+    for (auto* input: primitive.inputs) {
+      expectTerms(
+        collectTerms(SNLDesignModeling::getInputRelatedClocks(input)),
+        {primitive.clock});
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(input).empty());
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(input).empty());
+      EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(input).empty());
+    }
+    for (auto* output: primitive.outputs) {
+      expectTerms(
+        collectTerms(SNLDesignModeling::getOutputRelatedClocks(output)),
+        {primitive.clock});
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(output).empty());
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(output).empty());
+      EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(output).empty());
+    }
+
+    auto* instance = SNLInstance::create(
+      top,
+      primitive.design,
+      NLName(primitive.design->getName().getString() + "_inst"));
+    ASSERT_NE(nullptr, instance);
+
+    std::vector<SNLInstTerm*> inputInstTerms;
+    inputInstTerms.reserve(primitive.inputs.size());
+    for (auto* input: primitive.inputs) {
+      inputInstTerms.push_back(instance->getInstTerm(input));
+    }
+    std::vector<SNLInstTerm*> outputInstTerms;
+    outputInstTerms.reserve(primitive.outputs.size());
+    for (auto* output: primitive.outputs) {
+      outputInstTerms.push_back(instance->getInstTerm(output));
+    }
+    auto* clockInstTerm = instance->getInstTerm(primitive.clock);
+    ASSERT_NE(nullptr, clockInstTerm);
+
+    expectTerms(
+      collectTerms(SNLDesignModeling::getClockRelatedInputs(clockInstTerm)),
+      inputInstTerms);
+    expectTerms(
+      collectTerms(SNLDesignModeling::getClockRelatedOutputs(clockInstTerm)),
+      outputInstTerms);
+    EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(clockInstTerm).empty());
+    EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(clockInstTerm).empty());
+
+    for (auto* input: inputInstTerms) {
+      expectTerms(
+        collectTerms(SNLDesignModeling::getInputRelatedClocks(input)),
+        {clockInstTerm});
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(input).empty());
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(input).empty());
+      EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(input).empty());
+    }
+    for (auto* output: outputInstTerms) {
+      expectTerms(
+        collectTerms(SNLDesignModeling::getOutputRelatedClocks(output)),
+        {clockInstTerm});
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(output).empty());
+      EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(output).empty());
+      EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(output).empty());
+    }
+  }
 }
 
 TEST_F(NLDB0Test, testDFFRN) {

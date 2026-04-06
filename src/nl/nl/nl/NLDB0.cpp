@@ -5,6 +5,7 @@
 #include "NLDB0.h"
 
 #include "NLUniverse.h"
+#include "NLBitDependencies.h"
 #include "NLException.h"
 
 #include "SNLScalarTerm.h"
@@ -39,7 +40,8 @@ namespace {
         bits |= (1ULL << i);
       }
     }
-    return naja::NL::SNLTruthTable(3, bits);
+    return naja::NL::SNLTruthTable(
+      3, bits, naja::NL::SNLTruthTable::fullDependencies(3));
   }
 
   std::string getMux2InternalName(size_t width) {
@@ -200,6 +202,19 @@ namespace {
 #endif
   }
 
+  std::vector<uint64_t> getInputFlatTermDependencies(
+      const naja::NL::SNLDesign* design) {
+    std::vector<size_t> deps;
+    size_t flatPos = 0;
+    for (auto term : design->getBitTerms()) {
+      if (term->getDirection() != naja::NL::SNLTerm::Direction::Output) {
+        deps.push_back(flatPos);
+      }
+      ++flatPos;
+    }
+    return naja::NL::NLBitDependencies::encodeBits(deps);
+  }
+
   void createAssignPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
@@ -296,7 +311,6 @@ namespace {
       mux2, SNLTerm::Direction::Output, static_cast<NLID::Bit>(width - 1), 0, NLName("Y"));
 
     std::vector<SNLTruthTable> truthTables(width, getMux2TruthTable());
-    SNLDesignModeling::setTruthTables(mux2, truthTables);
 
     for (size_t bit = 0; bit < width; ++bit) {
       auto* inABit = inA->getBit(static_cast<NLID::Bit>(bit));
@@ -310,6 +324,7 @@ namespace {
       outputs.push_back(outBit);
       SNLDesignModeling::addCombinatorialArcs(inputs, outputs);
     }
+    SNLDesignModeling::setTruthTables(mux2, truthTables);
   }
 }
 
@@ -438,7 +453,7 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
   }
   if (isAssign(design)) {
-    return SNLTruthTable::Buf();
+    return SNLTruthTable(1, 0b10, getInputFlatTermDependencies(design));
   }
   if (isFA(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: FA has two outputs, use getFASumTruthTable/getFACoutTruthTable");
@@ -453,11 +468,12 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
       throw NLException("NLDB0::getPrimitiveTruthTable: gate with more than 1 output is not supported");
     }
     auto type = GateType(design->getLibrary()->getName().getString());
+    const auto deps = getInputFlatTermDependencies(design);
     switch (type) {
       case GateType::Buf:
-        return SNLTruthTable::Buf();
+        return SNLTruthTable(1, 0b10, deps);
       case GateType::Not:
-        return SNLTruthTable::Inv();
+        return SNLTruthTable(1, 0b01, deps);
       // LCOV_EXCL_START
       default:
         break;
@@ -467,65 +483,31 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 
   if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
-    if (size > 6) {
-      throw NLException("NLDB0::getPrimitiveTruthTable: gate with more than 6 inputs is not supported");
-    }
+    const auto deps = getInputFlatTermDependencies(design);
     auto type = GateType(design->getLibrary()->getName().getString());
-    const size_t combinations = (1ULL << size);
-    const uint64_t fullMask =
-      combinations == 64 ? std::numeric_limits<uint64_t>::max()
-                         : ((1ULL << combinations) - 1);
     switch (type) {
       case GateType::And: {
-
-        // Only input 11..1 produces output 1
-        uint64_t bits = 1ULL << (combinations - 1);
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::AND, deps);
         return tt;
       }
       case GateType::Nand: {
-        // All combinations except 11..1 produce output 1
-        uint64_t bits = fullMask & ~(1ULL << (combinations - 1));
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NAND, deps);
         return tt;
       }
-      case GateType::Or: {
-        // All combinations except 00..0 produce output 1
-        uint64_t bits = fullMask;
-        bits &= ~1ULL; // clear bit for input 00..0
-
-        SNLTruthTable tt(size, bits);
+      case GateType::Or: {        
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::OR, deps);
         return tt;
       }
       case GateType::Nor: {
-        // Only input 00..0 produces output 1
-        uint64_t bits = 1ULL;
-
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::NOR, deps);
         return tt;
       }
       case GateType::Xor: {
-        uint64_t bits = 0;
-        for (size_t i = 0; i < combinations; ++i) {
-          // XOR: output 1 if an odd number of input bits are set
-          if (parity64(i)) {
-            bits |= (1ULL << i);
-          }
-        }
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XOR, deps);
         return tt;
       }
       case GateType::Xnor: {
-        uint64_t bits = 0;
-        for (size_t i = 0; i < combinations; ++i) {
-          // XNOR: output 1 if an even number of input bits are set
-          if (not parity64(i)) {
-            bits |= (1ULL << i);
-          }
-        }
-        SNLTruthTable tt(size, bits);
+        SNLTruthTable tt(size, SNLTruthTable::GenericType::XNOR, deps);
         return tt;  
       }
       // LCOV_EXCL_START
@@ -534,7 +516,9 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
       // LCOV_EXCL_STOP
     }
   }
-  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type"); // LCOV_EXCL_LINE
+
+std::string designName = design->getLibrary()->getName().getString() + "." + design->getName().getString();
+  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type: " + designName);
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
@@ -633,14 +617,20 @@ SNLScalarTerm* NLDB0::getFAOutputCO() {
 // i=0b000->0, 001->1, 010->1, 011->0, 100->1, 101->0, 110->0, 111->1
 // bits = 0b10010110 = 0x96
 SNLTruthTable NLDB0::getFASumTruthTable() {
-  return SNLTruthTable(3, 0x96ULL);
+  auto fa = getFA();
+  const auto deps = fa ? getInputFlatTermDependencies(fa)
+                       : SNLTruthTable::fullDependencies(3);
+  return SNLTruthTable(3, 0x96ULL, deps);
 }
 
 // Cout = majority(A,B,CI): output 1 when at least 2 inputs are 1
 // i=0b000->0, 001->0, 010->0, 011->1, 100->0, 101->1, 110->1, 111->1
 // bits = 0b11101000 = 0xE8
 SNLTruthTable NLDB0::getFACoutTruthTable() {
-  return SNLTruthTable(3, 0xE8ULL);
+  auto fa = getFA();
+  const auto deps = fa ? getInputFlatTermDependencies(fa)
+                       : SNLTruthTable::fullDependencies(3);
+  return SNLTruthTable(3, 0xE8ULL, deps);
 }
 
 SNLDesign* NLDB0::getMux2() {

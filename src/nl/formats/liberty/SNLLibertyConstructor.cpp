@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <memory>
+#include <vector>
 
 #include "YosysLibertyParser.h"
 #include "YosysLibertyException.h"
@@ -233,6 +235,12 @@ void parseTerms(
       }
     }
   }
+  std::vector<SNLBitTerm*> outputs;
+  for (auto term: primitive->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Input) {
+      outputs.push_back(term);
+    }
+  }
   if (seqTermClocks.size() > 0) {
     for (const auto& pair: seqTermClocks) {
       auto term = pair.first;
@@ -246,7 +254,7 @@ void parseTerms(
         }
       }
     }
-  } else if (termFunctions.size() == 1) {
+  } else if (termFunctions.size() == 1 && outputs.size() == 1) {
     auto outputTerm = termFunctions.begin()->first;
     auto pinName = termFunctionPins[outputTerm];
     auto cellName = primitive->getName().getString();
@@ -269,12 +277,25 @@ void parseTerms(
         pinName, cellName, sourcePath, e.getReason());
       throw SNLLibertyConstructorException(reason);
     }
-  } else if (termFunctions.size() > 1) {  
+  } else if (termFunctions.size() > 0) {  
     std::vector<SNLTruthTable> truthTables;
     auto cellName = primitive->getName().getString();
     // Assuming termFunctions is ordered based on termIDs!
-    for (auto& [term, function]: termFunctions) {
-      auto pinName = termFunctionPins[term];
+    for (auto term: primitive->getBitTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Input) {
+        continue;
+      }
+      SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
+      if (scalarTerm == nullptr) {
+        truthTables.push_back(SNLTruthTable()); //push empty table for non-scalar terms
+        continue;
+      }
+      if (termFunctions.find(scalarTerm) == termFunctions.end()) {
+        truthTables.push_back(SNLTruthTable()); //push empty table for terms without function
+        continue;
+      }
+      auto& function = termFunctions[scalarTerm];
+      auto pinName = termFunctionPins[scalarTerm];
       auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
       try {
         //std::cerr << "Parsing function: " << function << std::endl;
