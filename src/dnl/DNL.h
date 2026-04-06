@@ -531,7 +531,7 @@ class DNLIsoDBBuilder {
    */
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
-  const DNL<DNLInstance, DNLTerminal>& dnl_; // We keep the DNL const as we sometimes use treatDriver that 
+  const DNL<DNLInstance, DNLTerminal>& dnl_; // We keep the DNL const as we sometimes use a standalone treatDriver for complex iso
 };
 
 template <class DNLInstance, class DNLTerminal>
