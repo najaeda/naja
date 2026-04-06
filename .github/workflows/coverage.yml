@@ -49,8 +49,12 @@ jobs:
     - name: lcov
       working-directory: ${{github.workspace}}/build
       run: |
-        lcov --directory . --capture --output-file coverage.info
-        lcov --remove coverage.info --output-file coverage.info \
+        LCOV_IGNORE_ERRORS='inconsistent,unsupported,mismatch,count,format,unused,corrupt'
+        LCOV_RC_ARGS='--rc geninfo_unexecuted_blocks=1'
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} \
+          --directory . --capture --output-file coverage.info
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} \
+          --remove coverage.info --output-file coverage.info \
           '/usr/*' \
           '*/test/*' \
           '*/build/*' \
@@ -59,7 +63,7 @@ jobs:
           '*/src/nl/formats/lefdef/*' \
           '*/src/nl/snippets/*' \
           '*/thirdparty/*'
-        lcov --summary coverage.info
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} --summary coverage.info
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v6

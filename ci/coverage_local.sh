@@ -70,10 +70,13 @@ fi
 echo "[4/4] Coverage"
 pushd "${BUILD_DIR}" >/dev/null
 
+LCOV_IGNORE_ERRORS="inconsistent,unsupported,mismatch,count,format,unused,corrupt"
+LCOV_RC_ARGS=(--rc geninfo_unexecuted_blocks=1)
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  lcov --ignore-errors inconsistent,unsupported,mismatch,count,format,corrupt \
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
     --directory . --capture --output-file coverage.info
-  lcov --ignore-errors inconsistent,unsupported,mismatch,count,format,unused,corrupt \
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
     --remove coverage.info \
     --output-file coverage.info \
     '/usr/*' \
@@ -83,16 +86,24 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     '*/src/nl/formats/lefdef/*' \
     '*/thirdparty/*' \
     '*/naja/thirdparty/*'
-  lcov --ignore-errors inconsistent,unsupported,mismatch,count,format,unused,corrupt \
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
     --summary coverage.info
 else
-  lcov --directory . --capture --output-file coverage.info
-  lcov --remove coverage.info --output-file coverage.info \
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
+    --directory . --capture --output-file coverage.info
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
+    --remove coverage.info --output-file coverage.info \
     '/usr/*' \
     '*/test/*' \
+    '*/build/*' \
+    '*/src/apps/*' \
+    '*/src/app_snippet/*' \
     '*/src/nl/formats/lefdef/*' \
+    '*/src/nl/snippets/*' \
+    '*/thirdparty/*' \
     '*/naja/thirdparty/*'
-  lcov --summary coverage.info
+  lcov "${LCOV_RC_ARGS[@]}" --ignore-errors "${LCOV_IGNORE_ERRORS}" \
+    --summary coverage.info
 fi
 
 echo "Coverage report generated at: ${BUILD_DIR}/coverage.info"
