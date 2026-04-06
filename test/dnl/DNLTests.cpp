@@ -88,12 +88,7 @@ TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
       visitedDB,
       [](DNLIso&, DNLID) {},
       [](DNLIso&, DNLID) {},
-      [dnl](DNLIso& iso, DNLIsoDB& db, DNLID fid) {
-        auto& terminal = dnl->getNonConstDNLTerminalFromID(fid);
-        auto* net = terminal.getSnlTerm()->getNet();
-        if (net == nullptr) {
-          net = terminal.getSnlBitTerm()->getNet();
-        }
+      [dnl](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net) {
         if (net == nullptr) {
           return;
         }

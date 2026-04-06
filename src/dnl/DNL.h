@@ -508,8 +508,8 @@ class DNLIsoDBBuilder {
                    visited& visitedDB,
                    std::function<void(DNLIso& iso, DNLID fid)> updateRaderIsoID = [](DNLIso& iso, DNLID fid){},
                    std::function<void(DNLIso& iso, DNLID fid)> updateDriverIsoID = [](DNLIso& iso, DNLID fid){},
-                   std::function<void(DNLIso& iso, DNLIsoDB& db, DNLID fid)> updateConstant = 
-                    [](DNLIso& iso, DNLIsoDB& db, DNLID fid){});
+                   std::function<void(DNLIso& iso, DNLIsoDB& db, SNLBitNet* net)> updateConstant = 
+                    [](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net){});
   /**
    * \brief Process the DNLIsoDBBuilder.
    */
