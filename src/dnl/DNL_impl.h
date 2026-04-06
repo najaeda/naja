@@ -369,7 +369,7 @@ DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
 template <class DNLInstance, class DNLTerminal>
 void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   // iterate on all leaf drivers
-  auto& mutableDnl = const_cast<DNL<DNLInstance, DNLTerminal>&>(dnl_);
+  auto& constDNL = const_cast<DNL<DNLInstance, DNLTerminal>&>(dnl_);
   std::vector<DNLID> tasks;
   for (DNLID leaf : dnl_.getLeaves()) {
     if (dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first != DNLID_MAX) {
@@ -385,7 +385,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
           DNLIso& DNLIso = addIsoToDB();
 
           tasks.push_back(term);
-          mutableDnl.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+          constDNL.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
         }
       }
     }
@@ -401,7 +401,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
           termRef.getSnlBitTerm()->getNet()) {
         DNLIso& DNLIso = addIsoToDB();
         tasks.push_back(term);
-        mutableDnl.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+        constDNL.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
       }
     }
   }
@@ -428,8 +428,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                 visit.local(),
                 true,
                 false,
-                [&mutableDnl, &iso](DNLID fid) {
-                  mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                [&constDNL, &iso](DNLID fid) {
+                  constDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                 });
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
@@ -454,8 +454,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                   visit.local(),
                   true,
                   false,
-                  [&mutableDnl, &iso](DNLID fid) {
-                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                  [&constDNL, &iso](DNLID fid) {
+                    constDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                   });
     }
   }
@@ -483,7 +483,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   }
   for (DNLID driver : tasks) {
     DNLIso& DNLIso = addIsoToDB();
-    mutableDnl.getNonConstDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
+    constDNL.getNonConstDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
   }
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
@@ -505,8 +505,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                 visit.local(),
                 true,
                 true,
-                [&mutableDnl, &iso](DNLID fid) {
-                  mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                [&constDNL, &iso](DNLID fid) {
+                  constDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                 });
           }
         },
@@ -525,8 +525,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                   visit.local(),
                   true,
                   true,
-                  [&mutableDnl, &iso](DNLID fid) {
-                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
+                  [&constDNL, &iso](DNLID fid) {
+                    constDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                   });
     }
   }
@@ -556,8 +556,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                   visit.local(),
                   true,
                   true,
-                  [&mutableDnl, &dnlIso](DNLID fid) {
-                    mutableDnl.getNonConstDNLTerminalFromID(fid).setIsoID(dnlIso.getIsoID());
+                  [&constDNL, &dnlIso](DNLID fid) {
+                    constDNL.getNonConstDNLTerminalFromID(fid).setIsoID(dnlIso.getIsoID());
                   });
       assert(dnlIso.getDrivers().size() == 0);
     }
