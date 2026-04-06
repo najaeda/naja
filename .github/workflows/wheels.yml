@@ -172,7 +172,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.11" 
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
@@ -188,7 +188,7 @@ jobs:
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
-            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1 MACOSX_DEPLOYMENT_TARGET=14.0
+            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
@@ -241,8 +241,6 @@ jobs:
             '
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
-          MACOSX_DEPLOYMENT_TARGET: "14.0"
-          CMAKE_OSX_DEPLOYMENT_TARGET: "14.0"
         run: python -m cibuildwheel --output-dir wheelhouse
       - name: Verify macOS wheel compatibility tag
         if: runner.os == 'macOS'
@@ -290,7 +288,6 @@ jobs:
   
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
-    if: github.repository == 'najaeda/naja' && github.event_name != 'pull_request'
     needs: [build_wheels]
     runs-on: ubuntu-latest
     #environment: pypi
@@ -312,7 +309,7 @@ jobs:
           skip-existing: true
 
   pypi-publish:
-    if: github.repository == 'najaeda/naja' && github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [test_upload_pypi]
     name: Upload release to PyPI
     runs-on: ubuntu-latest

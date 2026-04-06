@@ -62,13 +62,12 @@ jobs:
           --xml coverage.xml
 
     - name: Upload coverage to Codecov
-      if: github.event_name == 'pull_request' || github.repository == 'najaeda/naja'
       uses: codecov/codecov-action@v5
       with:
-        fail_ci_if_error: ${{ github.repository == 'najaeda/naja' }}
+        fail_ci_if_error: true
         files: ${{github.workspace}}/build/coverage.xml
         disable_search: true
         flags: unittests
         name: codecov-umbrella
         verbose: true
-        token: ${{ github.repository == 'najaeda/naja' && secrets.CODECOV_TOKEN || '' }}
+        token: ${{ secrets.CODECOV_TOKEN }}

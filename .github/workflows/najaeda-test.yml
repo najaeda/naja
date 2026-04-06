@@ -19,7 +19,7 @@ jobs:
         submodules: true
     # install dependencies
     - name: Install boost & capnproto
-      run: sudo apt-get update && sudo apt-get install -yq libboost-iostreams-dev libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -54,14 +54,13 @@ jobs:
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov
-      if: github.event_name == 'pull_request' || github.repository == 'najaeda/naja'
       uses: codecov/codecov-action@v5
       with:
         directory: ${{github.workspace}}/test/najaeda/
         env_vars: OS,PYTHON
-        fail_ci_if_error: ${{ github.repository == 'najaeda/naja' }}
+        fail_ci_if_error: true
         files: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        token: ${{ github.repository == 'najaeda/naja' && secrets.CODECOV_TOKEN || '' }}
+        token: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
