@@ -285,7 +285,6 @@ void parseTerms(
       if (term->getDirection() == SNLTerm::Direction::Input) {
         continue;
       }
-    //for (auto& [term, function]: termFunctions) {
       SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
       if (scalarTerm == nullptr) {
         truthTables.push_back(SNLTruthTable()); //push empty table for non-scalar terms
