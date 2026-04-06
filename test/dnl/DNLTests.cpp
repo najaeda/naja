@@ -83,7 +83,34 @@ TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
   DNLIsoDBBuilder<DNLInstanceFull, DNLTerminalFull> builder(scratchIsoDB, *dnl);
   visited visitedDB;
   builder.treatDriver(
-      childInputTerminal, ambiguousIso, visitedDB, false, false, [](DNLID) {});
+      childInputTerminal,
+      ambiguousIso,
+      visitedDB,
+      [](DNLIso&, DNLID) {},
+      [](DNLIso&, DNLID) {},
+      [dnl](DNLIso& iso, DNLIsoDB& db, DNLID fid) {
+        auto& terminal = dnl->getNonConstDNLTerminalFromID(fid);
+        auto* net = terminal.getSnlTerm()->getNet();
+        if (net == nullptr) {
+          net = terminal.getSnlBitTerm()->getNet();
+        }
+        if (net == nullptr) {
+          return;
+        }
+        if (iso.isConstant1() && net->isConstant0()) {
+          db.removeConstant1Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (iso.isConstant0() && net->isConstant1()) {
+          db.removeConstant0Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (net->isConstant1()) {
+          db.addConstant1Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::CONST1);
+        } else if (net->isConstant0()) {
+          db.addConstant0Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::CONST0);
+        }
+      });
   EXPECT_EQ(DNLIso::IsoType::AMBIGUOUS, ambiguousIso.getType());
   EXPECT_EQ(0u, scratchIsoDB.getConstant0Isos().count(ambiguousIso.getIsoID()));
 

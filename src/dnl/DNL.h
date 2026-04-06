@@ -504,11 +504,12 @@ class DNLIsoDBBuilder {
    * \param updateConst Update the constant iso.
    */
   void treatDriver(const DNLTerminal& term,
-                   DNLIso& DNLIso,
+                   DNLIso& iso,
                    visited& visitedDB,
-                   bool updateReadersIsoID = false,
-                   bool updateDriverIsoID = false,
-                   std::function<void(DNLID)> updateConst = {});
+                   std::function<void(DNLIso& iso, DNLID fid)> updateRaderIsoID = [](DNLIso& iso, DNLID fid){},
+                   std::function<void(DNLIso& iso, DNLID fid)> updateDriverIsoID = [](DNLIso& iso, DNLID fid){},
+                   std::function<void(DNLIso& iso, DNLIsoDB& db, DNLID fid)> updateConstant = 
+                    [](DNLIso& iso, DNLIsoDB& db, DNLID fid){});
   /**
    * \brief Process the DNLIsoDBBuilder.
    */
@@ -530,7 +531,7 @@ class DNLIsoDBBuilder {
    */
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
-  const DNL<DNLInstance, DNLTerminal>& dnl_;
+  const DNL<DNLInstance, DNLTerminal>& dnl_; // We keep the DNL const as we sometimes use treatDriver that 
 };
 
 template <class DNLInstance, class DNLTerminal>
@@ -554,7 +555,7 @@ class DNL {
      * \param dnlIsoId The DNL ID of the DNLIso.
      * \param DNLIso The DNLIso to update.
    */
-  void getCustomIso(DNLID dnlIsoId, DNLIso& DNLIso) const;
+  void getCustomIso(DNLID dnlIsoId, DNLIso& iso) const;
   /**
    * \brief Get the DNLInstances of the DNL.
    * \return The DNLInstances of the DNL.
