@@ -74,6 +74,10 @@ if(CODE_COVERAGE)
     -g         # generate debug info
     --coverage # sets all required flags
   )
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Avoid corrupt profile counters when coverage data is updated from parallel code paths.
+    target_compile_options(coverage_config INTERFACE -fprofile-update=atomic)
+  endif()
   target_link_options(coverage_config INTERFACE --coverage)
   target_compile_definitions(coverage_config INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 endif(CODE_COVERAGE)

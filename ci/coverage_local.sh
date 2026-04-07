@@ -70,7 +70,7 @@ fi
 echo "[4/4] Coverage"
 pushd "${BUILD_DIR}" >/dev/null
 
-LCOV_IGNORE_ERRORS="inconsistent,unsupported,mismatch,count,format,unused,corrupt"
+LCOV_IGNORE_ERRORS="inconsistent,unsupported,mismatch,count,format,unused,corrupt,negative"
 LCOV_RC_ARGS=(--rc geninfo_unexecuted_blocks=1)
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
