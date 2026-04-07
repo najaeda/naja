@@ -21,13 +21,46 @@ namespace naja::NL {
 
 class SNLTruthTable {
  public:
-  SNLTruthTable() : size_(std::numeric_limits<uint32_t>::max()) {}
+  // Enum for generic type for N input truth table { NONE, OR, NOR, AND, NAND, XOR, XNOR}
+  enum class GenericType {
+    NONE,
+    OR,
+    NOR,
+    AND,
+    NAND,
+    XOR,
+    XNOR
+  };
+  
+  SNLTruthTable() : size_(0) {}
+
+  static std::vector<uint64_t> fullDependencies(size_t size) {
+    if (size == 0) {
+      return {};
+    }
+    std::vector<size_t> deps(size);
+    for (size_t i = 0; i < size; ++i) {
+      deps[i] = i;
+    }
+    return NLBitDependencies::encodeBits(deps);
+  }
+
+  SNLTruthTable(size_t size,
+                GenericType genericType,
+                const std::vector<uint64_t>& dependencies)
+      : size_(size), dependencies_(dependencies), genericType_(genericType) {
+    if (size > 0 &&
+        NLBitDependencies::countBitsForVector(dependencies_) > size) {
+      throw NLException("Dependencies count cannot exceed truth table size");
+    }
+  }
 
   // user‐provided copy‐ctor
   SNLTruthTable(const SNLTruthTable& o)
     : size_(o.size_),
       bits_(o.bits_),
-      dependencies_(o.dependencies_)
+      dependencies_(o.dependencies_),
+      genericType_(o.genericType_)
   {}
 
   // explicit copy‐assignment to match
@@ -37,12 +70,19 @@ class SNLTruthTable {
       size_ = o.size_;
       bits_ = o.bits_;
       dependencies_ = o.dependencies_;
+      genericType_ = o.genericType_;
     }
     return *this;
   }
 
+  bool isNull() const {
+    return size_ == std::numeric_limits<uint32_t>::max();
+  }
+
   // Enforce size ≤ 6 BEFORE touching BitVecDynamic
-  explicit SNLTruthTable(uint32_t size, uint64_t bits, const std::vector<uint64_t>& dependencies = std::vector<uint64_t>()) : dependencies_(dependencies) {
+  explicit SNLTruthTable(uint32_t size, uint64_t bits,
+                         const std::vector<uint64_t>& dependencies)
+      : dependencies_(dependencies) {
     if (size > 6) {
       std::ostringstream oss;
       oss << "Cannot create SNLTruthTable with bits_: " << bits
@@ -52,23 +92,15 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
-    if (dependencies_.empty() && size > 0) {
-      std::vector<size_t> deps(size);
-      for (size_t i = 0; i < size; ++i) {
-        deps[i] = i;
-      }
-      dependencies_ = NLBitDependencies::encodeBits(deps);
-    }
-    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
-      std::ostringstream oss;
-      oss << "Dependencies size mismatch: expected "
-          << (size / 64 + ((size % 64) > 0 ? 1 : 0))
-          << ", got " << dependencies_.size();
-      throw NLException(oss.str());
+    if (size > 0 &&
+        NLBitDependencies::countBitsForVector(dependencies_) > size) {
+      throw NLException("Dependencies count cannot exceed truth table size");
     }
   }
 
-  SNLTruthTable(uint32_t size, const std::vector<bool>& bits, const std::vector<uint64_t>& dependencies = std::vector<uint64_t>()) : size_(size), dependencies_(dependencies) {
+  SNLTruthTable(uint32_t size, const std::vector<bool>& bits,
+                const std::vector<uint64_t>& dependencies)
+      : size_(size), dependencies_(dependencies) {
     if (size <= 6) {
       std::ostringstream oss;
       oss << "Should use mask constructor for 6 or less inputs";
@@ -77,34 +109,27 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
-    if (dependencies_.empty() && size > 0) {
-      std::vector<size_t> deps(size);
-      for (size_t i = 0; i < size; ++i) {
-        deps[i] = i;
-      }
-      dependencies_ = NLBitDependencies::encodeBits(deps);
-    }
-    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
-      std::ostringstream oss;
-      oss << "Dependencies size mismatch: expected "
-          << (size / 64 + ((size % 64) > 0 ? 1 : 0))
-          << ", got " << dependencies_.size();
-      throw NLException(oss.str());
+    if (size > 0 &&
+        NLBitDependencies::countBitsForVector(dependencies_) > size) {
+      throw NLException("Dependencies count cannot exceed truth table size");
     }
   }
 
   static SNLTruthTable Logic0() { return SNLTruthTable(0, 0, {}); }
   static SNLTruthTable Logic1() { return SNLTruthTable(0, 1, {}); }
-  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01, {1}); }
-  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, {1}); }
+  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01, fullDependencies(1)); }
+  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, fullDependencies(1)); }
 
   bool operator==(const SNLTruthTable& o) const {
-    return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_;
+    return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_ &&
+           genericType_ == o.genericType_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
     if (size_ != o.size_)
       return size_ < o.size_;
+    if (genericType_ != o.genericType_)
+      return genericType_ < o.genericType_;
     if (bits_ != o.bits_)
       return bits_ < o.bits_;
     return dependencies_ < o.dependencies_;
@@ -122,7 +147,21 @@ class SNLTruthTable {
   }
 
   bool isInitialized() const {
-    return size_ != std::numeric_limits<uint32_t>::max();
+    if (size_ == 0) {
+      return bits_.size() != 0;
+    }
+    if (dependencies_.empty()) {
+      return false;
+    }
+    return isGeneric() || bits_.size() != 0;
+  }
+
+  bool isGeneric() const {
+    return genericType_ != GenericType::NONE;
+  }
+
+  GenericType getGenericType() const {
+    return genericType_;
   }
 
   using ConstantInput = std::pair<uint32_t, bool>;
@@ -130,9 +169,11 @@ class SNLTruthTable {
 
   // Apply _all_ constants in one shot:
   SNLTruthTable getReducedWithConstants(ConstantInputs idxConsts) const {
-    // Error out in case of dependencies as it is not supported
+    // Reduction relies on TT-local variable numbering, so sparse/non-local deps
+    // must be canonicalized by the caller before reduction.
     if (!NLBitDependencies::isSimple(dependencies_)) {
-      throw NLException("getReducedWithConstants() does not support non full dependencies");
+      throw NLException(
+          "getReducedWithConstants() does not support non full dependencies");
     }
     // trivial 0‐input table
     if (size_ == 0) {
@@ -148,6 +189,94 @@ class SNLTruthTable {
     // new size = old size minus #constants
     uint32_t k = static_cast<uint32_t>(idxConsts.size());
     uint32_t newSize = (size_ > k ? size_ - k : 0);
+    size_t trueConstants = 0;
+    bool hasFalseConstant = false;
+    for (auto const& ic : idxConsts) {
+      if (ic.second) {
+        ++trueConstants;
+      } else {
+        hasFalseConstant = true;
+      }
+    }
+
+    if (isGeneric()) {
+      const auto deps = fullDependencies(newSize);
+      switch (genericType_) {
+        case GenericType::AND:
+          if (hasFalseConstant) {
+            return Logic0();
+          }
+          if (newSize == 0) {
+            return Logic1();
+          }
+          if (newSize == 1) {
+            return Buf();
+          }
+          return SNLTruthTable(newSize, GenericType::AND, deps);
+        case GenericType::NAND:
+          if (hasFalseConstant) {
+            return Logic1();
+          }
+          if (newSize == 0) {
+            return Logic0();
+          }
+          if (newSize == 1) {
+            return Inv();
+          }
+          return SNLTruthTable(newSize, GenericType::NAND, deps);
+        case GenericType::OR:
+          if (trueConstants > 0) {
+            return Logic1();
+          }
+          if (newSize == 0) {
+            return Logic0();
+          }
+          if (newSize == 1) {
+            return Buf();
+          }
+          return SNLTruthTable(newSize, GenericType::OR, deps);
+        case GenericType::NOR:
+          if (trueConstants > 0) {
+            return Logic0();
+          }
+          if (newSize == 0) {
+            return Logic1();
+          }
+          if (newSize == 1) {
+            return Inv();
+          }
+          return SNLTruthTable(newSize, GenericType::NOR, deps);
+        case GenericType::XOR: {
+          const bool invert = (trueConstants % 2) != 0;
+          if (newSize == 0) {
+            return invert ? Logic1() : Logic0();
+          }
+          if (newSize == 1) {
+            return invert ? Inv() : Buf();
+          }
+          return SNLTruthTable(
+              newSize,
+              invert ? GenericType::XNOR : GenericType::XOR,
+              deps);
+        }
+        case GenericType::XNOR: {
+          const bool invert = (trueConstants % 2) != 0;
+          if (newSize == 0) {
+            return invert ? Logic0() : Logic1();
+          }
+          if (newSize == 1) {
+            return invert ? Buf() : Inv();
+          }
+          return SNLTruthTable(
+              newSize,
+              invert ? GenericType::XOR : GenericType::XNOR,
+              deps);
+        }
+        default:
+          break;  // LCOV_EXCL_LINE
+      }
+    }
+
     uint32_t newN = 1u << newSize;
     uint64_t reduced = 0;
     std::vector<bool> reducedVect(newN, false);
@@ -189,9 +318,9 @@ class SNLTruthTable {
 
     SNLTruthTable out;
     if (newSize > 6) {
-      out = SNLTruthTable(newSize, reducedVect);
+      out = SNLTruthTable(newSize, reducedVect, fullDependencies(newSize));
     } else {
-      out = SNLTruthTable(newSize, reduced);
+      out = SNLTruthTable(newSize, reduced, fullDependencies(newSize));
     }    
     if (out.all0()) {
       return Logic0();
@@ -215,7 +344,7 @@ class SNLTruthTable {
   SNLTruthTable removeVariable(uint32_t v) const {
     if (v >= size_)
       throw NLException("Index out of range");
-    SNLTruthTable out(size_ - 1, 0);
+    SNLTruthTable out(size_ - 1, 0, fullDependencies(size_ - 1));
     uint32_t fullN = 1u << size_;
 
     for (uint32_t i = 0; i < fullN; ++i) {
@@ -234,6 +363,9 @@ class SNLTruthTable {
   //LCOV_EXCL_STOP
 
   bool all0() const {
+    if (bits().size() == 0) {
+      return false;
+    }
     if (size() <= 6) {
       uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
       uint64_t mask = (rows < 64
@@ -249,6 +381,9 @@ class SNLTruthTable {
   }
 
   bool all1() const {
+    if (bits().size() == 0) {
+      return false;
+    }
     if (size() <= 6) {
       uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
       uint64_t mask = (rows < 64
@@ -283,9 +418,10 @@ class SNLTruthTable {
   }
 
  private:
-  uint32_t size_{std::numeric_limits<uint32_t>::max()};
-  NLBitVecDynamic bits_{0, /*length=*/1};
+  uint32_t size_{0};
+  NLBitVecDynamic bits_{0};
   std::vector<uint64_t> dependencies_{};
+  GenericType genericType_{GenericType::NONE};
 };
 
 }  // namespace naja::NL

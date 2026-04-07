@@ -925,7 +925,7 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   }
   assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
-  SNLTruthTable tt(0, 0);
+  SNLTruthTable tt(0, 0, SNLTruthTable::fullDependencies(0));
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
@@ -959,7 +959,7 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   }
   assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
-  SNLTruthTable tt(0, 1);
+  SNLTruthTable tt(0, 1, SNLTruthTable::fullDependencies(0));
 
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
@@ -1090,7 +1090,7 @@ void ConstantPropagation::propagateConstants() {
       }
       assign0->setType(naja::NL::SNLNet::Type::Supply0);
       term->setNet(assign0);
-      SNLTruthTable tt(0, 0);
+      SNLTruthTable tt(0, 0, SNLTruthTable::fullDependencies(0));
       auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
                         *(term->getDB()->getPrimitiveLibraries().begin()), tt)
                         .first;
@@ -1119,7 +1119,7 @@ void ConstantPropagation::propagateConstants() {
       }
       assign1->setType(naja::NL::SNLNet::Type::Supply1);
       term->setNet(assign1);
-      SNLTruthTable tt(0, 1);
+      SNLTruthTable tt(0, 1, SNLTruthTable::fullDependencies(0));
       auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(
                         *(term->getDB()->getPrimitiveLibraries().begin()), tt)
                         .first;

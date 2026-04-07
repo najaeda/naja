@@ -260,6 +260,27 @@ TEST_F(SNLPathTest0, testErrors) {
   EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor1), NLException);
 }
 
+TEST_F(SNLPathTest0, testIDDescriptorAndUnnamedFallback) {
+  ASSERT_NE(h0Instance_, nullptr);
+  ASSERT_NE(h1Instance_, nullptr);
+  ASSERT_NE(h2Instance_, nullptr);
+  ASSERT_NE(prim0Instance_, nullptr);
+
+  SNLPath::PathIDDescriptor invalidDescriptor = {
+      h0Instance_->getID(), h1Instance_->getID(), NLID::DesignObjectID(9999)};
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), invalidDescriptor), NLException);
+
+  auto* unnamed = SNLInstance::create(h2Instance_->getModel(), prim0Instance_->getModel());
+  ASSERT_NE(nullptr, unnamed);
+  EXPECT_TRUE(unnamed->getName().empty());
+
+  auto path =
+      SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), unnamed);
+  auto names = path.getPathNames();
+  ASSERT_EQ(4u, names.size());
+  EXPECT_EQ(std::to_string(unnamed->getID()), names.back().getString());
+}
+
 TEST_F(SNLPathTest0, testInstanceDestroy0) {
   {
     auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), prim0Instance_);
@@ -321,4 +342,27 @@ TEST_F(SNLPathTest0, testInstanceDestroy2) {
     auto path = SNLPath(top, pathDescriptor1);
     EXPECT_EQ(2, path.size());
   }
+}
+
+TEST_F(SNLPathTest0, testInstanceDestroy3) {
+  auto top = h0Instance_->getDesign();
+  
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim0" };
+  auto path0 = SNLPath(top, pathDescriptor0);
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h1", "h2", "prim1" };
+  auto path1 = SNLPath(top, pathDescriptor1);
+  EXPECT_FALSE(path0.empty());
+  EXPECT_FALSE(path1.empty());
+  EXPECT_EQ(4, path0.size());
+  EXPECT_EQ(4, path1.size());
+  
+  EXPECT_TRUE(path0.getPathDescriptor() ==
+            pathDescriptor0);
+
+  std::vector<NLName> expectedNames = { NLName("h0"),
+                                        NLName("h1"),
+                                        NLName("h2"),
+                                        NLName("prim1") };
+  EXPECT_TRUE(path1.getPathNames() ==
+            expectedNames);
 }

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <set>
 #include <sstream>
+#include "NLBitDependencies.h"
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -356,6 +357,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
   }
   //translate the terms to the inputs
   std::vector<SNLBooleanTreeInputNode*> inputs;
+  std::vector<size_t> deps;
   for (auto term: terms) {
     auto input = getInput(term);
     //if (input == nullptr) {
@@ -368,6 +370,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     //}
     if (input != nullptr) {
       inputs.push_back(input);
+      deps.push_back(term->getOrderID());
     }
   }
   int n = inputs.size();
@@ -389,7 +392,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
       bool result = root_->getValue();
       mask[i] = result;
     }
-    return SNLTruthTable(n, mask);
+    return SNLTruthTable(n, mask, NLBitDependencies::encodeBits(deps));
   }
 
   int rows = pow(2, n);
@@ -408,7 +411,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     bool result = root_->getValue();
     mask |= (result ? 1UL : 0UL) << i;
   }
-  return SNLTruthTable(n, mask);
+  return SNLTruthTable(n, mask, NLBitDependencies::encodeBits(deps));
 }
 
 SNLBooleanTree::~SNLBooleanTree() {
