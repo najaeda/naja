@@ -54,7 +54,7 @@ jobs:
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         directory: ${{github.workspace}}/test/najaeda/
         env_vars: OS,PYTHON

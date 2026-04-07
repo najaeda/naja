@@ -29,7 +29,7 @@ jobs:
 
     - name: Install boost & capnproto
       # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev && pip install gcovr --quiet
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev lcov
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -46,26 +46,30 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -VV -C ${{env.BUILD_TYPE}}
 
-    - name: gcovr
+    - name: lcov
       working-directory: ${{github.workspace}}/build
       run: |
-        gcovr \
-          --root ${{github.workspace}} \
-          --config ${{github.workspace}}/.github/workflows/gcovr.cfg \
-          --exclude ${{github.workspace}}/thirdparty/ \
-          --exclude ${{github.workspace}}/test/ \
-          --exclude ${{github.workspace}}/build/ \
-          --exclude ${{github.workspace}}/src/apps/ \
-          --exclude ${{github.workspace}}/src/app_snippet/ \
-          --exclude ${{github.workspace}}/src/nl/formats/lefdef/ \
-          --exclude ${{github.workspace}}/src/nl/snippets/ \
-          --xml coverage.xml
+        LCOV_IGNORE_ERRORS='inconsistent,unsupported,mismatch,count,format,unused,corrupt,negative'
+        LCOV_RC_ARGS='--rc geninfo_unexecuted_blocks=1'
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} \
+          --directory . --capture --output-file coverage.info
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} \
+          --remove coverage.info --output-file coverage.info \
+          '/usr/*' \
+          '*/test/*' \
+          '*/build/*' \
+          '*/src/apps/*' \
+          '*/src/app_snippet/*' \
+          '*/src/nl/formats/lefdef/*' \
+          '*/src/nl/snippets/*' \
+          '*/thirdparty/*'
+        lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} --summary coverage.info
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         fail_ci_if_error: true
-        files: ${{github.workspace}}/build/coverage.xml
+        files: ${{github.workspace}}/build/coverage.info
         disable_search: true
         flags: unittests
         name: codecov-umbrella
