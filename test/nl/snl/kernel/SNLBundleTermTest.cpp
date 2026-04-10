@@ -181,17 +181,39 @@ TEST_F(SNLBundleTermTest, testBundleRestrictions) {
       SNLTerm::Direction::Input,
       NLName("NULL_BUNDLE_ID")),
     NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      static_cast<SNLBundleTerm*>(nullptr),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("NULL_BUS_BUNDLE")),
+    NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      static_cast<SNLBundleTerm*>(nullptr),
+      NLID::DesignObjectID(0),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("NULL_BUS_BUNDLE_ID")),
+    NLException);
 
   auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
   auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
   auto member = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto busMember = SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 1, 0, NLName("D1"));
   auto invalidNet = SNLScalarNet::create(standard, NLName("n"));
 
   EXPECT_THROW(
     SNLScalarTerm::create(bundle, SNLTerm::Direction::Output, NLName("BAD")),
     NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(bundle, SNLTerm::Direction::Output, 1, 0, NLName("BAD_BUS")),
+    NLException);
   EXPECT_THROW(bundle->setNet(invalidNet), NLException);
   EXPECT_THROW(member->destroy(), NLException);
+  EXPECT_THROW(busMember->destroy(), NLException);
 }
 
 TEST_F(SNLBundleTermTest, testBundleCreateWithID) {
@@ -312,12 +334,10 @@ TEST_F(SNLBundleTermTest, testBundledBusCreateWithID) {
     1,
     0,
     NLName("D1"));
-  auto qn = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
 
   ASSERT_NE(nullptr, ck);
   ASSERT_NE(nullptr, bundle);
   ASSERT_NE(nullptr, d1);
-  ASSERT_NE(nullptr, qn);
 
   EXPECT_EQ(bundle, d1->getBundleOwner());
   EXPECT_EQ(NLID::DesignObjectID(4), d1->getID());
@@ -327,7 +347,6 @@ TEST_F(SNLBundleTermTest, testBundledBusCreateWithID) {
   EXPECT_EQ(d1, primitive->getBusTerm(NLName("D1")));
   EXPECT_EQ(d1, primitive->getTerm(NLID::DesignObjectID(4)));
   EXPECT_EQ(d1, bundle->getMember(0));
-  EXPECT_EQ(NLID::DesignObjectID(5), qn->getID());
   EXPECT_THAT(
     std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
     ElementsAre(
@@ -361,6 +380,11 @@ TEST_F(SNLBundleTermTest, testBundledBusCreateWithID) {
       0,
       NLName("CK")),
     NLException);
+
+  auto qn = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+  ASSERT_NE(nullptr, qn);
+  EXPECT_EQ(NLID::DesignObjectID(5), qn->getID());
+
   EXPECT_THROW(
     SNLBusTerm::create(
       bundle,
