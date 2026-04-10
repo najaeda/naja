@@ -127,6 +127,9 @@ TEST_F(SNLBundleTermTest, testPrimitiveBundleInterface) {
   instance->setTermNet(ck, ckNet);
   instance->setTermNet(d0, d0Net);
   instance->setTermNet(d1, d1Net);
+  EXPECT_THROW(instance->setTermNet(bundle, d0Net), NLException);
+  EXPECT_THROW(instance->setTermNet(bundle, d1Net, 1, 0), NLException);
+  EXPECT_THROW(instance->setTermNet(bundle, 0, 0, d0Net, 0, 0), NLException);
 
   EXPECT_THROW(
     primitive->cloneInterfaceToLibrary(primitives_, NLName("prim_clone")),
