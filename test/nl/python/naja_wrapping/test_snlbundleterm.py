@@ -57,6 +57,7 @@ class SNLBundleTermTest(unittest.TestCase):
     self.assertEqual(d1, d_bundle.getMember(1))
     self.assertEqual(qn0, qn_bundle.getMember(0))
     self.assertEqual(qn1, qn_bundle.getMember(1))
+    self.assertIsNone(d_bundle.getMember(2))
     self.assertEqual(["D0", "D1"], [member.getName() for member in d_bundle.getMembers()])
     self.assertEqual(["QN0", "QN1"], [member.getName() for member in qn_bundle.getMembers()])
     self.assertEqual(

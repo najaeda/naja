@@ -317,11 +317,6 @@ SNLTerm::Direction inferBundleDirection(
       throw SNLLibertyConstructorException(reason.str());
     }
   }
-  if (inferredDirectionNode == nullptr) {
-    std::ostringstream reason;
-    reason << "Bundle " << bundleNode->args[0] << " does not define any members";
-    throw SNLLibertyConstructorException(reason.str());
-  }
   return getSNLDirection(inferredDirectionNode->value);
 }
 
@@ -361,11 +356,6 @@ void parseTerms(
       auto bundleTerm = SNLBundleTerm::create(primitive, bundleDirection, NLName(child->args[0]));
       for (const auto& memberName: orderedMembers) {
         auto memberIt = memberDefinitions.find(memberName);
-        if (memberIt == memberDefinitions.end()) {
-          std::ostringstream reason;
-          reason << "Bundle " << child->args[0] << " lists missing member " << memberName;
-          throw SNLLibertyConstructorException(reason.str());
-        }
         auto memberNode = memberIt->second;
         auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm);
         registerConstructedTermModeling(
