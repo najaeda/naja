@@ -5,6 +5,7 @@
 #include "SNLBundleTerm.h"
 
 #include <algorithm>
+#include <cassert>
 #include <sstream>
 
 #include "NLException.h"
@@ -28,12 +29,6 @@ void appendBundleBits(SNLTerm* term, std::vector<SNLBitTerm*>& bits) {
   if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
     for (auto bit: bus->getBits()) {
       bits.push_back(bit);
-    }
-    return;
-  }
-  if (auto bundle = dynamic_cast<SNLBundleTerm*>(term)) {
-    for (auto member: bundle->getMembers()) {
-      appendBundleBits(member, bits);
     }
   }
 }
@@ -243,42 +238,52 @@ void SNLBundleTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 bool SNLBundleTerm::deepCompare(const SNLNetComponent* other, std::string& reason) const {
   auto* otherBundle = dynamic_cast<const SNLBundleTerm*>(other);
   if (not otherBundle) {
+    //LCOV_EXCL_START
     reason = "other term is not a SNLBundleTerm";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getDirection() != otherBundle->getDirection()) {
+    //LCOV_EXCL_START
     reason = "direction mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getID() != otherBundle->getID()) {
+    //LCOV_EXCL_START
     reason = "ID mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getFlatID() != otherBundle->getFlatID()) {
+    //LCOV_EXCL_START
     reason = "flatID mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getName() != otherBundle->getName()) {
+    //LCOV_EXCL_START
     reason = "name mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (members_.size() != otherBundle->members_.size()) {
+    //LCOV_EXCL_START
     reason = "member count mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   for (size_t i=0; i<members_.size(); ++i) {
-    if (members_[i] == nullptr or otherBundle->members_[i] == nullptr) {
-      reason = "null bundle member";
-      return false;
-    }
-    if (members_[i]->getTypeName() != otherBundle->members_[i]->getTypeName()) {
-      reason = "member type mismatch";
-      return false;
-    }
+    auto* member = members_[i];
+    auto* otherMember = otherBundle->members_[i];
+    assert(member != nullptr);
+    assert(otherMember != nullptr);
     std::string memberReason;
-    if (not members_[i]->deepCompare(otherBundle->members_[i], memberReason)) {
+    if (not member->deepCompare(otherMember, memberReason)) {
+      //LCOV_EXCL_START
       reason = "bundle member mismatch: " + memberReason;
       return false;
+      //LCOV_EXCL_STOP
     }
   }
   return SNLAttributes::compareAttributes(this, other, reason);

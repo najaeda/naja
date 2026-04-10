@@ -177,3 +177,285 @@ TEST_F(SNLBundleTermTest, testBundleRestrictions) {
   EXPECT_THROW(bundle->setNet(invalidNet), NLException);
   EXPECT_THROW(member->destroy(), NLException);
 }
+
+TEST_F(SNLBundleTermTest, testBundleCreateWithID) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto ck = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(
+    primitive,
+    NLID::DesignObjectID(4),
+    SNLTerm::Direction::Input,
+    NLName("D"));
+  auto d0 = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto qn = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, qn);
+
+  EXPECT_EQ(NLID::DesignObjectID(4), bundle->getID());
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLID::DesignObjectID(4)));
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(bundle, primitive->getTerm(NLID::DesignObjectID(4)));
+  EXPECT_EQ(bundle, primitive->getTerm(NLName("D")));
+  EXPECT_EQ(bundle, d0->getBundleOwner());
+  EXPECT_EQ(NLID::DesignObjectID(5), d0->getID());
+  EXPECT_EQ(NLID::DesignObjectID(6), qn->getID());
+
+  EXPECT_THAT(
+    std::vector<SNLTerm*>(primitive->getTerms().begin(), primitive->getTerms().end()),
+    ElementsAre(ck, bundle, qn));
+
+  EXPECT_THROW(
+    SNLBundleTerm::create(
+      primitive,
+      NLID::DesignObjectID(4),
+      SNLTerm::Direction::Input,
+      NLName("D_DUP_ID")),
+    NLException);
+  EXPECT_THROW(
+    SNLBundleTerm::create(
+      primitive,
+      NLID::DesignObjectID(0),
+      SNLTerm::Direction::Input,
+      NLName("D_DUP_SCALAR_ID")),
+    NLException);
+  EXPECT_THROW(
+    SNLBundleTerm::create(
+      primitive,
+      NLID::DesignObjectID(7),
+      SNLTerm::Direction::Input,
+      NLName("CK")),
+    NLException);
+}
+
+TEST_F(SNLBundleTermTest, testBundledScalarCreateWithID) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto ck = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(
+    bundle,
+    NLID::DesignObjectID(4),
+    SNLTerm::Direction::Input,
+    NLName("D0"));
+  auto qn = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, qn);
+
+  EXPECT_EQ(bundle, d0->getBundleOwner());
+  EXPECT_EQ(NLID::DesignObjectID(4), d0->getID());
+  EXPECT_EQ(d0, primitive->getScalarTerm(NLName("D0")));
+  EXPECT_EQ(d0, primitive->getTerm(NLID::DesignObjectID(4)));
+  EXPECT_EQ(d0, bundle->getMember(0));
+  EXPECT_EQ(NLID::DesignObjectID(5), qn->getID());
+
+  EXPECT_THROW(
+    SNLScalarTerm::create(
+      bundle,
+      NLID::DesignObjectID(4),
+      SNLTerm::Direction::Input,
+      NLName("D1")),
+    NLException);
+  EXPECT_THROW(
+    SNLScalarTerm::create(
+      bundle,
+      NLID::DesignObjectID(0),
+      SNLTerm::Direction::Input,
+      NLName("D1")),
+    NLException);
+  EXPECT_THROW(
+    SNLScalarTerm::create(
+      bundle,
+      NLID::DesignObjectID(6),
+      SNLTerm::Direction::Input,
+      NLName("CK")),
+    NLException);
+  EXPECT_THROW(
+    SNLScalarTerm::create(
+      bundle,
+      NLID::DesignObjectID(6),
+      SNLTerm::Direction::Input,
+      NLName("D1")),
+    NLException);
+}
+
+TEST_F(SNLBundleTermTest, testBundledBusCreateWithID) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto ck = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d1 = SNLBusTerm::create(
+    bundle,
+    NLID::DesignObjectID(4),
+    SNLTerm::Direction::Input,
+    1,
+    0,
+    NLName("D1"));
+  auto qn = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d1);
+  ASSERT_NE(nullptr, qn);
+
+  EXPECT_EQ(bundle, d1->getBundleOwner());
+  EXPECT_EQ(NLID::DesignObjectID(4), d1->getID());
+  EXPECT_EQ(2, d1->getWidth());
+  EXPECT_EQ(1, d1->getMSB());
+  EXPECT_EQ(0, d1->getLSB());
+  EXPECT_EQ(d1, primitive->getBusTerm(NLName("D1")));
+  EXPECT_EQ(d1, primitive->getTerm(NLID::DesignObjectID(4)));
+  EXPECT_EQ(d1, bundle->getMember(0));
+  EXPECT_EQ(NLID::DesignObjectID(5), qn->getID());
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
+    ElementsAre(
+      static_cast<SNLBitTerm*>(d1->getBit(1)),
+      static_cast<SNLBitTerm*>(d1->getBit(0))));
+
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      bundle,
+      NLID::DesignObjectID(4),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("D2")),
+    NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      bundle,
+      NLID::DesignObjectID(0),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("D2")),
+    NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      bundle,
+      NLID::DesignObjectID(6),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("CK")),
+    NLException);
+  EXPECT_THROW(
+    SNLBusTerm::create(
+      bundle,
+      NLID::DesignObjectID(6),
+      SNLTerm::Direction::Input,
+      1,
+      0,
+      NLName("D2")),
+    NLException);
+}
+
+TEST_F(SNLBundleTermTest, testBundledBusBitDestroyRebuildsBundleBits) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto d1 = SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 3, 0, NLName("D1"));
+
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+  ASSERT_NE(nullptr, d1->getBit(2));
+
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
+    ElementsAre(
+      static_cast<SNLBitTerm*>(d0),
+      static_cast<SNLBitTerm*>(d1->getBit(3)),
+      static_cast<SNLBitTerm*>(d1->getBit(2)),
+      static_cast<SNLBitTerm*>(d1->getBit(1)),
+      static_cast<SNLBitTerm*>(d1->getBit(0))));
+
+  d1->getBit(2)->destroy();
+
+  EXPECT_EQ(nullptr, d1->getBit(2));
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
+    ElementsAre(
+      static_cast<SNLBitTerm*>(d0),
+      static_cast<SNLBitTerm*>(d1->getBit(3)),
+      static_cast<SNLBitTerm*>(d1->getBit(1)),
+      static_cast<SNLBitTerm*>(d1->getBit(0))));
+}
+
+TEST_F(SNLBundleTermTest, testBundledBusResizeRebuildsBundleBits) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto d1 = SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 3, 0, NLName("D1"));
+
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+
+  d1->setMSB(2);
+  EXPECT_EQ(2, d1->getMSB());
+  EXPECT_EQ(0, d1->getLSB());
+  EXPECT_EQ(4, bundle->getWidth());
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
+    ElementsAre(
+      static_cast<SNLBitTerm*>(d0),
+      static_cast<SNLBitTerm*>(d1->getBit(2)),
+      static_cast<SNLBitTerm*>(d1->getBit(1)),
+      static_cast<SNLBitTerm*>(d1->getBit(0))));
+
+  d1->setLSB(1);
+  EXPECT_EQ(2, d1->getMSB());
+  EXPECT_EQ(1, d1->getLSB());
+  EXPECT_EQ(3, bundle->getWidth());
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(bundle->getBits().begin(), bundle->getBits().end()),
+    ElementsAre(
+      static_cast<SNLBitTerm*>(d0),
+      static_cast<SNLBitTerm*>(d1->getBit(2)),
+      static_cast<SNLBitTerm*>(d1->getBit(1))));
+}
+
+TEST_F(SNLBundleTermTest, testBundleRename) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto ck = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto qn = SNLBundleTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, qn);
+
+  EXPECT_FALSE(bundle->isUnnamed());
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(bundle, primitive->getTerm(NLName("D")));
+
+  bundle->setName(NLName());
+  EXPECT_TRUE(bundle->isUnnamed());
+  EXPECT_EQ(nullptr, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(nullptr, primitive->getTerm(NLName("D")));
+
+  bundle->setName(NLName("D"));
+  EXPECT_FALSE(bundle->isUnnamed());
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(bundle, primitive->getTerm(NLName("D")));
+
+  bundle->setName(NLName("D")); // nothing should happen
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("D")));
+
+  bundle->setName(NLName("DATA"));
+  EXPECT_EQ(nullptr, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(nullptr, primitive->getTerm(NLName("D")));
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("DATA")));
+  EXPECT_EQ(bundle, primitive->getTerm(NLName("DATA")));
+
+  EXPECT_THROW(bundle->setName(NLName("CK")), NLException);
+  EXPECT_THROW(bundle->setName(NLName("D0")), NLException);
+  EXPECT_THROW(bundle->setName(NLName("QN")), NLException);
+}
