@@ -5,7 +5,10 @@
 
 import importlib
 
-naja = importlib.import_module("naja")
+try:
+    naja = importlib.import_module("naja")
+except ModuleNotFoundError:
+    naja = importlib.import_module(".naja", __package__)
 
 
 def version():
