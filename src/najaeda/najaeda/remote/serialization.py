@@ -69,13 +69,15 @@ def serialize_model(model: naja.SNLDesign, child_id: int, name: str) -> Serializ
     }
 
 
-class SerializedTerm(TypedDict):
+class SerializedTerm(TypedDict, total=False):
     name: str
     child_id: int
     direction: int
+    kind: str
     msb: Optional[int]
     lsb: Optional[int]
     bit: Optional[int]
+    members: List["SerializedTerm"]
 
 
 def serialize_term(term: naja.SNLTerm) -> SerializedTerm:
@@ -86,21 +88,32 @@ def serialize_term(term: naja.SNLTerm) -> SerializedTerm:
     lsb = None
     bit = None
 
-    if isinstance(term, naja.SNLBusTerm):
+    kind = "scalar"
+    members = None
+
+    if isinstance(term, naja.SNLBundleTerm):
+        kind = "bundle"
+        members = [serialize_term(member) for member in term.getMembers()]
+    elif isinstance(term, naja.SNLBusTerm):
+        kind = "bus"
         msb = term.getMSB()
         lsb = term.getLSB()
 
     if isinstance(term, naja.SNLBusTermBit):
         bit = term.getBit()
 
-    return {
+    payload: SerializedTerm = {
         "name": term.getName(),
         "child_id": term.getID(),
         "direction": direction_to_int(term.getDirection()),
+        "kind": kind,
         "msb": msb,
         "lsb": lsb,
         "bit": bit,
     }
+    if members is not None:
+        payload["members"] = members
+    return payload
 
 
 class SerializedOccurrence(TypedDict):

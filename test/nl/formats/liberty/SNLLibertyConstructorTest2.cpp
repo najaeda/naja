@@ -4,8 +4,10 @@
 
 #include "gtest/gtest.h"
 
+#include "NLException.h"
 #include "NLUniverse.h"
 
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 
@@ -128,4 +130,15 @@ TEST_F(SNLLibertyConstructorTest2, TestGZ) {
       / std::filesystem::path("tests")
       / std::filesystem::path("asap7sc7p5t_SIMPLE_LVT_FF_nldm_211120.lib.gz"));
   constructor.construct(testPath);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testBundleCapnpDumpUnsupported) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bundle_issue_120.lib"));
+  constructor.construct(testPath);
+  EXPECT_THROW(SNLCapnP::dump(db_, "bundle_dump_if"), NLException);
 }

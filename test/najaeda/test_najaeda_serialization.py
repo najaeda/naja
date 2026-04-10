@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
+from pathlib import Path
 from najaeda.remote.serialization import (
     direction_to_int,
     serialize_design_ref,
@@ -14,6 +15,19 @@ from najaeda.remote.serialization import (
 from najaeda import naja
 
 class TestSerialization(unittest.TestCase):
+
+    @staticmethod
+    def _bundle_issue_120_lib():
+        return (
+            Path(__file__).resolve().parents[2]
+            / "test"
+            / "nl"
+            / "formats"
+            / "liberty"
+            / "benchmarks"
+            / "tests"
+            / "bundle_issue_120.lib"
+        )
 
     def setUp(self):
         u = naja.NLUniverse.create()
@@ -92,6 +106,19 @@ class TestSerialization(unittest.TestCase):
         bit2 = bus.getBusTermBit(2)
         p = serialize_term(bit2)
         self.assertEqual(p["bit"], 2)
+
+    def test_serialize_bundle_term(self):
+        self.design.getDB().loadLibertyPrimitives([str(self._bundle_issue_120_lib())])
+        primitive_lib = next(iter(self.design.getDB().getPrimitiveLibraries()))
+        primitive = primitive_lib.getSNLDesign("cell_def")
+        payload = serialize_term(primitive.getBundleTerm("D"))
+        self.assertEqual(payload["kind"], "bundle")
+        self.assertEqual(payload["name"], "D")
+        self.assertEqual(["D0", "D1"], [member["name"] for member in payload["members"]])
+        self.assertEqual("scalar", payload["members"][0]["kind"])
+        self.assertEqual("scalar", payload["members"][1]["kind"])
+        self.assertIsNone(payload["members"][1]["msb"])
+        self.assertIsNone(payload["members"][1]["lsb"])
 
     # ------------------------------------------------------------
     # serialize_equipotential_term

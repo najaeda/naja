@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -16,6 +17,7 @@
 
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
@@ -30,6 +32,20 @@
 #include "SNLVRLConstructorException.h"
 
 namespace {
+
+std::vector<naja::NL::SNLTerm*> getConnectableTerms(naja::NL::SNLDesign* design) {
+  std::vector<naja::NL::SNLTerm*> terms;
+  for (auto term: design->getTerms()) {
+    if (auto bundle = dynamic_cast<naja::NL::SNLBundleTerm*>(term)) {
+      for (auto member: bundle->getMembers()) {
+        terms.push_back(member);
+      }
+    } else {
+      terms.push_back(term);
+    }
+  }
+  return terms;
+}
 
 void collectAttributes(
   naja::NL::NLObject* object,
@@ -745,6 +761,17 @@ void SNLVRLConstructor::currentInstancePortConnection(
   naja::NL::SNLTerm* term,
   const naja::verilog::Expression& expression) {
   if (expression.valid_) {
+    if (term == nullptr) {
+      std::ostringstream reason;
+      reason << getLocationString() << ": null term in instance connection";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    if (dynamic_cast<SNLBundleTerm*>(term)) {
+      std::ostringstream reason;
+      reason << getLocationString() << ": direct connection to bundle term "
+             << term->getString() << " is not supported";
+      throw SNLVRLConstructorException(reason.str());
+    }
     if (not expression.supported_) {
       std::ostringstream reason;
       reason << getLocationString();
@@ -870,7 +897,15 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
   if (not inFirstPass()) {
     assert(currentInstance_);
     SNLDesign* model = currentInstance_->getModel();
-    SNLTerm* term = model->getTerm(NLID::DesignObjectID(portIndex));
+    auto connectableTerms = getConnectableTerms(model);
+    if (portIndex >= connectableTerms.size()) {
+      std::ostringstream reason;
+      reason << getLocationString()
+        << ": ordered port index " << portIndex
+        << " exceeds model interface size for " << model->getName().getString();
+      throw SNLVRLConstructorException(reason.str());
+    }
+    SNLTerm* term = connectableTerms[portIndex];
     currentInstancePortConnection(term, expression);
     NAJA_LOG_TRACE("Instance connection: {}  - connection",
       currentInstance_->getString(),  term->getString());

@@ -3,6 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import importlib
+
+naja = importlib.import_module("naja")
+
 from ._version import version, git_hash
 
-__all__ = ["version", "git_hash"]
+__all__ = ["naja", "version", "git_hash"]

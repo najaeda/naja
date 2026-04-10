@@ -24,6 +24,7 @@
 #include "SNLDesign.h"
 #include "SNLParameter.h"
 #include "SNLScalarTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
@@ -36,6 +37,20 @@
 #include "SNLUtils.h"
 
 namespace {
+
+std::vector<const naja::NL::SNLTerm*> getVerilogInterfaceTerms(const naja::NL::SNLDesign* design) {
+  std::vector<const naja::NL::SNLTerm*> terms;
+  for (auto term: design->getTerms()) {
+    if (auto bundle = dynamic_cast<const naja::NL::SNLBundleTerm*>(term)) {
+      for (auto member: bundle->getMembers()) {
+        terms.push_back(member);
+      }
+    } else {
+      terms.push_back(term);
+    }
+  }
+  return terms;
+}
 
 // LCOV_EXCL_START
 double toMilliseconds(const std::chrono::nanoseconds& duration) {
@@ -939,11 +954,12 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     detailedPerfReport_,
     detailedPerfReport_.dumpInterfaceDuration,
     detailedPerfReport_.dumpInterfaceCalls);
+  auto interfaceTerms = getVerilogInterfaceTerms(design);
   size_t nbChars = std::char_traits<char>::length("module  (");
   nbChars += design->getName().getString().size();
   o << "(";
   bool first = true;
-  for (auto term: design->getTerms()) {
+  for (auto term: interfaceTerms) {
     if (not first) {
       o << ",";
       nbChars += 1;
@@ -958,7 +974,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     }
     nbChars += dumpDirection(term, o) + 1;
     o << " ";
-    if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
+    if (auto bus = dynamic_cast<const SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
       nbChars += 3 + std::to_string(bus->getMSB()).size() + std::to_string(bus->getLSB()).size();
     }
@@ -1586,7 +1602,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_.dumpOneDesignDuration,
     detailedPerfReport_.dumpOneDesignCalls);
   DesignInsideAnonymousNaming naming;
-  for (auto term: design->getTerms()) {
+  for (auto term: getVerilogInterfaceTerms(design)) {
     if (not term->isUnnamed()) {
       naming.netTermNameSet_.insert(term->getName());
     }

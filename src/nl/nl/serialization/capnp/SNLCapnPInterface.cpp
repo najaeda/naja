@@ -26,6 +26,7 @@
 
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
 #include "NLLibraryTruthTables.h"
 
@@ -162,6 +163,12 @@ void dumpDesignInterface(
   }
   
   id = 0;
+  if (not snlDesign->getBundleTerms().empty()) {
+    std::ostringstream reason;
+    reason << "Cap'n Proto serialization does not support bundle terms in design "
+           << snlDesign->getDescription();
+    throw NLException(reason.str());
+  }
   auto terms = designInterface.initTerms(snlDesign->getTerms().size());
   for (auto term: snlDesign->getTerms()) {
     auto termBuilder = terms[id++];
