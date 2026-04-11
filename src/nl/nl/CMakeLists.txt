@@ -22,7 +22,7 @@ set(SNL_SOURCES
   snl/SNLBitNet.cpp snl/SNLScalarNet.cpp snl/SNLBusNetBit.cpp
   snl/SNLNetComponent.cpp
   snl/SNLTerm.cpp snl/SNLBitTerm.cpp 
-  snl/SNLBusTerm.cpp snl/SNLScalarTerm.cpp
+  snl/SNLBusTerm.cpp snl/SNLBundleTerm.cpp snl/SNLScalarTerm.cpp
   snl/SNLBusTermBit.cpp
   snl/SNLInstance.cpp snl/SNLInstTerm.cpp
   snl/SNLDesign.cpp
@@ -74,7 +74,7 @@ set(HEADERS
   snl/SNLBitNet.h snl/SNLScalarNet.h snl/SNLBusNetBit.h
   snl/SNLNetComponent.h
   snl/SNLTerm.h snl/SNLBitTerm.h 
-  snl/SNLBusTerm.h snl/SNLScalarTerm.h
+  snl/SNLBusTerm.h snl/SNLBundleTerm.h snl/SNLScalarTerm.h
   snl/SNLBusTermBit.h
   snl/SNLInstance.h snl/SNLInstTerm.h
   snl/SNLSharedPath.h snl/SNLPath.h

@@ -15,11 +15,11 @@ void BNE::addDeleteAction(
 void BNE::addDriveWithConstantAction(
     const std::vector<NLID::DesignObjectID>& context,
     const NLID::DesignObjectID& pathToDrive,
-    const NLID::DesignObjectID& termToDrive,
+    size_t flatTermToDrive,
     const double& value,
     SNLBitTerm* topTermToDrive) {
   DriveWithConstantAction* driveWithConstantAction =
-      new DriveWithConstantAction(context, pathToDrive, termToDrive, value,
+      new DriveWithConstantAction(context, pathToDrive, flatTermToDrive, value,
                                   topTermToDrive);
   tree_.addAction(driveWithConstantAction);
 }

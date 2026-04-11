@@ -433,3 +433,123 @@ TEST_F(SNLLibertyConstructorTest0, testTruthTableOnBusError) {
       / std::filesystem::path("truth_table_on_bus_error.lib"));
   EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
 }
+
+TEST_F(SNLLibertyConstructorTest0, testBundleMembersMismatch) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_members_mismatch_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Bundle D lists missing member D1"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testBundleExtraMember) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_extra_member_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Bundle D defines extra member D1"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testBundleMissingMembers) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_missing_members_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Bundle D does not define members(...)"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testNestedBundleError) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("nested_bundle_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Nested Liberty bundles are not supported in bundle D"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testMalformedBundleMemberDefinition) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("malformed_bundle_member_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Malformed Liberty bundle member definition in bundle D"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testBundleMemberMissingDirection) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_member_missing_direction_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Direction not found for bundle member D0"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testDuplicateBundleMemberDefinition) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("duplicate_bundle_member_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Duplicate Liberty bundle member definition D0 in bundle D"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testInconsistentBundleDirections) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("inconsistent_bundle_direction_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Inconsistent child directions for bundle D"));
+  }
+}

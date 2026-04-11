@@ -8,9 +8,12 @@
 
 namespace naja::NL {
 
+class SNLBundleTerm;
+
 class SNLScalarTerm final: public SNLBitTerm {
   public:
     friend class SNLDesign;
+    friend class SNLBundleTerm;
     using super = SNLBitTerm;
 
     /**
@@ -32,6 +35,9 @@ class SNLScalarTerm final: public SNLBitTerm {
      */
     static SNLScalarTerm* create(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name=NLName());
 
+    static SNLScalarTerm* create(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name=NLName());
+    static SNLScalarTerm* create(SNLBundleTerm* bundleTerm, NLID::DesignObjectID id, Direction direction, const NLName& name=NLName());
+
     SNLDesign* getDesign() const override { return design_; }
     NLID getNLID() const override;
     NLID::DesignObjectID getID() const override { return id_; }
@@ -46,6 +52,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     NajaCollection<SNLBitTerm*> getBits() const override;
     SNLTerm::Direction getDirection() const override { return direction_; }
     void setDirection(const SNLTerm::Direction& direction) { direction_ = direction; }
+    SNLBundleTerm* getBundleOwner() const override { return bundleTerm_; }
 
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -55,11 +62,16 @@ class SNLScalarTerm final: public SNLBitTerm {
   private:
     SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name);
     SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID, Direction direction, const NLName& name);
+    SNLScalarTerm(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name);
+    SNLScalarTerm(SNLBundleTerm* bundleTerm, NLID::DesignObjectID, Direction direction, const NLName& name);
     static void preCreate(SNLDesign* design, const NLName& name);
     static void preCreate(SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
+    static void preCreate(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name);
+    static void preCreate(SNLBundleTerm* bundleTerm, NLID::DesignObjectID id, Direction direction, const NLName& name);
     void postCreateAndSetID();
     void postCreate() override;
     void destroyFromDesign() override;
+    void destroyFromBundle();
     SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();
     void preDestroy() override;
@@ -68,6 +80,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     void setFlatID(size_t flatID) override {flatID_ = flatID; }
 
     SNLDesign*            design_;
+    SNLBundleTerm*        bundleTerm_ {nullptr};
     NLID::DesignObjectID  id_         {0};
     size_t                flatID_     {0};
     NLName                name_       {};

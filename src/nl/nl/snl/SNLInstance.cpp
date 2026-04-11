@@ -12,6 +12,7 @@
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLBusTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusNet.h"
@@ -56,6 +57,20 @@ std::string describeBitNet(const naja::NL::SNLBitNet& net) {
   std::ostringstream stream;
   stream << net.getString() << " [design=" << describeDesign(net.getDesign()) << "]";
   return stream.str();
+}
+
+std::vector<naja::NL::SNLTerm*> getConnectableTerms(naja::NL::SNLDesign* design) {
+  std::vector<naja::NL::SNLTerm*> terms;
+  for (auto term: design->getTerms()) {
+    if (auto bundle = dynamic_cast<naja::NL::SNLBundleTerm*>(term)) {
+      for (auto member: bundle->getMembers()) {
+        terms.push_back(member);
+      }
+    } else {
+      terms.push_back(term);
+    }
+  }
+  return terms;
 }
 
 }
@@ -149,15 +164,8 @@ void SNLInstance::commonPostCreate() {
     getModel()->addSlaveInstance(this);
   }
   //create instance terminals
-  for (SNLTerm* term: getModel()->getTerms()) {
-    if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(term)) {
-      for (auto bit: bus->getBits()) {
-        createInstTerm(bit);
-      }
-    } else {
-      SNLScalarTerm* scalar = static_cast<SNLScalarTerm*>(term);
-      createInstTerm(scalar);
-    }
+  for (auto term: getModel()->getBitTerms()) {
+    createInstTerm(term);
   }
 }
 
@@ -193,11 +201,16 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   //removeInstTerm is private so following are internal errors
   assert(term->getDesign() == getModel());
   assert(term->getFlatID() < instTerms_.size());
-  auto instTerm = instTerms_[term->getFlatID()];
+  auto instTerm = getInstTermByFlatID(term->getFlatID());
   if (instTerm) {
     instTerm->destroyFromInstance();
   }
   instTerms_[term->getFlatID()] = nullptr;
+}
+
+SNLInstTerm* SNLInstance::getInstTermByFlatID(size_t flatID) const {
+  assert(flatID < instTerms_.size());
+  return instTerms_[flatID];
 }
 
 SNLInstance* SNLInstance::clone(SNLDesign* design) const {
@@ -260,6 +273,9 @@ void SNLInstance::setTermNet(
   NLID::Bit netMSB, NLID::Bit netLSB) {
   Terms terms;
   Nets nets;
+  if (dynamic_cast<SNLBundleTerm*>(term)) {
+    throw NLException("setTermNet does not support SNLBundleTerm");
+  }
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
     assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
@@ -291,6 +307,9 @@ void SNLInstance::setTermNet(
   SNLTerm* term,
   SNLNet* net,
   NLID::Bit netMSB, NLID::Bit netLSB) {
+  if (dynamic_cast<SNLBundleTerm*>(term)) {
+    throw NLException("setTermNet does not support SNLBundleTerm");
+  }
   NLID::Bit size = SNLUtils::getWidth(netMSB, netLSB);
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     NLID::Bit termMSB = busTerm->getMSB();
@@ -302,6 +321,9 @@ void SNLInstance::setTermNet(
 }
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
+  if (dynamic_cast<SNLBundleTerm*>(term)) {
+    throw NLException("setTermNet does not support SNLBundleTerm");
+  }
   if (term->getWidth() not_eq net->getWidth()) {
     std::ostringstream reason;
     reason << "setTermNet only supported when term (width: " << term->getWidth() << ")"
@@ -411,13 +433,7 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
       + " should be the same";
     throw NLException(reason);
   }
-  assert(bitTerm->getFlatID() < instTerms_.size());
-  return instTerms_[bitTerm->getFlatID()];
-}
-
-SNLInstTerm* SNLInstance::getInstTerm(const NLID::DesignObjectID termID) const {
-  assert(termID < instTerms_.size());
-  return instTerms_[termID];
+  return getInstTermByFlatID(bitTerm->getFlatID());
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
@@ -495,8 +511,8 @@ void SNLInstance::setModel(SNLDesign* model) {
     return;
   }
   using TermVector = std::vector<SNLTerm*>;
-  TermVector currentTerms(getModel()->getTerms().begin(), getModel()->getTerms().end());
-  TermVector newTerms(model->getTerms().begin(), model->getTerms().end());
+  TermVector currentTerms = getConnectableTerms(getModel());
+  TermVector newTerms = getConnectableTerms(model);
   if (currentTerms.size() != newTerms.size()) {
     throw NLException("SNLInstance::setModel error: different number of terms");
   }
@@ -561,6 +577,9 @@ void SNLInstance::setModel(SNLDesign* model) {
   }
 
   for (auto instTerm: instTerms_) {
+    if (not instTerm) {
+      continue;
+    }
     auto currentTerm = instTerm->getBitTerm();
     auto it = bitTermMap.find(currentTerm);
     if (it == bitTermMap.end()) {

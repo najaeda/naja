@@ -95,9 +95,10 @@ class SNLInstance final: public SNLDesignObject {
     SNLInstParameter* getInstParameter(const NLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
 
-    ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
+    ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance.
     SNLInstTerm* getInstTerm(const SNLBitTerm* bitTerm) const;
-    SNLInstTerm* getInstTerm(const NLID::DesignObjectID termID) const;
+    ///\return SNLInstTerm stored at the given flat bit-term position in the model interface.
+    SNLInstTerm* getInstTermByFlatID(size_t flatID) const;
     ///\return the NajaCollection of all SNLInstTerm of this SNLInstance.
     NajaCollection<SNLInstTerm*> getInstTerms() const;
     /**

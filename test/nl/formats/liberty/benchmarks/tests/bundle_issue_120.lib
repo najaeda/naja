@@ -1,0 +1,32 @@
+library (example) {
+  cell ("cell_def") {
+    pin (CK) {
+      clock : true;
+      direction : input;
+    }
+    pin (SE) {
+      direction : input;
+    }
+    pin (SI) {
+      direction : input;
+    }
+    bundle (D) {
+      members (D0, D1);
+      pin (D0) {
+        direction : input;
+      }
+      pin (D1) {
+        direction : input;
+      }
+    }
+    bundle (QN) {
+      members (QN0, QN1);
+      pin (QN0) {
+        direction : output;
+      }
+      pin (QN1) {
+        direction : output;
+      }
+    }
+  }
+}

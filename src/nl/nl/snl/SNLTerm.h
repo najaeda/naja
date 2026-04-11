@@ -12,6 +12,7 @@
 namespace naja::NL {
 
 class SNLBitTerm;
+class SNLBundleTerm;
 
 class SNLTerm: public SNLNetComponent {
   public:
@@ -46,6 +47,12 @@ class SNLTerm: public SNLNetComponent {
 
     /// \return the Collection of SNLBitTerm composing this SNLTerm. 
     virtual NajaCollection<SNLBitTerm*> getBits() const = 0;
+
+    /// \return the owning SNLBundleTerm when this term is bundled, nullptr otherwise.
+    virtual SNLBundleTerm* getBundleOwner() const { return nullptr; }
+
+    /// \return true when this term belongs to the top-level design interface.
+    virtual bool isTopLevelTerm() const { return getBundleOwner() == nullptr; }
 
   protected:
     SNLTerm() = default;
