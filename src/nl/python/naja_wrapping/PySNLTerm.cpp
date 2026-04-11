@@ -11,6 +11,7 @@
 #include "PyInterface.h"
 #include "PySNLBundleTerm.h"
 #include "PySNLBusTerm.h"
+#include "PySNLBitTerm.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLTermDirection.h"
 #include "PySNLBitTerms.h"
@@ -43,14 +44,14 @@ PyObject* PySNLTerm_Link(SNLTerm* object) {
   if (not object) {
     Py_RETURN_NONE;   
   }
-  if (auto busTerm = dynamic_cast<SNLBusTerm*>(object)) {
+  if (auto bitTerm = dynamic_cast<SNLBitTerm*>(object)) {
+    return PySNLBitTerm_Link(bitTerm);
+  } else if (auto busTerm = dynamic_cast<SNLBusTerm*>(object)) {
     return PySNLBusTerm_Link(busTerm);
-  } else if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(object)) {
-    return PySNLScalarTerm_Link(scalarTerm);
   } else if (auto bundleTerm = dynamic_cast<SNLBundleTerm*>(object)) {
     return PySNLBundleTerm_Link(bundleTerm);
   }
-  Py_RETURN_NONE;
+  Py_RETURN_NONE; // LCOV_EXCL_LINE
 }
 
 PyTypeNLAbstractObjectWithNLIDLinkPyType(SNLTerm)
