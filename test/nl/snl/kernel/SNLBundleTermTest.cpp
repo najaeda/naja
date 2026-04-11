@@ -81,6 +81,7 @@ TEST_F(SNLBundleTermTest, testPrimitiveBundleInterface) {
   EXPECT_EQ(2, bundle->getNumMembers());
   EXPECT_EQ(d0, bundle->getMember(0));
   EXPECT_EQ(d1, bundle->getMember(1));
+  EXPECT_EQ(nullptr, bundle->getNet());
   EXPECT_EQ(bundle->getFlatID(), d0->getFlatID());
   EXPECT_EQ(0u, ck->getFlatID());
   EXPECT_EQ(1u, ctrl->getFlatID());

@@ -58,6 +58,16 @@ class SNLBundleTermTest(unittest.TestCase):
     self.assertEqual(qn0, qn_bundle.getMember(0))
     self.assertEqual(qn1, qn_bundle.getMember(1))
     self.assertIsNone(d_bundle.getMember(2))
+    with self.assertRaises(RuntimeError) as context:
+      d_bundle.getMember("0")
+    self.assertIn(
+      "SNLBundleTerm.getMember() expects an integer argument",
+      str(context.exception),
+    )
+    self.assertEqual(2, d_bundle.getNumMembers())
+    self.assertEqual(2, qn_bundle.getNumMembers())
+    self.assertEqual(d0.getFlatID(), d_bundle.getFlatID())
+    self.assertEqual(qn0.getFlatID(), qn_bundle.getFlatID())
     self.assertEqual(["D0", "D1"], [member.getName() for member in d_bundle.getMembers()])
     self.assertEqual(["QN0", "QN1"], [member.getName() for member in qn_bundle.getMembers()])
     self.assertEqual(
