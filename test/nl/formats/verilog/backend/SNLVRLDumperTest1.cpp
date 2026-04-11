@@ -6,11 +6,13 @@
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 #include "SNLVRLDumper.h"
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -381,4 +383,38 @@ TEST_F(SNLVRLDumperTest1, test5) {
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest1, testBundleTermsAreFlattenedInInterface) {
+  auto primitiveLibrary = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  ASSERT_NE(nullptr, primitiveLibrary);
+  auto bundlePrimitive = SNLDesign::create(
+    primitiveLibrary, SNLDesign::Type::Primitive, NLName("bundle_prim"));
+  ASSERT_NE(nullptr, bundlePrimitive);
+
+  SNLScalarTerm::create(bundlePrimitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(bundlePrimitive, SNLTerm::Direction::Input, NLName("D"));
+  ASSERT_NE(nullptr, bundle);
+  SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 1, 0, NLName("D1"));
+  SNLScalarTerm::create(bundlePrimitive, SNLTerm::Direction::Output, NLName("Q"));
+
+  std::ostringstream stream;
+  SNLVRLDumper dumper;
+  dumper.dumpLibrary(primitiveLibrary, stream);
+
+  const auto dumped = stream.str();
+  const auto ckPos = dumped.find("input CK");
+  const auto d0Pos = dumped.find("input D0");
+  const auto d1Pos = dumped.find("input [1:0] D1");
+  const auto qPos = dumped.find("output Q");
+
+  EXPECT_NE(std::string::npos, ckPos);
+  EXPECT_NE(std::string::npos, d0Pos);
+  EXPECT_NE(std::string::npos, d1Pos);
+  EXPECT_NE(std::string::npos, qPos);
+  EXPECT_LT(ckPos, d0Pos);
+  EXPECT_LT(d0Pos, d1Pos);
+  EXPECT_LT(d1Pos, qPos);
+  EXPECT_EQ(std::string::npos, dumped.find("input D,"));
 }
