@@ -509,6 +509,21 @@ TEST_F(SNLLibertyConstructorTest0, testMalformedBundleMemberDefinition) {
   }
 }
 
+TEST_F(SNLLibertyConstructorTest0, testBundleMemberMissingDirection) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_member_missing_direction_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Direction not found for bundle member D0"));
+  }
+}
+
 TEST_F(SNLLibertyConstructorTest0, testDuplicateBundleMemberDefinition) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
