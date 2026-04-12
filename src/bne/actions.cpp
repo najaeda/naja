@@ -6,6 +6,7 @@
 #include "actions.h"
 
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include "NLLibraryTruthTables.h"
@@ -16,6 +17,14 @@
 using namespace naja::DNL;
 using namespace naja::NL;
 using namespace naja::BNE;
+
+namespace {
+
+constexpr NLID::DesignObjectID InvalidPathToDrive =
+    std::numeric_limits<NLID::DesignObjectID>::max();
+constexpr size_t InvalidFlatTermToDrive = std::numeric_limits<size_t>::max();
+
+}
 
 void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   term->setNet(nullptr);
@@ -123,22 +132,22 @@ void DriveWithConstantAction::changeDriverto1Top(SNLBitTerm* term) {
 
 void DriveWithConstantAction::processOnContext(SNLDesign* design) {
   if (value_ == 0) {
-    if (context_.empty() && pathToDrive_ == (unsigned)(-1) &&
-        termToDrive_ == (unsigned)(-1)) {
+    if (context_.empty() && pathToDrive_ == InvalidPathToDrive &&
+        flatTermToDrive_ == InvalidFlatTermToDrive) {
       assert(topTermToDrive_ != nullptr);
       changeDriverto0Top(topTermToDrive_);
     } else {
       changeDriverToLocal0(
-          design->getInstance(pathToDrive_)->getInstTerm(termToDrive_));
+          design->getInstance(pathToDrive_)->getInstTermByFlatID(flatTermToDrive_));
     }
   } else if (value_ == 1) {
-    if (context_.empty() && pathToDrive_ == (unsigned)(-1) &&
-        termToDrive_ == (unsigned)(-1)) {
+    if (context_.empty() && pathToDrive_ == InvalidPathToDrive &&
+        flatTermToDrive_ == InvalidFlatTermToDrive) {
       assert(topTermToDrive_ != nullptr);
       changeDriverto1Top(topTermToDrive_);
     } else {
       changeDriverToLocal1(
-          design->getInstance(pathToDrive_)->getInstTerm(termToDrive_));
+          design->getInstance(pathToDrive_)->getInstTermByFlatID(flatTermToDrive_));
     }
   } else {
     // LCOV_EXCL_START
@@ -155,7 +164,7 @@ bool DriveWithConstantAction::operator==(const Action& action) const {
   const DriveWithConstantAction& driveWithConstantAction =
       dynamic_cast<const DriveWithConstantAction&>(action);
   return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
-         termToDrive_ == driveWithConstantAction.termToDrive_;
+         flatTermToDrive_ == driveWithConstantAction.flatTermToDrive_;
   // LCOV_EXCL_STOP
 }
 bool DriveWithConstantAction::operator<(const Action& action) const {
@@ -178,9 +187,9 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
   if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
     return true;
   } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
-    if (termToDrive_ < driveWithConstantAction.termToDrive_) {
+    if (flatTermToDrive_ < driveWithConstantAction.flatTermToDrive_) {
       return true;
-    } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
+    } else if (flatTermToDrive_ == driveWithConstantAction.flatTermToDrive_) {
       if (value_ < driveWithConstantAction.value_) {
         return true;
       }

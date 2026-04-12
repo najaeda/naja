@@ -10,6 +10,7 @@
 #include "PyNLLibrary.h"
 
 #include "PySNLScalarTerm.h"
+#include "PySNLBundleTerm.h"
 #include "PySNLBusTerm.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
@@ -20,6 +21,7 @@
 #include "PySNLInstTerms.h"
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
+#include "PySNLBundleTerms.h"
 #include "PySNLNets.h"
 #include "PySNLScalarNets.h"
 #include "PySNLBusNets.h"
@@ -509,6 +511,7 @@ GetObjectByName(SNLDesign, SNLInstance, getInstance)
 GetObjectByName(SNLDesign, SNLTerm, getTerm)
 GetObjectByName(SNLDesign, SNLScalarTerm, getScalarTerm)
 GetObjectByName(SNLDesign, SNLBusTerm, getBusTerm)
+GetObjectByName(SNLDesign, SNLBundleTerm, getBundleTerm)
 GetObjectByName(SNLDesign, SNLNet, getNet)
 GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
@@ -537,6 +540,7 @@ GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
 GetContainerMethod(SNLDesign, SNLBusTerm*, SNLBusTerms, BusTerms)
+GetContainerMethod(SNLDesign, SNLBundleTerm*, SNLBundleTerms, BundleTerms)
 GetContainerMethod(SNLDesign, SNLNet*, SNLNets, Nets)
 GetContainerMethod(SNLDesign, SNLScalarNet*, SNLScalarNets, ScalarNets)
 GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
@@ -621,6 +625,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "retrieve a SNLScalarTerm."},
   { "getBusTerm", (PyCFunction)PySNLDesign_getBusTerm, METH_VARARGS,
     "retrieve a SNLBusTerm."},
+  { "getBundleTerm", (PyCFunction)PySNLDesign_getBundleTerm, METH_VARARGS,
+    "retrieve a SNLBundleTerm."},
   { "getNet", (PyCFunction)PySNLDesign_getNet, METH_VARARGS,
     "retrieve a SNLNet."},
   { "getScalarNet", (PyCFunction)PySNLDesign_getScalarNet, METH_VARARGS,
@@ -643,6 +649,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLScalarTerms."},
   { "getBusTerms", (PyCFunction)PySNLDesign_getBusTerms, METH_NOARGS,
     "get a container of SNLBusTerms."},
+  { "getBundleTerms", (PyCFunction)PySNLDesign_getBundleTerms, METH_NOARGS,
+    "get a container of SNLBundleTerms."},
   { "getNets", (PyCFunction)PySNLDesign_getNets, METH_NOARGS,
     "get a container of SNLNets."},
   { "getScalarNets", (PyCFunction)PySNLDesign_getScalarNets, METH_NOARGS,

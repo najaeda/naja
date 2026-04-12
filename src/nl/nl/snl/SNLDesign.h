@@ -22,6 +22,7 @@ class SNLBusNetBit;
 class SNLScalarTerm;
 class SNLBusTerm;
 class SNLBusTermBit;
+class SNLBundleTerm;
 class SNLRTLInfos;
 
 /**
@@ -35,6 +36,7 @@ class SNLDesign final: public NLObject {
     friend class NLLibrary;
     friend class SNLScalarTerm;
     friend class SNLBusTerm;
+    friend class SNLBundleTerm;
     friend class SNLInstance;
     friend class SNLScalarNet;
     friend class SNLBusNet;
@@ -124,6 +126,10 @@ class SNLDesign final: public NLObject {
     SNLBusTerm* getBusTerm(NLID::DesignObjectID id) const;
     /// \return SNLBusTerm with NLName termName or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const NLName& termName) const;
+    /// \return SNLBundleTerm with NLID::DesignObjectID id or nullptr if it does not exist
+    SNLBundleTerm* getBundleTerm(NLID::DesignObjectID id) const;
+    /// \return SNLBundleTerm with NLName termName or nullptr if it does not exist
+    SNLBundleTerm* getBundleTerm(const NLName& termName) const;
     /// \return the collection of SNLTerm of this SNLDesign
     NajaCollection<SNLTerm*> getTerms() const;
 
@@ -131,6 +137,7 @@ class SNLDesign final: public NLObject {
      * \return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
      * \sa getTerms()
      * \sa getScalarTerms()
+     * \sa getBundleTerms()
      */
     NajaCollection<SNLBusTerm*> getBusTerms() const;
 
@@ -138,8 +145,17 @@ class SNLDesign final: public NLObject {
      * \return the collection of SNLScalarTerm of this SNLDesign (SNLScalarTerm subset of getTerms()).
      * \sa getTerms()
      * \sa getBusTerms()
+     * \sa getBundleTerms()
      */
     NajaCollection<SNLScalarTerm*> getScalarTerms() const;
+
+    /**
+     * \return the collection of SNLBundleTerm of this SNLDesign (SNLBundleTerm subset of getTerms()).
+     * \sa getTerms()
+     * \sa getScalarTerms()
+     * \sa getBusTerms()
+     */
+    NajaCollection<SNLBundleTerm*> getBundleTerms() const;
 
     /// \return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit).
     NajaCollection<SNLBitTerm*> getBitTerms() const;

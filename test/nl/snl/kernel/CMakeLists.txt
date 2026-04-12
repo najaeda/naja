@@ -10,6 +10,7 @@ SET(snl_tests
   NLUniverseTest.cpp NLDBTest.cpp NLLibraryTest.cpp
   NLDB0Test.cpp
   SNLDesignTest.cpp SNLDesignCloneTest.cpp
+  SNLBundleTermTest.cpp
   SNLTermTest.cpp
   SNLInstanceTest0.cpp SNLInstanceTest1.cpp
   SNLInstanceTest2.cpp SNLInstanceTest3.cpp

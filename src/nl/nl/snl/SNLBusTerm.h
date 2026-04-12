@@ -13,11 +13,13 @@ namespace naja::NL {
 
 class SNLNet;
 class SNLBusTermBit;
+class SNLBundleTerm;
 
 class SNLBusTerm final: public SNLTerm {
   public:
     friend class SNLDesign;
     friend class SNLBusTermBit;
+    friend class SNLBundleTerm;
     using super = SNLTerm;
 
     /**
@@ -54,6 +56,21 @@ class SNLBusTerm final: public SNLTerm {
         NLID::Bit lsb,
         const NLName& name=NLName());
 
+    static SNLBusTerm* create(
+        SNLBundleTerm* bundleTerm,
+        Direction direction,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
+
+    static SNLBusTerm* create(
+        SNLBundleTerm* bundleTerm,
+        NLID::DesignObjectID id,
+        Direction direction,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
+
     SNLBitNet* getNet() const override { return nullptr; }
     void setNet(SNLNet* net) override;
 
@@ -82,6 +99,7 @@ class SNLBusTerm final: public SNLTerm {
    
     SNLTerm::Direction getDirection() const override { return direction_; }
     void setDirection(const SNLTerm::Direction& direction) { direction_ = direction; }
+    SNLBundleTerm* getBundleOwner() const override { return bundleTerm_; }
 
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -104,12 +122,28 @@ class SNLBusTerm final: public SNLTerm {
         NLID::Bit msb,
         NLID::Bit lsb,
         const NLName& name);
+    SNLBusTerm(
+        SNLBundleTerm* bundleTerm,
+        Direction direction,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
+    SNLBusTerm(
+        SNLBundleTerm* bundleTerm,
+        NLID::DesignObjectID id,
+        Direction direction,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
     static void preCreate(const SNLDesign* design, const NLName& name);
     static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
+    static void preCreate(const SNLBundleTerm* bundleTerm, Direction direction, const NLName& name);
+    static void preCreate(const SNLBundleTerm* bundleTerm, NLID::DesignObjectID id, Direction direction, const NLName& name);
     void createBits();
     void postCreate() override;
     void postCreateAndSetID();
     void destroyFromDesign() override;
+    void destroyFromBundle();
     SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();
     void preDestroy() override;
@@ -121,6 +155,7 @@ class SNLBusTerm final: public SNLTerm {
     using Bits = std::vector<SNLBusTermBit*>;
 
     SNLDesign*              design_;
+    SNLBundleTerm*          bundleTerm_ {nullptr};
     NLID::DesignObjectID    id_;
     size_t                  flatID_   {0};
     NLName                  name_     {};

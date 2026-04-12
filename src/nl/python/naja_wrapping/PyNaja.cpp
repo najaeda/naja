@@ -22,6 +22,7 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"
 #include "PySNLTermDirection.h"
+#include "PySNLBundleTerm.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
@@ -38,6 +39,7 @@
 #include "PySNLBitTerms.h"
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
+#include "PySNLBundleTerms.h"
 #include "PySNLNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLScalarNets.h"
@@ -191,6 +193,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLNetComponent_LinkPyType ();
   PySNLTerm_LinkPyType();
   PySNLTermDirection_LinkPyType();
+  PySNLBundleTerm_LinkPyType();
   PySNLBusTerm_LinkPyType();
   PySNLBitTerm_LinkPyType();
   PySNLScalarTerm_LinkPyType();
@@ -212,6 +215,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLBitTerms_LinkPyType();
   PySNLScalarTerms_LinkPyType();
   PySNLBusTerms_LinkPyType();
+  PySNLBundleTerms_LinkPyType();
   PySNLNets_LinkPyType();
   PySNLBitNets_LinkPyType();
   PySNLScalarNets_LinkPyType();
@@ -239,6 +243,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY_SUB(SNLBusNetBit, SNLBitNet);
   PYTYPE_READY_SUB(SNLNetComponent, SNLDesignObject);
   PYTYPE_READY_SUB(SNLTerm, SNLNetComponent);
+  PYTYPE_READY_SUB(SNLBundleTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLBusTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLBitTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLScalarTerm, SNLBitTerm);
@@ -267,6 +272,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLScalarTermsIterator);
   PYTYPE_READY(SNLBusTerms);
   PYTYPE_READY(SNLBusTermsIterator);
+  PYTYPE_READY(SNLBundleTerms);
+  PYTYPE_READY(SNLBundleTermsIterator);
   PYTYPE_READY(SNLNets);
   PYTYPE_READY(SNLNetsIterator);
   PYTYPE_READY(SNLBitNets);
@@ -309,6 +316,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLBusNetBit);
   PyModule_AddType(mod, &PyTypeSNLNetComponent);
   PyModule_AddType(mod, &PyTypeSNLTerm);
+  PyModule_AddType(mod, &PyTypeSNLBundleTerm);
   PyModule_AddType(mod, &PyTypeSNLBusTerm);
   PyModule_AddType(mod, &PyTypeSNLBitTerm);
   PyModule_AddType(mod, &PyTypeSNLScalarTerm);

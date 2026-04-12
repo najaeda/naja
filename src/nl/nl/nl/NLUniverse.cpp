@@ -188,15 +188,13 @@ SNLInstTerm* NLUniverse::getInstTerm(const NLID& id) const {
     auto model = instance->getModel();
     if (model) {
       auto term = model->getTerm(id.designObjectID_);
-      if (term) {
-        if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
-          return instance->getInstTerm(scalarTerm);
-        } else {
-          auto busTerm = static_cast<SNLBusTerm*>(term);
-          auto busTermBit = busTerm->getBit(id.bit_);
-          if (busTermBit) {
-            return instance->getInstTerm(busTermBit);
-          }
+      if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+        return instance->getInstTerm(scalarTerm);
+      }
+      if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+        auto busTermBit = busTerm->getBit(id.bit_);
+        if (busTermBit) {
+          return instance->getInstTerm(busTermBit);
         }
       }
     }

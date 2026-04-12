@@ -321,8 +321,8 @@ TEST_F(SNLTermTest, testSetNetErrors) {
 }
 
 TEST_F(SNLTermTest, testErrors) {
-  EXPECT_THROW(SNLScalarTerm::create(nullptr, SNLTerm::Direction::Input), NLException);
-  EXPECT_THROW(SNLBusTerm::create(nullptr, SNLTerm::Direction::Input, 31, 0), NLException);
+  EXPECT_THROW(SNLScalarTerm::create(static_cast<SNLDesign*>(nullptr), SNLTerm::Direction::Input), NLException);
+  EXPECT_THROW(SNLBusTerm::create(static_cast<SNLDesign*>(nullptr), SNLTerm::Direction::Input, 31, 0), NLException);
 
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);

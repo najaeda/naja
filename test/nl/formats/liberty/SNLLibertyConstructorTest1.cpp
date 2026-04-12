@@ -6,10 +6,16 @@
 #include "gmock/gmock.h"
 #include "NLUniverse.h"
 
+#include "SNLBitNet.h"
+#include "SNLBundleTerm.h"
+#include "SNLInstance.h"
+#include "SNLInstTerm.h"
+#include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 
 #include "SNLLibertyConstructor.h"
+#include "SNLVRLConstructor.h"
 #include "NLBitVecDynamic.h"
 #include "SNLDesignModeling.h"
 using ::testing::ElementsAre;
@@ -102,6 +108,116 @@ TEST_F(SNLLibertyConstructorTest1, testBusDirectionInheritedSkippingChildWithout
   EXPECT_EQ(SNLTerm::Direction::Input, drv->getDirection());
   EXPECT_EQ(1, drv->getMSB());
   EXPECT_EQ(0, drv->getLSB());
+}
+
+TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bundle_issue_120.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("example"), library_->getName());
+  EXPECT_EQ(1, library_->getSNLDesigns().size());
+
+  auto design = library_->getSNLDesign(NLName("cell_def"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(5, design->getTerms().size());
+  EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  EXPECT_EQ(2, design->getBundleTerms().size());
+
+  auto ck = design->getScalarTerm(NLName("CK"));
+  auto se = design->getScalarTerm(NLName("SE"));
+  auto si = design->getScalarTerm(NLName("SI"));
+  auto d = design->getBundleTerm(NLName("D"));
+  auto qn = design->getBundleTerm(NLName("QN"));
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, se);
+  ASSERT_NE(nullptr, si);
+  ASSERT_NE(nullptr, d);
+  ASSERT_NE(nullptr, qn);
+
+  EXPECT_THAT(
+    std::vector<SNLTerm*>(design->getTerms().begin(), design->getTerms().end()),
+    ElementsAre(ck, se, si, d, qn));
+
+  auto d0 = design->getScalarTerm(NLName("D0"));
+  auto d1 = design->getScalarTerm(NLName("D1"));
+  auto qn0 = design->getScalarTerm(NLName("QN0"));
+  auto qn1 = design->getScalarTerm(NLName("QN1"));
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+  ASSERT_NE(nullptr, qn0);
+  ASSERT_NE(nullptr, qn1);
+
+  EXPECT_EQ(d, d0->getBundleOwner());
+  EXPECT_EQ(d, d1->getBundleOwner());
+  EXPECT_EQ(qn, qn0->getBundleOwner());
+  EXPECT_EQ(qn, qn1->getBundleOwner());
+  EXPECT_EQ(d0, d->getMember(0));
+  EXPECT_EQ(d1, d->getMember(1));
+  EXPECT_EQ(qn0, qn->getMember(0));
+  EXPECT_EQ(qn1, qn->getMember(1));
+  EXPECT_EQ(d->getFlatID(), d0->getFlatID());
+  EXPECT_EQ(qn->getFlatID(), qn0->getFlatID());
+
+  EXPECT_THAT(
+    std::vector<SNLBitTerm*>(design->getBitTerms().begin(), design->getBitTerms().end()),
+    ElementsAre(ck, se, si, d0, d1, qn0, qn1));
+}
+
+TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120VerilogIntegration) {
+  SNLLibertyConstructor libertyConstructor(library_);
+  std::filesystem::path libertyPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bundle_issue_120.lib"));
+  libertyConstructor.construct(libertyPath);
+
+  auto cellDef = library_->getSNLDesign(NLName("cell_def"));
+  ASSERT_NE(nullptr, cellDef);
+
+  auto rtlLibrary = NLLibrary::create(library_->getDB(), NLName("RTL"));
+  SNLVRLConstructor verilogConstructor(rtlLibrary);
+  std::filesystem::path verilogPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("..")
+      / std::filesystem::path("verilog")
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("bundle_issue_120.v"));
+
+  EXPECT_NO_THROW(verilogConstructor.parse(verilogPath));
+  verilogConstructor.setFirstPass(false);
+  EXPECT_NO_THROW(verilogConstructor.parse(verilogPath));
+
+  auto top = rtlLibrary->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_EQ(1, top->getInstances().size());
+  auto instance = top->getInstance(NLName("_tray_size2_66"));
+  ASSERT_NE(nullptr, instance);
+  EXPECT_EQ(cellDef, instance->getModel());
+
+  auto ck = cellDef->getScalarTerm(NLName("CK"));
+  auto d0 = cellDef->getScalarTerm(NLName("D0"));
+  auto d1 = cellDef->getScalarTerm(NLName("D1"));
+  auto qn0 = cellDef->getScalarTerm(NLName("QN0"));
+  auto qn1 = cellDef->getScalarTerm(NLName("QN1"));
+  ASSERT_NE(nullptr, ck);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+  ASSERT_NE(nullptr, qn0);
+  ASSERT_NE(nullptr, qn1);
+
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("clknet_1_0__leaf_clk"))), instance->getInstTerm(ck)->getNet());
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("_031_"))), instance->getInstTerm(d0)->getNet());
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("_015_"))), instance->getInstTerm(d1)->getNet());
+  EXPECT_NE(nullptr, instance->getInstTerm(qn0)->getNet());
+  EXPECT_NE(nullptr, instance->getInstTerm(qn1)->getNet());
+  EXPECT_NE(instance->getInstTerm(qn0)->getNet(), instance->getInstTerm(qn1)->getNet());
+  EXPECT_EQ(7, instance->getInstTerms().size());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
