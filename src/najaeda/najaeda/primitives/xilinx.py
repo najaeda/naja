@@ -3,8 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from najaeda import naja
-from . import utils
+try:
+    from najaeda import naja
+except ImportError:
+    import naja
+try:
+    from . import utils
+except ImportError:
+    import utils
 
 
 def constructIBUF(lib):
@@ -513,9 +519,7 @@ def constructRAMB36E1(lib):
     naja.SNLParameter.create_string(ramb36e1, "WRITE_MODE_B", "WRITE_FIRST")
 
 
-def load(db):
-    logging.info("Loading Xilinx primitives")
-    lib = naja.NLLibrary.createPrimitives(db, "xilinx")
+def constructPrimitives(lib):
     constructIBUF(lib)
     constructOBUF(lib)
     constructBUFG(lib)
@@ -539,3 +543,9 @@ def load(db):
     constructRAM64M(lib)
     constructRAMB18E1(lib)
     constructRAMB36E1(lib)
+
+
+def load(db):
+    logging.info("Loading Xilinx primitives")
+    lib = naja.NLLibrary.createPrimitives(db, "xilinx")
+    constructPrimitives(lib)
