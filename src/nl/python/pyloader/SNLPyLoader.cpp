@@ -6,9 +6,9 @@
 #include "SNLPyEdit.h"
 
 #include <sstream>
-#include <cstdio>
+#include <string>
 #include <Python.h>
-#include <frameobject.h> // Include the header for PyFrameObject
+#include <frameobject.h>
 
 #include "NLUniverse.h"
 #include "NLLibraryTruthTables.h"
@@ -20,56 +20,79 @@
 
 namespace {
 
+// RAII wrapper for PyObject* — releases reference on scope exit.
+struct PyObjRef {
+  explicit PyObjRef(PyObject* o = nullptr) : obj(o) {}
+  ~PyObjRef() { Py_XDECREF(obj); }
+  PyObject* get() const { return obj; }
+  explicit operator bool() const { return obj != nullptr; }
+  PyObjRef(const PyObjRef&) = delete;
+  PyObjRef& operator=(const PyObjRef&) = delete;
+private:
+  PyObject* obj;
+};
+
+// Initializes the Python interpreter if not already running.
+// Finalizes it on destruction only if this instance started it.
+// Uses Py_InitializeEx(0) to avoid overriding the host's signal handlers.
+struct PythonInit {
+  PythonInit() : owned(!Py_IsInitialized()) {
+    if (owned) {
+      Py_InitializeEx(0);
+    }
+  }
+  ~PythonInit() {
+    if (owned) {
+      Py_Finalize();
+    }
+  }
+  const bool owned;
+};
+
 std::string getPythonError() {
-  PyObject *type, *value, *traceback;
-  
+  PyObject* type     = nullptr;
+  PyObject* value    = nullptr;
+  PyObject* traceback = nullptr;
+
   PyErr_Fetch(&type, &value, &traceback);
-  PyErr_NormalizeException(&type, &value, &traceback);//
+  PyErr_NormalizeException(&type, &value, &traceback);
   PyErr_Clear();
-  if (value == nullptr) {
-    return std::string();
-  }
-  PyObject* strValue = PyObject_Str(value);
-  Py_DECREF(value);
-  if (strValue == nullptr) {
-    return std::string();
-  }
-  const char* cStrValue = PyUnicode_AsUTF8(strValue);
-  if (cStrValue == nullptr) {
-    return std::string();
-  }
-  std::ostringstream reason;
 
-  if (traceback != nullptr) {
-    PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
+  std::string result;
 
-    // Walk the traceback to the last frame
-    while (tracebackObj->tb_next != NULL) {
-      tracebackObj = tracebackObj->tb_next;
-    }
-
-    // Extract the line number and filename
-    PyFrameObject* frame = tracebackObj->tb_frame;
-    int line = PyFrame_GetLineNumber(frame);
-    PyCodeObject* code = PyFrame_GetCode(frame);
-    if (code != NULL) {
-      PyObject* filenameObj =
-          PyObject_GetAttrString((PyObject*)code, "co_filename");
-      const char* filename = PyUnicode_AsUTF8(filenameObj);
-
-      // Create a string for a message with the line number and filename
-      std::ostringstream reason;
-      reason << "Error in " << filename << ":" << line;
-      std::string reason_str = reason.str();
-      Py_DECREF(filenameObj);
-      Py_DECREF(code);
+  if (value) {
+    PyObjRef strValue(PyObject_Str(value));
+    if (strValue) {
+      const char* c = PyUnicode_AsUTF8(strValue.get());
+      if (c) {
+        result = c;
+      }
     }
   }
-  std::string errorStr(cStrValue + reason.str());
-  Py_DECREF(strValue);
 
-  return errorStr;
+  if (traceback) {
+    auto* tb = reinterpret_cast<PyTracebackObject*>(traceback);
+    while (tb->tb_next) {
+      tb = tb->tb_next;
+    }
+    int line = PyFrame_GetLineNumber(tb->tb_frame);
+    PyObjRef code(reinterpret_cast<PyObject*>(PyFrame_GetCode(tb->tb_frame)));
+    if (code) {
+      PyObjRef filenameObj(PyObject_GetAttrString(code.get(), "co_filename"));
+      if (filenameObj) {
+        const char* filename = PyUnicode_AsUTF8(filenameObj.get());
+        if (filename) {
+          result += std::string(" (") + filename + ":" + std::to_string(line) + ")";
+        }
+      }
+    }
   }
+
+  Py_XDECREF(type);
+  Py_XDECREF(value);
+  Py_XDECREF(traceback);
+  return result;
+}
 
 PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
@@ -78,14 +101,13 @@ PyObject* loadModule(const std::filesystem::path& path) {
     throw naja::NL::NLException(reason.str());
   }
   auto absolutePath = std::filesystem::canonical(path);
-
-  auto moduleName = absolutePath.filename();
+  auto moduleName = absolutePath.stem();
   auto modulePath = absolutePath.parent_path();
-  moduleName.replace_extension();
-  Py_Initialize();
-  PyObject* sysPath = PySys_GetObject("path");
-  PyObject* modulePathString = PyUnicode_FromString(modulePath.c_str());
-  PyList_Append(sysPath, modulePathString);
+
+  PyObject* sysPath = PySys_GetObject("path");  // borrowed reference
+  PyObjRef modulePathString(PyUnicode_FromString(modulePath.c_str()));
+  PyList_Append(sysPath, modulePathString.get());
+
   PyObject* module = PyImport_ImportModule(moduleName.c_str());
   if (not module) {
     std::ostringstream reason;
@@ -93,54 +115,41 @@ PyObject* loadModule(const std::filesystem::path& path) {
     std::string pythonError = getPythonError();
     if (not pythonError.empty()) {
       reason << ": " << pythonError;
-    } else {
-      reason << ": empty error message";
     }
-    Py_DECREF(modulePathString);
     throw naja::NL::NLException(reason.str());
   }
-  Py_DECREF(modulePathString);
   return module;
 }
 
+void callMethod(
+    PyObject* module,
+    const char* methodName,
+    PyObject* arg,
+    const std::string& context) {
+  PyObjRef methodString(PyUnicode_FromString(methodName));
+  PyObjRef res(PyObject_CallMethodObjArgs(module, methodString.get(), arg, NULL));
+  if (not res) {
+    std::string pythonError = getPythonError();
+    std::ostringstream reason;
+    reason << "Error while calling " << context;
+    if (not pythonError.empty()) {
+      reason << ": " << pythonError;
+    }
+    throw naja::NL::NLException(reason.str());
+  }
 }
+
+}  // namespace
 
 namespace naja::NL {
 
 void SNLPyLoader::loadDB(
     NLDB* db,
     const std::filesystem::path& path) {
-  
-  auto module = loadModule(path);
-
-  PyObject* pyDB = PYNAJA::PyNLDB_Link(db);
-  PyObject* constructString = PyUnicode_FromString("constructDB");
-
-  PyObject* res =
-    PyObject_CallMethodObjArgs(module, constructString, pyDB, NULL);
-  if (not res) {
-    std::ostringstream reason;
-    reason << "Error while calling constructDB";
-    std::string pythonError = getPythonError();
-    if (not pythonError.empty()) {
-      reason << ": " << pythonError;
-    } else {
-      reason << ": empty error message";
-    }
-    //Cleaning
-    //Py_DECREF(modulePathString);
-    Py_DECREF(module);
-    Py_DECREF(pyDB);
-    Py_DECREF(constructString);
-    Py_Finalize();
-    throw NLException(reason.str());
-  }
-  //Cleaning
-  //Py_DECREF(modulePathString);
-  Py_DECREF(module);
-  Py_DECREF(pyDB);
-  Py_DECREF(constructString);
-  Py_Finalize();
+  PythonInit pyInit;
+  PyObjRef module(loadModule(path));
+  PyObjRef pyDB(PYNAJA::PyNLDB_Link(db));
+  callMethod(module.get(), "constructDB", pyDB.get(), "constructDB");
 }
 
 void SNLPyLoader::loadPrimitives(
@@ -164,112 +173,41 @@ void SNLPyLoader::loadLibrary(
     std::ostringstream reason;
     reason << "Cannot construct non primitives in primitives library: "
       << library->getString();
-    throw NLException(reason.str()); 
-  }
-  
-  auto module = loadModule(path);
-
-  PyObject* pyLib = PYNAJA::PyNLLibrary_Link(library);
-  PyObject* constructString = nullptr;
-  if (loadPrimitives) {
-    constructString = PyUnicode_FromString("constructPrimitives");
-  } else {
-    constructString = PyUnicode_FromString("constructLibrary");
-  }
-
-  PyObject* res =
-    PyObject_CallMethodObjArgs(module, constructString, pyLib, NULL);
-  if (not res) {
-    std::ostringstream reason;
-    reason << "Error while calling construct";
-    std::string pythonError = getPythonError();
-    if (not pythonError.empty()) {
-      reason << ": " << pythonError;
-    } else {
-      reason << ": empty error message";
-    }
-    //Cleaning
-    //Py_DECREF(modulePathString);
-    Py_DECREF(module);
-    Py_DECREF(pyLib);
-    Py_DECREF(constructString);
-    Py_Finalize();
     throw NLException(reason.str());
   }
-  //Cleaning
-  //Py_DECREF(modulePathString);
-  Py_DECREF(module);
-  Py_DECREF(pyLib);
-  Py_DECREF(constructString);
-  Py_Finalize();
+  PythonInit pyInit;
+  PyObjRef module(loadModule(path));
+  PyObjRef pyLib(PYNAJA::PyNLLibrary_Link(library));
+  const char* methodName = loadPrimitives ? "constructPrimitives" : "constructLibrary";
+  callMethod(module.get(), methodName, pyLib.get(), methodName);
 }
 
 void SNLPyLoader::loadDesign(
     SNLDesign* design,
     const std::filesystem::path& path) {
   if (design->isPrimitive()) {
-    std::ostringstream reason;
-    reason << "Cannot construct design if it is a primitive";
-    throw NLException(reason.str());
+    throw NLException("Cannot construct design if it is a primitive");
   }
-  auto module = loadModule(path);
-
-  PyObject* pyDesign = PYNAJA::PySNLDesign_Link(design);
-  PyObject* constructString = PyUnicode_FromString("construct");
-
-  PyObject* res =
-    PyObject_CallMethodObjArgs(module, constructString, pyDesign, NULL);
-  if (not res) {
-    std::ostringstream reason;
-    reason << "Error while calling construct";
-    std::string pythonError = getPythonError();
-    if (not pythonError.empty()) {
-      reason << ": " << pythonError;
-    } else {
-      reason << ": empty error message";
-    }
-    //Cleaning
-    Py_DECREF(module);
-    Py_DECREF(pyDesign);
-    Py_DECREF(constructString);
-    Py_Finalize();
-    throw NLException(reason.str());
-  }
-  //Cleaning
-  Py_DECREF(module);
-  Py_DECREF(pyDesign);
-  Py_DECREF(constructString);
-  Py_Finalize();
+  PythonInit pyInit;
+  PyObjRef module(loadModule(path));
+  PyObjRef pyDesign(PYNAJA::PySNLDesign_Link(design));
+  callMethod(module.get(), "construct", pyDesign.get(), "construct");
 }
 
 void SNLPyEdit::edit(const std::filesystem::path& path) {
-  auto module = loadModule(path);
-
-  PyObject* editString = PyUnicode_FromString("edit");
-
-  PyObject* res =
-    PyObject_CallMethodNoArgs(module, editString);
+  PythonInit pyInit;
+  PyObjRef module(loadModule(path));
+  PyObjRef methodString(PyUnicode_FromString("edit"));
+  PyObjRef res(PyObject_CallMethodNoArgs(module.get(), methodString.get()));
   if (not res) {
+    std::string pythonError = getPythonError();
     std::ostringstream reason;
     reason << "Error while calling edit";
-    std::string pythonError = getPythonError();
     if (not pythonError.empty()) {
       reason << ": " << pythonError;
-    } else {
-      reason << ": empty error message";
     }
-    //Cleaning
-    //Py_DECREF(modulePathString);
-    Py_DECREF(module);
-    Py_DECREF(editString);
-    Py_Finalize();
     throw NLException(reason.str());
   }
-  //Cleaning
-  //Py_DECREF(modulePathString);
-  Py_DECREF(module);
-  Py_DECREF(editString);
-  Py_Finalize();
 }
 
 }  // namespace naja::NL
