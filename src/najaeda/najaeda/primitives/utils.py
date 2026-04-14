@@ -4,7 +4,7 @@
 
 try:
     from najaeda import naja
-except ImportError: # pragma: no cover
+except ImportError:  # pragma: no cover
     import naja
 
 
