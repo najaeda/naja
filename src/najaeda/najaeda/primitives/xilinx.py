@@ -5,11 +5,11 @@
 import logging
 try:
     from najaeda import naja
-except ImportError:
+except ImportError: # pragma: no cover
     import naja
 try:
     from . import utils
-except ImportError:
+except ImportError: # pragma: no cover
     import utils
 
 
