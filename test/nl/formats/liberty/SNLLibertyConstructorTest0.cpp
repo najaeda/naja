@@ -479,6 +479,21 @@ TEST_F(SNLLibertyConstructorTest0, testBundleMissingMembers) {
   }
 }
 
+TEST_F(SNLLibertyConstructorTest0, testKeplerBundleNoPinsMissingMember) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("kepler_bundle_vq_missing_member_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Bundle Vq lists missing member Vq0"));
+  }
+}
+
 TEST_F(SNLLibertyConstructorTest0, testNestedBundleError) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
