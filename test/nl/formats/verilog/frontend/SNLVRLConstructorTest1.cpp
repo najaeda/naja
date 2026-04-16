@@ -263,6 +263,81 @@ TEST_F(SNLVRLConstructorTest1, testOrderedBundleConnections) {
   std::filesystem::remove(testPath);
 }
 
+TEST_F(SNLVRLConstructorTest1, testEscapedPortNameInNamedPortConnection) {
+  auto testPath = std::filesystem::temp_directory_path() / "naja_vrl_escaped_named_port_connection.v";
+  {
+    std::ofstream stream(testPath);
+    stream
+      << "// Test escaped identifier as port name in named port connection\n"
+      << "module submod(\n"
+      << "  \\rdata_o[21]_0 ,\n"
+      << "  rdata_in\n"
+      << ");\n"
+      << "  input \\rdata_o[21]_0 ;\n"
+      << "  output rdata_in;\n"
+      << "endmodule\n"
+      << "\n"
+      << "module top(\n"
+      << "  \\rdata_o[21]_0 ,\n"
+      << "  rdata_o\n"
+      << ");\n"
+      << "  input \\rdata_o[21]_0 ;\n"
+      << "  input [31:0] rdata_o;\n"
+      << "\n"
+      << "  submod inst (\n"
+      << "    .\\rdata_o[21]_0 (rdata_o[21]),\n"
+      << "    .rdata_in(\\rdata_o[21]_0 )\n"
+      << "  );\n"
+      << "endmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  constructor.parse(testPath);
+  constructor.setFirstPass(false);
+  constructor.parse(testPath);
+
+  auto submod = library_->getSNLDesign(NLName("submod"));
+  ASSERT_NE(nullptr, submod);
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+
+  auto escapedSubmodTerm = submod->getScalarTerm(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedSubmodTerm);
+  EXPECT_EQ(SNLTerm::Direction::Input, escapedSubmodTerm->getDirection());
+
+  auto rdataIn = submod->getScalarTerm(NLName("rdata_in"));
+  ASSERT_NE(nullptr, rdataIn);
+  EXPECT_EQ(SNLTerm::Direction::Output, rdataIn->getDirection());
+
+  auto escapedTopTerm = top->getScalarTerm(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedTopTerm);
+  EXPECT_EQ(SNLTerm::Direction::Input, escapedTopTerm->getDirection());
+
+  auto escapedTopNet = top->getScalarNet(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedTopNet);
+  ASSERT_EQ(1, escapedTopNet->getBitTerms().size());
+  EXPECT_EQ(escapedTopTerm, *escapedTopNet->getBitTerms().begin());
+
+  auto rdataBus = top->getBusNet(NLName("rdata_o"));
+  ASSERT_NE(nullptr, rdataBus);
+  EXPECT_EQ(31, rdataBus->getMSB());
+  EXPECT_EQ(0, rdataBus->getLSB());
+
+  auto instance = top->getInstance(NLName("inst"));
+  ASSERT_NE(nullptr, instance);
+  EXPECT_EQ(submod, instance->getModel());
+
+  auto escapedInstTerm = instance->getInstTerm(escapedSubmodTerm);
+  ASSERT_NE(nullptr, escapedInstTerm);
+  EXPECT_EQ(rdataBus->getBit(21), escapedInstTerm->getNet());
+
+  auto rdataInInstTerm = instance->getInstTerm(rdataIn);
+  ASSERT_NE(nullptr, rdataInInstTerm);
+  EXPECT_EQ(escapedTopNet, rdataInInstTerm->getNet());
+
+  std::filesystem::remove(testPath);
+}
+
 TEST_F(SNLVRLConstructorTest1, testCurrentInstancePortConnectionNullTerm) {
   SNLVRLConstructor constructor(library_);
   constructor.currentPath_ = "synthetic.v";
