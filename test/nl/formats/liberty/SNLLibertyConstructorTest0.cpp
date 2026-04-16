@@ -479,6 +479,25 @@ TEST_F(SNLLibertyConstructorTest0, testBundleMissingMembers) {
   }
 }
 
+TEST_F(SNLLibertyConstructorTest0, testKeplerInternalBundleIgnored) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("kepler_internal_bundle_ignored.lib"));
+  ASSERT_NO_THROW(constructor.construct(testPath));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("cell_def"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(2, design->getTerms().size());
+  EXPECT_EQ(2, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBundleTerms().empty());
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("CK")));
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("SE")));
+  EXPECT_EQ(nullptr, design->getBundleTerm(NLName("Vq")));
+}
+
 TEST_F(SNLLibertyConstructorTest0, testNestedBundleError) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(

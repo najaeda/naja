@@ -3,8 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from najaeda import naja
-from . import utils
+try:
+    from najaeda import naja
+except ImportError:  # pragma: no cover
+    import naja
+try:
+    from . import utils
+except ImportError:  # pragma: no cover
+    import utils
 
 
 def constructAND(lib):
@@ -256,9 +262,7 @@ def constructSDFFCE_PN1P(lib):
     utils.constructSequentialPrimitive(sdffce_pn1p, c)
 
 
-def load(db):
-    logging.info("Loading Yosys primitives")
-    lib = naja.NLLibrary.createPrimitives(db, "yosys")
+def constructPrimitives(lib):
     constructAND(lib)
     constructOR(lib)
     constructXOR(lib)
@@ -286,3 +290,9 @@ def load(db):
     constructSDFFCE_PP1P(lib)
     constructSDFFCE_PN0N(lib)
     constructSDFFCE_PN1P(lib)
+
+
+def load(db):
+    logging.info("Loading Yosys primitives")
+    lib = naja.NLLibrary.createPrimitives(db, "yosys")
+    constructPrimitives(lib)
