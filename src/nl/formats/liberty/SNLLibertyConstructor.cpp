@@ -342,6 +342,10 @@ void parseTerms(
         termFunctionPins,
         seqTermClocks);
     } else if (child->id == "bundle") {
+      auto bundleDirectionNode = findDirectionNode(child);
+      if (bundleDirectionNode != nullptr and bundleDirectionNode->value == "internal") {
+        continue;
+      }
       auto orderedMembers = getBundleMembers(child);
       auto memberDefinitions = collectBundleMemberDefinitions(child);
       std::set<std::string> orderedMemberSet(orderedMembers.begin(), orderedMembers.end());
