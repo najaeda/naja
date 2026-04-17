@@ -343,6 +343,119 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanB
   EXPECT_EQ(unread, SNLUtils::findTop(library_));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoops) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "nested_generate_continuous_assigns";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "nested_generate_continuous_assigns.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(\n"
+         << "  input logic [1:0][1:0] i,\n"
+         << "  output logic [1:0][1:0] o\n"
+         << ");\n"
+         << "  genvar r, c;\n"
+         << "  for (r = 0; r < 2; r = r + 1) begin: rows\n"
+         << "    for (c = 0; c < 2; c = c + 1) begin: cols\n"
+         << "      assign o[r][c] = i[r][c];\n"
+         << "    end\n"
+         << "  end\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_FALSE(top->isLeaf());
+  EXPECT_EQ(2, top->getTerms().size());
+
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(4, assignCount);
+
+  const auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "nested_generate_continuous_assigns_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("assign"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGeneratedInstancesReportUnsupportedLoweringCoverage) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "generated_instance_lowering_coverage";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "generated_instance_lowering_coverage.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module child(input logic a, output logic y);\n"
+         << "  assign y = a;\n"
+         << "endmodule\n"
+         << "module top(input logic [1:0] a, output logic [1:0] y);\n"
+         << "  genvar i;\n"
+         << "  for (i = 0; i < 2; i = i + 1) begin: g\n"
+         << "    child u(.a(a[i]), .y(y[i]));\n"
+         << "  end\n"
+         << "endmodule\n";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported elaborated member in generate block of module 'top': Instance"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseTypeAliasAndLocalparamDoNotReportLoweringCoverageErrors) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "type_alias_and_localparam_lowering_coverage";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "type_alias_and_localparam_lowering_coverage.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(input logic [3:0] i, output logic y);\n"
+         << "  typedef logic [3:0] nibble_t;\n"
+         << "  localparam int IDX = 1;\n"
+         << "  nibble_t tmp;\n"
+         << "  assign tmp = i;\n"
+         << "  assign y = tmp[IDX];\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(5, assignCount);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaPathsOverload) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

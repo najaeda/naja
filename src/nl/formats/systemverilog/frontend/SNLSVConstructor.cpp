@@ -1036,6 +1036,7 @@ class SNLSVConstructorImpl {
 #endif
         finalizeInferredMemories(design);
       }
+      validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
 
       if (config_.blackboxDetection_ and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -1304,6 +1305,120 @@ class SNLSVConstructorImpl {
 #endif
       }
       return rtlInfos;
+    }
+
+    enum class LoweringCoverageScope {
+      ModuleBody,
+      GenerateBody
+    };
+
+    const char* getLoweringCoverageScopeLabel(LoweringCoverageScope scope) const {
+      switch (scope) {
+        case LoweringCoverageScope::ModuleBody:
+          return "module body";
+        case LoweringCoverageScope::GenerateBody:
+          return "generate block";
+      }
+      return "scope"; // LCOV_EXCL_LINE
+    }
+
+    bool isIgnorableLoweringCoverageMember(const Symbol& sym) const {
+      if (sym.isType()) {
+        return true;
+      }
+
+      switch (sym.kind) {
+        case SymbolKind::TransparentMember:
+        case SymbolKind::EmptyMember:
+        case SymbolKind::StatementBlock:
+        case SymbolKind::Parameter:
+        case SymbolKind::TypeParameter:
+        case SymbolKind::Port:
+        case SymbolKind::MultiPort:
+        case SymbolKind::InterfacePort:
+        case SymbolKind::Modport:
+        case SymbolKind::ModportPort:
+        case SymbolKind::ModportClocking:
+        case SymbolKind::ExplicitImport:
+        case SymbolKind::WildcardImport:
+        case SymbolKind::Attribute:
+        case SymbolKind::Genvar:
+        case SymbolKind::DefParam:
+        case SymbolKind::Specparam:
+        case SymbolKind::Subroutine:
+        case SymbolKind::ElabSystemTask:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    bool isLoweredInCoverageScope(SymbolKind kind, LoweringCoverageScope scope) const {
+      switch (scope) {
+        case LoweringCoverageScope::ModuleBody:
+          switch (kind) {
+            case SymbolKind::Net:
+            case SymbolKind::Variable:
+            case SymbolKind::ContinuousAssign:
+            case SymbolKind::Instance:
+            case SymbolKind::ProceduralBlock:
+              return true;
+            default:
+              return false;
+          }
+        case LoweringCoverageScope::GenerateBody:
+          return kind == SymbolKind::ContinuousAssign;
+      }
+      return false; // LCOV_EXCL_LINE
+    }
+
+    void validateLoweringCoverage(
+      const slang::ast::Scope& scope,
+      const std::string& moduleName,
+      LoweringCoverageScope coverageScope) {
+      for (const auto& sym : scope.members()) {
+        if (isIgnorableLoweringCoverageMember(sym)) {
+          continue;
+        }
+
+        if (sym.kind == SymbolKind::GenerateBlock) {
+          const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
+          if (!generateBlock.isUninstantiated) {
+            validateLoweringCoverage(
+              generateBlock,
+              moduleName,
+              LoweringCoverageScope::GenerateBody);
+          }
+          continue;
+        }
+
+        if (sym.kind == SymbolKind::GenerateBlockArray) {
+          const auto& generateBlockArray =
+            sym.as<slang::ast::GenerateBlockArraySymbol>();
+          for (const auto* entry : generateBlockArray.entries) {
+            if (entry && !entry->isUninstantiated) {
+              validateLoweringCoverage(
+                *entry,
+                moduleName,
+                LoweringCoverageScope::GenerateBody);
+            }
+          }
+          continue;
+        }
+
+        if (isLoweredInCoverageScope(sym.kind, coverageScope)) {
+          continue;
+        }
+
+        std::ostringstream reason;
+        reason << "Unsupported elaborated member in "
+               << getLoweringCoverageScopeLabel(coverageScope)
+               << " of module '" << moduleName << "': " << toString(sym.kind);
+        if (!sym.name.empty()) {
+          reason << " '" << sym.name << "'";
+        }
+        reportUnsupportedElement(reason.str(), getSourceRange(sym));
+      }
     }
 
     SNLRTLInfos* getOrCreateRTLInfos(SNLDesignObject* designObject) const {
@@ -13423,10 +13538,29 @@ class SNLSVConstructorImpl {
 
     void createContinuousAssigns(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
-      for (const auto& sym : body.members()) {
-        if (sym.kind != SymbolKind::ContinuousAssign) {
-          continue;
-        }
+      std::function<void(const slang::ast::Scope&)> visitScope;
+      visitScope = [&](const slang::ast::Scope& scope) {
+        for (const auto& sym : scope.members()) {
+          if (sym.kind == SymbolKind::GenerateBlock) {
+            const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
+            if (!generateBlock.isUninstantiated) {
+              visitScope(generateBlock);
+            }
+            continue;
+          }
+          if (sym.kind == SymbolKind::GenerateBlockArray) {
+            const auto& generateBlockArray =
+              sym.as<slang::ast::GenerateBlockArraySymbol>();
+            for (const auto* entry : generateBlockArray.entries) {
+              if (entry && !entry->isUninstantiated) {
+                visitScope(*entry);
+              }
+            }
+            continue;
+          }
+          if (sym.kind != SymbolKind::ContinuousAssign) {
+            continue;
+          }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.continuousAssignsVisited;
 #endif
@@ -13848,7 +13982,9 @@ class SNLSVConstructorImpl {
             "Unsupported net compatibility in continuous assign",
             assignSourceRange);
         }
-      }
+        }
+      };
+      visitScope(body);
     }
 
     void connectTermsToNets(SNLDesign* design) {
