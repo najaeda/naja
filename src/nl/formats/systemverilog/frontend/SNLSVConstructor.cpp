@@ -5,6 +5,7 @@
 #include "SNLSVConstructor.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +31,7 @@
 
 #include "NLID.h"
 #include "NLDB0.h"
+#include "NLException.h"
 #include "NLName.h"
 #include "NLLibrary.h"
 #include "SNLBusNet.h"
@@ -1213,6 +1215,81 @@ class SNLSVConstructorImpl {
       return sourceInfo;
     }
 
+    std::optional<std::string> getSourceExcerpt(
+      const std::optional<slang::SourceRange>& maybeRange,
+      size_t maxLength = 160) const {
+      if (!maybeRange || !compilation_) {
+        return std::nullopt;
+      }
+      auto* sourceManager = compilation_->getSourceManager();
+      if (!sourceManager) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+
+      auto sourceRange = sourceManager->getFullyOriginalRange(*maybeRange);
+      auto start = sourceManager->getFullyOriginalLoc(sourceRange.start());
+      auto end = sourceRange.end().valid()
+                   ? sourceManager->getFullyOriginalLoc(sourceRange.end())
+                   : sourceRange.end();
+      if (!start.valid() || !sourceManager->isFileLoc(start)) {
+        return std::nullopt;
+      }
+      if (!end.valid() || !sourceManager->isFileLoc(end) || end.buffer() != start.buffer()) {
+        end = start + 1;
+      } else if (end <= start) {
+        end = start + 1;
+      }
+
+      auto sourceText = sourceManager->getSourceText(start.buffer());
+      if (sourceText.empty()) {
+        return std::nullopt;
+      }
+      auto startOffset = start.offset();
+      auto endOffset = std::min(end.offset(), sourceText.size());
+      if (startOffset >= sourceText.size() || startOffset >= endOffset) {
+        return std::nullopt;
+      }
+
+      std::string excerpt(sourceText.substr(startOffset, endOffset - startOffset));
+      std::string normalized;
+      normalized.reserve(excerpt.size());
+      bool previousWasSpace = false;
+      for (unsigned char c : excerpt) {
+        if (std::isspace(c)) {
+          if (!normalized.empty() && !previousWasSpace) {
+            normalized.push_back(' ');
+          }
+          previousWasSpace = true;
+          continue;
+        }
+        normalized.push_back(static_cast<char>(c));
+        previousWasSpace = false;
+      }
+      while (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+      }
+      if (normalized.empty()) {
+        return std::nullopt;
+      }
+      if (normalized.size() > maxLength) {
+        normalized.resize(maxLength - 3);
+        normalized += "...";
+      }
+      return normalized;
+    }
+
+    std::string formatReasonWithSourceExcerpt(
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange) const {
+      auto excerpt = getSourceExcerpt(maybeRange);
+      if (!excerpt) {
+        return reason;
+      }
+      std::ostringstream message;
+      message << reason << " [RTL: " << *excerpt << "]";
+      return message.str();
+    }
+
     void reportUnsupportedElement(
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
@@ -1367,7 +1444,15 @@ class SNLSVConstructorImpl {
               return false;
           }
         case LoweringCoverageScope::GenerateBody:
-          return kind == SymbolKind::ContinuousAssign;
+          switch (kind) {
+            case SymbolKind::Net:
+            case SymbolKind::Variable:
+            case SymbolKind::ContinuousAssign:
+            case SymbolKind::Instance:
+              return true;
+            default:
+              return false;
+          }
       }
       return false; // LCOV_EXCL_LINE
     }
@@ -1530,6 +1615,10 @@ class SNLSVConstructorImpl {
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
+        if (auto found = loweredValueSymbolNets_.find(&symbol);
+            found != loweredValueSymbolNets_.end()) {
+          return found->second;
+        }
         for (auto it = activeFunctionArgumentNets_.rbegin();
              it != activeFunctionArgumentNets_.rend();
              ++it) {
@@ -4400,25 +4489,48 @@ class SNLSVConstructorImpl {
 
     void createNets(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
-      for (const auto& sym : body.members()) {
-        if (sym.kind == SymbolKind::Net || sym.kind == SymbolKind::Variable) {
+      std::function<void(const slang::ast::Scope&)> visitScope;
+      visitScope = [&](const slang::ast::Scope& scope) {
+        for (const auto& sym : scope.members()) {
+          if (sym.kind == SymbolKind::GenerateBlock) {
+            const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
+            if (!generateBlock.isUninstantiated) {
+              visitScope(generateBlock);
+            }
+            continue;
+          }
+          if (sym.kind == SymbolKind::GenerateBlockArray) {
+            const auto& generateBlockArray =
+              sym.as<slang::ast::GenerateBlockArraySymbol>();
+            for (const auto* entry : generateBlockArray.entries) {
+              if (entry && !entry->isUninstantiated) {
+                visitScope(*entry);
+              }
+            }
+            continue;
+          }
+          if (sym.kind != SymbolKind::Net && sym.kind != SymbolKind::Variable) {
+            continue;
+          }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netOrVariableSymbolsVisited;
 #endif
           const auto& valueSym = sym.as<ValueSymbol>();
-          std::string name(valueSym.name);
+          auto loweredName = getLoweredSymbolName(valueSym);
           // Port terms are materialized first; let connectTermsToNets own their net creation.
-          if (design->getTerm(NLName(name))) {
+          if (!isInsideGenerateScope(valueSym) && design->getTerm(NLName(loweredName))) {
             continue;
           }
-          if (design->getNet(NLName(name))) {
-            continue; // LCOV_EXCL_LINE
+          if (auto* existing = design->getNet(NLName(loweredName))) {
+            loweredValueSymbolNets_[&valueSym] = existing;
+            continue;
           }
           if (auto unsupportedTypeReason = getUnsupportedTypeReason(valueSym.getType())) {
             const auto& canonical = valueSym.getType().getCanonicalType();
             // Dynamically sized unpacked variables are currently not representable in SNL.
             std::ostringstream reason;
-            reason << *unsupportedTypeReason << " for net/variable: " << name;
+            reason << *unsupportedTypeReason << " for net/variable: "
+                   << std::string(valueSym.name);
             if (canonical.isUnpackedArray() && !canonical.hasFixedRange()) {
               reason << " (dynamic unpacked array/queue/associative array)";
             }
@@ -4426,13 +4538,15 @@ class SNLSVConstructorImpl {
             reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
             continue;
           }
-          auto net = getOrCreateNet(design, name, valueSym.getType());
+          auto net = getOrCreateNet(design, loweredName, valueSym.getType());
+          loweredValueSymbolNets_[&valueSym] = net;
           annotateSourceInfo(net, getSourceRange(valueSym));
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netsCreated;
 #endif
         }
-      }
+      };
+      visitScope(body);
     }
 
     SNLInstance* createGateInstance(SNLDesign* design, const NLDB0::GateType& type,
@@ -9320,6 +9434,49 @@ class SNLSVConstructorImpl {
     }
     // LCOV_EXCL_STOP
 
+    std::string sanitizeName(const std::string& text) const {
+      std::string sanitized;
+      sanitized.reserve(text.size());
+      bool previousWasSeparator = false;
+      for (unsigned char ch : text) {
+        if (std::isalnum(ch)) {
+          sanitized.push_back(static_cast<char>(ch));
+          previousWasSeparator = false;
+          continue;
+        }
+        if (!sanitized.empty() && !previousWasSeparator) {
+          sanitized.push_back('_');
+          previousWasSeparator = true;
+        }
+      }
+      if (!sanitized.empty() && sanitized.back() == '_') {
+        sanitized.pop_back();
+      }
+      return sanitized.empty() ? std::string("unnamed") : sanitized;
+    }
+
+    bool isInsideGenerateScope(const Symbol& symbol) const {
+      for (const auto* scope = symbol.getParentScope(); scope;
+           scope = scope->asSymbol().getParentScope()) {
+        const auto kind = scope->asSymbol().kind;
+        if (kind == SymbolKind::GenerateBlock || kind == SymbolKind::GenerateBlockArray) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    std::string getLoweredSymbolName(const Symbol& symbol) const {
+      if (!isInsideGenerateScope(symbol)) {
+        return std::string(symbol.name);
+      }
+      auto hierarchicalPath = symbol.getHierarchicalPath();
+      if (hierarchicalPath.empty()) {
+        return sanitizeName(std::string(symbol.name));
+      }
+      return sanitizeName(hierarchicalPath);
+    }
+
     bool isCompatibleNet(const SNLNet* net, const SNLNet* like) const {
       if (!net || !like) {
         return false;
@@ -14009,25 +14166,46 @@ class SNLSVConstructorImpl {
     }
 
     void createInstances(SNLDesign* design, const InstanceBodySymbol& body) {
-      for (const auto& sym : body.members()) {
-        if (sym.kind != SymbolKind::Instance) {
-          continue;
+      std::function<void(const slang::ast::Scope&)> visitScope;
+      visitScope = [&](const slang::ast::Scope& scope) {
+        for (const auto& sym : scope.members()) {
+          if (sym.kind == SymbolKind::GenerateBlock) {
+            const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
+            if (!generateBlock.isUninstantiated) {
+              visitScope(generateBlock);
+            }
+            continue;
+          }
+          if (sym.kind == SymbolKind::GenerateBlockArray) {
+            const auto& generateBlockArray =
+              sym.as<slang::ast::GenerateBlockArraySymbol>();
+            for (const auto* entry : generateBlockArray.entries) {
+              if (entry && !entry->isUninstantiated) {
+                visitScope(*entry);
+              }
+            }
+            continue;
+          }
+          if (sym.kind != SymbolKind::Instance) {
+            continue;
+          }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.instanceSymbolsVisited;
+#endif
+          const auto& instance = sym.as<InstanceSymbol>();
+          auto modelDesign = buildDesign(instance.body);
+          auto inst = SNLInstance::create(
+            design,
+            modelDesign,
+            NLName(getLoweredSymbolName(instance)));
+          annotateSourceInfo(inst, getSourceRange(instance));
+          connectInstance(inst, instance);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.instancesCreated;
+#endif
         }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        ++svPerfReport_.instanceSymbolsVisited;
-#endif
-        const auto& instance = sym.as<InstanceSymbol>();
-        auto modelDesign = buildDesign(instance.body);
-        auto inst = SNLInstance::create(
-          design,
-          modelDesign,
-          NLName(std::string(instance.name)));
-        annotateSourceInfo(inst, getSourceRange(instance));
-        connectInstance(inst, instance);
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        ++svPerfReport_.instancesCreated;
-#endif
-      }
+      };
+      visitScope(body);
     }
 
     void connectInstance(SNLInstance* inst, const InstanceSymbol& instance) {
@@ -14052,8 +14230,20 @@ class SNLSVConstructorImpl {
         if (!expr) {
           continue;
         }
+        auto exprSourceRange = getSourceRange(*expr);
         const Expression* connectionExpr = stripConnectionLValueArgConversions(*expr);
         auto net = resolveExpressionNet(inst->getDesign(), *connectionExpr);
+
+        auto reportInstanceConnectionFailure =
+          [&](const std::string& failureReason) {
+          std::ostringstream reason;
+          reason << "Unsupported instance connection for port '" << portName
+                 << "' on instance '" << inst->getName().getString()
+                 << "': " << failureReason;
+          reportUnsupportedElement(
+            formatReasonWithSourceExcerpt(reason.str(), exprSourceRange),
+            exprSourceRange);
+        };
 
         auto resolveSelectableConnectionBits =
           [&](size_t targetWidth, std::vector<SNLBitNet*>& bits) -> bool {
@@ -14083,26 +14273,45 @@ class SNLSVConstructorImpl {
         };
 
         auto connectBusBits =
-          [&](SNLBusTerm* busTerm, const std::vector<SNLBitNet*>& bits) {
+          [&](SNLBusTerm* busTerm,
+              const std::vector<SNLBitNet*>& bits,
+              std::string* failureReason = nullptr) -> bool {
+          if (!busTerm || bits.size() != static_cast<size_t>(busTerm->getWidth())) {
+            return false;
+          }
+          SNLInstance::Terms bitTerms;
+          bitTerms.reserve(bits.size());
           auto termMSB = busTerm->getMSB();
           auto termLSB = busTerm->getLSB();
           auto termStep = termLSB <= termMSB ? 1 : -1;
-          size_t bitIndex = 0;
           for (auto termBit = termLSB; termBit != termMSB + termStep; termBit += termStep) {
             auto* bitTerm = busTerm->getBit(termBit);
-            auto* instTerm = inst->getInstTerm(bitTerm);
-            if (instTerm) {
-              instTerm->setNet(bits[bitIndex]);
+            if (!bitTerm) {
+              return false; // LCOV_EXCL_LINE
             }
-            ++bitIndex;
+            bitTerms.push_back(bitTerm);
           }
+          try {
+            inst->setTermsNets(bitTerms, bits);
+          } catch (const NLException& e) {
+            if (failureReason) {
+              *failureReason = e.what();
+            }
+            return false;
+          }
+          return true;
         };
 
         if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
           if (net) {
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
-              instTerm->setNet(net);
+              try {
+                instTerm->setNet(net);
+              } catch (const NLException& e) {
+                reportInstanceConnectionFailure(e.what());
+                continue;
+              }
             }
             continue;
           }
@@ -14111,34 +14320,55 @@ class SNLSVConstructorImpl {
               resolveExactWidthConnectionBits(1, connectionBits)) {
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
-              instTerm->setNet(connectionBits.front());
+              try {
+                instTerm->setNet(connectionBits.front());
+              } catch (const NLException& e) {
+                reportInstanceConnectionFailure(e.what());
+                continue;
+              }
             }
             continue;
           }
           std::ostringstream reason;
           reason << "Unsupported instance connection expression for port '" << portName
                  << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
+          reportUnsupportedElement(reason.str(), exprSourceRange);
           continue;
         }
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         auto busNet = dynamic_cast<SNLBusNet*>(net);
         if (busTerm && !busNet) {
           std::vector<SNLBitNet*> connectionBits;
+          std::string failureReason;
           if (resolveSelectableConnectionBits(busTerm->getWidth(), connectionBits) ||
               resolveExactWidthConnectionBits(busTerm->getWidth(), connectionBits)) {
-            connectBusBits(busTerm, connectionBits);
-            continue;
+            if (connectBusBits(busTerm, connectionBits, &failureReason)) {
+              continue;
+            }
+            if (!failureReason.empty()) {
+              reportInstanceConnectionFailure(failureReason);
+              continue;
+            }
           }
         }
         if (!busTerm || !busNet) {
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
                  << portName << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
+          reportUnsupportedElement(reason.str(), exprSourceRange);
           continue;
         }
-        connectBusBits(busTerm, collectBits(busNet));
+        std::string failureReason;
+        if (!connectBusBits(busTerm, collectBits(busNet), &failureReason)) {
+          if (!failureReason.empty()) {
+            reportInstanceConnectionFailure(failureReason);
+            continue;
+          }
+          std::ostringstream reason;
+          reason << "Unsupported instance connection net/term compatibility for port '"
+                 << portName << "' on instance '" << inst->getName().getString() << "'";
+          reportUnsupportedElement(reason.str(), exprSourceRange);
+        }
       }
     }
 
@@ -14158,6 +14388,7 @@ class SNLSVConstructorImpl {
     mutable std::vector<bool> activeForLoopBreaks_ {};
     mutable std::vector<std::unordered_map<const Symbol*, SNLNet*>> activeFunctionArgumentNets_ {};
     mutable std::vector<const slang::ast::SubroutineSymbol*> activeInlinedCallSubroutines_ {};
+    std::unordered_map<const slang::ast::ValueSymbol*, SNLNet*> loweredValueSymbolNets_ {};
     std::unordered_map<
       DynamicElementSelectCacheKey,
       std::vector<SNLBitNet*>,

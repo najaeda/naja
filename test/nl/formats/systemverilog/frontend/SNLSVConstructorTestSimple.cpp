@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <sstream>
+#include <unordered_set>
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -390,16 +391,16 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoo
   EXPECT_NE(std::string::npos, dumpedText.find("assign"));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseGeneratedInstancesReportUnsupportedLoweringCoverage) {
+TEST_F(SNLSVConstructorTestSimple, parseGeneratedNetAndInstancesSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath /= "generated_instance_lowering_coverage";
+  outPath /= "generated_net_and_instances_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "generated_instance_lowering_coverage.sv";
+  const auto svPath = outPath / "generated_net_and_instances_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile << "module child(input logic a, output logic y);\n"
@@ -408,7 +409,54 @@ TEST_F(SNLSVConstructorTestSimple, parseGeneratedInstancesReportUnsupportedLower
          << "module top(input logic [1:0] a, output logic [1:0] y);\n"
          << "  genvar i;\n"
          << "  for (i = 0; i < 2; i = i + 1) begin: g\n"
-         << "    child u(.a(a[i]), .y(y[i]));\n"
+         << "    wire local_li = a[i];\n"
+         << "    child u(.a(local_li), .y(y[i]));\n"
+         << "  end\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+
+  size_t childCount = 0;
+  std::unordered_set<std::string> childNames;
+  std::unordered_set<std::string> localNetNames;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel()->getName().getString() == "child") {
+      ++childCount;
+      childNames.insert(inst->getName().getString());
+    }
+  }
+  for (auto net : top->getNets()) {
+    const auto name = net->getName().getString();
+    if (name.find("local_li") != std::string::npos) {
+      localNetNames.insert(name);
+    }
+  }
+  EXPECT_EQ(2, childCount);
+  EXPECT_EQ(2, childNames.size());
+  EXPECT_EQ(2, localNetNames.size());
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseGeneratedProceduralBlockReportsUnsupportedLoweringCoverage) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "generated_procedural_block_lowering_coverage";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "generated_procedural_block_lowering_coverage.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(input logic a, output logic y);\n"
+         << "  if (1) begin : g\n"
+         << "    always_comb y = a;\n"
          << "  end\n"
          << "endmodule\n";
   svFile.close();
@@ -416,7 +464,7 @@ TEST_F(SNLSVConstructorTestSimple, parseGeneratedInstancesReportUnsupportedLower
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"Unsupported elaborated member in generate block of module 'top': Instance"});
+    {"Unsupported elaborated member in generate block of module 'top': ProceduralBlock"});
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -5210,6 +5258,68 @@ TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCases) {
     constructor,
     benchmarksPath / "instance_connection_edge_cases" / "instance_connection_edge_cases.sv",
     {"Unsupported instance connection"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionDirectBusWidthMismatchUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "instance_connection_direct_bus_width_mismatch_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_direct_bus_width_mismatch_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module child(input logic [3:0] a, output logic y);\n"
+         << "  assign y = a[0];\n"
+         << "endmodule\n"
+         << "module top(input logic [1:0] a, output logic y);\n"
+         << "  child u(.a(a), .y(y));\n"
+         << "endmodule\n";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported instance connection net/term compatibility"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarBusWidthMismatchReportsRTL) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "instance_connection_scalar_bus_width_mismatch_reports_rtl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_scalar_bus_width_mismatch_reports_rtl.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module child(input logic a, output logic y);\n"
+         << "  assign y = a;\n"
+         << "endmodule\n"
+         << "module top(input logic [1:0] a, output logic y);\n"
+         << "  child u(.a(a), .y(y));\n"
+         << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported SystemVerilog element exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"))
+      << reason;
+    EXPECT_NE(std::string::npos, reason.find(svPath.filename().string())) << reason;
+    EXPECT_NE(std::string::npos, reason.find("Unsupported instance connection for port 'a'"))
+      << reason;
+    EXPECT_NE(std::string::npos, reason.find("cannot set u/a to a[1:0], bus width is 2"))
+      << reason;
+    EXPECT_NE(std::string::npos, reason.find("[RTL: a]")) << reason;
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionMemberAccessSupported) {
