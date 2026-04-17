@@ -1770,6 +1770,29 @@ class SNLSVConstructorImpl {
       return false; // LCOV_EXCL_LINE
     }
 
+    const Expression* getSelectionBaseExpression(const Expression& expr) const {
+      const Expression* current = stripConversions(expr);
+      while (current) {
+        switch (current->kind) {
+          case slang::ast::ExpressionKind::ElementSelect:
+            current =
+              stripConversions(current->as<slang::ast::ElementSelectExpression>().value());
+            continue;
+          case slang::ast::ExpressionKind::RangeSelect:
+            current =
+              stripConversions(current->as<slang::ast::RangeSelectExpression>().value());
+            continue;
+          case slang::ast::ExpressionKind::MemberAccess:
+            current =
+              stripConversions(current->as<slang::ast::MemberAccessExpression>().value());
+            continue;
+          default:
+            return current;
+        }
+      }
+      return nullptr; // LCOV_EXCL_LINE
+    }
+
     bool isValueSymbolReference(
       const Expression& expr,
       const slang::ast::ValueSymbol& symbol) const {
@@ -2314,6 +2337,22 @@ class SNLSVConstructorImpl {
           }
         }
         return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        return unrollForLoopStatement(
+          forStmt,
+          [&]() {
+            return analyzeDirectSequentialMemoryWriteStatement(
+              forStmt.body,
+              stateSymbol,
+              signature,
+              guards,
+              actions,
+              failureReason);
+          },
+          failureReason);
       }
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
@@ -3125,17 +3164,6 @@ class SNLSVConstructorImpl {
         return false;
       }
 
-      const auto* clockExpr = getClockExpression(*timing);
-      if (!clockExpr) {
-        return false;
-      }
-
-      auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
-      const Expression* asyncResetEventExpr = asyncEvent.multiple ? nullptr : asyncEvent.expr;
-      std::optional<slang::ast::EdgeKind> asyncResetEventEdge =
-        asyncEvent.multiple ? std::optional<slang::ast::EdgeKind>{} : asyncEvent.edge;
-
-      memory.clockExpr = clockExpr;
       memory.signature.resetMode = NLDB0::MemoryResetMode::None;
       memory.initBits.assign(memory.signature.width * memory.signature.depth, false);
       memory.commitSymbol = nullptr;
@@ -3158,10 +3186,26 @@ class SNLSVConstructorImpl {
               memory)) {
           return false;
         }
+        const auto* clockExpr = getClockExpression(*timing);
+        if (!clockExpr) {
+          return false;
+        }
+        memory.clockExpr = clockExpr;
         memory.seqBlock = &block; // LCOV_EXCL_LINE
         return true; // LCOV_EXCL_LINE
       }
 
+      const auto* clockExpr = getClockExpression(*timing);
+      if (!clockExpr) {
+        return false;
+      }
+
+      auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
+      const Expression* asyncResetEventExpr = asyncEvent.multiple ? nullptr : asyncEvent.expr;
+      std::optional<slang::ast::EdgeKind> asyncResetEventEdge =
+        asyncEvent.multiple ? std::optional<slang::ast::EdgeKind>{} : asyncEvent.edge;
+
+      memory.clockExpr = clockExpr;
       if (tryMatchSharedSequentialMemoryBlock(
             block,
             *stmt,
@@ -3246,16 +3290,6 @@ class SNLSVConstructorImpl {
         return false;
       }
 
-      const auto* clockExpr = getClockExpression(*timing);
-      if (!clockExpr) {
-        return false;
-      }
-
-      auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
-      if (asyncEvent.multiple || asyncEvent.expr) {
-        return false;
-      }
-
       const slang::ast::ValueSymbol* stateSymbol = nullptr;
       NLDB0::MemorySignature signature;
       std::vector<InferredMemoryGuard> guards;
@@ -3270,6 +3304,16 @@ class SNLSVConstructorImpl {
             failureReason) ||
           !stateSymbol ||
           directWriteActions.empty()) {
+        return false;
+      }
+
+      const auto* clockExpr = getClockExpression(*timing);
+      if (!clockExpr) {
+        return false;
+      }
+
+      auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
+      if (asyncEvent.multiple || asyncEvent.expr) {
         return false;
       }
 
@@ -5098,8 +5142,12 @@ class SNLSVConstructorImpl {
 
       const slang::ConstantValue* constant = stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
-      if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
-        slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
+      const Symbol* evalSymbol = stripped->getSymbolReference();
+      if (!evalSymbol && slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        evalSymbol = &stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      }
+      if ((!constant || !constant->isInteger()) && evalSymbol) {
+        slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
       }
@@ -5230,6 +5278,17 @@ class SNLSVConstructorImpl {
       std::vector<SNLBitNet*>& bits,
       size_t width,
       SNLBitNet* fillBit) const {
+      if (bits.size() > width) {
+        bits.resize(width);
+      } else if (bits.size() < width) {
+        bits.resize(width, fillBit);
+      }
+    }
+
+    void resizeLogicBitsToWidth(
+      std::vector<slang::logic_t>& bits,
+      size_t width,
+      slang::logic_t fillBit) const {
       if (bits.size() > width) {
         bits.resize(width);
       } else if (bits.size() < width) {
@@ -5404,8 +5463,12 @@ class SNLSVConstructorImpl {
       }
       const slang::ConstantValue* constant = stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
-      if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
-        slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
+      const Symbol* evalSymbol = stripped->getSymbolReference();
+      if (!evalSymbol && slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        evalSymbol = &stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      }
+      if ((!constant || !constant->isInteger()) && evalSymbol) {
+        slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
       }
@@ -5518,6 +5581,110 @@ class SNLSVConstructorImpl {
         return false; // LCOV_EXCL_LINE
       }
 
+      auto baseRange = slang::ConstantRange(0, 0);
+      bool hasBaseRange = false;
+      if (auto* baseBus = dynamic_cast<SNLBusNet*>(baseNet)) {
+        baseRange = slang::ConstantRange(
+          static_cast<int32_t>(baseBus->getMSB()),
+          static_cast<int32_t>(baseBus->getLSB()));
+        hasBaseRange = true;
+      } else {
+        const auto& baseType = baseExpr->type->getCanonicalType();
+        if (baseType.hasFixedRange()) {
+          baseRange = baseType.getFixedRange();
+          hasBaseRange = true;
+        }
+      }
+      if (!hasBaseRange && !baseBits.empty()) {
+        const auto upper = static_cast<int32_t>(baseBits.size() - 1);
+        baseRange = slang::ConstantRange(upper, 0);
+        hasBaseRange = true;
+      }
+
+      const auto tryResolveConstantSelectedRange = [&]() {
+        bits.clear();
+        if (current->kind == slang::ast::ExpressionKind::ElementSelect) {
+          const auto& elementExpr = current->as<slang::ast::ElementSelectExpression>();
+          int32_t selectedIndex = 0;
+          if (!getConstantInt32(elementExpr.selector(), selectedIndex)) {
+            return false;
+          }
+          const auto translated = baseRange.translateIndex(selectedIndex);
+          if (translated < 0 ||
+              translated >= static_cast<int32_t>(baseBits.size())) {
+            return false;
+          }
+          bits.push_back(baseBits[static_cast<size_t>(translated)]);
+          return true;
+        }
+
+        if (current->kind == slang::ast::ExpressionKind::RangeSelect) {
+          const auto& rangeExpr = current->as<slang::ast::RangeSelectExpression>();
+          switch (rangeExpr.getSelectionKind()) {
+            case slang::ast::RangeSelectionKind::Simple: {
+              int32_t left = 0;
+              int32_t right = 0;
+              if (!getConstantInt32(rangeExpr.left(), left) ||
+                  !getConstantInt32(rangeExpr.right(), right)) {
+                return false;
+              }
+              int32_t index = right;
+              const int32_t end = left;
+              const int32_t step = index <= end ? 1 : -1;
+              while (index != end + step) {
+                const auto translated = baseRange.translateIndex(index);
+                if (translated < 0 ||
+                    translated >= static_cast<int32_t>(baseBits.size())) {
+                  bits.clear();
+                  return false;
+                }
+                bits.push_back(baseBits[static_cast<size_t>(translated)]);
+                index += step;
+              }
+              return !bits.empty();
+            }
+            case slang::ast::RangeSelectionKind::IndexedUp:
+            case slang::ast::RangeSelectionKind::IndexedDown: {
+              int32_t startIndex = 0;
+              int32_t sliceWidth = 0;
+              if (!getConstantInt32(rangeExpr.left(), startIndex) ||
+                  !getConstantInt32(rangeExpr.right(), sliceWidth) ||
+                  sliceWidth <= 0) {
+                return false;
+              }
+              int64_t lsbIndex = static_cast<int64_t>(startIndex);
+              if (rangeExpr.getSelectionKind() ==
+                  slang::ast::RangeSelectionKind::IndexedDown) {
+                lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
+              }
+              for (int32_t elem = 0; elem < sliceWidth; ++elem) {
+                const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+                if (elemIndex < std::numeric_limits<int32_t>::min() ||
+                    elemIndex > std::numeric_limits<int32_t>::max()) {
+                  bits.clear();
+                  return false;
+                }
+                const auto translated =
+                  baseRange.translateIndex(static_cast<int32_t>(elemIndex));
+                if (translated < 0 ||
+                    translated >= static_cast<int32_t>(baseBits.size())) {
+                  bits.clear();
+                  return false;
+                }
+                bits.push_back(baseBits[static_cast<size_t>(translated)]);
+              }
+              return !bits.empty();
+            }
+          }
+        }
+
+        return false;
+      };
+
+      if (tryResolveConstantSelectedRange()) {
+        return true;
+      }
+
       const Symbol* evalSymbol = nullptr;
       if (slang::ast::ValueExpressionBase::isKind(baseExpr->kind)) {
         evalSymbol = &baseExpr->as<slang::ast::ValueExpressionBase>().symbol;
@@ -5539,13 +5706,6 @@ class SNLSVConstructorImpl {
       auto selectedRange = expr.evalSelector(evalContext, true);
       if (!selectedRange) {
         return false;
-      }
-
-      auto baseRange = slang::ConstantRange(0, 0);
-      if (auto baseBus = dynamic_cast<SNLBusNet*>(baseNet)) {
-        baseRange = slang::ConstantRange(
-          static_cast<int32_t>(baseBus->getMSB()),
-          static_cast<int32_t>(baseBus->getLSB()));
       }
 
       bits.clear();
@@ -5668,6 +5828,82 @@ class SNLSVConstructorImpl {
         return matchBit != nullptr;
       }
 
+      auto valueWidth = getIntegralExpressionBitWidth(valueExpr);
+      auto itemWidth = getIntegralExpressionBitWidth(*strippedItemExpr);
+      if (valueWidth && itemWidth) {
+        const auto compareWidth = std::max(*valueWidth, *itemWidth);
+        const bool bothSigned =
+          valueExpr.type->getCanonicalType().isSigned() &&
+          strippedItemExpr->type->getCanonicalType().isSigned();
+
+        std::vector<slang::logic_t> itemPatternBits;
+        if (resolveWildcardCaseItemPattern(
+              *strippedItemExpr,
+              compareWidth,
+              bothSigned,
+              itemPatternBits) &&
+            itemPatternBits.size() == compareWidth) {
+          std::vector<SNLBitNet*> valueBits;
+          if (!resolveExpressionBits(design, valueExpr, compareWidth, valueBits) ||
+              valueBits.size() != compareWidth) {
+            return false;
+          }
+
+          std::vector<SNLNet*> bitMatches;
+          bitMatches.reserve(compareWidth);
+          for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
+            const auto itemBit = itemPatternBits[bitIndex];
+            if (itemBit.isUnknown()) {
+              continue;
+            }
+
+            auto* currentMatchBit = valueBits[bitIndex];
+            if (!static_cast<bool>(itemBit)) {
+              if (currentMatchBit == const0) {
+                currentMatchBit = const1;
+              } else if (currentMatchBit == const1) {
+                currentMatchBit = const0;
+              } else {
+                auto* invertedBit = SNLScalarNet::create(design);
+                annotateSourceInfo(invertedBit, sourceRange);
+                if (!createUnaryGate(
+                      design,
+                      NLDB0::GateType(NLDB0::GateType::Not),
+                      currentMatchBit,
+                      invertedBit,
+                      sourceRange)) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                currentMatchBit = invertedBit;
+              }
+            }
+            bitMatches.push_back(currentMatchBit);
+          }
+
+          if (bitMatches.empty()) {
+            matchBit = const1;
+            return true;
+          }
+          if (bitMatches.size() == 1) {
+            matchBit = getSingleBitNet(bitMatches.front());
+            return matchBit != nullptr;
+          }
+
+          SNLNet* andNet = SNLScalarNet::create(design);
+          annotateSourceInfo(andNet, sourceRange);
+          if (!createGateInstance(
+                design,
+                NLDB0::GateType(NLDB0::GateType::And),
+                bitMatches,
+                andNet,
+                sourceRange)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          matchBit = getSingleBitNet(andNet);
+          return matchBit != nullptr;
+        }
+      }
+
       auto* eqNet = SNLScalarNet::create(design);
       annotateSourceInfo(eqNet, sourceRange);
       if (!createEqualityAssign(
@@ -5714,6 +5950,9 @@ class SNLSVConstructorImpl {
       }
 
       const auto& caseStmt = bodyStmt->as<slang::ast::CaseStatement>();
+      if (caseStmt.condition != slang::ast::CaseStatementCondition::Inside) {
+        return false;
+      }
       const auto* caseExpr = stripConversions(caseStmt.expr);
       if (!caseExpr || !slang::ast::ValueExpressionBase::isKind(caseExpr->kind) ||
           &caseExpr->as<slang::ast::ValueExpressionBase>().symbol != formalArgs.front()) {
@@ -10385,7 +10624,23 @@ class SNLSVConstructorImpl {
     }
 
     bool isActiveForLoopVariableExpr(const Expression& expr) const {
-      return getActiveForLoopConstant(expr).has_value();
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+      if (getActiveForLoopConstant(*stripped).has_value()) {
+        return true;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        return isActiveForLoopVariableExpr(
+          stripped->as<slang::ast::UnaryExpression>().operand());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        return isActiveForLoopVariableExpr(binaryExpr.left()) ||
+               isActiveForLoopVariableExpr(binaryExpr.right());
+      }
+      return false;
     }
 
     bool extractForLoopInitializerValue(
@@ -10738,22 +10993,43 @@ class SNLSVConstructorImpl {
         return nullptr; // LCOV_EXCL_LINE
       }
       const auto* stripped = stripConversions(*lhsExpr);
-      if (!stripped || stripped->kind != slang::ast::ExpressionKind::ElementSelect) {
+      if (!stripped) {
         return lhsExpr;
       }
 
-      const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
-      const auto* baseExpr = stripConversions(elementExpr.value());
-      if (isActiveForLoopVariableExpr(elementExpr.selector())) {
-        if (baseExpr &&
-            (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-             baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
-          return baseExpr;
+      const Expression* baseExpr = nullptr;
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+        baseExpr = stripConversions(elementExpr.value());
+        if (isActiveForLoopVariableExpr(elementExpr.selector())) {
+          if (baseExpr &&
+              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
+               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
+            return baseExpr;
+          }
         }
-      }
-
-      int32_t selectedIndex = 0;
-      if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
+        int32_t selectedIndex = 0;
+        if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
+          return lhsExpr;
+        }
+      } else if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
+        baseExpr = stripConversions(rangeExpr.value());
+        if (isActiveForLoopVariableExpr(rangeExpr.left()) ||
+            isActiveForLoopVariableExpr(rangeExpr.right())) {
+          if (baseExpr &&
+              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
+               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
+            return baseExpr;
+          }
+        }
+        int32_t left = 0;
+        int32_t right = 0;
+        if (getConstantInt32(rangeExpr.left(), left) &&
+            getConstantInt32(rangeExpr.right(), right)) {
+          return lhsExpr;
+        }
+      } else {
         return lhsExpr;
       }
 
@@ -11039,6 +11315,100 @@ class SNLSVConstructorImpl {
       std::ostringstream reason;
       reason << "expected direct assignment statement in reset branch (kind="
              << current->kind << ")";
+      setFailureReason(reason.str());
+      return false;
+    }
+
+    bool getSingleLHSFallbackPathAssignmentMax(
+      const Statement& stmt,
+      const Expression& trackedLhs,
+      size_t& maxAssignments,
+      std::string* failureReason = nullptr) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        maxAssignments = 0;
+        return true; // LCOV_EXCL_LINE
+      }
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        maxAssignments = 0;
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Block) {
+        return getSingleLHSFallbackPathAssignmentMax(
+          current->as<slang::ast::BlockStatement>().body,
+          trackedLhs,
+          maxAssignments,
+          failureReason);
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        size_t totalAssignments = 0;
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          size_t itemAssignments = 0;
+          if (!getSingleLHSFallbackPathAssignmentMax(
+                *item,
+                trackedLhs,
+                itemAssignments,
+                failureReason)) {
+            return false;
+          }
+          totalAssignments += itemAssignments;
+          if (totalAssignments > 1) {
+            setFailureReason(
+              "single-LHS fallback path contains multiple direct assignments");
+            return false;
+          }
+        }
+        maxAssignments = totalAssignments;
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+        size_t trueAssignments = 0;
+        if (!getSingleLHSFallbackPathAssignmentMax(
+              condStmt.ifTrue,
+              trackedLhs,
+              trueAssignments,
+              failureReason)) {
+          return false;
+        }
+        size_t falseAssignments = 0;
+        if (condStmt.ifFalse &&
+            !getSingleLHSFallbackPathAssignmentMax(
+              *condStmt.ifFalse,
+              trackedLhs,
+              falseAssignments,
+              failureReason)) {
+          return false;
+        }
+        maxAssignments = std::max(trueAssignments, falseAssignments);
+        return true;
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, lhs, action)) {
+        maxAssignments = sameLhs(lhs, &trackedLhs) ? 1 : 0;
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "single-LHS fallback encountered unsupported statement kind "
+             << "(kind=" << current->kind << ")";
       setFailureReason(reason.str());
       return false;
     }
@@ -11587,6 +11957,126 @@ class SNLSVConstructorImpl {
       return false;
     }
 
+    bool resolveFixedUnpackedArraySelectionBits(
+      SNLDesign* design,
+      const Expression& expr,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+
+      const auto* stripped = stripConversions(expr);
+      if (!stripped ||
+          (stripped->kind != slang::ast::ExpressionKind::ElementSelect &&
+           stripped->kind != slang::ast::ExpressionKind::RangeSelect)) {
+        return false;
+      }
+
+      const Expression* baseExpr = getSelectionBaseExpression(*stripped);
+      if (!baseExpr) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto& baseType = baseExpr->type->getCanonicalType();
+      if (!baseType.isUnpackedArray() || !baseType.hasFixedRange()) {
+        return false;
+      }
+
+      auto* baseNet = resolveExpressionNet(design, *baseExpr);
+      if (!baseNet) {
+        return false;
+      }
+      auto baseBits = collectBits(baseNet);
+      if (baseBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
+      if (!arrayWidth || baseBits.size() % arrayWidth != 0) {
+        return false;
+      }
+      const auto elementWidth = baseBits.size() / arrayWidth;
+      if (!elementWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const auto appendElementBits = [&](int32_t selectedIndex) {
+        const auto translated = baseType.getFixedRange().translateIndex(selectedIndex);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(arrayWidth)) {
+          return false;
+        }
+        const auto offset = static_cast<size_t>(translated) * elementWidth;
+        if (offset + elementWidth > baseBits.size()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        bits.insert(
+          bits.end(),
+          baseBits.begin() + static_cast<std::ptrdiff_t>(offset),
+          baseBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+        return true;
+      };
+
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+        int32_t selectedIndex = 0;
+        if (!getConstantInt32(elementExpr.selector(), selectedIndex)) {
+          return false;
+        }
+        return appendElementBits(selectedIndex);
+      }
+
+      const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
+      switch (rangeExpr.getSelectionKind()) {
+        case slang::ast::RangeSelectionKind::Simple: {
+          int32_t left = 0;
+          int32_t right = 0;
+          if (!getConstantInt32(rangeExpr.left(), left) ||
+              !getConstantInt32(rangeExpr.right(), right)) {
+            return false;
+          }
+          int32_t index = right;
+          const int32_t end = left;
+          const int32_t step = index <= end ? 1 : -1;
+          while (index != end + step) {
+            if (!appendElementBits(index)) {
+              bits.clear();
+              return false;
+            }
+            index += step;
+          }
+          return !bits.empty();
+        }
+        case slang::ast::RangeSelectionKind::IndexedUp:
+        case slang::ast::RangeSelectionKind::IndexedDown: {
+          int32_t startIndex = 0;
+          int32_t sliceWidth = 0;
+          if (!getConstantInt32(rangeExpr.left(), startIndex) ||
+              !getConstantInt32(rangeExpr.right(), sliceWidth) ||
+              sliceWidth <= 0) {
+            return false;
+          }
+          int64_t lsbIndex = static_cast<int64_t>(startIndex);
+          if (rangeExpr.getSelectionKind() ==
+              slang::ast::RangeSelectionKind::IndexedDown) {
+            lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
+          }
+          for (int32_t elem = 0; elem < sliceWidth; ++elem) {
+            const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+            if (elemIndex < std::numeric_limits<int32_t>::min() ||
+                elemIndex > std::numeric_limits<int32_t>::max()) {
+              bits.clear();
+              return false;
+            }
+            if (!appendElementBits(static_cast<int32_t>(elemIndex))) {
+              bits.clear();
+              return false;
+            }
+          }
+          return !bits.empty();
+        }
+      }
+
+      return false; // LCOV_EXCL_LINE
+    }
+
     bool resolveAssignmentLHSBits(
       SNLDesign* design,
       const Expression& lhsExpr,
@@ -11621,6 +12111,11 @@ class SNLSVConstructorImpl {
       }
 
       auto lhsWidth = getIntegralExpressionBitWidth(lhsExpr);
+      if ((!lhsWidth || !*lhsWidth) &&
+          resolveFixedUnpackedArraySelectionBits(design, lhsExpr, lhsBits) &&
+          !lhsBits.empty()) {
+        return true;
+      }
       if (!lhsWidth || !*lhsWidth) {
         std::ostringstream reason;
         reason << "unable to resolve always_comb assignment LHS width for "
@@ -11641,6 +12136,19 @@ class SNLSVConstructorImpl {
         return false;
       }
       return true;
+    }
+
+    SNLNet* resolveAssignmentBaseNet(
+      SNLDesign* design,
+      const Expression& lhsExpr) {
+      if (auto* lhsNet = resolveExpressionNet(design, lhsExpr)) {
+        return lhsNet;
+      }
+      const auto* baseExpr = getSelectionBaseExpression(lhsExpr);
+      if (!baseExpr || sameLhs(baseExpr, &lhsExpr)) {
+        return nullptr;
+      }
+      return resolveExpressionNet(design, *baseExpr);
     }
 
     SNLBitNet* resolveCombinationalConditionNet(
@@ -11841,29 +12349,16 @@ class SNLSVConstructorImpl {
             return nullptr;                                                     // LCOV_EXCL_LINE
           }
 
-          std::optional<slang::SVInt> itemValue;
-          if (strippedItemExpr->kind == slang::ast::ExpressionKind::IntegerLiteral) {
-            itemValue = strippedItemExpr->as<slang::ast::IntegerLiteral>().getValue();
-          }
-
-          const slang::ConstantValue* constant = strippedItemExpr->getConstant();
-          slang::ConstantValue evaluatedConstant;
-          const Symbol* evalSymbol = getConstantEvalSymbol(*strippedItemExpr);
-          if (!itemValue && (!constant || !constant->isInteger()) && evalSymbol) {
-            slang::ast::EvalContext evalContext(*evalSymbol);
-            evaluatedConstant = strippedItemExpr->eval(evalContext);
-            if (evaluatedConstant && evaluatedConstant.isInteger()) {
-              constant = &evaluatedConstant;
-            }
-          }
-          slang::ConstantValue convertedConstant;
-          if (!itemValue && constant && !constant->isInteger()) {
-            convertedConstant = constant->convertToInt();
-            if (convertedConstant && convertedConstant.isInteger()) {
-              constant = &convertedConstant;
-            }
-          }
-          if (!itemValue && (!constant || !constant->isInteger())) {
+          const bool bothSigned =
+            caseExpr.type->getCanonicalType().isSigned() &&
+            itemExpr->type->getCanonicalType().isSigned();
+          std::vector<slang::logic_t> itemPatternBits;
+          if (!resolveWildcardCaseItemPattern(
+                *itemExpr,
+                compareWidth,
+                bothSigned,
+                itemPatternBits) ||
+              itemPatternBits.size() != compareWidth) {
             std::ostringstream reason;
             reason << "unable to resolve always_comb wildcard case item constant for "
                    << describeExpression(*itemExpr);
@@ -11871,19 +12366,10 @@ class SNLSVConstructorImpl {
             return nullptr;
           }
 
-          auto itemPattern = itemValue ? *itemValue : constant->integer();
-          const bool bothSigned =
-            caseExpr.type->getCanonicalType().isSigned() &&
-            itemExpr->type->getCanonicalType().isSigned();
-          if (itemPattern.getBitWidth() != compareWidth) {
-            itemPattern =
-              itemPattern.extend(static_cast<slang::bitwidth_t>(compareWidth), bothSigned);
-          }
-
           std::vector<SNLNet*> bitMatches;
           bitMatches.reserve(compareWidth);
           for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
-            const auto itemBit = itemPattern[static_cast<int32_t>(bitIndex)];
+            const auto itemBit = itemPatternBits[bitIndex];
             const bool wildcard =
               caseStmt.condition == slang::ast::CaseStatementCondition::WildcardXOrZ
               ? itemBit.isUnknown()
@@ -11965,7 +12451,183 @@ class SNLSVConstructorImpl {
       return itemMatchBit;
     }
 
-    bool resolveAlwaysCombUnknownLiteralBitsAsZero(
+    bool resolveWildcardCaseItemPattern(
+      const Expression& expr,
+      size_t targetWidth,
+      bool signExtend,
+      std::vector<slang::logic_t>& bits) const {
+      bits.clear();
+      if (!targetWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto appendIntegerBits = [&](const slang::SVInt& value) {
+        const auto integerWidth = static_cast<size_t>(value.getBitWidth());
+        bits.reserve(std::min(targetWidth, integerWidth));
+        for (size_t i = 0; i < std::min(targetWidth, integerWidth); ++i) {
+          bits.push_back(value[static_cast<int32_t>(i)]);
+        }
+        const auto fillBit =
+          signExtend && integerWidth
+            ? value[static_cast<int32_t>(integerWidth - 1)]
+            : slang::logic_t(0);
+        resizeLogicBitsToWidth(bits, targetWidth, fillBit);
+        return true;
+      };
+
+      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        const auto value =
+          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
+        bits.assign(targetWidth, value);
+        return true;
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::IntegerLiteral) {
+        return appendIntegerBits(
+          stripped->as<slang::ast::IntegerLiteral>().getValue());
+      }
+
+      const slang::ConstantValue* constant = stripped->getConstant();
+      slang::ConstantValue evaluatedConstant;
+      const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
+      if ((!constant || !constant->isInteger()) && evalSymbol) {
+        slang::ast::EvalContext evalContext(*evalSymbol);
+        evaluatedConstant = stripped->eval(evalContext);
+        if (evaluatedConstant && evaluatedConstant.isInteger()) {
+          constant = &evaluatedConstant;
+        }
+      }
+      slang::ConstantValue convertedConstant;
+      if (constant && !constant->isInteger()) {
+        convertedConstant = constant->convertToInt();
+        if (convertedConstant && convertedConstant.isInteger()) {
+          constant = &convertedConstant;
+        }
+      }
+      if (constant && constant->isInteger()) {
+        return appendIntegerBits(constant->integer());
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::Replication) {
+        const auto& replicationExpr = stripped->as<slang::ast::ReplicationExpression>();
+        int32_t repeatCountSigned = 0;
+        if (!getConstantInt32(replicationExpr.count(), repeatCountSigned) || repeatCountSigned < 0) {
+          return false;
+        }
+        const auto repeatCount = static_cast<size_t>(repeatCountSigned);
+
+        size_t concatWidth = 0;
+        if (auto concatExprWidth = getIntegralExpressionBitWidth(replicationExpr.concat())) {
+          concatWidth = *concatExprWidth;
+        } else {
+          const auto& concatCanonical = replicationExpr.concat().type->getCanonicalType();
+          if (!concatCanonical.isIntegral()) {
+            return false;
+          }
+          const auto bitWidth = concatCanonical.getBitWidth();
+          if (bitWidth < 0) {
+            return false;
+          }
+          concatWidth = static_cast<size_t>(bitWidth);
+        }
+
+        if (concatWidth && repeatCount > (std::numeric_limits<size_t>::max() / concatWidth)) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        std::vector<slang::logic_t> concatBits;
+        if (!resolveWildcardCaseItemPattern(
+              replicationExpr.concat(),
+              concatWidth,
+              false,
+              concatBits) ||
+            concatBits.size() != concatWidth) {
+          return false;
+        }
+
+        bits.reserve(concatWidth * repeatCount);
+        for (size_t i = 0; i < repeatCount; ++i) {
+          bits.insert(bits.end(), concatBits.begin(), concatBits.end());
+        }
+        const auto fillBit =
+          signExtend && !bits.empty() ? bits.back() : slang::logic_t(0);
+        resizeLogicBitsToWidth(bits, targetWidth, fillBit);
+        return true;
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto& concatExpr = stripped->as<slang::ast::ConcatenationExpression>();
+        auto operands = concatExpr.operands();
+        if (operands.empty()) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        bits.clear();
+        for (auto it = operands.rbegin(); it != operands.rend(); ++it) {
+          auto* operand = *it;
+          if (!operand) {
+            return false; // LCOV_EXCL_LINE
+          }
+
+          size_t operandWidthBits = 0;
+          if (auto operandWidth = getIntegralExpressionBitWidth(*operand)) {
+            operandWidthBits = *operandWidth;
+          } else {
+            const auto* strippedOperand = stripConversions(*operand);
+            if (strippedOperand &&
+                strippedOperand->kind == slang::ast::ExpressionKind::Replication) {
+              const auto& replicationOperand =
+                strippedOperand->as<slang::ast::ReplicationExpression>();
+              int32_t repeatCountSigned = 0;
+              if (getConstantInt32(replicationOperand.count(), repeatCountSigned) &&
+                  repeatCountSigned == 0) {
+                continue;
+              }
+            }
+            const auto& operandCanonical = operand->type->getCanonicalType();
+            if (!operandCanonical.isIntegral()) {
+              return false; // LCOV_EXCL_LINE
+            }
+            const auto bitWidth = operandCanonical.getBitWidth();
+            if (bitWidth < 0) {
+              return false; // LCOV_EXCL_LINE
+            }
+            if (bitWidth == 0) {
+              continue; // LCOV_EXCL_LINE
+            }
+            operandWidthBits = static_cast<size_t>(bitWidth);
+          }
+          if (!operandWidthBits) {
+            continue; // LCOV_EXCL_LINE
+          }
+
+          std::vector<slang::logic_t> operandBits;
+          if (!resolveWildcardCaseItemPattern(
+                *operand,
+                operandWidthBits,
+                false,
+                operandBits) ||
+              operandBits.size() != operandWidthBits) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+
+        const auto fillBit =
+          signExtend && !bits.empty() ? bits.back() : slang::logic_t(0);
+        resizeLogicBitsToWidth(bits, targetWidth, fillBit);
+        return true;
+      }
+
+      return false;
+    }
+
+    bool resolveUnknownLiteralBitsAsZero(
       SNLDesign* design,
       const Expression& expr,
       size_t targetWidth,
@@ -11987,6 +12649,100 @@ class SNLSVConstructorImpl {
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+      if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
+        const auto& conditionalExpr = stripped->as<slang::ast::ConditionalExpression>();
+        if (const auto* knownSide = conditionalExpr.knownSide()) {
+          return resolveUnknownLiteralBitsAsZero(
+            design,
+            *knownSide,
+            targetWidth,
+            bits,
+            usedUnknownFallback);
+        }
+        if (conditionalExpr.conditions.size() != 1 || conditionalExpr.conditions.front().pattern) {
+          return false;
+        }
+        auto* selectBit = resolveCombinationalConditionNet(
+          design,
+          *conditionalExpr.conditions.front().expr);
+        if (!selectBit) {
+          return false;
+        }
+        if (selectBit == const1) {
+          return resolveUnknownLiteralBitsAsZero(
+            design,
+            conditionalExpr.left(),
+            targetWidth,
+            bits,
+            usedUnknownFallback);
+        }
+        if (selectBit == const0) {
+          return resolveUnknownLiteralBitsAsZero(
+            design,
+            conditionalExpr.right(),
+            targetWidth,
+            bits,
+            usedUnknownFallback);
+        }
+
+        std::vector<SNLBitNet*> leftBits;
+        std::vector<SNLBitNet*> rightBits;
+        bool leftUsedUnknownFallback = false;
+        bool rightUsedUnknownFallback = false;
+        if (!resolveUnknownLiteralBitsAsZero(
+              design,
+              conditionalExpr.left(),
+              targetWidth,
+              leftBits,
+              leftUsedUnknownFallback) ||
+            !resolveUnknownLiteralBitsAsZero(
+              design,
+              conditionalExpr.right(),
+              targetWidth,
+              rightBits,
+              rightUsedUnknownFallback) ||
+            leftBits.size() != targetWidth ||
+            rightBits.size() != targetWidth ||
+            (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
+          return false;
+        }
+
+        usedUnknownFallback = leftUsedUnknownFallback || rightUsedUnknownFallback;
+        if (leftBits == rightBits) {
+          bits = std::move(leftBits);
+          return true;
+        }
+
+        auto conditionalSourceRange = getSourceRange(*stripped);
+        if (targetWidth > 1) {
+          return createMux2Instance(
+            design,
+            selectBit,
+            rightBits,
+            leftBits,
+            bits,
+            conditionalSourceRange);
+        }
+
+        bits.clear();
+        bits.reserve(targetWidth);
+        for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, conditionalSourceRange);
+          createMux2Instance(
+            design,
+            selectBit,
+            rightBits[bitIndex],
+            leftBits[bitIndex],
+            outBit,
+            conditionalSourceRange);
+          bits.push_back(outBit);
+        }
+        return true;
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
         const auto value =
           stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
@@ -12087,7 +12843,7 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> concatBits;
         bool concatUsedUnknownFallback = false;
-        if (!resolveAlwaysCombUnknownLiteralBitsAsZero(
+        if (!resolveUnknownLiteralBitsAsZero(
               design,
               replicationExpr.concat(),
               concatWidth,
@@ -12156,7 +12912,7 @@ class SNLSVConstructorImpl {
 
           std::vector<SNLBitNet*> operandBits;
           bool operandUsedUnknownFallback = false;
-          if (!resolveAlwaysCombUnknownLiteralBitsAsZero(
+          if (!resolveUnknownLiteralBitsAsZero(
                 design,
                 *operand,
                 operandWidthBits,
@@ -12392,7 +13148,7 @@ class SNLSVConstructorImpl {
       bool usedUnknownLiteralFallback = false;
       if ((!resolveExpressionBits(design, *action.rhs, targetWidth, assignedBits) ||
            assignedBits.size() != targetWidth) &&
-          (!resolveAlwaysCombUnknownLiteralBitsAsZero(
+          (!resolveUnknownLiteralBitsAsZero(
              design,
              *action.rhs,
              targetWidth,
@@ -12596,6 +13352,155 @@ class SNLSVConstructorImpl {
         index += step;
       }
 
+      return true;
+    }
+
+    bool tryApplyCombinationalRangeSelectAssignmentForLhs(
+      SNLDesign* design,
+      const Expression& assignedLHS,
+      const Expression& trackedLhs,
+      const AssignAction& action,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+
+      const auto* strippedAssignedLHS = stripConversions(assignedLHS);
+      if (!strippedAssignedLHS ||
+          strippedAssignedLHS->kind != slang::ast::ExpressionKind::RangeSelect) {
+        return true;
+      }
+
+      const auto& rangeExpr =
+        strippedAssignedLHS->as<slang::ast::RangeSelectExpression>();
+      const auto* baseExpr = stripConversions(rangeExpr.value());
+      if (!baseExpr || !sameLhs(baseExpr, &trackedLhs)) {
+        return true;
+      }
+      handled = true;
+
+      const auto& baseType = baseExpr->type->getCanonicalType();
+      if (!baseType.hasFixedRange()) {
+        std::ostringstream reason;
+        reason << "unsupported always_comb range-select assignment base without fixed range: "
+               << describeExpression(assignedLHS);
+        failureReason = reason.str();
+        return false;
+      }
+
+      auto selectedWidth = getIntegralExpressionBitWidth(assignedLHS);
+      if (!selectedWidth || !*selectedWidth) {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb range-select assignment width for "
+               << describeExpression(assignedLHS);
+        failureReason = reason.str();
+        return false;
+      }
+
+      const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
+      if (arrayWidth == 0 || lhsBits.size() != dataBits.size() || lhsBits.size() % arrayWidth != 0) {
+        std::ostringstream reason;
+        reason << "width mismatch while lowering always_comb range-select assignment for "
+               << describeExpression(assignedLHS);
+        failureReason = reason.str();
+        return false;
+      }
+      const auto elementWidth = lhsBits.size() / arrayWidth;
+      if (elementWidth == 0 || *selectedWidth % elementWidth != 0) {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb range-select element width for "
+               << describeExpression(assignedLHS);
+        failureReason = reason.str();
+        return false;
+      }
+
+      std::vector<SNLBitNet*> assignedBits;
+      if (!buildCombinationalAssignBits(
+            design,
+            action,
+            *selectedWidth,
+            assignedBits,
+            nullptr,
+            failureReason)) {
+        return false;
+      }
+
+      const auto sliceElements = *selectedWidth / elementWidth;
+      const auto collectSliceOffsets =
+        [&](int64_t lsbIndex, std::vector<size_t>& offsets) {
+          offsets.clear();
+          offsets.reserve(*selectedWidth);
+          for (size_t elem = 0; elem < sliceElements; ++elem) {
+            const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+            if (elemIndex < std::numeric_limits<int32_t>::min() ||
+                elemIndex > std::numeric_limits<int32_t>::max()) {
+              return false;
+            }
+            const auto translated =
+              baseType.getFixedRange().translateIndex(static_cast<int32_t>(elemIndex));
+            if (translated < 0 || translated >= static_cast<int32_t>(arrayWidth)) {
+              return false;
+            }
+            const auto offset = static_cast<size_t>(translated) * elementWidth;
+            if (offset + elementWidth > dataBits.size()) {
+              return false; // LCOV_EXCL_LINE
+            }
+            for (size_t bit = 0; bit < elementWidth; ++bit) {
+              offsets.push_back(offset + bit);
+            }
+          }
+          return offsets.size() == *selectedWidth;
+        };
+
+      int32_t left = 0;
+      int32_t right = 0;
+      int64_t lsbIndex = 0;
+      switch (rangeExpr.getSelectionKind()) {
+        case slang::ast::RangeSelectionKind::Simple: {
+          if (!getConstantInt32(rangeExpr.left(), left) ||
+              !getConstantInt32(rangeExpr.right(), right)) {
+            std::ostringstream reason;
+            reason << "unable to resolve constant range-select bounds in always_comb assignment: "
+                   << describeExpression(assignedLHS);
+            failureReason = reason.str();
+            return false;
+          }
+          lsbIndex = std::min(left, right);
+          break;
+        }
+        case slang::ast::RangeSelectionKind::IndexedUp:
+        case slang::ast::RangeSelectionKind::IndexedDown: {
+          if (!getConstantInt32(rangeExpr.left(), left) ||
+              !getConstantInt32(rangeExpr.right(), right) ||
+              right <= 0) {
+            std::ostringstream reason;
+            reason << "unable to resolve constant indexed range-select bounds in always_comb assignment: "
+                   << describeExpression(assignedLHS);
+            failureReason = reason.str();
+            return false;
+          }
+          lsbIndex = static_cast<int64_t>(left);
+          if (rangeExpr.getSelectionKind() ==
+              slang::ast::RangeSelectionKind::IndexedDown) {
+            lsbIndex -= static_cast<int64_t>(sliceElements - 1);
+          }
+          break;
+        }
+      }
+
+      std::vector<size_t> sliceOffsets;
+      if (!collectSliceOffsets(lsbIndex, sliceOffsets)) {
+        std::ostringstream reason;
+        reason << "constant range-select out of range in always_comb assignment: "
+               << describeExpression(assignedLHS);
+        failureReason = reason.str();
+        return false;
+      }
+
+      for (size_t bit = 0; bit < sliceOffsets.size(); ++bit) {
+        dataBits[sliceOffsets[bit]] = assignedBits[bit];
+      }
       return true;
     }
 
@@ -12924,6 +13829,21 @@ class SNLSVConstructorImpl {
             return true;
           }
 
+          if (!tryApplyCombinationalRangeSelectAssignmentForLhs(
+                design,
+                *assignedLHS,
+                lhsExpr,
+                action,
+                lhsBits,
+                dataBits,
+                failureReason,
+                handled)) {
+            return false;
+          }
+          if (handled) {
+            return true;
+          }
+
           const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
           if (strippedAssignedLHS &&
               strippedAssignedLHS->kind == slang::ast::ExpressionKind::RangeSelect) {
@@ -13043,7 +13963,11 @@ class SNLSVConstructorImpl {
         }
       }
 
-      for (const auto* lhsExpr : lhsExpressions) {
+      for (const auto* rawLhsExpr : lhsExpressions) {
+        if (!rawLhsExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        const auto* lhsExpr = getTrackedAlwaysCombLHS(rawLhsExpr);
         if (!lhsExpr) {
           continue; // LCOV_EXCL_LINE
         }
@@ -13154,6 +14078,18 @@ class SNLSVConstructorImpl {
         if (conditionalLHSExpressions.size() != 1 ||
             !sameLhs(conditionalLHSExpressions.front(), resetLHSExpressions.front())) {
           failureReason = "fallback currently supports only multi-LHS reset branches";
+          return false;
+        }
+        size_t maxAssignments = 0;
+        if (!getSingleLHSFallbackPathAssignmentMax(
+              *current,
+              *resetLHSExpressions.front(),
+              maxAssignments,
+              &failureReason)) {
+          return false;
+        }
+        if (maxAssignments > 1) {
+          failureReason = "single-LHS fallback path contains multiple direct assignments";
           return false;
         }
       }
@@ -13343,6 +14279,126 @@ class SNLSVConstructorImpl {
                 lhsBits[i],
                 blockSourceRange);
             }
+          }
+        }
+      }
+
+      return true;
+    }
+
+    bool lowerSequentialDirectMultiAssignment(
+      SNLDesign* design,
+      const Statement& stmt,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Conditional) {
+        failureReason = "top-level statement is not a direct assignment block";
+        return false;
+      }
+
+      std::vector<const Expression*> lhsExpressions;
+      if (!collectAssignedLHSExpressions(*current, lhsExpressions, &failureReason)) {
+        return false;
+      }
+      if (lhsExpressions.empty()) {
+        failureReason = "statement does not contain assignments";
+        return false;
+      }
+
+      for (const auto* lhsExpr : lhsExpressions) {
+        const auto* strippedLhs = stripConversions(*lhsExpr);
+        if (!strippedLhs) {
+          continue; // LCOV_EXCL_LINE
+        }
+        switch (strippedLhs->kind) {
+          case slang::ast::ExpressionKind::NamedValue:
+            if (!getIntegralExpressionBitWidth(*strippedLhs)) {
+              std::ostringstream reason;
+              reason << "direct multi-assignment LHS is not an integral signal: "
+                     << describeExpression(*lhsExpr);
+              failureReason = reason.str();
+              return false;
+            }
+            break;
+          case slang::ast::ExpressionKind::ElementSelect:
+          case slang::ast::ExpressionKind::RangeSelect:
+          case slang::ast::ExpressionKind::MemberAccess:
+            if (!getIntegralExpressionBitWidth(*strippedLhs)) {
+              std::vector<SNLBitNet*> selectionBits;
+              if (!resolveFixedUnpackedArraySelectionBits(design, *lhsExpr, selectionBits) ||
+                  selectionBits.empty()) {
+                std::ostringstream reason;
+                reason << "direct multi-assignment LHS is not a supported integral selection: "
+                       << describeExpression(*lhsExpr);
+                failureReason = reason.str();
+                return false;
+              }
+            }
+            break;
+          default: {
+            std::ostringstream reason;
+            reason << "direct multi-assignment LHS is not a supported integral target: "
+                   << describeExpression(*lhsExpr);
+            failureReason = reason.str();
+            return false;
+          }
+        }
+      }
+
+      for (const auto* lhsExpr : lhsExpressions) {
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason) ||
+            lhsBits.empty()) {
+          if (failureReason.empty()) {
+            std::ostringstream reason;
+            reason << "unable to resolve assignment LHS bits for '"
+                   << getExpressionBaseName(*lhsExpr) << "'";
+            failureReason = reason.str();
+          }
+          return false;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString(); // LCOV_EXCL_LINE
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        std::vector<SNLBitNet*> incrementerBits;
+        size_t tempIndex = 0;
+        if (!applySequentialStatementForLhs(
+              design,
+              *current,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              baseName,
+              dataBits,
+              incrementerBits,
+              tempIndex,
+              failureReason)) {
+          return false;
+        }
+
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+            createDFFNInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              lhsBits[i],
+              blockSourceRange);
+          } else {
+            createDFFInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              lhsBits[i],
+              blockSourceRange);
           }
         }
       }
@@ -13557,18 +14613,17 @@ class SNLSVConstructorImpl {
           if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
             return getIncrementerBits();
           }
-          std::ostringstream reason;
-          reason << "Unsupported binary expression in sequential assignment: "
-                 << slang::ast::OpInfo::getText(bin.op);
-          reportUnsupportedElement(reason.str(), sourceRange);
-          return {};
         }
         if (!gateTypeFromBinary(bin.op)) {
-          std::ostringstream reason;
-          reason << "Unsupported binary operator in sequential assignment: "
-                 << slang::ast::OpInfo::getText(bin.op);
-          reportUnsupportedElement(reason.str(), sourceRange);
-          return {};
+          const bool supportedArithmeticOp =
+            bin.op == slang::ast::BinaryOperator::Add;
+          if (!supportedArithmeticOp) {
+            std::ostringstream reason;
+            reason << "Unsupported binary operator in sequential assignment: "
+                   << slang::ast::OpInfo::getText(bin.op);
+            reportUnsupportedElement(reason.str(), sourceRange);
+            return {};
+          }
         }
       }
       if (!rhsExpr) {
@@ -13585,6 +14640,12 @@ class SNLSVConstructorImpl {
 
       std::vector<SNLBitNet*> resolvedBits;
       if (resolveExpressionBits(design, *rhsExpr, lhsBits.size(), resolvedBits) &&
+          resolvedBits.size() == lhsBits.size()) {
+        return resolvedBits;
+      }
+
+      resolvedBits.clear();
+      if (resolveFixedUnpackedArraySelectionBits(design, *rhsExpr, resolvedBits) &&
           resolvedBits.size() == lhsBits.size()) {
         return resolvedBits;
       }
@@ -14144,17 +15205,31 @@ class SNLSVConstructorImpl {
         }
         if (!extractedAlwaysFFChain) {
           std::string multiAssignFailureReason;
-          if (stmt &&
-              lowerSequentialMultiAssignmentConditional(
+          if (stmt) {
+            const Statement* current = unwrapStatement(*stmt);
+            if (current &&
+                current->kind == slang::ast::StatementKind::Conditional) {
+              if (lowerSequentialMultiAssignmentConditional(
+                    design,
+                    *stmt,
+                    clkNet,
+                    clockEdge,
+                    asyncResetEventExpr,
+                    asyncResetEventEdge,
+                    statementSourceRange,
+                    multiAssignFailureReason)) {
+                continue;
+              }
+            } else if (
+              lowerSequentialDirectMultiAssignment(
                 design,
                 *stmt,
                 clkNet,
                 clockEdge,
-                asyncResetEventExpr,
-                asyncResetEventEdge,
                 statementSourceRange,
                 multiAssignFailureReason)) {
-            continue;
+              continue;
+            }
           }
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
@@ -14628,13 +15703,15 @@ class SNLSVConstructorImpl {
         auto lhsNet = resolveExpressionNet(design, assignExpr.left());
         std::vector<SNLBitNet*> lhsBits;
         bool lhsResolvedAsBitSlice = false;
+        bool lhsResolvedAsPackedMemberSlice = false;
         if (!lhsNet) {
           const auto* lhsExpr = stripConversions(assignExpr.left());
           const bool lhsIsSupportedSlice =
             lhsExpr &&
             (lhsExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
              lhsExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
-             lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess);
+             lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess ||
+             lhsExpr->kind == slang::ast::ExpressionKind::Concatenation);
           if (lhsIsSupportedSlice) {
             auto lhsWidth = getIntegralExpressionBitWidth(assignExpr.left());
             if (lhsWidth && *lhsWidth) {
@@ -14643,6 +15720,8 @@ class SNLSVConstructorImpl {
                   lhsBits.size() == lhsWidthBits &&
                   !lhsBits.empty()) {
                 lhsResolvedAsBitSlice = true;
+                lhsResolvedAsPackedMemberSlice =
+                  lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess;
                 if (lhsBits.size() == 1) {
                   lhsNet = lhsBits.front();
                 }
@@ -14740,99 +15819,104 @@ class SNLSVConstructorImpl {
         std::vector<const Expression*> operands;
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
-          if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
-            if (!createAddAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
-              reportUnsupportedElement(
-                "Unsupported binary expression in continuous assign: +",
-                assignSourceRange);
+          const bool useBitSliceFallbackForAdd =
+            lhsResolvedAsBitSlice &&
+            binaryExpr.op == slang::ast::BinaryOperator::Add;
+          if (!useBitSliceFallbackForAdd) {
+            if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
+              if (!createAddAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    assignSourceRange)) {
+                reportUnsupportedElement(
+                  "Unsupported binary expression in continuous assign: +",
+                  assignSourceRange);
+              }
+              continue;
             }
-            continue;
-          }
-          if (binaryExpr.op == slang::ast::BinaryOperator::Multiply) {
-            if (!createMultiplyAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
-              reportUnsupportedElement(
-                "Unsupported binary expression in continuous assign: *",
-                assignSourceRange);
+            if (binaryExpr.op == slang::ast::BinaryOperator::Multiply) {
+              if (!createMultiplyAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    assignSourceRange)) {
+                reportUnsupportedElement(
+                  "Unsupported binary expression in continuous assign: *",
+                  assignSourceRange);
+              }
+              continue;
             }
-            continue;
-          }
-          if (binaryExpr.op == slang::ast::BinaryOperator::Subtract) {
-            if (!createSubAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
-              reportUnsupportedElement(
-                "Unsupported binary expression in continuous assign: -",
-                assignSourceRange);
+            if (binaryExpr.op == slang::ast::BinaryOperator::Subtract) {
+              if (!createSubAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    assignSourceRange)) {
+                reportUnsupportedElement(
+                  "Unsupported binary expression in continuous assign: -",
+                  assignSourceRange);
+              }
+              continue;
             }
-            continue;
-          }
-          if (isEqualityBinaryOp(binaryExpr.op)) {
-            reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
-            if (!createEqualityAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
+            if (isEqualityBinaryOp(binaryExpr.op)) {
+              reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
+              if (!createEqualityAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    assignSourceRange)) {
+                std::ostringstream reason;
+                reason << "Unsupported binary expression in continuous assign: "
+                       << slang::ast::OpInfo::getText(binaryExpr.op);
+                reportUnsupportedElement(reason.str(), assignSourceRange);
+              }
+              continue;
+            }
+            if (isInequalityBinaryOp(binaryExpr.op)) {
+              reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
+              if (!createInequalityAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    assignSourceRange)) {
+                std::ostringstream reason;
+                reason << "Unsupported binary expression in continuous assign: "
+                       << slang::ast::OpInfo::getText(binaryExpr.op);
+                reportUnsupportedElement(reason.str(), assignSourceRange);
+              }
+              continue;
+            }
+            if (isRelationalBinaryOp(binaryExpr.op)) {
+              if (!createRelationalAssign(
+                    design,
+                    lhsNet,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    binaryExpr.op,
+                    assignSourceRange)) {
+                std::ostringstream reason;
+                reason << "Unsupported binary expression in continuous assign: "
+                       << slang::ast::OpInfo::getText(binaryExpr.op);
+                reportUnsupportedElement(reason.str(), assignSourceRange);
+              }
+              continue;
+            }
+            gateType = gateTypeFromBinary(binaryExpr.op);
+            if (!gateType) {
               std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: "
+              reason << "Unsupported binary operator in continuous assign: "
                      << slang::ast::OpInfo::getText(binaryExpr.op);
               reportUnsupportedElement(reason.str(), assignSourceRange);
+              continue;
             }
-            continue;
+            collectBinaryOperands(*rhs, binaryExpr.op, operands);
           }
-          if (isInequalityBinaryOp(binaryExpr.op)) {
-            reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
-            if (!createInequalityAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  assignSourceRange)) {
-              std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: "
-                     << slang::ast::OpInfo::getText(binaryExpr.op);
-              reportUnsupportedElement(reason.str(), assignSourceRange);
-            }
-            continue;
-          }
-          if (isRelationalBinaryOp(binaryExpr.op)) {
-            if (!createRelationalAssign(
-                  design,
-                  lhsNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  binaryExpr.op,
-                  assignSourceRange)) {
-              std::ostringstream reason;
-              reason << "Unsupported binary expression in continuous assign: "
-                     << slang::ast::OpInfo::getText(binaryExpr.op);
-              reportUnsupportedElement(reason.str(), assignSourceRange);
-            }
-            continue;
-          }
-          gateType = gateTypeFromBinary(binaryExpr.op);
-          if (!gateType) {
-            std::ostringstream reason;
-            reason << "Unsupported binary operator in continuous assign: "
-                   << slang::ast::OpInfo::getText(binaryExpr.op);
-            reportUnsupportedElement(reason.str(), assignSourceRange);
-            continue;
-          }
-          collectBinaryOperands(*rhs, binaryExpr.op, operands);
         } else if (rhs->kind == slang::ast::ExpressionKind::UnaryOp) {
           const auto& unaryExpr = rhs->as<slang::ast::UnaryExpression>();
           const auto* operandExpr = stripConversions(unaryExpr.operand());
@@ -14980,12 +16064,26 @@ class SNLSVConstructorImpl {
           }
 
           std::vector<SNLBitNet*> rhsBits;
-          if (!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
-              rhsBits.size() != lhsAssignBits.size()) {
+          bool usedUnknownLiteralFallback = false;
+          if ((!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
+               rhsBits.size() != lhsAssignBits.size()) &&
+              (!resolveUnknownLiteralBitsAsZero(
+                 design,
+                 *rhs,
+                 lhsAssignBits.size(),
+                 rhsBits,
+                 usedUnknownLiteralFallback) ||
+               rhsBits.size() != lhsAssignBits.size() || !usedUnknownLiteralFallback)) {
             reportUnsupportedElement(
               "Unsupported RHS in continuous assign in module '" + moduleName + "'",
               assignSourceRange);
             continue;
+          }
+          if (usedUnknownLiteralFallback) {
+            reportWarning(
+              "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
+              "(X/Z distinction is not preserved)",
+              assignSourceRange);
           }
           for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
             createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
@@ -14998,7 +16096,7 @@ class SNLSVConstructorImpl {
             rhs->kind == slang::ast::ExpressionKind::Streaming &&
             rhs->as<slang::ast::StreamingConcatenationExpression>().isFixedSize();
           size_t rhsWidthBits = lhsBits.size();
-          if (!rhsIsFixedStreaming) {
+          if (!rhsIsFixedStreaming && !lhsResolvedAsPackedMemberSlice) {
             auto rhsWidth = getIntegralExpressionBitWidth(*rhs);
             if (!rhsWidth || !*rhsWidth ||
                 static_cast<size_t>(*rhsWidth) != lhsBits.size()) {
@@ -15024,8 +16122,8 @@ class SNLSVConstructorImpl {
         }
 
         auto rhsNet = resolveExpressionNet(design, *rhs);
+        auto lhsAssignBits = collectBits(lhsNet);
         if (!rhsNet) {
-          auto lhsAssignBits = collectBits(lhsNet);
           std::vector<SNLBitNet*> rhsBits;
           if (!lhsAssignBits.empty() &&
               resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
@@ -15041,6 +16139,15 @@ class SNLSVConstructorImpl {
           continue;
         }
         if (!createDirectAssign(design, rhsNet, lhsNet, assignSourceRange)) {
+          std::vector<SNLBitNet*> rhsBits;
+          if (!lhsAssignBits.empty() &&
+              resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
+              rhsBits.size() == lhsAssignBits.size()) {
+            for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
+              createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
+            }
+            continue;
+          }
           reportUnsupportedElement(
             "Unsupported net compatibility in continuous assign",
             assignSourceRange);
