@@ -474,6 +474,12 @@ TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
       {NLDB0::getDFFOutput()},
     },
     {
+      NLDB0::getDFFN(),
+      NLDB0::getDFFNClock(),
+      {NLDB0::getDFFNData()},
+      {NLDB0::getDFFNOutput()},
+    },
+    {
       NLDB0::getDFFRN(),
       NLDB0::getDFFRNClock(),
       {NLDB0::getDFFRNData(), NLDB0::getDFFRNResetN()},
@@ -615,6 +621,34 @@ TEST_F(NLDB0Test, testDFFRN) {
   EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
 }
 
+TEST_F(NLDB0Test, testDFFN) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+  auto rootLibrary = NLDB0::getDB0RootLibrary();
+  ASSERT_NE(nullptr, rootLibrary);
+  EXPECT_EQ(nullptr, rootLibrary->getSNLDesign(NLName("naja_dffn")));
+
+  auto dffn = NLDB0::getDFFN();
+  ASSERT_NE(nullptr, dffn);
+  EXPECT_TRUE(NLDB0::isDFFN(dffn));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffn));
+  EXPECT_EQ(NLName("naja_dffn"), dffn->getName());
+  EXPECT_FALSE(NLDB0::isDFFN(NLDB0::getDFF()));
+
+  auto clock = NLDB0::getDFFNClock();
+  auto data = NLDB0::getDFFNData();
+  auto output = NLDB0::getDFFNOutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+}
+
 TEST_F(NLDB0Test, testDFFE_DFFRE_DFFSE) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -691,6 +725,11 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFClock());
   EXPECT_EQ(nullptr, NLDB0::getDFFData());
   EXPECT_EQ(nullptr, NLDB0::getDFFOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFN());
+  EXPECT_FALSE(NLDB0::isDFFN(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFNClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFNData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFNOutput());
   EXPECT_EQ(nullptr, NLDB0::getDFFRN());
   EXPECT_FALSE(NLDB0::isDFFRN(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getDFFRNClock());

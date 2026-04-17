@@ -275,13 +275,6 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     return nullptr;
   }
 
-  if (PyErr_WarnEx(
-        PyExc_UserWarning,
-        "NLDB.loadSystemVerilog is under active development and currently in early beta mode.",
-        1) < 0) {
-    return nullptr;
-  }
-
   NLDB* db = self->object_;
   SNLDesign* top = nullptr;
   TRY

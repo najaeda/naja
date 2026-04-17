@@ -7107,6 +7107,20 @@ class SNLSVConstructorImpl {
             }
           }
         }
+        if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
+            binaryExpr.op == slang::ast::BinaryOperator::Mod) {
+          int64_t divisorValue = 0;
+          if (getConstantInt64(binaryExpr.right(), divisorValue) && divisorValue == 1) {
+            if (binaryExpr.op == slang::ast::BinaryOperator::Divide) {
+              return resolveExpressionBits(design, binaryExpr.left(), targetWidth, bits);
+            }
+
+            bits.assign(
+              targetWidth,
+              static_cast<SNLBitNet*>(getConstNet(design, false)));
+            return true;
+          }
+        }
         if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
             binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
@@ -12339,6 +12353,7 @@ class SNLSVConstructorImpl {
       SNLDesign* design,
       const Statement& stmt,
       SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
       const Expression* asyncResetEventExpr,
       const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
       const std::optional<slang::SourceRange>& blockSourceRange,
@@ -12538,12 +12553,21 @@ class SNLSVConstructorImpl {
               lhsBits[i],
               blockSourceRange);
           } else {
-            createDFFInstance(
-              design,
-              clkNet,
-              dataBits[i],
-              lhsBits[i],
-              blockSourceRange);
+            if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+              createDFFNInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                lhsBits[i],
+                blockSourceRange);
+            } else {
+              createDFFInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                lhsBits[i],
+                blockSourceRange);
+            }
           }
         }
       }
@@ -12782,6 +12806,11 @@ class SNLSVConstructorImpl {
       return {}; // LCOV_EXCL_LINE
     }
 
+    struct ClockEventInfo {
+      const Expression* expr {nullptr};
+      slang::ast::EdgeKind edge {slang::ast::EdgeKind::PosEdge};
+    };
+
     const Expression* getClockExpression(const TimingControl& timing) {
       if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
         const auto& event = timing.as<slang::ast::SignalEventControl>();
@@ -12841,6 +12870,26 @@ class SNLSVConstructorImpl {
         "Unsupported sequential timing control",
         getSourceRange(timing));
       return nullptr;
+    }
+
+    std::optional<ClockEventInfo> getSequentialClockEventInfo(const TimingControl& timing) {
+      if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
+        const auto& event = timing.as<slang::ast::SignalEventControl>();
+        if (event.edge == slang::ast::EdgeKind::PosEdge ||
+            event.edge == slang::ast::EdgeKind::NegEdge) {
+          return ClockEventInfo{&event.expr, event.edge};
+        }
+        reportUnsupportedElement(
+          "Unsupported sequential timing edge; only posedge/negedge are supported",
+          getSourceRange(timing));
+        return std::nullopt;
+      }
+
+      const auto* clockExpr = getClockExpression(timing);
+      if (!clockExpr) {
+        return std::nullopt;
+      }
+      return ClockEventInfo{clockExpr, slang::ast::EdgeKind::PosEdge};
     }
 
     bool isImplicitCombinationalTimingControl(const TimingControl& timing) const {
@@ -12924,6 +12973,35 @@ class SNLSVConstructorImpl {
       auto cTerm = NLDB0::getDFFClock();
       auto dTerm = NLDB0::getDFFData();
       auto qTerm = NLDB0::getDFFOutput();
+      if (cTerm) {
+        if (auto instTerm = inst->getInstTerm(cTerm)) {
+          instTerm->setNet(clkNet);
+        }
+      }
+      if (dTerm) {
+        if (auto instTerm = inst->getInstTerm(dTerm)) {
+          instTerm->setNet(dNet);
+        }
+      }
+      if (qTerm) {
+        if (auto instTerm = inst->getInstTerm(qTerm)) {
+          instTerm->setNet(qNet);
+        }
+      }
+    }
+
+    void createDFFNInstance(
+      SNLDesign* design,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto dffn = NLDB0::getDFFN();
+      auto inst = SNLInstance::create(design, dffn);
+      annotateSourceInfo(inst, sourceRange);
+      auto cTerm = NLDB0::getDFFNClock();
+      auto dTerm = NLDB0::getDFFNData();
+      auto qTerm = NLDB0::getDFFNOutput();
       if (cTerm) {
         if (auto instTerm = inst->getInstTerm(cTerm)) {
           instTerm->setNet(clkNet);
@@ -13223,13 +13301,15 @@ class SNLSVConstructorImpl {
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
 
         SNLBitNet* clkNet = nullptr;
+        auto clockEdge = slang::ast::EdgeKind::PosEdge;
         const Expression* asyncResetEventExpr = nullptr;
         std::optional<slang::ast::EdgeKind> asyncResetEventEdge;
         if (timing) {
-          const auto* clockExpr = getClockExpression(*timing);
-          if (clockExpr) {
-            clkNet = getSingleBitNet(resolveExpressionNet(design, *clockExpr));
-            auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
+          auto clockEvent = getSequentialClockEventInfo(*timing);
+          if (clockEvent) {
+            clockEdge = clockEvent->edge;
+            clkNet = getSingleBitNet(resolveExpressionNet(design, *clockEvent->expr));
+            auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockEvent->expr);
             if (asyncEvent.multiple) {
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
@@ -13267,6 +13347,7 @@ class SNLSVConstructorImpl {
                 design,
                 *stmt,
                 clkNet,
+                clockEdge,
                 asyncResetEventExpr,
                 asyncResetEventEdge,
                 statementSourceRange,
@@ -13490,7 +13571,10 @@ class SNLSVConstructorImpl {
             reportUnsupportedElement(reason.str(), enableSourceRange);
             continue;
           }
-          canUseEnablePrimitive = NLDB0::getDFFE() && defaultIsHold;
+          canUseEnablePrimitive =
+            clockEdge == slang::ast::EdgeKind::PosEdge &&
+            NLDB0::getDFFE() &&
+            defaultIsHold;
         }
 
         bool useAsyncResetDFFRN = false;
@@ -13683,7 +13767,21 @@ class SNLSVConstructorImpl {
                 lhsBits[i],
                 statementSourceRange);
             } else {
-              createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
+              if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+                createDFFNInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  lhsBits[i],
+                  statementSourceRange);
+              } else {
+                createDFFInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  lhsBits[i],
+                  statementSourceRange);
+              }
             }
           }
         }

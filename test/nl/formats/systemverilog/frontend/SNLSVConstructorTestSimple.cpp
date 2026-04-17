@@ -7793,6 +7793,49 @@ TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSupported) {
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombRhsDivideAndModByOneSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_divide_and_mod_by_one_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_divide_and_mod_by_one_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_divide_and_mod_by_one_supported(
+  input  logic       cce_id_i,
+  output logic [1:0] cce_cord_o
+);
+  localparam int coh_noc_x_cord_width_p = 1;
+  localparam int coh_noc_y_cord_width_p = 1;
+  localparam int sac_x_dim_p = 0;
+  localparam int ic_y_dim_p = 0;
+  localparam int cc_x_dim_p = 1;
+
+  always_comb begin
+    cce_cord_o = '0;
+    cce_cord_o[0+:coh_noc_x_cord_width_p] = sac_x_dim_p + (cce_id_i % cc_x_dim_p);
+    cce_cord_o[coh_noc_x_cord_width_p+:coh_noc_y_cord_width_p] =
+      ic_y_dim_p + (cce_id_i / cc_x_dim_p);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_rhs_divide_and_mod_by_one_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("cce_cord_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableDeclarationsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -15571,6 +15614,60 @@ endmodule
   EXPECT_EQ(0u, mux2Count);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeEnableHoldUsesDFFNSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_negedge_enable_hold_uses_dffn_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_negedge_enable_hold_uses_dffn_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_negedge_enable_hold_uses_dffn_supported(
+  input logic       clk,
+  input logic       en,
+  input logic [7:0] d,
+  output logic [7:0] q
+);
+  always_ff @(negedge clk) begin
+    if (en) q <= d;
+    else q <= q;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_negedge_enable_hold_uses_dffn_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffnModel = NLDB0::getDFFN();
+  auto dffeModel = NLDB0::getDFFE();
+  ASSERT_NE(dffnModel, nullptr);
+  ASSERT_NE(dffeModel, nullptr);
+
+  size_t dffnCount = 0;
+  size_t dffeCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffnModel) {
+      ++dffnCount;
+    } else if (inst->getModel() == dffeModel) {
+      ++dffeCount;
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(8u, dffnCount);
+  EXPECT_EQ(0u, dffeCount);
+  EXPECT_EQ(1u, mux2Count);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Skipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -16763,18 +16860,54 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeTimingUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeTimingSupported) {
   SNLSVConstructor constructor(library_);
-  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_timing_negedge_unsupported" / "seq_timing_negedge_unsupported.sv");
-    FAIL() << "Expected unsupported timing edge exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing edge"));
-    EXPECT_NE(std::string::npos, reason.find("only posedge is supported"));
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_negedge_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
   }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_timing_negedge_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_negedge_supported(
+  input logic clk,
+  input logic load,
+  input logic d,
+  output logic q
+);
+  always_ff @(negedge clk) begin
+    if (load) q <= d;
+    else q <= q;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_negedge_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffnModel = NLDB0::getDFFN();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffnModel, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffnModel) {
+      ++dffnCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffnCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListUnsupported) {
