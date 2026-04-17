@@ -16845,19 +16845,79 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialNestedBeginWrapperSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryAndSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_binary_non_add" / "seq_binary_non_add.sv");
-    FAIL() << "Expected unsupported sequential binary operator exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary operator in sequential assignment: &"));
+  constructor.construct(
+    benchmarksPath / "seq_binary_non_add" / "seq_binary_non_add.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_binary_non_add"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
   }
+  EXPECT_EQ(8u, dffCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialBitwiseSetClearSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_bitwise_set_clear_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_bitwise_set_clear_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_bitwise_set_clear_supported(
+  input  logic       clk_i,
+  input  logic       reset_i,
+  input  logic [7:0] set_i,
+  input  logic [7:0] clear_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] data_r;
+
+  always_ff @(posedge clk_i)
+    if (reset_i)
+      data_r <= '0;
+    else
+      data_r <= (data_r & ~clear_i) | set_i;
+
+  assign data_o = data_r;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_bitwise_set_clear_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+
+  size_t dffCount = 0;
+  size_t otherInstCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else {
+      ++otherInstCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_GT(otherInstCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeTimingSupported) {
@@ -16908,6 +16968,63 @@ endmodule
   }
   EXPECT_EQ(0u, dffCount);
   EXPECT_EQ(1u, dffnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialNegedgeAssertionOnlyConditionalIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_negedge_assertion_only_conditional_ignored_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_timing_negedge_assertion_only_conditional_ignored_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_negedge_assertion_only_conditional_ignored_supported(
+  input logic clk_i,
+  input logic reset_i,
+  input logic v_i,
+  input logic d_i,
+  output logic q_o
+);
+  always_ff @(negedge clk_i) begin
+    if (~reset_i) begin
+      assert (v_i) else $error("v_i must stay high");
+    end
+  end
+
+  assign q_o = d_i;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_timing_negedge_assertion_only_conditional_ignored_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t assignCount = 0;
+  size_t dffCount = 0;
+  size_t dffnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    } else if (inst->getModel() == NLDB0::getDFF()) {
+      ++dffCount;
+    } else if (inst->getModel() == NLDB0::getDFFN()) {
+      ++dffnCount;
+    }
+  }
+  EXPECT_EQ(1u, assignCount);
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(0u, dffnCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListUnsupported) {
@@ -16986,14 +17103,26 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialConcurrentAssertionIgnored) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialConcurrentAssertionIgnoredSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
+  constructor.construct(
     benchmarksPath / "seq_concurrent_assertion_ignored" /
-      "seq_concurrent_assertion_ignored.sv",
-    {"unsupported statement pattern for sequential lowering"});
+    "seq_concurrent_assertion_ignored.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_concurrent_assertion_ignored"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetSupported) {

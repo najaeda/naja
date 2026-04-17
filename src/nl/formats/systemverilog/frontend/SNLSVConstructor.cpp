@@ -2910,6 +2910,9 @@ class SNLSVConstructorImpl {
       if (!stmt || !timing) {
         return false;
       }
+      if (isIgnorableSequentialStatementTree(*stmt)) {
+        return false;
+      }
 
       const auto* clockExpr = getClockExpression(*timing);
       if (!clockExpr) {
@@ -9734,6 +9737,48 @@ class SNLSVConstructorImpl {
       }
     }
 
+    bool isIgnorableSequentialStatementTree(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true; // LCOV_EXCL_LINE
+      }
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!isIgnorableSequentialStatementTree(*item)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (!isIgnorableSequentialStatementTree(conditional.ifTrue)) {
+          return false;
+        }
+        return !conditional.ifFalse ||
+               isIgnorableSequentialStatementTree(*conditional.ifFalse);
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (!isIgnorableSequentialStatementTree(*item.stmt)) {
+            return false;
+          }
+        }
+        return !caseStmt.defaultCase ||
+               isIgnorableSequentialStatementTree(*caseStmt.defaultCase);
+      }
+      return false;
+    }
+
     struct CombinationalSubtreeSummary {
       std::unordered_set<const slang::ast::ValueSymbol*> affectedSymbols {};
       bool mayBreak {false};
@@ -12757,29 +12802,31 @@ class SNLSVConstructorImpl {
       }
       if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-        if (bin.op != slang::ast::BinaryOperator::Add) {
+        if (bin.op == slang::ast::BinaryOperator::Add) {
+          auto leftNet = resolveExpressionNet(design, bin.left());
+          auto rightNet = resolveExpressionNet(design, bin.right());
+          const auto* leftExpr = stripConversions(bin.left());
+          const auto* rightExpr = stripConversions(bin.right());
+          bool constOne = false;
+          if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
+            return getIncrementerBits();
+          }
+          if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
+            return getIncrementerBits();
+          }
+          std::ostringstream reason;
+          reason << "Unsupported binary expression in sequential assignment: "
+                 << slang::ast::OpInfo::getText(bin.op);
+          reportUnsupportedElement(reason.str(), sourceRange);
+          return {};
+        }
+        if (!gateTypeFromBinary(bin.op)) {
           std::ostringstream reason;
           reason << "Unsupported binary operator in sequential assignment: "
                  << slang::ast::OpInfo::getText(bin.op);
           reportUnsupportedElement(reason.str(), sourceRange);
           return {};
         }
-        auto leftNet = resolveExpressionNet(design, bin.left());
-        auto rightNet = resolveExpressionNet(design, bin.right());
-        const auto* leftExpr = stripConversions(bin.left());
-        const auto* rightExpr = stripConversions(bin.right());
-        bool constOne = false;
-        if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
-          return getIncrementerBits();
-        }
-        if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
-          return getIncrementerBits();
-        }
-        std::ostringstream reason;
-        reason << "Unsupported binary expression in sequential assignment: "
-               << slang::ast::OpInfo::getText(bin.op);
-        reportUnsupportedElement(reason.str(), sourceRange);
-        return {};
       }
       if (!rhsExpr) {
         throw SNLSVConstructorException("Internal error: null RHS expression in sequential assignment"); // LCOV_EXCL_LINE
@@ -13299,6 +13346,9 @@ class SNLSVConstructorImpl {
 #endif
 
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
+        if (stmt && isIgnorableSequentialStatementTree(*stmt)) {
+          continue;
+        }
 
         SNLBitNet* clkNet = nullptr;
         auto clockEdge = slang::ast::EdgeKind::PosEdge;
