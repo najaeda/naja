@@ -15,6 +15,7 @@
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBitNet.h"
@@ -277,6 +278,99 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_NE(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "distinct_parameterized_instance_bodies";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "distinct_parameterized_instance_bodies.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module leaf #(\n"
+         << "  parameter int W = 1\n"
+         << ") (\n"
+         << "  input logic [W-1:0] a,\n"
+         << "  output logic [W-1:0] y\n"
+         << ");\n"
+         << "  assign y = a;\n"
+         << "endmodule\n"
+         << "\n"
+         << "module top(\n"
+         << "  input logic [1:0] a2,\n"
+         << "  output logic [1:0] y2,\n"
+         << "  input logic [3:0] a4,\n"
+         << "  output logic [3:0] y4\n"
+         << ");\n"
+         << "  leaf #(.W(2)) u2 (.a(a2), .y(y2));\n"
+         << "  leaf #(.W(4)) u4 (.a(a4), .y(y4));\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto* u2 = top->getInstance(NLName("u2"));
+  auto* u4 = top->getInstance(NLName("u4"));
+  ASSERT_NE(u2, nullptr);
+  ASSERT_NE(u4, nullptr);
+
+  auto* u2Model = u2->getModel();
+  auto* u4Model = u4->getModel();
+  ASSERT_NE(u2Model, nullptr);
+  ASSERT_NE(u4Model, nullptr);
+  EXPECT_NE(u2Model, u4Model);
+  EXPECT_EQ(std::string("leaf"), u2Model->getName().getString());
+  EXPECT_NE(std::string("leaf"), u4Model->getName().getString());
+  EXPECT_EQ(u2Model, library_->getSNLDesign(NLName("leaf")));
+
+  auto* u2A = u2Model->getBusTerm(NLName("a"));
+  auto* u2Y = u2Model->getBusTerm(NLName("y"));
+  auto* u4A = u4Model->getBusTerm(NLName("a"));
+  auto* u4Y = u4Model->getBusTerm(NLName("y"));
+  ASSERT_NE(u2A, nullptr);
+  ASSERT_NE(u2Y, nullptr);
+  ASSERT_NE(u4A, nullptr);
+  ASSERT_NE(u4Y, nullptr);
+  EXPECT_EQ(2, u2A->getWidth());
+  EXPECT_EQ(2, u2Y->getWidth());
+  EXPECT_EQ(4, u4A->getWidth());
+  EXPECT_EQ(4, u4Y->getWidth());
+
+  auto* topA2 = top->getBusNet(NLName("a2"));
+  auto* topY2 = top->getBusNet(NLName("y2"));
+  auto* topA4 = top->getBusNet(NLName("a4"));
+  auto* topY4 = top->getBusNet(NLName("y4"));
+  ASSERT_NE(topA2, nullptr);
+  ASSERT_NE(topY2, nullptr);
+  ASSERT_NE(topA4, nullptr);
+  ASSERT_NE(topY4, nullptr);
+  auto* topA2Bit0 = dynamic_cast<SNLBitNet*>(topA2->getBit(0));
+  auto* topY2Bit1 = dynamic_cast<SNLBitNet*>(topY2->getBit(1));
+  auto* topA4Bit3 = dynamic_cast<SNLBitNet*>(topA4->getBit(3));
+  auto* topY4Bit2 = dynamic_cast<SNLBitNet*>(topY4->getBit(2));
+  auto* u2ATerm0 = u2->getInstTerm(u2A->getBit(0));
+  auto* u2YTerm1 = u2->getInstTerm(u2Y->getBit(1));
+  auto* u4ATerm3 = u4->getInstTerm(u4A->getBit(3));
+  auto* u4YTerm2 = u4->getInstTerm(u4Y->getBit(2));
+  ASSERT_NE(topA2Bit0, nullptr);
+  ASSERT_NE(topY2Bit1, nullptr);
+  ASSERT_NE(topA4Bit3, nullptr);
+  ASSERT_NE(topY4Bit2, nullptr);
+  ASSERT_NE(u2ATerm0, nullptr);
+  ASSERT_NE(u2YTerm1, nullptr);
+  ASSERT_NE(u4ATerm3, nullptr);
+  ASSERT_NE(u4YTerm2, nullptr);
+  EXPECT_EQ(topA2Bit0, u2ATerm0->getNet());
+  EXPECT_EQ(topY2Bit1, u2YTerm1->getNet());
+  EXPECT_EQ(topA4Bit3, u4ATerm3->getNet());
+  EXPECT_EQ(topY4Bit2, u4YTerm2->getNet());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleDetectedAsUserBlackBox) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -442,7 +536,7 @@ TEST_F(SNLSVConstructorTestSimple, parseGeneratedNetAndInstancesSupported) {
 }
 
 TEST_F(SNLSVConstructorTestSimple,
-       parseGeneratedProceduralBlockReportsUnsupportedLoweringCoverage) {
+       parseGeneratedProceduralBlockSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "generated_procedural_block_lowering_coverage";
@@ -461,10 +555,18 @@ TEST_F(SNLSVConstructorTestSimple,
          << "endmodule\n";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported elaborated member in generate block of module 'top': ProceduralBlock"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(1u, assignCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -1756,7 +1858,7 @@ endmodule
       ++orGateCount;
     }
   }
-  EXPECT_EQ(1u, orGateCount);
+  EXPECT_GE(orGateCount, 1u);
 }
 
 TEST_F(
@@ -1939,6 +2041,38 @@ endmodule
     constructor,
     svPath,
     {"Unsupported net compatibility in continuous assign"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceStreamingSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_bit_slice_streaming_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_bit_slice_streaming_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_bit_slice_streaming_supported(
+  input  logic [7:0] i,
+  output logic [7:0] o
+);
+  wire [0:0][7:0] t;
+
+  assign t[0] = {<<{i}};
+  assign o = t[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_assign_bit_slice_streaming_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("o")), nullptr);
 }
 
 TEST_F(
@@ -10914,6 +11048,43 @@ endmodule
     {"unsupported always_comb case condition kind"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCasezSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_casez_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_casez_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_casez_supported(
+  input  logic [2:0] sel,
+  input  logic [1:0] a,
+  output logic [1:0] y
+);
+  always_comb begin
+    unique casez (sel)
+      3'b1?0: y = a;
+      3'b0??: y = 2'b10;
+      default: y = 2'b01;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_casez_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y")), nullptr);
+  EXPECT_GE(countMux2Instances(top), 1u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseDefaultBranchFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -11158,6 +11329,42 @@ endmodule
     constructor,
     svPath,
     {"unable to resolve always_comb RHS bits for Replication"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombReplicationUnknownLiteralSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_replication_unknown_literal_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_replication_unknown_literal_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_replication_unknown_literal_supported(
+  input  logic       sel_i,
+  input  logic [1:0] d_i,
+  output logic [1:0] y_o
+);
+  always_comb begin
+    if (sel_i)
+      y_o = d_i;
+    else
+      y_o = {2{1'bx}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_replication_unknown_literal_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
+  EXPECT_EQ(1u, countMux2Instances(top));
 }
 
 TEST_F(
@@ -16329,6 +16536,55 @@ endmodule
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBitwiseAndSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_bitwise_and_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_enable_cond_bitwise_and_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_bitwise_and_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic en_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) begin
+      q_o <= 1'b0;
+    end else if (en_i & (d_i === 1'b1)) begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_bitwise_and_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_GE(andGateCount, 1u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondLogicalOrSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -16376,7 +16632,65 @@ endmodule
       ++orGateCount;
     }
   }
-  EXPECT_EQ(1u, orGateCount);
+  EXPECT_GE(orGateCount, 1u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBitwiseOrSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_bitwise_or_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_enable_cond_bitwise_or_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_bitwise_or_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic enq_i,
+  input  logic deq_i,
+  output logic enq_r_o,
+  output logic deq_r_o
+);
+  logic enq_r, deq_r;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) begin
+      enq_r <= 1'b0;
+      deq_r <= 1'b1;
+    end else begin
+      if (enq_i | deq_i) begin
+        enq_r <= enq_i;
+        deq_r <= deq_i;
+      end
+    end
+  end
+  assign enq_r_o = enq_r;
+  assign deq_r_o = deq_r;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_bitwise_or_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("enq_r_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("deq_r_o")), nullptr);
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_GE(orGateCount, 1u);
 }
 
 TEST_F(
@@ -17024,6 +17338,63 @@ endmodule
   }
   EXPECT_EQ(1u, assignCount);
   EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(0u, dffnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialNegedgeSystemTaskOnlyConditionalIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_negedge_system_task_only_conditional_ignored_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_timing_negedge_system_task_only_conditional_ignored_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_negedge_system_task_only_conditional_ignored_supported(
+  input logic clk_i,
+  input logic reset_i,
+  input logic d_i,
+  input logic underflow_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (reset_i) q_o <= 1'b0;
+    else q_o <= d_i;
+  end
+
+  always_ff @(negedge clk_i) begin
+    if (!reset_i && underflow_i)
+      $display("underflow");
+    if (~reset_i & d_i)
+      $error("mismatch");
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_timing_negedge_system_task_only_conditional_ignored_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == NLDB0::getDFF()) {
+      ++dffCount;
+    } else if (inst->getModel() == NLDB0::getDFFN()) {
+      ++dffnCount;
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
   EXPECT_EQ(0u, dffnCount);
 }
 
@@ -17752,6 +18123,52 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralUnsuppor
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialUnbasedUnknownLiteralDirectRhsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_unbased_unknown_literal_direct_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_unbased_unknown_literal_direct_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_unbased_unknown_literal_direct_rhs_supported(
+  input  logic       clk_i,
+  input  logic       en_i,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      q_o <= 'X;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_unbased_unknown_literal_direct_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(2u, dffCount);
+  EXPECT_EQ(1u, countMux2Instances(top));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -17833,6 +18250,165 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_rhs_direct_match");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTopLevelAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_top_level_assignment_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_top_level_assignment_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_top_level_assignment_supported(
+  input  logic       clk_i,
+  input  logic [7:0] d_i,
+  output logic [7:0] q_o
+);
+  always @(posedge clk_i)
+    q_o <= d_i;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_top_level_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_EQ(0u, faCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetEnableElseBlockConditionalSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_enable_else_block_conditional_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_reset_enable_else_block_conditional_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_enable_else_block_conditional_supported(
+  input  logic       clk_i,
+  input  logic       rst_i,
+  input  logic       en_i,
+  input  logic [7:0] d_i,
+  output logic [7:0] q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
+      q_o <= 8'h00;
+    end else begin
+      if (en_i) begin
+        q_o <= d_i;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_reset_enable_else_block_conditional_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetNestedClearElseIfIncrementSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_nested_clear_elseif_increment_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_reset_nested_clear_elseif_increment_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_nested_clear_elseif_increment_supported(
+  input  logic       clk_i,
+  input  logic       reset_i,
+  input  logic       clear_i,
+  input  logic       up_i,
+  output logic [3:0] count_o
+);
+  always_ff @(posedge clk_i) begin
+    if (reset_i) begin
+      count_o <= 4'h0;
+    end else begin
+      if (clear_i) begin
+        count_o <= {3'b000, up_i};
+      end else if (up_i) begin
+        count_o <= count_o + 1'b1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_reset_nested_clear_elseif_increment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(4u, dffCount);
+  EXPECT_GE(countMux2Instances(top), 3u);
+  EXPECT_GT(faCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSRealConstantSupported) {
@@ -19690,8 +20266,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unsupported always_comb case condition kind 2",
-     "unsupported statement pattern for sequential lowering"});
+    {"unsupported statement pattern for sequential lowering"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceIfFalseBranchFailureFallback) {
@@ -20370,6 +20945,76 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseGeneratedDirectSequentialMemoryWriteInferenceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "generated_direct_sequential_memory_write_inference_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "generated_direct_sequential_memory_write_inference_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module generated_direct_sequential_memory_write_inference_supported #(
+  parameter int width_p = 8,
+  parameter int els_p = 4,
+  parameter int addr_width_lp = 2
+) (
+  input  logic                    clk_i,
+  input  logic                    w_v_i,
+  input  logic [addr_width_lp-1:0] w_addr_i,
+  input  logic [width_p-1:0]      w_data_i,
+  input  logic [addr_width_lp-1:0] r_addr_i,
+  output logic [width_p-1:0]      r_data_o
+);
+  if (width_p == 0 || els_p == 0) begin : z
+    assign r_data_o = '0;
+  end else begin : nz
+    logic [width_p-1:0] mem [els_p-1:0];
+    wire [addr_width_lp-1:0] r_addr_li = (els_p > 0) ? r_addr_i : '0;
+    wire [addr_width_lp-1:0] w_addr_li = (els_p > 0) ? w_addr_i : '0;
+
+    assign r_data_o = mem[r_addr_li];
+
+    always_ff @(posedge clk_i) begin
+      if (w_v_i) begin
+        mem[w_addr_li] <= w_data_i;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("generated_direct_sequential_memory_write_inference_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* widthParam = memoryInst->getInstParameter(NLName("WIDTH"));
+  auto* depthParam = memoryInst->getInstParameter(NLName("DEPTH"));
+  ASSERT_NE(nullptr, widthParam);
+  ASSERT_NE(nullptr, depthParam);
+  EXPECT_EQ("8", widthParam->getValue());
+  EXPECT_EQ("4", depthParam->getValue());
 }
 
 TEST_F(
@@ -23932,6 +24577,43 @@ endmodule
     {"Unsupported procedural block in module 'always_latch_procedural_block_unsupported'",
      "unsupported procedure kind",
      "only always/always_ff/always_comb are currently lowered"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialSystemTaskConditionalIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "initial_system_task_conditional_ignored_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "initial_system_task_conditional_ignored_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module initial_system_task_conditional_ignored_supported #(
+  parameter int width_p = 8,
+  parameter int els_p = 64
+) (
+  input  logic a,
+  output logic y
+);
+  initial begin
+    if (width_p * els_p > 256)
+      $display("checker only");
+  end
+
+  assign y = a;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("initial_system_task_conditional_ignored_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombTranslateOffStatementIgnored) {

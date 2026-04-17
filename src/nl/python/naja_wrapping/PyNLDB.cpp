@@ -278,7 +278,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   NLDB* db = self->object_;
   SNLDesign* top = nullptr;
   TRY
-  // SystemVerilog parsing currently enforces unique design names in the library.
+  // SystemVerilog parsing elaborates designs into the DESIGN library.
   NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
   if (designLibrary == nullptr) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
