@@ -5124,6 +5124,77 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool tryMultiplyInt64(int64_t lhs, int64_t rhs, int64_t& result) const {
+#if defined(__SIZEOF_INT128__)
+      const __int128 product = static_cast<__int128>(lhs) * static_cast<__int128>(rhs);
+      if (product < static_cast<__int128>(std::numeric_limits<int64_t>::min()) ||
+          product > static_cast<__int128>(std::numeric_limits<int64_t>::max())) {
+        return false;
+      }
+      result = static_cast<int64_t>(product);
+      return true;
+#else
+      if (lhs == 0 || rhs == 0) {
+        result = 0;
+        return true;
+      }
+      if (lhs == -1) {
+        if (rhs == std::numeric_limits<int64_t>::min()) {
+          return false;
+        }
+        result = -rhs;
+        return true;
+      }
+      if (rhs == -1) {
+        if (lhs == std::numeric_limits<int64_t>::min()) {
+          return false;
+        }
+        result = -lhs;
+        return true;
+      }
+      if (lhs > 0) {
+        if (rhs > 0) {
+          if (lhs > std::numeric_limits<int64_t>::max() / rhs) {
+            return false;
+          }
+        } else if (rhs < std::numeric_limits<int64_t>::min() / lhs) {
+          return false;
+        }
+      } else if (rhs > 0) {
+        if (lhs < std::numeric_limits<int64_t>::min() / rhs) {
+          return false;
+        }
+      } else if (lhs != 0 && rhs < std::numeric_limits<int64_t>::max() / lhs) {
+        return false;
+      }
+      result = lhs * rhs;
+      return true;
+#endif
+    }
+
+    bool tryPowerInt64(int64_t base, int64_t exponent, int64_t& value) const {
+      if (exponent < 0) {
+        return false;
+      }
+
+      int64_t result = 1;
+      int64_t factor = base;
+      uint64_t remaining = static_cast<uint64_t>(exponent);
+      while (remaining) {
+        if (remaining & 1ULL) {
+          if (!tryMultiplyInt64(result, factor, result)) {
+            return false;
+          }
+        }
+        remaining >>= 1;
+        if (remaining && !tryMultiplyInt64(factor, factor, factor)) {
+          return false;
+        }
+      }
+      value = result;
+      return true;
+    }
+
     bool getConstantInt64(const Expression& expr, int64_t& value) const {
       if (auto loopValue = getActiveForLoopConstant(expr)) {
         value = *loopValue;
@@ -5192,8 +5263,9 @@ class SNLSVConstructorImpl {
               value = leftValue - rightValue;
               return true;
             case slang::ast::BinaryOperator::Multiply:
-              value = leftValue * rightValue;
-              return true;
+              return tryMultiplyInt64(leftValue, rightValue, value);
+            case slang::ast::BinaryOperator::Power:
+              return tryPowerInt64(leftValue, rightValue, value);
             case slang::ast::BinaryOperator::Divide:
               if (rightValue == 0) {
                 return false;
@@ -6990,6 +7062,18 @@ class SNLSVConstructorImpl {
             }
             one = static_cast<bool>(bit);
           }
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+        }
+        return true;
+      }
+
+      int64_t signedValue = 0;
+      if (getConstantInt64(expr, signedValue)) {
+        const auto unsignedValue = static_cast<uint64_t>(signedValue);
+        const bool fillBit = signedValue < 0;
+        bits.reserve(targetWidth);
+        for (size_t i = 0; i < targetWidth; ++i) {
+          const bool one = i < 64 ? ((unsignedValue >> i) & 1ULL) : fillBit;
           bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
         }
         return true;
@@ -9772,7 +9856,23 @@ class SNLSVConstructorImpl {
           }
 
           if (!isEqualityBinaryOp(binaryExpr.op) && !isInequalityBinaryOp(binaryExpr.op)) {
-            return nullptr;
+            if (!isRelationalBinaryOp(binaryExpr.op)) {
+              return nullptr;
+            }
+
+            auto* compareBit = SNLScalarNet::create(design);
+            auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
+            annotateSourceInfo(compareBit, compareSourceRange);
+            if (!createRelationalAssign(
+                  design,
+                  compareBit,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  binaryExpr.op,
+                  compareSourceRange)) {
+              return nullptr;
+            }
+            return compareBit;
           }
           auto* compareBit = SNLScalarNet::create(design);
           auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
@@ -10272,6 +10372,14 @@ class SNLSVConstructorImpl {
       AssignAction resetAction {};
       const Expression* enableCond {nullptr};
       AssignAction enableAction {};
+      AssignAction defaultAction {};
+      bool hasDefault {false};
+    };
+
+    struct AlwaysLatchPattern {
+      const Expression* lhs {nullptr};
+      const Expression* enableCond {nullptr};
+      AssignAction dataAction {};
       AssignAction defaultAction {};
       bool hasDefault {false};
     };
@@ -11231,6 +11339,44 @@ class SNLSVConstructorImpl {
       }
       chain.defaultAction = defaultAction;
       chain.hasDefault = true;
+      return true;
+    }
+
+    bool extractAlwaysLatchPattern(
+      const Statement& stmt,
+      AlwaysLatchPattern& pattern) const {
+      auto current = unwrapStatement(stmt);
+      if (!current || current->kind != slang::ast::StatementKind::Conditional) {
+        return false;
+      }
+      const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+      if (condStmt.conditions.size() != 1 || condStmt.conditions.front().pattern) {
+        return false;
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction dataAction;
+      if (!extractAssignment(condStmt.ifTrue, lhs, dataAction)) {
+        return false;
+      }
+      pattern.lhs = lhs;
+      pattern.enableCond = condStmt.conditions.front().expr;
+      pattern.dataAction = dataAction;
+
+      if (!condStmt.ifFalse) {
+        return true;
+      }
+
+      const Expression* defaultLhs = nullptr;
+      AssignAction defaultAction;
+      if (!extractAssignment(*condStmt.ifFalse, defaultLhs, defaultAction)) {
+        return false;
+      }
+      if (!sameLhs(defaultLhs, pattern.lhs)) {
+        return false;
+      }
+      pattern.defaultAction = defaultAction;
+      pattern.hasDefault = true;
       return true;
     }
 
@@ -14527,7 +14673,18 @@ class SNLSVConstructorImpl {
         }
       }
       if (!constant || !constant->isInteger()) {
-        return false;
+        int64_t signedValue = 0;
+        if (!getConstantInt64(expr, signedValue)) {
+          return false;
+        }
+        const auto unsignedValue = static_cast<uint64_t>(signedValue);
+        const bool fillBit = signedValue < 0;
+        bits.reserve(targetWidth);
+        for (size_t i = 0; i < targetWidth; ++i) {
+          const bool one = i < 64 ? ((unsignedValue >> i) & 1ULL) : fillBit;
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+        }
+        return true;
       }
 
       const auto& intValue = constant->integer();
@@ -14616,7 +14773,11 @@ class SNLSVConstructorImpl {
         }
         if (!gateTypeFromBinary(bin.op)) {
           const bool supportedArithmeticOp =
-            bin.op == slang::ast::BinaryOperator::Add;
+            bin.op == slang::ast::BinaryOperator::Add ||
+            bin.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+            bin.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
+            bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||
+            bin.op == slang::ast::BinaryOperator::ArithmeticShiftRight;
           if (!supportedArithmeticOp) {
             std::ostringstream reason;
             reason << "Unsupported binary operator in sequential assignment: "
@@ -14827,6 +14988,35 @@ class SNLSVConstructorImpl {
       if (cTerm) {
         if (auto instTerm = inst->getInstTerm(cTerm)) {
           instTerm->setNet(clkNet);
+        }
+      }
+      if (dTerm) {
+        if (auto instTerm = inst->getInstTerm(dTerm)) {
+          instTerm->setNet(dNet);
+        }
+      }
+      if (qTerm) {
+        if (auto instTerm = inst->getInstTerm(qTerm)) {
+          instTerm->setNet(qNet);
+        }
+      }
+    }
+
+    void createDLatchInstance(
+      SNLDesign* design,
+      SNLNet* enableNet,
+      SNLNet* dNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto dlatch = NLDB0::getDLatch();
+      auto inst = SNLInstance::create(design, dlatch);
+      annotateSourceInfo(inst, sourceRange);
+      auto eTerm = NLDB0::getDLatchEnable();
+      auto dTerm = NLDB0::getDLatchData();
+      auto qTerm = NLDB0::getDLatchOutput();
+      if (eTerm) {
+        if (auto instTerm = inst->getInstTerm(eTerm)) {
+          instTerm->setNet(enableNet);
         }
       }
       if (dTerm) {
@@ -15093,6 +15283,122 @@ class SNLSVConstructorImpl {
           }
           return true;
         };
+        auto lowerAlwaysLatchBlock =
+          [&](const Statement& latchStmt,
+              const std::optional<slang::SourceRange>& latchSourceRange,
+              std::string& latchFailureReason) -> bool {
+          AlwaysLatchPattern pattern;
+          if (!extractAlwaysLatchPattern(latchStmt, pattern)) {
+            latchFailureReason = "unsupported statement pattern for always_latch lowering";
+            return false;
+          }
+
+          auto* lhsNet = resolveExpressionNet(design, *pattern.lhs);
+          if (!lhsNet) {
+            latchFailureReason = "unable to resolve latch assignment LHS net";
+            return false;
+          }
+          auto lhsBits = collectBits(lhsNet);
+          if (lhsBits.empty()) {
+            latchFailureReason = "unable to collect latch assignment LHS bits";
+            return false;
+          }
+
+          auto baseName = getExpressionBaseName(*pattern.lhs);
+          if (baseName.empty() && !lhsNet->isUnnamed()) {
+            baseName = lhsNet->getName().getString();
+          }
+
+          auto getActionSourceRange = [&](const AssignAction& action) {
+            if (action.rhs) {
+              return getSourceRange(*action.rhs);
+            }
+            return latchSourceRange; // LCOV_EXCL_LINE
+          };
+
+          auto* enableNet = resolveConditionNet(
+            design,
+            *pattern.enableCond,
+            joinName("latch_en", baseName),
+            getSourceRange(*pattern.enableCond));
+          if (!enableNet) {
+            latchFailureReason = "unable to resolve latch enable condition net";
+            return false;
+          }
+
+          std::vector<SNLBitNet*> incrementerBits;
+          if (needsIncrementerForAction(design, lhsNet, pattern.dataAction) ||
+              (pattern.hasDefault &&
+               needsIncrementerForAction(design, lhsNet, pattern.defaultAction))) {
+            auto* incNet = getOrCreateNamedNet(
+              design,
+              joinName("inc", baseName),
+              lhsNet,
+              latchSourceRange);
+            auto incBits = collectBits(incNet);
+            auto* incCarryNet = getOrCreateNamedNet(
+              design,
+              joinName("inc_carry", baseName),
+              lhsNet,
+              latchSourceRange);
+            auto carryBits = collectBits(incCarryNet);
+            incrementerBits = buildIncrementer(
+              design,
+              lhsBits,
+              incBits,
+              carryBits,
+              latchSourceRange);
+          }
+
+          auto dataBits = buildAssignBits(
+            design,
+            pattern.dataAction,
+            lhsNet,
+            lhsBits,
+            &incrementerBits,
+            getActionSourceRange(pattern.dataAction));
+          if (dataBits.empty()) {
+            return false;
+          }
+
+          bool defaultIsHold = !pattern.hasDefault;
+          if (pattern.hasDefault) {
+            auto defaultBits = buildAssignBits(
+              design,
+              pattern.defaultAction,
+              lhsNet,
+              lhsBits,
+              &incrementerBits,
+              getActionSourceRange(pattern.defaultAction));
+            if (defaultBits.empty()) {
+              return false;
+            }
+            const bool explicitSelfAssignment =
+              pattern.defaultAction.stepDelta == 0 &&
+              pattern.defaultAction.rhs &&
+              sameLhs(pattern.defaultAction.rhs, pattern.lhs);
+            const bool bitwiseSelfAssignment =
+              defaultBits.size() == lhsBits.size() &&
+              std::equal(defaultBits.begin(), defaultBits.end(), lhsBits.begin());
+            defaultIsHold = explicitSelfAssignment || bitwiseSelfAssignment;
+          }
+
+          if (!defaultIsHold) {
+            latchFailureReason =
+              "always_latch currently supports only implicit or explicit hold default branches";
+            return false;
+          }
+
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            createDLatchInstance(
+              design,
+              enableNet,
+              dataBits[i],
+              lhsBits[i],
+              latchSourceRange);
+          }
+          return true;
+        };
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -15113,12 +15419,31 @@ class SNLSVConstructorImpl {
           continue;
         }
 
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysLatch) {
+          const Statement* latchStmt = unwrapStatement(block.getBody());
+          auto latchSourceRange = latchStmt ? getSourceRange(*latchStmt) : blockSourceRange;
+          if (latchStmt && isIgnorableSequentialStatementTree(*latchStmt)) {
+            continue;
+          }
+          std::string latchFailureReason;
+          if (!latchStmt ||
+              !lowerAlwaysLatchBlock(*latchStmt, latchSourceRange, latchFailureReason)) {
+            if (!latchFailureReason.empty()) {
+              std::ostringstream reason;
+              reason << "Unsupported latch block in module '" << moduleName << "'";
+              reason << ": " << latchFailureReason;
+              reportUnsupportedElement(reason.str(), latchSourceRange);
+            }
+          }
+          continue;
+        }
+
         if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
             block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
           std::ostringstream reason;
           reason << "Unsupported procedural block in module '" << moduleName
                  << "': unsupported procedure kind " << block.procedureKind
-                 << " (only always/always_ff/always_comb are currently lowered)";
+                 << " (only always/always_ff/always_comb/always_latch are currently lowered)";
           reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
@@ -15762,7 +16087,14 @@ class SNLSVConstructorImpl {
         const auto* rhsCastUnwrapped = unwrapSignedUnsignedCastCall(rhs);
         if (rhsCastUnwrapped && rhsCastUnwrapped->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhsCastUnwrapped->as<slang::ast::BinaryExpression>();
-          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
+          const bool useBitSliceFallbackForShift =
+            lhsResolvedAsBitSlice &&
+            (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
+             binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
+             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight);
+          if (!useBitSliceFallbackForShift &&
+              binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
             std::string shiftFailureReason;
             if (!createLogicalRightShiftAssign(
                   design,
@@ -15780,7 +16112,8 @@ class SNLSVConstructorImpl {
             }
             continue;
           }
-          if (binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+          if (!useBitSliceFallbackForShift &&
+              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
             std::string shiftFailureReason;
             if (!createArithmeticRightShiftAssign(
                   design,
@@ -15798,8 +16131,9 @@ class SNLSVConstructorImpl {
             }
             continue;
           }
-          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
-              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft) {
+          if (!useBitSliceFallbackForShift &&
+              (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+               binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft)) {
             if (!createLogicalLeftShiftAssign(
                   design,
                   lhsNet,
@@ -15819,10 +16153,14 @@ class SNLSVConstructorImpl {
         std::vector<const Expression*> operands;
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
-          const bool useBitSliceFallbackForAdd =
+          const bool useBitSliceFallbackForBinary =
             lhsResolvedAsBitSlice &&
-            binaryExpr.op == slang::ast::BinaryOperator::Add;
-          if (!useBitSliceFallbackForAdd) {
+            (binaryExpr.op == slang::ast::BinaryOperator::Add ||
+             binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
+             binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
+             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight);
+          if (!useBitSliceFallbackForBinary) {
             if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
               if (!createAddAssign(
                     design,
@@ -16095,17 +16433,23 @@ class SNLSVConstructorImpl {
           const bool rhsIsFixedStreaming =
             rhs->kind == slang::ast::ExpressionKind::Streaming &&
             rhs->as<slang::ast::StreamingConcatenationExpression>().isFixedSize();
+          const auto* rhsStripped = stripConversions(*rhs);
+          const bool rhsIsResizableLiteral =
+            rhsStripped &&
+            (rhsStripped->kind == slang::ast::ExpressionKind::IntegerLiteral ||
+             rhsStripped->kind ==
+               slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral);
           size_t rhsWidthBits = lhsBits.size();
-          if (!rhsIsFixedStreaming && !lhsResolvedAsPackedMemberSlice) {
+          if (!rhsIsFixedStreaming && !lhsResolvedAsPackedMemberSlice &&
+              !rhsIsResizableLiteral) {
             auto rhsWidth = getIntegralExpressionBitWidth(*rhs);
             if (!rhsWidth || !*rhsWidth ||
-                static_cast<size_t>(*rhsWidth) != lhsBits.size()) {
+                static_cast<size_t>(*rhsWidth) < lhsBits.size()) {
               reportUnsupportedElement(
                 "Unsupported net compatibility in continuous assign",
                 assignSourceRange);
               continue;
             }
-            rhsWidthBits = static_cast<size_t>(*rhsWidth);
           }
           std::vector<SNLBitNet*> rhsBits;
           if (!resolveExpressionBits(design, *rhs, rhsWidthBits, rhsBits) ||
