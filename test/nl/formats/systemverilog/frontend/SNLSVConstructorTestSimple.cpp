@@ -2083,6 +2083,137 @@ endmodule
      "'continuous_assign_unary_plus_resolve_expression_bits_failure_unsupported'"});
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignElementSelectUnsupportedReportsDetails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "continuous_assign_element_select_unsupported_reports_details";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_element_select_unsupported_reports_details.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_element_select_unsupported_reports_details(
+  input  logic [3:0] a,
+  output logic       y
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y = bad_fn(a)[0];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'continuous_assign_element_select_unsupported_reports_details'",
+     "ElementSelect"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignGeneratedComplexConstantSelectorSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "continuous_assign_generated_complex_constant_selector_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_generated_complex_constant_selector_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_generated_complex_constant_selector_supported
+  #(parameter logic [4:0] pattern_p = 5'b10101)
+(
+  input  logic [2:0] i,
+  output logic [4:0] o
+);
+  assign o[0] = i[0];
+
+  genvar j;
+  for (j = 1; j < $bits(pattern_p); j = j + 1)
+    begin : gen_unconcentrate
+      if (pattern_p[j])
+        assign o[j] = i[((($bits(pattern_p[j-1:0]) < 65) ? 1'b0 : 1'b0)
+                         + (((pattern_p[j-1:0] >> 0) & 1'b1)
+                         +  ((pattern_p[j-1:0] >> 1) & 1'b1)
+                         +  ((pattern_p[j-1:0] >> 2) & 1'b1)
+                         +  ((pattern_p[j-1:0] >> 3) & 1'b1)))];
+      else
+        assign o[j] = 1'b0;
+    end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_generated_complex_constant_selector_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignNamedParameterUnknownBitSliceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "continuous_assign_named_parameter_unknown_bit_slice_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_named_parameter_unknown_bit_slice_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_named_parameter_unknown_bit_slice_supported
+  #(parameter unconnected_val_p = 'z)
+(
+  output logic [1:0] o
+);
+  assign o[0] = unconnected_val_p;
+
+  genvar j;
+  for (j = 1; j < 2; j = j + 1)
+    begin : gen_unconnected
+      assign o[j] = unconnected_val_p;
+    end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_named_parameter_unknown_bit_slice_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+  EXPECT_EQ(top->getNet(NLName("unconnected_val_p")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -2179,6 +2310,43 @@ endmodule
   auto lo = top->getBusNet(NLName("lo_o"));
   ASSERT_NE(lo, nullptr);
   EXPECT_EQ(40, lo->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignPackedArrayElementWidenSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_packed_array_element_widen_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_packed_array_element_widen_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_packed_array_element_widen_supported(
+  input  logic [7:0] a,
+  output logic [63:0] y
+);
+  logic [1:0][63:0] data;
+
+  assign data[0] = a;
+  assign y = data[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_packed_array_element_widen_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(64, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceStreamingSupported) {
@@ -5523,25 +5691,29 @@ TEST_F(SNLSVConstructorTestSimple, parseModelReuseBuildDesignCache) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCases) {
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCasesSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "instance_connection_edge_cases" / "instance_connection_edge_cases.sv",
-    {"Unsupported instance connection"});
+  constructor.construct(
+    benchmarksPath / "instance_connection_edge_cases" / "instance_connection_edge_cases.sv");
+
+  auto top = library_->getSNLDesign(NLName("instance_connection_edge_cases"));
+  ASSERT_NE(top, nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "instance_connection_edge_cases");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionDirectBusWidthMismatchUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionInputBusWidthResizeSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath /= "instance_connection_direct_bus_width_mismatch_unsupported";
+  outPath /= "instance_connection_input_bus_width_resize_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "instance_connection_direct_bus_width_mismatch_unsupported.sv";
+  const auto svPath = outPath / "instance_connection_input_bus_width_resize_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile << "module child(input logic [3:0] a, output logic y);\n"
@@ -5552,22 +5724,31 @@ TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionDirectBusWidthMismatch
          << "endmodule\n";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported instance connection net/term compatibility"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("u"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "instance_connection_input_bus_width_resize_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarBusWidthMismatchReportsRTL) {
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarInputWidthResizeSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath /= "instance_connection_scalar_bus_width_mismatch_reports_rtl";
+  outPath /= "instance_connection_scalar_input_width_resize_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "instance_connection_scalar_bus_width_mismatch_reports_rtl.sv";
+  const auto svPath = outPath / "instance_connection_scalar_input_width_resize_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile << "module child(input logic a, output logic y);\n"
@@ -5575,6 +5756,40 @@ TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarBusWidthMismatch
          << "endmodule\n"
          << "module top(input logic [1:0] a, output logic y);\n"
          << "  child u(.a(a), .y(y));\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("u"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "instance_connection_scalar_input_width_resize_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarOutputWidthMismatchReportsRTL) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "instance_connection_scalar_output_width_mismatch_reports_rtl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_scalar_output_width_mismatch_reports_rtl.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module child(output logic a);\n"
+         << "endmodule\n"
+         << "module top(output logic [1:0] a);\n"
+         << "  child u(.a(a));\n"
          << "endmodule\n";
   svFile.close();
 
@@ -5800,6 +6015,124 @@ endmodule
   ASSERT_NE(dBit0InstTerm, nullptr);
   ASSERT_NE(dBit0InstTerm->getNet(), nullptr);
   EXPECT_EQ(static_cast<void*>(yNet->getBit(9)), static_cast<void*>(dBit0InstTerm->getNet()));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionOutputPackedToFixedUnpackedSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_output_packed_to_fixed_unpacked_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "instance_connection_output_packed_to_fixed_unpacked_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef logic [7:0] link_t;
+
+module child_output_mesh(
+  output logic [1:0][1:0][7:0] d_o
+);
+endmodule
+
+module instance_connection_output_packed_to_fixed_unpacked_supported(
+  output link_t [1:0][1:0] y
+);
+  child_output_mesh u_mesh (
+    .d_o(y)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("instance_connection_output_packed_to_fixed_unpacked_supported"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child_output_mesh"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("u_mesh"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(32, yNet->getWidth());
+
+  auto dTerm = child->getBusTerm(NLName("d_o"));
+  ASSERT_NE(dTerm, nullptr);
+  auto dTermBit0 = dTerm->getBit(0);
+  ASSERT_NE(dTermBit0, nullptr);
+  auto dBit0InstTerm = inst->getInstTerm(dTermBit0);
+  ASSERT_NE(dBit0InstTerm, nullptr);
+  ASSERT_NE(dBit0InstTerm->getNet(), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionOutputPackedTruncateSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_output_packed_truncate_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_output_packed_truncate_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module child_output_mesh(
+  output logic [1:0][1:0][7:0] d_o
+);
+endmodule
+
+module instance_connection_output_packed_truncate_supported(
+  output logic [0:0][1:0][7:0] y
+);
+  child_output_mesh u_mesh (
+    .d_o(y)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("instance_connection_output_packed_truncate_supported"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child_output_mesh"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("u_mesh"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(16, yNet->getWidth());
+
+  auto dTerm = child->getBusTerm(NLName("d_o"));
+  ASSERT_NE(dTerm, nullptr);
+  auto dTermBit0 = dTerm->getBit(0);
+  auto dTermBit15 = dTerm->getBit(15);
+  auto dTermBit16 = dTerm->getBit(16);
+  ASSERT_NE(dTermBit0, nullptr);
+  ASSERT_NE(dTermBit15, nullptr);
+  ASSERT_NE(dTermBit16, nullptr);
+
+  auto dBit0InstTerm = inst->getInstTerm(dTermBit0);
+  auto dBit15InstTerm = inst->getInstTerm(dTermBit15);
+  auto dBit16InstTerm = inst->getInstTerm(dTermBit16);
+  ASSERT_NE(dBit0InstTerm, nullptr);
+  ASSERT_NE(dBit15InstTerm, nullptr);
+  ASSERT_NE(dBit16InstTerm, nullptr);
+  EXPECT_EQ(static_cast<void*>(yNet->getBit(0)), static_cast<void*>(dBit0InstTerm->getNet()));
+  EXPECT_EQ(static_cast<void*>(yNet->getBit(15)), static_cast<void*>(dBit15InstTerm->getNet()));
+  EXPECT_EQ(nullptr, dBit16InstTerm->getNet());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
@@ -14730,20 +15063,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiResetSubtractFallbackUnsupported) {
+  parseSequentialMultiResetSubtractFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_multi_reset_subtract_fallback_unsupported";
+  outPath = outPath / "seq_multi_reset_subtract_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_multi_reset_subtract_fallback_unsupported.sv";
+  const auto svPath = outPath / "seq_multi_reset_subtract_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_reset_subtract_fallback_unsupported(
+    << R"(module seq_multi_reset_subtract_fallback_supported(
   input  logic       clk,
   input  logic       rst,
   output logic [7:0] q_bad,
@@ -14762,10 +15095,28 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary operator in sequential assignment: -"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_reset_subtract_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t faCount = 0;
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(16u, flopCount);
+  EXPECT_GT(faCount, 0u);
 }
 
 TEST_F(
@@ -14824,6 +15175,63 @@ endmodule
     }
   }
   EXPECT_EQ(16u, flopCount);
+  EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialAddSubtractAccumulatorFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_add_subtract_accumulator_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_add_subtract_accumulator_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_add_subtract_accumulator_fallback_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic       v_i,
+  input  logic       ready_i,
+  input  logic       yumi_i,
+  output logic [1:0] count_o
+);
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      count_o <= 2'b00;
+    end else begin
+      count_o <= count_o + v_i - (ready_i & yumi_i);
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_add_subtract_accumulator_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(2u, dffCount);
   EXPECT_GT(faCount, 0u);
 }
 
@@ -14969,6 +15377,65 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q0_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("q1_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentSingleResetLhsElseMultiLhsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_single_reset_lhs_else_multi_lhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_single_reset_lhs_else_multi_lhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_single_reset_lhs_else_multi_lhs_supported(
+  input  logic       clk_i,
+  input  logic       reset_i,
+  input  logic       en_i,
+  input  logic       q0_d,
+  input  logic [7:0] q1_d,
+  input  logic [7:0] q2_d,
+  output logic       q0_o,
+  output logic [7:0] q1_o,
+  output logic [7:0] q2_o
+);
+  always_ff @(posedge clk_i) begin
+    if (reset_i) begin
+      q0_o <= 1'b0;
+    end else begin
+      q0_o <= q0_d;
+      if (en_i) begin
+        q1_o <= q1_d;
+        q2_o <= q2_d;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_single_reset_lhs_else_multi_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(17u, dffCount);
 }
 
 TEST_F(
@@ -16616,20 +17083,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentResetConcatLHSUnsupported) {
+  parseSequentialMultiAssignmentResetConcatLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_multi_assignment_reset_concat_lhs_unsupported";
+  outPath = outPath / "seq_multi_assignment_reset_concat_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_multi_assignment_reset_concat_lhs_unsupported.sv";
+  const auto svPath = outPath / "seq_multi_assignment_reset_concat_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_reset_concat_lhs_unsupported(
+    << R"(module seq_multi_assignment_reset_concat_lhs_supported(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic d0_i,
@@ -16653,12 +17120,34 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'seq_multi_assignment_reset_concat_lhs_unsupported'",
-     "unable to resolve assignment LHS net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_reset_concat_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffrnCount = 0;
+  size_t muxCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++muxCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(3u, dffrnCount);
+  EXPECT_EQ(0u, muxCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialLHSElementSelectSkipped) {
