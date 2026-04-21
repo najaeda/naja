@@ -5900,6 +5900,61 @@ TEST_F(SNLSVConstructorTestSimple, parseModelReuseBuildDesignCache) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseModelReuseRepresentativeBodyCacheAfterDefparam) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "model_reuse_representative_body_cache_after_defparam";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "model_reuse_representative_body_cache_after_defparam.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module child #(parameter int W = 1) (\n"
+         << "  input logic [W-1:0] a,\n"
+         << "  output logic [W-1:0] y\n"
+         << ");\n"
+         << "  assign y = a;\n"
+         << "endmodule\n"
+         << "\n"
+         << "module top(\n"
+         << "  input logic [1:0] a0,\n"
+         << "  input logic [1:0] a1,\n"
+         << "  output logic [1:0] y0,\n"
+         << "  output logic [1:0] y1\n"
+         << ");\n"
+         << "  child u0(.a(a0), .y(y0));\n"
+         << "  child u1(.a(a1), .y(y1));\n"
+         << "  defparam u0.W = 2;\n"
+         << "  defparam u1.W = 2;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto* u0 = top->getInstance(NLName("u0"));
+  auto* u1 = top->getInstance(NLName("u1"));
+  ASSERT_NE(u0, nullptr);
+  ASSERT_NE(u1, nullptr);
+  EXPECT_EQ(u0->getModel(), u1->getModel());
+  ASSERT_NE(u0->getModel(), nullptr);
+
+  auto* aTerm = u0->getModel()->getBusTerm(NLName("a"));
+  auto* yTerm = u0->getModel()->getBusTerm(NLName("y"));
+  ASSERT_NE(aTerm, nullptr);
+  ASSERT_NE(yTerm, nullptr);
+  EXPECT_EQ(2, aTerm->getWidth());
+  EXPECT_EQ(2, yTerm->getWidth());
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "model_reuse_representative_body_cache_after_defparam");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCasesSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -6439,6 +6494,87 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
     constructor,
     svPath,
     {"Unsupported SystemVerilog port direction 'ref' for port: r0"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedModuleBodyCoverageScopeLabelReported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_module_body_coverage_scope";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unsupported_module_body_coverage_scope.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(input logic clk);\n"
+         << "  clocking cb @(posedge clk);\n"
+         << "  endclocking\n"
+         << "endmodule\n";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported elaborated member in module body"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedGenerateBodyCoverageScopeLabelReported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_generate_body_coverage_scope";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unsupported_generate_body_coverage_scope.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(input logic clk);\n"
+         << "  if (1) begin : g\n"
+         << "    clocking cb @(posedge clk);\n"
+         << "    endclocking\n"
+         << "  end\n"
+         << "endmodule\n";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported elaborated member in generate block"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedModuleBodyCoverageScopeLabelUnnamedMemberReported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_module_body_coverage_scope_unnamed";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unsupported_module_body_coverage_scope_unnamed.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(input logic clk);\n"
+         << "  default clocking @(posedge clk);\n"
+         << "  endclocking\n"
+         << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported SystemVerilog element exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported elaborated member in module body of module 'top': ClockingBlock"))
+      << reason;
+    EXPECT_EQ(std::string::npos, reason.find("ClockingBlock '")) << reason;
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
