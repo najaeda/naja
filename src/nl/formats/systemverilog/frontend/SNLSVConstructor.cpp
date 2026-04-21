@@ -786,6 +786,12 @@ class SNLSVConstructorImpl {
       }
     }
 
+    std::string testFormatReasonWithSourceExcerpt(
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange) const {
+      return formatReasonWithSourceExcerpt(reason, maybeRange);
+    }
+
   private:
     void constructWithSlangDriver(const SNLSVConstructor::Paths& paths) {
       driver_ = std::make_unique<slang::driver::Driver>();
@@ -1248,8 +1254,11 @@ class SNLSVConstructorImpl {
     std::optional<std::string> getSourceExcerpt(
       const std::optional<slang::SourceRange>& maybeRange,
       size_t maxLength = 160) const {
-      if (!maybeRange || !compilation_) {
+      if (!maybeRange) {
         return std::nullopt;
+      }
+      if (!compilation_) {
+        return std::nullopt; // LCOV_EXCL_LINE
       }
       auto* sourceManager = compilation_->getSourceManager();
       if (!sourceManager) {
@@ -18450,6 +18459,18 @@ class SNLSVConstructorImpl {
     mutable SVPerfReport svPerfReport_ {};
 #endif
 };
+
+namespace detail {
+
+std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
+  const std::string& reason) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFormatReasonWithSourceExcerpt(reason, std::nullopt);
+}
+
+}  // namespace detail
 
 SNLSVConstructor::SNLSVConstructor(NLLibrary* library):
   library_(library)

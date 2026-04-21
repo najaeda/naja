@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace naja::NL {
@@ -40,5 +41,12 @@ class SNLSVConstructor {
   private:
     NLLibrary* library_ {nullptr};
 };
+
+namespace detail {
+
+std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
+  const std::string& reason);
+
+}  // namespace detail
 
 }  // namespace naja::NL

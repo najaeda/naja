@@ -6577,6 +6577,11 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedModuleBodyCoverageScopeLabelU
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, formatReasonWithSourceExcerptNoRangeFallsBackToReason) {
+  const std::string reason = "unsupported connection";
+  EXPECT_EQ(reason, detail::testSVConstructorFormatReasonWithSourceExcerptNoRange(reason));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
