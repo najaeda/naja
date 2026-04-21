@@ -792,6 +792,14 @@ class SNLSVConstructorImpl {
       return formatReasonWithSourceExcerpt(reason, maybeRange);
     }
 
+    std::optional<std::string> testGetSourceExcerpt(
+      std::unique_ptr<slang::ast::Compilation> compilation,
+      const std::optional<slang::SourceRange>& maybeRange,
+      size_t maxLength) {
+      compilation_ = std::move(compilation);
+      return getSourceExcerpt(maybeRange, maxLength);
+    }
+
   private:
     void constructWithSlangDriver(const SNLSVConstructor::Paths& paths) {
       driver_ = std::make_unique<slang::driver::Driver>();
@@ -18461,6 +18469,49 @@ class SNLSVConstructorImpl {
 };
 
 namespace detail {
+
+std::optional<std::string> testSVConstructorGetSourceExcerpt(
+  const SourceExcerptTestOptions& options) {
+  slang::SourceManager sourceManager;
+  const auto primaryBuffer = [&]() {
+    if (!options.preserveRawBufferSize) {
+      return sourceManager.assignText("excerpt_source.sv", options.sourceText);
+    }
+    slang::SmallVector<char> rawBuffer;
+    rawBuffer.insert(rawBuffer.end(), options.sourceText.begin(), options.sourceText.end());
+    return sourceManager.assignBuffer("excerpt_source.sv", std::move(rawBuffer));
+  }();
+  const auto anchorBuffer =
+    sourceManager.assignText("excerpt_anchor.sv", "module anchor; endmodule\n");
+  auto anchorTree = slang::syntax::SyntaxTree::fromBuffer(anchorBuffer, sourceManager);
+
+  auto compilation = std::make_unique<slang::ast::Compilation>();
+  compilation->addSyntaxTree(anchorTree);
+
+  auto makeLocation = [](slang::BufferID buffer,
+                         const std::optional<size_t>& offset) -> slang::SourceLocation {
+    if (!offset) {
+      return {};
+    }
+    return {buffer, *offset};
+  };
+
+  auto start = makeLocation(primaryBuffer.id, options.startOffset);
+  auto end = makeLocation(primaryBuffer.id, options.endOffset);
+  if (options.useAlternateEndBuffer && options.endOffset) {
+    const auto alternateBuffer =
+      sourceManager.assignText("excerpt_alternate.sv", options.sourceText.empty() ? "x" : "alt");
+    end = slang::SourceLocation(alternateBuffer.id, *options.endOffset);
+  }
+
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions constructOptions;
+  SNLSVConstructorImpl impl(nullptr, config, constructOptions);
+  return impl.testGetSourceExcerpt(
+    std::move(compilation),
+    slang::SourceRange(start, end),
+    options.maxLength);
+}
 
 std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
   const std::string& reason) {

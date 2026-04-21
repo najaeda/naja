@@ -6582,6 +6582,82 @@ TEST_F(SNLSVConstructorTestSimple, formatReasonWithSourceExcerptNoRangeFallsBack
   EXPECT_EQ(reason, detail::testSVConstructorFormatReasonWithSourceExcerptNoRange(reason));
 }
 
+TEST_F(SNLSVConstructorTestSimple, sourceExcerptHandlesMalformedRanges) {
+  detail::SourceExcerptTestOptions options;
+  options.sourceText = "abc";
+  options.startOffset = 1;
+  options.endOffset.reset();
+  EXPECT_EQ(
+    std::make_optional<std::string>("b"),
+    detail::testSVConstructorGetSourceExcerpt(options));
+
+  options = {};
+  options.sourceText = "abc";
+  options.startOffset.reset();
+  options.endOffset = 1;
+  EXPECT_EQ(std::nullopt, detail::testSVConstructorGetSourceExcerpt(options));
+
+  options = {};
+  options.sourceText = "abc";
+  options.startOffset = 1;
+  options.endOffset = 2;
+  options.useAlternateEndBuffer = true;
+  EXPECT_EQ(
+    std::make_optional<std::string>("b"),
+    detail::testSVConstructorGetSourceExcerpt(options));
+
+  options = {};
+  options.sourceText = "abc";
+  options.startOffset = 1;
+  options.endOffset = 1;
+  EXPECT_EQ(
+    std::make_optional<std::string>("b"),
+    detail::testSVConstructorGetSourceExcerpt(options));
+
+  options = {};
+  options.sourceText = "";
+  options.startOffset = 0;
+  options.endOffset.reset();
+  options.preserveRawBufferSize = true;
+  EXPECT_EQ(std::nullopt, detail::testSVConstructorGetSourceExcerpt(options));
+
+  options = {};
+  options.sourceText = "abc";
+  options.startOffset = 3;
+  options.endOffset = 4;
+  options.preserveRawBufferSize = true;
+  EXPECT_EQ(std::nullopt, detail::testSVConstructorGetSourceExcerpt(options));
+}
+
+TEST_F(SNLSVConstructorTestSimple, sourceExcerptNormalizesWhitespace) {
+  detail::SourceExcerptTestOptions options;
+  options.sourceText = "a \n\t b  ";
+  options.startOffset = 0;
+  options.endOffset = options.sourceText.size();
+  EXPECT_EQ(
+    std::make_optional<std::string>("a b"),
+    detail::testSVConstructorGetSourceExcerpt(options));
+}
+
+TEST_F(SNLSVConstructorTestSimple, sourceExcerptWhitespaceOnlyReturnsNullopt) {
+  detail::SourceExcerptTestOptions options;
+  options.sourceText = " \n\t ";
+  options.startOffset = 0;
+  options.endOffset = options.sourceText.size();
+  EXPECT_EQ(std::nullopt, detail::testSVConstructorGetSourceExcerpt(options));
+}
+
+TEST_F(SNLSVConstructorTestSimple, sourceExcerptTruncatesLongExcerpt) {
+  detail::SourceExcerptTestOptions options;
+  options.sourceText = "abcdef";
+  options.startOffset = 0;
+  options.endOffset = options.sourceText.size();
+  options.maxLength = 5;
+  EXPECT_EQ(
+    std::make_optional<std::string>("ab..."),
+    detail::testSVConstructorGetSourceExcerpt(options));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -6908,6 +6984,107 @@ endmodule
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombMultiplyEvaluatedConstOperandsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_mul_evaluated_const_operands_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_mul_evaluated_const_operands_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_mul_evaluated_const_operands_supported(
+  output logic [7:0] y
+);
+  localparam logic [3:0] A = 4'd3;
+  localparam logic [3:0] B = 4'd5;
+  always_comb begin
+    y = A * B;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_mul_evaluated_const_operands_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombMultiplyLiteralOperandsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_mul_literal_operands_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_mul_literal_operands_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_mul_literal_operands_supported(
+  output logic [7:0] y
+);
+  always_comb begin
+    y = 4'd3 * 4'd5;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_mul_literal_operands_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombNestedMultiplyLiteralOperandsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_nested_mul_literal_operands_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_nested_mul_literal_operands_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_nested_mul_literal_operands_supported(
+  output logic [7:0] y
+);
+  always_comb begin
+    y = (4'd3 * 4'd5) + 8'd1;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_nested_mul_literal_operands_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandUnsupported) {
@@ -10203,6 +10380,40 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombConditionalUnknownScalarMuxSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_conditional_unknown_scalar_mux_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_conditional_unknown_scalar_mux_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_conditional_unknown_scalar_mux_supported(
+  input  logic sel_i,
+  output logic y_o
+);
+  always_comb begin
+    y_o = sel_i ? 1'bx : 1'b1;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_conditional_unknown_scalar_mux_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countMux2Instances(top, 1));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombConditionalCaseFunctionSelectorMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -12212,6 +12423,45 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_casez_concatenation_item_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("y")), nullptr);
+  EXPECT_GE(countMux2Instances(top), 1u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombCasezConcatenationZeroWidthReplicationItemSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_casez_concat_zero_width_replication_item_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_casez_concat_zero_width_replication_item_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_casez_concat_zero_width_replication_item_supported(
+  input  logic [1:0] sel,
+  output logic       y
+);
+  always_comb begin
+    unique casez (sel)
+      {1'b1, {0{1'b0}}, 1'b?}: y = 1'b1;
+      default: y = 1'b0;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_casez_concat_zero_width_replication_item_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("y")), nullptr);
   EXPECT_GE(countMux2Instances(top), 1u);
 }
 
@@ -18004,6 +18254,94 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialResetElseConcatenationSizeMismatchSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_else_concat_size_mismatch_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_reset_else_concat_size_mismatch_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_else_concat_size_mismatch_supported(
+  input  logic clk_i,
+  input  logic rst_i,
+  input  logic d_i,
+  output logic q0_o,
+  output logic q1_o,
+  output logic q2_o
+);
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
+      {q0_o, q1_o} <= 2'b00;
+    end else begin
+      {q0_o, q1_o, q2_o} <= {d_i, d_i, d_i};
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_reset_else_concat_size_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("q0_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("q1_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("q2_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentElseConcatLHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_else_concat_lhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_multi_assignment_else_concat_lhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_else_concat_lhs_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic d0_i,
+  input  logic d1_i,
+  output logic q0_o,
+  output logic q1_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      q0_o <= 1'b0;
+      q1_o <= 1'b0;
+    end else begin
+      {q0_o, q1_o} <= {d0_i, d1_i};
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_multi_assignment_else_concat_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("q0_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("q1_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultiAssignmentResetConcatLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -20844,6 +21182,61 @@ endmodule
     }
   }
   EXPECT_EQ(32u, dffrnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetDynamicIndexedRangePartialWriteSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_dynamic_indexed_range_partial_write_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_reset_dynamic_indexed_range_partial_write_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_dynamic_indexed_range_partial_write_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic [1:0]  idx_i,
+  input  logic [3:0]  data_i,
+  output logic [15:0] out_o
+);
+  logic [15:0] q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q <= '0;
+    end else begin
+      q[idx_i+:4] <= data_i;
+    end
+  end
+
+  assign out_o = q;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_reset_dynamic_indexed_range_partial_write_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    }
+  }
+  EXPECT_EQ(16u, dffrnCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSRealConstantSupported) {
@@ -27153,6 +27546,53 @@ endmodule
     }
   }
   EXPECT_EQ(8u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIncrementerSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_incrementer_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_incrementer_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_incrementer_supported(
+  input  logic en,
+  output logic [3:0] y
+);
+  logic [3:0] q_r;
+  always_latch begin
+    if (en)
+      q_r <= q_r + 4'd1;
+    else
+      q_r <= q_r;
+  end
+  assign y = q_r;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_incrementer_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(4u, dlatchCount);
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseAssignmentUnsupported) {
