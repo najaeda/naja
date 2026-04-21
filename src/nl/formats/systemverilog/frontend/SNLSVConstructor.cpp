@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLSVConstructor.h"
+#include "SNLSVConstructorTestDetail.h"
 
 #include <algorithm>
 #include <cctype>
@@ -34,6 +35,7 @@
 #include "NLException.h"
 #include "NLName.h"
 #include "NLLibrary.h"
+#include "NLUniverse.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLBusTermBit.h"
@@ -786,6 +788,7 @@ class SNLSVConstructorImpl {
       }
     }
 
+    // LCOV_EXCL_START
     std::string testFormatReasonWithSourceExcerpt(
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange) const {
@@ -799,6 +802,517 @@ class SNLSVConstructorImpl {
       compilation_ = std::move(compilation);
       return getSourceExcerpt(maybeRange, maxLength);
     }
+
+    bool testTryPowerInt64(int64_t base, int64_t exponent, int64_t& value) const {
+      return tryPowerInt64(base, exponent, value);
+    }
+
+    std::optional<std::vector<int32_t>> testCollectIndexedRangeElementIndices(
+      int32_t startIndex,
+      int32_t sliceWidth,
+      bool indexedDown) const {
+      std::vector<int32_t> indices;
+      if (!collectIndexedRangeElementIndices(startIndex, sliceWidth, indexedDown, indices)) {
+        return std::nullopt;
+      }
+      return indices;
+    }
+
+    std::vector<bool> testEncodeUnsignedProductBits(
+      uint64_t leftValue,
+      uint64_t rightValue,
+      size_t targetWidth) const {
+      std::vector<bool> encodedBits;
+      encodeUnsignedProductBits(leftValue, rightValue, targetWidth, encodedBits);
+      return encodedBits;
+    }
+
+    std::optional<size_t> testResolveWildcardPatternWidthFallback(
+      const std::optional<size_t>& directWidth,
+      bool canonicalIntegral,
+      int32_t bitWidth) const {
+      size_t resolvedWidth = 0;
+      if (!resolveWildcardPatternWidthFallback(
+            directWidth,
+            canonicalIntegral,
+            bitWidth,
+            resolvedWidth)) {
+        return std::nullopt;
+      }
+      return resolvedWidth;
+    }
+
+    std::optional<std::string> testResolveWildcardCaseItemPatternFromAssignRhs(
+      const std::string& sourceText,
+      size_t targetWidth,
+      bool signExtend) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const Expression* rhsExpr = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind == slang::ast::ExpressionKind::Assignment) {
+          rhsExpr = &assignment.as<slang::ast::AssignmentExpression>().right();
+        } else {
+          rhsExpr = &assignment;
+        }
+        break;
+      }
+      if (!rhsExpr) {
+        return std::nullopt;
+      }
+
+      std::vector<slang::logic_t> bits;
+      if (!resolveWildcardCaseItemPattern(*rhsExpr, targetWidth, signExtend, bits)) {
+        return std::nullopt;
+      }
+
+      std::string result;
+      result.reserve(bits.size());
+      for (auto bit : bits) {
+        result.push_back(bit.toChar());
+      }
+      return result;
+    }
+
+    std::optional<std::string> testResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+      const std::string& sourceText,
+      size_t targetWidth) {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const Expression* rhsExpr = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind == slang::ast::ExpressionKind::Assignment) {
+          rhsExpr = &assignment.as<slang::ast::AssignmentExpression>().right();
+        } else {
+          rhsExpr = &assignment;
+        }
+        break;
+      }
+      if (!rhsExpr) {
+        return std::nullopt;
+      }
+
+      auto* db = NLUniverse::getTopDB();
+      if (!db) {
+        auto* universe = NLUniverse::get();
+        if (universe) {
+          for (auto* candidate : universe->getUserDBs()) {
+            db = candidate;
+            break;
+          }
+        }
+      }
+      if (!db) {
+        return std::nullopt;
+      }
+      auto* detailLibrary = NLLibrary::create(db);
+      auto* detailDesign = SNLDesign::create(detailLibrary);
+
+      std::vector<SNLBitNet*> bits;
+      bool usedUnknownFallback = false;
+      if (!resolveUnknownLiteralBitsAsZero(
+            detailDesign,
+            *rhsExpr,
+            targetWidth,
+            bits,
+            usedUnknownFallback) ||
+          !usedUnknownFallback) {
+        return std::nullopt;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(detailDesign, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(detailDesign, true));
+      std::string result;
+      result.reserve(bits.size());
+      for (auto* bit : bits) {
+        if (bit == const0) {
+          result.push_back('0');
+        } else if (bit == const1) {
+          result.push_back('1');
+        } else {
+          result.push_back('?');
+        }
+      }
+      return result;
+    }
+
+    std::optional<std::string> testResolveConstantExpressionBitsFromAssignRhs(
+      const std::string& sourceText,
+      size_t targetWidth) {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const Expression* rhsExpr = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind == slang::ast::ExpressionKind::Assignment) {
+          rhsExpr = &assignment.as<slang::ast::AssignmentExpression>().right();
+        } else {
+          rhsExpr = &assignment;
+        }
+        break;
+      }
+      if (!rhsExpr) {
+        return std::nullopt;
+      }
+
+      auto* db = NLUniverse::getTopDB();
+      if (!db) {
+        auto* universe = NLUniverse::get();
+        if (universe) {
+          for (auto* candidate : universe->getUserDBs()) {
+            db = candidate;
+            break;
+          }
+        }
+      }
+      if (!db) {
+        return std::nullopt;
+      }
+      auto* detailLibrary = NLLibrary::create(db);
+      auto* detailDesign = SNLDesign::create(detailLibrary);
+
+      std::vector<SNLBitNet*> bits;
+      if (!resolveConstantExpressionBits(detailDesign, *rhsExpr, targetWidth, bits)) {
+        return std::nullopt;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(detailDesign, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(detailDesign, true));
+      std::string result;
+      result.reserve(bits.size());
+      for (auto* bit : bits) {
+        if (bit == const0) {
+          result.push_back('0');
+        } else if (bit == const1) {
+          result.push_back('1');
+        } else {
+          result.push_back('?');
+        }
+      }
+      return result;
+    }
+
+    std::optional<detail::FindTimedStatementTestResult>
+    testFindTimedStatementFromProceduralBlock(const std::string& sourceText) {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const slang::ast::ProceduralBlockSymbol* proceduralBlock = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind == SymbolKind::ProceduralBlock) {
+          proceduralBlock = &sym.as<slang::ast::ProceduralBlockSymbol>();
+          break;
+        }
+      }
+      if (!proceduralBlock) {
+        return std::nullopt;
+      }
+
+      unsupportedElements_.clear();
+      detail::FindTimedStatementTestResult result;
+      result.foundTimed = findTimedStatement(proceduralBlock->getBody()) != nullptr;
+      result.reportedUnsupported = !unsupportedElements_.empty();
+      if (result.reportedUnsupported) {
+        result.unsupportedReason = unsupportedElements_.back();
+      }
+      return result;
+    }
+
+    std::optional<detail::CollectDirectAssignmentsTestResult>
+    testCollectDirectAssignmentsFromProceduralBlock(const std::string& sourceText) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const slang::ast::ProceduralBlockSymbol* proceduralBlock = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind == SymbolKind::ProceduralBlock) {
+          proceduralBlock = &sym.as<slang::ast::ProceduralBlockSymbol>();
+          break;
+        }
+      }
+      if (!proceduralBlock) {
+        return std::nullopt;
+      }
+
+      std::vector<std::pair<const Expression*, AssignAction>> assignments;
+      detail::CollectDirectAssignmentsTestResult result;
+      result.success = collectDirectAssignments(
+        proceduralBlock->getBody(),
+        assignments,
+        &result.failureReason);
+      result.assignmentCount = assignments.size();
+      return result;
+    }
+
+    std::optional<detail::ForLoopStepExpressionTestResult>
+    testApplyForLoopStepExpressionFromForLoop(
+      const std::string& sourceText,
+      int64_t initialLoopValue) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const slang::ast::ProceduralBlockSymbol* proceduralBlock = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind == SymbolKind::ProceduralBlock) {
+          proceduralBlock = &sym.as<slang::ast::ProceduralBlockSymbol>();
+          break;
+        }
+      }
+      if (!proceduralBlock) {
+        return std::nullopt;
+      }
+
+      std::function<const slang::ast::ForLoopStatement*(const Statement*)> findForLoop =
+        [&](const Statement* stmt) -> const slang::ast::ForLoopStatement* {
+          if (!stmt) {
+            return nullptr;
+          }
+          const Statement* unwrapped = unwrapStatement(*stmt);
+          if (!unwrapped) {
+            return nullptr;
+          }
+          if (unwrapped->kind == slang::ast::StatementKind::ForLoop) {
+            return &unwrapped->as<slang::ast::ForLoopStatement>();
+          }
+          if (unwrapped->kind == slang::ast::StatementKind::List) {
+            for (const auto* nested : unwrapped->as<slang::ast::StatementList>().list) {
+              if (const auto* forLoop = findForLoop(nested)) {
+                return forLoop;
+              }
+            }
+          }
+          return nullptr;
+        };
+
+      const auto* forLoop = findForLoop(&proceduralBlock->getBody());
+      if (!forLoop || forLoop->steps.size() != 1 || !forLoop->steps.front()) {
+        return std::nullopt;
+      }
+
+      const Symbol* loopSymbol = nullptr;
+      int64_t ignoredLoopValue = 0;
+      std::string failureReason;
+      if (!extractForLoopControl(*forLoop, loopSymbol, ignoredLoopValue, failureReason) ||
+          !loopSymbol) {
+        return std::nullopt;
+      }
+
+      detail::ForLoopStepExpressionTestResult result;
+      result.loopValue = initialLoopValue;
+      result.success = applyForLoopStepExpression(
+        *forLoop->steps.front(),
+        *loopSymbol,
+        result.loopValue,
+        result.failureReason);
+      return result;
+    }
+
+    std::optional<detail::ForLoopStepExpressionTestResult>
+    testApplyForLoopStepExpressionFromProceduralStatement(
+      const std::string& sourceText,
+      int64_t initialLoopValue) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const Symbol* loopSymbol = nullptr;
+      const slang::ast::ProceduralBlockSymbol* proceduralBlock = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (!loopSymbol &&
+            (sym.kind == SymbolKind::Variable || sym.kind == SymbolKind::Net) &&
+            sym.name == "i") {
+          loopSymbol = &sym;
+        }
+        if (!proceduralBlock && sym.kind == SymbolKind::ProceduralBlock) {
+          proceduralBlock = &sym.as<slang::ast::ProceduralBlockSymbol>();
+        }
+      }
+      if (!loopSymbol || !proceduralBlock) {
+        return std::nullopt;
+      }
+
+      std::function<const Expression*(const Statement*)> findStatementExpression =
+        [&](const Statement* stmt) -> const Expression* {
+          if (!stmt) {
+            return nullptr;
+          }
+          const Statement* unwrapped = unwrapStatement(*stmt);
+          if (!unwrapped) {
+            return nullptr;
+          }
+          if (unwrapped->kind == slang::ast::StatementKind::ExpressionStatement) {
+            return &unwrapped->as<slang::ast::ExpressionStatement>().expr;
+          }
+          if (unwrapped->kind == slang::ast::StatementKind::List) {
+            for (const auto* nested : unwrapped->as<slang::ast::StatementList>().list) {
+              if (const auto* expr = findStatementExpression(nested)) {
+                return expr;
+              }
+            }
+          }
+          return nullptr;
+        };
+
+      const auto* stepExpr = findStatementExpression(&proceduralBlock->getBody());
+      if (!stepExpr) {
+        return std::nullopt;
+      }
+
+      detail::ForLoopStepExpressionTestResult result;
+      result.loopValue = initialLoopValue;
+      result.success = applyForLoopStepExpression(
+        *stepExpr,
+        *loopSymbol,
+        result.loopValue,
+        result.failureReason);
+      return result;
+    }
+
+    std::optional<bool> testSameExpressionStructureFromContinuousAssignRhsPair(
+      const std::string& sourceText) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      std::vector<const Expression*> rhsExpressions;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind == slang::ast::ExpressionKind::Assignment) {
+          rhsExpressions.push_back(
+            &assignment.as<slang::ast::AssignmentExpression>().right());
+        } else {
+          rhsExpressions.push_back(&assignment);
+        }
+      }
+      if (rhsExpressions.size() < 2) {
+        return std::nullopt;
+      }
+      return sameExpressionStructure(rhsExpressions[0], rhsExpressions[1]);
+    }
+
+    std::vector<bool> testEncodeSignedInt64ConstantBits(
+      int64_t signedValue,
+      size_t targetWidth) const {
+      std::vector<bool> encodedBits;
+      encodeSignedInt64ConstantBits(signedValue, targetWidth, encodedBits);
+      return encodedBits;
+    }
+
+    std::string testFormatAssignmentLHSResolutionFailureReason(
+      bool hasLhsNet,
+      const std::string& lhsDescription,
+      const std::string& failureReason) const {
+      return formatAssignmentLHSResolutionFailureReason(
+        hasLhsNet,
+        lhsDescription,
+        failureReason);
+    }
+
+    std::string testFormatSequentialConcatLeafFailureReason(
+      const std::string& lhsDescription,
+      const std::string& leafFailureReason) const {
+      return formatSequentialConcatLeafFailureReason(lhsDescription, leafFailureReason);
+    }
+
+    std::string testFormatDescribedFailure(
+      const std::string& prefix,
+      const std::string& description) const {
+      return formatDescribedFailure(prefix, description);
+    }
+
+    std::string testFormatQuotedDescriptionFailure(
+      const std::string& prefix,
+      const std::string& description) const {
+      return formatQuotedDescriptionFailure(prefix, description);
+    }
+    // LCOV_EXCL_STOP
 
   private:
     void constructWithSlangDriver(const SNLSVConstructor::Paths& paths) {
@@ -1147,6 +1661,22 @@ class SNLSVConstructorImpl {
       std::vector<InferredMemoryCommitGuard> guards {};
       std::optional<slang::SourceRange> sourceRange {};
     };
+
+  public:
+    detail::InferredMemoryGuardDefaults testDefaultInferredMemoryGuardDefaults() const {
+      InferredMemoryGuard defaults;
+      detail::InferredMemoryGuardDefaults result;
+      result.kind = static_cast<int>(defaults.kind);
+      result.polarity = defaults.polarity;
+      result.exprNull = defaults.expr == nullptr;
+      result.caseExprNull = defaults.caseExpr == nullptr;
+      result.caseStmtNull = defaults.caseStmt == nullptr;
+      result.caseItemNull = defaults.caseItem == nullptr;
+      result.hasSourceRange = defaults.sourceRange.has_value();
+      return result;
+    }
+
+  private:
 
     struct InferredMemoryWritePort {
       const slang::ast::Expression* selectorExpr {nullptr};
@@ -5412,6 +5942,122 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    void encodeSignedInt64ConstantBits(
+      int64_t signedValue,
+      size_t targetWidth,
+      std::vector<bool>& encodedBits) const {
+      const auto unsignedValue = static_cast<uint64_t>(signedValue);
+      const bool fillBit = signedValue < 0;
+      encodedBits.clear();
+      encodedBits.reserve(targetWidth);
+      for (size_t i = 0; i < targetWidth; ++i) {
+        const bool one = i < 64 ? ((unsignedValue >> i) & 1ULL) : fillBit;
+        encodedBits.push_back(one);
+      }
+    }
+
+    void encodeUnsignedProductBits(
+      uint64_t leftValue,
+      uint64_t rightValue,
+      size_t targetWidth,
+      std::vector<bool>& encodedBits) const {
+      const uint64_t product = leftValue * rightValue;
+      encodedBits.clear();
+      encodedBits.reserve(targetWidth);
+      for (size_t i = 0; i < targetWidth; ++i) {
+        const bool one = i < 64 && ((product >> i) & 1ULL);
+        encodedBits.push_back(one);
+      }
+    }
+
+    bool collectIndexedRangeElementIndices(
+      int32_t startIndex,
+      int32_t sliceWidth,
+      bool indexedDown,
+      std::vector<int32_t>& indices) const {
+      indices.clear();
+      if (sliceWidth <= 0) {
+        return false;
+      }
+      int64_t lsbIndex = static_cast<int64_t>(startIndex);
+      if (indexedDown) {
+        lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
+      }
+      indices.reserve(static_cast<size_t>(sliceWidth));
+      for (int32_t elem = 0; elem < sliceWidth; ++elem) {
+        const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+        if (elemIndex < std::numeric_limits<int32_t>::min() ||
+            elemIndex > std::numeric_limits<int32_t>::max()) {
+          indices.clear();
+          return false;
+        }
+        indices.push_back(static_cast<int32_t>(elemIndex));
+      }
+      return true;
+    }
+
+    bool resolveWildcardPatternWidthFallback(
+      const std::optional<size_t>& directWidth,
+      bool canonicalIntegral,
+      int32_t bitWidth,
+      size_t& resolvedWidth) const {
+      if (directWidth) {
+        resolvedWidth = *directWidth;
+        return true;
+      }
+      if (!canonicalIntegral) {
+        return false;
+      }
+      if (bitWidth < 0) {
+        return false;
+      }
+      resolvedWidth = static_cast<size_t>(bitWidth);
+      return true;
+    }
+
+    std::string formatAssignmentLHSResolutionFailureReason(
+      bool hasLhsNet,
+      const std::string& lhsDescription,
+      const std::string& failureReason) const {
+      if (!hasLhsNet) {
+        std::ostringstream reason;
+        reason << "unable to resolve assignment LHS net for '" << lhsDescription << "'";
+        return reason.str();
+      }
+      if (failureReason.empty()) {
+        std::ostringstream reason;
+        reason << "unable to resolve assignment LHS bits for '" << lhsDescription << "'";
+        return reason.str();
+      }
+      return failureReason;
+    }
+
+    std::string formatSequentialConcatLeafFailureReason(
+      const std::string& lhsDescription,
+      const std::string& leafFailureReason) const {
+      std::ostringstream reason;
+      reason << "unable to resolve sequential concatenation assignment leaf '"
+             << lhsDescription << "'";
+      if (!leafFailureReason.empty()) {
+        reason << " (" << leafFailureReason << ")";
+      }
+      return reason.str();
+    }
+
+    std::string formatDescribedFailure(
+      const std::string& prefix,
+      const std::string& description) const {
+      return prefix + description;
+    }
+
+    std::string formatQuotedDescriptionFailure(
+      const std::string& prefix,
+      const std::string& description) const {
+      std::ostringstream reason;
+      reason << prefix << "'" << description << "'";
+      return reason.str();
+    }
+
     bool getConstantInt64(const Expression& expr, int64_t& value) const {
       if (auto loopValue = getActiveForLoopConstant(expr)) {
         value = *loopValue;
@@ -8218,10 +8864,9 @@ class SNLSVConstructorImpl {
                 rightConst > std::numeric_limits<uint64_t>::max() / leftConst) {
               return false;
             }
-            const uint64_t product = leftConst * rightConst;
-            bits.reserve(targetWidth);
-            for (size_t i = 0; i < targetWidth; ++i) {
-              const bool one = i < 64 && ((product >> i) & 1ULL);
+            std::vector<bool> productBits;
+            encodeUnsignedProductBits(leftConst, rightConst, targetWidth, productBits);
+            for (bool one : productBits) {
               bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
             }
             return true;
@@ -12856,30 +13501,24 @@ class SNLSVConstructorImpl {
                     leafBits,
                     &leafFailureReason) ||
                   leafBits.empty()) {
-                std::ostringstream reason;
-                reason << "unable to resolve sequential concatenation assignment leaf '"
-                       << describeLHSForDiagnostics(*leafExpr) << "'";
-                if (!leafFailureReason.empty()) {
-                  reason << " (" << leafFailureReason << ")";
-                }
-                failureReason = reason.str();
+                failureReason = formatSequentialConcatLeafFailureReason(
+                  describeLHSForDiagnostics(*leafExpr),
+                  leafFailureReason);
                 return false;
               }
 
               if (sameLhs(leafExpr, &lhsExpr)) {
                 if (trackedOffset.has_value()) {
-                  std::ostringstream reason;
-                  reason << "duplicate sequential concatenation assignment leaf for '"
-                         << describeLHSForDiagnostics(lhsExpr) << "'";
-                  failureReason = reason.str();
+                  failureReason = formatQuotedDescriptionFailure(
+                    "duplicate sequential concatenation assignment leaf for ",
+                    describeLHSForDiagnostics(lhsExpr));
                   return false;
                 }
                 trackedOffset = concatWidth;
                 if (leafBits.size() != lhsBits.size()) {
-                  std::ostringstream reason;
-                  reason << "sequential concatenation assignment width mismatch for tracked LHS '"
-                         << describeLHSForDiagnostics(lhsExpr) << "'";
-                  failureReason = reason.str();
+                  failureReason = formatQuotedDescriptionFailure(
+                    "sequential concatenation assignment width mismatch for tracked LHS ",
+                    describeLHSForDiagnostics(lhsExpr));
                   return false;
                 }
               }
@@ -12901,10 +13540,9 @@ class SNLSVConstructorImpl {
                 nullptr,
                 actionSourceRange);
               if (assignedBits.size() != concatWidth) {
-                std::ostringstream reason;
-                reason << "failed to lower sequential concatenation assignment for '"
-                       << describeExpression(*assignedLHS) << "'";
-                failureReason = reason.str();
+                failureReason = formatQuotedDescriptionFailure(
+                  "failed to lower sequential concatenation assignment for ",
+                  describeExpression(*assignedLHS));
                 return false;
               }
               std::copy(
@@ -12958,10 +13596,9 @@ class SNLSVConstructorImpl {
                   nullptr,
                   actionSourceRange);
                 if (assignedBits.size() != assignedLHSBits.size()) {
-                  std::ostringstream reason;
-                  reason << "failed to lower concrete sequential partial assignment for LHS '"
-                         << describeLHSForDiagnostics(*assignedLHS) << "'";
-                  failureReason = reason.str();
+                  failureReason = formatQuotedDescriptionFailure(
+                    "failed to lower concrete sequential partial assignment for LHS ",
+                    describeLHSForDiagnostics(*assignedLHS));
                   return false;
                 }
                 for (size_t i = 0; i < assignedPositions.size(); ++i) {
@@ -13462,19 +14099,18 @@ class SNLSVConstructorImpl {
               sliceWidth <= 0) {
             return false;
           }
-          int64_t lsbIndex = static_cast<int64_t>(startIndex);
-          if (rangeExpr.getSelectionKind() ==
-              slang::ast::RangeSelectionKind::IndexedDown) {
-            lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
+          std::vector<int32_t> elementIndices;
+          if (!collectIndexedRangeElementIndices(
+                startIndex,
+                sliceWidth,
+                rangeExpr.getSelectionKind() ==
+                  slang::ast::RangeSelectionKind::IndexedDown,
+                elementIndices)) {
+            bits.clear();
+            return false;
           }
-          for (int32_t elem = 0; elem < sliceWidth; ++elem) {
-            const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
-            if (elemIndex < std::numeric_limits<int32_t>::min() ||
-                elemIndex > std::numeric_limits<int32_t>::max()) {
-              bits.clear();
-              return false;
-            }
-            if (!appendElementBits(static_cast<int32_t>(elemIndex))) {
+          for (int32_t elemIndex : elementIndices) {
+            if (!appendElementBits(elemIndex)) {
               bits.clear();
               return false;
             }
@@ -13722,10 +14358,9 @@ class SNLSVConstructorImpl {
                 exprMatchBit,
                 caseSourceRange) ||
               !exprMatchBit) {
-            std::ostringstream reason;
-            reason << "unable to resolve always_comb case inside item match for "
-                   << describeExpression(*itemExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve always_comb case inside item match for ",
+              describeExpression(*itemExpr));
             return nullptr;
           }
         } else if (!wildcardCase) {
@@ -13737,20 +14372,18 @@ class SNLSVConstructorImpl {
                 caseExpr,
                 *itemExpr,
                 caseSourceRange)) {
-            std::ostringstream reason;
-            reason << "unable to resolve always_comb case item match for "
-                   << describeExpression(*itemExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve always_comb case item match for ",
+              describeExpression(*itemExpr));
             return nullptr;
           }
         } else {
           auto leftWidth = getIntegralExpressionBitWidth(caseExpr);
           auto rightWidth = getIntegralExpressionBitWidth(*itemExpr);
           if (!leftWidth || !rightWidth) {
-            std::ostringstream reason;
-            reason << "unable to determine always_comb wildcard case item width for "
-                   << describeExpression(*itemExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to determine always_comb wildcard case item width for ",
+              describeExpression(*itemExpr));
             return nullptr;
           }
 
@@ -13758,10 +14391,9 @@ class SNLSVConstructorImpl {
           std::vector<SNLBitNet*> caseBits;
           if (!resolveExpressionBits(design, caseExpr, compareWidth, caseBits) ||
               caseBits.size() != compareWidth) {
-            std::ostringstream reason;
-            reason << "unable to resolve always_comb case expression bits for "
-                   << describeExpression(caseExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve always_comb case expression bits for ",
+              describeExpression(caseExpr));
             return nullptr;
           }
 
@@ -13781,10 +14413,9 @@ class SNLSVConstructorImpl {
                 bothSigned,
                 itemPatternBits) ||
               itemPatternBits.size() != compareWidth) {
-            std::ostringstream reason;
-            reason << "unable to resolve always_comb wildcard case item constant for "
-                   << describeExpression(*itemExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve always_comb wildcard case item constant for ",
+              describeExpression(*itemExpr));
             return nullptr;
           }
 
@@ -13800,10 +14431,9 @@ class SNLSVConstructorImpl {
               continue;
             }
             if (itemBit.isUnknown()) {
-              std::ostringstream reason;
-              reason << "unable to resolve always_comb wildcard case item match for "
-                     << describeExpression(*itemExpr);
-              failureReason = reason.str();
+              failureReason = formatDescribedFailure(
+                "unable to resolve always_comb wildcard case item match for ",
+                describeExpression(*itemExpr));
               return nullptr;
             }
 
@@ -13944,18 +14574,12 @@ class SNLSVConstructorImpl {
         const auto repeatCount = static_cast<size_t>(repeatCountSigned);
 
         size_t concatWidth = 0;
-        if (auto concatExprWidth = getIntegralExpressionBitWidth(replicationExpr.concat())) {
-          concatWidth = *concatExprWidth;
-        } else {
-          const auto& concatCanonical = replicationExpr.concat().type->getCanonicalType();
-          if (!concatCanonical.isIntegral()) {
-            return false;
-          }
-          const auto bitWidth = concatCanonical.getBitWidth();
-          if (bitWidth < 0) {
-            return false;
-          }
-          concatWidth = static_cast<size_t>(bitWidth);
+        if (!resolveWildcardPatternWidthFallback(
+              getIntegralExpressionBitWidth(replicationExpr.concat()),
+              replicationExpr.concat().type->getCanonicalType().isIntegral(),
+              replicationExpr.concat().type->getCanonicalType().getBitWidth(),
+              concatWidth)) {
+          return false;
         }
 
         if (concatWidth && repeatCount > (std::numeric_limits<size_t>::max() / concatWidth)) {
@@ -14804,36 +15428,32 @@ class SNLSVConstructorImpl {
 
       const auto& baseType = baseExpr->type->getCanonicalType();
       if (!baseType.hasFixedRange()) {
-        std::ostringstream reason;
-        reason << "unsupported always_comb range-select assignment base without fixed range: "
-               << describeExpression(assignedLHS);
-        failureReason = reason.str();
+        failureReason = formatDescribedFailure(
+          "unsupported always_comb range-select assignment base without fixed range: ",
+          describeExpression(assignedLHS));
         return false;
       }
 
       auto selectedWidth = getRepresentableExpressionBitWidth(assignedLHS);
       if (!selectedWidth || !*selectedWidth) {
-        std::ostringstream reason;
-        reason << "unable to resolve always_comb range-select assignment width for "
-               << describeExpression(assignedLHS);
-        failureReason = reason.str();
+        failureReason = formatDescribedFailure(
+          "unable to resolve always_comb range-select assignment width for ",
+          describeExpression(assignedLHS));
         return false;
       }
 
       const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
       if (arrayWidth == 0 || lhsBits.size() != dataBits.size() || lhsBits.size() % arrayWidth != 0) {
-        std::ostringstream reason;
-        reason << "width mismatch while lowering always_comb range-select assignment for "
-               << describeExpression(assignedLHS);
-        failureReason = reason.str();
+        failureReason = formatDescribedFailure(
+          "width mismatch while lowering always_comb range-select assignment for ",
+          describeExpression(assignedLHS));
         return false;
       }
       const auto elementWidth = lhsBits.size() / arrayWidth;
       if (elementWidth == 0 || *selectedWidth % elementWidth != 0) {
-        std::ostringstream reason;
-        reason << "unable to resolve always_comb range-select element width for "
-               << describeExpression(assignedLHS);
-        failureReason = reason.str();
+        failureReason = formatDescribedFailure(
+          "unable to resolve always_comb range-select element width for ",
+          describeExpression(assignedLHS));
         return false;
       }
 
@@ -14909,10 +15529,9 @@ class SNLSVConstructorImpl {
         case slang::ast::RangeSelectionKind::Simple: {
           if (!getConstantInt32(rangeExpr.left(), left) ||
               !getConstantInt32(rangeExpr.right(), right)) {
-            std::ostringstream reason;
-            reason << "unable to resolve constant range-select bounds in always_comb assignment: "
-                   << describeExpression(assignedLHS);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve constant range-select bounds in always_comb assignment: ",
+              describeExpression(assignedLHS));
             return false;
           }
           lsbIndex = std::min(left, right);
@@ -14921,10 +15540,9 @@ class SNLSVConstructorImpl {
         case slang::ast::RangeSelectionKind::IndexedUp:
         case slang::ast::RangeSelectionKind::IndexedDown: {
           if (!getConstantInt32(rangeExpr.right(), right) || right <= 0) {
-            std::ostringstream reason;
-            reason << "unable to resolve constant indexed range-select bounds in always_comb assignment: "
-                   << describeExpression(assignedLHS);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve constant indexed range-select bounds in always_comb assignment: ",
+              describeExpression(assignedLHS));
             return false;
           }
 
@@ -14939,10 +15557,9 @@ class SNLSVConstructorImpl {
 
           auto selectorWidth = getIntegralExpressionBitWidth(rangeExpr.left());
           if (!selectorWidth || !*selectorWidth) {
-            std::ostringstream reason;
-            reason << "unable to resolve dynamic indexed range-select base width in always_comb assignment: "
-                   << describeExpression(assignedLHS);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve dynamic indexed range-select base width in always_comb assignment: ",
+              describeExpression(assignedLHS));
             return false;
           }
 
@@ -14953,10 +15570,9 @@ class SNLSVConstructorImpl {
                 static_cast<size_t>(*selectorWidth),
                 selectorBits) ||
               selectorBits.size() != static_cast<size_t>(*selectorWidth)) {
-            std::ostringstream reason;
-            reason << "unable to resolve dynamic indexed range-select base bits in always_comb assignment: "
-                   << describeExpression(assignedLHS);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "unable to resolve dynamic indexed range-select base bits in always_comb assignment: ",
+              describeExpression(assignedLHS));
             return false;
           }
 
@@ -14993,10 +15609,9 @@ class SNLSVConstructorImpl {
           }
 
           if (!sawValidCandidate) {
-            std::ostringstream reason;
-            reason << "dynamic indexed range-select out of range in always_comb assignment: "
-                   << describeExpression(assignedLHS);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "dynamic indexed range-select out of range in always_comb assignment: ",
+              describeExpression(assignedLHS));
             return false;
           }
           return true;
@@ -15005,10 +15620,9 @@ class SNLSVConstructorImpl {
 
       std::vector<size_t> sliceOffsets;
       if (!collectSliceOffsets(lsbIndex, sliceOffsets)) {
-        std::ostringstream reason;
-        reason << "constant range-select out of range in always_comb assignment: "
-               << describeExpression(assignedLHS);
-        failureReason = reason.str();
+        failureReason = formatDescribedFailure(
+          "constant range-select out of range in always_comb assignment: ",
+          describeExpression(assignedLHS));
         return false;
       }
 
@@ -15356,32 +15970,6 @@ class SNLSVConstructorImpl {
             return true;
           }
 
-          const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
-          if (strippedAssignedLHS &&
-              strippedAssignedLHS->kind == slang::ast::ExpressionKind::RangeSelect) {
-            const auto& rangeExpr =
-              strippedAssignedLHS->as<slang::ast::RangeSelectExpression>();
-            const auto* rangeBaseExpr = stripConversions(rangeExpr.value());
-            if (rangeBaseExpr && sameLhs(rangeBaseExpr, &lhsExpr)) {
-              std::vector<SNLBitNet*> assignedLHSBits;
-              if (resolveAssignmentLHSBits(design, *assignedLHS, assignedLHSBits) &&
-                  assignedLHSBits.size() == lhsBits.size() &&
-                  assignedLHSBits == lhsBits) {
-                std::vector<SNLBitNet*> assignedBits;
-                if (!buildCombinationalAssignBits(
-                      design,
-                      action,
-                      lhsBits.size(),
-                      assignedBits,
-                      &dataBits,
-                      failureReason)) {
-                  return false;
-                }
-                dataBits = std::move(assignedBits);
-                return true;
-              }
-            }
-          }
           return true;
         }
         std::vector<SNLBitNet*> assignedBits;
@@ -15754,17 +16342,10 @@ class SNLSVConstructorImpl {
         std::vector<SNLBitNet*> lhsBits;
         if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason) ||
             lhsBits.empty()) {
-          if (!lhsNet) {
-            std::ostringstream reason;
-            reason << "unable to resolve assignment LHS net for '"
-                   << describeLHSForDiagnostics(*lhsExpr) << "'";
-            failureReason = reason.str();
-          } else if (failureReason.empty()) {
-            std::ostringstream reason;
-            reason << "unable to resolve assignment LHS bits for '"
-                   << describeLHSForDiagnostics(*lhsExpr) << "'";
-            failureReason = reason.str();
-          }
+          failureReason = formatAssignmentLHSResolutionFailureReason(
+            lhsNet != nullptr,
+            describeLHSForDiagnostics(*lhsExpr),
+            failureReason);
           return false;
         }
 
@@ -15880,10 +16461,9 @@ class SNLSVConstructorImpl {
                 resetBits,
                 rstBits,
                 resetSourceRange)) {
-            std::ostringstream reason;
-            reason << "unable to build reset mux for '"
-                   << describeLHSForDiagnostics(*lhsExpr) << "'";
-            failureReason = reason.str();
+            failureReason = formatQuotedDescriptionFailure(
+              "unable to build reset mux for ",
+              describeLHSForDiagnostics(*lhsExpr));
             return false;
           }
           dataBits = std::move(rstBits);
@@ -15970,10 +16550,9 @@ class SNLSVConstructorImpl {
         switch (strippedLhs->kind) {
           case slang::ast::ExpressionKind::NamedValue:
             if (!getIntegralExpressionBitWidth(*strippedLhs)) {
-              std::ostringstream reason;
-              reason << "direct multi-assignment LHS is not an integral signal: "
-                     << describeExpression(*lhsExpr);
-              failureReason = reason.str();
+              failureReason = formatDescribedFailure(
+                "direct multi-assignment LHS is not an integral signal: ",
+                describeExpression(*lhsExpr));
               return false;
             }
             break;
@@ -15984,19 +16563,17 @@ class SNLSVConstructorImpl {
               std::vector<SNLBitNet*> selectionBits;
               if (!resolveFixedUnpackedArraySelectionBits(design, *lhsExpr, selectionBits) ||
                   selectionBits.empty()) {
-                std::ostringstream reason;
-                reason << "direct multi-assignment LHS is not a supported integral selection: "
-                       << describeExpression(*lhsExpr);
-                failureReason = reason.str();
+                failureReason = formatDescribedFailure(
+                  "direct multi-assignment LHS is not a supported integral selection: ",
+                  describeExpression(*lhsExpr));
                 return false;
               }
             }
             break;
           default: {
-            std::ostringstream reason;
-            reason << "direct multi-assignment LHS is not a supported integral target: "
-                   << describeExpression(*lhsExpr);
-            failureReason = reason.str();
+            failureReason = formatDescribedFailure(
+              "direct multi-assignment LHS is not a supported integral target: ",
+              describeExpression(*lhsExpr));
             return false;
           }
         }
@@ -16007,12 +16584,10 @@ class SNLSVConstructorImpl {
         std::vector<SNLBitNet*> lhsBits;
         if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason) ||
             lhsBits.empty()) {
-          if (failureReason.empty()) {
-            std::ostringstream reason;
-            reason << "unable to resolve assignment LHS bits for '"
-                   << describeLHSForDiagnostics(*lhsExpr) << "'";
-            failureReason = reason.str();
-          }
+          failureReason = formatAssignmentLHSResolutionFailureReason(
+            lhsNet != nullptr,
+            describeLHSForDiagnostics(*lhsExpr),
+            failureReason);
           return false;
         }
 
@@ -16185,11 +16760,10 @@ class SNLSVConstructorImpl {
         if (!getConstantInt64(expr, signedValue)) {
           return false;
         }
-        const auto unsignedValue = static_cast<uint64_t>(signedValue);
-        const bool fillBit = signedValue < 0;
+        std::vector<bool> encodedBits;
+        encodeSignedInt64ConstantBits(signedValue, targetWidth, encodedBits);
         bits.reserve(targetWidth);
-        for (size_t i = 0; i < targetWidth; ++i) {
-          const bool one = i < 64 ? ((unsignedValue >> i) & 1ULL) : fillBit;
+        for (bool one : encodedBits) {
           bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
         }
         return true;
@@ -16288,10 +16862,11 @@ class SNLSVConstructorImpl {
             bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||
             bin.op == slang::ast::BinaryOperator::ArithmeticShiftRight;
           if (!supportedArithmeticOp) {
-            std::ostringstream reason;
-            reason << "Unsupported binary operator in sequential assignment: "
-                   << slang::ast::OpInfo::getText(bin.op);
-            reportUnsupportedElement(reason.str(), sourceRange);
+            reportUnsupportedElement(
+              formatDescribedFailure(
+                "Unsupported binary operator in sequential assignment: ",
+                std::string(slang::ast::OpInfo::getText(bin.op))),
+              sourceRange);
             return {};
           }
         }
@@ -18470,6 +19045,7 @@ class SNLSVConstructorImpl {
 
 namespace detail {
 
+// LCOV_EXCL_START
 std::optional<std::string> testSVConstructorGetSourceExcerpt(
   const SourceExcerptTestOptions& options) {
   slang::SourceManager sourceManager;
@@ -18520,6 +19096,186 @@ std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
   SNLSVConstructorImpl impl(nullptr, config, options);
   return impl.testFormatReasonWithSourceExcerpt(reason, std::nullopt);
 }
+
+bool testSVConstructorTryPowerInt64(
+  int64_t base,
+  int64_t exponent,
+  int64_t& value) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testTryPowerInt64(base, exponent, value);
+}
+
+InferredMemoryGuardDefaults testSVConstructorDefaultInferredMemoryGuard() {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testDefaultInferredMemoryGuardDefaults();
+}
+
+std::optional<std::vector<int32_t>> testSVConstructorCollectIndexedRangeElementIndices(
+  int32_t startIndex,
+  int32_t sliceWidth,
+  bool indexedDown) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testCollectIndexedRangeElementIndices(startIndex, sliceWidth, indexedDown);
+}
+
+std::vector<bool> testSVConstructorEncodeUnsignedProductBits(
+  uint64_t leftValue,
+  uint64_t rightValue,
+  size_t targetWidth) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testEncodeUnsignedProductBits(leftValue, rightValue, targetWidth);
+}
+
+std::optional<size_t> testSVConstructorResolveWildcardPatternWidthFallback(
+  const std::optional<size_t>& directWidth,
+  bool canonicalIntegral,
+  int32_t bitWidth) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testResolveWildcardPatternWidthFallback(
+    directWidth,
+    canonicalIntegral,
+    bitWidth);
+}
+
+std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAssignRhs(
+  const std::string& sourceText,
+  size_t targetWidth,
+  bool signExtend) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testResolveWildcardCaseItemPatternFromAssignRhs(
+    sourceText,
+    targetWidth,
+    signExtend);
+}
+
+std::optional<std::string> testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+  const std::string& sourceText,
+  size_t targetWidth) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testResolveUnknownLiteralBitsAsZeroFromAssignRhs(sourceText, targetWidth);
+}
+
+std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
+  const std::string& sourceText,
+  size_t targetWidth) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testResolveConstantExpressionBitsFromAssignRhs(sourceText, targetWidth);
+}
+
+std::optional<FindTimedStatementTestResult> testSVConstructorFindTimedStatementFromProceduralBlock(
+  const std::string& sourceText) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFindTimedStatementFromProceduralBlock(sourceText);
+}
+
+std::optional<CollectDirectAssignmentsTestResult>
+testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
+  const std::string& sourceText) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testCollectDirectAssignmentsFromProceduralBlock(sourceText);
+}
+
+std::optional<ForLoopStepExpressionTestResult>
+testSVConstructorApplyForLoopStepExpressionFromForLoop(
+  const std::string& sourceText,
+  int64_t initialLoopValue) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testApplyForLoopStepExpressionFromForLoop(sourceText, initialLoopValue);
+}
+
+std::optional<ForLoopStepExpressionTestResult>
+testSVConstructorApplyForLoopStepExpressionFromProceduralStatement(
+  const std::string& sourceText,
+  int64_t initialLoopValue) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testApplyForLoopStepExpressionFromProceduralStatement(
+    sourceText,
+    initialLoopValue);
+}
+
+std::optional<bool> testSVConstructorSameExpressionStructureFromContinuousAssignRhsPair(
+  const std::string& sourceText) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testSameExpressionStructureFromContinuousAssignRhsPair(sourceText);
+}
+
+std::vector<bool> testSVConstructorEncodeSignedInt64ConstantBits(
+  int64_t value,
+  size_t targetWidth) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testEncodeSignedInt64ConstantBits(value, targetWidth);
+}
+
+std::string testSVConstructorFormatAssignmentLHSResolutionFailureReason(
+  bool hasLhsNet,
+  const std::string& lhsDescription,
+  const std::string& failureReason) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFormatAssignmentLHSResolutionFailureReason(
+    hasLhsNet,
+    lhsDescription,
+    failureReason);
+}
+
+std::string testSVConstructorFormatSequentialConcatLeafFailureReason(
+  const std::string& lhsDescription,
+  const std::string& leafFailureReason) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFormatSequentialConcatLeafFailureReason(
+    lhsDescription,
+    leafFailureReason);
+}
+
+std::string testSVConstructorFormatDescribedFailure(
+  const std::string& prefix,
+  const std::string& description) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFormatDescribedFailure(prefix, description);
+}
+
+std::string testSVConstructorFormatQuotedDescriptionFailure(
+  const std::string& prefix,
+  const std::string& description) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testFormatQuotedDescriptionFailure(prefix, description);
+}
+// LCOV_EXCL_STOP
 
 }  // namespace detail
 

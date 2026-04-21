@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -42,24 +43,5 @@ class SNLSVConstructor {
   private:
     NLLibrary* library_ {nullptr};
 };
-
-namespace detail {
-
-struct SourceExcerptTestOptions {
-    std::string sourceText;
-    std::optional<size_t> startOffset {0};
-    std::optional<size_t> endOffset {1};
-    size_t maxLength {160};
-    bool preserveRawBufferSize {false};
-    bool useAlternateEndBuffer {false};
-};
-
-std::optional<std::string> testSVConstructorGetSourceExcerpt(
-  const SourceExcerptTestOptions& options);
-
-std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
-  const std::string& reason);
-
-}  // namespace detail
 
 }  // namespace naja::NL
