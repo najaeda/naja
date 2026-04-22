@@ -169,6 +169,33 @@ TEST_F(SNLInstanceSetModelTest, testDifferentTermTypesError) {
   EXPECT_THROW(ins0_->setModel(newModel), NLException);  
 }
 
+TEST_F(SNLInstanceSetModelTest, testSetModelWithNullInstTermSlots) {
+  auto library = top_->getLibrary();
+  auto model = SNLDesign::create(library, NLName("sparse_model"));
+  auto scalar = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("A"));
+  auto bus = SNLBusTerm::create(model, SNLTerm::Direction::Output, 3, 0, NLName("B"));
+  auto top = SNLDesign::create(library, NLName("sparse_top"));
+  auto instance = SNLInstance::create(top, model, NLName("u0"));
+
+  ASSERT_NE(nullptr, scalar);
+  ASSERT_NE(nullptr, bus);
+  ASSERT_NE(nullptr, instance);
+  ASSERT_NE(nullptr, instance->getInstTermByFlatID(4));
+
+  bus->setMSB(2);
+  EXPECT_EQ(nullptr, instance->getInstTermByFlatID(4));
+
+  auto newModel = model->clone();
+  ASSERT_NE(nullptr, newModel);
+
+  EXPECT_NO_THROW(instance->setModel(newModel));
+  EXPECT_EQ(newModel, instance->getModel());
+  EXPECT_EQ(4, instance->getInstTerms().size());
+  for (auto instTerm: instance->getInstTerms()) {
+    EXPECT_EQ(newModel, instTerm->getBitTerm()->getDesign());
+  }
+}
+
 TEST_F(SNLInstanceSetModelTest, testDifferentParametersSizeError) {
   //clone model
   auto newModel = model_->clone();

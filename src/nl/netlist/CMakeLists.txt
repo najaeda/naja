@@ -6,12 +6,12 @@ add_subdirectory(serialization)
 add_subdirectory(visual)
 
 set(NL_SOURCES
-  nl/NLName.cpp
-  nl/NLObject.cpp
-  nl/NLUniverse.cpp
-  nl/NLDB.cpp nl/NLDB0.cpp
-  nl/NLLibrary.cpp
-  nl/NLDesign.cpp
+  core/NLName.cpp
+  core/NLObject.cpp
+  core/NLUniverse.cpp
+  core/NLDB.cpp core/NLDB0.cpp
+  core/NLLibrary.cpp
+  core/NLDesign.cpp
 )
 
 set(SNL_SOURCES
@@ -22,7 +22,7 @@ set(SNL_SOURCES
   snl/SNLBitNet.cpp snl/SNLScalarNet.cpp snl/SNLBusNetBit.cpp
   snl/SNLNetComponent.cpp
   snl/SNLTerm.cpp snl/SNLBitTerm.cpp 
-  snl/SNLBusTerm.cpp snl/SNLScalarTerm.cpp
+  snl/SNLBusTerm.cpp snl/SNLBundleTerm.cpp snl/SNLScalarTerm.cpp
   snl/SNLBusTermBit.cpp
   snl/SNLInstance.cpp snl/SNLInstTerm.cpp
   snl/SNLDesign.cpp
@@ -58,13 +58,13 @@ set(DECORATOR_SOURCES
 )
 
 set(HEADERS
-  nl/NLName.h
-  nl/NLID.h
-  nl/NLObject.h
-  nl/NLLibrary.h
-  nl/NLUniverse.h nl/NLDB.h
-  nl/NLDesign.h
-  nl/NLException.h
+  core/NLName.h
+  core/NLID.h
+  core/NLObject.h
+  core/NLLibrary.h
+  core/NLUniverse.h core/NLDB.h
+  core/NLDesign.h
+  core/NLException.h
   decorators/NLLibraryTruthTables.h
   snl/SNLAttributes.h
   snl/SNLRTLInfos.h
@@ -74,7 +74,7 @@ set(HEADERS
   snl/SNLBitNet.h snl/SNLScalarNet.h snl/SNLBusNetBit.h
   snl/SNLNetComponent.h
   snl/SNLTerm.h snl/SNLBitTerm.h 
-  snl/SNLBusTerm.h snl/SNLScalarTerm.h
+  snl/SNLBusTerm.h snl/SNLBundleTerm.h snl/SNLScalarTerm.h
   snl/SNLBusTermBit.h
   snl/SNLInstance.h snl/SNLInstTerm.h
   snl/SNLSharedPath.h snl/SNLPath.h
@@ -115,7 +115,7 @@ target_compile_options(naja_nl PRIVATE ${NAJA_CXX_WARNINGS})
 
 target_include_directories(naja_nl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_nl PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/nl
+  ${CMAKE_CURRENT_SOURCE_DIR}/core
   ${CMAKE_CURRENT_SOURCE_DIR}/snl
   ${CMAKE_CURRENT_SOURCE_DIR}/pnl
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators

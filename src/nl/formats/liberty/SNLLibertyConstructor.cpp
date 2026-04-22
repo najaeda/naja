@@ -6,8 +6,10 @@
 #include "SNLLibertyConstructor.h"
 
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "YosysLibertyParser.h"
@@ -19,6 +21,7 @@
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBooleanTree.h"
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
@@ -86,6 +89,14 @@ struct BusType {
   int lsb           {0};
 };
 
+using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
+using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
+
+struct ConstructedTerm {
+  SNLScalarTerm* scalar{nullptr};
+  SNLBusTerm* bus{nullptr};
+};
+
 BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
   for (auto child: ast->children) {
     if (child->id == "type" and not child->args.empty() and child->args[0] == busType) {
@@ -141,97 +152,225 @@ std::string buildParserFileErrorReason(
   return reason.str();
 }
 
+BusType findChildBusType(
+  const Yosys::LibertyAst* top,
+  const Yosys::LibertyAst* child,
+  const SNLDesign* primitive) {
+  BusType busType;
+  if (child->id != "bus") {
+    return busType;
+  }
+  for (auto busTypeChild: child->children) {
+    if (busTypeChild->id == "bus_type") {
+      auto busTypeName = busTypeChild->value;
+      busType = findBusType(top, busTypeName);
+      if (busType.name.empty()) {
+        std::string message;
+        message += "While constructing " + primitive->getName().getString() + " interface,";
+        message += " cannot find bus type: " + busTypeName;
+        throw SNLLibertyConstructorException(message);
+      }
+    }
+  }
+  return busType;
+}
+
+ConstructedTerm constructTerm(
+  SNLDesign* primitive,
+  const Yosys::LibertyAst* top,
+  const Yosys::LibertyAst* child,
+  SNLBundleTerm* bundleTerm = nullptr) {
+  auto pinName = child->args[0];
+  auto busType = findChildBusType(top, child, primitive);
+  auto directionNode = findDirectionNode(child);
+  if (not directionNode) {
+    std::ostringstream reason;
+    reason << "Direction not found for " << child->id << " " << pinName;
+    throw SNLLibertyConstructorException(reason.str());
+  }
+  auto direction = directionNode->value;
+  if (direction == "internal") {
+    return {};
+  }
+  auto snlDirection = getSNLDirection(direction);
+  ConstructedTerm term;
+  if (busType.name.empty()) {
+    term.scalar = bundleTerm
+      ? SNLScalarTerm::create(bundleTerm, snlDirection, NLName(pinName))
+      : SNLScalarTerm::create(primitive, snlDirection, NLName(pinName));
+  } else {
+    term.bus = bundleTerm
+      ? SNLBusTerm::create(bundleTerm, snlDirection, busType.msb, busType.lsb, NLName(pinName))
+      : SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
+  }
+  return term;
+}
+
+void registerConstructedTermModeling(
+  const Yosys::LibertyAst* child,
+  const std::string& pinName,
+  FunctionParsingType functionParsingType,
+  SNLScalarTerm* constructedScalarTerm,
+  SNLBusTerm* constructedBusTerm,
+  TermFunctions& termFunctions,
+  TermPins& termFunctionPins,
+  TermFunctions& seqTermClocks) {
+  if (functionParsingType == FunctionParsingType::Sequential
+    and constructedScalarTerm) {
+    auto timingNode = const_cast<Yosys::LibertyAst*>(child)->find("timing");
+    if (timingNode) {
+      auto timingTypeNode = timingNode->find("timing_type");
+      if (timingTypeNode) {
+        auto timingType = timingTypeNode->value;
+        if (timingType == "hold_rising" or timingType == "setup_rising"
+          or timingType == "rising_edge") {
+          auto ckPin = timingNode->find("related_pin");
+          if (ckPin) {
+            seqTermClocks[constructedScalarTerm] = ckPin->value;
+          }
+        }
+      }
+    }
+  }
+  if (functionParsingType == FunctionParsingType::Combinational
+    and constructedScalarTerm
+    and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
+    termFunctions[constructedScalarTerm] = pinName;
+    termFunctionPins[constructedScalarTerm] = pinName;
+    auto functionNode = const_cast<Yosys::LibertyAst*>(child)->find("function");
+    if (functionNode) {
+      termFunctions[constructedScalarTerm] = functionNode->value;
+    }
+  } else if (functionParsingType != FunctionParsingType::Ignore
+    and constructedBusTerm
+    and constructedBusTerm->getDirection() == SNLTerm::Direction::Output
+    and const_cast<Yosys::LibertyAst*>(child)->find("function") != nullptr) {
+    std::ostringstream reason;
+    reason << "No support for function for bus term while processing " << child->id << " " << pinName;
+    throw SNLLibertyConstructorException(reason.str());
+  }
+}
+
+std::vector<std::string> getBundleMembers(const Yosys::LibertyAst* bundleNode) {
+  auto membersNode = findDirectChild(bundleNode, "members");
+  if (membersNode == nullptr or membersNode->args.empty()) {
+    std::ostringstream reason;
+    reason << "Bundle " << bundleNode->args[0] << " does not define members(...)";
+    throw SNLLibertyConstructorException(reason.str());
+  }
+  return membersNode->args;
+}
+
+std::map<std::string, const Yosys::LibertyAst*> collectBundleMemberDefinitions(
+  const Yosys::LibertyAst* bundleNode) {
+  std::map<std::string, const Yosys::LibertyAst*> members;
+  for (auto child: bundleNode->children) {
+    if (child->id == "bundle") {
+      std::ostringstream reason;
+      reason << "Nested Liberty bundles are not supported in bundle " << bundleNode->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+    if (child->id != "pin" and child->id != "bus") {
+      continue;
+    }
+    if (child->args.empty()) {
+      std::ostringstream reason;
+      reason << "Malformed Liberty bundle member definition in bundle " << bundleNode->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+    auto inserted = members.emplace(child->args[0], child);
+    if (not inserted.second) {
+      std::ostringstream reason;
+      reason << "Duplicate Liberty bundle member definition " << child->args[0]
+             << " in bundle " << bundleNode->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+  }
+  return members;
+}
+
+SNLTerm::Direction inferBundleDirection(
+  const Yosys::LibertyAst* bundleNode,
+  const std::vector<std::string>& orderedMembers,
+  const std::map<std::string, const Yosys::LibertyAst*>& memberDefinitions) {
+  const Yosys::LibertyAst* inferredDirectionNode = nullptr;
+  for (const auto& memberName: orderedMembers) {
+    auto it = memberDefinitions.find(memberName);
+    if (it == memberDefinitions.end()) {
+      std::ostringstream reason;
+      reason << "Bundle " << bundleNode->args[0] << " lists missing member " << memberName;
+      throw SNLLibertyConstructorException(reason.str());
+    }
+    auto directionNode = findDirectionNode(it->second);
+    if (directionNode == nullptr) {
+      std::ostringstream reason;
+      reason << "Direction not found for bundle member " << memberName;
+      throw SNLLibertyConstructorException(reason.str());
+    }
+    if (inferredDirectionNode == nullptr) {
+      inferredDirectionNode = directionNode;
+      continue;
+    }
+    if (inferredDirectionNode->value != directionNode->value) {
+      std::ostringstream reason;
+      reason << "Inconsistent child directions for bundle " << bundleNode->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+  }
+  return getSNLDirection(inferredDirectionNode->value);
+}
+
 void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
   const Yosys::LibertyAst* cell,
   const std::filesystem::path& sourcePath,
   FunctionParsingType functionParsingType = FunctionParsingType::Ignore) {
-  using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
-  using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
   TermFunctions termFunctions;
   TermPins termFunctionPins;
   TermFunctions seqTermClocks; //for sequential terms, key is clock term name
   for (auto child: cell->children) {
     if (child->id == "pin" or child->id == "bus") {
-      auto pinName = child->args[0];
-      BusType busType;
-      if (child->id == "bus") {
-        //which bus type?
-        for (auto busTypeChild: child->children) {
-          if (busTypeChild->id == "bus_type") {
-            auto busTypeName = busTypeChild->value;
-            busType = findBusType(top, busTypeName);
-            if (busType.name.empty()) {
-              std::string message;
-              message += "While constructing " + primitive->getName().getString() + " interface,";
-              message += " cannot find bus type: " + busTypeName;
-              throw SNLLibertyConstructorException(message);
-            }
-          }
+      auto constructedTerm = constructTerm(primitive, top, child);
+      registerConstructedTermModeling(
+        child,
+        child->args[0],
+        functionParsingType,
+        constructedTerm.scalar,
+        constructedTerm.bus,
+        termFunctions,
+        termFunctionPins,
+        seqTermClocks);
+    } else if (child->id == "bundle") {
+      auto bundleDirectionNode = findDirectionNode(child);
+      if (bundleDirectionNode != nullptr and bundleDirectionNode->value == "internal") {
+        continue;
+      }
+      auto orderedMembers = getBundleMembers(child);
+      auto memberDefinitions = collectBundleMemberDefinitions(child);
+      std::set<std::string> orderedMemberSet(orderedMembers.begin(), orderedMembers.end());
+      for (const auto& [memberName, _]: memberDefinitions) {
+        if (orderedMemberSet.find(memberName) == orderedMemberSet.end()) {
+          std::ostringstream reason;
+          reason << "Bundle " << child->args[0] << " defines extra member " << memberName;
+          throw SNLLibertyConstructorException(reason.str());
         }
       }
-      SNLScalarTerm* constructedScalarTerm = nullptr;
-      SNLBusTerm* constructedBusTerm = nullptr;
-      auto directionNode = findDirectionNode(child);
-      if (directionNode) {
-        auto direction = directionNode->value;
-        if (direction == "internal") {
-          continue; //do not create
-        } else {
-          auto snlDirection = getSNLDirection(direction);
-          if (busType.name.empty()) {
-            constructedScalarTerm = SNLScalarTerm::create(primitive, snlDirection, NLName(pinName));
-          } else {
-            constructedBusTerm = SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
-          }
-        }
-      } else {
-        std::ostringstream reason;
-        reason << "Direction not found for " << child->id << " " << pinName;
-        throw SNLLibertyConstructorException(reason.str());
-      }
-      if (functionParsingType == FunctionParsingType::Sequential
-        and constructedScalarTerm) {
-        //look for timing
-        auto timingNode = child->find("timing");
-        if (timingNode) {
-          //look for timing_type
-          auto timingTypeNode = timingNode->find("timing_type");
-          if (timingTypeNode) {
-            // Parse timing information
-            auto timingType = timingTypeNode->value;
-            if (timingType == "hold_rising" or timingType == "setup_rising"
-              or timingType == "rising_edge") {
-              // Handle sequential logic
-              auto ckPin = timingNode->find("related_pin");
-              if (ckPin) {
-                auto ckPinName = ckPin->value;
-                seqTermClocks[constructedScalarTerm] = ckPinName;
-              }
-            }
-          }
-        }
-      }
-      if (functionParsingType == FunctionParsingType::Combinational
-        and constructedScalarTerm
-        and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
-        termFunctions[constructedScalarTerm] = pinName;
-        termFunctionPins[constructedScalarTerm] = pinName;
-        //parse function
-        auto functionNode = child->find("function");
-        if (functionNode) {
-          auto function = functionNode->value;
-          termFunctions[constructedScalarTerm] = function;
-        }
-      } else if (not (functionParsingType == FunctionParsingType::Ignore)
-        and constructedBusTerm
-        and constructedBusTerm->getDirection() == SNLTerm::Direction::Output
-        && (child->find("function") != nullptr)) {
-        // Throw an exception if there are bus outputs
-        std::ostringstream reason;
-        reason << "No support for function for bus term while processing " << child->id << " " << pinName;
-        throw SNLLibertyConstructorException(reason.str());
+      auto bundleDirection = inferBundleDirection(child, orderedMembers, memberDefinitions);
+      auto bundleTerm = SNLBundleTerm::create(primitive, bundleDirection, NLName(child->args[0]));
+      for (const auto& memberName: orderedMembers) {
+        auto memberIt = memberDefinitions.find(memberName);
+        auto memberNode = memberIt->second;
+        auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm);
+        registerConstructedTermModeling(
+          memberNode,
+          memberName,
+          functionParsingType,
+          constructedTerm.scalar,
+          constructedTerm.bus,
+          termFunctions,
+          termFunctionPins,
+          seqTermClocks);
       }
     }
   }

@@ -6,6 +6,7 @@
 
 #include <list>
 #include <sstream>
+#include <vector>
 
 #include "NajaLog.h"
 
@@ -16,6 +17,7 @@
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
@@ -155,12 +157,12 @@ void SNLDesign::commonPreDestroy() {
     slaveInstances_.clear_and_dispose(destroySlaveInstanceFromModel());
   }
 
-  struct destroyTermFromDesign {
-    void operator()(SNLTerm* term) {
-      term->destroyFromDesign();
-    }
-  };
-  terms_.clear_and_dispose(destroyTermFromDesign());
+  std::vector<SNLTerm*> topLevelTerms(getTerms().begin(), getTerms().end());
+  for (auto* term: topLevelTerms) {
+    term->destroyFromDesign();
+  }
+  terms_.clear();
+  termNameIDMap_.clear();
 
   struct destroyNetFromDesign {
     void operator()(SNLNet* net) {
@@ -205,23 +207,19 @@ void SNLDesign::addTermAndSetID(SNLTerm* term) {
 }
 
 void SNLDesign::addTerm(SNLTerm* term) {
-  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
+  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term) or dynamic_cast<SNLBundleTerm*>(term));
 
   if (terms_.empty()) {
     term->setFlatID(0);
   } else {
     auto it = terms_.rbegin();
     SNLTerm* lastTerm = &(*it);
-    size_t flatID = 0;
-    if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(lastTerm)) {
-      flatID = scalarTerm->getFlatID() + 1;
-    } else {
-      SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
-      flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getWidth());
-    }
-    term->setFlatID(flatID);
+    term->setFlatID(lastTerm->getFlatID() + static_cast<size_t>(lastTerm->getWidth()));
   }
   terms_.insert(*term);
+  if (auto bundle = term->getBundleOwner()) {
+    bundle->addMember(term);
+  }
   if (not term->getName().empty()) {
     termNameIDMap_[term->getName()] = term->getID();
   }
@@ -230,8 +228,7 @@ void SNLDesign::addTerm(SNLTerm* term) {
   for (auto instance: getSlaveInstances()) {
     if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
       instance->createInstTerm(scalarTerm);
-    } else {
-      SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(term);
+    } else if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
       for (auto bit: busTerm->getBits()) {
         instance->createInstTerm(bit);
       }
@@ -247,16 +244,17 @@ void SNLDesign::removeTerm(SNLTerm* term) {
       for (auto bit: bus->getBits()) {
         instance->removeInstTerm(bit);
       }
-    } else {
+    } else if (dynamic_cast<SNLScalarTerm*>(term)) {
       SNLBitTerm* bitTerm = static_cast<SNLBitTerm*>(term);
       instance->removeInstTerm(bitTerm);
     }
   }
-  if (dynamic_cast<SNLBusTerm*>(term) or dynamic_cast<SNLScalarTerm*>(term)) {
-    if (not term->getName().empty()) {
-      termNameIDMap_.erase(term->getName());
-    }
-    terms_.erase(*term);
+  if (not term->getName().empty()) {
+    termNameIDMap_.erase(term->getName());
+  }
+  terms_.erase(*term);
+  if (auto bundle = term->getBundleOwner()) {
+    bundle->removeMember(term);
   }
   setOrderIDs();
 }
@@ -310,8 +308,17 @@ SNLBusTerm* SNLDesign::getBusTerm(const NLName& name) const {
   return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
+SNLBundleTerm* SNLDesign::getBundleTerm(NLID::DesignObjectID id) const {
+  return dynamic_cast<SNLBundleTerm*>(getTerm(id));
+}
+
+SNLBundleTerm* SNLDesign::getBundleTerm(const NLName& name) const {
+  return dynamic_cast<SNLBundleTerm*>(getTerm(name));
+}
+
 NajaCollection<SNLTerm*> SNLDesign::getTerms() const {
-  return NajaCollection(new NajaIntrusiveSetCollection(&terms_));
+  auto filter = [](const SNLTerm* term) { return term->isTopLevelTerm(); };
+  return NajaCollection(new NajaIntrusiveSetCollection(&terms_)).getSubCollection(filter);
 }
 
 NajaCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
@@ -322,9 +329,13 @@ NajaCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
   return getTerms().getSubCollection<SNLScalarTerm*>();
 }
 
+NajaCollection<SNLBundleTerm*> SNLDesign::getBundleTerms() const {
+  return getTerms().getSubCollection<SNLBundleTerm*>();
+}
+
 NajaCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
-  auto flattener = [](const SNLBusTerm* b) { return b->getBusBits(); };
-  return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
+  auto flattener = [](SNLTerm* term) { return term->getBits(); };
+  return getTerms().getFlatCollection<SNLTerm*, SNLBitTerm*, SNLBitTerm*>(flattener);
 }
 
 void SNLDesign::addInstanceAndSetID(SNLInstance* instance) {
@@ -750,7 +761,7 @@ void SNLDesign::recursiveRevisionIncrement() {
 
 void SNLDesign::setOrderIDs() {
   NLID::DesignObjectID bitTermId = 0;
-  for (auto term : this->getBitTerms()) {
+  for (auto term: getBitTerms()) {
     term->setOrderID(bitTermId);
     bitTermId++;
   }

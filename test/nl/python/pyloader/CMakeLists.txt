@@ -23,6 +23,22 @@ gtest_discover_tests(
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/nl/python/naja_wrapping
 )
 
+SET(snl_real_primitives_tests
+  SNLRealPrimitivesTest.cpp
+)
+
+ADD_EXECUTABLE(snlRealPrimitivesTests ${snl_real_primitives_tests})
+target_compile_definitions(snlRealPrimitivesTests PRIVATE
+  NAJAEDA_PRIMITIVES_PATH="${CMAKE_SOURCE_DIR}/src/najaeda/najaeda/primitives")
+TARGET_LINK_LIBRARIES(snlRealPrimitivesTests naja_snl_pyloader gmock gtest_main)
+
+gtest_discover_tests(
+  snlRealPrimitivesTests
+  DISCOVERY_TIMEOUT 30
+  PROPERTIES ENVIRONMENT
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/nl/python/naja_wrapping
+)
+
 SET(snl_pyedit_tests
   SNLPyEditTest0.cpp
 )

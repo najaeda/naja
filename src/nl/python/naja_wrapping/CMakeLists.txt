@@ -15,13 +15,13 @@ set(SOURCES
   PySNLNetComponent.cpp
   PySNLTerm.cpp
   PySNLTermDirection.cpp 
-  PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
+  PySNLBusTerm.cpp PySNLBundleTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp PySNLInstParameter.cpp PySNLInstTerm.cpp
   PySNLAttributes.cpp
   PySNLDesigns.cpp
   PySNLParameters.cpp PySNLInstParameters.cpp
   PySNLNetComponents.cpp
-  PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
+  PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp PySNLBundleTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLOccurrences.cpp

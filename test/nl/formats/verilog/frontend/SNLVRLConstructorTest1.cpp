@@ -4,11 +4,20 @@
 
 #include "gtest/gtest.h"
 
+#include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <istream>
+#include <list>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
 #include "NLUniverse.h"
 
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -18,7 +27,9 @@
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
 
+#define private public
 #include "SNLVRLConstructor.h"
+#undef private
 #include "SNLVRLConstructorException.h"
 
 using namespace naja::NL;
@@ -189,6 +200,224 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_EQ(nets[0], instances[2]->getInstTerm(mod1i->getBit(2))->getNet());
   EXPECT_EQ(nets[1], instances[2]->getInstTerm(mod1i->getBit(3))->getNet());
   EXPECT_EQ(nets[1], instances[2]->getInstTerm(mod1i->getBit(4))->getNet());
+}
+
+TEST_F(SNLVRLConstructorTest1, testOrderedBundleConnections) {
+  auto primitives = NLLibrary::create(library_->getDB(), NLLibrary::Type::Primitives, NLName("PRIMS"));
+  auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("cell_def"));
+  auto ck = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto se = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("SE"));
+  auto si = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("SI"));
+  auto d = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(d, SNLTerm::Direction::Input, NLName("D0"));
+  auto d1 = SNLScalarTerm::create(d, SNLTerm::Direction::Input, NLName("D1"));
+  auto qn = SNLBundleTerm::create(primitive, SNLTerm::Direction::Output, NLName("QN"));
+  auto qn0 = SNLScalarTerm::create(qn, SNLTerm::Direction::Output, NLName("QN0"));
+  auto qn1 = SNLScalarTerm::create(qn, SNLTerm::Direction::Output, NLName("QN1"));
+
+  auto testPath = std::filesystem::temp_directory_path() / "naja_vrl_ordered_bundle_connections.v";
+  {
+    std::ofstream stream(testPath);
+    stream
+      << "module top (clk, se, si, d0, d1, qn0, qn1);\n"
+      << "  input clk;\n"
+      << "  input se;\n"
+      << "  input si;\n"
+      << "  input d0;\n"
+      << "  input d1;\n"
+      << "  output qn0;\n"
+      << "  output qn1;\n"
+      << "  cell_def u0 (clk, se, si, d0, d1, qn0, qn1);\n"
+      << "endmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  constructor.parse(testPath);
+  constructor.setFirstPass(false);
+  constructor.parse(testPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto instance = top->getInstance(NLName("u0"));
+  ASSERT_NE(nullptr, instance);
+
+  using InstTerms = std::vector<SNLInstTerm*>;
+  auto instTerms = InstTerms(instance->getInstTerms().begin(), instance->getInstTerms().end());
+  ASSERT_EQ(7, instTerms.size());
+  EXPECT_EQ(ck, instTerms[0]->getBitTerm());
+  EXPECT_EQ(se, instTerms[1]->getBitTerm());
+  EXPECT_EQ(si, instTerms[2]->getBitTerm());
+  EXPECT_EQ(d0, instTerms[3]->getBitTerm());
+  EXPECT_EQ(d1, instTerms[4]->getBitTerm());
+  EXPECT_EQ(qn0, instTerms[5]->getBitTerm());
+  EXPECT_EQ(qn1, instTerms[6]->getBitTerm());
+
+  EXPECT_EQ(top->getNet(NLName("clk")), instTerms[0]->getNet());
+  EXPECT_EQ(top->getNet(NLName("se")), instTerms[1]->getNet());
+  EXPECT_EQ(top->getNet(NLName("si")), instTerms[2]->getNet());
+  EXPECT_EQ(top->getNet(NLName("d0")), instTerms[3]->getNet());
+  EXPECT_EQ(top->getNet(NLName("d1")), instTerms[4]->getNet());
+  EXPECT_EQ(top->getNet(NLName("qn0")), instTerms[5]->getNet());
+  EXPECT_EQ(top->getNet(NLName("qn1")), instTerms[6]->getNet());
+
+  std::filesystem::remove(testPath);
+}
+
+TEST_F(SNLVRLConstructorTest1, testEscapedPortNameInNamedPortConnection) {
+  auto testPath = std::filesystem::temp_directory_path() / "naja_vrl_escaped_named_port_connection.v";
+  {
+    std::ofstream stream(testPath);
+    stream
+      << "// Test escaped identifier as port name in named port connection\n"
+      << "module submod(\n"
+      << "  \\rdata_o[21]_0 ,\n"
+      << "  rdata_in\n"
+      << ");\n"
+      << "  input \\rdata_o[21]_0 ;\n"
+      << "  output rdata_in;\n"
+      << "endmodule\n"
+      << "\n"
+      << "module top(\n"
+      << "  \\rdata_o[21]_0 ,\n"
+      << "  rdata_o\n"
+      << ");\n"
+      << "  input \\rdata_o[21]_0 ;\n"
+      << "  input [31:0] rdata_o;\n"
+      << "\n"
+      << "  submod inst (\n"
+      << "    .\\rdata_o[21]_0 (rdata_o[21]),\n"
+      << "    .rdata_in(\\rdata_o[21]_0 )\n"
+      << "  );\n"
+      << "endmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  constructor.parse(testPath);
+  constructor.setFirstPass(false);
+  constructor.parse(testPath);
+
+  auto submod = library_->getSNLDesign(NLName("submod"));
+  ASSERT_NE(nullptr, submod);
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+
+  auto escapedSubmodTerm = submod->getScalarTerm(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedSubmodTerm);
+  EXPECT_EQ(SNLTerm::Direction::Input, escapedSubmodTerm->getDirection());
+
+  auto rdataIn = submod->getScalarTerm(NLName("rdata_in"));
+  ASSERT_NE(nullptr, rdataIn);
+  EXPECT_EQ(SNLTerm::Direction::Output, rdataIn->getDirection());
+
+  auto escapedTopTerm = top->getScalarTerm(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedTopTerm);
+  EXPECT_EQ(SNLTerm::Direction::Input, escapedTopTerm->getDirection());
+
+  auto escapedTopNet = top->getScalarNet(NLName("rdata_o[21]_0"));
+  ASSERT_NE(nullptr, escapedTopNet);
+  ASSERT_EQ(1, escapedTopNet->getBitTerms().size());
+  EXPECT_EQ(escapedTopTerm, *escapedTopNet->getBitTerms().begin());
+
+  auto rdataBus = top->getBusNet(NLName("rdata_o"));
+  ASSERT_NE(nullptr, rdataBus);
+  EXPECT_EQ(31, rdataBus->getMSB());
+  EXPECT_EQ(0, rdataBus->getLSB());
+
+  auto instance = top->getInstance(NLName("inst"));
+  ASSERT_NE(nullptr, instance);
+  EXPECT_EQ(submod, instance->getModel());
+
+  auto escapedInstTerm = instance->getInstTerm(escapedSubmodTerm);
+  ASSERT_NE(nullptr, escapedInstTerm);
+  EXPECT_EQ(rdataBus->getBit(21), escapedInstTerm->getNet());
+
+  auto rdataInInstTerm = instance->getInstTerm(rdataIn);
+  ASSERT_NE(nullptr, rdataInInstTerm);
+  EXPECT_EQ(escapedTopNet, rdataInInstTerm->getNet());
+
+  std::filesystem::remove(testPath);
+}
+
+TEST_F(SNLVRLConstructorTest1, testCurrentInstancePortConnectionNullTerm) {
+  SNLVRLConstructor constructor(library_);
+  constructor.currentPath_ = "synthetic.v";
+  constructor.setCurrentLocation(7, 3);
+
+  naja::verilog::Expression expression;
+  expression.valid_ = true;
+  expression.value_ = naja::verilog::RangeIdentifier(naja::verilog::Identifier("n"));
+
+  try {
+    constructor.currentInstancePortConnection(nullptr, expression);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("null term in instance connection"));
+  }
+}
+
+TEST_F(SNLVRLConstructorTest1, testCurrentInstancePortConnectionBundleTerm) {
+  auto primitives = NLLibrary::create(library_->getDB(), NLLibrary::Type::Primitives, NLName("PRIMS"));
+  auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("cell_def"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+
+  SNLVRLConstructor constructor(library_);
+  constructor.currentPath_ = "synthetic.v";
+  constructor.setCurrentLocation(8, 5);
+
+  naja::verilog::Expression expression;
+  expression.valid_ = true;
+  expression.value_ = naja::verilog::RangeIdentifier(naja::verilog::Identifier("n"));
+
+  try {
+    constructor.currentInstancePortConnection(bundle, expression);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("direct connection to bundle term"));
+  }
+}
+
+TEST_F(SNLVRLConstructorTest1, testCurrentInstancePortConnectionUnsupportedExpression) {
+  auto model = SNLDesign::create(library_, NLName("model"));
+  auto term = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("A"));
+
+  SNLVRLConstructor constructor(library_);
+  constructor.currentPath_ = "synthetic.v";
+  constructor.setCurrentLocation(9, 11);
+
+  naja::verilog::Expression expression;
+  expression.valid_ = true;
+  expression.supported_ = false;
+  expression.value_ = std::string("\"FOO\"");
+
+  try {
+    constructor.currentInstancePortConnection(term, expression);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("\"FOO\" is not currently supported"));
+  }
+}
+
+TEST_F(SNLVRLConstructorTest1, testOrderedInstanceConnectionPortIndexTooLarge) {
+  auto model = SNLDesign::create(library_, NLName("model"));
+  SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("A"));
+  auto top = SNLDesign::create(library_, NLName("top"));
+  auto instance = SNLInstance::create(top, model, NLName("u0"));
+
+  SNLVRLConstructor constructor(library_);
+  constructor.currentPath_ = "synthetic.v";
+  constructor.setCurrentLocation(10, 13);
+  constructor.setFirstPass(false);
+  constructor.currentInstance_ = instance;
+
+  naja::verilog::Expression expression;
+
+  try {
+    constructor.addOrderedInstanceConnection(1, expression);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("ordered port index 1 exceeds model interface size for model"));
+  }
 }
 
 TEST_F(SNLVRLConstructorTest1, testMultipleFirstPassError) {

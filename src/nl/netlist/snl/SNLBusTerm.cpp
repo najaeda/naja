@@ -9,6 +9,7 @@
 
 #include "NLException.h"
 
+#include "SNLBundleTerm.h"
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
@@ -50,6 +51,38 @@ SNLBusTerm::SNLBusTerm(
   lsb_(lsb)
 {}
 
+SNLBusTerm::SNLBusTerm(
+    SNLBundleTerm* bundleTerm,
+    Direction direction,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  name_(name),
+  direction_(direction),
+  msb_(msb),
+  lsb_(lsb)
+{}
+
+SNLBusTerm::SNLBusTerm(
+    SNLBundleTerm* bundleTerm,
+    NLID::DesignObjectID id,
+    Direction direction,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  id_(id),
+  name_(name),
+  direction_(direction),
+  msb_(msb),
+  lsb_(lsb)
+{}
+
 SNLBusTerm* SNLBusTerm::create(
     SNLDesign* design,
     Direction direction,
@@ -75,6 +108,31 @@ SNLBusTerm* SNLBusTerm::create(
   return term;
 }
 
+SNLBusTerm* SNLBusTerm::create(
+    SNLBundleTerm* bundleTerm,
+    Direction direction,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  SNLBusTerm* term = new SNLBusTerm(bundleTerm, direction, msb, lsb, name);
+  term->postCreateAndSetID();
+  return term;
+}
+
+SNLBusTerm* SNLBusTerm::create(
+    SNLBundleTerm* bundleTerm,
+    NLID::DesignObjectID id,
+    Direction direction,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
+  preCreate(bundleTerm, id, direction, name);
+  SNLBusTerm* term = new SNLBusTerm(bundleTerm, id, direction, msb, lsb, name);
+  term->postCreate();
+  return term;
+}
+
 void SNLBusTerm::preCreate(const SNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
@@ -91,6 +149,37 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const NLName& name) {
 void SNLBusTerm::preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
   if (design->getTerm(id)) {
+    std::string reason = "cannot create SNLBusTerm with id " + std::to_string(id);
+    reason += "A terminal with this id already exists.";
+    throw NLException(reason);
+  }
+}
+
+void SNLBusTerm::preCreate(const SNLBundleTerm* bundleTerm, Direction direction, const NLName& name) {
+  if (not bundleTerm) {
+    throw NLException("malformed SNLBusTerm creator with NULL bundle argument");
+  }
+  auto* design = bundleTerm->getDesign();
+  preCreate(design, name);
+  if (bundleTerm->getDirection() != direction) {
+    throw NLException("cannot create SNLBusTerm in SNLBundleTerm with different direction");
+  }
+  SNLTerm* lastTopLevelTerm = nullptr;
+  for (auto term: design->getTerms()) {
+    lastTopLevelTerm = term;
+  }
+  if (lastTopLevelTerm != bundleTerm) {
+    throw NLException("cannot create bundled SNLBusTerm when bundle is not the last top-level term");
+  }
+}
+
+void SNLBusTerm::preCreate(
+    const SNLBundleTerm* bundleTerm,
+    NLID::DesignObjectID id,
+    Direction direction,
+    const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  if (bundleTerm->getDesign()->getTerm(id)) {
     std::string reason = "cannot create SNLBusTerm with id " + std::to_string(id);
     reason += "A terminal with this id already exists.";
     throw NLException(reason);
@@ -128,11 +217,21 @@ void SNLBusTerm::commonPreDestroy() {
 }
 
 void SNLBusTerm::destroyFromDesign() {
+  getDesign()->terms_.erase(*this);
+  commonPreDestroy();
+  delete this;
+}
+
+void SNLBusTerm::destroyFromBundle() {
+  getDesign()->removeTerm(this);
   commonPreDestroy();
   delete this;
 }
 
 void SNLBusTerm::preDestroy() {
+  if (bundleTerm_) {
+    throw NLException("Cannot destroy a bundled SNLBusTerm directly, destroy its SNLBundleTerm instead");
+  }
   getDesign()->removeTerm(this);
   commonPreDestroy();
 }
@@ -145,6 +244,10 @@ void SNLBusTerm::removeBit(SNLBusTermBit* bit) {
   for (auto instance: getDesign()->getSlaveInstances()) {
     instance->removeInstTerm(bit);
   }
+  if (bundleTerm_) {
+    bundleTerm_->rebuildBits();
+  }
+  getDesign()->setOrderIDs();
 }
 
 SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
@@ -251,6 +354,10 @@ void SNLBusTerm::setMSB(NLID::Bit msb) {
 
   bits_.erase(bits_.begin(), bits_.begin() + removeCount);
   msb_ = msb;
+  if (bundleTerm_) {
+    bundleTerm_->rebuildBits();
+  }
+  getDesign()->setOrderIDs();
 }
 
 void SNLBusTerm::setLSB(NLID::Bit lsb) {
@@ -305,6 +412,10 @@ void SNLBusTerm::setLSB(NLID::Bit lsb) {
 
   bits_.erase(eraseBegin, bits_.end());
   lsb_ = lsb;
+  if (bundleTerm_) {
+    bundleTerm_->rebuildBits();
+  }
+  getDesign()->setOrderIDs();
 }
 
 NLID::Bit SNLBusTerm::getWidth() const {

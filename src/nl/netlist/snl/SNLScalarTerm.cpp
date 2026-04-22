@@ -10,6 +10,7 @@
 
 #include "NLException.h"
 
+#include "SNLBundleTerm.h"
 #include "SNLDesign.h"
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
@@ -31,6 +32,23 @@ SNLScalarTerm::SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID id, Directi
   direction_(direction)
 {}
 
+SNLScalarTerm::SNLScalarTerm(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm::SNLScalarTerm(SNLBundleTerm* bundleTerm, NLID::DesignObjectID id, Direction direction, const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  id_(id),
+  name_(name),
+  direction_(direction)
+{}
+
 SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const NLName& name) {
   preCreate(design, name);
   SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
@@ -43,6 +61,24 @@ SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, NLID::DesignObjectID id,
   SNLScalarTerm* net = new SNLScalarTerm(design, id, direction, name);
   net->postCreate();
   return net;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  SNLScalarTerm* term = new SNLScalarTerm(bundleTerm, direction, name);
+  term->postCreateAndSetID();
+  return term;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(
+  SNLBundleTerm* bundleTerm,
+  NLID::DesignObjectID id,
+  Direction direction,
+  const NLName& name) {
+  preCreate(bundleTerm, id, direction, name);
+  SNLScalarTerm* term = new SNLScalarTerm(bundleTerm, id, direction, name);
+  term->postCreate();
+  return term;
 }
 
 void SNLScalarTerm::preCreate(SNLDesign* design, const NLName& name) {
@@ -64,6 +100,37 @@ void SNLScalarTerm::preCreate(SNLDesign* design, NLID::DesignObjectID id, const 
   }
 }
 
+void SNLScalarTerm::preCreate(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name) {
+  if (not bundleTerm) {
+    throw NLException("malformed SNLScalarTerm creator with NULL bundle argument");
+  }
+  auto* design = bundleTerm->getDesign();
+  preCreate(design, name);
+  if (bundleTerm->getDirection() != direction) {
+    throw NLException("cannot create SNLScalarTerm in SNLBundleTerm with different direction");
+  }
+  SNLTerm* lastTopLevelTerm = nullptr;
+  for (auto term: design->getTerms()) {
+    lastTopLevelTerm = term;
+  }
+  if (lastTopLevelTerm != bundleTerm) {
+    throw NLException("cannot create bundled SNLScalarTerm when bundle is not the last top-level term");
+  }
+}
+
+void SNLScalarTerm::preCreate(
+  SNLBundleTerm* bundleTerm,
+  NLID::DesignObjectID id,
+  Direction direction,
+  const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  if (bundleTerm->getDesign()->getTerm(id)) {
+    std::string reason = "SNLDesign " + bundleTerm->getDesign()->getString()
+      + " contains already a SNLScalarTerm with ID: " + std::to_string(id);
+    throw NLException(reason);
+  }
+}
+
 void SNLScalarTerm::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addTermAndSetID(this);
@@ -80,11 +147,21 @@ void SNLScalarTerm::commonPreDestroy() {
 }
 
 void SNLScalarTerm::destroyFromDesign() {
+  getDesign()->terms_.erase(*this);
+  commonPreDestroy();
+  delete this;
+}
+
+void SNLScalarTerm::destroyFromBundle() {
+  getDesign()->removeTerm(this);
   commonPreDestroy();
   delete this;
 }
 
 void SNLScalarTerm::preDestroy() {
+  if (bundleTerm_) {
+    throw NLException("Cannot destroy a bundled SNLScalarTerm directly, destroy its SNLBundleTerm instead");
+  }
   commonPreDestroy();
   getDesign()->removeTerm(this);
 }

@@ -5,6 +5,7 @@
 #include "ConstantPropagation.h"
 
 #include <iostream>
+#include <limits>
 #include <ranges>
 #include <set>
 #include <stack>
@@ -23,6 +24,14 @@ using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::NL;
 using namespace naja::BNE;
+
+namespace {
+
+constexpr NLID::DesignObjectID InvalidPathToDrive =
+    std::numeric_limits<NLID::DesignObjectID>::max();
+constexpr size_t InvalidFlatTermToDrive = std::numeric_limits<size_t>::max();
+
+}
 
 // #define DEBUG_PRINTS
 
@@ -1006,8 +1015,8 @@ void ConstantPropagation::propagateConstants() {
       }
       std::reverse(path.begin(), path.end());
       constant0Readers_.push_back(std::tuple<std::vector<NLID::DesignObjectID>,
-                                             NLID::DesignObjectID, DNLID>(
-          path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
+                                             size_t, DNLID>(
+          path, readerTerm.getSnlTerm()->getBitTerm()->getFlatID(),
           readerInst.getID()));
     }
   }
@@ -1034,8 +1043,8 @@ void ConstantPropagation::propagateConstants() {
       }
       std::reverse(path.begin(), path.end());
       constant1Readers_.push_back(std::tuple<std::vector<NLID::DesignObjectID>,
-                                             NLID::DesignObjectID, DNLID>(
-          path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
+                                             size_t, DNLID>(
+          path, readerTerm.getSnlTerm()->getBitTerm()->getFlatID(),
           readerInst.getID()));
     }
   }
@@ -1076,7 +1085,7 @@ void ConstantPropagation::propagateConstants() {
       SNLUniquifier uniquifier(std::get<0>(path), std::get<2>(path));
       uniquifier.process();
       SNLInstTerm* constTerm =
-          uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));
+          uniquifier.getPathUniq().back()->getInstTermByFlatID(std::get<1>(path));
       changeDriverToLocal0(constTerm, std::get<2>(path));
     }
     for (SNLBitTerm* term : constant0TopReaders_) {
@@ -1105,7 +1114,7 @@ void ConstantPropagation::propagateConstants() {
       SNLUniquifier uniquifier(std::get<0>(path), std::get<2>(path));
       uniquifier.process();
       SNLInstTerm* constTerm =
-          uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));
+          uniquifier.getPathUniq().back()->getInstTermByFlatID(std::get<1>(path));
       changeDriverToLocal1(constTerm, std::get<2>(path));
     }
     for (SNLBitTerm* term : constant1TopReaders_) {
@@ -1140,7 +1149,9 @@ void ConstantPropagation::propagateConstants() {
     }
     for (SNLBitTerm* term : constant0TopReaders_) {
       bne.addDriveWithConstantAction(std::vector<NLID::DesignObjectID>(),
-                                     (unsigned)-1, (unsigned)-1, 0, term);
+                                     InvalidPathToDrive,
+                                     InvalidFlatTermToDrive,
+                                     0, term);
     }
     for (auto& path : constant1Readers_) {
       auto context = std::get<0>(path);
@@ -1150,7 +1161,9 @@ void ConstantPropagation::propagateConstants() {
     }
     for (SNLBitTerm* term : constant1TopReaders_) {
       bne.addDriveWithConstantAction(std::vector<NLID::DesignObjectID>(),
-                                     (unsigned)-1, (unsigned)-1, 1, term);
+                                     InvalidPathToDrive,
+                                     InvalidFlatTermToDrive,
+                                     1, term);
     }
     bne.process();
   }
