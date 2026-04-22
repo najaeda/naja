@@ -2421,6 +2421,42 @@ endmodule
   EXPECT_EQ(4, y->getWidth());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalBitSliceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_conditional_bit_slice_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_conditional_bit_slice_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_bit_slice_supported(
+  input  logic [3:0] a_i,
+  input  logic [3:0] b_i,
+  input  logic       sel_i,
+  output logic [3:0] y_o
+);
+  logic [7:0] tmp;
+  assign tmp[3:0] = sel_i ? a_i : b_i;
+  assign y_o = tmp[3:0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_conditional_bit_slice_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y_o"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignPackedArrayElementWidenSupported) {
@@ -13939,6 +13975,64 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombCasezWildcardMatcherShapeVariantsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_casez_wildcard_matcher_shape_variants_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_casez_wildcard_matcher_shape_variants_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_casez_wildcard_matcher_shape_variants_supported(
+  output logic y_all_o,
+  output logic y_single_o,
+  output logic y_zero_o,
+  output logic y_one_o
+);
+  always_comb begin
+    unique casez (2'b10)
+      2'b??:   y_all_o = 1'b1;
+      default: y_all_o = 1'b0;
+    endcase
+
+    unique casez (2'b01)
+      2'b?1:      y_single_o = 1'b1;
+      default:    y_single_o = 1'b0;
+    endcase
+
+    unique casez (2'b00)
+      2'b?0:    y_zero_o = 1'b1;
+      default:  y_zero_o = 1'b0;
+    endcase
+
+    unique casez (2'b01)
+      2'b?0:   y_one_o = 1'b1;
+      default: y_one_o = 1'b0;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_casez_wildcard_matcher_shape_variants_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("y_all_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("y_single_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("y_zero_o")), nullptr);
+  EXPECT_NE(top->getScalarNet(NLName("y_one_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombCaseInsideVariableItemUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -16629,6 +16723,76 @@ endmodule
     constructor,
     svPath,
     {"unable to resolve dynamic indexed range-select base bits in always_comb assignment"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSIndexedRangeSelectDynamicBaseOutOfRangeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_indexed_range_select_dynamic_base_out_of_range_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_lhs_indexed_range_select_dynamic_base_out_of_range_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_indexed_range_select_dynamic_base_out_of_range_unsupported(
+  input  logic [3:0] idx_i,
+  output logic [3:0] data_o
+);
+  always_comb begin
+    data_o = '0;
+    data_o[idx_i+:5] = 5'b11111;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"dynamic indexed range-select out of range in always_comb assignment"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSSimpleRangeSelectOutOfRangeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_simple_range_select_out_of_range_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_simple_range_select_out_of_range_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_simple_range_select_out_of_range_unsupported(
+  input  logic [4:0] data_i,
+  output logic [3:0] data_o
+);
+  always_comb begin
+    data_o = '0;
+    data_o[5:1] = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"constant range-select out of range in always_comb assignment"});
 }
 
 TEST_F(
@@ -19463,6 +19627,160 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialDirectMultiAssignmentUnsupportedIntegralSelectionTargetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "seq_direct_multi_assignment_unsupported_integral_selection_target_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "seq_direct_multi_assignment_unsupported_integral_selection_target_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_direct_multi_assignment_unsupported_integral_selection_target_unsupported(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic [7:0] d_i,
+  output logic [7:0] r_o
+);
+  logic [7:0] q [0:1][0:1];
+
+  always_ff @(posedge clk_i) begin
+    q[sel_i ? 1'b0 : 1'bx] <= '{default: d_i};
+    r_o <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"direct multi-assignment LHS is not a supported integral selection"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleLHSFallbackMultipleDirectAssignmentsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_lhs_fallback_multiple_direct_assignments_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       a_i,
+  input  logic       b_i,
+  output logic       q_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else begin
+      q_o <= a_i;
+      q_o <= b_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"single-LHS fallback path contains multiple direct assignments"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleLHSFallbackMismatchedResetTargetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_lhs_fallback_mismatched_reset_target_unsupported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic d_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else begin
+      r_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"fallback currently supports only multi-LHS reset branches"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSignedLocalparamConstantSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_signed_localparam_constant_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_signed_localparam_constant_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_signed_localparam_constant_supported(
+  output logic [7:0] y_o
+);
+  localparam integer NEG = -3;
+  always_comb begin
+    y_o = NEG;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_signed_localparam_constant_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultiAssignmentElseConcatRHSResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -19687,6 +20005,58 @@ endmodule
 
   auto top = library_->getSNLDesign(
     NLName("seq_multi_assignment_reset_constant_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentResetConstantBitElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_reset_constant_bit_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_reset_constant_bit_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_reset_constant_bit_element_select_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  output logic q_o,
+  output logic r_o
+);
+  logic q [0:1];
+  logic r [0:1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      q[0] <= 1'b0;
+      q[1] <= 1'b0;
+      r[0] <= 1'b0;
+      r[1] <= 1'b0;
+    end else begin
+      q[1] <= 1'b1;
+      r[0] <= 1'b0;
+    end
+  end
+
+  assign q_o = q[1];
+  assign r_o = r[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_reset_constant_bit_element_select_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("r_o")), nullptr);
@@ -20490,6 +20860,38 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialLHSElementSelectSupported) {
   ASSERT_NE(top, nullptr);
   EXPECT_FALSE(top->isBlackBox());
   EXPECT_NE(top->getNet(NLName("q")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialLHSScalarBitSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_lhs_scalar_bit_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_lhs_scalar_bit_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_lhs_scalar_bit_select_supported(
+  input  logic       clk_i,
+  input  logic       d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(posedge clk_i) begin
+    q_o[0] <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_lhs_scalar_bit_select_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSkipped) {
@@ -22828,6 +23230,47 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_rhs_direct_match");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSFixedUnpackedSelectionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_rhs_fixed_unpacked_selection_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_rhs_fixed_unpacked_selection_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_rhs_fixed_unpacked_selection_supported(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] q_o
+);
+  logic [7:0] lanes [0:1];
+
+  always_comb begin
+    lanes[0] = a_i;
+    lanes[1] = b_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    q_o <= lanes[sel_i];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_rhs_fixed_unpacked_selection_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTopLevelAssignmentSupported) {
