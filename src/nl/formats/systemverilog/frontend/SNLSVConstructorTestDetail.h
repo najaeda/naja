@@ -46,6 +46,12 @@ struct ResolveAssignmentLHSBitsTestResult {
     std::string failureReason;
 };
 
+struct SingleLHSFallbackPathMaxTestResult {
+    bool success {false};
+    size_t maxAssignments {0};
+    std::string failureReason;
+};
+
 struct SourceExcerptTestOptions {
     std::string sourceText;
     std::optional<size_t> startOffset {0};
@@ -112,6 +118,11 @@ testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation = false);
 
+std::optional<ResolveAssignmentLHSBitsTestResult>
+testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
+  const std::string& sourceText,
+  bool allowConcatenation = false);
+
 std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth);
@@ -125,6 +136,10 @@ std::optional<FindTimedStatementTestResult> testSVConstructorFindTimedStatementF
 
 std::optional<CollectDirectAssignmentsTestResult>
 testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
+  const std::string& sourceText);
+
+std::optional<SingleLHSFallbackPathMaxTestResult>
+testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
   const std::string& sourceText);
 
 std::optional<ForLoopStepExpressionTestResult>

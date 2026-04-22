@@ -1234,6 +1234,73 @@ class SNLSVConstructorImpl {
       return result;
     }
 
+    std::optional<detail::ResolveAssignmentLHSBitsTestResult>
+    testResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
+      const std::string& sourceText,
+      bool allowConcatenation) {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
+          return std::nullopt;
+        }
+        lhsExpr = &assignment.as<slang::ast::AssignmentExpression>().left();
+        break;
+      }
+      if (!lhsExpr) {
+        return std::nullopt;
+      }
+
+      auto* db = NLUniverse::getTopDB();
+      if (!db) {
+        auto* universe = NLUniverse::get();
+        if (universe) {
+          for (auto* candidate : universe->getUserDBs()) {
+            db = candidate;
+            break;
+          }
+        }
+      }
+      if (!db) {
+        return std::nullopt;
+      }
+
+      auto* detailLibrary = NLLibrary::create(db);
+      auto* detailDesign = SNLDesign::create(detailLibrary);
+      createNets(detailDesign, root.topInstances.front()->body);
+
+      detail::ResolveAssignmentLHSBitsTestResult result;
+      std::vector<SNLBitNet*> lhsBits;
+      auto* lhsNet = resolveAssignmentBaseNet(detailDesign, *lhsExpr);
+      if (!resolveAssignmentLHSBitsOrFormatFailure(
+            detailDesign,
+            *lhsExpr,
+            lhsNet,
+            lhsBits,
+            result.failureReason,
+            allowConcatenation)) {
+        return result;
+      }
+      result.success = true;
+      result.bitCount = lhsBits.size();
+      return result;
+    }
+
     std::optional<std::string> testResolveConstantExpressionBitsFromAssignRhs(
       const std::string& sourceText,
       size_t targetWidth) {
@@ -1370,6 +1437,83 @@ class SNLSVConstructorImpl {
         assignments,
         &result.failureReason);
       result.assignmentCount = assignments.size();
+      return result;
+    }
+
+    std::optional<detail::SingleLHSFallbackPathMaxTestResult>
+    testGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      const std::string& sourceText) const {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(sourceText);
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const slang::ast::ProceduralBlockSymbol* proceduralBlock = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind == SymbolKind::ProceduralBlock) {
+          proceduralBlock = &sym.as<slang::ast::ProceduralBlockSymbol>();
+          break;
+        }
+      }
+      if (!proceduralBlock) {
+        return std::nullopt;
+      }
+
+      const Expression* trackedLhs = nullptr;
+      std::function<bool(const Statement&)> findTrackedLhs = [&](const Statement& stmt) {
+        const Statement* current = unwrapStatement(stmt);
+        if (!current) {
+          return false;
+        }
+
+        const Expression* lhs = nullptr;
+        AssignAction action;
+        if (extractAssignment(*current, lhs, action)) {
+          trackedLhs = lhs;
+          return true;
+        }
+
+        switch (current->kind) {
+          case slang::ast::StatementKind::Block:
+            return findTrackedLhs(current->as<slang::ast::BlockStatement>().body);
+          case slang::ast::StatementKind::List:
+            for (const auto* item : current->as<slang::ast::StatementList>().list) {
+              if (item && findTrackedLhs(*item)) {
+                return true;
+              }
+            }
+            return false;
+          case slang::ast::StatementKind::Conditional: {
+            const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+            if (findTrackedLhs(conditional.ifTrue)) {
+              return true;
+            }
+            return conditional.ifFalse && findTrackedLhs(*conditional.ifFalse);
+          }
+          case slang::ast::StatementKind::ForLoop:
+            return findTrackedLhs(current->as<slang::ast::ForLoopStatement>().body);
+          default:
+            return false;
+        }
+      };
+
+      if (!findTrackedLhs(proceduralBlock->getBody()) || !trackedLhs) {
+        return std::nullopt;
+      }
+
+      detail::SingleLHSFallbackPathMaxTestResult result;
+      result.success = getSingleLHSFallbackPathAssignmentMax(
+        proceduralBlock->getBody(),
+        *trackedLhs,
+        result.maxAssignments,
+        &result.failureReason);
       return result;
     }
 
@@ -6239,14 +6383,7 @@ class SNLSVConstructorImpl {
       }
 
       slang::ConstantValue convertedConstant;
-      if (constant && !constant->isInteger()) {
-        convertedConstant = constant->convertToInt();
-        if (convertedConstant && convertedConstant.isInteger()) {
-          constant = &convertedConstant;
-        }
-      }
-
-      if (!constant || !constant->isInteger()) {
+      if (!convertConstantToIntegerIfNeeded(constant, convertedConstant)) {
         return false;
       }
 
@@ -14584,6 +14721,29 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool resolveAssignmentLHSBitsOrFormatFailure(
+      SNLDesign* design,
+      const Expression& lhsExpr,
+      SNLNet* lhsNet,
+      std::vector<SNLBitNet*>& lhsBits,
+      std::string& failureReason,
+      bool allowConcatenation = false) {
+      if (!resolveAssignmentLHSBits(
+            design,
+            lhsExpr,
+            lhsBits,
+            &failureReason,
+            allowConcatenation) ||
+          lhsBits.empty()) {
+        failureReason = formatAssignmentLHSResolutionFailureReason(
+          lhsNet != nullptr,
+          describeLHSForDiagnostics(lhsExpr),
+          failureReason);
+        return false;
+      }
+      return true;
+    }
+
     SNLNet* resolveAssignmentBaseNet(
       SNLDesign* design,
       const Expression& lhsExpr) {
@@ -14953,12 +15113,7 @@ class SNLSVConstructorImpl {
         }
       }
       slang::ConstantValue convertedConstant;
-      if (constant && !constant->isInteger()) {
-        convertedConstant = constant->convertToInt();
-        if (convertedConstant && convertedConstant.isInteger()) {
-          constant = &convertedConstant;
-        }
-      }
+      convertConstantToIntegerIfNeeded(constant, convertedConstant);
       if (constant && constant->isInteger()) {
         return appendIntegerBits(constant->integer());
       }
@@ -15231,12 +15386,7 @@ class SNLSVConstructorImpl {
         }
       }
       slang::ConstantValue convertedConstant;
-      if (constant && !constant->isInteger()) {
-        convertedConstant = constant->convertToInt();
-        if (convertedConstant && convertedConstant.isInteger()) {
-          constant = &convertedConstant;
-        }
-      }
+      convertConstantToIntegerIfNeeded(constant, convertedConstant);
       if (constant && constant->isInteger()) {
         const auto& intValue = constant->integer();
         if (!intValue.hasUnknown()) {
@@ -16738,12 +16888,12 @@ class SNLSVConstructorImpl {
       for (const auto* lhsExpr : conditionalLHSExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
         std::vector<SNLBitNet*> lhsBits;
-        if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason) ||
-            lhsBits.empty()) {
-          failureReason = formatAssignmentLHSResolutionFailureReason(
-            lhsNet != nullptr,
-            describeLHSForDiagnostics(*lhsExpr),
-            failureReason);
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
           return false;
         }
 
@@ -16980,12 +17130,12 @@ class SNLSVConstructorImpl {
       for (const auto* lhsExpr : lhsExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
         std::vector<SNLBitNet*> lhsBits;
-        if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason) ||
-            lhsBits.empty()) {
-          failureReason = formatAssignmentLHSResolutionFailureReason(
-            lhsNet != nullptr,
-            describeLHSForDiagnostics(*lhsExpr),
-            failureReason);
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
           return false;
         }
 
@@ -17085,13 +17235,7 @@ class SNLSVConstructorImpl {
         }
       }
       slang::ConstantValue convertedConstant;
-      if (constant && !constant->isInteger()) {
-        convertedConstant = constant->convertToInt();
-        if (convertedConstant && convertedConstant.isInteger()) {
-          constant = &convertedConstant;
-        }
-      }
-      if (!constant || !constant->isInteger()) {
+      if (!convertConstantToIntegerIfNeeded(constant, convertedConstant)) {
         return false;
       }
       auto maybeValue = constant->integer().as<uint64_t>();
@@ -19629,6 +19773,18 @@ testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
     allowConcatenation);
 }
 
+std::optional<ResolveAssignmentLHSBitsTestResult>
+testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
+  const std::string& sourceText,
+  bool allowConcatenation) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
+    sourceText,
+    allowConcatenation);
+}
+
 std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
@@ -19653,6 +19809,15 @@ testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, config, options);
   return impl.testCollectDirectAssignmentsFromProceduralBlock(sourceText);
+}
+
+std::optional<SingleLHSFallbackPathMaxTestResult>
+testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+  const std::string& sourceText) {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(sourceText);
 }
 
 std::optional<ForLoopStepExpressionTestResult>

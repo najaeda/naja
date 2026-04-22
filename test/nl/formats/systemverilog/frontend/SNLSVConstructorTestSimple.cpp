@@ -6853,6 +6853,39 @@ endmodule
 endmodule
 )");
   EXPECT_EQ(std::nullopt, nonConstantIndexWidth);
+
+  const auto indexedUpWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [3:0] y
+);
+  assign y = arr[1+:2];
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, indexedUpWidth);
+
+  const auto indexedDownWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [3:0] y
+);
+  assign y = arr[2-:2];
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, indexedDownWidth);
+
+  const auto outOfRangeIndexedUpWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [3:0] y
+);
+  assign y = arr[3+:2];
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, outOfRangeIndexedUpWidth);
 }
 
 TEST_F(SNLSVConstructorTestSimple, resolveWildcardPatternWidthFallbackUsesCanonicalWidth) {
@@ -6898,6 +6931,21 @@ endmodule
     false);
   ASSERT_TRUE(bits.has_value());
   EXPECT_EQ("x1x1", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveWildcardCaseItemPatternZeroRepeatNonIntegralOperandIgnored) {
+  const auto bits = detail::testSVConstructorResolveWildcardCaseItemPatternFromAssignRhs(
+    R"(module detail_test(output logic y);
+  localparam string P = "z";
+  assign y = {1'b1, {0{P}}};
+endmodule
+)",
+    1,
+    false);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("1", *bits);
 }
 
 TEST_F(
@@ -6994,6 +7042,20 @@ endmodule
     2);
   ASSERT_TRUE(bits.has_value());
   EXPECT_EQ("01", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveUnknownLiteralBitsAsZeroSkipsZeroRepeatNonIntegralOperand) {
+  const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+    R"(module detail_test(output logic y);
+  localparam string P = "z";
+  assign y = {1'bx, {0{P}}};
+endmodule
+)",
+    1);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("0", *bits);
 }
 
 TEST_F(
@@ -7145,6 +7207,22 @@ endmodule
 endmodule
 )");
   EXPECT_EQ(std::nullopt, outOfRangeIndexedDown);
+
+  const auto indexedUpRange =
+    detail::testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+      R"(module detail_test(output logic [1:0] arr [0:3]);
+  assign arr[1+:2] = 4'b0;
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, indexedUpRange);
+
+  const auto dynamicIndexedUpRange =
+    detail::testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+      R"(module detail_test(input logic [1:0] idx, output logic arr [0:3]);
+  assign arr[idx+:1] = 1'b0;
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, dynamicIndexedUpRange);
 }
 
 TEST_F(
@@ -7161,6 +7239,21 @@ endmodule
   EXPECT_NE(
     std::string::npos,
     unsupportedConcat->failureReason.find("unsupported always_comb assignment LHS"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveAssignmentLHSBitsReportedFailuresIncludeFormattedContext) {
+  const auto concatFailure =
+    detail::testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
+      R"(module detail_test(output logic a, output logic b);
+  assign {a, b} = 2'b0;
+endmodule
+)");
+  ASSERT_TRUE(concatFailure.has_value());
+  EXPECT_FALSE(concatFailure->success);
+  EXPECT_FALSE(concatFailure->failureReason.empty());
+  EXPECT_NE(std::string::npos, concatFailure->failureReason.find("Concatenation"));
 }
 
 TEST_F(
@@ -7317,6 +7410,59 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  getSingleLHSFallbackPathAssignmentMaxTraversesBlocksAndRejectsMultipleAssignments) {
+  const auto traversed =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic clk, input logic d, output logic q);
+  always_comb begin
+    begin
+      q = d;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(traversed.has_value());
+  EXPECT_TRUE(traversed->success);
+  EXPECT_EQ(1u, traversed->maxAssignments);
+  EXPECT_TRUE(traversed->failureReason.empty());
+
+  const auto rejected =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic clk, input logic d, input logic e, output logic q);
+  always_comb begin
+    begin
+      q = d;
+      q = e;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(rejected.has_value());
+  EXPECT_FALSE(rejected->success);
+  EXPECT_EQ(0u, rejected->maxAssignments);
+  EXPECT_NE(
+    std::string::npos,
+    rejected->failureReason.find("single-LHS fallback path contains multiple direct assignments"));
+
+  const auto conditionalBlocks =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic en, input logic d, output logic q);
+  always_comb begin
+    if (en) begin
+      q = d;
+    end else begin
+      q = d;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(conditionalBlocks.has_value());
+  EXPECT_TRUE(conditionalBlocks->success);
+  EXPECT_EQ(1u, conditionalBlocks->maxAssignments);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   applyForLoopStepExpressionHandlesOperandConstantAndBinaryRhsForms) {
   const auto sameValue =
     detail::testSVConstructorApplyForLoopStepExpressionFromForLoop(
@@ -7404,6 +7550,35 @@ endmodule
   ASSERT_TRUE(addConstant.has_value());
   EXPECT_TRUE(addConstant->success);
   EXPECT_EQ(5, addConstant->loopValue);
+
+  const auto multiplyConstant =
+    detail::testSVConstructorApplyForLoopStepExpressionFromForLoop(
+      R"(module detail_test;
+  always_comb begin
+    for (int i = 0; i < 4; i *= 2) begin end
+  end
+endmodule
+)",
+      3);
+  ASSERT_TRUE(multiplyConstant.has_value());
+  EXPECT_FALSE(multiplyConstant->success);
+  EXPECT_EQ(3, multiplyConstant->loopValue);
+  EXPECT_FALSE(multiplyConstant->failureReason.empty());
+
+  const auto proceduralMultiply =
+    detail::testSVConstructorApplyForLoopStepExpressionFromProceduralStatement(
+      R"(module detail_test;
+  int i;
+  always_comb begin
+    i *= 2;
+  end
+endmodule
+)",
+      3);
+  ASSERT_TRUE(proceduralMultiply.has_value());
+  EXPECT_FALSE(proceduralMultiply->success);
+  EXPECT_EQ(3, proceduralMultiply->loopValue);
+  EXPECT_FALSE(proceduralMultiply->failureReason.empty());
 }
 
 TEST_F(
