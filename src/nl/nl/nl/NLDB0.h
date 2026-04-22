@@ -14,6 +14,7 @@ class NLUniverse;
 class NLDB;
 class NLLibrary;
 class SNLDesign;
+class SNLInstance;
 class SNLScalarTerm;
 class SNLBusTerm;
 
@@ -81,6 +82,15 @@ class NLDB0 {
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
     static bool isMemory(const SNLDesign* design);
+    static MemorySignature getMemorySignature(const SNLDesign* design);
+    static MemorySignature getMemorySignature(const SNLInstance* instance);
+    static SNLScalarTerm* getMemoryClock(const SNLDesign* design);
+    static SNLScalarTerm* getMemoryReset(const SNLDesign* design);
+    static SNLBusTerm* getMemoryReadAddress(const SNLDesign* design);
+    static SNLBusTerm* getMemoryReadData(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteAddress(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteData(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteEnable(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
