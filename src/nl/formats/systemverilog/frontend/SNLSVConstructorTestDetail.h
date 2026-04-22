@@ -40,6 +40,12 @@ struct ForLoopStepExpressionTestResult {
     std::string failureReason;
 };
 
+struct ResolveAssignmentLHSBitsTestResult {
+    bool success {false};
+    size_t bitCount {0};
+    std::string failureReason;
+};
+
 struct SourceExcerptTestOptions {
     std::string sourceText;
     std::optional<size_t> startOffset {0};
@@ -67,9 +73,16 @@ std::optional<std::vector<int32_t>> testSVConstructorCollectIndexedRangeElementI
   int32_t sliceWidth,
   bool indexedDown);
 
+std::optional<size_t> testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+  const std::string& sourceText);
+
 std::vector<bool> testSVConstructorEncodeUnsignedProductBits(
   uint64_t leftValue,
   uint64_t rightValue,
+  size_t targetWidth);
+
+std::optional<std::string> testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
+  const std::string& sourceText,
   size_t targetWidth);
 
 std::optional<size_t> testSVConstructorResolveWildcardPatternWidthFallback(
@@ -85,6 +98,19 @@ std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAs
 std::optional<std::string> testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth);
+
+std::optional<std::string> testSVConstructorResolveExpressionBitsFromAssignRhs(
+  const std::string& sourceText,
+  size_t targetWidth);
+
+std::optional<size_t> testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+  const std::string& sourceText,
+  bool allowConcatenation = false);
+
+std::optional<ResolveAssignmentLHSBitsTestResult>
+testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
+  const std::string& sourceText,
+  bool allowConcatenation = false);
 
 std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
   const std::string& sourceText,
@@ -110,6 +136,19 @@ std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromProceduralStatement(
   const std::string& sourceText,
   int64_t initialLoopValue);
+
+std::optional<ForLoopStepExpressionTestResult>
+testSVConstructorApplyConstantCompoundForLoopOperator(
+  const std::string& opText,
+  int64_t initialLoopValue,
+  int64_t rhsValue);
+
+std::optional<bool> testSVConstructorConvertConstantToIntegerFromAssignRhs(
+  const std::string& sourceText);
+
+std::optional<std::string> testSVConstructorAppendSignedConstantBits(
+  int64_t value,
+  size_t targetWidth);
 
 std::optional<bool> testSVConstructorSameExpressionStructureFromContinuousAssignRhsPair(
   const std::string& sourceText);

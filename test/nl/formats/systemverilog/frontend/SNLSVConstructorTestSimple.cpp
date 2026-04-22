@@ -6779,6 +6779,82 @@ TEST_F(SNLSVConstructorTestSimple, encodeUnsignedProductBitsExpandsConstantProdu
   EXPECT_EQ(expectedBits, encodedBits);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  createPowerOfTwoBitsHandlesConstantExponentInAndOutOfRange) {
+  const auto inRange = detail::testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
+    R"(module detail_test(output logic [4:0] y);
+  assign y = 3;
+endmodule
+)",
+    5);
+  ASSERT_TRUE(inRange.has_value());
+  EXPECT_EQ("00010", *inRange);
+
+  const auto outOfRange = detail::testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
+    R"(module detail_test(output logic [3:0] y);
+  assign y = 7;
+endmodule
+)",
+    4);
+  ASSERT_TRUE(outOfRange.has_value());
+  EXPECT_EQ("0000", *outOfRange);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  createPowerOfTwoBitsHandlesEnumTypedConstantExponent) {
+  const auto bits = detail::testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
+    R"(module detail_test(output logic [3:0] y);
+  typedef enum logic [1:0] { ShiftOne = 2'd1 } shift_t;
+  localparam shift_t SHIFT = ShiftOne;
+  assign y = SHIFT;
+endmodule
+)",
+    4);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("0100", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveFixedUnpackedArraySelectionBitCountHandlesElementAndFailures) {
+  const auto elementWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[2];
+endmodule
+)");
+  ASSERT_TRUE(elementWidth.has_value());
+  EXPECT_EQ(2u, *elementWidth);
+
+  const auto outOfRangeWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[5];
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, outOfRangeWidth);
+
+  const auto nonConstantIndexWidth =
+    detail::testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
+      R"(module detail_test(
+  input logic [1:0] idx,
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[idx];
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, nonConstantIndexWidth);
+}
+
 TEST_F(SNLSVConstructorTestSimple, resolveWildcardPatternWidthFallbackUsesCanonicalWidth) {
   EXPECT_EQ(
     std::make_optional<size_t>(3),
@@ -6843,6 +6919,37 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  resolveWildcardCaseItemPatternEnumTypedLocalparamSupported) {
+  const auto bits = detail::testSVConstructorResolveWildcardCaseItemPatternFromAssignRhs(
+    R"(module detail_test(output logic [2:0] y);
+  typedef enum logic [2:0] { Value = 3'b10x } value_t;
+  localparam value_t P = Value;
+  assign y = P;
+endmodule
+)",
+    3,
+    false);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("x01", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveWildcardCaseItemPatternRealLocalparamConvertToIntSupported) {
+  const auto bits = detail::testSVConstructorResolveWildcardCaseItemPatternFromAssignRhs(
+    R"(module detail_test(output logic [3:0] y);
+  localparam real P = 3.0;
+  assign y = P;
+endmodule
+)",
+    4,
+    false);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("1100", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   resolveUnknownLiteralBitsAsZeroPackedStructAndConcatZeroRepeatSupported) {
   const auto packedBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [2:0] y);
@@ -6873,6 +6980,191 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  resolveUnknownLiteralBitsAsZeroConcatNamedZeroRepeatPackedStructSupported) {
+  const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+    R"(module detail_test(output logic [1:0] y);
+  localparam int ZERO = 0;
+  typedef struct packed {
+    logic [1:0] bits;
+  } packed_t;
+  localparam packed_t P = '{bits: 2'b1x};
+  assign y = {P, {ZERO{P}}};
+endmodule
+)",
+    2);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("01", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveUnknownLiteralBitsAsZeroConditionalShortcutUsesConstantConditionNet) {
+  const auto constTrueBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+    R"(module detail_test(input logic sel, output logic [1:0] y);
+  assign y = (sel || 1'b1) ? 2'b1x : 2'b00;
+endmodule
+)",
+    2);
+  ASSERT_TRUE(constTrueBits.has_value());
+  EXPECT_EQ("01", *constTrueBits);
+
+  const auto constFalseBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+    R"(module detail_test(input logic sel, output logic [1:0] y);
+  assign y = (sel && 1'b0) ? 2'b00 : 2'bx1;
+endmodule
+)",
+    2);
+  ASSERT_TRUE(constFalseBits.has_value());
+  EXPECT_EQ("10", *constFalseBits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveUnknownLiteralBitsAsZeroEnumTypedLocalparamSupported) {
+  const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+    R"(module detail_test(output logic [2:0] y);
+  typedef enum logic [2:0] { Value = 3'b10x } value_t;
+  localparam value_t P = Value;
+  assign y = P;
+endmodule
+)",
+    3);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("001", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveExpressionBitsHandlesCompareAndPowerShortcuts) {
+  const auto caseCompareBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
+  assign y = (a === b);
+endmodule
+)",
+    1);
+  ASSERT_TRUE(caseCompareBits.has_value());
+  EXPECT_EQ("?", *caseCompareBits);
+
+  const auto relationalBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
+  assign y = (a > b);
+endmodule
+)",
+    1);
+  ASSERT_TRUE(relationalBits.has_value());
+  EXPECT_EQ("?", *relationalBits);
+
+  const auto powerOneBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(input logic [1:0] sh, output logic [3:0] y);
+  assign y = (1 ** sh);
+endmodule
+)",
+    4);
+  ASSERT_TRUE(powerOneBits.has_value());
+  EXPECT_EQ("1000", *powerOneBits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveExpressionBitsHandlesInequalityAndFixedUnpackedSelections) {
+  const auto inequalityBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
+  assign y = (a !== b);
+endmodule
+)",
+    1);
+  ASSERT_TRUE(inequalityBits.has_value());
+  EXPECT_EQ("?", *inequalityBits);
+
+  const auto elementBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[2];
+endmodule
+)",
+    2);
+  ASSERT_TRUE(elementBits.has_value());
+  EXPECT_EQ("??", *elementBits);
+
+  const auto outOfRangeBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[5];
+endmodule
+)",
+    2);
+  ASSERT_TRUE(outOfRangeBits.has_value());
+  EXPECT_EQ("00", *outOfRangeBits);
+
+  const auto nonConstantIndexBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(
+  input logic [1:0] idx,
+  input logic [1:0] arr [0:3],
+  output logic [1:0] y
+);
+  assign y = arr[idx];
+endmodule
+)",
+    2);
+  ASSERT_TRUE(nonConstantIndexBits.has_value());
+  EXPECT_EQ("??", *nonConstantIndexBits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveAssignmentLHSBitsHandlesFixedUnpackedSelections) {
+  const auto elementWidth = detail::testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+    R"(module detail_test(
+  input logic [1:0] d,
+  output logic [1:0] arr [0:3]
+);
+  assign arr[2] = d;
+endmodule
+)");
+  ASSERT_TRUE(elementWidth.has_value());
+  EXPECT_EQ(2u, *elementWidth);
+
+  const auto nonConstantIndex = detail::testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+    R"(module detail_test(
+  input logic [1:0] idx,
+  output logic [1:0] arr [0:3]
+);
+  assign arr[idx] = 2'b0;
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, nonConstantIndex);
+
+  const auto outOfRangeIndexedDown =
+    detail::testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
+      R"(module detail_test(output logic [1:0] arr [0:3]);
+  assign arr[0-:2] = 4'b0;
+endmodule
+)");
+  EXPECT_EQ(std::nullopt, outOfRangeIndexedDown);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveAssignmentLHSBitsReportsUnsupportedConcatAndIndexedSliceFailures) {
+  const auto unsupportedConcat =
+    detail::testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
+      R"(module detail_test(output logic a, output logic b);
+  assign {a, b} = 2'b0;
+endmodule
+)");
+  ASSERT_TRUE(unsupportedConcat.has_value());
+  EXPECT_FALSE(unsupportedConcat->success);
+  EXPECT_NE(
+    std::string::npos,
+    unsupportedConcat->failureReason.find("unsupported always_comb assignment LHS"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   resolveConstantExpressionBitsPackedStructConvertToIntSupported) {
   const auto packedBits = detail::testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
     R"(module detail_test(output logic [2:0] y);
@@ -6886,6 +7178,57 @@ endmodule
     3);
   ASSERT_TRUE(packedBits.has_value());
   EXPECT_EQ("101", *packedBits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  convertConstantToIntegerFromAssignRhsRealLocalparamSupported) {
+  const auto converted = detail::testSVConstructorConvertConstantToIntegerFromAssignRhs(
+    R"(module detail_test(output logic [2:0] y);
+  localparam real P = 3.0;
+  assign y = P;
+endmodule
+)");
+  ASSERT_TRUE(converted.has_value());
+  EXPECT_TRUE(*converted);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveConstantExpressionBitsEnumTypedLocalparamSupported) {
+  const auto bits = detail::testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
+    R"(module detail_test(output logic [2:0] y);
+  typedef enum logic [2:0] { Value = 3'b101 } value_t;
+  localparam value_t P = Value;
+  assign y = P;
+endmodule
+)",
+    3);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("101", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveConstantExpressionBitsSignedEnumTypedLocalparamSupported) {
+  const auto bits = detail::testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
+    R"(module detail_test(output logic [3:0] y);
+  typedef enum logic signed [3:0] { NegTwo = -2 } value_t;
+  localparam value_t P = NegTwo;
+  assign y = P;
+endmodule
+)",
+    4);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("0111", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  appendSignedConstantBitsEncodesNegativeValuesToConstNets) {
+  const auto bits = detail::testSVConstructorAppendSignedConstantBits(-2, 4);
+  ASSERT_TRUE(bits.has_value());
+  EXPECT_EQ("0111", *bits);
 }
 
 TEST_F(
@@ -7044,6 +7387,48 @@ endmodule
   EXPECT_NE(
     std::string::npos,
     unsupported->failureReason.find("unsupported for-loop step expression"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  applyForLoopStepExpressionHandlesCompoundAssignmentFastPaths) {
+  const auto addConstant =
+    detail::testSVConstructorApplyForLoopStepExpressionFromForLoop(
+      R"(module detail_test;
+  always_comb begin
+    for (int i = 0; i < 4; i += 2) begin end
+  end
+endmodule
+)",
+      3);
+  ASSERT_TRUE(addConstant.has_value());
+  EXPECT_TRUE(addConstant->success);
+  EXPECT_EQ(5, addConstant->loopValue);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  applyConstantCompoundForLoopOperatorHandlesSupportedAndUnsupportedOps) {
+  const auto add =
+    detail::testSVConstructorApplyConstantCompoundForLoopOperator("+", 3, 2);
+  ASSERT_TRUE(add.has_value());
+  EXPECT_TRUE(add->success);
+  EXPECT_EQ(5, add->loopValue);
+
+  const auto subtract =
+    detail::testSVConstructorApplyConstantCompoundForLoopOperator("-", 3, 2);
+  ASSERT_TRUE(subtract.has_value());
+  EXPECT_TRUE(subtract->success);
+  EXPECT_EQ(1, subtract->loopValue);
+
+  const auto multiply =
+    detail::testSVConstructorApplyConstantCompoundForLoopOperator("*", 3, 2);
+  ASSERT_TRUE(multiply.has_value());
+  EXPECT_FALSE(multiply->success);
+  EXPECT_EQ(3, multiply->loopValue);
+  EXPECT_NE(
+    std::string::npos,
+    multiply->failureReason.find("unsupported compound for-loop assignment operator: *"));
 }
 
 TEST_F(
@@ -18199,6 +18584,43 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialDirectMultiAssignmentUnsupportedRHSActionReported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_direct_multi_assignment_unsupported_rhs_action_reported(
+  input  logic       clk_i,
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  input  logic [7:0] c_i,
+  output logic [7:0] q_o,
+  output logic [7:0] r_o
+);
+  always_ff @(posedge clk_i) begin
+    q_o <= a_i / b_i;
+    r_o <= c_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"failed to lower assignment action for LHS 'q_o'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultiAssignmentResetElementSelectRHSResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -28387,6 +28809,38 @@ endmodule
   auto top = library_->getSNLDesign(NLName("initial_system_task_conditional_ignored_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "final_procedural_block_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "final_procedural_block_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module final_procedural_block_unsupported(
+  input  logic a,
+  output logic y
+);
+  assign y = a;
+  final begin
+    $display("final");
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported procedural block in module 'final_procedural_block_unsupported'",
+     "unsupported procedure kind Final"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombTranslateOffStatementIgnored) {
