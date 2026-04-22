@@ -2390,6 +2390,37 @@ endmodule
   EXPECT_EQ(4, y->getWidth());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignNamedLHSUnknownLiteralSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_named_lhs_unknown_literal_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_named_lhs_unknown_literal_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_named_lhs_unknown_literal_supported(
+  output logic [3:0] y
+);
+  assign y = 4'bxxxx;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_named_lhs_unknown_literal_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignPackedArrayElementWidenSupported) {
@@ -7525,6 +7556,21 @@ endmodule
   EXPECT_EQ(1u, traversed->assignmentCount);
   EXPECT_TRUE(traversed->failureReason.empty());
 
+  const auto traversedNamedBlock =
+    detail::testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
+      R"(module detail_test(input logic d, output logic q);
+  always begin
+    begin : named_blk
+      q = d;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(traversedNamedBlock.has_value());
+  EXPECT_TRUE(traversedNamedBlock->success);
+  EXPECT_EQ(1u, traversedNamedBlock->assignmentCount);
+  EXPECT_TRUE(traversedNamedBlock->failureReason.empty());
+
   const auto rejected =
     detail::testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
       R"(module detail_test(input logic en, input logic d, output logic q);
@@ -7539,6 +7585,25 @@ endmodule
   EXPECT_NE(
     std::string::npos,
     rejected->failureReason.find("expected direct assignment statement in reset branch"));
+
+  const auto rejectedNestedBlockInList =
+    detail::testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
+      R"(module detail_test(input logic d, output logic q);
+  always begin
+    q = d;
+    begin : bad_blk
+      logic tmp;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(rejectedNestedBlockInList.has_value());
+  EXPECT_FALSE(rejectedNestedBlockInList->success);
+  EXPECT_EQ(1u, rejectedNestedBlockInList->assignmentCount);
+  EXPECT_NE(
+    std::string::npos,
+    rejectedNestedBlockInList->failureReason.find(
+      "expected direct assignment statement in reset branch"));
 }
 
 TEST_F(
@@ -7558,6 +7623,19 @@ endmodule
   EXPECT_TRUE(traversed->success);
   EXPECT_EQ(1u, traversed->maxAssignments);
   EXPECT_TRUE(traversed->failureReason.empty());
+
+  const auto variableDeclarationPrefix =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic d, output logic q);
+  always_comb begin
+    logic tmp;
+    q = d;
+  end
+endmodule
+)");
+  ASSERT_TRUE(variableDeclarationPrefix.has_value());
+  EXPECT_TRUE(variableDeclarationPrefix->success);
+  EXPECT_EQ(1u, variableDeclarationPrefix->maxAssignments);
 
   const auto rejected =
     detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
@@ -7592,6 +7670,61 @@ endmodule
   ASSERT_TRUE(conditionalBlocks.has_value());
   EXPECT_TRUE(conditionalBlocks->success);
   EXPECT_EQ(1u, conditionalBlocks->maxAssignments);
+
+  const auto rejectedListItem =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic d, output logic q);
+  always_comb begin
+    q = d;
+    case (d)
+      1'b1: q = d;
+      default: q = d;
+    endcase
+  end
+endmodule
+)");
+  ASSERT_TRUE(rejectedListItem.has_value());
+  EXPECT_FALSE(rejectedListItem->success);
+  EXPECT_EQ(0u, rejectedListItem->maxAssignments);
+  EXPECT_FALSE(rejectedListItem->failureReason.empty());
+
+  const auto rejectedConditionalTrue =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic en, input logic d, output logic q);
+  always_comb begin
+    if (en) begin
+      case (d)
+        1'b1: q = d;
+        default: q = d;
+      endcase
+    end else begin
+      q = d;
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(rejectedConditionalTrue.has_value());
+  EXPECT_FALSE(rejectedConditionalTrue->success);
+  EXPECT_EQ(0u, rejectedConditionalTrue->maxAssignments);
+
+  const auto rejectedConditionalFalse =
+    detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
+      R"(module detail_test(input logic en, input logic d, output logic q);
+  always_comb begin
+    if (en) begin
+      q = d;
+    end else begin
+      case (d)
+        1'b1: q = d;
+        default: q = d;
+      endcase
+    end
+  end
+endmodule
+)");
+  ASSERT_TRUE(rejectedConditionalFalse.has_value());
+  EXPECT_FALSE(rejectedConditionalFalse->success);
+  EXPECT_EQ(0u, rejectedConditionalFalse->maxAssignments);
 }
 
 TEST_F(
@@ -10426,6 +10559,42 @@ endmodule
     constructor,
     svPath,
     {"unable to resolve always_comb initializer bits for local 'tmp'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombUnrelatedLocalVariableDeclarationIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_unrelated_local_variable_declaration_ignored_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_unrelated_local_variable_declaration_ignored_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_unrelated_local_variable_declaration_ignored_supported(
+  input  logic a,
+  output logic y
+);
+  always_comb begin
+    logic tmp = ~a;
+    y = a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_unrelated_local_variable_declaration_ignored_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(
@@ -23009,6 +23178,61 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialResetBranchNestedBlockDirectAssignmentsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_branch_nested_block_direct_assignments_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_reset_branch_nested_block_direct_assignments_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_branch_nested_block_direct_assignments_supported(
+  input  logic clk_i,
+  input  logic reset_i,
+  input  logic a_i,
+  input  logic b_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_ff @(posedge clk_i) begin
+    if (reset_i) begin
+      begin
+        q_o <= 1'b0;
+      end
+      r_o <= 1'b0;
+    end else begin
+      q_o <= a_i;
+      r_o <= b_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_reset_branch_nested_block_direct_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(2u, dffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialResetLoopBaseCopyAndNestedFieldWriteSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -29580,6 +29804,343 @@ endmodule
     svPath,
     {"Unsupported latch block in module 'always_latch_else_assignment_unsupported'",
      "always_latch currently supports only implicit or explicit hold default branches"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchEnableConditionResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_enable_condition_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_latch_enable_condition_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_enable_condition_resolve_failure_unsupported(
+  input logic a_i,
+  input logic b_i,
+  input logic d_i,
+  output logic q_o
+);
+  always_latch begin
+    if (a_i ^ b_i)
+      q_o <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_enable_condition_resolve_failure_unsupported'",
+     "unable to resolve latch enable condition net"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDirectAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_direct_assignment_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_direct_assignment_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_direct_assignment_unsupported(
+  input logic a,
+  output logic y
+);
+  always_latch begin
+    y <= a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_direct_assignment_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPatternConditionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_pattern_condition_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_pattern_condition_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_pattern_condition_unsupported(
+  input logic a,
+  output logic y
+);
+  always_latch begin
+    if (a matches (1'b1))
+      y <= a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_pattern_condition_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfTrueNonAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_if_true_non_assignment_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_if_true_non_assignment_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_if_true_non_assignment_unsupported(
+  input logic en,
+  output logic y
+);
+  always_latch begin
+    if (en)
+      begin
+        logic tmp;
+      end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_if_true_non_assignment_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfFalseNonAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_if_false_non_assignment_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_if_false_non_assignment_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_if_false_non_assignment_unsupported(
+  input logic a,
+  input logic en,
+  output logic y
+);
+  always_latch begin
+    if (en)
+      y <= a;
+    else
+      $display("ignored");
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_if_false_non_assignment_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseDifferentLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_else_different_lhs_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_else_different_lhs_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_else_different_lhs_unsupported(
+  input logic a,
+  input logic b,
+  input logic en,
+  output logic y,
+  output logic z
+);
+  always_latch begin
+    if (en)
+      y <= a;
+    else
+      z <= b;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_else_different_lhs_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchConcatLHSErrorUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_concat_lhs_error_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_concat_lhs_error_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_concat_lhs_error_unsupported(
+  input logic a,
+  input logic b,
+  input logic en,
+  output logic y,
+  output logic z
+);
+  always_latch begin
+    if (en)
+      {y, z} <= {a, b};
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_concat_lhs_error_unsupported'",
+     "unable to resolve latch assignment LHS net"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDisplayOnlyIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_display_only_ignored_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_display_only_ignored_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_display_only_ignored_supported(
+  input  logic clk_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_latch begin
+    if (d_i)
+      $display("ignored");
+  end
+
+  always_ff @(posedge clk_i) begin
+    q_o <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_display_only_ignored_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDataMultiplyUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_data_multiply_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_data_multiply_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_data_multiply_unsupported(
+  input  logic       en_i,
+  output logic [3:0] q_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= q_o * 4'd2;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDefaultMultiplyUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_latch_default_multiply_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_latch_default_multiply_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_latch_default_multiply_unsupported(
+  input  logic [3:0] d_i,
+  input  logic       en_i,
+  output logic [3:0] q_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      q_o <= q_o * 4'd2;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialSystemTaskConditionalIgnoredSupported) {
