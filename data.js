@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776327542825,
+  "lastUpdate": 1776899225678,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -3264,6 +3264,108 @@ window.BENCHMARK_DATA = {
             "value": 214989.53702566633,
             "unit": "ns/iter",
             "extra": "iterations: 3268\ncpu: 214869.8271113782 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb3aa27eb920d33d41bed9d8e8694b6833da6d19",
+          "message": "Sv updates (#354)\n\n* report more unsupported SV elements\n\n* more SV support\n\n* negedge flops\n\n* support '|'\n\n* more sv support\n\n* more SV support\n\n* new SV supports : latch added in NLDB0\n\n* SV parsing\n\n* more SV support\n\n* add coverage scripts, switch to 0.6.0, more coverage\n\n* improve coverage\n\n* cleaning\n\n* coverage\n\n* more testing\n\n* coverage\n\n* coverage\n\n* bump slang version\n\n* exclude from cov\n\n* improve coverage\n\n* coverage\n\n* more coverage\n\n* more coverage\n\n* more coverage\n\n* cleaning",
+          "timestamp": "2026-04-23T01:02:53+02:00",
+          "tree_id": "2ce7a66f43c578ad163936e7a5755fda67be2663",
+          "url": "https://github.com/najaeda/naja/commit/cb3aa27eb920d33d41bed9d8e8694b6833da6d19"
+        },
+        "date": 1776899224477,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 63294.089237671564,
+            "unit": "ns/iter",
+            "extra": "iterations: 11150\ncpu: 63285.53192825112 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 171594.13522537658,
+            "unit": "ns/iter",
+            "extra": "iterations: 4193\ncpu: 171553.25232530406 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1654805.4573459863,
+            "unit": "ns/iter",
+            "extra": "iterations: 422\ncpu: 1654494.5426540284 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17818277.435897775,
+            "unit": "ns/iter",
+            "extra": "iterations: 39\ncpu: 17816546.871794872 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1491.4078913394399,
+            "unit": "ns/iter",
+            "extra": "iterations: 468615\ncpu: 1491.3160312836771 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 14703.762041561507,
+            "unit": "ns/iter",
+            "extra": "iterations: 47689\ncpu: 14683.048669504504 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 191340.00858614605,
+            "unit": "ns/iter",
+            "extra": "iterations: 3494\ncpu: 191329.477676016 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 285509.9946960403,
+            "unit": "ns/iter",
+            "extra": "iterations: 2451\ncpu: 285489.7474500204 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 238432.10094851328,
+            "unit": "ns/iter",
+            "extra": "iterations: 2952\ncpu: 238424.24559620576 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 162550.05815569652,
+            "unit": "ns/iter",
+            "extra": "iterations: 4316\ncpu: 162545.08572752532 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 73078455.75000016,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 73072785.49999996 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 24129.475016289907,
+            "unit": "ns/iter",
+            "extra": "iterations: 29159\ncpu: 24128.84107822631 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 224600.24567084917,
+            "unit": "ns/iter",
+            "extra": "iterations: 3118\ncpu: 224513.430083381 ns\nthreads: 1"
           }
         ]
       }
