@@ -14090,17 +14090,29 @@ class SNLSVConstructorImpl {
 
               if (sameLhs(leafExpr, &lhsExpr)) {
                 if (trackedOffset.has_value()) {
+                  // LCOV_EXCL_START
+                  // Defensive duplicate-leaf check in the concat replay path.
+                  // Parser-backed sequential concatenation forms currently
+                  // bypass this fallback and are handled earlier by direct
+                  // lowering / flattened assignment collection.
                   failureReason = formatQuotedDescriptionFailure(
                     "duplicate sequential concatenation assignment leaf for ",
                     describeLHSForDiagnostics(lhsExpr));
                   return false;
+                  // LCOV_EXCL_STOP
                 }
                 trackedOffset = concatWidth;
                 if (leafBits.size() != lhsBits.size()) {
+                  // LCOV_EXCL_START
+                  // Defensive consistency guard: once a concatenation leaf is
+                  // identified as the tracked LHS, the resolved leaf width is
+                  // expected to match the tracked target width. Parser-backed
+                  // unsupported cases fail earlier during LHS resolution.
                   failureReason = formatQuotedDescriptionFailure(
                     "sequential concatenation assignment width mismatch for tracked LHS ",
                     describeLHSForDiagnostics(lhsExpr));
                   return false;
+                  // LCOV_EXCL_STOP
                 }
               }
               concatWidth += leafBits.size();
@@ -14994,10 +15006,15 @@ class SNLSVConstructorImpl {
           auto leftWidth = getIntegralExpressionBitWidth(caseExpr);
           auto rightWidth = getIntegralExpressionBitWidth(*itemExpr);
           if (!leftWidth || !rightWidth) {
+            // LCOV_EXCL_START
+            // Wildcard case lowering is only reached for semantically integral
+            // casez/casex expressions and item spellings. Non-integral forms
+            // are rejected by Slang before constructor lowering starts.
             failureReason = formatDescribedFailure(
               "unable to determine always_comb wildcard case item width for ",
               describeExpression(*itemExpr));
             return nullptr;
+            // LCOV_EXCL_STOP
           }
 
           const auto compareWidth = std::max(*leftWidth, *rightWidth);
@@ -15479,7 +15496,11 @@ class SNLSVConstructorImpl {
         const auto& replicationExpr = stripped->as<slang::ast::ReplicationExpression>();
         int32_t repeatCountSigned = 0;
         if (!getConstantInt32(replicationExpr.count(), repeatCountSigned) || repeatCountSigned < 0) {
+          // LCOV_EXCL_START
+          // Slang rejects non-constant / negative replication counts during
+          // semantic analysis before this unknown-literal fallback is used.
           return false;
+          // LCOV_EXCL_STOP
         }
         const auto repeatCount = static_cast<size_t>(repeatCountSigned);
 
@@ -15487,6 +15508,10 @@ class SNLSVConstructorImpl {
         if (auto concatExprWidth = getIntegralExpressionBitWidth(replicationExpr.concat())) {
           concatWidth = *concatExprWidth;
         } else {
+          // LCOV_EXCL_START
+          // Current parser-backed wildcard/unknown replication cases that
+          // reach this fallback already carry an integral concat width.
+          // Non-integral or negative-width concat forms are rejected earlier.
           const auto& concatCanonical = replicationExpr.concat().type->getCanonicalType();
           if (!concatCanonical.isIntegral()) {
             return false;
@@ -15496,6 +15521,7 @@ class SNLSVConstructorImpl {
             return false;
           }
           concatWidth = static_cast<size_t>(bitWidth);
+          // LCOV_EXCL_STOP
         }
 
         if (concatWidth && repeatCount > (std::numeric_limits<size_t>::max() / concatWidth)) {
@@ -15546,6 +15572,10 @@ class SNLSVConstructorImpl {
           } else {
             if (strippedOperand &&
                 strippedOperand->kind == slang::ast::ExpressionKind::Replication) {
+              // Current parser-backed wildcard / unknown-literal flows already
+              // normalize zero-repeat replications earlier, so this remains a
+              // defensive fallback for malformed / legacy AST shapes.
+              // LCOV_EXCL_START
               const auto& replicationOperand =
                 strippedOperand->as<slang::ast::ReplicationExpression>();
               int32_t repeatCountSigned = 0;
@@ -15553,6 +15583,7 @@ class SNLSVConstructorImpl {
                   repeatCountSigned == 0) {
                 continue;
               }
+              // LCOV_EXCL_STOP
             }
             const auto& operandCanonical = operand->type->getCanonicalType();
             if (!operandCanonical.isIntegral()) {
@@ -16043,33 +16074,51 @@ class SNLSVConstructorImpl {
 
       const auto& baseType = baseExpr->type->getCanonicalType();
       if (!baseType.hasFixedRange()) {
+        // LCOV_EXCL_START
+        // Range-select lowering reaches this helper only after Slang has
+        // produced a representable fixed-range selection. Dynamic/non-fixed
+        // range bases are rejected earlier during semantic analysis.
         failureReason = formatDescribedFailure(
           "unsupported always_comb range-select assignment base without fixed range: ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
 
       auto selectedWidth = getRepresentableExpressionBitWidth(assignedLHS);
       if (!selectedWidth || !*selectedWidth) {
+        // LCOV_EXCL_START
+        // Valid parser-backed range-select LHS expressions always carry a
+        // representable positive bit width before this fallback is entered.
         failureReason = formatDescribedFailure(
           "unable to resolve always_comb range-select assignment width for ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
 
       const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
       if (arrayWidth == 0 || lhsBits.size() != dataBits.size() || lhsBits.size() % arrayWidth != 0) {
+        // LCOV_EXCL_START
+        // Internal consistency guard after earlier width-normalization: the
+        // tracked LHS/data vectors are built from the same selection and the
+        // fixed-range base width is required to divide the tracked bit count.
         failureReason = formatDescribedFailure(
           "width mismatch while lowering always_comb range-select assignment for ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
       const auto elementWidth = lhsBits.size() / arrayWidth;
       if (elementWidth == 0 || *selectedWidth % elementWidth != 0) {
+        // LCOV_EXCL_START
+        // Another post-validation guard: a legal fixed-range selection width
+        // is expected to be an integer multiple of the computed element width.
         failureReason = formatDescribedFailure(
           "unable to resolve always_comb range-select element width for ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> assignedBits;
@@ -16144,10 +16193,14 @@ class SNLSVConstructorImpl {
         case slang::ast::RangeSelectionKind::Simple: {
           if (!getConstantInt32(rangeExpr.left(), left) ||
               !getConstantInt32(rangeExpr.right(), right)) {
+            // LCOV_EXCL_START
+            // Slang rejects non-constant simple part-select bounds before
+            // lowering, so this branch is retained only as a defensive fallback.
             failureReason = formatDescribedFailure(
               "unable to resolve constant range-select bounds in always_comb assignment: ",
               describeExpression(assignedLHS));
             return false;
+            // LCOV_EXCL_STOP
           }
           lsbIndex = std::min(left, right);
           break;
@@ -16155,10 +16208,14 @@ class SNLSVConstructorImpl {
         case slang::ast::RangeSelectionKind::IndexedUp:
         case slang::ast::RangeSelectionKind::IndexedDown: {
           if (!getConstantInt32(rangeExpr.right(), right) || right <= 0) {
+            // LCOV_EXCL_START
+            // Likewise, Slang enforces constant positive indexed-part-select
+            // widths during semantic analysis before constructor lowering.
             failureReason = formatDescribedFailure(
               "unable to resolve constant indexed range-select bounds in always_comb assignment: ",
               describeExpression(assignedLHS));
             return false;
+            // LCOV_EXCL_STOP
           }
 
           if (getConstantInt32(rangeExpr.left(), left)) {
@@ -16172,10 +16229,15 @@ class SNLSVConstructorImpl {
 
           auto selectorWidth = getIntegralExpressionBitWidth(rangeExpr.left());
           if (!selectorWidth || !*selectorWidth) {
+            // LCOV_EXCL_START
+            // Dynamic indexed range-select bases that survive semantic
+            // analysis are integral and carry a positive width before this
+            // fallback is entered.
             failureReason = formatDescribedFailure(
               "unable to resolve dynamic indexed range-select base width in always_comb assignment: ",
               describeExpression(assignedLHS));
             return false;
+            // LCOV_EXCL_STOP
           }
 
           std::vector<SNLBitNet*> selectorBits;
@@ -17076,10 +17138,15 @@ class SNLSVConstructorImpl {
                 resetBits,
                 rstBits,
                 resetSourceRange)) {
+            // createMux2Instance should be total here after width validation;
+            // keep this as defensive reporting for internal construction
+            // failures rather than a parser-reachable lowering branch.
+            // LCOV_EXCL_START
             failureReason = formatQuotedDescriptionFailure(
               "unable to build reset mux for ",
               describeLHSForDiagnostics(*lhsExpr));
             return false;
+            // LCOV_EXCL_STOP
           }
           dataBits = std::move(rstBits);
         }
@@ -17533,15 +17600,22 @@ class SNLSVConstructorImpl {
 
     const Expression* getClockExpression(const TimingControl& timing) {
       if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
+        // getSequentialClockEventInfo() handles direct signal events before
+        // delegating here, so this arm is preserved only as a legacy fallback.
+        // LCOV_EXCL_START
         const auto& event = timing.as<slang::ast::SignalEventControl>();
         if (event.edge == slang::ast::EdgeKind::PosEdge ||
             event.edge == slang::ast::EdgeKind::NegEdge) {
           return &event.expr;
         }
+        // Non-edge signal events are diverted earlier through the explicit
+        // combinational-timing path, so this sequential-only report is kept as
+        // a defensive fallback.
         reportUnsupportedElement(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return nullptr;
+        // LCOV_EXCL_STOP
       } else if (timing.kind == slang::ast::TimingControlKind::EventList) {
         const auto& eventList = timing.as<slang::ast::EventListControl>();
         const Expression* clockExpr = nullptr;
@@ -17600,10 +17674,15 @@ class SNLSVConstructorImpl {
             event.edge == slang::ast::EdgeKind::NegEdge) {
           return ClockEventInfo{&event.expr, event.edge};
         }
+        // Non-edge signal events are filtered as combinational before reaching
+        // the sequential clock extractor, so preserve this only as defensive
+        // reporting for unexpected AST shapes.
+        // LCOV_EXCL_START
         reportUnsupportedElement(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return std::nullopt;
+        // LCOV_EXCL_STOP
       }
 
       const auto* clockExpr = getClockExpression(timing);
