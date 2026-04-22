@@ -116,6 +116,20 @@ class NLDB0 {
     static SNLScalarTerm* getDFFClock();
     static SNLScalarTerm* getDFFData();
     static SNLScalarTerm* getDFFOutput();
+    /// \brief Plain transparent-high D latch.
+    /// Pins: E (enable), D (data), Q (output).
+    static SNLDesign* getDLatch();
+    static bool isDLatch(const SNLDesign* design);
+    static SNLScalarTerm* getDLatchEnable();
+    static SNLScalarTerm* getDLatchData();
+    static SNLScalarTerm* getDLatchOutput();
+    /// \brief Plain negative-edge-triggered D flip-flop.
+    /// Pins: C (clock), D (data), Q (output).
+    static SNLDesign* getDFFN();
+    static bool isDFFN(const SNLDesign* design);
+    static SNLScalarTerm* getDFFNClock();
+    static SNLScalarTerm* getDFFNData();
+    static SNLScalarTerm* getDFFNOutput();
     /// \brief Edge-triggered D flip-flop with active-low asynchronous reset.
     /// Pins: C (clock), D (data), RN (reset low active), Q (output).
     static SNLDesign* getDFFRN();
