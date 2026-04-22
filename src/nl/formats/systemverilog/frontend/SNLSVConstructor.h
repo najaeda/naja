@@ -4,8 +4,11 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace naja::NL {

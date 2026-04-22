@@ -26,6 +26,8 @@
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
+  constexpr const char* DLatchName = "naja_dlatch";
+  constexpr const char* DFFNName = "naja_dffn";
   constexpr const char* DFFEName = "naja_dffe";
   constexpr const char* DFFREName = "naja_dffre";
   constexpr const char* DFFSEName = "naja_dffse";
@@ -247,6 +249,26 @@ namespace {
     auto dffOutput = SNLScalarTerm::create(dff, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffClock, {dffOutput});
     SNLDesignModeling::addInputsToClockArcs({dffData}, dffClock);
+  }
+
+  void createDLatchPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dlatch = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DLatchName));
+    auto dlatchEnable = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Input, NLName("E"));
+    auto dlatchData = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Input, NLName("D"));
+    auto dlatchOutput = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dlatchEnable, {dlatchOutput});
+    SNLDesignModeling::addInputsToClockArcs({dlatchData}, dlatchEnable);
+  }
+
+  void createDFFNPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dffn = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFNName));
+    auto dffnClock = SNLScalarTerm::create(dffn, SNLTerm::Direction::Input, NLName("C"));
+    auto dffnData = SNLScalarTerm::create(dffn, SNLTerm::Direction::Input, NLName("D"));
+    auto dffnOutput = SNLScalarTerm::create(dffn, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffnClock, {dffnOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffnData}, dffnClock);
   }
 
   void createDFFRNPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -890,6 +912,70 @@ SNLScalarTerm* NLDB0::getDFFOutput() {
   auto dff = getDFF();
   if (dff) {
     return dff->getScalarTerm(NLID::DesignObjectID(2));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDLatch() {
+  return getOrCreateRootPrimitive(DLatchName, createDLatchPrimitive);
+}
+
+bool NLDB0::isDLatch(const SNLDesign* design) {
+  return isNamedRootPrimitive(design, DLatchName);
+}
+
+SNLScalarTerm* NLDB0::getDLatchEnable() {
+  auto dlatch = getDLatch();
+  if (dlatch) {
+    return dlatch->getScalarTerm(NLName("E"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDLatchData() {
+  auto dlatch = getDLatch();
+  if (dlatch) {
+    return dlatch->getScalarTerm(NLName("D"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDLatchOutput() {
+  auto dlatch = getDLatch();
+  if (dlatch) {
+    return dlatch->getScalarTerm(NLName("Q"));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFFN() {
+  return getOrCreateRootPrimitive(DFFNName, createDFFNPrimitive);
+}
+
+bool NLDB0::isDFFN(const SNLDesign* design) {
+  return isNamedRootPrimitive(design, DFFNName);
+}
+
+SNLScalarTerm* NLDB0::getDFFNClock() {
+  auto dffn = getDFFN();
+  if (dffn) {
+    return dffn->getScalarTerm(NLName("C"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFNData() {
+  auto dffn = getDFFN();
+  if (dffn) {
+    return dffn->getScalarTerm(NLName("D"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFNOutput() {
+  auto dffn = getDFFN();
+  if (dffn) {
+    return dffn->getScalarTerm(NLName("Q"));
   }
   return nullptr;
 }

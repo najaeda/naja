@@ -275,17 +275,10 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     return nullptr;
   }
 
-  if (PyErr_WarnEx(
-        PyExc_UserWarning,
-        "NLDB.loadSystemVerilog is under active development and currently in early beta mode.",
-        1) < 0) {
-    return nullptr;
-  }
-
   NLDB* db = self->object_;
   SNLDesign* top = nullptr;
   TRY
-  // SystemVerilog parsing currently enforces unique design names in the library.
+  // SystemVerilog parsing elaborates designs into the DESIGN library.
   NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
   if (designLibrary == nullptr) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));

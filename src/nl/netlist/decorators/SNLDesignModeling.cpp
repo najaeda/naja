@@ -40,7 +40,9 @@ namespace {
 
 bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
   return design &&
-         (design == naja::NL::NLDB0::getDFF() ||
+         (naja::NL::NLDB0::isDLatch(design) ||
+          design == naja::NL::NLDB0::getDFF() ||
+          naja::NL::NLDB0::isDFFN(design) ||
           naja::NL::NLDB0::isDFFRN(design) ||
           naja::NL::NLDB0::isDFFE(design) ||
           naja::NL::NLDB0::isDFFRE(design) ||
@@ -48,8 +50,14 @@ bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
 }
 
 naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* design) {
+  if (naja::NL::NLDB0::isDLatch(design)) {
+    return naja::NL::NLDB0::getDLatchEnable();
+  }
   if (design == naja::NL::NLDB0::getDFF()) {
     return naja::NL::NLDB0::getDFFClock();
+  }
+  if (naja::NL::NLDB0::isDFFN(design)) {
+    return naja::NL::NLDB0::getDFFNClock();
   }
   if (naja::NL::NLDB0::isDFFRN(design)) {
     return naja::NL::NLDB0::getDFFRNClock();
