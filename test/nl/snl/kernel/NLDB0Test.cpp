@@ -500,7 +500,8 @@ TEST_F(NLDB0Test, testMemoryRecognitionByStableSchemaOutsideDb0Library) {
 
   auto* db = NLDB::create(NLUniverse::get());
   ASSERT_NE(nullptr, db);
-  auto* library = NLLibrary::create(db, NLName("work"));
+  auto* library =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("work"));
   ASSERT_NE(nullptr, library);
 
   auto* memory = SNLDesign::create(
@@ -508,6 +509,7 @@ TEST_F(NLDB0Test, testMemoryRecognitionByStableSchemaOutsideDb0Library) {
       SNLDesign::Type::Primitive,
       NLName("naja_mem__w8_d4_a2_r1_w1_rst_async_low"));
   ASSERT_NE(nullptr, memory);
+  EXPECT_FALSE(NLDB0::isDB0Primitive(memory));
 
   SNLParameter::create(memory, NLName("WIDTH"), SNLParameter::Type::Decimal, "8");
   SNLParameter::create(memory, NLName("DEPTH"), SNLParameter::Type::Decimal, "4");
