@@ -264,7 +264,7 @@ bool isCanonicalBusRangeOrder(const std::vector<const naja::NL::SNLBusNetBit*>& 
   auto expectedStep = getCanonicalRangeStep(bus);
   for (size_t i = 1; i < bits.size(); ++i) {
     if (bits[i]->getBus() != bus) {
-      return false;
+      return false; // LCOV_EXCL_LINE: defensive, current callers only pass same-bus ranges.
     }
     auto actualStep = bits[i]->getBit() - bits[i - 1]->getBit();
     if (actualStep != expectedStep) {
@@ -425,12 +425,9 @@ std::string getAssignInputString(
 
 std::string getBusBitOrRangeString(
   const std::vector<const naja::NL::SNLBusNetBit*>& bits,
-  const auto& bitNetToString,
   const auto& busNetToString) {
   assert(not bits.empty());
-  if (bits.size() == 1) {
-    return bitNetToString(bits.front());
-  }
+  assert(bits.size() > 1);
   return getBusBitRangeString(bits, busNetToString);
 }
 
@@ -439,9 +436,7 @@ std::string getBusAssignInputString(
   const auto& bitNetToString,
   const auto& busNetToString) {
   assert(not inputBits.empty());
-  if (inputBits.size() == 1) {
-    return bitNetToString(inputBits.front());
-  }
+  assert(inputBits.size() > 1);
   if (isCanonicalBusRangeOrder(inputBits)) {
     return getBusBitRangeString(inputBits, busNetToString);
   }
@@ -512,11 +507,9 @@ AssignBusChunk createAssignGroupBusChunk(
 
 std::string getAssignBusChunkText(
   const AssignBusChunk& chunk,
-  const auto& bitNetToString,
   const auto& busNetToString) {
   auto outputString = getBusBitOrRangeString(
     chunk.outputBits_,
-    bitNetToString,
     busNetToString);
   return "assign " + outputString + " = " + chunk.inputString_ + ";";
 }
@@ -530,13 +523,13 @@ bool areChunksWholeBusAssignable(
 
   auto outputBus = chunks.front()->outputBus_;
   if (not outputBus) {
-    return false;
+    return false; // LCOV_EXCL_LINE: bus chunks are only created for bus outputs.
   }
 
   const naja::NL::SNLBusNet* uniqueInputBus = nullptr;
   for (auto chunk: chunks) {
     if (chunk->outputBus_ != outputBus) {
-      return false;
+      return false; // LCOV_EXCL_LINE: caller groups chunks by output bus before calling.
     }
     if (chunk->inputKind_ == AssignChunkInputKind::Other) {
       return false;
@@ -565,7 +558,7 @@ bool areChunksWholeBusAssignable(
   size_t coveredBits = 0;
   for (auto chunk: sortedChunks) {
     if (not isCanonicalBusRangeOrder(chunk->outputBits_)) {
-      return false;
+      return false; // LCOV_EXCL_LINE: chunk output bits are normalized at creation.
     }
     if (chunk->outputBits_.front()->getBit() != expectedBit) {
       return false;
@@ -595,8 +588,8 @@ std::string buildWholeBusAssignInputString(
     if (not inputBus) {
       inputBus = chunk->inputBus_;
     } else if (inputBus != chunk->inputBus_) {
-      sameInputBus = false;
-      break;
+      sameInputBus = false; // LCOV_EXCL_LINE: areChunksWholeBusAssignable filters mixed input buses.
+      break; // LCOV_EXCL_LINE
     }
     inputBits.insert(
       inputBits.end(),
@@ -695,7 +688,7 @@ bool dumpAssignGroup(
   const auto& bitNetToString,
   const auto& busNetToString) {
   auto chunk = createAssignGroupBusChunk(group, bitNetToString, busNetToString);
-  o << getAssignBusChunkText(chunk, bitNetToString, busNetToString) << '\n';
+  o << getAssignBusChunkText(chunk, busNetToString) << '\n';
   return true;
 }
 
@@ -1634,7 +1627,6 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
           busNetToString);
         emission.text_ = getAssignBusChunkText(
           emission.busChunk_,
-          bitNetToString,
           busNetToString);
       } else {
         emission.text_ =
