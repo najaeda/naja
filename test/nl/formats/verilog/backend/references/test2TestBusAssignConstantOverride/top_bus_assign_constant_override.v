@@ -5,9 +5,9 @@
 #IGNORE#
 ////////////////////////////////////////////////////////////////////////////////
 
-module top_bus_assign_shuffled();
+module top_bus_assign_constant_override();
 wire [3:0] source_bus;
 wire [3:0] sink_bus;
 
-assign sink_bus = source_bus;
-endmodule //top_bus_assign_shuffled
+assign sink_bus = {source_bus[3:2], 1'b1, source_bus[0]};
+endmodule //top_bus_assign_constant_override
