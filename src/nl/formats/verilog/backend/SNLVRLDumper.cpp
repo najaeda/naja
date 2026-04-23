@@ -262,8 +262,16 @@ bool isCanonicalBusRangeOrder(const std::vector<const naja::NL::SNLBusNetBit*>& 
   }
   auto bus = bits.front()->getBus();
   auto expectedStep = getCanonicalRangeStep(bus);
-  auto actualStep = bits[1]->getBit() - bits[0]->getBit();
-  return actualStep == expectedStep;
+  for (size_t i = 1; i < bits.size(); ++i) {
+    if (bits[i]->getBus() != bus) {
+      return false;
+    }
+    auto actualStep = bits[i]->getBit() - bits[i - 1]->getBit();
+    if (actualStep != expectedStep) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void normalizeAssignGroupOutputOrder(
@@ -360,6 +368,27 @@ struct AssignGroup {
   naja::NL::NLID::Bit                           inputStep_ {0};
 };
 
+enum class AssignChunkInputKind {
+  Constant,
+  Bus,
+  Other
+};
+
+struct AssignBusChunk {
+  const naja::NL::SNLBusNet*                    outputBus_ {nullptr};
+  std::vector<const naja::NL::SNLBusNetBit*>    outputBits_ {};
+  AssignChunkInputKind                          inputKind_ {AssignChunkInputKind::Other};
+  const naja::NL::SNLBusNet*                    inputBus_ {nullptr};
+  std::vector<const naja::NL::SNLBusNetBit*>    inputBusBits_ {};
+  std::string                                   inputString_ {};
+};
+
+struct AssignEmission {
+  bool            hasBusChunk_ {false};
+  AssignBusChunk  busChunk_ {};
+  std::string     text_ {};
+};
+
 bool initializeAssignGroup(
   const naja::NL::SNLBitNet* inputNet,
   const naja::NL::SNLBitNet* outputNet,
@@ -380,6 +409,227 @@ bool initializeAssignGroup(
   group.inputBits_.push_back(inputNet);
   group.outputBits_.push_back(outputBusBit);
   return true;
+}
+
+std::string getAssignInputString(
+  const naja::NL::SNLBitNet* inputNet,
+  const auto& bitNetToString) {
+  if (inputNet->isConstant0()) {
+    return "1'b0";
+  }
+  if (inputNet->isConstant1()) {
+    return "1'b1";
+  }
+  return bitNetToString(inputNet);
+}
+
+std::string getBusBitOrRangeString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not bits.empty());
+  if (bits.size() == 1) {
+    return bitNetToString(bits.front());
+  }
+  return getBusBitRangeString(bits, busNetToString);
+}
+
+std::string getBusAssignInputString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& inputBits,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not inputBits.empty());
+  if (inputBits.size() == 1) {
+    return bitNetToString(inputBits.front());
+  }
+  if (isCanonicalBusRangeOrder(inputBits)) {
+    return getBusBitRangeString(inputBits, busNetToString);
+  }
+  return getBusBitConcatenationString(inputBits, bitNetToString);
+}
+
+bool createSingleAssignBusChunk(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  const auto& bitNetToString,
+  AssignBusChunk& chunk) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+
+  chunk.outputBus_ = outputBusBit->getBus();
+  chunk.outputBits_.push_back(outputBusBit);
+  chunk.inputString_ = getAssignInputString(inputNet, bitNetToString);
+
+  if (inputNet->isAssignConstant()) {
+    chunk.inputKind_ = AssignChunkInputKind::Constant;
+    return true;
+  }
+
+  if (auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet)) {
+    chunk.inputKind_ = AssignChunkInputKind::Bus;
+    chunk.inputBus_ = inputBusBit->getBus();
+    chunk.inputBusBits_.push_back(inputBusBit);
+    return true;
+  }
+
+  chunk.inputKind_ = AssignChunkInputKind::Other;
+  return true;
+}
+
+AssignBusChunk createAssignGroupBusChunk(
+  const AssignGroup& group,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not group.outputBits_.empty());
+  auto inputBits = group.inputBits_;
+  auto outputBits = group.outputBits_;
+  normalizeAssignGroupOutputOrder(inputBits, outputBits);
+
+  AssignBusChunk chunk;
+  chunk.outputBus_ = outputBits.front()->getBus();
+  chunk.outputBits_ = std::move(outputBits);
+
+  if (group.inputMode_ == AssignInputMode::Constant) {
+    chunk.inputKind_ = AssignChunkInputKind::Constant;
+    chunk.inputString_ = getAssignConstantString(inputBits);
+    return chunk;
+  }
+
+  chunk.inputKind_ = AssignChunkInputKind::Bus;
+  chunk.inputBusBits_.reserve(inputBits.size());
+  for (auto inputBit: inputBits) {
+    chunk.inputBusBits_.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
+  }
+  chunk.inputBus_ = chunk.inputBusBits_.front()->getBus();
+  chunk.inputString_ = getBusAssignInputString(
+    chunk.inputBusBits_,
+    bitNetToString,
+    busNetToString);
+  return chunk;
+}
+
+std::string getAssignBusChunkText(
+  const AssignBusChunk& chunk,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  auto outputString = getBusBitOrRangeString(
+    chunk.outputBits_,
+    bitNetToString,
+    busNetToString);
+  return "assign " + outputString + " = " + chunk.inputString_ + ";";
+}
+
+bool areChunksWholeBusAssignable(
+  const std::vector<const AssignBusChunk*>& chunks,
+  std::vector<const AssignBusChunk*>& sortedChunks) {
+  if (chunks.size() <= 1) {
+    return false;
+  }
+
+  auto outputBus = chunks.front()->outputBus_;
+  if (not outputBus) {
+    return false;
+  }
+
+  const naja::NL::SNLBusNet* uniqueInputBus = nullptr;
+  for (auto chunk: chunks) {
+    if (chunk->outputBus_ != outputBus) {
+      return false;
+    }
+    if (chunk->inputKind_ == AssignChunkInputKind::Other) {
+      return false;
+    }
+    if (chunk->inputKind_ == AssignChunkInputKind::Bus) {
+      if (not uniqueInputBus) {
+        uniqueInputBus = chunk->inputBus_;
+      } else if (uniqueInputBus != chunk->inputBus_) {
+        return false;
+      }
+    }
+  }
+
+  sortedChunks = chunks;
+  auto step = getCanonicalRangeStep(outputBus);
+  std::sort(
+    sortedChunks.begin(),
+    sortedChunks.end(),
+    [step](const AssignBusChunk* lhs, const AssignBusChunk* rhs) {
+      auto lhsBit = lhs->outputBits_.front()->getBit();
+      auto rhsBit = rhs->outputBits_.front()->getBit();
+      return (step < 0) ? (lhsBit > rhsBit) : (lhsBit < rhsBit);
+    });
+
+  auto expectedBit = outputBus->getMSB();
+  size_t coveredBits = 0;
+  for (auto chunk: sortedChunks) {
+    if (not isCanonicalBusRangeOrder(chunk->outputBits_)) {
+      return false;
+    }
+    if (chunk->outputBits_.front()->getBit() != expectedBit) {
+      return false;
+    }
+    coveredBits += chunk->outputBits_.size();
+    expectedBit = chunk->outputBits_.back()->getBit() + step;
+  }
+
+  return coveredBits == static_cast<size_t>(outputBus->getWidth()) &&
+         expectedBit == outputBus->getLSB() + step;
+}
+
+std::string buildWholeBusAssignInputString(
+  const std::vector<const AssignBusChunk*>& sortedChunks,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not sortedChunks.empty());
+
+  bool sameInputBus = true;
+  const naja::NL::SNLBusNet* inputBus = nullptr;
+  std::vector<const naja::NL::SNLBusNetBit*> inputBits;
+  for (auto chunk: sortedChunks) {
+    if (chunk->inputKind_ != AssignChunkInputKind::Bus) {
+      sameInputBus = false;
+      break;
+    }
+    if (not inputBus) {
+      inputBus = chunk->inputBus_;
+    } else if (inputBus != chunk->inputBus_) {
+      sameInputBus = false;
+      break;
+    }
+    inputBits.insert(
+      inputBits.end(),
+      chunk->inputBusBits_.begin(),
+      chunk->inputBusBits_.end());
+  }
+
+  if (sameInputBus and isCanonicalBusRangeOrder(inputBits)) {
+    return getBusAssignInputString(inputBits, bitNetToString, busNetToString);
+  }
+
+  std::string concatenation = "{";
+  for (size_t i = 0; i < sortedChunks.size(); ++i) {
+    if (i != 0) {
+      concatenation += ", ";
+    }
+    concatenation += sortedChunks[i]->inputString_;
+  }
+  concatenation += "}";
+  return concatenation;
+}
+
+std::string buildWholeBusAssignText(
+  const std::vector<const AssignBusChunk*>& sortedChunks,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not sortedChunks.empty());
+  auto outputString = busNetToString(sortedChunks.front()->outputBus_);
+  auto inputString = buildWholeBusAssignInputString(
+    sortedChunks,
+    bitNetToString,
+    busNetToString);
+  return "assign " + outputString + " = " + inputString + ";";
 }
 
 bool appendAssignGroup(
@@ -444,28 +694,8 @@ bool dumpAssignGroup(
   std::ostream& o,
   const auto& bitNetToString,
   const auto& busNetToString) {
-  assert(group.inputBits_.size() == group.outputBits_.size());
-  assert(group.outputBits_.size() > 1);
-  auto inputBits = group.inputBits_;
-  auto outputBits = group.outputBits_;
-  normalizeAssignGroupOutputOrder(inputBits, outputBits);
-  auto outputString = getBusBitRangeString(outputBits, busNetToString);
-  std::string inputString;
-  if (group.inputMode_ == AssignInputMode::Constant) {
-    inputString = getAssignConstantString(inputBits);
-  } else {
-    std::vector<const naja::NL::SNLBusNetBit*> inputBusBits;
-    inputBusBits.reserve(inputBits.size());
-    for (auto inputBit: inputBits) {
-      inputBusBits.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
-    }
-    if (isCanonicalBusRangeOrder(inputBusBits)) {
-      inputString = getBusBitRangeString(inputBusBits, busNetToString);
-    } else {
-      inputString = getBusBitConcatenationString(inputBusBits, bitNetToString);
-    }
-  }
-  o << "assign " << outputString << " = " << inputString << ";" << '\n';
+  auto chunk = createAssignGroupBusChunk(group, bitNetToString, busNetToString);
+  o << getAssignBusChunkText(chunk, bitNetToString, busNetToString) << '\n';
   return true;
 }
 
@@ -1357,6 +1587,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
     return dumpName(busName.getString());
   };
   auto dumpAssignInstances = [&](const std::vector<const SNLInstance*>& assignInstances) {
+    std::vector<AssignEmission> emissions;
     size_t i = 0;
     while (i < assignInstances.size()) {
       const SNLBitNet* inputNet = nullptr;
@@ -1367,10 +1598,16 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
       }
       AssignGroup group;
       if (not initializeAssignGroup(inputNet, outputNet, group)) {
-        if (blankLine) {
-          o << '\n';
-        }
-        blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
+        AssignEmission emission;
+        emission.text_ =
+          "assign " + getBitNetString(outputNet, naming) +
+          " = " + getAssignInputString(inputNet, bitNetToString) + ";";
+        emission.hasBusChunk_ = createSingleAssignBusChunk(
+          inputNet,
+          outputNet,
+          bitNetToString,
+          emission.busChunk_);
+        emissions.push_back(std::move(emission));
         ++i;
         continue;
       }
@@ -1388,18 +1625,69 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         ++groupSize;
       }
 
+      AssignEmission emission;
       if (group.outputBits_.size() > 1) {
-        if (blankLine) {
-          o << '\n';
-        }
-        blankLine = dumpAssignGroup(group, o, bitNetToString, busNetToString);
+        emission.hasBusChunk_ = true;
+        emission.busChunk_ = createAssignGroupBusChunk(
+          group,
+          bitNetToString,
+          busNetToString);
+        emission.text_ = getAssignBusChunkText(
+          emission.busChunk_,
+          bitNetToString,
+          busNetToString);
       } else {
+        emission.text_ =
+          "assign " + getBitNetString(outputNet, naming) +
+          " = " + getAssignInputString(inputNet, bitNetToString) + ";";
+        emission.hasBusChunk_ = createSingleAssignBusChunk(
+          inputNet,
+          outputNet,
+          bitNetToString,
+          emission.busChunk_);
+      }
+      emissions.push_back(std::move(emission));
+      i += groupSize;
+    }
+
+    size_t emissionIndex = 0;
+    while (emissionIndex < emissions.size()) {
+      size_t consumed = 1;
+      bool emittedWholeBusAssign = false;
+      if (emissions[emissionIndex].hasBusChunk_) {
+        std::vector<const AssignBusChunk*> sameBusChunks;
+        auto outputBus = emissions[emissionIndex].busChunk_.outputBus_;
+        while (emissionIndex + sameBusChunks.size() < emissions.size()) {
+          const auto& emission = emissions[emissionIndex + sameBusChunks.size()];
+          if (not emission.hasBusChunk_ or emission.busChunk_.outputBus_ != outputBus) {
+            break;
+          }
+          sameBusChunks.push_back(&emission.busChunk_);
+        }
+
+        std::vector<const AssignBusChunk*> sortedChunks;
+        if (areChunksWholeBusAssignable(sameBusChunks, sortedChunks)) {
+          if (blankLine) {
+            o << '\n';
+          }
+          o << buildWholeBusAssignText(
+            sortedChunks,
+            bitNetToString,
+            busNetToString) << '\n';
+          blankLine = true;
+          consumed = sameBusChunks.size();
+          emittedWholeBusAssign = true;
+        }
+      }
+
+      if (not emittedWholeBusAssign) {
         if (blankLine) {
           o << '\n';
         }
-        blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
+        o << emissions[emissionIndex].text_ << '\n';
+        blankLine = true;
       }
-      i += groupSize;
+      emissionIndex += consumed;
     }
   };
 

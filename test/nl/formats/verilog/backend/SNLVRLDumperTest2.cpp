@@ -102,6 +102,27 @@ class SNLVRLDumperTest2: public ::testing::Test {
         assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusShuffled->getBit(outputBit));
       }
 
+      SNLDesign* topBusAssignConstantOverride =
+        SNLDesign::create(library, NLName("top_bus_assign_constant_override"));
+      auto sourceBusConstantOverride =
+        SNLBusNet::create(topBusAssignConstantOverride, 3, 0, NLName("source_bus"));
+      auto sinkBusConstantOverride =
+        SNLBusNet::create(topBusAssignConstantOverride, 3, 0, NLName("sink_bus"));
+      auto const1ConstantOverride = SNLScalarNet::create(topBusAssignConstantOverride);
+      const1ConstantOverride->setType(SNLNet::Type::Assign1);
+      auto constantOverrideAssign0 = SNLInstance::create(topBusAssignConstantOverride, NLDB0::getAssign());
+      constantOverrideAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusConstantOverride->getBit(0));
+      constantOverrideAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstantOverride->getBit(0));
+      auto constantOverrideAssign1 = SNLInstance::create(topBusAssignConstantOverride, NLDB0::getAssign());
+      constantOverrideAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(const1ConstantOverride);
+      constantOverrideAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstantOverride->getBit(1));
+      auto constantOverrideAssign2 = SNLInstance::create(topBusAssignConstantOverride, NLDB0::getAssign());
+      constantOverrideAssign2->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusConstantOverride->getBit(3));
+      constantOverrideAssign2->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstantOverride->getBit(3));
+      auto constantOverrideAssign3 = SNLInstance::create(topBusAssignConstantOverride, NLDB0::getAssign());
+      constantOverrideAssign3->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusConstantOverride->getBit(2));
+      constantOverrideAssign3->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstantOverride->getBit(2));
+
       SNLDesign* topConstAssignCompression = SNLDesign::create(library, NLName("top_const_assign_compression"));
       auto const0Compression = SNLScalarNet::create(topConstAssignCompression);
       const0Compression->setType(SNLNet::Type::Assign0);
@@ -422,6 +443,34 @@ TEST_F(SNLVRLDumperTest2, testBusAssignShuffledOrder) {
   referencePath = referencePath / "test2TestBusAssignShuffledOrder" / "top_bus_assign_shuffled.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testBusAssignConstantOverride) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_bus_assign_constant_override"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestBusAssignConstantOverride";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath =
+    referencePath / "test2TestBusAssignConstantOverride" / "top_bus_assign_constant_override.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command =
+    std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
