@@ -13422,6 +13422,41 @@ class SNLSVConstructorImpl {
       return baseExpr;
     }
 
+    const Expression* getImmediateSelectionBaseExpression(const Expression* expr) const {
+      if (!expr) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      const auto* stripped = stripConversions(*expr);
+      if (!stripped) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        return stripConversions(
+          stripped->as<slang::ast::ElementSelectExpression>().value());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        return stripConversions(
+          stripped->as<slang::ast::RangeSelectExpression>().value());
+      }
+      return nullptr;
+    }
+
+    bool isTrackedAlwaysCombSubLhsOf(
+      const Expression* expr,
+      const Expression* candidateBase) const {
+      if (!expr || !candidateBase) {
+        return false;
+      }
+      for (auto* currentBase = getImmediateSelectionBaseExpression(expr);
+           currentBase;
+           currentBase = getImmediateSelectionBaseExpression(currentBase)) {
+        if (sameLhs(currentBase, candidateBase)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     bool isSequentialFallbackBaseTrackingSuppressed(const Expression& expr) const {
       if (!suppressedSequentialFallbackBaseTrackingSymbols_) {
         return false;
@@ -14778,10 +14813,26 @@ class SNLSVConstructorImpl {
           return true; // LCOV_EXCL_LINE
         }
         bool alreadyPresent = false;
-        for (const auto* existing : lhsExpressions) {
-          if (sameLhs(existing, lhsExpr)) {
-            alreadyPresent = true;
-            break;
+        if (trackAlwaysCombDynamicLHS) {
+          for (auto it = lhsExpressions.begin(); it != lhsExpressions.end();) {
+            const auto* existing = *it;
+            if (sameLhs(existing, lhsExpr) ||
+                isTrackedAlwaysCombSubLhsOf(lhsExpr, existing)) {
+              alreadyPresent = true;
+              break;
+            }
+            if (isTrackedAlwaysCombSubLhsOf(existing, lhsExpr)) {
+              it = lhsExpressions.erase(it);
+              continue;
+            }
+            ++it;
+          }
+        } else {
+          for (const auto* existing : lhsExpressions) {
+            if (sameLhs(existing, lhsExpr)) {
+              alreadyPresent = true;
+              break;
+            }
           }
         }
         if (!alreadyPresent) {

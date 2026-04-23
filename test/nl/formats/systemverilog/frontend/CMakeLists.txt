@@ -4,6 +4,7 @@
 
 set(snl_sv_constructor_tests
     SNLSVConstructorTestSimple.cpp
+    SNLSVConstructorTestAlwaysComb.cpp
     SNLSVConstructorTestElab.cpp
 )
 add_executable(snlSVConstructorTests ${snl_sv_constructor_tests})
