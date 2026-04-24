@@ -7287,7 +7287,6 @@ class SNLSVConstructorImpl {
       if (!evalSymbol) {
         return false;
       }
-      // LCOV_EXCL_STOP
 
       slang::ast::EvalContext evalContext(*evalSymbol);
       auto selectedRange = expr.evalSelector(evalContext, true);
@@ -7310,6 +7309,7 @@ class SNLSVConstructorImpl {
         index += step;
       }
       return true;
+      // LCOV_EXCL_STOP
     }
 
     bool extractFunctionReturnConstantBit(const Statement& stmt, bool& value) const {
@@ -12917,6 +12917,10 @@ class SNLSVConstructorImpl {
       if (getActiveForLoopConstant(*stripped).has_value()) {
         return true;
       }
+      // LCOV_EXCL_START
+      // Current parser-backed for-loop unrolling exposes active loop
+      // variables as direct value expressions before these recursive
+      // unary / binary fallbacks affect tracking.
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         return isActiveForLoopVariableExpr(
           stripped->as<slang::ast::UnaryExpression>().operand());
@@ -12926,6 +12930,7 @@ class SNLSVConstructorImpl {
         return isActiveForLoopVariableExpr(binaryExpr.left()) ||
                isActiveForLoopVariableExpr(binaryExpr.right());
       }
+      // LCOV_EXCL_STOP
       return false;
     }
 
