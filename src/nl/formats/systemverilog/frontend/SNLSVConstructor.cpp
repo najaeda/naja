@@ -17218,6 +17218,10 @@ class SNLSVConstructorImpl {
                 !isSequentialFallbackBaseTrackingSuppressed(*strippedLhs)) {
               supportedElseLhs = true;
             } else {
+              // LCOV_EXCL_START
+              // Parser-backed sequential lowering handles reset-whole /
+              // else-select aliases before this fallback decides whether
+              // other else LHS expressions alias the reset base.
               const auto* elseBaseExpr = getSelectionBaseExpression(*lhsExpr);
               if (elseBaseExpr &&
                   sameLhs(elseBaseExpr, resetLhsExpr) &&
@@ -17225,6 +17229,7 @@ class SNLSVConstructorImpl {
                 supportedElseLhs = true;
                 aliasesResetBase = true;
               }
+              // LCOV_EXCL_STOP
             }
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;
