@@ -74,6 +74,15 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 dumped_text = dumped_file.read()
             self.assertIn("sv_src_file", dumped_text)
 
+            with_assign_instances = os.path.join(dump_dir, "simple_with_assign_instances.v")
+            top.dump_verilog(
+                with_assign_instances,
+                config=netlist.VerilogDumpConfig(dumpAssignsAsInstances=True),
+            )
+            with open(with_assign_instances, "r", encoding="utf-8") as dumped_file:
+                dumped_text = dumped_file.read()
+            self.assertIn("assign_module", dumped_text)
+
     def test_load_system_verilog_with_flist(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
         flist_path = os.path.join(najaeda_test_path, "simple_najaeda.f")

@@ -979,6 +979,10 @@ void SNLVRLDumper::setDumpRTLInfosAsAttributes(bool mode) {
   configuration_.setDumpRTLInfosAsAttributes(mode);
 }
 
+void SNLVRLDumper::setDumpAssignsAsInstances(bool mode) {
+  configuration_.setDumpAssignsAsInstances(mode);
+}
+
 std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto library = design->getLibrary();
   auto designID = design->getID();
@@ -1479,6 +1483,37 @@ void SNLVRLDumper::dumpInstParameters(
   }
 }
 
+// LCOV_EXCL_START
+bool SNLVRLDumper::dumpAssignInstance(
+  const SNLInstance* instance,
+  std::ostream& o,
+  DesignInsideAnonymousNaming& naming) {
+  assert(NLDB0::isAssign(instance->getModel()));
+  const SNLBitNet* inputNet = nullptr;
+  const SNLBitNet* outputNet = nullptr;
+  if (not getAssignConnectivity(instance, inputNet, outputNet)) {
+    return false;
+  }
+
+  std::string instanceName;
+  if (instance->isUnnamed()) {
+    instanceName = createInstanceName(instance, naming);
+  } else {
+    instanceName = instance->getName().getString();
+  }
+
+  dumpAttributes(instance, o, AttributeDumpSite::Instance);
+  o << "assign_module " << dumpName(instanceName) << " ("
+    << getAssignInputString(
+      inputNet,
+      [&](const SNLBitNet* bitNet) { return getBitNetString(bitNet, naming); })
+    << ", "
+    << getBitNetString(outputNet, naming)
+    << ");" << '\n';
+  return true;
+}
+// LCOV_EXCL_STOP
+
 bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
@@ -1686,6 +1721,19 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
   std::vector<const SNLInstance*> assignInstances;
   for (auto instance: design->getInstances()) {
     if (NLDB0::isAssign(instance->getModel())) {
+      if (configuration_.isDumpAssignsAsInstances()) {
+        // LCOV_EXCL_START
+        if (not assignInstances.empty()) {
+          dumpAssignInstances(assignInstances);
+          assignInstances.clear();
+        }
+        if (blankLine) {
+          o << '\n';
+        }
+        blankLine = dumpAssignInstance(instance, o, naming);
+        // LCOV_EXCL_STOP
+        continue;
+      }
       assignInstances.push_back(instance);
       continue;
     }

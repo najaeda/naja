@@ -69,12 +69,15 @@ class SNLVRLDumper {
         bool isDumpHierarchy() const { return dumpHierarchy_; }
         void setDumpRTLInfosAsAttributes(bool mode) { dumpRTLInfosAsAttributes_ = mode; }
         bool isDumpRTLInfosAsAttributes() const { return dumpRTLInfosAsAttributes_; }
+        void setDumpAssignsAsInstances(bool mode) { dumpAssignsAsInstances_ = mode; }
+        bool isDumpAssignsAsInstances() const { return dumpAssignsAsInstances_; }
       private:
         bool        singleFile_       {true};
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
         bool        dumpRTLInfosAsAttributes_ {true};
+        bool        dumpAssignsAsInstances_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
@@ -88,6 +91,7 @@ class SNLVRLDumper {
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
     void setDumpRTLInfosAsAttributes(bool mode);
+    void setDumpAssignsAsInstances(bool mode);
 
     /**
      * \param design SNLDesign to dump.
@@ -232,6 +236,7 @@ class SNLVRLDumper {
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    bool dumpAssignInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     bool dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstParameters(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);

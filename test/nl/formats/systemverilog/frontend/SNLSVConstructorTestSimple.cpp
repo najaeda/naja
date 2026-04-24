@@ -126,6 +126,21 @@ size_t countFAInstances(const SNLDesign* design) {
   return count;
 }
 
+size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
+  size_t count = 0;
+  auto assignOutput = NLDB0::getAssignOutput();
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isAssign(inst->getModel())) {
+      continue;
+    }
+    auto instTerm = inst->getInstTerm(assignOutput);
+    if (instTerm && instTerm->getNet() == net) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 void expectUnsupportedConstruct(
   SNLSVConstructor& constructor,
   const std::filesystem::path& svPath,
@@ -25374,6 +25389,82 @@ endmodule
   auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
   ASSERT_NE(nullptr, wrPortsParam);
   EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceSameGuardPartialWritesSingleWEDriver) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_same_guard_partial_writes_single_we_driver";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_same_guard_partial_writes_single_we_driver.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_same_guard_partial_writes_single_we_driver(
+  input  logic       clk_i,
+  input  logic       valid_i,
+  input  logic [1:0] addr_i,
+  input  logic [1:0] data_i,
+  output logic [1:0] data_o
+);
+  logic [1:0] mem_q [0:3];
+  logic [1:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (valid_i) begin
+      mem_d[addr_i][0] = data_i[0];
+      mem_d[addr_i][1] = data_i[1];
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_same_guard_partial_writes_single_we_driver"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+
+  size_t checkedWriteEnableNets = 0;
+  for (auto net : top->getNets()) {
+    auto* bitNet = dynamic_cast<SNLBitNet*>(net);
+    if (!bitNet || bitNet->isUnnamed()) {
+      continue;
+    }
+    const auto name = bitNet->getName().getString();
+    if (name.find("mem_we_") == std::string::npos) {
+      continue;
+    }
+    ++checkedWriteEnableNets;
+    EXPECT_EQ(1u, countAssignDrivers(top, bitNet)) << name;
+  }
+  EXPECT_EQ(2u, checkedWriteEnableNets);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseQDMemoryInferenceLoopConditionalElseSupported) {

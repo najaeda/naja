@@ -2222,6 +2222,7 @@ class SNLSVConstructorImpl {
       const slang::ast::Expression* rhsExpr {nullptr};
       SNLBusNet* addrNet {nullptr};
       SNLBusNet* dataNet {nullptr};
+      SNLScalarNet* guardWeNet {nullptr};
       SNLScalarNet* weNet {nullptr};
       std::vector<SNLBitNet*> dataBits {};
       std::optional<slang::SourceRange> sourceRange {};
@@ -5043,9 +5044,10 @@ class SNLSVConstructorImpl {
           return false;
           // LCOV_EXCL_STOP
         }
+        auto* priorWe = priorPort.guardWeNet ? priorPort.guardWeNet : priorPort.weNet;
         auto* activePrior = combineConditionAnd(
           design,
-          priorPort.weNet,
+          priorWe,
           sameAddr,
           writeAction.sourceRange);
         if (!activePrior || activePrior == const0) {
@@ -5685,6 +5687,10 @@ class SNLSVConstructorImpl {
           joinName(joinName(baseName, "mem_wdata"), std::to_string(portIndex)),
           memory.signature.width,
           writePort.sourceRange);
+        writePort.guardWeNet = getOrCreateNamedScalarNet(
+          design,
+          joinName(joinName(baseName, "mem_guard_we"), std::to_string(portIndex)),
+          writePort.sourceRange);
         writePort.weNet = getOrCreateNamedScalarNet(
           design,
           joinName(joinName(baseName, "mem_we"), std::to_string(portIndex)),
@@ -5733,7 +5739,7 @@ class SNLSVConstructorImpl {
           writePort.dataBits = std::move(committedBits);
         }
         connectBusNetBits(design, writePort.dataNet, writePort.dataBits, writePort.sourceRange);
-        createAssignInstance(design, effectiveWe, writePort.weNet, writePort.sourceRange);
+        createAssignInstance(design, effectiveWe, writePort.guardWeNet, writePort.sourceRange);
         memory.writePorts.push_back(writePort);
       }
       if (memory.writePorts.empty()) {
@@ -5742,7 +5748,7 @@ class SNLSVConstructorImpl {
       }
 
       for (size_t i = 0; i < memory.writePorts.size(); ++i) {
-        auto* effectiveWe = static_cast<SNLBitNet*>(memory.writePorts[i].weNet);
+        auto* effectiveWe = static_cast<SNLBitNet*>(memory.writePorts[i].guardWeNet);
         for (size_t later = i + 1; later < memory.writePorts.size(); ++later) {
           auto* sameAddr = SNLScalarNet::create(design);
           annotateSourceInfo(sameAddr, memory.writePorts[i].sourceRange);
@@ -5764,7 +5770,7 @@ class SNLSVConstructorImpl {
             design,
             NLDB0::GateType(NLDB0::GateType::And),
             sameAddr,
-            memory.writePorts[later].weNet,
+            memory.writePorts[later].guardWeNet,
             nullptr,
             memory.writePorts[i].sourceRange));
           auto* noCollision = static_cast<SNLBitNet*>(createUnaryGate(
@@ -5781,9 +5787,7 @@ class SNLSVConstructorImpl {
             nullptr,
             memory.writePorts[i].sourceRange));
         }
-        if (effectiveWe != memory.writePorts[i].weNet) {
-          createAssignInstance(design, effectiveWe, memory.writePorts[i].weNet);
-        }
+        createAssignInstance(design, effectiveWe, memory.writePorts[i].weNet);
       }
       return true;
     }
