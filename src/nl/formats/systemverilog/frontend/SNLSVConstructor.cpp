@@ -13364,7 +13364,7 @@ class SNLSVConstructorImpl {
       }
     }
 
-    const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
+    const Expression* getTrackedProceduralReplayLHS(const Expression* lhsExpr) const {
       if (!lhsExpr) {
         return nullptr; // LCOV_EXCL_LINE
       }
@@ -13375,43 +13375,11 @@ class SNLSVConstructorImpl {
 
       const Expression* baseExpr = nullptr;
       if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
-        const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
-        baseExpr = stripConversions(elementExpr.value());
-        if (isActiveForLoopVariableExpr(elementExpr.selector())) {
-          // Current parser-backed dynamic-LHS tracking reaches simpler base
-          // forms before this helper needs to preserve loop-indexed selectors.
-          // Keep these branches only as alternate bookkeeping fallbacks.
-          // LCOV_EXCL_START
-          if (baseExpr &&
-              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
-            return baseExpr;
-          }
-          // LCOV_EXCL_STOP
-        }
-        int32_t selectedIndex = 0;
-        if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
-          return lhsExpr; // LCOV_EXCL_LINE
-        }
+        baseExpr = stripConversions(
+          stripped->as<slang::ast::ElementSelectExpression>().value());
       } else if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
-        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
-        baseExpr = stripConversions(rangeExpr.value());
-        if (isActiveForLoopVariableExpr(rangeExpr.left()) ||
-            isActiveForLoopVariableExpr(rangeExpr.right())) {
-          // LCOV_EXCL_START
-          if (baseExpr &&
-              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
-            return baseExpr;
-          }
-          // LCOV_EXCL_STOP
-        } // LCOV_EXCL_LINE
-        int32_t left = 0;
-        int32_t right = 0;
-        if (getConstantInt32(rangeExpr.left(), left) &&
-            getConstantInt32(rangeExpr.right(), right)) {
-          return lhsExpr; // LCOV_EXCL_LINE
-        }
+        baseExpr = stripConversions(
+          stripped->as<slang::ast::RangeSelectExpression>().value());
       } else {
         return lhsExpr; // LCOV_EXCL_LINE
       }
@@ -13420,6 +13388,10 @@ class SNLSVConstructorImpl {
         return lhsExpr; // LCOV_EXCL_LINE
       }
       return baseExpr;
+    }
+
+    const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
+      return getTrackedProceduralReplayLHS(lhsExpr);
     }
 
     const Expression* getImmediateSelectionBaseExpression(const Expression* expr) const {
@@ -13441,7 +13413,7 @@ class SNLSVConstructorImpl {
       return nullptr;
     }
 
-    bool isTrackedAlwaysCombSubLhsOf(
+    bool isTrackedSelectionSubLhsOf(
       const Expression* expr,
       const Expression* candidateBase) const {
       if (!expr || !candidateBase) {
@@ -13455,6 +13427,31 @@ class SNLSVConstructorImpl {
         }
       }
       return false;
+    }
+
+    void appendTrackedSelectionLHS(
+      const Expression* lhsExpr,
+      std::vector<const Expression*>& lhsExpressions) const {
+      if (!lhsExpr) {
+        return; // LCOV_EXCL_LINE
+      }
+      bool alreadyPresent = false;
+      for (auto it = lhsExpressions.begin(); it != lhsExpressions.end();) {
+        const auto* existing = *it;
+        if (sameLhs(existing, lhsExpr) ||
+            isTrackedSelectionSubLhsOf(lhsExpr, existing)) {
+          alreadyPresent = true;
+          break;
+        }
+        if (isTrackedSelectionSubLhsOf(existing, lhsExpr)) {
+          it = lhsExpressions.erase(it);
+          continue;
+        }
+        ++it;
+      }
+      if (!alreadyPresent) {
+        lhsExpressions.push_back(lhsExpr);
+      }
     }
 
     bool isSequentialFallbackBaseTrackingSuppressed(const Expression& expr) const {
@@ -13523,7 +13520,13 @@ class SNLSVConstructorImpl {
         }
         return baseExpr; // LCOV_EXCL_LINE
       }
-      return lhsExpr; // LCOV_EXCL_LINE
+      const auto* trackedLhs = getTrackedProceduralReplayLHS(lhsExpr);
+      if (trackedLhs != lhsExpr &&
+          trackedLhs &&
+          isSequentialFallbackBaseTrackingSuppressed(*trackedLhs)) {
+        return lhsExpr; // LCOV_EXCL_LINE
+      }
+      return trackedLhs; // LCOV_EXCL_LINE
     }
 
     void collectSequentialFallbackBaseTrackingSuppressedSymbols(
@@ -14812,31 +14815,19 @@ class SNLSVConstructorImpl {
         if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
           return true; // LCOV_EXCL_LINE
         }
-        bool alreadyPresent = false;
         if (trackAlwaysCombDynamicLHS) {
-          for (auto it = lhsExpressions.begin(); it != lhsExpressions.end();) {
-            const auto* existing = *it;
-            if (sameLhs(existing, lhsExpr) ||
-                isTrackedAlwaysCombSubLhsOf(lhsExpr, existing)) {
-              alreadyPresent = true;
-              break;
-            }
-            if (isTrackedAlwaysCombSubLhsOf(existing, lhsExpr)) {
-              it = lhsExpressions.erase(it);
-              continue;
-            }
-            ++it;
-          }
+          appendTrackedSelectionLHS(lhsExpr, lhsExpressions);
         } else {
+          bool alreadyPresent = false;
           for (const auto* existing : lhsExpressions) {
             if (sameLhs(existing, lhsExpr)) {
               alreadyPresent = true;
               break;
             }
           }
-        }
-        if (!alreadyPresent) {
-          lhsExpressions.push_back(lhsExpr);
+          if (!alreadyPresent) {
+            lhsExpressions.push_back(lhsExpr);
+          }
         }
         return true;
       }
@@ -17556,6 +17547,15 @@ class SNLSVConstructorImpl {
           }
         }
       }
+
+      std::vector<const Expression*> trackedLHSExpressions;
+      trackedLHSExpressions.reserve(lhsExpressions.size());
+      for (const auto* lhsExpr : lhsExpressions) {
+        appendTrackedSelectionLHS(
+          getTrackedProceduralReplayLHS(lhsExpr),
+          trackedLHSExpressions);
+      }
+      lhsExpressions = std::move(trackedLHSExpressions);
 
       for (const auto* lhsExpr : lhsExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);

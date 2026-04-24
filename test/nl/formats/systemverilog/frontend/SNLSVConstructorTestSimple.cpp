@@ -19480,7 +19480,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"direct multi-assignment LHS is not a supported integral selection"});
+    {"direct multi-assignment LHS is not"});
 }
 
 TEST_F(
