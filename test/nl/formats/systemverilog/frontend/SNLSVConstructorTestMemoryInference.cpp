@@ -3427,6 +3427,82 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceSharedSequentialResetCaseAssignsTrackedLhsFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_shared_sequential_reset_case_assigns_tracked_lhs";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_shared_sequential_reset_case_assigns_tracked_lhs.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_shared_sequential_reset_case_assigns_tracked_lhs(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       en_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o,
+  output logic       flag_o,
+  output logic       other_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+  logic       flag_q;
+  logic       other_q;
+  logic       other_n;
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_comb begin
+    mem_next = mem_d;
+    other_n = other_q;
+    if (en_i) begin
+      other_n = ~other_q;
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      flag_q <= 1'b0;
+      other_q <= 1'b0;
+      case (addr_i)
+        default: flag_q <= 1'b1;
+      endcase
+      for (int i = 0; i < 4; i++) begin
+        mem_q[i] <= 8'h00;
+      end
+    end else begin
+      flag_q <= en_i;
+      other_q <= other_n;
+      mem_q <= mem_next;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+  assign flag_o = flag_q;
+  assign other_o = other_q;
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement kind while lowering sequential block"});
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
   parseQDMemoryInferenceSharedSequentialDynamicResetIndexFallback) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
