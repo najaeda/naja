@@ -2170,6 +2170,20 @@ class SNLSVConstructorImpl {
       std::optional<slang::SourceRange> sourceRange {};
     };
 
+    static InferredMemoryGuard makeInferredMemoryConditionGuard(
+      bool polarity,
+      const slang::ast::Expression* expr,
+      std::optional<slang::SourceRange> sourceRange) {
+      return {
+        InferredMemoryGuard::Kind::Condition,
+        polarity,
+        expr,
+        nullptr,
+        nullptr,
+        nullptr,
+        sourceRange};
+    }
+
     struct InferredMemoryWriteAction {
       const slang::ast::Expression* lhsExpr {nullptr};
       const slang::ast::Expression* selectorExpr {nullptr};
@@ -4587,14 +4601,8 @@ class SNLSVConstructorImpl {
           setCurrentForLoopBreakRequested(false);
         }
         const size_t baseGuardCount = guards.size();
-        guards.push_back({
-          InferredMemoryGuard::Kind::Condition,
-          true,
-          condStmt.conditions[0].expr,
-          nullptr,
-          nullptr,
-          nullptr,
-          guardSourceRange});
+        guards.push_back(
+          makeInferredMemoryConditionGuard(true, condStmt.conditions[0].expr, guardSourceRange));
         if (!analyzeInferredMemoryCombinationalStatement(
               condStmt.ifTrue,
               memory,
@@ -4613,14 +4621,8 @@ class SNLSVConstructorImpl {
         }
         bool falseBreak = false;
         if (condStmt.ifFalse) {
-          guards.push_back({
-            InferredMemoryGuard::Kind::Condition,
-            false,
-            condStmt.conditions[0].expr,
-            nullptr,
-            nullptr,
-            nullptr,
-            guardSourceRange});
+          guards.push_back(
+            makeInferredMemoryConditionGuard(false, condStmt.conditions[0].expr, guardSourceRange));
           if (!analyzeInferredMemoryCombinationalStatement(
                 *condStmt.ifFalse,
                 memory,
@@ -5767,21 +5769,18 @@ class SNLSVConstructorImpl {
             // LCOV_EXCL_STOP
           }
           auto* collision = static_cast<SNLBitNet*>(createBinaryGate(
-            design,
-            NLDB0::GateType(NLDB0::GateType::And),
+            design, NLDB0::GateType(NLDB0::GateType::And),
             sameAddr,
             memory.writePorts[later].guardWeNet,
             nullptr,
             memory.writePorts[i].sourceRange));
           auto* noCollision = static_cast<SNLBitNet*>(createUnaryGate(
-            design,
-            NLDB0::GateType(NLDB0::GateType::Not),
+            design, NLDB0::GateType(NLDB0::GateType::Not),
             collision,
             nullptr,
             memory.writePorts[i].sourceRange));
           effectiveWe = static_cast<SNLBitNet*>(createBinaryGate(
-            design,
-            NLDB0::GateType(NLDB0::GateType::And),
+            design, NLDB0::GateType(NLDB0::GateType::And),
             effectiveWe,
             noCollision,
             nullptr,
