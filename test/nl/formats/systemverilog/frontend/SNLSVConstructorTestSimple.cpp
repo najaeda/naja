@@ -6147,6 +6147,90 @@ endmodule
   EXPECT_EQ(SNLNet::Type::Assign0, net->getType());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEmptyMeshEdgeNoConstantLHSAssign) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_empty_mesh_edge_no_constant_lhs_assign";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_empty_mesh_edge_no_constant_lhs_assign.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic ready_and_rev;
+  logic v;
+  logic [1:0] data;
+} link_s;
+
+module mesh_stitch_like(
+  input  link_s [0:0][2:1] outs_i,
+  output link_s [0:0][2:1] ins_o,
+  input  link_s [2:1] hor_i,
+  output link_s [2:1] hor_o,
+  input  link_s [2:1] ver_i,
+  output link_s [2:1] ver_o
+);
+  assign hor_o = outs_i[0];
+  assign ins_o[0][2] = ver_i[2];
+  assign ins_o[0][1] = hor_i[1];
+  assign ver_o = outs_i[0];
+endmodule
+
+module top(
+  input  link_s [2:1] link_i,
+  output link_s [2:1] link_o
+);
+  link_s [0:0][4:1] mesh_lo;
+  link_s [0:0][4:1] mesh_li;
+
+  assign mesh_lo[0][2:1] = link_i[2:1];
+  assign link_o[2:1] = mesh_li[0][2:1];
+
+  mesh_stitch_like u_mesh(
+    .outs_i(mesh_lo[0][2:1]),
+    .ins_o(mesh_li[0][2:1]),
+    .hor_i(link_i),
+    .hor_o(link_o),
+    .ver_i(),
+    .ver_o()
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  auto assignOutput = NLDB0::getAssignOutput();
+  ASSERT_NE(assignOutput, nullptr);
+  size_t constantLHSAssigns = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isAssign(inst->getModel())) {
+      continue;
+    }
+    auto outputTerm = inst->getInstTerm(assignOutput);
+    ASSERT_NE(outputTerm, nullptr);
+    auto outputNet = outputTerm->getNet();
+    ASSERT_NE(outputNet, nullptr);
+    if (outputNet->isAssignConstant()) {
+      ++constantLHSAssigns;
+    }
+  }
+  EXPECT_EQ(0, constantLHSAssigns);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "instance_connection_empty_mesh_edge_no_constant_lhs_assign");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign 1'b0 ="))
+    << "dumped Verilog contains a constant-zero assignment LHS";
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseInstanceConnectionScalarUnsupportedExpressionReported) {

@@ -6169,6 +6169,9 @@ class SNLSVConstructorImpl {
       SNLNet* inNet,
       SNLNet* outNet,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (!inNet || !outNet || outNet->isAssignConstant()) {
+        return nullptr;
+      }
       auto assignGate = NLDB0::getAssign();
       auto assignInst = SNLInstance::create(design, assignGate);
       annotateSourceInfo(assignInst, sourceRange);
