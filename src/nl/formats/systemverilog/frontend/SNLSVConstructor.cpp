@@ -2908,15 +2908,9 @@ class SNLSVConstructorImpl {
       if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
         return false;
       }
-      const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
-      switch (symbol.kind) {
-        case SymbolKind::Parameter:
-        case SymbolKind::EnumValue:
-        case SymbolKind::Specparam:
-          return true;
-        default:
-          return false;
-      }
+      const auto kind = stripped->as<slang::ast::ValueExpressionBase>().symbol.kind;
+      return kind == SymbolKind::Parameter || kind == SymbolKind::EnumValue ||
+             kind == SymbolKind::Specparam;
     }
 
     bool shouldIgnoreTrackedLHS(
@@ -5768,23 +5762,11 @@ class SNLSVConstructorImpl {
             return false;
             // LCOV_EXCL_STOP
           }
-          auto* collision = static_cast<SNLBitNet*>(createBinaryGate(
-            design, NLDB0::GateType(NLDB0::GateType::And),
-            sameAddr,
-            memory.writePorts[later].guardWeNet,
-            nullptr,
-            memory.writePorts[i].sourceRange));
-          auto* noCollision = static_cast<SNLBitNet*>(createUnaryGate(
-            design, NLDB0::GateType(NLDB0::GateType::Not),
-            collision,
-            nullptr,
-            memory.writePorts[i].sourceRange));
-          effectiveWe = static_cast<SNLBitNet*>(createBinaryGate(
-            design, NLDB0::GateType(NLDB0::GateType::And),
-            effectiveWe,
-            noCollision,
-            nullptr,
-            memory.writePorts[i].sourceRange));
+          auto* collision = createAndBitGate(
+            design, sameAddr, memory.writePorts[later].guardWeNet, memory.writePorts[i].sourceRange);
+          auto* noCollision = createNotBitGate(design, collision, memory.writePorts[i].sourceRange);
+          effectiveWe =
+            createAndBitGate(design, effectiveWe, noCollision, memory.writePorts[i].sourceRange);
         }
         createAssignInstance(design, effectiveWe, memory.writePorts[i].weNet);
       }
@@ -12270,6 +12252,23 @@ class SNLSVConstructorImpl {
       SNLNet* gateOutNet = outNet;
       createGateInstance(design, type, inputs, gateOutNet, sourceRange);
       return gateOutNet;
+    }
+
+    SNLBitNet* createAndBitGate(
+      SNLDesign* design,
+      SNLNet* in0,
+      SNLNet* in1,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      return static_cast<SNLBitNet*>(
+        createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::And), in0, in1, nullptr, sourceRange));
+    }
+
+    SNLBitNet* createNotBitGate(
+      SNLDesign* design,
+      SNLNet* in0,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      return static_cast<SNLBitNet*>(
+        createUnaryGate(design, NLDB0::GateType(NLDB0::GateType::Not), in0, nullptr, sourceRange));
     }
 
     void createMux2Instance(
