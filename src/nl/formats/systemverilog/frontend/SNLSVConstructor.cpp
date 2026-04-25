@@ -14064,6 +14064,26 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      std::vector<const Expression*> statementLHSExpressions;
+      if (collectAssignedLHSExpressions(
+            *current,
+            statementLHSExpressions,
+            nullptr,
+            false,
+            true)) {
+        for (const auto* statementLHSExpr : statementLHSExpressions) {
+          if (sameLhs(statementLHSExpr, &trackedLhs)) {
+            std::ostringstream reason;
+            reason << "single-LHS fallback encountered unsupported statement kind "
+                   << "(kind=" << current->kind << ")";
+            setFailureReason(reason.str());
+            return false;
+          }
+        }
+        maxAssignments = 0;
+        return true;
+      }
+
       std::ostringstream reason;
       reason << "single-LHS fallback encountered unsupported statement kind "
              << "(kind=" << current->kind << ")";
@@ -14121,7 +14141,8 @@ class SNLSVConstructorImpl {
       std::vector<SNLBitNet*>& dataBits,
       std::vector<SNLBitNet*>& incrementerBits,
       size_t& tempIndex,
-      std::string& failureReason) {
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -14154,7 +14175,8 @@ class SNLSVConstructorImpl {
                 dataBits,
                 incrementerBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols)) {
             return false;
           }
         }
@@ -14176,7 +14198,8 @@ class SNLSVConstructorImpl {
               dataBits,
               incrementerBits,
               tempIndex,
-              failureReason);
+              failureReason,
+              ignoredSymbols);
           },
           failureReason);
       }
@@ -14200,7 +14223,8 @@ class SNLSVConstructorImpl {
             dataBits,
             incrementerBits,
             tempIndex,
-            failureReason);
+            failureReason,
+            ignoredSymbols);
         }
 
         std::vector<SNLBitNet*> trueBits = dataBits;
@@ -14214,7 +14238,8 @@ class SNLSVConstructorImpl {
               trueBits,
               incrementerBits,
               tempIndex,
-              failureReason)) {
+              failureReason,
+              ignoredSymbols)) {
           return false; // LCOV_EXCL_LINE
         }
 
@@ -14230,7 +14255,8 @@ class SNLSVConstructorImpl {
                 falseBits,
                 incrementerBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols)) {
             return false;
           }
         }
@@ -14272,6 +14298,9 @@ class SNLSVConstructorImpl {
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        if (shouldIgnoreTrackedLHS(assignedLHS, ignoredSymbols)) {
+          return true;
+        }
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
           if (strippedAssignedLHS &&
@@ -14662,6 +14691,26 @@ class SNLSVConstructorImpl {
         }
         dataBits = std::move(assignedBits);
         return true;
+      }
+
+      std::vector<const Expression*> statementLHSExpressions;
+      if (collectAssignedLHSExpressions(
+            *current,
+            statementLHSExpressions,
+            nullptr,
+            false,
+            true,
+            ignoredSymbols)) {
+        bool assignsTrackedLHS = false;
+        for (const auto* statementLHSExpr : statementLHSExpressions) {
+          if (sameLhs(statementLHSExpr, &lhsExpr)) {
+            assignsTrackedLHS = true;
+            break;
+          }
+        }
+        if (!assignsTrackedLHS) {
+          return true;
+        }
       }
 
       std::ostringstream reason;
@@ -17113,7 +17162,8 @@ class SNLSVConstructorImpl {
       const Expression* asyncResetEventExpr,
       const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
       const std::optional<slang::SourceRange>& blockSourceRange,
-      std::string& failureReason) {
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       // LCOV_EXCL_START
       // Non-conditional tops are routed to other sequential lowering paths
@@ -17145,7 +17195,8 @@ class SNLSVConstructorImpl {
             rawResetLHSExpressions,
             &failureReason,
             false,
-            true)) {
+            true,
+            ignoredSymbols)) {
         return false;
       }
       std::vector<const Expression*> resetLHSExpressions;
@@ -17161,6 +17212,9 @@ class SNLSVConstructorImpl {
         }
       }
       if (resetLHSExpressions.empty()) {
+        if (ignoredSymbols && !ignoredSymbols->empty()) {
+          return true;
+        }
         failureReason = "reset branch does not contain assignments";
         return false;
       }
@@ -17182,7 +17236,8 @@ class SNLSVConstructorImpl {
               rawElseLHSExpressions,
               &elseCollectFailureReason,
               false,
-              true)) {
+              true,
+              ignoredSymbols)) {
           std::vector<const Expression*> elseLHSExpressions;
           for (const auto* lhsExpr : rawElseLHSExpressions) {
             if (!lhsExpr) {
@@ -17339,7 +17394,8 @@ class SNLSVConstructorImpl {
                 dataBits,
                 incrementerBits,
                 tempIndex,
-                failureReason)) {
+                failureReason,
+                ignoredSymbols)) {
             return false;
           }
         }
@@ -17358,7 +17414,8 @@ class SNLSVConstructorImpl {
               resetBits,
               resetIncrementerBits,
               resetTempIndex,
-              failureReason)) {
+              failureReason,
+              ignoredSymbols)) {
           return false; // LCOV_EXCL_LINE
         }
 
@@ -17500,7 +17557,8 @@ class SNLSVConstructorImpl {
       SNLBitNet* clkNet,
       slang::ast::EdgeKind clockEdge,
       const std::optional<slang::SourceRange>& blockSourceRange,
-      std::string& failureReason) {
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       if (!current || current->kind == slang::ast::StatementKind::Conditional) {
         // LCOV_EXCL_START
@@ -17513,10 +17571,19 @@ class SNLSVConstructorImpl {
       }
 
       std::vector<const Expression*> lhsExpressions;
-      if (!collectAssignedLHSExpressions(*current, lhsExpressions, &failureReason)) {
+      if (!collectAssignedLHSExpressions(
+            *current,
+            lhsExpressions,
+            &failureReason,
+            false,
+            false,
+            ignoredSymbols)) {
         return false;
       }
       if (lhsExpressions.empty()) {
+        if (ignoredSymbols && !ignoredSymbols->empty()) {
+          return true;
+        }
         // LCOV_EXCL_START
         // collectAssignedLHSExpressions() only reports success for direct-assignment blocks that
         // contribute at least one assignment target in current parser-backed flows.
@@ -17601,7 +17668,8 @@ class SNLSVConstructorImpl {
               dataBits,
               incrementerBits,
               tempIndex,
-              failureReason)) {
+              failureReason,
+              ignoredSymbols)) {
           return false;
         }
 
@@ -18588,11 +18656,14 @@ class SNLSVConstructorImpl {
           reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
-        if (auto inferred = inferredMemorySequentialBlocks_.find(&block);
-            inferred != inferredMemorySequentialBlocks_.end() &&
-            inferredMemories_[inferred->second].lowered) {
-          continue;
+        std::unordered_set<const slang::ast::ValueSymbol*> ignoredSequentialSymbols;
+        for (const auto& memory : inferredMemories_) {
+          if (memory.lowered && memory.seqBlock == &block && memory.stateSymbol) {
+            ignoredSequentialSymbols.insert(memory.stateSymbol);
+          }
         }
+        const auto* ignoredSequentialSymbolsPtr =
+          ignoredSequentialSymbols.empty() ? nullptr : &ignoredSequentialSymbols;
 
         const Statement* stmt = &block.getBody();
         const TimingControl* timing = nullptr;
@@ -18683,7 +18754,8 @@ class SNLSVConstructorImpl {
                     asyncResetEventExpr,
                     asyncResetEventEdge,
                     statementSourceRange,
-                    multiAssignFailureReason)) {
+                    multiAssignFailureReason,
+                    ignoredSequentialSymbolsPtr)) {
                 continue;
               }
             } else if (
@@ -18693,7 +18765,8 @@ class SNLSVConstructorImpl {
                 clkNet,
                 clockEdge,
                 statementSourceRange,
-                multiAssignFailureReason)) {
+                multiAssignFailureReason,
+                ignoredSequentialSymbolsPtr)) {
               continue;
             }
           }
@@ -18704,6 +18777,9 @@ class SNLSVConstructorImpl {
             reason << " (" << multiAssignFailureReason << ")";
           }
           reportUnsupportedElement(reason.str(), statementSourceRange);
+          continue;
+        }
+        if (shouldIgnoreTrackedLHS(chain.lhs, ignoredSequentialSymbolsPtr)) {
           continue;
         }
         const bool explicitHoldDefault =

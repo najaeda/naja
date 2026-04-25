@@ -4,6 +4,7 @@
 
 set(snl_sv_constructor_tests
     SNLSVConstructorTestSimple.cpp
+    SNLSVConstructorTestMemoryInference.cpp
     SNLSVConstructorTestAlwaysComb.cpp
     SNLSVConstructorTestSequentialOverlap.cpp
     SNLSVConstructorTestElab.cpp
