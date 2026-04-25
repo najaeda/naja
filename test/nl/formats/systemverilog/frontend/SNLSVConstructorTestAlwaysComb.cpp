@@ -205,6 +205,94 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombOverlappingConstantRangesLastWriteWins) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_overlapping_constant_ranges_last_write_wins");
+
+  const auto svPath =
+    outPath / "always_comb_overlapping_constant_ranges_last_write_wins.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_overlapping_constant_ranges_last_write_wins(
+  input  logic [2:0] a,
+  input  logic [2:0] b,
+  output logic [3:0] y
+);
+  always_comb begin
+    y[3:1] = a;
+    y[2:0] = b;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_overlapping_constant_ranges_last_write_wins"));
+  ASSERT_NE(top, nullptr);
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getBusNet(NLName("b"));
+  auto* y = top->getBusNet(NLName("y"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(y, nullptr);
+
+  EXPECT_EQ(b->getBit(0), getSingleAssignInputDriving(y->getBit(0)));
+  EXPECT_EQ(b->getBit(1), getSingleAssignInputDriving(y->getBit(1)));
+  EXPECT_EQ(b->getBit(2), getSingleAssignInputDriving(y->getBit(2)));
+  EXPECT_EQ(a->getBit(2), getSingleAssignInputDriving(y->getBit(3)));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombNestedPackedElementBasesThenWholeVectorOverride) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_nested_packed_element_bases_then_whole_vector_override");
+
+  const auto svPath =
+    outPath / "always_comb_nested_packed_element_bases_then_whole_vector_override.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_nested_packed_element_bases_then_whole_vector_override(
+  input  logic [1:0][3:0] a,
+  output logic [1:0][3:0] y
+);
+  always_comb begin
+    y[1][0] = 1'b1;
+    y[0][2] = 1'b0;
+    y = a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_nested_packed_element_bases_then_whole_vector_override"));
+  ASSERT_NE(top, nullptr);
+  auto* a = top->getBusNet(NLName("a"));
+  auto* y = top->getBusNet(NLName("y"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+  ASSERT_EQ(8, a->getWidth());
+  ASSERT_EQ(8, y->getWidth());
+
+  for (NLID::Bit bit = 0; bit < 8; ++bit) {
+    ASSERT_NE(a->getBit(bit), nullptr);
+    ASSERT_NE(y->getBit(bit), nullptr);
+    EXPECT_EQ(a->getBit(bit), getSingleAssignInputDriving(y->getBit(bit)))
+      << "bit " << bit;
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombCaseAssignmentFunctionCallSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

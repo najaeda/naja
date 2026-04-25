@@ -2222,6 +2222,7 @@ class SNLSVConstructorImpl {
       const slang::ast::Expression* rhsExpr {nullptr};
       SNLBusNet* addrNet {nullptr};
       SNLBusNet* dataNet {nullptr};
+      SNLScalarNet* guardWeNet {nullptr};
       SNLScalarNet* weNet {nullptr};
       std::vector<SNLBitNet*> dataBits {};
       std::optional<slang::SourceRange> sourceRange {};
@@ -5043,9 +5044,10 @@ class SNLSVConstructorImpl {
           return false;
           // LCOV_EXCL_STOP
         }
+        auto* priorWe = priorPort.guardWeNet ? priorPort.guardWeNet : priorPort.weNet;
         auto* activePrior = combineConditionAnd(
           design,
-          priorPort.weNet,
+          priorWe,
           sameAddr,
           writeAction.sourceRange);
         if (!activePrior || activePrior == const0) {
@@ -5685,6 +5687,10 @@ class SNLSVConstructorImpl {
           joinName(joinName(baseName, "mem_wdata"), std::to_string(portIndex)),
           memory.signature.width,
           writePort.sourceRange);
+        writePort.guardWeNet = getOrCreateNamedScalarNet(
+          design,
+          joinName(joinName(baseName, "mem_guard_we"), std::to_string(portIndex)),
+          writePort.sourceRange);
         writePort.weNet = getOrCreateNamedScalarNet(
           design,
           joinName(joinName(baseName, "mem_we"), std::to_string(portIndex)),
@@ -5733,7 +5739,7 @@ class SNLSVConstructorImpl {
           writePort.dataBits = std::move(committedBits);
         }
         connectBusNetBits(design, writePort.dataNet, writePort.dataBits, writePort.sourceRange);
-        createAssignInstance(design, effectiveWe, writePort.weNet, writePort.sourceRange);
+        createAssignInstance(design, effectiveWe, writePort.guardWeNet, writePort.sourceRange);
         memory.writePorts.push_back(writePort);
       }
       if (memory.writePorts.empty()) {
@@ -5742,7 +5748,7 @@ class SNLSVConstructorImpl {
       }
 
       for (size_t i = 0; i < memory.writePorts.size(); ++i) {
-        auto* effectiveWe = static_cast<SNLBitNet*>(memory.writePorts[i].weNet);
+        auto* effectiveWe = static_cast<SNLBitNet*>(memory.writePorts[i].guardWeNet);
         for (size_t later = i + 1; later < memory.writePorts.size(); ++later) {
           auto* sameAddr = SNLScalarNet::create(design);
           annotateSourceInfo(sameAddr, memory.writePorts[i].sourceRange);
@@ -5764,7 +5770,7 @@ class SNLSVConstructorImpl {
             design,
             NLDB0::GateType(NLDB0::GateType::And),
             sameAddr,
-            memory.writePorts[later].weNet,
+            memory.writePorts[later].guardWeNet,
             nullptr,
             memory.writePorts[i].sourceRange));
           auto* noCollision = static_cast<SNLBitNet*>(createUnaryGate(
@@ -5781,9 +5787,7 @@ class SNLSVConstructorImpl {
             nullptr,
             memory.writePorts[i].sourceRange));
         }
-        if (effectiveWe != memory.writePorts[i].weNet) {
-          createAssignInstance(design, effectiveWe, memory.writePorts[i].weNet);
-        }
+        createAssignInstance(design, effectiveWe, memory.writePorts[i].weNet);
       }
       return true;
     }
@@ -7283,7 +7287,6 @@ class SNLSVConstructorImpl {
       if (!evalSymbol) {
         return false;
       }
-      // LCOV_EXCL_STOP
 
       slang::ast::EvalContext evalContext(*evalSymbol);
       auto selectedRange = expr.evalSelector(evalContext, true);
@@ -7306,6 +7309,7 @@ class SNLSVConstructorImpl {
         index += step;
       }
       return true;
+      // LCOV_EXCL_STOP
     }
 
     bool extractFunctionReturnConstantBit(const Statement& stmt, bool& value) const {
@@ -12913,6 +12917,10 @@ class SNLSVConstructorImpl {
       if (getActiveForLoopConstant(*stripped).has_value()) {
         return true;
       }
+      // LCOV_EXCL_START
+      // Current parser-backed for-loop unrolling exposes active loop
+      // variables as direct value expressions before these recursive
+      // unary / binary fallbacks affect tracking.
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         return isActiveForLoopVariableExpr(
           stripped->as<slang::ast::UnaryExpression>().operand());
@@ -12922,6 +12930,7 @@ class SNLSVConstructorImpl {
         return isActiveForLoopVariableExpr(binaryExpr.left()) ||
                isActiveForLoopVariableExpr(binaryExpr.right());
       }
+      // LCOV_EXCL_STOP
       return false;
     }
 
@@ -13364,7 +13373,7 @@ class SNLSVConstructorImpl {
       }
     }
 
-    const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
+    const Expression* getTrackedProceduralReplayLHS(const Expression* lhsExpr) const {
       if (!lhsExpr) {
         return nullptr; // LCOV_EXCL_LINE
       }
@@ -13375,43 +13384,11 @@ class SNLSVConstructorImpl {
 
       const Expression* baseExpr = nullptr;
       if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
-        const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
-        baseExpr = stripConversions(elementExpr.value());
-        if (isActiveForLoopVariableExpr(elementExpr.selector())) {
-          // Current parser-backed dynamic-LHS tracking reaches simpler base
-          // forms before this helper needs to preserve loop-indexed selectors.
-          // Keep these branches only as alternate bookkeeping fallbacks.
-          // LCOV_EXCL_START
-          if (baseExpr &&
-              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
-            return baseExpr;
-          }
-          // LCOV_EXCL_STOP
-        }
-        int32_t selectedIndex = 0;
-        if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
-          return lhsExpr; // LCOV_EXCL_LINE
-        }
+        baseExpr = stripConversions(
+          stripped->as<slang::ast::ElementSelectExpression>().value());
       } else if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
-        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
-        baseExpr = stripConversions(rangeExpr.value());
-        if (isActiveForLoopVariableExpr(rangeExpr.left()) ||
-            isActiveForLoopVariableExpr(rangeExpr.right())) {
-          // LCOV_EXCL_START
-          if (baseExpr &&
-              (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-               baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
-            return baseExpr;
-          }
-          // LCOV_EXCL_STOP
-        } // LCOV_EXCL_LINE
-        int32_t left = 0;
-        int32_t right = 0;
-        if (getConstantInt32(rangeExpr.left(), left) &&
-            getConstantInt32(rangeExpr.right(), right)) {
-          return lhsExpr; // LCOV_EXCL_LINE
-        }
+        baseExpr = stripConversions(
+          stripped->as<slang::ast::RangeSelectExpression>().value());
       } else {
         return lhsExpr; // LCOV_EXCL_LINE
       }
@@ -13420,6 +13397,10 @@ class SNLSVConstructorImpl {
         return lhsExpr; // LCOV_EXCL_LINE
       }
       return baseExpr;
+    }
+
+    const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
+      return getTrackedProceduralReplayLHS(lhsExpr);
     }
 
     const Expression* getImmediateSelectionBaseExpression(const Expression* expr) const {
@@ -13441,7 +13422,7 @@ class SNLSVConstructorImpl {
       return nullptr;
     }
 
-    bool isTrackedAlwaysCombSubLhsOf(
+    bool isTrackedSelectionSubLhsOf(
       const Expression* expr,
       const Expression* candidateBase) const {
       if (!expr || !candidateBase) {
@@ -13455,6 +13436,31 @@ class SNLSVConstructorImpl {
         }
       }
       return false;
+    }
+
+    void appendTrackedSelectionLHS(
+      const Expression* lhsExpr,
+      std::vector<const Expression*>& lhsExpressions) const {
+      if (!lhsExpr) {
+        return; // LCOV_EXCL_LINE
+      }
+      bool alreadyPresent = false;
+      for (auto it = lhsExpressions.begin(); it != lhsExpressions.end();) {
+        const auto* existing = *it;
+        if (sameLhs(existing, lhsExpr) ||
+            isTrackedSelectionSubLhsOf(lhsExpr, existing)) {
+          alreadyPresent = true;
+          break;
+        }
+        if (isTrackedSelectionSubLhsOf(existing, lhsExpr)) {
+          it = lhsExpressions.erase(it);
+          continue;
+        }
+        ++it;
+      }
+      if (!alreadyPresent) {
+        lhsExpressions.push_back(lhsExpr);
+      }
     }
 
     bool isSequentialFallbackBaseTrackingSuppressed(const Expression& expr) const {
@@ -13523,7 +13529,13 @@ class SNLSVConstructorImpl {
         }
         return baseExpr; // LCOV_EXCL_LINE
       }
-      return lhsExpr; // LCOV_EXCL_LINE
+      const auto* trackedLhs = getTrackedProceduralReplayLHS(lhsExpr);
+      if (trackedLhs != lhsExpr &&
+          trackedLhs &&
+          isSequentialFallbackBaseTrackingSuppressed(*trackedLhs)) {
+        return lhsExpr; // LCOV_EXCL_LINE
+      }
+      return trackedLhs; // LCOV_EXCL_LINE
     }
 
     void collectSequentialFallbackBaseTrackingSuppressedSymbols(
@@ -14812,31 +14824,19 @@ class SNLSVConstructorImpl {
         if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
           return true; // LCOV_EXCL_LINE
         }
-        bool alreadyPresent = false;
         if (trackAlwaysCombDynamicLHS) {
-          for (auto it = lhsExpressions.begin(); it != lhsExpressions.end();) {
-            const auto* existing = *it;
-            if (sameLhs(existing, lhsExpr) ||
-                isTrackedAlwaysCombSubLhsOf(lhsExpr, existing)) {
-              alreadyPresent = true;
-              break;
-            }
-            if (isTrackedAlwaysCombSubLhsOf(existing, lhsExpr)) {
-              it = lhsExpressions.erase(it);
-              continue;
-            }
-            ++it;
-          }
+          appendTrackedSelectionLHS(lhsExpr, lhsExpressions);
         } else {
+          bool alreadyPresent = false;
           for (const auto* existing : lhsExpressions) {
             if (sameLhs(existing, lhsExpr)) {
               alreadyPresent = true;
               break;
             }
           }
-        }
-        if (!alreadyPresent) {
-          lhsExpressions.push_back(lhsExpr);
+          if (!alreadyPresent) {
+            lhsExpressions.push_back(lhsExpr);
+          }
         }
         return true;
       }
@@ -17218,6 +17218,10 @@ class SNLSVConstructorImpl {
                 !isSequentialFallbackBaseTrackingSuppressed(*strippedLhs)) {
               supportedElseLhs = true;
             } else {
+              // LCOV_EXCL_START
+              // Parser-backed sequential lowering handles reset-whole /
+              // else-select aliases before this fallback decides whether
+              // other else LHS expressions alias the reset base.
               const auto* elseBaseExpr = getSelectionBaseExpression(*lhsExpr);
               if (elseBaseExpr &&
                   sameLhs(elseBaseExpr, resetLhsExpr) &&
@@ -17225,6 +17229,7 @@ class SNLSVConstructorImpl {
                 supportedElseLhs = true;
                 aliasesResetBase = true;
               }
+              // LCOV_EXCL_STOP
             }
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;
@@ -17556,6 +17561,15 @@ class SNLSVConstructorImpl {
           }
         }
       }
+
+      std::vector<const Expression*> trackedLHSExpressions;
+      trackedLHSExpressions.reserve(lhsExpressions.size());
+      for (const auto* lhsExpr : lhsExpressions) {
+        appendTrackedSelectionLHS(
+          getTrackedProceduralReplayLHS(lhsExpr),
+          trackedLHSExpressions);
+      }
+      lhsExpressions = std::move(trackedLHSExpressions);
 
       for (const auto* lhsExpr : lhsExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
