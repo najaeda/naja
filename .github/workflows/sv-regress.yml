@@ -53,7 +53,7 @@ jobs:
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
       - name: Run external SV regress lint
-        run: python3 ${{ github.workspace }}/scripts/sv_regress.py run --case all
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case all
 
       - name: Upload SV regress artifacts
         uses: actions/upload-artifact@v7

@@ -25,11 +25,12 @@ from typing import Any
 try:
     import yaml
 except ImportError as exc:  # pragma: no cover - exercised by user environment
-    raise SystemExit("Missing dependency: install PyYAML to use scripts/sv_regress.py") from exc
+    raise SystemExit("Missing dependency: install PyYAML to use regress/sv/sv_regress.py") from exc
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = REPO_ROOT / "test" / "regress" / "sv" / "cases.yml"
+REGRESS_SV_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = REGRESS_SV_ROOT.parents[1]
+DEFAULT_MANIFEST = REGRESS_SV_ROOT / "cases.yml"
 DEFAULT_WORK_DIR = REPO_ROOT / "build" / "sv-regress"
 DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
@@ -297,7 +298,7 @@ def materialize_flist(
         stream.write(content)
         if content and not content.endswith("\n"):
             stream.write("\n")
-        stream.write("\n# Appended by scripts/sv_regress.py\n")
+        stream.write("\n# Appended by regress/sv/sv_regress.py\n")
         for entry in flist_append:
             stream.write(format_env_value(
                 str(entry),

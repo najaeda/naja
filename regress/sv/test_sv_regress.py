@@ -7,10 +7,10 @@ import sys
 import tempfile
 import unittest
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_ROOT))
+REGRESS_SV_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(REGRESS_SV_ROOT))
 
-from scripts import sv_regress
+import sv_regress
 
 
 class SVRegressRunnerTest(unittest.TestCase):
