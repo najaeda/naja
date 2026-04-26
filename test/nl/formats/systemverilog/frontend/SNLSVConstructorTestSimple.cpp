@@ -6224,6 +6224,20 @@ endmodule
   }
   EXPECT_EQ(0, constantLHSAssigns);
 
+  size_t outputPortConstantConnections = 0;
+  for (auto inst : top->getInstances()) {
+    for (auto instTerm : inst->getInstTerms()) {
+      if (instTerm->getDirection() == SNLTerm::Direction::Input) {
+        continue;
+      }
+      auto net = instTerm->getNet();
+      if (net && net->isAssignConstant()) {
+        ++outputPortConstantConnections;
+      }
+    }
+  }
+  EXPECT_EQ(0, outputPortConstantConnections);
+
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "instance_connection_empty_mesh_edge_no_constant_lhs_assign");
   const auto dumpedText = readTextFile(dumpedVerilog);

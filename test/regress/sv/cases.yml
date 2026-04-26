@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cases:
+  - name: black_parrot
+    repo: https://github.com/najaeda/black-parrot.git
+    commit: d55d48b04412745cee59663608fdbff30f37eccf
+    top: bp_multicore
+    flist: naja/flist.naja
+    output: black_parrot_naja.v
+    env:
+      BP_DIR: "{repo}"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - PINMISSING
+        - WIDTHEXPAND
+        - SELRANGE
+        - MULTIDRIVEN
+
+  - name: cva6
+    repo: https://github.com/xtofalex/cva6.git
+    commit: bead12b083b4457a1ae87b8b9c8812a9d64bfc54
+    top: cva6
+    flist: core/Flist.cva6
+    output: cva6_naja.v
+    env:
+      CVA6_REPO_DIR: "{repo}"
+      HPDCACHE_DIR: "{repo}/core/cache_subsystem/hpdcache"
+      TARGET_CFG: cv64a6_imafdc_sv39
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - PINMISSING
+        - WIDTHEXPAND
+        - SELRANGE
+        - MULTIDRIVEN

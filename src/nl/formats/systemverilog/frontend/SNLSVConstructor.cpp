@@ -13390,6 +13390,12 @@ class SNLSVConstructorImpl {
       } else if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
         baseExpr = stripConversions(
           stripped->as<slang::ast::RangeSelectExpression>().value());
+      } else if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
+        baseExpr = stripConversions(
+          stripped->as<slang::ast::MemberAccessExpression>().value());
+        if (!baseExpr || !getRepresentableExpressionBitWidth(*baseExpr)) {
+          return lhsExpr;
+        }
       } else {
         return lhsExpr; // LCOV_EXCL_LINE
       }
@@ -13419,6 +13425,10 @@ class SNLSVConstructorImpl {
       if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
         return stripConversions(
           stripped->as<slang::ast::RangeSelectExpression>().value());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
+        return stripConversions(
+          stripped->as<slang::ast::MemberAccessExpression>().value());
       }
       return nullptr;
     }
@@ -16636,6 +16646,78 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool tryApplyCombinationalFixedSubAssignmentForLhs(
+      SNLDesign* design,
+      const Expression& assignedLHS,
+      const Expression& trackedLhs,
+      const AssignAction& action,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+      if (!isTrackedSelectionSubLhsOf(&assignedLHS, &trackedLhs)) {
+        return true;
+      }
+      handled = true;
+
+      std::vector<SNLBitNet*> selectedLhsBits;
+      if (!resolveAssignmentLHSBits(
+            design,
+            assignedLHS,
+            selectedLhsBits,
+            &failureReason)) {
+        return false;
+      }
+      if (selectedLhsBits.empty()) {
+        failureReason = formatDescribedFailure(
+          "empty always_comb sub-assignment LHS: ",
+          describeExpression(assignedLHS));
+        return false;
+      }
+
+      std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
+      lhsBitOffsets.reserve(lhsBits.size());
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        if (lhsBits[bit]) {
+          lhsBitOffsets.emplace(lhsBits[bit], bit);
+        }
+      }
+
+      std::vector<size_t> selectedOffsets;
+      selectedOffsets.reserve(selectedLhsBits.size());
+      for (auto* selectedBit : selectedLhsBits) {
+        const auto found = lhsBitOffsets.find(selectedBit);
+        if (found == lhsBitOffsets.end()) {
+          handled = false;
+          return true;
+        }
+        selectedOffsets.push_back(found->second);
+      }
+
+      std::vector<SNLBitNet*> assignedBits;
+      if (!buildCombinationalAssignBits(
+            design,
+            action,
+            selectedLhsBits.size(),
+            assignedBits,
+            nullptr,
+            failureReason)) {
+        return false;
+      }
+      if (assignedBits.size() != selectedLhsBits.size()) {
+        failureReason = formatDescribedFailure(
+          "width mismatch while lowering always_comb sub-assignment for ",
+          describeExpression(assignedLHS));
+        return false;
+      }
+
+      for (size_t bit = 0; bit < selectedOffsets.size(); ++bit) {
+        dataBits[selectedOffsets[bit]] = assignedBits[bit];
+      }
+      return true;
+    }
+
     bool applyCombinationalStatementForLhs(
       SNLDesign* design,
       const Statement& stmt,
@@ -16966,6 +17048,21 @@ class SNLSVConstructorImpl {
           }
 
           if (!tryApplyCombinationalRangeSelectAssignmentForLhs(
+                design,
+                *assignedLHS,
+                lhsExpr,
+                action,
+                lhsBits,
+                dataBits,
+                failureReason,
+                handled)) {
+            return false;
+          }
+          if (handled) {
+            return true;
+          }
+
+          if (!tryApplyCombinationalFixedSubAssignmentForLhs(
                 design,
                 *assignedLHS,
                 lhsExpr,
@@ -20025,8 +20122,16 @@ class SNLSVConstructorImpl {
             }
             bitTerms.resize(bits.size());
           }
+          auto connectedBits = bits;
+          if (targetTerm->getDirection() != SNLTerm::Direction::Input) {
+            for (auto& bit: connectedBits) {
+              if (bit && bit->isAssignConstant()) {
+                bit = nullptr;
+              }
+            }
+          }
           try {
-            inst->setTermsNets(bitTerms, bits);
+            inst->setTermsNets(bitTerms, connectedBits);
             // LCOV_EXCL_START
           } catch (const NLException& e) {
             setFailureReason(e.what());
@@ -20040,6 +20145,10 @@ class SNLSVConstructorImpl {
           if (net) {
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
+              if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
+                  net->isAssignConstant()) {
+                continue;
+              }
               try {
                 instTerm->setNet(net);
                 continue;
@@ -20077,7 +20186,12 @@ class SNLSVConstructorImpl {
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
               try {
-                instTerm->setNet(connectionBits.front());
+                auto* connectionBit = connectionBits.front();
+                if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
+                    connectionBit && connectionBit->isAssignConstant()) {
+                  continue;
+                }
+                instTerm->setNet(connectionBit);
                 // LCOV_EXCL_START
               } catch (const NLException& e) {
                 reportInstanceConnectionFailure(e.what());

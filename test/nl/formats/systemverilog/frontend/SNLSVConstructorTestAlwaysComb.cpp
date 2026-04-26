@@ -293,6 +293,61 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructWholeThenFieldBranchOverridesSingleDriver) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_whole_then_field_branch_overrides_single_driver");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_whole_then_field_branch_overrides_single_driver.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_packed_struct_whole_then_field_branch_overrides_single_driver(
+  input  logic       sel_i,
+  input  logic [2:0] miss_i,
+  input  logic [1:0] dirty_i,
+  input  logic       lru_i,
+  output logic [2:0] y_o
+);
+  typedef struct packed {
+    logic [1:0] dirty;
+    logic       lru;
+  } stat_s;
+
+  stat_s s;
+
+  always_comb begin
+    if (sel_i) begin
+      s = miss_i;
+    end else begin
+      s.dirty = dirty_i;
+      s.lru = lru_i;
+    end
+    y_o = s;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_packed_struct_whole_then_field_branch_overrides_single_driver"));
+  ASSERT_NE(top, nullptr);
+  auto* s = top->getBusNet(NLName("s"));
+  ASSERT_NE(s, nullptr);
+  ASSERT_EQ(3, s->getWidth());
+
+  for (NLID::Bit bit = 0; bit < 3; ++bit) {
+    ASSERT_NE(s->getBit(bit), nullptr);
+    EXPECT_NE(nullptr, getSingleAssignInputDriving(s->getBit(bit)))
+      << "bit " << bit;
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombCaseAssignmentFunctionCallSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
