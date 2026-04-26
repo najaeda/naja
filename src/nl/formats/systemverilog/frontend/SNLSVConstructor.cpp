@@ -16245,15 +16245,18 @@ class SNLSVConstructorImpl {
         // LCOV_EXCL_STOP
       } // LCOV_EXCL_LINE
 
+      const auto selectedElementWidth = static_cast<size_t>(*elementWidth);
       std::vector<SNLBitNet*> assignedBits;
-      if (!buildCombinationalAssignBits(
-            design,
-            action,
-            static_cast<size_t>(*elementWidth),
-            assignedBits,
-            nullptr,
-            failureReason)) {
-        return false;
+      if (!action.compoundOp) {
+        if (!buildCombinationalAssignBits(
+              design,
+              action,
+              selectedElementWidth,
+              assignedBits,
+              nullptr,
+              failureReason)) {
+          return false;
+        }
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -16263,14 +16266,28 @@ class SNLSVConstructorImpl {
       auto updateSlice = [&](size_t offset, SNLBitNet* selectBit) {
         std::vector<SNLBitNet*> currentBits(
           dataBits.begin() + static_cast<std::ptrdiff_t>(offset),
-          dataBits.begin() + static_cast<std::ptrdiff_t>(offset + static_cast<size_t>(*elementWidth)));
-        if (static_cast<size_t>(*elementWidth) > 1 && selectBit != const0 && selectBit != const1) {
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset + selectedElementWidth));
+        std::vector<SNLBitNet*> sliceAssignedBits;
+        const auto* candidateBits = &assignedBits;
+        if (action.compoundOp) {
+          if (!buildCombinationalAssignBits(
+                design,
+                action,
+                selectedElementWidth,
+                sliceAssignedBits,
+                &currentBits,
+                failureReason)) {
+            return false;
+          }
+          candidateBits = &sliceAssignedBits;
+        }
+        if (selectedElementWidth > 1 && selectBit != const0 && selectBit != const1) {
           std::vector<SNLBitNet*> updatedBits;
           if (!createMux2Instance(
                 design,
                 selectBit,
                 currentBits,
-                assignedBits,
+                *candidateBits,
                 updatedBits,
                 elementSourceRange)) {
             // LCOV_EXCL_START
@@ -16282,10 +16299,10 @@ class SNLSVConstructorImpl {
             updatedBits.begin(),
             updatedBits.end(),
             dataBits.begin() + static_cast<std::ptrdiff_t>(offset));
-          return;
+          return true;
         }
-        for (size_t elemBit = 0; elemBit < static_cast<size_t>(*elementWidth); ++elemBit) {
-          auto* candidateBit = assignedBits[elemBit];
+        for (size_t elemBit = 0; elemBit < selectedElementWidth; ++elemBit) {
+          auto* candidateBit = (*candidateBits)[elemBit];
           if (selectBit == const1) {
             dataBits[offset + elemBit] = candidateBit;
             continue;
@@ -16304,6 +16321,7 @@ class SNLSVConstructorImpl {
             elementSourceRange);
           dataBits[offset + elemBit] = outBit;
         }
+        return true;
       };
 
       int32_t selectedIndex = 0;
@@ -16316,7 +16334,9 @@ class SNLSVConstructorImpl {
           failureReason = reason.str();
           return false;
         }
-        updateSlice(static_cast<size_t>(translated) * static_cast<size_t>(*elementWidth), const1);
+        if (!updateSlice(static_cast<size_t>(translated) * selectedElementWidth, const1)) {
+          return false;
+        }
         return true;
       }
 
@@ -16368,8 +16388,9 @@ class SNLSVConstructorImpl {
             return false;
           }
           // LCOV_EXCL_STOP
-          updateSlice(static_cast<size_t>(translated) * static_cast<size_t>(*elementWidth),
-                      equalsIndexBit);
+          if (!updateSlice(static_cast<size_t>(translated) * selectedElementWidth, equalsIndexBit)) {
+            return false;
+          }
         }
         index += step;
       }
@@ -16452,14 +16473,16 @@ class SNLSVConstructorImpl {
       }
 
       std::vector<SNLBitNet*> assignedBits;
-      if (!buildCombinationalAssignBits(
-            design,
-            action,
-            *selectedWidth,
-            assignedBits,
-            nullptr,
-            failureReason)) {
-        return false;
+      if (!action.compoundOp) {
+        if (!buildCombinationalAssignBits(
+              design,
+              action,
+              *selectedWidth,
+              assignedBits,
+              nullptr,
+              failureReason)) {
+          return false;
+        }
       }
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
       auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
@@ -16493,9 +16516,28 @@ class SNLSVConstructorImpl {
         };
       const auto applySliceOffsets =
         [&](const std::vector<size_t>& sliceOffsets, SNLBitNet* selectBit) {
+          std::vector<SNLBitNet*> currentBits;
+          std::vector<SNLBitNet*> sliceAssignedBits;
+          const auto* candidateBits = &assignedBits;
+          if (action.compoundOp) {
+            currentBits.reserve(sliceOffsets.size());
+            for (const auto offset : sliceOffsets) {
+              currentBits.push_back(dataBits[offset]);
+            }
+            if (!buildCombinationalAssignBits(
+                  design,
+                  action,
+                  sliceOffsets.size(),
+                  sliceAssignedBits,
+                  &currentBits,
+                  failureReason)) {
+              return false;
+            }
+            candidateBits = &sliceAssignedBits;
+          }
           for (size_t bit = 0; bit < sliceOffsets.size(); ++bit) {
             const auto offset = sliceOffsets[bit];
-            auto* candidateBit = assignedBits[bit];
+            auto* candidateBit = (*candidateBits)[bit];
             if (selectBit == const0 || dataBits[offset] == candidateBit) {
               continue;
             }
@@ -16514,6 +16556,7 @@ class SNLSVConstructorImpl {
               assignedSourceRange);
             dataBits[offset] = outBit;
           }
+          return true;
         };
 
       int32_t left = 0;
@@ -16615,7 +16658,9 @@ class SNLSVConstructorImpl {
                 "failed to build dynamic indexed range-select decode while lowering always_comb assignment"; // LCOV_EXCL_LINE
               return false; // LCOV_EXCL_LINE
             }
-            applySliceOffsets(candidateOffsets, equalsIndexBit);
+            if (!applySliceOffsets(candidateOffsets, equalsIndexBit)) {
+              return false;
+            }
             index += step;
           }
 
@@ -16642,7 +16687,9 @@ class SNLSVConstructorImpl {
         return false;
       }
 
-      applySliceOffsets(sliceOffsets, const1);
+      if (!applySliceOffsets(sliceOffsets, const1)) {
+        return false;
+      }
       return true;
     }
 
@@ -16709,13 +16756,21 @@ class SNLSVConstructorImpl {
         selectedOffsets.push_back(found->second);
       }
 
+      std::vector<SNLBitNet*> currentSelectedBits;
+      if (action.compoundOp) {
+        currentSelectedBits.reserve(selectedOffsets.size());
+        for (const auto offset : selectedOffsets) {
+          currentSelectedBits.push_back(dataBits[offset]);
+        }
+      }
+
       std::vector<SNLBitNet*> assignedBits;
       if (!buildCombinationalAssignBits(
             design,
             action,
             selectedLhsBits.size(),
             assignedBits,
-            nullptr,
+            action.compoundOp ? &currentSelectedBits : nullptr,
             failureReason)) {
         return false;
       }

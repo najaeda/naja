@@ -293,6 +293,51 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructFieldCompoundAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_field_compound_assignment_supported");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_field_compound_assignment_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_packed_struct_field_compound_assignment_supported(
+  input  logic [4:0] seed_i,
+  input  logic [3:0] data_mask_i,
+  input  logic       valid_mask_i,
+  output logic [4:0] y_o
+);
+  typedef struct packed {
+    logic [3:0] data;
+    logic       valid;
+  } pkt_s;
+
+  pkt_s pkt_n;
+
+  always_comb begin
+    pkt_n = seed_i;
+    pkt_n.data |= data_mask_i;
+    pkt_n.valid &= valid_mask_i;
+    y_o = pkt_n;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_packed_struct_field_compound_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* pkt = top->getBusNet(NLName("pkt_n"));
+  ASSERT_NE(pkt, nullptr);
+  ASSERT_EQ(5, pkt->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombPackedStructWholeThenFieldBranchOverridesSingleDriver) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

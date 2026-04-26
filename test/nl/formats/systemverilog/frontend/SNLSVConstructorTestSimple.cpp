@@ -11296,6 +11296,45 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSRangeSelectCompoundAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_range_select_compound_assignment_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_range_select_compound_assignment_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_range_select_compound_assignment_supported(
+  input  logic [7:0] seed_i,
+  input  logic [3:0] mask_i,
+  output logic [7:0] y_o
+);
+  logic [7:0] tmp;
+  always_comb begin
+    tmp = seed_i;
+    tmp[5:2] |= mask_i;
+    y_o = tmp;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_range_select_compound_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("tmp")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombCompoundAddAssignmentUnknownRHSUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -16878,38 +16917,42 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicElementSelectCompoundAssignmentUnsupported) {
+  parseAlwaysCombLHSDynamicElementSelectCompoundAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_lhs_dynamic_element_select_compound_assignment_unsupported";
+  outPath = outPath / "always_comb_lhs_dynamic_element_select_compound_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_dynamic_element_select_compound_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_dynamic_element_select_compound_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_dynamic_element_select_compound_assignment_unsupported(
+    << R"(module always_comb_lhs_dynamic_element_select_compound_assignment_supported(
   input  logic        sel_i,
-  input  logic [63:0] data_i
+  input  logic [63:0] data_i,
+  output logic [63:0] y_o
 );
   logic [63:0] mem_q [0:1];
   logic [63:0] mem_n [0:1];
   always_comb begin
     mem_n = mem_q;
     mem_n[sel_i] += data_i;
+    y_o = mem_n[sel_i];
   end
 endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment in always_comb without current LHS bits"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_element_select_compound_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
 }
 
 TEST_F(
