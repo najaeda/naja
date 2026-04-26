@@ -16657,7 +16657,12 @@ class SNLSVConstructorImpl {
       bool& handled) {
       handled = false;
       if (!isTrackedSelectionSubLhsOf(&assignedLHS, &trackedLhs)) {
+        // LCOV_EXCL_START
+        // With subtree summaries enabled, unrelated assignments are skipped
+        // before this fixed-selection helper is reached. Keep the fallback for
+        // alternate parser flows.
         return true;
+        // LCOV_EXCL_STOP
       }
       handled = true;
 
@@ -16667,13 +16672,22 @@ class SNLSVConstructorImpl {
             assignedLHS,
             selectedLhsBits,
             &failureReason)) {
+        // LCOV_EXCL_START
+        // collectAssignedLHSExpressions tracks selection bases before replay,
+        // so parser-backed fixed sub-assignments resolve here or are rejected
+        // earlier when collecting the tracked LHS.
         return false;
+        // LCOV_EXCL_STOP
       }
       if (selectedLhsBits.empty()) {
+        // LCOV_EXCL_START
+        // resolveAssignmentLHSBits only reports success with a non-empty bit
+        // vector. Keep this guard for API invariants.
         failureReason = formatDescribedFailure(
           "empty always_comb sub-assignment LHS: ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
 
       std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
@@ -16706,10 +16720,14 @@ class SNLSVConstructorImpl {
         return false;
       }
       if (assignedBits.size() != selectedLhsBits.size()) {
+        // LCOV_EXCL_START
+        // buildCombinationalAssignBits is called with selectedLhsBits.size()
+        // as the target width, so a successful result has the requested width.
         failureReason = formatDescribedFailure(
           "width mismatch while lowering always_comb sub-assignment for ",
           describeExpression(assignedLHS));
         return false;
+        // LCOV_EXCL_STOP
       }
 
       for (size_t bit = 0; bit < selectedOffsets.size(); ++bit) {
@@ -20124,11 +20142,15 @@ class SNLSVConstructorImpl {
           }
           auto connectedBits = bits;
           if (targetTerm->getDirection() != SNLTerm::Direction::Input) {
+            // LCOV_EXCL_START
+            // Slang rejects output/inout port actuals containing constants in
+            // parser-backed construction before this normalization is reached.
             for (auto& bit: connectedBits) {
               if (bit && bit->isAssignConstant()) {
                 bit = nullptr;
               }
             }
+            // LCOV_EXCL_STOP
           }
           try {
             inst->setTermsNets(bitTerms, connectedBits);
@@ -20147,7 +20169,11 @@ class SNLSVConstructorImpl {
             if (instTerm) {
               if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
                   net->isAssignConstant()) {
+                // LCOV_EXCL_START
+                // Slang rejects scalar output ports tied directly to constants
+                // before parser-backed construction reaches this point.
                 continue;
+                // LCOV_EXCL_STOP
               }
               try {
                 instTerm->setNet(net);
@@ -20189,7 +20215,11 @@ class SNLSVConstructorImpl {
                 auto* connectionBit = connectionBits.front();
                 if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
                     connectionBit && connectionBit->isAssignConstant()) {
+                  // LCOV_EXCL_START
+                  // Slang rejects scalar output ports tied to constant-only
+                  // expressions before parser-backed construction reaches this.
                   continue;
+                  // LCOV_EXCL_STOP
                 }
                 instTerm->setNet(connectionBit);
                 // LCOV_EXCL_START
