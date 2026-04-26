@@ -7,10 +7,14 @@ cases:
     repo: https://github.com/najaeda/black-parrot.git
     commit: d55d48b04412745cee59663608fdbff30f37eccf
     top: bp_multicore
-    flist: naja/flist.naja
+    flist: bp_top/flist.vcs
+    flist_append:
+      - $BP_DIR/external/basejump_stl/bsg_dataflow/bsg_fifo_1r1w_small_hardened.sv
+      - $BP_DIR/external/basejump_stl/bsg_dataflow/bsg_fifo_1r1w_small_hardened_multi.sv
     output: black_parrot_naja.v
     env:
       BP_DIR: "{repo}"
+      BP_ROOT: "{repo}"
     dump:
       rtl_infos_as_attributes: true
       assigns_as_instances: false

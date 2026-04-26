@@ -88,6 +88,31 @@ cases:
         self.assertIn("/work/artifacts/najaeda_primitives.v", command)
         self.assertEqual(12, kwargs["timeout"])
 
+    def test_materialize_flist_appends_manifest_entries(self):
+        case = {
+            "name": "fake",
+            "flist": "rtl/files.f",
+            "flist_append": [
+                "$BP_DIR/rtl/extra.sv",
+                "{repo}/rtl/absolute_extra.sv",
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            case_dir = Path(tmpdir)
+            repo_dir = case_dir / "repo"
+            artifacts_dir = case_dir / "artifacts"
+            (repo_dir / "rtl").mkdir(parents=True)
+            artifacts_dir.mkdir()
+            (repo_dir / "rtl" / "files.f").write_text("base.sv\n", encoding="utf-8")
+
+            generated = sv_regress.materialize_flist(case, repo_dir, case_dir, artifacts_dir)
+
+            self.assertEqual(artifacts_dir / "fake.flist", generated)
+            text = generated.read_text(encoding="utf-8")
+            self.assertIn("base.sv\n", text)
+            self.assertIn("$BP_DIR/rtl/extra.sv\n", text)
+            self.assertIn(f"{repo_dir}/rtl/absolute_extra.sv\n", text)
+
 
 if __name__ == "__main__":
     unittest.main()

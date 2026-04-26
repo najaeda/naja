@@ -244,9 +244,7 @@ def generate_verilog(
 
     output_path = artifacts_dir / case["output"]
     diagnostics_path = artifacts_dir / "diagnostics.log"
-    flist_path = repo_dir / case["flist"]
-    if not flist_path.exists():
-        raise RegressError(f"Missing flist for case {case['name']}: {flist_path}")
+    flist_path = materialize_flist(case, repo_dir, case_dir, artifacts_dir)
 
     env = case_env(case, repo_dir, case_dir, artifacts_dir)
     env["PYTHONPATH"] = f"{najaeda_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
@@ -274,6 +272,41 @@ def generate_verilog(
     if not output_path.exists():
         raise RegressError(f"Generation did not create expected output: {output_path}")
     return output_path
+
+
+def materialize_flist(
+    case: dict[str, Any],
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+) -> Path:
+    flist_path = repo_dir / case["flist"]
+    if not flist_path.exists():
+        raise RegressError(f"Missing flist for case {case['name']}: {flist_path}")
+
+    flist_append = case.get("flist_append", [])
+    if not flist_append:
+        return flist_path
+    if not isinstance(flist_append, list):
+        raise RegressError(f"Invalid flist_append for case {case['name']}: expected list")
+
+    generated_flist = artifacts_dir / f"{case['name']}.flist"
+    generated_flist.parent.mkdir(parents=True, exist_ok=True)
+    content = flist_path.read_text(encoding="utf-8")
+    with generated_flist.open("w", encoding="utf-8") as stream:
+        stream.write(content)
+        if content and not content.endswith("\n"):
+            stream.write("\n")
+        stream.write("\n# Appended by scripts/sv_regress.py\n")
+        for entry in flist_append:
+            stream.write(format_env_value(
+                str(entry),
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
+            ))
+            stream.write("\n")
+    return generated_flist
 
 
 def run_verilator(
