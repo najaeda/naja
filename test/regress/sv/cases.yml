@@ -4,8 +4,8 @@
 
 cases:
   - name: black_parrot
-    repo: https://github.com/najaeda/black-parrot.git
-    commit: d55d48b04412745cee59663608fdbff30f37eccf
+    repo: https://github.com/black-parrot/black-parrot.git
+    commit: 05ef10db21254c0b54fac4439a08de8329b05699
     top: bp_multicore
     flist: bp_top/flist.vcs
     flist_append:
