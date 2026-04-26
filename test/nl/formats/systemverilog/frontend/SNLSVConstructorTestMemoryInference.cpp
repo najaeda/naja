@@ -2461,8 +2461,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unsupported compound assignment in always_comb without current LHS bits",
-     "unsupported statement pattern for sequential lowering"});
+    {"unsupported statement pattern for sequential lowering"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceNestedBaseCopyFallback) {

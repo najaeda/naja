@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -53,10 +53,10 @@ jobs:
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
       - name: Run external SV regress lint
-        run: python3 ${{ github.workspace }}/scripts/sv_regress.py run --case all
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case all
 
       - name: Upload SV regress artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: sv-regress-artifacts
