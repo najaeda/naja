@@ -540,7 +540,7 @@ endmodule
     std::string::npos,
     dumpedText.find(".INIT(32'b00110011001000100001000100000000)"));
 
-  const auto primitiveDumpPath = dumpedVerilog.parent_path() / "primitives.v";
+  const auto primitiveDumpPath = dumpedVerilog.parent_path() / "naja_primitives.v";
   ASSERT_TRUE(std::filesystem::exists(primitiveDumpPath));
   std::string primitiveDump = readTextFile(primitiveDumpPath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));

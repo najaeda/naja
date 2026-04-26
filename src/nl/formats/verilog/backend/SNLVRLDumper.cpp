@@ -1023,6 +1023,30 @@ NLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNamin
   return uniqueNetName;
 }
 
+NLName SNLVRLDumper::createUnusedWireName(
+  const SNLInstTerm* instTerm,
+  DesignInsideAnonymousNaming& naming) {
+  auto key = std::make_pair(
+    instTerm->getInstance()->getID(),
+    instTerm->getBitTerm()->getFlatID());
+  auto it = naming.unusedWireNames_.find(key);
+  if (it != naming.unusedWireNames_.end()) {
+    return it->second;
+  }
+
+  std::string wireName =
+    "_naja_unused_" + std::to_string(instTerm->getInstance()->getID()) +
+    "_" + std::to_string(instTerm->getBitTerm()->getFlatID());
+  int conflict = 0;
+  NLName uniqueWireName(wireName);
+  while (naming.netTermNameSet_.find(uniqueWireName) != naming.netTermNameSet_.end()) {
+    uniqueWireName = NLName(wireName + "_" + std::to_string(conflict++));
+  }
+  naming.netTermNameSet_.insert(uniqueWireName);
+  naming.unusedWireNames_[key] = uniqueWireName;
+  return uniqueWireName;
+}
+
 NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
   if (net->isUnnamed()) {
     auto it = naming.netNames_.find(net->getID());
@@ -1033,11 +1057,22 @@ NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNa
   }
 }
 
+NLName SNLVRLDumper::getUnusedWireName(
+  const SNLInstTerm* instTerm,
+  const DesignInsideAnonymousNaming& naming) {
+  auto key = std::make_pair(
+    instTerm->getInstance()->getID(),
+    instTerm->getBitTerm()->getFlatID());
+  auto it = naming.unusedWireNames_.find(key);
+  assert(it != naming.unusedWireNames_.end());
+  return it->second;
+}
+
 std::string SNLVRLDumper::getBitNetString(
   const SNLBitNet* bitNet,
   const DesignInsideAnonymousNaming& naming) {
   if (!bitNet) {
-    return "DUMMY";
+    throw SNLVRLDumperException("Error while writing verilog: unexpected unconnected bit net");
   }
   if (bitNet->isAssign0()) {
     return "1'b0";
@@ -1256,11 +1291,87 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
   }
 }
 
+void SNLVRLDumper::collectUnusedWireNames(
+  const SNLDesign* design,
+  DesignInsideAnonymousNaming& naming) {
+  for (auto instance: design->getInstances()) {
+    if (NLDB0::isAssign(instance->getModel())) {
+      continue;
+    }
+    if (NLDB0::isGate(instance->getModel())) {
+      for (auto instTerm: instance->getInstTerms()) {
+        if (not instTerm->getNet()) {
+          createUnusedWireName(instTerm, naming);
+        }
+      }
+      continue;
+    }
+
+    const SNLTerm* previousTerm = nullptr;
+    InstTermVector instTerms;
+    for (auto instTerm: instance->getInstTerms()) {
+      auto bitTerm = instTerm->getBitTerm();
+      const SNLTerm* currentTerm = nullptr;
+      if (dynamic_cast<SNLScalarTerm*>(bitTerm)) {
+        currentTerm = bitTerm;
+      } else {
+        auto busTermBit = static_cast<SNLBusTermBit*>(bitTerm);
+        currentTerm = busTermBit->getBus();
+      }
+      if (currentTerm != previousTerm) {
+        if (previousTerm) {
+          const bool hasConnected = std::any_of(
+            instTerms.begin(),
+            instTerms.end(),
+            [](const SNLInstTerm* term) { return term->getNet() != nullptr; });
+          if (hasConnected) {
+            for (auto previousInstTerm: instTerms) {
+              if (not previousInstTerm->getNet()) {
+                createUnusedWireName(previousInstTerm, naming);
+              }
+            }
+          }
+        }
+        instTerms.clear();
+      }
+      instTerms.push_back(instTerm);
+      previousTerm = currentTerm;
+    }
+    if (previousTerm) {
+      const bool hasConnected = std::any_of(
+        instTerms.begin(),
+        instTerms.end(),
+        [](const SNLInstTerm* term) { return term->getNet() != nullptr; });
+      if (hasConnected) {
+        for (auto instTerm: instTerms) {
+          if (not instTerm->getNet()) {
+            createUnusedWireName(instTerm, naming);
+          }
+        }
+      }
+    }
+  }
+}
+
+void SNLVRLDumper::dumpUnusedWireDeclarations(
+  std::ostream& o,
+  const DesignInsideAnonymousNaming& naming) {
+  if (naming.unusedWireNames_.empty()) {
+    return;
+  }
+  for (const auto& [_, name]: naming.unusedWireNames_) {
+    o << "wire " << dumpName(name.getString()) << ";" << '\n';
+  }
+  o << '\n';
+}
+
 void SNLVRLDumper::dumpInsTermConnectivity(
   const SNLTerm* term,
   BitNetVector& termNets,
+  const InstTermVector& instTerms,
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
+  assert(termNets.size() == instTerms.size());
   if (std::any_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
     assert(not termNets.empty());
     bool concatenation = false;
@@ -1304,7 +1415,8 @@ void SNLVRLDumper::dumpInsTermConnectivity(
       }
       bits.clear();
     };
-    for (auto net: termNets) {
+    for (size_t i = 0; i < termNets.size(); ++i) {
+      auto net = termNets[i];
       if (net) {
         if (net->isAssignConstant()) {
           if (not contiguousBits.empty()) {
@@ -1360,7 +1472,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
         } else {
           firstElement = false;
         }
-        connectionStr += "DUMMY";
+        connectionStr += dumpName(getUnusedWireName(instTerms[i], naming).getString());
       }
     }
     if (not contiguousBits.empty()) {
@@ -1387,6 +1499,7 @@ void SNLVRLDumper::dumpInstanceInterface(
   const DesignInsideAnonymousNaming& naming) {
   o << " (";
   BitNetVector termNets;
+  InstTermVector instTerms;
   SNLTerm* previousTerm = nullptr;
   bool first = true;
   for (auto instTerm: instance->getInstTerms()) {
@@ -1411,10 +1524,14 @@ void SNLVRLDumper::dumpInstanceInterface(
             o << ",";
           }
           o << '\n';
-          dumpInsTermConnectivity(previousTerm, termNets, o, naming);
+          dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
         }
       }
       termNets = { instTerm->getNet() };
+      instTerms = { instTerm };
+    }
+    if (currentTerm == previousTerm) {
+      instTerms.push_back(instTerm);
     }
     previousTerm = currentTerm;
   }
@@ -1427,7 +1544,7 @@ void SNLVRLDumper::dumpInstanceInterface(
         o << ",";
       }
       o << '\n';
-      dumpInsTermConnectivity(previousTerm, termNets, o, naming);
+      dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
     }
   }
   o << '\n' << ")";
@@ -1520,6 +1637,7 @@ bool SNLVRLDumper::dumpInstance(
   DesignInsideAnonymousNaming& naming) {
   if (NLDB0::isMux2(instance->getModel())) {
     emitNajaMux2Model_ = true;
+    emitNajaPrimitiveModels_ = true;
     std::string instanceName;
     if (instance->isUnnamed()) {
       instanceName = createInstanceName(instance, naming);
@@ -1547,6 +1665,7 @@ bool SNLVRLDumper::dumpInstance(
   }
   if (NLDB0::isMemory(instance->getModel())) {
     emitNajaMemModel_ = true;
+    emitNajaPrimitiveModels_ = true;
     std::string instanceName;
     if (instance->isUnnamed()) {
       instanceName = createInstanceName(instance, naming);
@@ -1560,6 +1679,14 @@ bool SNLVRLDumper::dumpInstance(
     dumpInstanceInterface(instance, o, naming);
     o << ";" << '\n';
     return true;
+  }
+  if (auto* model = instance->getModel();
+      NLDB0::isFA(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
+      NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
+      NLDB0::isDFFSE(model) ||
+      (model && NLDB0::isDB0Primitive(model) && !model->isUnnamed() &&
+       model->getName() == NLName("naja_dff"))) {
+    emitNajaPrimitiveModels_ = true;
   }
   if (NLDB0::isGate(instance->getModel())) {
     auto gateName = NLDB0::getGateName(instance->getModel());
@@ -1576,7 +1703,11 @@ bool SNLVRLDumper::dumpInstance(
         o << ", ";
       }
       auto net = instTerm->getNet();
-      o << getBitNetString(net, naming);
+      if (net) {
+        o << getBitNetString(net, naming);
+      } else {
+        o << dumpName(getUnusedWireName(instTerm, naming).getString());
+      }
     }
     o << ");";
     o << '\n';
@@ -1943,6 +2074,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isUnnamed()) {
     createDesignName(design);
   }
+  collectUnusedWireNames(design, naming);
   dumpAttributes(design, o, AttributeDumpSite::Design);
   o << "module " << dumpName(design->getName().getString());
 
@@ -1951,12 +2083,25 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
 
   dumpParameters(design, o);
   dumpNets(design, o, naming);
+  dumpUnusedWireDeclarations(o, naming);
   dumpTermAssigns(design, o);
 
   dumpInstances(design, o, naming);
 
   o << "endmodule //" << design->getName().getString();
   o << '\n';
+}
+
+void SNLVRLDumper::dumpNajaFAModel(std::ostream& o) {
+  o << "module naja_fa(\n";
+  o << "  input A,\n";
+  o << "  input B,\n";
+  o << "  input CI,\n";
+  o << "  output S,\n";
+  o << "  output CO\n";
+  o << ");\n";
+  o << "  assign {CO, S} = A + B + CI;\n";
+  o << "endmodule //naja_fa\n";
 }
 
 void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
@@ -1970,6 +2115,99 @@ void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
   o << ");\n";
   o << "  assign Y = S ? B : A;\n";
   o << "endmodule //naja_mux2\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
+  o << "module naja_dff(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C) begin\n";
+  o << "    Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dff\n";
+}
+
+void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
+  o << "module naja_dlatch(\n";
+  o << "  input E,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @* begin\n";
+  o << "    if (E) Q = D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dlatch\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
+  o << "module naja_dffn(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(negedge C) begin\n";
+  o << "    Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffn\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFRNModel(std::ostream& o) {
+  o << "module naja_dffrn(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input RN,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or negedge RN) begin\n";
+  o << "    if (!RN) Q <= 1'b0;\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffrn\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
+  o << "module naja_dffe(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C) begin\n";
+  o << "    if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffe\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFREModel(std::ostream& o) {
+  o << "module naja_dffre(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  input R,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge R) begin\n";
+  o << "    if (R) Q <= 1'b0;\n";
+  o << "    else if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffre\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
+  o << "module naja_dffse(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  input S,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge S) begin\n";
+  o << "    if (S) Q <= 1'b1;\n";
+  o << "    else if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffse\n";
 }
 
 void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
@@ -2054,6 +2292,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_.dumpDesignStreamCalls);
   emitNajaMemModel_ = false;
   emitNajaMux2Model_ = false;
+  emitNajaPrimitiveModels_ = false;
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
@@ -2083,6 +2322,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
     detailedPerfReport_.dumpLibraryStreamCalls);
   emitNajaMemModel_ = false;
   emitNajaMux2Model_ = false;
+  emitNajaPrimitiveModels_ = false;
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
@@ -2102,7 +2342,7 @@ std::string SNLVRLDumper::getPrimitiveFileName() const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
   }
-  return "primitives.v";
+  return "naja_primitives.v";
 }
 
 std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
@@ -2116,7 +2356,7 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
 } 
 
 void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
-  if (!emitNajaMemModel_ && !emitNajaMux2Model_) {
+  if (!emitNajaPrimitiveModels_) {
     return;
   }
   std::filesystem::path filePath = path/getPrimitiveFileName();
@@ -2128,17 +2368,25 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
     "//"
   );
   outFile << '\n';
-  bool needBlankLine = false;
-  if (emitNajaMux2Model_) {
-    dumpNajaMux2Model(outFile);
-    needBlankLine = true;
-  }
-  if (emitNajaMemModel_) {
-    if (needBlankLine) {
-      outFile << '\n';
-    }
-    dumpNajaMemModel(outFile);
-  }
+  dumpNajaFAModel(outFile);
+  outFile << '\n';
+  dumpNajaMux2Model(outFile);
+  outFile << '\n';
+  dumpNajaDFFModel(outFile);
+  outFile << '\n';
+  dumpNajaDLatchModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFRNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFEModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFREModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSEModel(outFile);
+  outFile << '\n';
+  dumpNajaMemModel(outFile);
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
@@ -2175,7 +2423,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     );
     outFile << '\n';
     dumpDesign(design, outFile);
-    if (emitNajaMemModel_ || emitNajaMux2Model_) {
+    if (emitNajaPrimitiveModels_) {
       dumpNajaPrimitiveFile(path);
     }
   } else {
@@ -2187,6 +2435,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
     bool emitNajaMemModel = false;
     bool emitNajaMux2Model = false;
+    bool emitNajaPrimitiveModels = false;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
       std::filesystem::path filePath = path/getTopFileName(design);
@@ -2201,10 +2450,13 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       streamDumper.dumpDesign(design, outFile);
       emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
       emitNajaMux2Model = emitNajaMux2Model or streamDumper.emitNajaMux2Model_;
+      emitNajaPrimitiveModels =
+        emitNajaPrimitiveModels or streamDumper.emitNajaPrimitiveModels_;
     }
     emitNajaMemModel_ = emitNajaMemModel;
     emitNajaMux2Model_ = emitNajaMux2Model;
-    if (emitNajaMemModel || emitNajaMux2Model) {
+    emitNajaPrimitiveModels_ = emitNajaPrimitiveModels;
+    if (emitNajaPrimitiveModels) {
       dumpNajaPrimitiveFile(path);
     }
   }
@@ -2243,7 +2495,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
     );
     outFile << '\n';
     dumpLibrary(library, outFile);
-    if (emitNajaMemModel_ || emitNajaMux2Model_) {
+    if (emitNajaPrimitiveModels_) {
       dumpNajaPrimitiveFile(path);
     }
   } else {
