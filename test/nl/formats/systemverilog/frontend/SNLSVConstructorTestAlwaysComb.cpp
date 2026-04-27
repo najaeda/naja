@@ -393,6 +393,66 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombNestedPackedStructPayloadThenSubfieldsSingleDriver) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_nested_packed_struct_payload_then_subfields_single_driver");
+
+  const auto svPath =
+    outPath / "always_comb_nested_packed_struct_payload_then_subfields_single_driver.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_nested_packed_struct_payload_then_subfields_single_driver(
+  input  logic [3:0] msg_i,
+  input  logic [1:0] src_i,
+  input  logic       dst_i,
+  input  logic [2:0] did_i,
+  output logic [9:0] y_o
+);
+  typedef struct packed {
+    logic [1:0] src_id;
+    logic       dst_id;
+    logic [2:0] src_did;
+  } payload_s;
+
+  typedef struct packed {
+    logic [3:0] msg_type;
+    payload_s   payload;
+  } header_s;
+
+  header_s h;
+
+  always_comb begin
+    h.msg_type = msg_i;
+    h.payload = '0;
+    h.payload.src_id = src_i;
+    h.payload.dst_id = dst_i;
+    h.payload.src_did = did_i;
+    y_o = h;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_nested_packed_struct_payload_then_subfields_single_driver"));
+  ASSERT_NE(top, nullptr);
+  auto* h = top->getBusNet(NLName("h"));
+  ASSERT_NE(h, nullptr);
+  ASSERT_EQ(10, h->getWidth());
+
+  for (NLID::Bit bit = 0; bit < 10; ++bit) {
+    ASSERT_NE(h->getBit(bit), nullptr);
+    EXPECT_NE(nullptr, getSingleAssignInputDriving(h->getBit(bit)))
+      << "bit " << bit;
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombCaseAssignmentFunctionCallSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
@@ -518,7 +578,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"failed to resolve always_comb assignment LHS bits"});
+    {"unsupported always_comb assignment LHS: NamedValue base=s"});
 }
 
 TEST_F(
@@ -551,5 +611,5 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"failed to resolve always_comb assignment LHS bits"});
+    {"unsupported always_comb assignment LHS: NamedValue base=s_n"});
 }

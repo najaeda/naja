@@ -13393,7 +13393,9 @@ class SNLSVConstructorImpl {
       } else if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
         baseExpr = stripConversions(
           stripped->as<slang::ast::MemberAccessExpression>().value());
-        if (!baseExpr || !getRepresentableExpressionBitWidth(*baseExpr)) {
+        if (!baseExpr ||
+            (!getRepresentableExpressionBitWidth(*baseExpr) &&
+             !getExpressionBitstreamWidth(*baseExpr))) {
           return lhsExpr;
         }
       } else {
