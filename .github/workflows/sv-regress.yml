@@ -57,7 +57,7 @@ jobs:
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
       - name: Run external SV regress lint
-        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p
 
       - name: Upload SV regress artifacts
         uses: actions/upload-artifact@v7
