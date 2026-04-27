@@ -2947,6 +2947,144 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombProceduralFunctionNamedArgsAndLocalTempsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_procedural_function_named_args_and_local_temps_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_procedural_function_named_args_and_local_temps_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_procedural_function_named_args_and_local_temps_supported(
+  input  logic [4:0] rlist_i,
+  input  logic [4:0] offset_i,
+  output logic [31:0] instr_o
+);
+  function automatic logic [4:0] top_reg(input logic [4:0] rlist);
+    unique case (rlist)
+      5'd16, 5'd15: return 5'd11 + rlist;
+      5'd6, 5'd5:   return 5'd3 + rlist;
+      default:      return 5'd0;
+    endcase
+  endfunction
+
+  function automatic logic [31:0] build_instr(input logic [4:0] rlist,
+                                              input logic [4:0] sp_offset);
+    logic [11:0] neg_offset;
+    logic signed [11:0] neg_offset_signed;
+    logic [31:0] instr;
+    neg_offset_signed = -signed'({5'b00000, sp_offset, 2'b00});
+    neg_offset = unsigned'(neg_offset_signed);
+    instr[ 6: 0] = 7'b0100011;
+    instr[11: 7] = neg_offset[4:0];
+    instr[14:12] = 3'b010;
+    instr[19:15] = 5'd2;
+    instr[24:20] = top_reg(rlist);
+    instr[31:25] = neg_offset[11:5];
+    return instr;
+  endfunction
+
+  always_comb begin
+    instr_o = build_instr(.rlist(rlist_i), .sp_offset(offset_i));
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_procedural_function_named_args_and_local_temps_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("instr_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombFunctionDirectReturnCallSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_function_direct_return_call_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_function_direct_return_call_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_function_direct_return_call_supported(
+  input  logic [3:0] rlist_i,
+  input  logic [1:0] spimm_i,
+  input  logic       sel_i,
+  output logic [31:0] instr_o
+);
+  function automatic logic [6:0] stack_adj_base(input logic [3:0] rlist);
+    unique case (rlist)
+      4'd4, 4'd5, 4'd6, 4'd7: return 7'd16;
+      4'd15:                  return 7'd64;
+      default:                return 7'd0;
+    endcase
+  endfunction
+
+  function automatic logic [6:0] stack_adj(input logic [3:0] rlist,
+                                           input logic [1:0] spimm);
+    return stack_adj_base(rlist) + spimm * 16;
+  endfunction
+
+  function automatic logic [31:0] make_reg(input logic [4:0] src,
+                                           input logic [4:0] dst);
+    logic [31:0] instr;
+    instr[ 6: 0] = 7'b0010011;
+    instr[11: 7] = dst;
+    instr[14:12] = 3'b000;
+    instr[19:15] = src;
+    instr[31:20] = 12'd0;
+    return instr;
+  endfunction
+
+  function automatic logic [31:0] zero_a0();
+    return make_reg(.src(5'd0), .dst(5'd10));
+  endfunction
+
+  function automatic logic [31:0] add_sp(input logic [3:0] rlist,
+                                         input logic [1:0] spimm);
+    logic [31:0] instr;
+    instr[ 6: 0] = 7'b0010011;
+    instr[11: 7] = 5'd2;
+    instr[14:12] = 3'b000;
+    instr[19:15] = 5'd2;
+    instr[31:20] = {5'b00000, stack_adj(.rlist(rlist), .spimm(spimm))};
+    return instr;
+  endfunction
+
+  always_comb begin
+    instr_o = sel_i ? zero_a0() : add_sp(.rlist(rlist_i), .spimm(spimm_i));
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_function_direct_return_call_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("instr_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignNestedCaseReturnFunctionTerminalDefaultSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -10617,6 +10755,48 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousSimpleAssignmentPatternUnpackedArraySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_simple_assignment_pattern_unpacked_array_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_simple_assignment_pattern_unpacked_array_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_simple_assignment_pattern_unpacked_array_supported(
+  input  logic [31:0] a_i,
+  input  logic [31:0] b_i,
+  output logic [31:0] y0_o,
+  output logic [31:0] y1_o
+);
+  logic [31:0] values[2];
+
+  assign values = '{a_i, b_i};
+  assign y0_o = values[0];
+  assign y1_o = values[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_simple_assignment_pattern_unpacked_array_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("values")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y0_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y1_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombStructuredAssignmentPatternDefaultSignalSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -18043,6 +18223,42 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousSignedMultiplyPlusSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_signed_multiply_plus_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_signed_multiply_plus_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_signed_multiply_plus_supported(
+  input  logic        sign_a_i,
+  input  logic        sign_b_i,
+  input  logic [31:0] a_i,
+  input  logic [31:0] b_i,
+  input  logic [33:0] accum_i,
+  output logic [34:0] y_o
+);
+  assign y_o = $signed({sign_a_i, a_i}) * $signed({sign_b_i, b_i}) + $signed(accum_i);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_signed_multiply_plus_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightOperandResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -18770,10 +18986,12 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
   ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
       ++dffCount;
     }
   }
@@ -23785,6 +24003,86 @@ endmodule
     }
   }
   EXPECT_EQ(32u, dffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialGeneratedUnpackedArrayElementNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_generated_unpacked_array_element_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_generated_unpacked_array_element_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_generated_unpacked_array_element_no_duplicate_drivers(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic en_i,
+  input  logic d_i,
+  output logic q_o,
+  output logic r_o
+);
+  localparam int STAGES = 1;
+  logic stage [STAGES+1];
+  logic other [STAGES+1];
+  assign q_o = stage[STAGES];
+  assign r_o = other[STAGES];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      stage[0] <= '0;
+      other[0] <= '0;
+    end else if (en_i) begin
+      stage[0] <= d_i;
+      other[0] <= ~d_i;
+    end
+  end
+
+  for (genvar i = 0; i < STAGES; i++) begin : g_stage
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) begin
+        stage[i+1] <= '0;
+        other[i+1] <= '0;
+      end else if (en_i) begin
+        stage[i+1] <= stage[i];
+        other[i+1] <= other[i];
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_generated_unpacked_array_element_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_generated_unpacked_array_element_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(stage[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(stage[1])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(other[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(other[1])"));
 }
 
 TEST_F(

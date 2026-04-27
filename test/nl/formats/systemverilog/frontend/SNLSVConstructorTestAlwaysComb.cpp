@@ -81,6 +81,41 @@ SNLNet* getSingleAssignInputDriving(SNLBitNet* drivenNet) {
   return inputTerm->getNet();
 }
 
+size_t countOutputInstTermDrivers(SNLBitNet* drivenNet) {
+  if (!drivenNet) {
+    ADD_FAILURE() << "Missing driven net";
+    return 0;
+  }
+
+  size_t drivers = 0;
+  for (auto* instTerm : drivenNet->getInstTerms()) {
+    if (instTerm &&
+        instTerm->getDirection() == SNLTerm::Direction::Output) {
+      ++drivers;
+    }
+  }
+  return drivers;
+}
+
+size_t countMux2InputUses(SNLBitNet* net) {
+  if (!net) {
+    ADD_FAILURE() << "Missing net";
+    return 0;
+  }
+
+  size_t uses = 0;
+  for (auto* instTerm : net->getInstTerms()) {
+    if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto* instance = instTerm->getInstance();
+    if (instance && NLDB0::isMux2(instance->getModel())) {
+      ++uses;
+    }
+  }
+  return uses;
+}
+
 std::filesystem::path createTestDirectory(const char* name) {
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / name;
@@ -453,6 +488,63 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructConditionLeavesExternalFieldDriverSingleDriver) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_condition_leaves_external_field_driver_single_driver");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_condition_leaves_external_field_driver_single_driver.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module ready_source(output logic ready_o);
+  assign ready_o = 1'b1;
+endmodule
+
+module always_comb_packed_struct_condition_leaves_external_field_driver_single_driver(
+  input  logic       sel_i,
+  input  logic [1:0] data_i,
+  output logic [3:0] y_o
+);
+  typedef struct packed {
+    logic       v;
+    logic       ready;
+    logic [1:0] data;
+  } link_s;
+
+  link_s link;
+
+  ready_source ready_i(.ready_o(link.ready));
+
+  always_comb begin
+    link.v = 1'b0;
+    link.data = data_i;
+    if (sel_i) begin
+      link.v = 1'b1;
+    end else begin
+      link.data = 2'b10;
+    end
+    y_o = link;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_packed_struct_condition_leaves_external_field_driver_single_driver"));
+  ASSERT_NE(top, nullptr);
+  auto* link = top->getBusNet(NLName("link"));
+  ASSERT_NE(link, nullptr);
+  ASSERT_EQ(4, link->getWidth());
+  ASSERT_NE(link->getBit(2), nullptr);
+  EXPECT_EQ(1u, countOutputInstTermDrivers(link->getBit(2)));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombCaseAssignmentFunctionCallSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
@@ -487,6 +579,49 @@ endmodule
     NLName("always_comb_case_assignment_function_call_unsupported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombRHSCurrentLHSUsesReplayValueNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_rhs_current_lhs_uses_replay_value_no_feedback");
+
+  const auto svPath =
+    outPath / "always_comb_rhs_current_lhs_uses_replay_value_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_current_lhs_uses_replay_value_no_feedback(
+  input  logic [3:0] a_i,
+  input  logic       sel_i,
+  input  logic       kill_i,
+  output logic [3:0] y_o
+);
+  always_comb begin
+    y_o = a_i;
+    if (sel_i) begin
+      y_o = kill_i ? 4'b0000 : y_o;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_rhs_current_lhs_uses_replay_value_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  auto* y = top->getBusNet(NLName("y_o"));
+  ASSERT_NE(y, nullptr);
+  ASSERT_EQ(4, y->getWidth());
+  for (auto* bit : y->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+    EXPECT_EQ(0u, countMux2InputUses(bit)) << bit->getString();
+  }
 }
 
 TEST_F(SNLSVConstructorTestAlwaysComb, parseAlwaysCombConcatenationLHSSupported) {

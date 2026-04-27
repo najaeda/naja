@@ -166,6 +166,62 @@ def case_env(
     return env
 
 
+def format_command(
+    command: list[Any],
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+) -> list[str]:
+    if not command:
+        raise RegressError("Invalid empty setup command")
+    return [
+        format_env_value(
+            str(arg),
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+        )
+        for arg in command
+    ]
+
+
+def run_setup_commands(
+    case: dict[str, Any],
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    log_dir: Path,
+) -> None:
+    commands = case.get("setup_commands", [])
+    if not commands:
+        return
+    if not isinstance(commands, list):
+        raise RegressError(f"Invalid setup_commands for case {case['name']}: expected list")
+
+    env = case_env(case, repo_dir, case_dir, artifacts_dir)
+    timeout = int(case.get("setup_timeout_seconds", 7200))
+    for index, command in enumerate(commands):
+        if not isinstance(command, list):
+            raise RegressError(
+                f"Invalid setup_commands[{index}] for case {case['name']}: expected argument list"
+            )
+        formatted_command = format_command(
+            command,
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+        )
+        run_command(
+            formatted_command,
+            cwd=repo_dir,
+            env=env,
+            timeout=timeout,
+            log_path=log_dir / f"setup-{index}.log",
+        )
+
+
 def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
     repo_url = case["repo"]
     commit = case["commit"]
@@ -245,6 +301,13 @@ def generate_verilog(
 
     output_path = artifacts_dir / case["output"]
     diagnostics_path = artifacts_dir / "diagnostics.log"
+    run_setup_commands(
+        case,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+        log_dir=log_dir,
+    )
     flist_path = materialize_flist(case, repo_dir, case_dir, artifacts_dir)
 
     env = case_env(case, repo_dir, case_dir, artifacts_dir)
@@ -275,39 +338,157 @@ def generate_verilog(
     return output_path
 
 
+def resolve_case_path(
+    value: str,
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+) -> Path:
+    formatted = format_env_value(
+        value,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+    )
+    path = Path(formatted)
+    return path if path.is_absolute() else repo_dir / path
+
+
+def resolve_glob(
+    pattern: str,
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+) -> list[Path]:
+    formatted = format_env_value(
+        pattern,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+    )
+    path = Path(formatted)
+    if path.is_absolute():
+        return sorted(path.parent.glob(path.name))
+    return sorted(repo_dir.glob(formatted))
+
+
+def resolve_flist_path(
+    case: dict[str, Any],
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+) -> Path:
+    flist_path = resolve_case_path(
+        str(case["flist"]),
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+    )
+    if flist_path.exists():
+        return flist_path
+
+    flist_glob = case.get("flist_glob")
+    if flist_glob:
+        matches = resolve_glob(
+            str(flist_glob),
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+        )
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise RegressError(
+                f"Flist glob for case {case['name']} matched multiple files: {flist_glob}"
+            )
+
+    raise RegressError(f"Missing flist for case {case['name']}: {flist_path}")
+
+
+def absolutize_from_base(path_text: str, base_dir: Path) -> str:
+    path = Path(path_text)
+    return str(path if path.is_absolute() else base_dir / path)
+
+
+def normalize_fusesoc_vc(flist_path: Path) -> str:
+    lines: list[str] = []
+    base_dir = flist_path.parent
+    for raw_line in flist_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("+incdir+"):
+            include_path = absolutize_from_base(line[len("+incdir+"):], base_dir)
+            lines.append("+incdir+" + include_path)
+        elif line.startswith("+define+"):
+            lines.append(line)
+        elif line.startswith("-D") and len(line) > 2:
+            lines.append("+define+" + line[2:])
+        elif line.endswith((".sv", ".v", ".svh", ".vh")):
+            lines.append(absolutize_from_base(line, base_dir))
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def write_flist(
+    case: dict[str, Any],
+    *,
+    artifacts_dir: Path,
+    content: str,
+    repo_dir: Path,
+    case_dir: Path,
+) -> Path:
+    flist_append = case.get("flist_append", [])
+    if not isinstance(flist_append, list):
+        raise RegressError(f"Invalid flist_append for case {case['name']}: expected list")
+
+    generated_flist = artifacts_dir / f"{case['name']}.flist"
+    generated_flist.parent.mkdir(parents=True, exist_ok=True)
+    with generated_flist.open("w", encoding="utf-8") as stream:
+        stream.write(content)
+        if content and not content.endswith("\n"):
+            stream.write("\n")
+        if flist_append:
+            stream.write("\n# Appended by regress/sv/sv_regress.py\n")
+            for entry in flist_append:
+                stream.write(format_env_value(
+                    str(entry),
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                ))
+                stream.write("\n")
+    return generated_flist
+
+
 def materialize_flist(
     case: dict[str, Any],
     repo_dir: Path,
     case_dir: Path,
     artifacts_dir: Path,
 ) -> Path:
-    flist_path = repo_dir / case["flist"]
-    if not flist_path.exists():
-        raise RegressError(f"Missing flist for case {case['name']}: {flist_path}")
+    flist_path = resolve_flist_path(case, repo_dir, case_dir, artifacts_dir)
 
+    flist_format = case.get("flist_format", "plain")
     flist_append = case.get("flist_append", [])
-    if not flist_append:
+    if flist_format == "plain" and not flist_append:
         return flist_path
-    if not isinstance(flist_append, list):
-        raise RegressError(f"Invalid flist_append for case {case['name']}: expected list")
 
-    generated_flist = artifacts_dir / f"{case['name']}.flist"
-    generated_flist.parent.mkdir(parents=True, exist_ok=True)
-    content = flist_path.read_text(encoding="utf-8")
-    with generated_flist.open("w", encoding="utf-8") as stream:
-        stream.write(content)
-        if content and not content.endswith("\n"):
-            stream.write("\n")
-        stream.write("\n# Appended by regress/sv/sv_regress.py\n")
-        for entry in flist_append:
-            stream.write(format_env_value(
-                str(entry),
-                repo_dir=repo_dir,
-                case_dir=case_dir,
-                artifacts_dir=artifacts_dir,
-            ))
-            stream.write("\n")
-    return generated_flist
+    if flist_format == "plain":
+        content = flist_path.read_text(encoding="utf-8")
+    elif flist_format == "fusesoc_vc":
+        content = normalize_fusesoc_vc(flist_path)
+    else:
+        raise RegressError(f"Unsupported flist_format for case {case['name']}: {flist_format}")
+
+    return write_flist(
+        case,
+        artifacts_dir=artifacts_dir,
+        content=content,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+    )
 
 
 def run_verilator(
