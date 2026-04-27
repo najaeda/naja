@@ -10797,6 +10797,92 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousSimpleAssignmentPatternUnpackedScalarArraySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_simple_assignment_pattern_unpacked_scalar_array_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_simple_assignment_pattern_unpacked_scalar_array_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_simple_assignment_pattern_unpacked_scalar_array_supported(
+  input  logic [31:0] a_i,
+  input  logic [31:0] b_i,
+  output logic [31:0] y0_o,
+  output logic [31:0] y1_o
+);
+  int values[2];
+
+  assign values = '{a_i, b_i};
+  assign y0_o = values[0];
+  assign y1_o = values[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_simple_assignment_pattern_unpacked_scalar_array_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("values")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y0_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y1_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousSimpleAssignmentPatternUnpackedEnumArraySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_simple_assignment_pattern_unpacked_enum_array_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_simple_assignment_pattern_unpacked_enum_array_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_simple_assignment_pattern_unpacked_enum_array_supported(
+  input  logic sel_i,
+  output logic [3:0] y_o
+);
+  typedef enum logic [1:0] {
+    Idle = 2'b00,
+    Busy = 2'b01,
+    Done = 2'b10
+  } state_t;
+
+  state_t values[2];
+
+  assign values = '{sel_i ? Busy : Idle, Done};
+  assign y_o = {values[0], values[1]};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_simple_assignment_pattern_unpacked_enum_array_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("values")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombStructuredAssignmentPatternDefaultSignalSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

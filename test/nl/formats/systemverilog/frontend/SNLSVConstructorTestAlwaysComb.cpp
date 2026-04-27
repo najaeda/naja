@@ -734,6 +734,185 @@ endmodule
   }
 }
 
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombTemporarySelectionReplaySupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_temporary_selection_replay_supported");
+
+  const auto svPath =
+    outPath / "always_comb_temporary_selection_replay_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_temporary_selection_replay_supported(
+  input  logic [3:0] seed_i,
+  input  logic [1:0] lo_i,
+  input  logic       hi_i,
+  output logic [3:0] result_o
+);
+  logic [3:0] tmp;
+
+  always_comb begin
+    tmp = seed_i;
+    tmp[1:0] = lo_i;
+    tmp[3] = hi_i;
+    result_o = {tmp[0], tmp[3:1]};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_temporary_selection_replay_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* result = top->getBusNet(NLName("result_o"));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(4, result->getWidth());
+  for (auto* bit : result->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombCaseTemporaryReplayDependenciesSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_case_temporary_replay_dependencies_supported");
+
+  const auto svPath =
+    outPath / "always_comb_case_temporary_replay_dependencies_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_temporary_replay_dependencies_supported(
+  input  logic [3:0] seed_i,
+  input  logic [1:0] sel_i,
+  input  logic       a_i,
+  input  logic       b_i,
+  output logic [3:0] result_o
+);
+  logic [3:0] tmp;
+
+  always_comb begin
+    tmp = seed_i;
+    unique case (sel_i)
+      2'd0: tmp[0] = a_i;
+      2'd1: tmp[1] = b_i;
+      default: tmp[2] = a_i ^ b_i;
+    endcase
+    result_o = tmp;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_case_temporary_replay_dependencies_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* result = top->getBusNet(NLName("result_o"));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(4, result->getWidth());
+  for (auto* bit : result->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombTemporarySelectionCompoundReplaySupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_temporary_selection_compound_replay_supported");
+
+  const auto svPath =
+    outPath / "always_comb_temporary_selection_compound_replay_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_temporary_selection_compound_replay_supported(
+  input  logic [3:0] seed_i,
+  input  logic [2:0] inc_i,
+  output logic [3:0] result_o
+);
+  logic [3:0] tmp;
+
+  always_comb begin
+    tmp = seed_i;
+    tmp[2:0] += inc_i;
+    result_o = tmp;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_temporary_selection_compound_replay_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* result = top->getBusNet(NLName("result_o"));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(4, result->getWidth());
+  for (auto* bit : result->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseFunctionDirectReturnLocalAssignmentsSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "function_direct_return_local_assignments_supported");
+
+  const auto svPath =
+    outPath / "function_direct_return_local_assignments_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module function_direct_return_local_assignments_supported(
+  input  logic [3:0] seed_i,
+  input  logic       hi_i,
+  output logic [3:0] result_o
+);
+  function automatic logic [3:0] build(input logic [3:0] seed, input logic hi);
+    logic [3:0] tmp;
+    tmp = seed;
+    tmp[3] = hi;
+    return {tmp[0], tmp[3:1]};
+  endfunction
+
+  always_comb begin
+    result_o = build(seed_i, hi_i);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("function_direct_return_local_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* result = top->getBusNet(NLName("result_o"));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(4, result->getWidth());
+  for (auto* bit : result->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+}
+
 TEST_F(SNLSVConstructorTestAlwaysComb, parseAlwaysCombConcatenationLHSSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory("always_comb_concatenation_lhs_supported");
