@@ -9184,8 +9184,8 @@ class SNLSVConstructorImpl {
       const auto& baseType = baseExpr.type->getCanonicalType();
       if (baseType.hasFixedRange()) {
         baseRange = baseType.getFixedRange();
+      // LCOV_EXCL_START
       } else if (baseBits.size() > 1) {
-        // LCOV_EXCL_START
         // Multi-bit replay symbols currently come from ranged SV objects.
         baseRange = slang::ConstantRange(static_cast<int32_t>(baseBits.size() - 1), 0);
       }
@@ -13050,11 +13050,9 @@ class SNLSVConstructorImpl {
             }
 
             std::vector<SNLBitNet*> changedA(
-              inA.begin() + static_cast<std::ptrdiff_t>(firstChanged),
-              inA.begin() + static_cast<std::ptrdiff_t>(bit));
+              inA.begin() + static_cast<std::ptrdiff_t>(firstChanged), inA.begin() + static_cast<std::ptrdiff_t>(bit));
             std::vector<SNLBitNet*> changedB(
-              inB.begin() + static_cast<std::ptrdiff_t>(firstChanged),
-              inB.begin() + static_cast<std::ptrdiff_t>(bit));
+              inB.begin() + static_cast<std::ptrdiff_t>(firstChanged), inB.begin() + static_cast<std::ptrdiff_t>(bit));
             std::vector<SNLBitNet*> changedOut;
             if (!createMux2Instance(
                   design,
@@ -13353,16 +13351,16 @@ class SNLSVConstructorImpl {
             }
           }
           return;
+        // LCOV_EXCL_START
         case slang::ast::ExpressionKind::Assignment: {
-          // LCOV_EXCL_START
           // Assignment expressions are legal expression tree nodes, but the
           // currently supported replay dependency cases only need their RHS
           // when such a node has already survived earlier lowering.
           const auto& assignment = stripped->as<slang::ast::AssignmentExpression>();
           collectExpressionRootValueSymbols(assignment.right(), symbols);
           return;
-          // LCOV_EXCL_STOP
         }
+        // LCOV_EXCL_STOP
         default:
           return;
       }
