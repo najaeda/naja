@@ -36,6 +36,7 @@ module naja_dff(
   end
 endmodule
 
+/* verilator lint_off LATCH */
 module naja_dlatch(
   input wire E,
   input wire D,
@@ -45,6 +46,7 @@ module naja_dlatch(
     if (E) Q = D;
   end
 endmodule
+/* verilator lint_on LATCH */
 
 module naja_dffn(
   input wire C,
