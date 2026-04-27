@@ -208,6 +208,16 @@ src/rtl/top.sv
         self.assertEqual(1, len(setup_commands))
         self.assertIn("--mapping=lowrisc:prim_generic:all:0.1", setup_commands[0])
 
+    def test_cv32e40p_case_uses_rtl_manifest_and_design_dir(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cv32e40p = sv_regress.select_cases(cases, "cv32e40p")[0]
+
+        self.assertEqual("https://github.com/openhwgroup/cv32e40p.git", cv32e40p["repo"])
+        self.assertEqual("cv32e40p_top", cv32e40p["top"])
+        self.assertEqual("cv32e40p_manifest.flist", cv32e40p["flist"])
+        self.assertEqual("{repo}/rtl", cv32e40p["env"]["DESIGN_RTL_DIR"])
+        self.assertIn("PINMISSING", cv32e40p["verilator"]["suppressions"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -79,3 +79,20 @@ cases:
       timeout_seconds: 3600
       suppressions:
         - PINMISSING
+
+  - name: cv32e40p
+    repo: https://github.com/openhwgroup/cv32e40p.git
+    commit: 360d272898d81806be3377193870dbf83a3ea79f
+    top: cv32e40p_top
+    flist: cv32e40p_manifest.flist
+    output: cv32e40p_naja.v
+    env:
+      DESIGN_RTL_DIR: "{repo}/rtl"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING

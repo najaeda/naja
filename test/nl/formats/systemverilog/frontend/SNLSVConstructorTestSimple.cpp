@@ -1941,6 +1941,49 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignConditionalNonMonotonicPackedBranchSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_conditional_non_monotonic_packed_branch_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_conditional_non_monotonic_packed_branch_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_non_monotonic_packed_branch_supported(
+  input  logic [1:0] a,
+  input  logic [2:0] b,
+  input  logic       sel,
+  output logic [2:0] y
+);
+  assign y = sel ? {a[0], a[1], a[0]} : b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_conditional_non_monotonic_packed_branch_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(3, y->getWidth());
+  EXPECT_EQ(1u, countMux2Instances(top, 3));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "continuous_assign_conditional_non_monotonic_packed_branch_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalLogicalOrSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -7805,13 +7848,13 @@ endmodule
       q = d;
     end
   end
-endmodule
+  endmodule
 )");
   ASSERT_TRUE(rejectedConditionalTrue.has_value());
-  EXPECT_FALSE(rejectedConditionalTrue->success);
-  EXPECT_EQ(0u, rejectedConditionalTrue->maxAssignments);
+  EXPECT_TRUE(rejectedConditionalTrue->success);
+  EXPECT_EQ(1u, rejectedConditionalTrue->maxAssignments);
 
-  const auto rejectedConditionalFalse =
+  const auto acceptedConditionalFalse =
     detail::testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
       R"(module detail_test(input logic en, input logic d, output logic q);
   always_comb begin
@@ -7826,9 +7869,9 @@ endmodule
   end
 endmodule
 )");
-  ASSERT_TRUE(rejectedConditionalFalse.has_value());
-  EXPECT_FALSE(rejectedConditionalFalse->success);
-  EXPECT_EQ(0u, rejectedConditionalFalse->maxAssignments);
+  ASSERT_TRUE(acceptedConditionalFalse.has_value());
+  EXPECT_TRUE(acceptedConditionalFalse->success);
+  EXPECT_EQ(1u, acceptedConditionalFalse->maxAssignments);
 }
 
 TEST_F(
@@ -8219,6 +8262,59 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplySupported) {
   EXPECT_GT(andGateCount, 0u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_mul_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousMultiplyUnpackedArrayElementSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_multiply_unpacked_array_element_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_multiply_unpacked_array_element_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_multiply_unpacked_array_element_supported(
+  input  logic [8:0]  a_i,
+  input  logic [8:0]  b_i,
+  output logic [17:0] y_o
+);
+  logic [17:0] products[2];
+
+  assign products[0] = $signed(a_i) * $signed(b_i);
+  assign products[1] = '0;
+  assign y_o = products[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_multiply_unpacked_array_element_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y_o"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(18, y->getWidth());
+
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "continuous_multiply_unpacked_array_element_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -9011,6 +9107,54 @@ endmodule
   const auto dumpedText = readTextFile(dumpedVerilog);
   EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombExhaustiveCaseNoDefaultNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_exhaustive_case_no_default_no_feedback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_exhaustive_case_no_default_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_exhaustive_case_no_default_no_feedback(
+  input  logic [1:0] sel,
+  input  logic [1:0] a,
+  input  logic [1:0] b,
+  input  logic [1:0] c,
+  input  logic [1:0] d,
+  output logic [1:0] y
+);
+  always_comb begin
+    case (sel)
+      2'b00: y = a;
+      2'b01: y = b;
+      2'b10: y = c;
+      2'b11: y = d;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_exhaustive_case_no_default_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(3u, countMux2Instances(top, 2));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_comb_exhaustive_case_no_default_no_feedback");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find(".A(y)"));
+  EXPECT_EQ(std::string::npos, dumpedText.find(".B(y)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombDynamicPackedReadWriteUsesWideMuxPrimitive) {
@@ -17842,6 +17986,156 @@ endmodule
   ASSERT_NE(top, nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialCaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_case_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "sequential_case_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_case_supported(
+  input  logic       clk,
+  input  logic       rst_n,
+  input  logic       flush_i,
+  input  logic       keep_first_i,
+  input  logic       push_i,
+  input  logic       pop_i,
+  output logic [1:0] count_o
+);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      count_o <= '0;
+    end else begin
+      unique case (1'b1)
+        flush_i: begin
+          count_o <= '0;
+        end
+        keep_first_i: begin
+          count_o <= (count_o > 0) ? 2'b01 : '0;
+        end
+        push_i & ~pop_i: begin
+          count_o <= count_o + 1'b1;
+        end
+        pop_i & ~push_i: begin
+          count_o <= count_o - 1'b1;
+        end
+        default: begin
+          count_o <= count_o;
+        end
+      endcase
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("sequential_case_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("count_o")), nullptr);
+  EXPECT_GT(countMux2Instances(top), 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialExhaustiveCaseNoDefaultNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_exhaustive_case_no_default_no_feedback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "sequential_exhaustive_case_no_default_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_exhaustive_case_no_default_no_feedback(
+  input  logic       clk,
+  input  logic       rst_n,
+  input  logic [1:0] sel,
+  input  logic [1:0] a,
+  input  logic [1:0] b,
+  input  logic [1:0] c,
+  input  logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      q <= '0;
+    end else begin
+      case (sel)
+        2'b00: q <= a;
+        2'b01: q <= b;
+        2'b10: q <= c;
+        2'b11: q <= d;
+      endcase
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("sequential_exhaustive_case_no_default_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(3u, countMux2Instances(top, 2));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "sequential_exhaustive_case_no_default_no_feedback");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find(".A(q)"));
+  EXPECT_EQ(std::string::npos, dumpedText.find(".B(q)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEqualityRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_equality_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "sequential_equality_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_equality_rhs_supported(
+  input  logic       clk,
+  input  logic       rst_n,
+  input  logic [1:0] ctrl_i,
+  output logic       branch_o
+);
+  localparam logic [1:0] BRANCH_COND = 2'b10;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      branch_o <= 1'b0;
+    end else begin
+      branch_o <= ctrl_i == BRANCH_COND;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("sequential_equality_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("branch_o")), nullptr);
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseSequentialAsyncResetUnaryPlusConditionUnsupported) {
@@ -24383,6 +24677,72 @@ endmodule
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[0])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[1])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[2])"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialGeneratedPacked2DNestedSelectNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_generated_packed_2d_nested_select_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_generated_packed_2d_nested_select_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_generated_packed_2d_nested_select_no_duplicate_drivers(
+  input  logic             clk_i,
+  input  logic             rst_ni,
+  input  logic [3:0][3:0] d_i,
+  output logic [3:0][3:0] q_o
+);
+  for (genvar i = 0; i < 4; i++) begin : g_regs
+    if (i < 1) begin : g_tie_off
+      assign q_o[i] = '0;
+    end else begin : g_flops
+      assign q_o[i][3:2] = '0;
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          q_o[i][1:0] <= '0;
+        end else begin
+          q_o[i][1:0] <= d_i[i][1:0];
+        end
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_generated_packed_2d_nested_select_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_generated_packed_2d_nested_select_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(0u, countOccurrences(dumpedText, ".Q(q_o[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(q_o[4])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(q_o[5])"));
+  EXPECT_EQ(0u, countOccurrences(dumpedText, ".Q(q_o[6])"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[4] = 1'b0"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[5] = 1'b0"));
 }
 
 TEST_F(

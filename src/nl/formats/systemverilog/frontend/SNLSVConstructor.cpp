@@ -7234,10 +7234,166 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool resolveStaticSelectableExpressionBits(
+      SNLDesign* design,
+      const Expression& expr,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const auto resolveBaseBits = [&](const Expression& baseExpr,
+                                       std::vector<SNLBitNet*>& baseBits) {
+        baseBits.clear();
+        auto* baseNet = resolveExpressionNet(design, baseExpr);
+        if (!baseNet) {
+          return false;
+        }
+        baseBits = collectBits(baseNet);
+        return !baseBits.empty();
+      };
+
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+        const auto* valueExpr = stripConversions(elementExpr.value());
+        if (!valueExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        std::vector<SNLBitNet*> valueBits;
+        if (!resolveStaticSelectableExpressionBits(design, *valueExpr, valueBits) &&
+            !resolveBaseBits(*valueExpr, valueBits)) {
+          return false;
+        }
+
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        if (!valueType.hasFixedRange()) {
+          return false;
+        }
+        int32_t selectedIndex = 0;
+        if (!getConstantInt32(elementExpr.selector(), selectedIndex)) {
+          return false;
+        }
+
+        size_t elementWidth = 0;
+        if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
+          elementWidth = *selectedWidth;
+        }
+        if (!elementWidth) {
+          const auto arrayWidth = static_cast<size_t>(valueType.getFixedRange().width());
+          if (arrayWidth > 0 && valueBits.size() % arrayWidth == 0) {
+            elementWidth = valueBits.size() / arrayWidth;
+          }
+        }
+        if (!elementWidth) {
+          return false;
+        }
+
+        const auto translated = valueType.getFixedRange().translateIndex(selectedIndex);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(valueType.getFixedRange().width())) {
+          return false;
+        }
+        const auto offset = static_cast<size_t>(translated) * elementWidth;
+        if (offset + elementWidth > valueBits.size()) {
+          return false;
+        }
+        bits.assign(
+          valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+          valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+        return !bits.empty();
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
+        const auto* valueExpr = stripConversions(rangeExpr.value());
+        if (!valueExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        std::vector<SNLBitNet*> valueBits;
+        if (!resolveStaticSelectableExpressionBits(design, *valueExpr, valueBits) &&
+            !resolveBaseBits(*valueExpr, valueBits)) {
+          return false;
+        }
+
+        slang::ConstantRange valueRange(
+          static_cast<int32_t>(valueBits.size() - 1),
+          0);
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        if (valueType.hasFixedRange()) {
+          valueRange = valueType.getFixedRange();
+        }
+
+        switch (rangeExpr.getSelectionKind()) {
+          case slang::ast::RangeSelectionKind::Simple: {
+            int32_t left = 0;
+            int32_t right = 0;
+            if (!getConstantInt32(rangeExpr.left(), left) ||
+                !getConstantInt32(rangeExpr.right(), right)) {
+              return false;
+            }
+            int32_t index = right;
+            const int32_t end = left;
+            const int32_t step = index <= end ? 1 : -1;
+            while (index != end + step) {
+              const auto translated = valueRange.translateIndex(index);
+              if (translated < 0 || translated >= static_cast<int32_t>(valueBits.size())) {
+                bits.clear();
+                return false;
+              }
+              bits.push_back(valueBits[static_cast<size_t>(translated)]);
+              index += step;
+            }
+            return !bits.empty();
+          }
+          case slang::ast::RangeSelectionKind::IndexedUp:
+          case slang::ast::RangeSelectionKind::IndexedDown: {
+            int32_t startIndex = 0;
+            int32_t sliceWidth = 0;
+            if (!getConstantInt32(rangeExpr.left(), startIndex) ||
+                !getConstantInt32(rangeExpr.right(), sliceWidth) ||
+                sliceWidth <= 0) {
+              return false;
+            }
+            int64_t lsbIndex = static_cast<int64_t>(startIndex);
+            if (rangeExpr.getSelectionKind() ==
+                slang::ast::RangeSelectionKind::IndexedDown) {
+              lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
+            }
+            for (int32_t elem = 0; elem < sliceWidth; ++elem) {
+              const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+              if (elemIndex < std::numeric_limits<int32_t>::min() ||
+                  elemIndex > std::numeric_limits<int32_t>::max()) {
+                bits.clear();
+                return false;
+              }
+              const auto translated =
+                valueRange.translateIndex(static_cast<int32_t>(elemIndex));
+              if (translated < 0 || translated >= static_cast<int32_t>(valueBits.size())) {
+                bits.clear();
+                return false;
+              }
+              bits.push_back(valueBits[static_cast<size_t>(translated)]);
+            }
+            return !bits.empty();
+          }
+        }
+      }
+
+      return resolveBaseBits(*stripped, bits);
+    }
+
     bool resolveSelectableExpressionBits(
       SNLDesign* design,
       const Expression& expr,
       std::vector<SNLBitNet*>& bits) {
+      if (resolveStaticSelectableExpressionBits(design, expr, bits)) {
+        return true;
+      }
+
       const Expression* current = stripConversions(expr);
       const Expression* baseExpr = current;
       while (baseExpr) {
@@ -10354,6 +10510,15 @@ class SNLSVConstructorImpl {
           if (valueType.hasFixedRange()) {
             auto valueNet = resolveExpressionNet(design, *valueExpr);
             auto valueBits = collectBits(valueNet);
+            if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
+                valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
+              std::vector<SNLBitNet*> selectedValueBits;
+              if (resolveExpressionBits(design, *valueExpr, *valueWidth, selectedValueBits) &&
+                  selectedValueBits.size() == *valueWidth) {
+                valueBits = std::move(selectedValueBits);
+                valueNet = nullptr;
+              }
+            }
             if (valueBits.empty()) {
               if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr)) {
                 if (!resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) ||
@@ -10370,12 +10535,28 @@ class SNLSVConstructorImpl {
             }
             if (!valueBits.empty()) {
               size_t elementWidth = 0;
-              if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
-                elementWidth = *selectedWidth;
-              } else if (const auto* elementType = valueType.getArrayElementType()) {
-                if (auto elementRange = getRangeFromType(*elementType)) {
-                  elementWidth = static_cast<size_t>(elementRange->width());
+              if (const auto* elementType = valueType.getArrayElementType()) {
+                const auto& canonicalElementType = elementType->getCanonicalType();
+                if (canonicalElementType.isBitstreamType()) {
+                  const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
+                  if (bitstreamWidth > 0 &&
+                      bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+                    elementWidth = static_cast<size_t>(bitstreamWidth);
+                  }
                 }
+                if (!elementWidth) {
+                  if (auto elementRange = getRangeFromType(*elementType)) {
+                    elementWidth = static_cast<size_t>(elementRange->width());
+                  }
+                }
+              }
+              if (!elementWidth) {
+                if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
+                  elementWidth = *selectedWidth;
+                }
+              } else if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped);
+                         selectedWidth && *selectedWidth > elementWidth) {
+                elementWidth = *selectedWidth;
               }
               if (!elementWidth) {
                 const auto arrayWidth = static_cast<size_t>(valueType.getFixedRange().width());
@@ -10536,6 +10717,15 @@ class SNLSVConstructorImpl {
           if (valueExpr) {
             auto valueNet = resolveExpressionNet(design, *valueExpr);
             auto valueBits = collectBits(valueNet);
+            if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
+                valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
+              std::vector<SNLBitNet*> selectedValueBits;
+              if (resolveExpressionBits(design, *valueExpr, *valueWidth, selectedValueBits) &&
+                  selectedValueBits.size() == *valueWidth) {
+                valueBits = std::move(selectedValueBits);
+                valueNet = nullptr;
+              }
+            }
             if (valueBits.empty()) {
               if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr)) {
                 if (!resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) ||
@@ -12068,6 +12258,7 @@ class SNLSVConstructorImpl {
         return false;
       }
       auto* bus = firstBusBit->getBus();
+      int direction = 0;
       for (size_t i = 1; i < bits.size(); ++i) {
         auto* currentBusBit = dynamic_cast<SNLBusNetBit*>(bits[i]);
         auto* previousBusBit = dynamic_cast<SNLBusNetBit*>(bits[i - 1]);
@@ -12076,6 +12267,11 @@ class SNLSVConstructorImpl {
         }
         const auto delta = currentBusBit->getBit() - previousBusBit->getBit();
         if (delta != 1 && delta != -1) {
+          return false;
+        }
+        if (direction == 0) {
+          direction = delta;
+        } else if (delta != direction) {
           return false;
         }
       }
@@ -14906,6 +15102,7 @@ class SNLSVConstructorImpl {
       if (current->kind == slang::ast::StatementKind::ForLoop) {
         const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
         size_t loopAssignments = 0;
+        std::string loopFailureReason;
         if (!unrollForLoopStatement(
               forStmt,
               [&]() {
@@ -14920,10 +15117,40 @@ class SNLSVConstructorImpl {
                 loopAssignments += bodyAssignments;
                 return true;
               },
-              *failureReason)) {
+              failureReason ? *failureReason : loopFailureReason)) {
           return false; // LCOV_EXCL_LINE
         }
         maxAssignments = loopAssignments;
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        size_t caseMaxAssignments = 0;
+        if (caseStmt.defaultCase) {
+          size_t defaultAssignments = 0;
+          if (!getSingleLHSFallbackPathAssignmentMax(
+                *caseStmt.defaultCase,
+                trackedLhs,
+                defaultAssignments,
+                failureReason)) {
+            return false;
+          }
+          caseMaxAssignments = defaultAssignments;
+        }
+
+        for (const auto& item : caseStmt.items) {
+          size_t itemAssignments = 0;
+          if (!getSingleLHSFallbackPathAssignmentMax(
+                *item.stmt,
+                trackedLhs,
+                itemAssignments,
+                failureReason)) {
+            return false;
+          }
+          caseMaxAssignments = std::max(caseMaxAssignments, itemAssignments);
+        }
+        maxAssignments = caseMaxAssignments;
         return true;
       }
 
@@ -14959,6 +15186,42 @@ class SNLSVConstructorImpl {
              << "(kind=" << current->kind << ")";
       setFailureReason(reason.str());
       return false;
+    }
+
+    bool isExhaustiveConstantNormalCase(
+      const slang::ast::CaseStatement& caseStmt) const {
+      if (caseStmt.defaultCase ||
+          caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
+        return false;
+      }
+
+      auto selectorWidth = getIntegralExpressionBitWidth(caseStmt.expr);
+      if (!selectorWidth || *selectorWidth == 0 || *selectorWidth > 12) {
+        return false;
+      }
+
+      const auto valueCount = static_cast<size_t>(1ULL << *selectorWidth);
+      std::vector<bool> covered(valueCount, false);
+      for (const auto& item : caseStmt.items) {
+        if (item.expressions.empty()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        for (const auto* itemExpr : item.expressions) {
+          if (!itemExpr) {
+            return false; // LCOV_EXCL_LINE
+          }
+          uint64_t itemValue = 0;
+          if (!getConstantUnsigned(*itemExpr, itemValue) ||
+              itemValue >= static_cast<uint64_t>(valueCount)) {
+            return false;
+          }
+          covered[static_cast<size_t>(itemValue)] = true;
+        }
+      }
+
+      return std::all_of(covered.begin(), covered.end(), [](bool value) {
+        return value;
+      });
     }
 
     bool hasTopLevelDirectAssignmentToLHS(
@@ -15161,6 +15424,102 @@ class SNLSVConstructorImpl {
           return false; // LCOV_EXCL_LINE
         }
         // LCOV_EXCL_STOP
+        dataBits = std::move(mergedBits);
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+
+        std::vector<SNLBitNet*> mergedBits = dataBits;
+        auto itemBegin = caseStmt.items.rbegin();
+        if (caseStmt.defaultCase) {
+          std::vector<SNLBitNet*> defaultBits = dataBits;
+          if (!applySequentialStatementForLhs(
+                design,
+                *caseStmt.defaultCase,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                defaultBits,
+                incrementerBits,
+                tempIndex,
+                failureReason,
+                ignoredSymbols)) {
+            return false;
+          }
+          mergedBits = std::move(defaultBits);
+        } else if (isExhaustiveConstantNormalCase(caseStmt) &&
+                   !caseStmt.items.empty()) {
+          const auto lastItem = caseStmt.items.rbegin();
+          std::vector<SNLBitNet*> lastItemBits = dataBits;
+          if (!applySequentialStatementForLhs(
+                design,
+                *lastItem->stmt,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                lastItemBits,
+                incrementerBits,
+                tempIndex,
+                failureReason,
+                ignoredSymbols)) {
+            return false;
+          }
+          mergedBits = std::move(lastItemBits);
+          itemBegin = std::next(lastItem);
+        }
+
+        for (auto itemIt = itemBegin; itemIt != caseStmt.items.rend(); ++itemIt) {
+          std::vector<SNLBitNet*> itemBits = dataBits;
+          if (!applySequentialStatementForLhs(
+                design,
+                *itemIt->stmt,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                itemBits,
+                incrementerBits,
+                tempIndex,
+                failureReason,
+                ignoredSymbols)) {
+            return false;
+          }
+
+          auto* itemMatchBit = buildCaseItemMatchBit(
+            design,
+            caseStmt.expr,
+            caseStmt,
+            *itemIt,
+            failureReason);
+          if (!itemMatchBit) {
+            return false;
+          }
+
+          if (itemBits == mergedBits) {
+            mergedBits = std::move(itemBits);
+            ++tempIndex;
+            continue;
+          }
+
+          std::vector<SNLBitNet*> selectedBits;
+          if (!createMux2Instance(
+                design,
+                itemMatchBit,
+                mergedBits,
+                itemBits,
+                selectedBits,
+                getSourceRange(*itemIt->stmt))) {
+            failureReason = "unable to merge sequential case item branches";
+            return false;
+          }
+          mergedBits = std::move(selectedBits);
+          ++tempIndex;
+        }
+
         dataBits = std::move(mergedBits);
         return true;
       }
@@ -18010,6 +18369,7 @@ class SNLSVConstructorImpl {
         const auto& caseStmt = current->as<slang::ast::CaseStatement>();
 
         std::vector<SNLBitNet*> mergedBits = dataBits;
+        auto itemBegin = caseStmt.items.rbegin();
         if (caseStmt.defaultCase) {
           std::vector<SNLBitNet*> defaultBits = dataBits;
           if (!applyCombinationalStatementForLhs(
@@ -18026,11 +18386,30 @@ class SNLSVConstructorImpl {
             return false;
           }
           mergedBits = std::move(defaultBits);
+        } else if (isExhaustiveConstantNormalCase(caseStmt) &&
+                   !caseStmt.items.empty()) {
+          const auto lastItem = caseStmt.items.rbegin();
+          std::vector<SNLBitNet*> lastItemBits = dataBits;
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *lastItem->stmt,
+                lhsExpr,
+                lhsBits,
+                lastItemBits,
+                tempIndex,
+                failureReason,
+                ignoredSymbols,
+                subtreeSummaryCache,
+                replaySymbols)) {
+            return false;
+          }
+          mergedBits = std::move(lastItemBits);
+          itemBegin = std::next(lastItem);
         }
 
         auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
         auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-        for (auto itemIt = caseStmt.items.rbegin(); itemIt != caseStmt.items.rend(); ++itemIt) {
+        for (auto itemIt = itemBegin; itemIt != caseStmt.items.rend(); ++itemIt) {
           std::vector<SNLBitNet*> itemBits = dataBits;
           if (!applyCombinationalStatementForLhs(
                 design,
@@ -19240,7 +19619,9 @@ class SNLSVConstructorImpl {
             bin.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
             bin.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
             bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||
-            bin.op == slang::ast::BinaryOperator::ArithmeticShiftRight;
+            bin.op == slang::ast::BinaryOperator::ArithmeticShiftRight ||
+            isEqualityBinaryOp(bin.op) ||
+            isInequalityBinaryOp(bin.op);
           if (!supportedArithmeticOp) {
             reportUnsupportedElement(
               formatDescribedFailure(
@@ -20675,6 +21056,7 @@ class SNLSVConstructorImpl {
             lhsResolvedAsBitSlice &&
             (binaryExpr.op == slang::ast::BinaryOperator::Add ||
              binaryExpr.op == slang::ast::BinaryOperator::Subtract ||
+             binaryExpr.op == slang::ast::BinaryOperator::Multiply ||
              binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
              binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
