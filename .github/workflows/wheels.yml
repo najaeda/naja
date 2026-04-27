@@ -26,7 +26,7 @@ jobs:
     outputs:
       artifact_name: parser-generated-sources
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -45,7 +45,7 @@ jobs:
           cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parser-generated-sources
           path: generated/*
@@ -166,7 +166,7 @@ jobs:
 
     steps:
       # build steps
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - name: Setup Python
@@ -175,7 +175,7 @@ jobs:
           python-version: "3.11" 
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: parser-generated-sources
           path: generated
@@ -280,7 +280,7 @@ jobs:
           fi
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
@@ -296,13 +296,13 @@ jobs:
     steps:
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
           path: dist
           merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.13.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
@@ -316,12 +316,12 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@v1.13.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true

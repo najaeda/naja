@@ -18,6 +18,7 @@ namespace naja::NL {
 class SNLDesign;
 class SNLParameter;
 class SNLInstance;
+class SNLInstTerm;
 class SNLTerm;
 class SNLNet;
 class SNLBitNet;
@@ -69,12 +70,15 @@ class SNLVRLDumper {
         bool isDumpHierarchy() const { return dumpHierarchy_; }
         void setDumpRTLInfosAsAttributes(bool mode) { dumpRTLInfosAsAttributes_ = mode; }
         bool isDumpRTLInfosAsAttributes() const { return dumpRTLInfosAsAttributes_; }
+        void setDumpAssignsAsInstances(bool mode) { dumpAssignsAsInstances_ = mode; }
+        bool isDumpAssignsAsInstances() const { return dumpAssignsAsInstances_; }
       private:
         bool        singleFile_       {true};
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
         bool        dumpRTLInfosAsAttributes_ {true};
+        bool        dumpAssignsAsInstances_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
@@ -88,6 +92,7 @@ class SNLVRLDumper {
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
     void setDumpRTLInfosAsAttributes(bool mode);
+    void setDumpAssignsAsInstances(bool mode);
 
     /**
      * \param design SNLDesign to dump.
@@ -215,28 +220,44 @@ class SNLVRLDumper {
       using InstanceNameSet = std::set<std::string>;
       using NetNames = std::map<NLID::DesignObjectID, NLName>;
       using NetTermNameSet = std::set<NLName>;
+      using UnusedWireKey = std::pair<NLID::DesignObjectID, size_t>;
+      using UnusedWireNames = std::map<UnusedWireKey, NLName>;
       InstanceNames   instanceNames_    {};
       InstanceNameSet instanceNameSet_  {};
       NetNames        netNames_         {};
       NetTermNameSet  netTermNameSet_   {};
+      UnusedWireNames unusedWireNames_   {};
     };
     static std::string createDesignName(const SNLDesign* design);
     static std::string createInstanceName(const SNLInstance* instance, DesignInsideAnonymousNaming& naming);
     static NLName createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming);
+    static NLName createUnusedWireName(const SNLInstTerm* instTerm, DesignInsideAnonymousNaming& naming);
     static NLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
+    static NLName getUnusedWireName(const SNLInstTerm* instTerm, const DesignInsideAnonymousNaming& naming);
     static std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
+    void dumpNajaFAModel(std::ostream& o);
     void dumpNajaMux2Model(std::ostream& o);
+    void dumpNajaDFFModel(std::ostream& o);
+    void dumpNajaDLatchModel(std::ostream& o);
+    void dumpNajaDFFNModel(std::ostream& o);
+    void dumpNajaDFFRNModel(std::ostream& o);
+    void dumpNajaDFFEModel(std::ostream& o);
+    void dumpNajaDFFREModel(std::ostream& o);
+    void dumpNajaDFFSEModel(std::ostream& o);
     void dumpNajaMemModel(std::ostream& o);
     void dumpNajaPrimitiveFile(const std::filesystem::path& path);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    bool dumpAssignInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     bool dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstParameters(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     bool dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void collectUnusedWireNames(const SNLDesign* design, DesignInsideAnonymousNaming& naming);
+    void dumpUnusedWireDeclarations(std::ostream& o, const DesignInsideAnonymousNaming& naming);
 
     void dumpTermNetAssign(
       const SNLDesign* design,
@@ -250,9 +271,11 @@ class SNLVRLDumper {
     void dumpTermAssigns(const SNLDesign* design, std::ostream& o);
     void dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     using BitNetVector = std::vector<SNLBitNet*>;
+    using InstTermVector = std::vector<const SNLInstTerm*>;
     void dumpInsTermConnectivity(
       const SNLTerm* term,
       BitNetVector& termNets,
+      const InstTermVector& instTerms,
       std::ostream& o,
       const DesignInsideAnonymousNaming& naming);
 
@@ -261,6 +284,7 @@ class SNLVRLDumper {
     DetailedPerfReport      detailedPerfReport_     {};
     bool                    emitNajaMemModel_       {false};
     bool                    emitNajaMux2Model_      {false};
+    bool                    emitNajaPrimitiveModels_ {false};
 };
 
 } // namespace naja::NL

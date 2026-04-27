@@ -98,7 +98,7 @@ TEST_F(SNLVRLDumperTestGate0, test0) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
-TEST_F(SNLVRLDumperTestGate0, testGatePinsWithDummyAndAssignConstants) {
+TEST_F(SNLVRLDumperTestGate0, testGatePinsWithUnusedWiresAndAssignConstants) {
   auto lib = db_->getLibrary(NLName("MYLIB"));
   ASSERT_TRUE(lib);
   auto top = lib->getSNLDesign(NLName("top"));
@@ -149,5 +149,7 @@ TEST_F(SNLVRLDumperTestGate0, testGatePinsWithDummyAndAssignConstants) {
   EXPECT_NE(content.find("and and3mix("), std::string::npos);
   EXPECT_NE(content.find("1'b0"), std::string::npos);
   EXPECT_NE(content.find("1'b1"), std::string::npos);
-  EXPECT_NE(content.find("DUMMY"), std::string::npos);
+  EXPECT_NE(content.find("wire _naja_unused_"), std::string::npos);
+  EXPECT_NE(content.find("_naja_unused_"), std::string::npos);
+  EXPECT_EQ(content.find("DUMMY"), std::string::npos);
 }

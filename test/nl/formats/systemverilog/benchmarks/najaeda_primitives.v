@@ -36,6 +36,26 @@ module naja_dff(
   end
 endmodule
 
+module naja_dlatch(
+  input wire E,
+  input wire D,
+  output reg Q
+);
+  always @* begin
+    if (E) Q = D;
+  end
+endmodule
+
+module naja_dffn(
+  input wire C,
+  input wire D,
+  output reg Q
+);
+  always @(negedge C) begin
+    Q <= D;
+  end
+endmodule
+
 module naja_dffrn(
   input wire C,
   input wire D,

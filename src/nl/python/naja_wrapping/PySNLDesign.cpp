@@ -116,16 +116,17 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   const char* path = nullptr;
   const char* topFileName = nullptr;
   int dumpRTLInfosAsAttributes = 0;
+  int dumpAssignsAsInstances = 0;
 
   static const char* const kwords[] = {
-    "path", "top_file_name", "dumpRTLInfosAsAttributes",
+    "path", "top_file_name", "dumpRTLInfosAsAttributes", "dumpAssignsAsInstances",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|p:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|pp:SNLDesign.dumpVerilog",
     const_cast<char**>(kwords),
-    &path, &topFileName, &dumpRTLInfosAsAttributes)) {
+    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
@@ -134,6 +135,7 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   SNLVRLDumper dumper;
   dumper.setTopFileName(topFileName);
   dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  dumper.setDumpAssignsAsInstances(dumpAssignsAsInstances);
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;

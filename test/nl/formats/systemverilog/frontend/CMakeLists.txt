@@ -4,7 +4,9 @@
 
 set(snl_sv_constructor_tests
     SNLSVConstructorTestSimple.cpp
+    SNLSVConstructorTestMemoryInference.cpp
     SNLSVConstructorTestAlwaysComb.cpp
+    SNLSVConstructorTestSequentialOverlap.cpp
     SNLSVConstructorTestElab.cpp
 )
 add_executable(snlSVConstructorTests ${snl_sv_constructor_tests})

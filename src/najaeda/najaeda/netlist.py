@@ -1763,7 +1763,8 @@ class Instance:
         self.__get_snl_model().dumpVerilog(
             dir_path,
             os.path.basename(path),
-            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes)
+            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes,
+            dumpAssignsAsInstances=config.dumpAssignsAsInstances)
         execution_time = time.time() - start_time
         logging.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
@@ -1874,6 +1875,7 @@ class VerilogConfig:
 @dataclass
 class VerilogDumpConfig:
     dumpRTLInfosAsAttributes: bool = False
+    dumpAssignsAsInstances: bool = False
 
 
 @dataclass

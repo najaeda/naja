@@ -23,6 +23,9 @@ wire n2;
 wire n3;
 wire n4;
 
+wire _naja_unused_0_12;
+wire _naja_unused_0_13;
+
 model #(
   .PARAM0("1111"),
   .PARAM1("TRUE"),
@@ -30,7 +33,7 @@ model #(
   .PARAM3(152)
 ) instance1 (
   .i0(5'h00),
-  .o0({bus0[0:-1], DUMMY, DUMMY, net_0})
+  .o0({bus0[0:-1], _naja_unused_0_12, _naja_unused_0_13, net_0})
 );
 
 model instance2 (
