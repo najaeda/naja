@@ -385,6 +385,33 @@ TEST_F(SNLVRLDumperTest1, test5) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
+TEST_F(SNLVRLDumperTest1, testReverseOrderedInstanceRangeUsesConcatenation) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top"));
+  ASSERT_TRUE(top);
+
+  auto data = SNLBusNet::create(top, 32, 0, NLName("data"));
+
+  auto model = SNLDesign::create(lib, NLName("wide_model"));
+  auto input = SNLBusTerm::create(model, SNLTerm::Direction::Input, 31, 0, NLName("i"));
+
+  auto instance = SNLInstance::create(top, model, NLName("reverse_instance"));
+  instance->setTermNet(input, 31, 0, data, 0, 31);
+
+  std::ostringstream stream;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top, stream);
+
+  auto dumped = stream.str();
+  EXPECT_EQ(std::string::npos, dumped.find(".i(data[0:31])"));
+  EXPECT_NE(std::string::npos, dumped.find(
+    ".i({data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], "
+    "data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], "
+    "data[16], data[17], data[18], data[19], data[20], data[21], data[22], data[23], "
+    "data[24], data[25], data[26], data[27], data[28], data[29], data[30], data[31]})"));
+}
+
 TEST_F(SNLVRLDumperTest1, testBundleTermsAreFlattenedInInterface) {
   auto primitiveLibrary = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
   ASSERT_NE(nullptr, primitiveLibrary);

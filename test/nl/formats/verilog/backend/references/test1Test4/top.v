@@ -22,7 +22,7 @@ wire net_0;
 wire net_2;
 
 model instance1 (
-  .o0({net_0, bus0[-2], net_2, bus0[-1:0]})
+  .o0({net_0, bus0[-2], net_2, bus0[-1], bus0[0]})
 );
 
 model instance2 (
