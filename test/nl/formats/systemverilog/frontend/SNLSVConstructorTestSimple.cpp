@@ -15513,6 +15513,87 @@ endmodule
   EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRepeatedNestedFunctionLocalTempsNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_repeated_nested_function_local_temps_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_repeated_nested_function_local_temps_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_repeated_nested_function_local_temps_no_duplicate_drivers(
+  input  logic       sel_i,
+  input  logic [2:0] a_i,
+  input  logic [2:0] b_i,
+  output logic [31:0] instr_o
+);
+  function automatic logic [31:0] mv_reg(input logic [4:0] src, input logic [4:0] dst);
+    logic [31:0] instr;
+    instr[ 6: 0] = 7'b0010011;
+    instr[11: 7] = dst;
+    instr[14:12] = 3'b000;
+    instr[19:15] = src;
+    instr[31:20] = 12'd0;
+    return instr;
+  endfunction
+
+  function automatic logic [31:0] mva01s(input logic [2:0] rs, input logic a01);
+    logic [4:0] src, dst;
+    src = {(rs[2:1] > 2'd0), (rs[2:1] == 2'd0), rs[2:0]};
+    dst = 5'd10 + {4'd0, a01};
+    return mv_reg(.src(src), .dst(dst));
+  endfunction
+
+  always_comb begin
+    instr_o = 32'd0;
+    if (sel_i) begin
+      instr_o = mva01s(.rs(a_i), .a01(1'b0));
+    end else begin
+      instr_o = mva01s(.rs(b_i), .a01(1'b1));
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_repeated_nested_function_local_temps_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_comb_repeated_nested_function_local_temps_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  std::unordered_set<std::string> assignedLocalTempLHS;
+  size_t localTempAssigns = 0;
+  std::istringstream lines(dumpedText);
+  for (std::string line; std::getline(lines, line);) {
+    if (line.find("assign ") == std::string::npos ||
+        (line.find("mva01s_src") == std::string::npos &&
+         line.find("mva01s_dst") == std::string::npos &&
+         line.find("mv_reg_instr") == std::string::npos)) {
+      continue;
+    }
+    const auto assignPos = line.find("assign ");
+    const auto equalsPos = line.find(" = ", assignPos);
+    ASSERT_NE(std::string::npos, equalsPos) << line;
+    assignedLocalTempLHS.insert(line.substr(assignPos + 7, equalsPos - assignPos - 7));
+    ++localTempAssigns;
+  }
+  EXPECT_GT(localTempAssigns, 0u);
+  EXPECT_EQ(localTempAssigns, assignedLocalTempLHS.size());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalParamEqSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -24083,6 +24164,139 @@ endmodule
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(stage[1])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(other[0])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(other[1])"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialGeneratedPackedArrayElementNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_generated_packed_array_element_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_generated_packed_array_element_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_generated_packed_array_element_no_duplicate_drivers(
+  input  logic       clk_i,
+  input  logic [1:0] en_i,
+  input  logic [7:0] d0_i,
+  input  logic [7:0] d1_i,
+  output logic [7:0] q0_o,
+  output logic [7:0] q1_o
+);
+  localparam int DEPTH = 2;
+  logic [DEPTH-1:0][7:0] data_d;
+  logic [DEPTH-1:0][7:0] data_q;
+
+  assign data_d[0] = d0_i;
+  assign data_d[1] = d1_i;
+  assign q0_o = data_q[0];
+  assign q1_o = data_q[1];
+
+  for (genvar i = 0; i < DEPTH; i++) begin : g_regs
+    always_ff @(posedge clk_i) begin
+      if (en_i[i]) begin
+        data_q[i] <= data_d[i];
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_generated_packed_array_element_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_generated_packed_array_element_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[7])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[8])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[15])"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialGeneratedPackedScalarElementNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_generated_packed_scalar_element_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_generated_packed_scalar_element_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_generated_packed_scalar_element_no_duplicate_drivers(
+  input  logic       clk_i,
+  input  logic [2:0] en_i,
+  input  logic [2:0] d_i,
+  output logic [2:0] q_o
+);
+  localparam int DEPTH = 3;
+  logic [DEPTH-1:0] data_d;
+  logic [DEPTH-1:0] data_q;
+
+  assign data_d = d_i;
+  assign q_o = data_q;
+
+  for (genvar i = 0; i < DEPTH; i++) begin : g_regs
+    always_ff @(posedge clk_i) begin
+      if (en_i[i]) begin
+        data_q[i] <= data_d[i];
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_generated_packed_scalar_element_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_generated_packed_scalar_element_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[1])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[2])"));
 }
 
 TEST_F(

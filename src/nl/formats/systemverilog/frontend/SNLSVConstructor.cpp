@@ -2768,14 +2768,66 @@ class SNLSVConstructorImpl {
       return current ? stripConversions(*current) : nullptr;
     }
 
+    bool isSymbolInSubroutineScope(
+      const Symbol& symbol,
+      const slang::ast::SubroutineSymbol& subroutine) const {
+      for (const auto* scope = symbol.getParentScope(); scope;
+           scope = scope->asSymbol().getParentScope()) {
+        if (&scope->asSymbol() == &subroutine) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    SNLNet* resolveActiveFunctionLocalNet(
+      SNLDesign* design,
+      const slang::ast::ValueSymbol& symbol,
+      const std::optional<slang::SourceRange>& sourceRange) {
+      const auto frameCount = std::min(
+        activeFunctionLocalNets_.size(),
+        activeInlinedCallSubroutines_.size());
+      for (size_t reverseIndex = 0; reverseIndex < frameCount; ++reverseIndex) {
+        const auto frameIndex = frameCount - reverseIndex - 1;
+        auto found = activeFunctionLocalNets_[frameIndex].find(&symbol);
+        if (found != activeFunctionLocalNets_[frameIndex].end()) {
+          return found->second;
+        }
+      }
+
+      for (size_t reverseIndex = 0; reverseIndex < frameCount; ++reverseIndex) {
+        const auto frameIndex = frameCount - reverseIndex - 1;
+        const auto* subroutine = activeInlinedCallSubroutines_[frameIndex];
+        if (!subroutine || !isSymbolInSubroutineScope(symbol, *subroutine)) {
+          continue;
+        }
+        if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
+          std::ostringstream reason;
+          reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
+          reportUnsupportedElement(reason.str(), sourceRange);
+          return nullptr;
+        }
+        auto loweredName = getLoweredSymbolName(symbol);
+        if (frameIndex < activeFunctionLocalSuffixes_.size()) {
+          loweredName += "_" + activeFunctionLocalSuffixes_[frameIndex];
+        }
+        auto* net = getOrCreateNet(design, loweredName, symbol.getType());
+        annotateSourceInfo(net, getSourceRange(symbol));
+        activeFunctionLocalNets_[frameIndex].emplace(&symbol, net);
+        return net;
+      }
+      return nullptr;
+    }
+
+    std::string makeActiveFunctionLocalSuffix() {
+      return std::string("call_") + std::to_string(activeFunctionCallSerial_++);
+    }
+
     SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
       const Expression* current = stripConnectionLValueArgConversions(expr);
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
-        if (auto* loweredNet = getLoweredValueSymbolNet(design, symbol)) {
-          return loweredNet;
-        }
         for (auto it = activeFunctionArgumentNets_.rbegin();
              it != activeFunctionArgumentNets_.rend();
              ++it) {
@@ -2783,6 +2835,15 @@ class SNLSVConstructorImpl {
           if (found != it->end()) {
             return found->second;
           }
+        }
+        if (auto* localNet = resolveActiveFunctionLocalNet(
+              design,
+              symbol,
+              getSourceRange(expr))) {
+          return localNet;
+        }
+        if (auto* loweredNet = getLoweredValueSymbolNet(design, symbol)) {
+          return loweredNet;
         }
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
@@ -8186,7 +8247,11 @@ class SNLSVConstructorImpl {
 
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
+      activeFunctionLocalNets_.emplace_back();
+      activeFunctionLocalSuffixes_.push_back(makeActiveFunctionLocalSuffix());
       const auto guard = slang::ScopeGuard([&]() {
+        activeFunctionLocalSuffixes_.pop_back();
+        activeFunctionLocalNets_.pop_back();
         activeInlinedCallSubroutines_.pop_back();
         activeFunctionArgumentNets_.pop_back();
       });
@@ -8423,7 +8488,11 @@ class SNLSVConstructorImpl {
 
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
+      activeFunctionLocalNets_.emplace_back();
+      activeFunctionLocalSuffixes_.push_back(makeActiveFunctionLocalSuffix());
       const auto guard = slang::ScopeGuard([&]() {
+        activeFunctionLocalSuffixes_.pop_back();
+        activeFunctionLocalNets_.pop_back();
         activeInlinedCallSubroutines_.pop_back();
         activeFunctionArgumentNets_.pop_back();
       });
@@ -8683,7 +8752,11 @@ class SNLSVConstructorImpl {
 
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
+      activeFunctionLocalNets_.emplace_back();
+      activeFunctionLocalSuffixes_.push_back(makeActiveFunctionLocalSuffix());
       const auto guard = slang::ScopeGuard([&]() {
+        activeFunctionLocalSuffixes_.pop_back();
+        activeFunctionLocalNets_.pop_back();
         activeInlinedCallSubroutines_.pop_back();
         activeFunctionArgumentNets_.pop_back();
       });
@@ -8919,21 +8992,163 @@ class SNLSVConstructorImpl {
       return bits.size() == targetWidth;
     }
 
+    bool resolveProceduralReplayEnvSelectionBits(
+      const Expression& expr,
+      const Expression& baseExpr,
+      const std::vector<SNLBitNet*>& baseBits,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) const {
+      if (baseBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto baseRange = slang::ConstantRange(0, 0);
+      const auto& baseType = baseExpr.type->getCanonicalType();
+      if (baseType.hasFixedRange()) {
+        baseRange = baseType.getFixedRange();
+      } else if (baseBits.size() > 1) {
+        baseRange = slang::ConstantRange(static_cast<int32_t>(baseBits.size() - 1), 0);
+      }
+
+      std::optional<slang::ConstantRange> selectedRange;
+      const auto* symbolRef = expr.getSymbolReference();
+      if (!symbolRef) {
+        symbolRef = baseExpr.getSymbolReference();
+      }
+      if (symbolRef) {
+        slang::ast::EvalContext evalContext(*symbolRef);
+        if (auto evaluatedRange = expr.evalSelector(evalContext, true)) {
+          selectedRange = *evaluatedRange;
+        }
+      }
+
+      const auto* stripped = stripConversions(expr);
+      if (!selectedRange && stripped &&
+          stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        int32_t selectedIndex = 0;
+        if (getConstantInt32(
+              stripped->as<slang::ast::ElementSelectExpression>().selector(),
+              selectedIndex)) {
+          selectedRange = slang::ConstantRange(selectedIndex, selectedIndex);
+        }
+      }
+      if (!selectedRange && stripped &&
+          stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
+        int32_t left = 0;
+        int32_t right = 0;
+        switch (rangeExpr.getSelectionKind()) {
+          case slang::ast::RangeSelectionKind::Simple:
+            if (getConstantInt32(rangeExpr.left(), left) &&
+                getConstantInt32(rangeExpr.right(), right)) {
+              selectedRange = slang::ConstantRange(left, right);
+            }
+            break;
+          case slang::ast::RangeSelectionKind::IndexedUp:
+          case slang::ast::RangeSelectionKind::IndexedDown:
+            if (getConstantInt32(rangeExpr.left(), left) &&
+                getConstantInt32(rangeExpr.right(), right) &&
+                right > 0) {
+              const auto width = right;
+              if (rangeExpr.getSelectionKind() ==
+                  slang::ast::RangeSelectionKind::IndexedDown) {
+                selectedRange = slang::ConstantRange(left, left - width + 1);
+              } else {
+                selectedRange = slang::ConstantRange(left + width - 1, left);
+              }
+            }
+            break;
+        }
+      }
+      if (!selectedRange || selectedRange->width() != targetWidth) {
+        return false;
+      }
+
+      bits.clear();
+      bits.reserve(targetWidth);
+      int32_t index = selectedRange->right;
+      const int32_t end = selectedRange->left;
+      const int32_t step = index <= end ? 1 : -1;
+      while (index != end + step) {
+        const auto translated = baseRange.translateIndex(index);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(baseBits.size())) {
+          return false;
+        }
+        bits.push_back(baseBits[static_cast<size_t>(translated)]);
+        index += step;
+      }
+      return bits.size() == targetWidth;
+    }
+
+    bool resolveProceduralReplayEnvBits(
+      const Expression& expr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) const {
+      if (!activeProceduralReplayEnv_) {
+        return false;
+      }
+
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+        auto found = activeProceduralReplayEnv_->find(&symbol);
+        if (found == activeProceduralReplayEnv_->end() ||
+            found->second.size() != targetWidth) {
+          return false;
+        }
+        bits = found->second;
+        return true;
+      }
+
+      if (stripped->kind != slang::ast::ExpressionKind::ElementSelect &&
+          stripped->kind != slang::ast::ExpressionKind::RangeSelect) {
+        return false;
+      }
+
+      const auto* baseExpr = stripConversions(
+        stripped->kind == slang::ast::ExpressionKind::ElementSelect
+          ? stripped->as<slang::ast::ElementSelectExpression>().value()
+          : stripped->as<slang::ast::RangeSelectExpression>().value());
+      if (!baseExpr || !slang::ast::ValueExpressionBase::isKind(baseExpr->kind)) {
+        return false;
+      }
+
+      const auto& symbol = baseExpr->as<slang::ast::ValueExpressionBase>().symbol;
+      auto found = activeProceduralReplayEnv_->find(&symbol);
+      if (found == activeProceduralReplayEnv_->end()) {
+        return false;
+      }
+      return resolveProceduralReplayEnvSelectionBits(
+        *stripped,
+        *baseExpr,
+        found->second,
+        targetWidth,
+        bits);
+    }
+
     bool resolveActiveProceduralReplayBits(
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits) const {
-      if (!activeProceduralReplayLHS_ ||
-          !activeProceduralReplayBits_ ||
-          activeProceduralReplayBits_->size() != targetWidth) {
-        return false;
-      }
       const auto* stripped = stripConversions(expr);
-      if (!stripped || !sameLhs(stripped, activeProceduralReplayLHS_)) {
+      if (!stripped) {
         return false;
       }
-      bits = *activeProceduralReplayBits_;
-      return true;
+
+      if (activeProceduralReplayLHS_ &&
+          activeProceduralReplayBits_ &&
+          activeProceduralReplayBits_->size() == targetWidth &&
+          sameLhs(stripped, activeProceduralReplayLHS_)) {
+        bits = *activeProceduralReplayBits_;
+        return true;
+      }
+
+      return resolveProceduralReplayEnvBits(*stripped, targetWidth, bits);
     }
 
     bool resolveExpressionBits(
@@ -12794,6 +13009,242 @@ class SNLSVConstructorImpl {
 
     using CombinationalSubtreeSummaryCache =
       std::unordered_map<const Statement*, CombinationalSubtreeSummary>;
+    using ProceduralReplayEnv =
+      std::unordered_map<const slang::ast::ValueSymbol*, std::vector<SNLBitNet*>>;
+    using ProceduralReplayDependencyMap =
+      std::unordered_map<
+        const slang::ast::ValueSymbol*,
+        std::unordered_set<const slang::ast::ValueSymbol*>>;
+
+    void collectExpressionRootValueSymbols(
+      const Expression& expr,
+      std::unordered_set<const slang::ast::ValueSymbol*>& symbols) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return; // LCOV_EXCL_LINE
+      }
+
+      if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        symbols.insert(&stripped->as<slang::ast::ValueExpressionBase>().symbol);
+        return;
+      }
+
+      switch (stripped->kind) {
+        case slang::ast::ExpressionKind::UnaryOp:
+          collectExpressionRootValueSymbols(
+            stripped->as<slang::ast::UnaryExpression>().operand(),
+            symbols);
+          return;
+        case slang::ast::ExpressionKind::BinaryOp: {
+          const auto& binary = stripped->as<slang::ast::BinaryExpression>();
+          collectExpressionRootValueSymbols(binary.left(), symbols);
+          collectExpressionRootValueSymbols(binary.right(), symbols);
+          return;
+        }
+        case slang::ast::ExpressionKind::ElementSelect: {
+          const auto& element = stripped->as<slang::ast::ElementSelectExpression>();
+          collectExpressionRootValueSymbols(element.value(), symbols);
+          collectExpressionRootValueSymbols(element.selector(), symbols);
+          return;
+        }
+        case slang::ast::ExpressionKind::RangeSelect: {
+          const auto& range = stripped->as<slang::ast::RangeSelectExpression>();
+          collectExpressionRootValueSymbols(range.value(), symbols);
+          collectExpressionRootValueSymbols(range.left(), symbols);
+          collectExpressionRootValueSymbols(range.right(), symbols);
+          return;
+        }
+        case slang::ast::ExpressionKind::MemberAccess:
+          collectExpressionRootValueSymbols(
+            stripped->as<slang::ast::MemberAccessExpression>().value(),
+            symbols);
+          return;
+        case slang::ast::ExpressionKind::ConditionalOp: {
+          const auto& conditional = stripped->as<slang::ast::ConditionalExpression>();
+          for (const auto& condition : conditional.conditions) {
+            if (condition.expr) {
+              collectExpressionRootValueSymbols(*condition.expr, symbols);
+            }
+          }
+          collectExpressionRootValueSymbols(conditional.left(), symbols);
+          collectExpressionRootValueSymbols(conditional.right(), symbols);
+          return;
+        }
+        case slang::ast::ExpressionKind::Concatenation:
+          for (const auto* operand :
+               stripped->as<slang::ast::ConcatenationExpression>().operands()) {
+            if (operand) {
+              collectExpressionRootValueSymbols(*operand, symbols);
+            }
+          }
+          return;
+        case slang::ast::ExpressionKind::Replication: {
+          const auto& replication = stripped->as<slang::ast::ReplicationExpression>();
+          collectExpressionRootValueSymbols(replication.count(), symbols);
+          collectExpressionRootValueSymbols(replication.concat(), symbols);
+          return;
+        }
+        case slang::ast::ExpressionKind::Call:
+          for (const auto* argument :
+               stripped->as<slang::ast::CallExpression>().arguments()) {
+            if (argument) {
+              collectExpressionRootValueSymbols(*argument, symbols);
+            }
+          }
+          return;
+        case slang::ast::ExpressionKind::Assignment: {
+          const auto& assignment = stripped->as<slang::ast::AssignmentExpression>();
+          collectExpressionRootValueSymbols(assignment.right(), symbols);
+          return;
+        }
+        default:
+          return;
+      }
+    }
+
+    void collectProceduralReplayDependencies(
+      const Statement& stmt,
+      ProceduralReplayDependencyMap& dependencyMap,
+      const std::unordered_set<const slang::ast::ValueSymbol*>& conditionSymbols,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current ||
+          isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::Break) {
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) {
+            collectProceduralReplayDependencies(
+              *item,
+              dependencyMap,
+              conditionSymbols,
+              ignoredSymbols);
+          }
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        collectProceduralReplayDependencies(
+          current->as<slang::ast::ForLoopStatement>().body,
+          dependencyMap,
+          conditionSymbols,
+          ignoredSymbols);
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        auto branchConditionSymbols = conditionSymbols;
+        if (conditional.conditions.size() == 1 && conditional.conditions[0].expr) {
+          collectExpressionRootValueSymbols(
+            *conditional.conditions[0].expr,
+            branchConditionSymbols);
+        }
+        collectProceduralReplayDependencies(
+          conditional.ifTrue,
+          dependencyMap,
+          branchConditionSymbols,
+          ignoredSymbols);
+        if (conditional.ifFalse) {
+          collectProceduralReplayDependencies(
+            *conditional.ifFalse,
+            dependencyMap,
+            branchConditionSymbols,
+            ignoredSymbols);
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        auto caseConditionSymbols = conditionSymbols;
+        collectExpressionRootValueSymbols(caseStmt.expr, caseConditionSymbols);
+        for (const auto& item : caseStmt.items) {
+          auto itemConditionSymbols = caseConditionSymbols;
+          for (const auto* expr : item.expressions) {
+            if (expr) {
+              collectExpressionRootValueSymbols(*expr, itemConditionSymbols);
+            }
+          }
+          collectProceduralReplayDependencies(
+            *item.stmt,
+            dependencyMap,
+            itemConditionSymbols,
+            ignoredSymbols);
+        }
+        if (caseStmt.defaultCase) {
+          collectProceduralReplayDependencies(
+            *caseStmt.defaultCase,
+            dependencyMap,
+            caseConditionSymbols,
+            ignoredSymbols);
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        if (!declStmt.symbol.getInitializer() ||
+            (ignoredSymbols && ignoredSymbols->contains(&declStmt.symbol))) {
+          return;
+        }
+        auto& deps = dependencyMap[&declStmt.symbol];
+        deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+        collectExpressionRootValueSymbols(*declStmt.symbol.getInitializer(), deps);
+        return;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhsExpr, action)) {
+        return;
+      }
+      lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
+      if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+        return;
+      }
+      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+      if (!lhsExpr || !tryGetRootValueSymbolReference(*lhsExpr, lhsSymbol)) {
+        return;
+      }
+
+      auto& deps = dependencyMap[lhsSymbol];
+      deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+      if (action.rhs) {
+        collectExpressionRootValueSymbols(*action.rhs, deps);
+      }
+      if (action.stepDelta != 0 || action.compoundOp) {
+        deps.insert(lhsSymbol);
+      }
+    }
+
+    std::unordered_set<const slang::ast::ValueSymbol*> getProceduralReplayRelevantSymbols(
+      const slang::ast::ValueSymbol& trackedSymbol,
+      const ProceduralReplayDependencyMap& dependencyMap) const {
+      std::unordered_set<const slang::ast::ValueSymbol*> relevantSymbols {&trackedSymbol};
+      std::vector<const slang::ast::ValueSymbol*> pending {&trackedSymbol};
+      while (!pending.empty()) {
+        const auto* symbol = pending.back();
+        pending.pop_back();
+        auto found = dependencyMap.find(symbol);
+        if (found == dependencyMap.end()) {
+          continue;
+        }
+        for (const auto* dependency : found->second) {
+          if (!dependency || relevantSymbols.contains(dependency)) {
+            continue;
+          }
+          relevantSymbols.insert(dependency);
+          pending.push_back(dependency);
+        }
+      }
+      return relevantSymbols;
+    }
 
     const CombinationalSubtreeSummary& getOrComputeCombinationalSubtreeSummary(
       const Statement& stmt,
@@ -13808,6 +14259,50 @@ class SNLSVConstructorImpl {
              canEvalSelection();
     }
 
+    bool isStaticFixedPackedArraySelection(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped ||
+          stripped->kind != slang::ast::ExpressionKind::ElementSelect) {
+        return false;
+      }
+
+      const Expression* baseExpr = getSelectionBaseExpression(*stripped);
+      if (!baseExpr) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto& baseType = baseExpr->type->getCanonicalType();
+      if (baseType.isUnpackedArray() || !baseType.hasFixedRange()) {
+        return false;
+      }
+      const auto* elementType = baseType.getArrayElementType();
+      if (!elementType || !elementType->getCanonicalType().isBitstreamType()) {
+        return false;
+      }
+
+      const auto canEvalSelection = [&]() {
+        const auto* evalSymbol = getConstantEvalSymbol(*stripped);
+        if (!evalSymbol) {
+          return false;
+        }
+        slang::ast::EvalContext evalContext(*evalSymbol);
+        const auto selectedRange = stripped->evalSelector(evalContext, true);
+        return selectedRange && selectedRange->width() > 0;
+      };
+
+      const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+      if (isActiveForLoopVariableExpr(elementExpr.selector())) {
+        return false;
+      }
+      const auto elementWidth = elementType->getCanonicalType().getBitstreamWidth();
+      if (elementWidth <= 1 &&
+          !getConstantEvalSymbol(elementExpr.selector())) {
+        return false;
+      }
+      int32_t selectedIndex = 0;
+      return getConstantInt32(elementExpr.selector(), selectedIndex) ||
+             canEvalSelection();
+    }
+
     const Expression* getTrackedSequentialFallbackLHS(const Expression* lhsExpr) const {
       if (!lhsExpr) {
         return nullptr; // LCOV_EXCL_LINE
@@ -13818,6 +14313,9 @@ class SNLSVConstructorImpl {
       }
 
       if (isStaticFixedUnpackedArraySelection(*stripped)) {
+        return lhsExpr;
+      }
+      if (isStaticFixedPackedArraySelection(*stripped)) {
         return lhsExpr;
       }
 
@@ -17131,6 +17629,111 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool applyCombinationalAssignmentToReplaySymbol(
+      SNLDesign* design,
+      const Expression& assignedLHS,
+      const AssignAction& action,
+      const std::unordered_set<const slang::ast::ValueSymbol*>& replaySymbols,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+      if (!activeProceduralReplayEnv_) {
+        return true;
+      }
+
+      const auto* replayLhs = getTrackedAlwaysCombLHS(&assignedLHS);
+      const slang::ast::ValueSymbol* replaySymbol = nullptr;
+      if (!replayLhs ||
+          !tryGetRootValueSymbolReference(*replayLhs, replaySymbol) ||
+          !replaySymbols.contains(replaySymbol)) {
+        return true;
+      }
+
+      std::vector<SNLBitNet*> replayLhsBits;
+      if (!resolveAssignmentLHSBits(
+            design,
+            *replayLhs,
+            replayLhsBits,
+            &failureReason,
+            true)) {
+        return false;
+      }
+      if (replayLhsBits.empty()) {
+        return true; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> replayBits = replayLhsBits;
+      auto found = activeProceduralReplayEnv_->find(replaySymbol);
+      if (found != activeProceduralReplayEnv_->end() &&
+          found->second.size() == replayLhsBits.size()) {
+        replayBits = found->second;
+      }
+
+      if (sameLhs(&assignedLHS, replayLhs)) {
+        std::vector<SNLBitNet*> assignedBits;
+        if (!buildCombinationalAssignBits(
+              design,
+              action,
+              replayLhsBits.size(),
+              assignedBits,
+              &replayBits,
+              failureReason)) {
+          return false;
+        }
+        if (assignedBits.size() != replayLhsBits.size()) {
+          failureReason = formatDescribedFailure(
+            "width mismatch while replaying always_comb assignment for ",
+            describeExpression(assignedLHS));
+          return false;
+        }
+        (*activeProceduralReplayEnv_)[replaySymbol] = std::move(assignedBits);
+        handled = true;
+        return true;
+      }
+
+      bool subHandled = false;
+      if (!tryApplyCombinationalElementSelectAssignmentForLhs(
+            design,
+            assignedLHS,
+            *replayLhs,
+            action,
+            replayLhsBits,
+            replayBits,
+            failureReason,
+            subHandled)) {
+        return false;
+      }
+      if (!subHandled &&
+          !tryApplyCombinationalRangeSelectAssignmentForLhs(
+            design,
+            assignedLHS,
+            *replayLhs,
+            action,
+            replayLhsBits,
+            replayBits,
+            failureReason,
+            subHandled)) {
+        return false;
+      }
+      if (!subHandled &&
+          !tryApplyCombinationalFixedSubAssignmentForLhs(
+            design,
+            assignedLHS,
+            *replayLhs,
+            action,
+            replayLhsBits,
+            replayBits,
+            failureReason,
+            subHandled)) {
+        return false;
+      }
+      if (subHandled) {
+        (*activeProceduralReplayEnv_)[replaySymbol] = std::move(replayBits);
+        handled = true;
+      }
+      return true;
+    }
+
     bool applyCombinationalStatementForLhs(
       SNLDesign* design,
       const Statement& stmt,
@@ -17140,7 +17743,8 @@ class SNLSVConstructorImpl {
       size_t& tempIndex,
       std::string& failureReason,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
-      CombinationalSubtreeSummaryCache* subtreeSummaryCache = nullptr) {
+      CombinationalSubtreeSummaryCache* subtreeSummaryCache = nullptr,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -17152,9 +17756,17 @@ class SNLSVConstructorImpl {
             *current,
             *subtreeSummaryCache,
             ignoredSymbols);
+          const bool affectsTrackedSymbol = subtreeSummary.affectedSymbols.contains(trackedSymbol);
+          const bool affectsReplaySymbol =
+            replaySymbols &&
+            std::any_of(
+              subtreeSummary.affectedSymbols.begin(),
+              subtreeSummary.affectedSymbols.end(),
+              [&](const auto* symbol) { return replaySymbols->contains(symbol); });
           if (!subtreeSummary.hasUnknownEffects &&
               !subtreeSummary.mayBreak &&
-              !subtreeSummary.affectedSymbols.contains(trackedSymbol)) {
+              !affectsTrackedSymbol &&
+              !affectsReplaySymbol) {
             return true;
           }
         }
@@ -17181,7 +17793,8 @@ class SNLSVConstructorImpl {
                 tempIndex,
                 failureReason,
                 ignoredSymbols,
-                subtreeSummaryCache)) {
+                subtreeSummaryCache,
+                replaySymbols)) {
             return false;
           }
           if (isCurrentForLoopBreakRequested()) {
@@ -17205,7 +17818,8 @@ class SNLSVConstructorImpl {
               tempIndex,
               failureReason,
               ignoredSymbols,
-              subtreeSummaryCache);
+              subtreeSummaryCache,
+              replaySymbols);
           },
           failureReason);
       }
@@ -17213,10 +17827,21 @@ class SNLSVConstructorImpl {
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
         std::string conditionFailureReason;
-        auto* conditionBit = resolveCombinationalConditionNet(
-          design,
-          *condStmt.conditions[0].expr,
-          &conditionFailureReason);
+        SNLBitNet* conditionBit = nullptr;
+        {
+          const auto* savedActiveProceduralReplayLHS = activeProceduralReplayLHS_;
+          const auto* savedActiveProceduralReplayBits = activeProceduralReplayBits_;
+          activeProceduralReplayLHS_ = &lhsExpr;
+          activeProceduralReplayBits_ = &dataBits;
+          const auto activeProceduralReplayGuard = slang::ScopeGuard([&]() {
+            activeProceduralReplayLHS_ = savedActiveProceduralReplayLHS;
+            activeProceduralReplayBits_ = savedActiveProceduralReplayBits;
+          });
+          conditionBit = resolveCombinationalConditionNet(
+            design,
+            *condStmt.conditions[0].expr,
+            &conditionFailureReason);
+        }
         if (!conditionBit) {
           failureReason = conditionFailureReason;
           return false;
@@ -17250,7 +17875,8 @@ class SNLSVConstructorImpl {
                 tempIndex,
                 failureReason,
                 ignoredSymbols,
-                subtreeSummaryCache)) {
+                subtreeSummaryCache,
+                replaySymbols)) {
             return false;
           }
 
@@ -17278,7 +17904,8 @@ class SNLSVConstructorImpl {
               tempIndex,
               failureReason,
               ignoredSymbols,
-              subtreeSummaryCache)) {
+              subtreeSummaryCache,
+              replaySymbols)) {
           return false;
         }
         const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
@@ -17297,7 +17924,8 @@ class SNLSVConstructorImpl {
                 tempIndex,
                 failureReason,
                 ignoredSymbols,
-                subtreeSummaryCache)) {
+                subtreeSummaryCache,
+                replaySymbols)) {
             return false;
           }
         }
@@ -17352,7 +17980,8 @@ class SNLSVConstructorImpl {
                 tempIndex,
                 failureReason,
                 ignoredSymbols,
-                subtreeSummaryCache)) {
+                subtreeSummaryCache,
+                replaySymbols)) {
             return false;
           }
           mergedBits = std::move(defaultBits);
@@ -17371,16 +18000,28 @@ class SNLSVConstructorImpl {
                 tempIndex,
                 failureReason,
                 ignoredSymbols,
-                subtreeSummaryCache)) {
+                subtreeSummaryCache,
+                replaySymbols)) {
             return false;
           }
 
-          auto* itemMatchBit = buildCaseItemMatchBit(
-            design,
-            caseStmt.expr,
-            caseStmt,
-            *itemIt,
-            failureReason);
+          SNLBitNet* itemMatchBit = nullptr;
+          {
+            const auto* savedActiveProceduralReplayLHS = activeProceduralReplayLHS_;
+            const auto* savedActiveProceduralReplayBits = activeProceduralReplayBits_;
+            activeProceduralReplayLHS_ = &lhsExpr;
+            activeProceduralReplayBits_ = &dataBits;
+            const auto activeProceduralReplayGuard = slang::ScopeGuard([&]() {
+              activeProceduralReplayLHS_ = savedActiveProceduralReplayLHS;
+              activeProceduralReplayBits_ = savedActiveProceduralReplayBits;
+            });
+            itemMatchBit = buildCaseItemMatchBit(
+              design,
+              caseStmt.expr,
+              caseStmt,
+              *itemIt,
+              failureReason);
+          }
           if (!itemMatchBit) {
             return false;
           }
@@ -17414,6 +18055,29 @@ class SNLSVConstructorImpl {
       if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
         const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
         const auto* initializer = declStmt.symbol.getInitializer();
+        if (activeProceduralReplayEnv_ &&
+            replaySymbols &&
+            initializer &&
+            replaySymbols->contains(&declStmt.symbol)) {
+          std::vector<SNLBitNet*> initBits;
+          auto width = getRepresentableExpressionBitWidth(*initializer);
+          if (!width) {
+            if (auto range = getRangeFromType(declStmt.symbol.getType())) {
+              width = static_cast<size_t>(range->width());
+            }
+          }
+          if (!width || !*width ||
+              !resolveExpressionBits(design, *initializer, static_cast<size_t>(*width), initBits) ||
+              initBits.size() != static_cast<size_t>(*width)) {
+            std::ostringstream reason;
+            reason << "unable to resolve always_comb initializer bits for local '"
+                   << std::string(declStmt.symbol.name) << "'";
+            failureReason = reason.str();
+            return false;
+          }
+          (*activeProceduralReplayEnv_)[&declStmt.symbol] = std::move(initBits);
+          return true;
+        }
         const auto* strippedTrackedLHS = stripConversions(lhsExpr);
         if (!initializer || !strippedTrackedLHS ||
             !slang::ast::ValueExpressionBase::isKind(strippedTrackedLHS->kind) ||
@@ -17447,6 +18111,25 @@ class SNLSVConstructorImpl {
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        const bool assignsCurrentLhs =
+          assignedLHS &&
+          (sameLhs(assignedLHS, &lhsExpr) ||
+           isTrackedSelectionSubLhsOf(assignedLHS, &lhsExpr));
+        if (replaySymbols && assignedLHS && !assignsCurrentLhs) {
+          bool replayHandled = false;
+          if (!applyCombinationalAssignmentToReplaySymbol(
+                design,
+                *assignedLHS,
+                action,
+                *replaySymbols,
+                failureReason,
+                replayHandled)) {
+            return false;
+          }
+          if (replayHandled) {
+            return true;
+          }
+        }
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           bool handled = false;
           if (!tryApplyCombinationalElementSelectAssignmentForLhs(
@@ -17461,6 +18144,11 @@ class SNLSVConstructorImpl {
             return false;
           }
           if (handled) {
+            const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+            if (activeProceduralReplayEnv_ &&
+                tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+              (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+            }
             return true;
           }
 
@@ -17476,6 +18164,11 @@ class SNLSVConstructorImpl {
             return false;
           }
           if (handled) {
+            const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+            if (activeProceduralReplayEnv_ &&
+                tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+              (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+            }
             return true;
           }
 
@@ -17491,6 +18184,11 @@ class SNLSVConstructorImpl {
             return false;
           }
           if (handled) {
+            const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+            if (activeProceduralReplayEnv_ &&
+                tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+              (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+            }
             return true;
           }
 
@@ -17507,6 +18205,11 @@ class SNLSVConstructorImpl {
           return false;
         }
         dataBits = std::move(assignedBits);
+        const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+        if (activeProceduralReplayEnv_ &&
+            tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+          (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+        }
         return true;
       }
 
@@ -17587,6 +18290,16 @@ class SNLSVConstructorImpl {
         }
       }
 
+      ProceduralReplayDependencyMap replayDependencyMap;
+      {
+        std::unordered_set<const slang::ast::ValueSymbol*> conditionSymbols;
+        collectProceduralReplayDependencies(
+          stmt,
+          replayDependencyMap,
+          conditionSymbols,
+          ignoredSymbols);
+      }
+
       for (const auto* rawLhsExpr : lhsExpressions) {
         if (!rawLhsExpr) {
           continue; // LCOV_EXCL_LINE
@@ -17613,12 +18326,31 @@ class SNLSVConstructorImpl {
         if (lhsBits.empty()) {
           continue; // LCOV_EXCL_LINE
         }
+        const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+        std::unordered_set<const slang::ast::ValueSymbol*> replaySymbols;
+        const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbolsPtr = nullptr;
+        if (tryGetRootValueSymbolReference(*lhsExpr, trackedSymbol)) {
+          replaySymbols =
+            getProceduralReplayRelevantSymbols(*trackedSymbol, replayDependencyMap);
+          replaySymbolsPtr = &replaySymbols;
+        }
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeCombinationalLHSScopeName(*lhsExpr, lhsBits.size()));
 #endif
           std::vector<SNLBitNet*> dataBits = lhsBits;
+          ProceduralReplayEnv replayEnv;
+          if (trackedSymbol) {
+            replayEnv[trackedSymbol] = dataBits;
+          }
+          auto* savedActiveProceduralReplayEnv = activeProceduralReplayEnv_;
+          if (trackedSymbol) {
+            activeProceduralReplayEnv_ = &replayEnv;
+          }
+          const auto activeProceduralReplayEnvGuard = slang::ScopeGuard([&]() {
+            activeProceduralReplayEnv_ = savedActiveProceduralReplayEnv;
+          });
           size_t tempIndex = 0;
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -17637,7 +18369,8 @@ class SNLSVConstructorImpl {
                   tempIndex,
                   failureReason,
                   ignoredSymbols,
-                  &subtreeSummaryCache)) {
+                  &subtreeSummaryCache,
+                  replaySymbolsPtr)) {
               return false;
             }
           }
@@ -20738,10 +21471,15 @@ class SNLSVConstructorImpl {
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     const Expression* activeProceduralReplayLHS_ {nullptr};
     const std::vector<SNLBitNet*>* activeProceduralReplayBits_ {nullptr};
+    ProceduralReplayEnv* activeProceduralReplayEnv_ {nullptr};
     mutable std::vector<std::pair<const Symbol*, int64_t>> activeForLoopConstants_ {};
     mutable std::vector<bool> activeForLoopBreaks_ {};
     mutable std::vector<std::unordered_map<const Symbol*, SNLNet*>> activeFunctionArgumentNets_ {};
     mutable std::vector<const slang::ast::SubroutineSymbol*> activeInlinedCallSubroutines_ {};
+    std::vector<std::unordered_map<const slang::ast::ValueSymbol*, SNLNet*>>
+      activeFunctionLocalNets_ {};
+    std::vector<std::string> activeFunctionLocalSuffixes_ {};
+    size_t activeFunctionCallSerial_ {0};
     std::unordered_map<
       const slang::ast::ValueSymbol*,
       std::unordered_map<SNLDesign*, SNLNet*>>

@@ -116,6 +116,22 @@ size_t countMux2InputUses(SNLBitNet* net) {
   return uses;
 }
 
+size_t countInputInstTermUses(SNLBitNet* net) {
+  if (!net) {
+    ADD_FAILURE() << "Missing net";
+    return 0;
+  }
+
+  size_t uses = 0;
+  for (auto* instTerm : net->getInstTerms()) {
+    if (instTerm &&
+        instTerm->getDirection() == SNLTerm::Direction::Input) {
+      ++uses;
+    }
+  }
+  return uses;
+}
+
 std::filesystem::path createTestDirectory(const char* name) {
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / name;
@@ -621,6 +637,100 @@ endmodule
     ASSERT_NE(bit, nullptr);
     EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
     EXPECT_EQ(0u, countMux2InputUses(bit)) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombConditionCurrentLHSUsesReplayValueNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_condition_current_lhs_uses_replay_value_no_feedback");
+
+  const auto svPath =
+    outPath / "always_comb_condition_current_lhs_uses_replay_value_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_condition_current_lhs_uses_replay_value_no_feedback(
+  input  logic [4:0] q_i,
+  input  logic [4:0] init_i,
+  input  logic       op_i,
+  output logic [4:0] r_o,
+  output logic       y_o
+);
+  always_comb begin
+    r_o = q_i;
+    y_o = 1'b0;
+    if (op_i) begin
+      r_o = init_i;
+      y_o = 1'b1;
+      if (r_o == 5'd4) begin
+        r_o -= 5'd1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_condition_current_lhs_uses_replay_value_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  auto* r = top->getBusNet(NLName("r_o"));
+  ASSERT_NE(r, nullptr);
+  ASSERT_EQ(5, r->getWidth());
+  for (auto* bit : r->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+    EXPECT_EQ(0u, countInputInstTermUses(bit)) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombTemporaryUsesCurrentLHSReplayValueNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_temporary_uses_current_lhs_replay_value_no_feedback");
+
+  const auto svPath =
+    outPath / "always_comb_temporary_uses_current_lhs_replay_value_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_temporary_uses_current_lhs_replay_value_no_feedback(
+  input  logic [3:0] ext_i,
+  input  logic       sel_i,
+  output logic [3:0] result_o
+);
+  logic [3:0] rev;
+
+  always_comb begin
+    result_o = ext_i;
+    for (int i = 0; i < 4; i++) begin
+      rev[i] = result_o[3-i];
+    end
+    result_o = sel_i ? rev : result_o;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_temporary_uses_current_lhs_replay_value_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  auto* result = top->getBusNet(NLName("result_o"));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(4, result->getWidth());
+  for (auto* bit : result->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+    EXPECT_EQ(0u, countInputInstTermUses(bit)) << bit->getString();
   }
 }
 
