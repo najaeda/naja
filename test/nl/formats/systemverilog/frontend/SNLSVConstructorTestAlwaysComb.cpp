@@ -950,6 +950,52 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedPackedStructOutputLoopNoDuplicateDefaultDrivers) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_packed_struct_output_loop_no_duplicate_default_drivers");
+
+  const auto svPath =
+    outPath /
+    "always_comb_unpacked_packed_struct_output_loop_no_duplicate_default_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic [2:0] ex;
+  logic [3:0] address;
+} fetch_entry_s;
+
+module always_comb_unpacked_packed_struct_output_loop_no_duplicate_default_drivers(
+  input  logic [3:0] pc_i,
+  output fetch_entry_s [1:0] fetch_entry_o
+);
+  always_comb begin
+    for (int unsigned i = 0; i < 2; i++) begin
+      fetch_entry_o[i].ex = '0;
+      fetch_entry_o[i].address = pc_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_packed_struct_output_loop_no_duplicate_default_drivers"));
+  ASSERT_NE(top, nullptr);
+  auto* fetchEntry = top->getBusNet(NLName("fetch_entry_o"));
+  ASSERT_NE(fetchEntry, nullptr);
+  ASSERT_EQ(14, fetchEntry->getWidth());
+  for (auto* bit : fetchEntry->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_LE(countOutputInstTermDrivers(bit), 1u) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombTemporarySelectionCompoundReplaySupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

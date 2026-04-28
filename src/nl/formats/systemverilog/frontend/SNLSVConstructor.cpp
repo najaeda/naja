@@ -6238,10 +6238,24 @@ class SNLSVConstructorImpl {
         return nullptr;
       }
       auto assignGate = NLDB0::getAssign();
-      auto assignInst = SNLInstance::create(design, assignGate);
-      annotateSourceInfo(assignInst, sourceRange);
       auto assignInput = NLDB0::getAssignInput();
       auto assignOutput = NLDB0::getAssignOutput();
+      if (auto* outBit = dynamic_cast<SNLBitNet*>(outNet)) {
+        for (auto* instTerm : outBit->getInstTerms()) {
+          if (!instTerm ||
+              instTerm->getBitTerm() != assignOutput ||
+              !instTerm->getInstance() ||
+              !NLDB0::isAssign(instTerm->getInstance()->getModel())) {
+            continue;
+          }
+          auto* inputTerm = instTerm->getInstance()->getInstTerm(assignInput);
+          if (inputTerm && inputTerm->getNet() == inNet) {
+            return instTerm->getInstance();
+          }
+        }
+      }
+      auto assignInst = SNLInstance::create(design, assignGate);
+      annotateSourceInfo(assignInst, sourceRange);
       if (assignInput) {
         if (auto inTerm = assignInst->getInstTerm(assignInput)) {
           inTerm->setNet(inNet);

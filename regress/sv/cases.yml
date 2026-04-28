@@ -43,7 +43,6 @@ cases:
         - PINMISSING
         - ASCRANGE
         - WIDTHEXPAND
-        - MULTIDRIVEN
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
