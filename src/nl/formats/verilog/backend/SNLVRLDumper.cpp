@@ -274,6 +274,28 @@ bool isCanonicalBusRangeOrder(const std::vector<const naja::NL::SNLBusNetBit*>& 
   return true;
 }
 
+bool isCanonicalBusRangeOrder(const ContiguousNetBits& bits) {
+  assert(not bits.empty());
+  if (bits.size() == 1) {
+    return true;
+  }
+  auto firstBit = static_cast<const naja::NL::SNLBusNetBit*>(bits.front());
+  auto bus = firstBit->getBus();
+  auto expectedStep = getCanonicalRangeStep(bus);
+  for (size_t i = 1; i < bits.size(); ++i) {
+    auto previousBit = static_cast<const naja::NL::SNLBusNetBit*>(bits[i - 1]);
+    auto currentBit = static_cast<const naja::NL::SNLBusNetBit*>(bits[i]);
+    if (currentBit->getBus() != bus) {
+      return false; // LCOV_EXCL_LINE: defensive, current callers only pass same-bus ranges.
+    }
+    auto actualStep = currentBit->getBit() - previousBit->getBit();
+    if (actualStep != expectedStep) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void normalizeAssignGroupOutputOrder(
   std::vector<const naja::NL::SNLBitNet*>& inputBits,
   std::vector<const naja::NL::SNLBusNetBit*>& outputBits) {
@@ -1391,6 +1413,21 @@ void SNLVRLDumper::dumpInsTermConnectivity(
         concatenation = true;
       } else {
         firstElement = false;
+      }
+      if (not isCanonicalBusRangeOrder(bits)) {
+        concatenation = true;
+        for (size_t i = 0; i < bits.size(); ++i) {
+          if (i != 0) {
+            connectionStr += ", ";
+          }
+          auto* bit = static_cast<SNLBusNetBit*>(bits[i]);
+          auto bitName = getNetName(bit->getBus(), naming);
+          connectionStr += dumpName(bitName.getString()) + "[";
+          connectionStr += std::to_string(bit->getBit());
+          connectionStr += "]";
+        }
+        bits.clear();
+        return;
       }
       auto* rangeMSBBit = static_cast<SNLBusNetBit*>(bits[0]);
       auto rangeMSB = rangeMSBBit->getBit();

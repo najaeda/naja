@@ -48,3 +48,51 @@ cases:
         - WIDTHEXPAND
         - SELRANGE
         - MULTIDRIVEN
+
+  - name: ibex
+    repo: https://github.com/lowRISC/ibex.git
+    commit: eede2fbbef007d53cafbd85d937b897751c40a54
+    top: ibex_top
+    flist: build/fusesoc/lowrisc_ibex_ibex_top_0.1/lint-verilator/lowrisc_ibex_ibex_top_0.1.vc
+    flist_glob: build/fusesoc/**/lint-verilator/*.vc
+    flist_format: fusesoc_vc
+    setup_timeout_seconds: 3600
+    setup_commands:
+      - - fusesoc
+        - --cores-root
+        - "{repo}"
+        - run
+        - --target=lint
+        - --setup
+        - --build-root
+        - "{repo}/build/fusesoc"
+        - --mapping=lowrisc:prim_generic:all:0.1
+        - lowrisc:ibex:ibex_top
+    output: ibex_naja.v
+    env:
+      XDG_CACHE_HOME: "{case}/.cache"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING
+
+  - name: cv32e40p
+    repo: https://github.com/openhwgroup/cv32e40p.git
+    commit: 360d272898d81806be3377193870dbf83a3ea79f
+    top: cv32e40p_top
+    flist: cv32e40p_manifest.flist
+    output: cv32e40p_naja.v
+    env:
+      DESIGN_RTL_DIR: "{repo}/rtl"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING

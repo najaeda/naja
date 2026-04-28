@@ -3494,10 +3494,20 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement kind while lowering sequential block"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_shared_sequential_reset_case_assigns_tracked_lhs"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
 }
 
 TEST_F(

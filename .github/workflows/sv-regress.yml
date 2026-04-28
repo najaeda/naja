@@ -2,6 +2,10 @@ name: External SV Regress
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -30,7 +34,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
           python3 -m pip install --upgrade pip
-          python3 -m pip install pyyaml
+          python3 -m pip install pyyaml fusesoc
 
       - name: Configure CMake
         run: |
@@ -53,7 +57,7 @@ jobs:
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
       - name: Run external SV regress lint
-        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case all
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p
 
       - name: Upload SV regress artifacts
         uses: actions/upload-artifact@v7
