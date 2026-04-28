@@ -10945,20 +10945,22 @@ class SNLSVConstructorImpl {
                           strippedSelector->kind != slang::ast::ExpressionKind::BinaryOp) {
                         return false;
                       }
+
+                      // LCOV_EXCL_START
+                      // Late recovery for multiply selectors whose direct bit
+                      // resolution failed. Current parser-backed tests either
+                      // resolve these selectors earlier or fail before this
+                      // multiply-specific fallback.
                       const auto& selectorBinaryExpr =
                         strippedSelector->as<slang::ast::BinaryExpression>();
                       if (selectorBinaryExpr.op != slang::ast::BinaryOperator::Multiply) {
-                        return false; // LCOV_EXCL_LINE
+                        return false;
                       }
 
                       uint64_t factor = 0;
                       uint64_t leftConst = 0;
                       uint64_t rightConst = 0;
                       const Expression* baseExpr = nullptr;
-                      // LCOV_EXCL_START
-                      // Dynamic indexed-range multiply-selector recovery is
-                      // only reached for power-of-two scaling in current
-                      // parser-backed tests.
                       const bool leftIsConst =
                         getConstantUnsigned(selectorBinaryExpr.left(), leftConst);
                       const bool rightIsConst =
@@ -10971,10 +10973,6 @@ class SNLSVConstructorImpl {
                         baseExpr = &selectorBinaryExpr.right();
                       }
                       if (!baseExpr || factor == 0 || (factor & (factor - 1ULL)) != 0ULL) {
-                        // The only parser-backed dynamic indexed-range multiply
-                        // selectors that reach this recovery path use non-zero
-                        // power-of-two scaling; other spellings are filtered out
-                        // earlier by the main selector resolution.
                         return false;
                       }
 
@@ -10990,12 +10988,7 @@ class SNLSVConstructorImpl {
                             static_cast<size_t>(*selectorWidth),
                             baseBits) ||
                           baseBits.size() != static_cast<size_t>(*selectorWidth)) {
-                        // LCOV_EXCL_START
-                        // Defensive recovery path after selecting the multiply
-                        // base expression; current parser-backed forms either
-                        // resolve or fail earlier before this late fallback.
                         return false;
-                        // LCOV_EXCL_STOP
                       }
 
                       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));

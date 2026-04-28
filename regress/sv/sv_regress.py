@@ -76,6 +76,25 @@ def select_cases(cases: list[dict[str, Any]], case_name: str) -> list[dict[str, 
     return selected
 
 
+def select_requested_cases(
+    cases: list[dict[str, Any]],
+    case_names: list[str] | None,
+) -> list[dict[str, Any]]:
+    if not case_names:
+        return cases
+    if "all" in case_names:
+        return cases
+
+    selected: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for case_name in case_names:
+        if case_name in seen:
+            continue
+        seen.add(case_name)
+        selected.extend(select_cases(cases, case_name))
+    return selected
+
+
 def print_command(args: list[str], cwd: Path | None) -> None:
     prefix = f"(cd {cwd} && " if cwd else ""
     suffix = ")" if cwd else ""
@@ -599,7 +618,7 @@ def command_clean(args: argparse.Namespace) -> int:
 
 
 def command_run(args: argparse.Namespace) -> int:
-    cases = select_cases(load_manifest(args.manifest), args.case)
+    cases = select_requested_cases(load_manifest(args.manifest), args.case)
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
     summaries: list[dict[str, Any]] = []
@@ -648,7 +667,11 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.set_defaults(func=command_list)
 
     run_parser = subparsers.add_parser("run", help="Run SV regress cases")
-    run_parser.add_argument("--case", default="all", help="Case name or 'all'")
+    run_parser.add_argument(
+        "--case",
+        action="append",
+        help="Case name or 'all'. Repeat to run multiple named cases.",
+    )
     run_parser.add_argument("--keep-going", action="store_true", help="Continue after a case fails")
     run_parser.set_defaults(func=command_run)
 
