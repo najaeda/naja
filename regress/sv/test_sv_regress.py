@@ -39,8 +39,17 @@ cases:
         self.assertEqual(["fake"], [case["name"] for case in cases])
         self.assertEqual(cases, sv_regress.select_cases(cases, "all"))
         self.assertEqual([cases[0]], sv_regress.select_cases(cases, "fake"))
+        self.assertEqual(cases, sv_regress.select_requested_cases(cases, None))
+        self.assertEqual([cases[0]], sv_regress.select_requested_cases(cases, ["fake"]))
+        self.assertEqual(cases, sv_regress.select_requested_cases(cases, ["all"]))
         with self.assertRaises(sv_regress.RegressError):
             sv_regress.select_cases(cases, "missing")
+
+    def test_parser_accumulates_repeated_case_options(self):
+        parser = sv_regress.build_parser()
+        args = parser.parse_args(["run", "--case", "ibex", "--case", "cv32e40p"])
+
+        self.assertEqual(["ibex", "cv32e40p"], args.case)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
