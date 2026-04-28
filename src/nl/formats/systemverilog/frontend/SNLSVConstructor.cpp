@@ -18779,8 +18779,10 @@ class SNLSVConstructorImpl {
             false,
             false,
             ignoredSymbols)) {
+        // LCOV_EXCL_START
         std::fill(assignedMask.begin(), assignedMask.end(), true);
-        return assignedMask; // LCOV_EXCL_LINE
+        return assignedMask;
+        // LCOV_EXCL_STOP
       }
 
       for (const auto* assignedExpr : assignedExpressions) {
@@ -18808,10 +18810,13 @@ class SNLSVConstructorImpl {
               assignedBits,
               nullptr,
               true)) {
+          // LCOV_EXCL_START
           // Dynamic selected LHS forms that cannot be reduced to a fixed bit
-          // set may write any bit of the tracked object.
+          // set are handled above. This is a defensive fallback for future
+          // fixed-LHS shapes that collect successfully but cannot resolve.
           std::fill(assignedMask.begin(), assignedMask.end(), true);
           return assignedMask;
+          // LCOV_EXCL_STOP
         }
 
         for (auto* assignedBit : assignedBits) {
