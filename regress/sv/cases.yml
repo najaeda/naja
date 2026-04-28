@@ -22,7 +22,6 @@ cases:
       timeout_seconds: 7200
       suppressions:
         - PINMISSING
-        - WIDTHEXPAND
         - ASCRANGE
 
   - name: cva6

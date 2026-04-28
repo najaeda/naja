@@ -18718,6 +18718,43 @@ class SNLSVConstructorImpl {
       return initialBits;
     }
 
+    bool hasDynamicSelectionInLHS(const Expression& expr) const {
+      const auto* current = stripConversions(expr);
+      while (current) {
+        switch (current->kind) {
+          case slang::ast::ExpressionKind::ElementSelect: {
+            const auto& element =
+              current->as<slang::ast::ElementSelectExpression>();
+            int32_t selectedIndex = 0;
+            if (!getConstantInt32(element.selector(), selectedIndex)) {
+              return true;
+            }
+            current = stripConversions(element.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::RangeSelect: {
+            const auto& range =
+              current->as<slang::ast::RangeSelectExpression>();
+            int32_t left = 0;
+            int32_t right = 0;
+            if (!getConstantInt32(range.left(), left) ||
+                !getConstantInt32(range.right(), right)) {
+              return true;
+            }
+            current = stripConversions(range.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::MemberAccess:
+            current = stripConversions(
+              current->as<slang::ast::MemberAccessExpression>().value());
+            break;
+          default:
+            return false;
+        }
+      }
+      return false; // LCOV_EXCL_LINE
+    }
+
     std::vector<bool> makeCombinationalAssignedBitMask(
       SNLDesign* design,
       const Statement& stmt,
@@ -18757,6 +18794,11 @@ class SNLSVConstructorImpl {
           isTrackedSelectionSubLhsOf(assignedExpr, &lhsExpr);
         if (!targetsTrackedLhs) {
           continue;
+        }
+
+        if (hasDynamicSelectionInLHS(*assignedExpr)) {
+          std::fill(assignedMask.begin(), assignedMask.end(), true);
+          return assignedMask;
         }
 
         std::vector<SNLBitNet*> assignedBits;
