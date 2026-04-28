@@ -828,6 +828,128 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructCaseSubfieldAssignmentsNoFeedback) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_case_subfield_assignments_no_feedback");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_case_subfield_assignments_no_feedback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_packed_struct_case_subfield_assignments_no_feedback(
+  input  logic [1:0] sel_i,
+  input  logic [3:0] imm_i,
+  input  logic [3:0] rs3_i,
+  output logic [4:0] instruction_o
+);
+  typedef struct packed {
+    logic [3:0] result;
+    logic       use_imm;
+  } decoded_s;
+
+  decoded_s decoded;
+
+  always_comb begin
+    case (sel_i)
+      2'd0: begin
+        decoded.result  = imm_i;
+        decoded.use_imm = 1'b1;
+      end
+      2'd1: begin
+        decoded.result  = rs3_i;
+        decoded.use_imm = 1'b0;
+      end
+      default: begin
+        decoded.result  = 4'b0000;
+        decoded.use_imm = 1'b0;
+      end
+    endcase
+    instruction_o = decoded;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_packed_struct_case_subfield_assignments_no_feedback"));
+  ASSERT_NE(top, nullptr);
+  auto* decoded = top->getBusNet(NLName("decoded"));
+  ASSERT_NE(decoded, nullptr);
+  ASSERT_EQ(5, decoded->getWidth());
+  for (auto* bit : decoded->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+    EXPECT_EQ(0u, countInputInstTermUses(bit)) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructOutputFieldCaseNoOverlappingDrivers) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_output_field_case_no_overlapping_drivers");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_output_field_case_no_overlapping_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic       other_op;
+  logic       atomic_op;
+  logic [3:0] amo_subop;
+} decode_s;
+
+module always_comb_packed_struct_output_field_case_no_overlapping_drivers(
+  input logic [1:0] opcode_i,
+  output decode_s decode_o
+);
+  always_comb begin
+    case (opcode_i)
+      2'd0: decode_o.other_op = 1'b1;
+      default: decode_o.other_op = 1'b0;
+    endcase
+  end
+
+  always_comb begin
+    decode_o.atomic_op = 1'b1;
+
+    unique case (opcode_i)
+      2'd0: decode_o.amo_subop = 4'd1;
+      2'd1: decode_o.amo_subop = 4'd2;
+      default: begin
+        decode_o.atomic_op = 1'b0;
+        decode_o.amo_subop = 4'd0;
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_packed_struct_output_field_case_no_overlapping_drivers"));
+  ASSERT_NE(top, nullptr);
+  auto* decode = top->getBusNet(NLName("decode_o"));
+  ASSERT_NE(decode, nullptr);
+  ASSERT_EQ(6, decode->getWidth());
+  ASSERT_NE(nullptr, decode->getBit(5));
+  EXPECT_EQ(1u, countOutputInstTermDrivers(decode->getBit(5)));
+  for (auto* bit : decode->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_LE(countOutputInstTermDrivers(bit), 1u) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombTemporarySelectionCompoundReplaySupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

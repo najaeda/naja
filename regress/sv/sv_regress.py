@@ -6,8 +6,8 @@
 """External SystemVerilog regression runner.
 
 The runner checks out pinned external RTL repositories, generates Verilog with
-Naja's SystemVerilog frontend and VRL dumper, then lints the generated netlist
-with Dockerized Verilator.
+Naja's SystemVerilog frontend and VRL dumper, then runs selected Dockerized
+Verilator lint and simulation stages on the generated netlist.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,9 @@ DEFAULT_WORK_DIR = REPO_ROOT / "build" / "sv-regress"
 DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
+DEFAULT_STAGES = ["lint", "github_sim"]
+VALID_STAGES = {"lint", "github_sim", "local_sim"}
+VALID_LINT_RUNNERS = {"docker", "local"}
 
 
 class RegressError(RuntimeError):
@@ -95,6 +99,21 @@ def select_requested_cases(
     return selected
 
 
+def select_stages(stage_names: list[str] | None) -> list[str]:
+    requested = stage_names or DEFAULT_STAGES
+    selected: list[str] = []
+    seen: set[str] = set()
+    for stage in requested:
+        if stage not in VALID_STAGES:
+            valid = ", ".join(sorted(VALID_STAGES))
+            raise RegressError(f"Unknown stage '{stage}'. Valid stages: {valid}")
+        if stage in seen:
+            continue
+        seen.add(stage)
+        selected.append(stage)
+    return selected
+
+
 def print_command(args: list[str], cwd: Path | None) -> None:
     prefix = f"(cd {cwd} && " if cwd else ""
     suffix = ")" if cwd else ""
@@ -108,13 +127,14 @@ def run_command(
     env: dict[str, str] | None = None,
     timeout: int | None = None,
     log_path: Path | None = None,
+    append_log: bool = False,
 ) -> None:
     print_command(args, cwd)
     log_file = None
     try:
         if log_path:
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_file = log_path.open("w", encoding="utf-8")
+            log_file = log_path.open("a" if append_log else "w", encoding="utf-8")
         process = subprocess.Popen(
             args,
             cwd=str(cwd) if cwd else None,
@@ -518,6 +538,28 @@ def run_verilator(
     generated_path: Path,
     log_dir: Path,
 ) -> None:
+    run_lint(
+        case,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+        generated_path=generated_path,
+        log_dir=log_dir,
+    )
+
+
+def run_lint(
+    case: dict[str, Any],
+    *,
+    case_dir: Path,
+    artifacts_dir: Path,
+    generated_path: Path,
+    log_dir: Path,
+    lint_runner: str = "docker",
+) -> dict[str, Any]:
+    if lint_runner not in VALID_LINT_RUNNERS:
+        valid = ", ".join(sorted(VALID_LINT_RUNNERS))
+        raise RegressError(f"Unknown lint runner '{lint_runner}'. Valid runners: {valid}")
+
     primitives_path = artifacts_dir / PRIMITIVES_PATH.name
     shutil.copy2(PRIMITIVES_PATH, primitives_path)
 
@@ -530,7 +572,120 @@ def run_verilator(
 
     generated_in_container = f"/work/artifacts/{generated_path.name}"
     primitives_in_container = f"/work/artifacts/{primitives_path.name}"
-    command = [
+    if lint_runner == "docker":
+        command = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{case_dir}:/work",
+            "--entrypoint",
+            "verilator",
+            image,
+            *flags,
+            generated_in_container,
+            primitives_in_container,
+        ]
+    else:
+        command = [
+            "verilator",
+            *flags,
+            str(generated_path),
+            str(primitives_path),
+        ]
+    (artifacts_dir / "verilator-lint-command.json").write_text(
+        json.dumps(command, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    # Keep the historical artifact name for scripts that still inspect it.
+    (artifacts_dir / "verilator-command.json").write_text(
+        json.dumps(command, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    timeout = int(verilator.get("timeout_seconds", 7200))
+    run_command(command, cwd=case_dir, timeout=timeout, log_path=log_dir / "verilator-lint.log")
+    return {"status": "passed", "log": str(log_dir / "verilator-lint.log")}
+
+
+def configured_stage(case: dict[str, Any], stage: str) -> dict[str, Any]:
+    config = case.get(stage)
+    if not isinstance(config, dict):
+        raise RegressError(f"Case {case['name']} does not define stage '{stage}'")
+    return config
+
+
+def docker_mount_path(case_dir: Path, path: Path) -> str:
+    try:
+        relative = path.relative_to(case_dir)
+    except ValueError as exc:
+        raise RegressError(f"Path is outside case directory and cannot be mounted: {path}") from exc
+    return "/work/" + str(relative).replace(os.sep, "/")
+
+
+def copy_stage_sources(
+    config: dict[str, Any],
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    stage: str,
+) -> list[Path]:
+    source_values = config.get("sources", [])
+    if not isinstance(source_values, list) or not source_values:
+        raise RegressError(f"Stage {stage} requires a non-empty sources list")
+
+    stage_dir = artifacts_dir / stage
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[Path] = []
+    for source_value in source_values:
+        source_path = resolve_case_path(
+            str(source_value),
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+        )
+        if not source_path.exists():
+            raise RegressError(f"Missing {stage} source for case: {source_path}")
+        target_path = stage_dir / source_path.name
+        shutil.copy2(source_path, target_path)
+        copied.append(target_path)
+    return copied
+
+
+def verilator_stage_flags(case: dict[str, Any], config: dict[str, Any]) -> list[str]:
+    suppressions = list(case.get("verilator", {}).get("suppressions", []))
+    suppressions.extend(config.get("suppressions", []))
+    flags = ["--binary", "--timing", "--sv", "--top-module", config["top_module"]]
+    flags.extend(f"-Wno-{warning}" for warning in suppressions)
+    flags.extend(config.get("extra_args", []))
+    return flags
+
+
+def run_verilator_binary_stage(
+    case: dict[str, Any],
+    *,
+    stage: str,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    generated_path: Path,
+    log_dir: Path,
+) -> dict[str, Any]:
+    config = configured_stage(case, stage)
+    primitives_path = artifacts_dir / PRIMITIVES_PATH.name
+    shutil.copy2(PRIMITIVES_PATH, primitives_path)
+    sources = copy_stage_sources(
+        config,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+        stage=stage,
+    )
+
+    image = config.get("image", case.get("verilator", {}).get("image", "verilator/verilator:v5.046"))
+    obj_dir = artifacts_dir / f"{stage}-obj"
+    top_module = config["top_module"]
+    build_command = [
         "docker",
         "run",
         "--rm",
@@ -539,19 +694,119 @@ def run_verilator(
         "--entrypoint",
         "verilator",
         image,
-        *flags,
-        generated_in_container,
-        primitives_in_container,
+        *verilator_stage_flags(case, config),
+        "-Mdir",
+        docker_mount_path(case_dir, obj_dir),
+        docker_mount_path(case_dir, generated_path),
+        docker_mount_path(case_dir, primitives_path),
+        *(docker_mount_path(case_dir, source) for source in sources),
     ]
-    (artifacts_dir / "verilator-command.json").write_text(
-        json.dumps(command, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    timeout = int(verilator.get("timeout_seconds", 7200))
-    run_command(command, cwd=case_dir, timeout=timeout, log_path=log_dir / "verilator.log")
+    run_command_path = artifacts_dir / f"{stage}-run-command.json"
+    build_command_path = artifacts_dir / f"{stage}-build-command.json"
+    build_command_path.write_text(json.dumps(build_command, indent=2) + "\n", encoding="utf-8")
+
+    executable = obj_dir / f"V{top_module}"
+    sim_command = [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{case_dir}:/work",
+        "--entrypoint",
+        docker_mount_path(case_dir, executable),
+        image,
+    ]
+    run_command_path.write_text(json.dumps(sim_command, indent=2) + "\n", encoding="utf-8")
+
+    log_path = log_dir / f"{stage.replace('_', '-')}.log"
+    timeout = int(config.get("timeout_seconds", case.get("verilator", {}).get("timeout_seconds", 7200)))
+    run_command(build_command, cwd=case_dir, timeout=timeout, log_path=log_path)
+    run_command(sim_command, cwd=case_dir, timeout=timeout, log_path=log_path, append_log=True)
+
+    pass_regex = config.get("pass_regex")
+    if pass_regex:
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        if not re.search(str(pass_regex), log_text):
+            raise RegressError(f"{stage} did not match pass_regex {pass_regex!r}")
+    return {"status": "passed", "log": str(log_path)}
 
 
-def run_case(case: dict[str, Any], work_dir: Path, najaeda_path: Path) -> dict[str, Any]:
+def run_local_sim(
+    case: dict[str, Any],
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    log_dir: Path,
+    require_tools: bool,
+) -> dict[str, Any]:
+    config = configured_stage(case, "local_sim")
+    log_path = log_dir / "local-sim.log"
+    tool_checks = config.get("tool_checks", [])
+    if not isinstance(tool_checks, list):
+        raise RegressError(f"Invalid local_sim.tool_checks for case {case['name']}: expected list")
+
+    missing = [str(tool) for tool in tool_checks if shutil.which(str(tool)) is None]
+    if missing:
+        reason = f"missing optional local simulation tools: {', '.join(missing)}"
+        log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
+        if require_tools:
+            raise RegressError(reason)
+        return {"status": "skipped", "reason": reason, "log": str(log_path)}
+
+    commands = config.get("commands", [])
+    if not isinstance(commands, list):
+        raise RegressError(f"Invalid local_sim.commands for case {case['name']}: expected list")
+    if not commands:
+        reason = config.get("skip_reason", "local simulation commands are not configured")
+        log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
+        if require_tools:
+            raise RegressError(str(reason))
+        return {"status": "skipped", "reason": str(reason), "log": str(log_path)}
+
+    env = case_env(case, repo_dir, case_dir, artifacts_dir)
+    timeout = int(config.get("timeout_seconds", 7200))
+    for index, command in enumerate(commands):
+        if not isinstance(command, list):
+            raise RegressError(
+                f"Invalid local_sim.commands[{index}] for case {case['name']}: expected argument list"
+            )
+        formatted_command = format_command(
+            command,
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+        )
+        (artifacts_dir / f"local-sim-command-{index}.json").write_text(
+            json.dumps(formatted_command, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        run_command(
+            formatted_command,
+            cwd=repo_dir,
+            env=env,
+            timeout=timeout,
+            log_path=log_path,
+            append_log=index > 0,
+        )
+
+    pass_regex = config.get("pass_regex")
+    if pass_regex:
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        if not re.search(str(pass_regex), log_text):
+            raise RegressError(f"local_sim did not match pass_regex {pass_regex!r}")
+    return {"status": "passed", "log": str(log_path)}
+
+
+def run_case(
+    case: dict[str, Any],
+    work_dir: Path,
+    najaeda_path: Path,
+    stages: list[str],
+    *,
+    lint_runner: str = "docker",
+    require_local_sim_tools: bool = False,
+) -> dict[str, Any]:
     case_name = case["name"]
     case_dir = work_dir / case_name
     repo_dir = case_dir / "repo"
@@ -567,6 +822,7 @@ def run_case(case: dict[str, Any], work_dir: Path, najaeda_path: Path) -> dict[s
         "requested_commit": case["commit"],
         "status": "failed",
         "artifacts": str(artifacts_dir),
+        "stages": {},
     }
     try:
         actual_commit = ensure_checkout(case, repo_dir, log_dir)
@@ -580,13 +836,39 @@ def run_case(case: dict[str, Any], work_dir: Path, najaeda_path: Path) -> dict[s
             najaeda_path=najaeda_path,
         )
         summary["generated_verilog"] = str(generated_path)
-        run_verilator(
-            case,
-            case_dir=case_dir,
-            artifacts_dir=artifacts_dir,
-            generated_path=generated_path,
-            log_dir=log_dir,
-        )
+        for stage in stages:
+            print(f"--- stage: {stage} ---", flush=True)
+            if stage == "lint":
+                result = run_lint(
+                    case,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=generated_path,
+                    log_dir=log_dir,
+                    lint_runner=lint_runner,
+                )
+            elif stage == "github_sim":
+                result = run_verilator_binary_stage(
+                    case,
+                    stage=stage,
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=generated_path,
+                    log_dir=log_dir,
+                )
+            elif stage == "local_sim":
+                result = run_local_sim(
+                    case,
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    log_dir=log_dir,
+                    require_tools=require_local_sim_tools,
+                )
+            else:  # pragma: no cover - guarded by select_stages.
+                raise RegressError(f"Unhandled stage: {stage}")
+            summary["stages"][stage] = result
         summary["status"] = "passed"
         return summary
     except Exception as exc:
@@ -619,14 +901,24 @@ def command_clean(args: argparse.Namespace) -> int:
 
 def command_run(args: argparse.Namespace) -> int:
     cases = select_requested_cases(load_manifest(args.manifest), args.case)
+    stages = select_stages(args.stage)
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
     summaries: list[dict[str, Any]] = []
     failures: list[str] = []
     for case in cases:
-        print(f"=== SV regress case: {case['name']} ===", flush=True)
+        print(f"=== SV regress case: {case['name']} stages={','.join(stages)} ===", flush=True)
         try:
-            summaries.append(run_case(case, args.work_dir, args.najaeda_pythonpath))
+            summaries.append(
+                run_case(
+                    case,
+                    args.work_dir,
+                    args.najaeda_pythonpath,
+                    stages,
+                    lint_runner=args.lint_runner,
+                    require_local_sim_tools=args.require_local_sim_tools,
+                )
+            )
         except Exception as exc:
             failures.append(f"{case['name']}: {exc}")
             case_summary_path = args.work_dir / case["name"] / "artifacts" / "summary.json"
@@ -671,6 +963,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--case",
         action="append",
         help="Case name or 'all'. Repeat to run multiple named cases.",
+    )
+    run_parser.add_argument(
+        "--stage",
+        action="append",
+        choices=sorted(VALID_STAGES),
+        help="Stage to run. Repeat to run multiple stages. Defaults to lint and github_sim.",
+    )
+    run_parser.add_argument(
+        "--lint-runner",
+        choices=sorted(VALID_LINT_RUNNERS),
+        default="docker",
+        help="Run the lint stage with Dockerized Verilator or the local verilator binary.",
+    )
+    run_parser.add_argument(
+        "--require-local-sim-tools",
+        action="store_true",
+        help="Fail local_sim when optional firmware/toolchain dependencies are missing.",
     )
     run_parser.add_argument("--keep-going", action="store_true", help="Continue after a case fails")
     run_parser.set_defaults(func=command_run)
