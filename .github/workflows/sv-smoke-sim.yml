@@ -53,7 +53,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             -w "${PWD}" \
             verilator/verilator:v5.046 \
-            verilator "$@"
+            "$@"
           EOF
           chmod +x "${HOME}/.local/bin/verilator"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
