@@ -7955,6 +7955,18 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  mergeProceduralReplayEnvsCopiesMissingTrueSymbolsAndExternalOverride) {
+  const auto result = detail::testSVConstructorMergeProceduralReplayEnvs();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(result->success);
+  EXPECT_EQ(2u, result->mergedSymbolCount);
+  EXPECT_TRUE(result->missingTrueSymbolCopied);
+  EXPECT_TRUE(result->externalSymbolOverrodeBranches);
+  EXPECT_TRUE(result->failureReason.empty());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   applyForLoopStepExpressionHandlesOperandConstantAndBinaryRhsForms) {
   const auto sameValue =
     detail::testSVConstructorApplyForLoopStepExpressionFromForLoop(
@@ -8096,6 +8108,15 @@ TEST_F(
   EXPECT_NE(
     std::string::npos,
     multiply->failureReason.find("unsupported compound for-loop assignment operator: *"));
+
+  const auto divide =
+    detail::testSVConstructorApplyConstantCompoundForLoopOperator("/", 6, 2);
+  ASSERT_TRUE(divide.has_value());
+  EXPECT_FALSE(divide->success);
+  EXPECT_EQ(6, divide->loopValue);
+  EXPECT_NE(
+    std::string::npos,
+    divide->failureReason.find("unsupported compound for-loop assignment operator: /"));
 }
 
 TEST_F(

@@ -577,7 +577,7 @@ def main() -> int:
         repo_dir / "vendor" / "lowrisc_ip" / "dv" / "verilator" / "simutil_verilator" / "cpp" / "verilated_toplevel.cc",
         repo_dir / "vendor" / "lowrisc_ip" / "dv" / "verilator" / "simutil_verilator" / "cpp" / "verilator_sim_ctrl.cc",
     ]
-    ldflags = "-pthread -lutil" if sys.platform == "darwin" else "-pthread -lutil -lelf"
+    ldflags = "-pthread -lutil"
     command = [
         "verilator",
         "--cc",

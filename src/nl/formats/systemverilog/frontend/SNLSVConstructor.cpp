@@ -1518,6 +1518,71 @@ class SNLSVConstructorImpl {
       return result;
     }
 
+    std::optional<detail::ProceduralReplayEnvMergeTestResult>
+    testMergeProceduralReplayEnvs() {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(
+        R"(module detail_test;
+  logic external_value;
+  logic missing_value;
+endmodule
+)");
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+
+      const auto& root = compilation->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      const slang::ast::ValueSymbol* externalSymbol = nullptr;
+      const slang::ast::ValueSymbol* missingSymbol = nullptr;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::Variable && sym.kind != SymbolKind::Net) {
+          continue;
+        }
+        if (sym.name == "external_value") {
+          externalSymbol = &sym.as<slang::ast::ValueSymbol>();
+        } else if (sym.name == "missing_value") {
+          missingSymbol = &sym.as<slang::ast::ValueSymbol>();
+        }
+      }
+      if (!externalSymbol || !missingSymbol) {
+        return std::nullopt;
+      }
+
+      ProceduralReplayEnv falseEnv;
+      falseEnv[externalSymbol] = {nullptr};
+
+      ProceduralReplayEnv trueEnv;
+      trueEnv[externalSymbol] = {nullptr};
+      trueEnv[missingSymbol] = {nullptr};
+
+      std::vector<SNLBitNet*> externalBits;
+      ProceduralReplayEnv mergedEnv;
+      detail::ProceduralReplayEnvMergeTestResult result;
+      result.success = mergeProceduralReplayEnvs(
+        nullptr,
+        nullptr,
+        falseEnv,
+        trueEnv,
+        mergedEnv,
+        std::nullopt,
+        result.failureReason,
+        externalSymbol,
+        &externalBits);
+      result.mergedSymbolCount = mergedEnv.size();
+      auto missingIt = mergedEnv.find(missingSymbol);
+      result.missingTrueSymbolCopied =
+        missingIt != mergedEnv.end() && missingIt->second == trueEnv[missingSymbol];
+      auto externalIt = mergedEnv.find(externalSymbol);
+      result.externalSymbolOverrodeBranches =
+        externalIt != mergedEnv.end() && externalIt->second == externalBits;
+      return result;
+    }
+
     std::optional<detail::ForLoopStepExpressionTestResult>
     testApplyForLoopStepExpressionFromForLoop(
       const std::string& sourceText,
@@ -22893,6 +22958,14 @@ testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, config, options);
   return impl.testGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(sourceText);
+}
+
+std::optional<ProceduralReplayEnvMergeTestResult>
+testSVConstructorMergeProceduralReplayEnvs() {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testMergeProceduralReplayEnvs();
 }
 
 std::optional<ForLoopStepExpressionTestResult>

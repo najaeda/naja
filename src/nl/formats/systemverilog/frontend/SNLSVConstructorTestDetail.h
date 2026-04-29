@@ -52,6 +52,14 @@ struct SingleLHSFallbackPathMaxTestResult {
     std::string failureReason;
 };
 
+struct ProceduralReplayEnvMergeTestResult {
+    bool success {false};
+    size_t mergedSymbolCount {0};
+    bool missingTrueSymbolCopied {false};
+    bool externalSymbolOverrodeBranches {false};
+    std::string failureReason;
+};
+
 struct SourceExcerptTestOptions {
     std::string sourceText;
     std::optional<size_t> startOffset {0};
@@ -141,6 +149,9 @@ testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
 std::optional<SingleLHSFallbackPathMaxTestResult>
 testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
   const std::string& sourceText);
+
+std::optional<ProceduralReplayEnvMergeTestResult>
+testSVConstructorMergeProceduralReplayEnvs();
 
 std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromForLoop(
