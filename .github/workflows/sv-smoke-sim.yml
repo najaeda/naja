@@ -1,4 +1,4 @@
-name: External SV Regress
+name: External SV Smoke Simulation
 
 on:
   workflow_dispatch:
@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  sv-regress:
+  sv-smoke-sim:
     runs-on: ubuntu-22.04
-    timeout-minutes: 360
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@v6
@@ -32,9 +32,31 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+          sudo apt-get install -yq \
+            binutils-riscv64-unknown-elf \
+            gcc-riscv64-unknown-elf \
+            libboost-dev \
+            libcapnp-dev \
+            libfl-dev \
+            libtbb-dev \
+            capnproto
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
+
+      - name: Set up Verilator 5.046 wrapper
+        run: |
+          mkdir -p "${HOME}/.local/bin"
+          cat > "${HOME}/.local/bin/verilator" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${PWD}" \
+            verilator/verilator:v5.046 \
+            verilator "$@"
+          EOF
+          chmod +x "${HOME}/.local/bin/verilator"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
       - name: Configure CMake
         run: |
@@ -56,12 +78,19 @@ jobs:
           ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
-      - name: Run external SV regress lint
-        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage lint
+      - name: Run external SV smoke simulations
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage github_sim
 
-      - name: Upload SV regress artifacts
+      - name: Run Ibex hello local simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case ibex \
+            --stage local_sim \
+            --require-local-sim-tools
+
+      - name: Upload SV smoke simulation artifacts
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sv-regress-artifacts
+          name: sv-smoke-sim-artifacts
           path: ${{ github.workspace }}/build/sv-regress

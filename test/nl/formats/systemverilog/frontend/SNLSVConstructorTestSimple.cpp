@@ -2274,6 +2274,85 @@ endmodule
   EXPECT_NE(top->getNet(NLName("o")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseGeneratedGenvarEqualityUsesElaboratedIndex) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "generated_genvar_equality_uses_elaborated_index";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "generated_genvar_equality_uses_elaborated_index.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module generated_genvar_equality_uses_elaborated_index(
+  input  logic [1:0] addr_i,
+  output logic [1:0] dec_o
+);
+  for (genvar i = 0; i < 2; i = i + 1) begin : g_decode
+    assign dec_o[i] = (addr_i == 2'(i));
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("generated_genvar_equality_uses_elaborated_index"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "generated_genvar_equality_uses_elaborated_index_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombForSizedCastIndexEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_sized_cast_index_equality";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_sized_cast_index_equality.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_sized_cast_index_equality(
+  input  logic [1:0] addr_i,
+  input  logic       we_i,
+  output logic [1:0] dec_o
+);
+  always_comb begin
+    for (int unsigned i = 0; i < 2; i++) begin
+      dec_o[i] = (addr_i == 2'(i)) ? we_i : 1'b0;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_for_sized_cast_index_equality"));
+  ASSERT_NE(top, nullptr);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_comb_for_sized_cast_index_equality_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignNamedParameterUnknownBitSliceSupported) {
@@ -15493,6 +15572,90 @@ endmodule
 
   auto top = library_->getSNLDesign(NLName("always_comb_enum_case_literal_item_warns"));
   ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombEnumOpcodeCaseWithFinalIllegalGuardSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_enum_opcode_case_final_illegal_guard";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_enum_opcode_case_final_illegal_guard.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_enum_opcode_case_final_illegal_guard(
+  input  logic [6:0] instr_i,
+  input  logic       first_cycle_i,
+  input  logic       illegal_c_i,
+  output logic       jump_in_dec_o,
+  output logic       jump_set_o,
+  output logic       branch_in_dec_o,
+  output logic       illegal_o
+);
+  typedef enum logic [6:0] {
+    OPCODE_BRANCH = 7'h63,
+    OPCODE_JAL    = 7'h6f,
+    OPCODE_JALR   = 7'h67
+  } opcode_e;
+
+  opcode_e opcode;
+  logic illegal;
+
+  always_comb begin
+    jump_in_dec_o  = 1'b0;
+    jump_set_o     = 1'b0;
+    branch_in_dec_o = 1'b0;
+    illegal        = 1'b0;
+    opcode         = opcode_e'(instr_i[6:0]);
+
+    unique case (opcode)
+      OPCODE_JAL: begin
+        jump_in_dec_o = 1'b1;
+        if (first_cycle_i) begin
+          jump_set_o = 1'b1;
+        end
+      end
+      OPCODE_BRANCH: begin
+        branch_in_dec_o = 1'b1;
+      end
+      default: begin
+        illegal = 1'b1;
+      end
+    endcase
+
+    if (illegal_c_i) begin
+      illegal = 1'b1;
+    end
+
+    if (illegal) begin
+      jump_in_dec_o   = 1'b0;
+      jump_set_o      = 1'b0;
+      branch_in_dec_o = 1'b0;
+    end
+  end
+
+  assign illegal_o = illegal;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_enum_opcode_case_final_illegal_guard"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_GE(countMux2Instances(top), 3u);
+
+  const auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "always_comb_enum_opcode_case_final_illegal_guard_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign jump_in_dec_o = 1'b0;"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign jump_set_o = 1'b0;"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign branch_in_dec_o = 1'b0;"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractSupported) {

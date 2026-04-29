@@ -42,7 +42,6 @@ cases:
       suppressions:
         - PINMISSING
         - ASCRANGE
-        - WIDTHEXPAND
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
@@ -82,15 +81,29 @@ cases:
         - "{naja}/regress/sv/smoke/tb_ibex_top_smoke.sv"
       pass_regex: "IBEX_SMOKE_PASS"
       suppressions:
-        - PINCONNECTEMPTY
         - TIMESCALEMOD
     local_sim:
-      image: verilator/verilator:v5.046
       timeout_seconds: 7200
       tool_checks:
-        - riscv32-unknown-elf-gcc
-      skip_reason: "Ibex local simple-system Verilator simulation needs the RISC-V firmware toolchain before running hello_test with the Naja ibex_top replacement."
-      pass_regex: "PASS|Simulation passed"
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/local_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "IBEX_LOCAL_SIM_PASS"
 
   - name: cv32e40p
     repo: https://github.com/openhwgroup/cv32e40p.git
@@ -116,12 +129,25 @@ cases:
         - "{naja}/regress/sv/smoke/tb_cv32e40p_top_smoke.sv"
       pass_regex: "CV32E40P_SMOKE_PASS"
       suppressions:
-        - PINCONNECTEMPTY
         - TIMESCALEMOD
     local_sim:
-      image: verilator/verilator:v5.046
       timeout_seconds: 7200
       tool_checks:
-        - riscv32-unknown-elf-gcc
-      skip_reason: "CV32E40P local example_tb/core Verilator simulation needs the RISC-V firmware toolchain before running custom/hello_world with the Naja cv32e40p_top replacement."
-      pass_regex: "PASS|Simulation passed"
+        - verilator
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/local_sim/cv32e40p_example_tb.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cv32e40p_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "CV32E40P_LOCAL_SIM_PASS"
