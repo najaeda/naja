@@ -6854,10 +6854,14 @@ class SNLSVConstructorImpl {
         }
       }
 
-      const slang::ConstantValue* directConstant = expr.getConstant();
+      const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
+      const slang::ConstantValue* directConstant =
+        containsActiveLoopVariable ? nullptr : expr.getConstant();
       slang::ConstantValue directEvaluatedConstant;
       const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
-      if ((!directConstant || !directConstant->isInteger()) && directEvalSymbol) {
+      if (!containsActiveLoopVariable &&
+          (!directConstant || !directConstant->isInteger()) &&
+          directEvalSymbol) {
         slang::ast::EvalContext evalContext(*directEvalSymbol);
         directEvaluatedConstant = expr.eval(evalContext);
         if (directEvaluatedConstant && directEvaluatedConstant.isInteger()) {
@@ -6898,10 +6902,13 @@ class SNLSVConstructorImpl {
         return tryGetInt64FromSVInt(literal.getValue(), value);
       }
 
-      const slang::ConstantValue* constant = stripped->getConstant();
+      const slang::ConstantValue* constant =
+        containsActiveLoopVariable ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
-      if ((!constant || !constant->isInteger()) && evalSymbol) {
+      if (!containsActiveLoopVariable &&
+          (!constant || !constant->isInteger()) &&
+          evalSymbol) {
         slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
@@ -10320,6 +10327,29 @@ class SNLSVConstructorImpl {
             }
 
             if (scaledExpr) {
+              uint64_t scaledConst = 0;
+              bool scaledIsConst = getConstantUnsigned(*scaledExpr, scaledConst);
+              if (!scaledIsConst) {
+                if (auto loopValue = getActiveForLoopConstantFromSource(*scaledExpr)) {
+                  if (*loopValue >= 0) {
+                    scaledConst = static_cast<uint64_t>(*loopValue);
+                    scaledIsConst = true;
+                  }
+                }
+              }
+              if (!scaledIsConst) {
+                if (auto loopValue = getActiveForLoopConstantFromSource(*stripped)) {
+                  if (*loopValue >= 0) {
+                    scaledConst = static_cast<uint64_t>(*loopValue);
+                    scaledIsConst = true;
+                  }
+                }
+              }
+              if (scaledIsConst &&
+                  scaledConst != 0 &&
+                  factor > std::numeric_limits<uint64_t>::max() / scaledConst) {
+                return false;
+              }
               auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
               if (factor == 0) {
                 bits.assign(targetWidth, const0); // LCOV_EXCL_LINE
@@ -14127,12 +14157,16 @@ class SNLSVConstructorImpl {
       return sameSymbolIdentity(exprSymbol, symbol);
     }
 
-    bool isForLoopControlStepOperand(const Expression& expr, const Symbol& symbol) const {
+    bool isForLoopControlStepOperand(
+      const Expression& expr,
+      const Symbol& symbol,
+      bool allowLValueReference = false) const {
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
       }
-      if (stripped->kind == slang::ast::ExpressionKind::LValueReference) {
+      if (allowLValueReference &&
+          stripped->kind == slang::ast::ExpressionKind::LValueReference) {
         return true;
       }
       return isForLoopControlSymbolRef(*stripped, symbol);
@@ -14324,8 +14358,9 @@ class SNLSVConstructorImpl {
       const Expression& rhsExpr,
       const Symbol& loopSymbol,
       int64_t loopValue,
-      int64_t& nextLoopValue) const {
-      if (isForLoopControlStepOperand(rhsExpr, loopSymbol)) {
+      int64_t& nextLoopValue,
+      bool allowLValueReferenceOperand = false) const {
+      if (isForLoopControlStepOperand(rhsExpr, loopSymbol, allowLValueReferenceOperand)) {
         nextLoopValue = loopValue;
         return true;
       }
@@ -14344,24 +14379,36 @@ class SNLSVConstructorImpl {
       int64_t constantOperand = 0;
       switch (rhsBinaryExpr.op) {
         case slang::ast::BinaryOperator::Add:
-          if (isForLoopControlStepOperand(rhsBinaryExpr.left(), loopSymbol) &&
+          if (isForLoopControlStepOperand(
+                rhsBinaryExpr.left(),
+                loopSymbol,
+                allowLValueReferenceOperand) &&
               getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
             nextLoopValue = loopValue + constantOperand;
             return true;
           }
-          if (isForLoopControlStepOperand(rhsBinaryExpr.right(), loopSymbol) &&
+          if (isForLoopControlStepOperand(
+                rhsBinaryExpr.right(),
+                loopSymbol,
+                allowLValueReferenceOperand) &&
               getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
             nextLoopValue = constantOperand + loopValue;
             return true;
           }
           return false;
         case slang::ast::BinaryOperator::Subtract:
-          if (isForLoopControlStepOperand(rhsBinaryExpr.left(), loopSymbol) &&
+          if (isForLoopControlStepOperand(
+                rhsBinaryExpr.left(),
+                loopSymbol,
+                allowLValueReferenceOperand) &&
               getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
             nextLoopValue = loopValue - constantOperand;
             return true;
           }
-          if (isForLoopControlStepOperand(rhsBinaryExpr.right(), loopSymbol) &&
+          if (isForLoopControlStepOperand(
+                rhsBinaryExpr.right(),
+                loopSymbol,
+                allowLValueReferenceOperand) &&
               getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
             nextLoopValue = constantOperand - loopValue;
             return true;
@@ -14469,13 +14516,14 @@ class SNLSVConstructorImpl {
                 }
               }
 
-              int64_t evaluatedRhsValue = 0;
-              activeForLoopConstants_.emplace_back(&loopSymbol, loopValue);
-              const auto guard = slang::ScopeGuard([&]() {
-                activeForLoopConstants_.pop_back();
-              });
-              if (getConstantInt64(assignExpr.right(), evaluatedRhsValue)) {
-                loopValue = evaluatedRhsValue;
+              int64_t nextLoopValue = 0;
+              if (evaluateForLoopStepRHS(
+                    assignExpr.right(),
+                    loopSymbol,
+                    loopValue,
+                    nextLoopValue,
+                    true)) {
+                loopValue = nextLoopValue;
                 return true;
               }
             }
@@ -14489,7 +14537,8 @@ class SNLSVConstructorImpl {
                   assignExpr.right(),
                   loopSymbol,
                   loopValue,
-                  nextLoopValue)) {
+                  nextLoopValue,
+                  true)) {
               loopValue = nextLoopValue;
               return true;
             }
@@ -17545,6 +17594,15 @@ class SNLSVConstructorImpl {
         return false;
       } // LCOV_EXCL_STOP
 
+      const auto failCombinationalRhsResolution = [&]() {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb RHS bits for "
+               << describeExpression(*action.rhs)
+               << " (target_width=" << targetWidth << ")";
+        failureReason = reason.str();
+        return false;
+      };
+
       const auto* savedActiveProceduralReplayLHS = activeProceduralReplayLHS_;
       const auto* savedActiveProceduralReplayBits = activeProceduralReplayBits_;
       if (action.lhs && currentBits && currentBits->size() == targetWidth) {
@@ -17700,6 +17758,38 @@ class SNLSVConstructorImpl {
         return true;
       } // LCOV_EXCL_LINE
 
+      if (hasActiveForLoopContext()) {
+        const auto* strippedRhs = stripConversions(*action.rhs);
+        if (strippedRhs && strippedRhs->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = strippedRhs->as<slang::ast::BinaryExpression>();
+          if (binaryExpr.op == slang::ast::BinaryOperator::Multiply) {
+            const auto checkLoopScaledOverflow =
+              [&](const Expression& loopExpr, const Expression& factorExpr) {
+              uint64_t factor = 0;
+              if (!getConstantUnsigned(factorExpr, factor)) {
+                return false;
+              }
+              std::optional<int64_t> loopValue = getActiveForLoopConstant(loopExpr);
+              if (!loopValue) {
+                loopValue = getActiveForLoopConstantFromSource(loopExpr);
+              }
+              if (!loopValue) {
+                loopValue = getActiveForLoopConstantFromSource(*strippedRhs);
+              }
+              if (!loopValue || *loopValue <= 0) {
+                return false;
+              }
+              const auto loopUnsigned = static_cast<uint64_t>(*loopValue);
+              return factor > std::numeric_limits<uint64_t>::max() / loopUnsigned;
+            };
+            if (checkLoopScaledOverflow(binaryExpr.left(), binaryExpr.right()) ||
+                checkLoopScaledOverflow(binaryExpr.right(), binaryExpr.left())) {
+              return failCombinationalRhsResolution();
+            }
+          }
+        }
+      }
+
       bool usedUnknownLiteralFallback = false;
       if ((!resolveExpressionBits(design, *action.rhs, targetWidth, assignedBits) ||
            assignedBits.size() != targetWidth) &&
@@ -17710,12 +17800,7 @@ class SNLSVConstructorImpl {
              assignedBits,
              usedUnknownLiteralFallback) ||
            assignedBits.size() != targetWidth || !usedUnknownLiteralFallback)) {
-        std::ostringstream reason;
-        reason << "unable to resolve always_comb RHS bits for "
-               << describeExpression(*action.rhs)
-               << " (target_width=" << targetWidth << ")";
-        failureReason = reason.str();
-        return false;
+        return failCombinationalRhsResolution();
       } // LCOV_EXCL_LINE
       if (usedUnknownLiteralFallback) {
         reportWarning(
@@ -18466,9 +18551,14 @@ class SNLSVConstructorImpl {
       const ProceduralReplayEnv& trueEnv,
       ProceduralReplayEnv& mergedEnv,
       const std::optional<slang::SourceRange>& sourceRange,
-      std::string& failureReason) {
+      std::string& failureReason,
+      const slang::ast::ValueSymbol* externallyMergedSymbol = nullptr,
+      const std::vector<SNLBitNet*>* externallyMergedBits = nullptr) {
       mergedEnv = falseEnv;
       for (const auto& [symbol, trueBits] : trueEnv) {
+        if (symbol == externallyMergedSymbol) {
+          continue;
+        }
         auto falseFound = falseEnv.find(symbol);
         if (falseFound == falseEnv.end()) {
           mergedEnv[symbol] = trueBits;
@@ -18505,6 +18595,9 @@ class SNLSVConstructorImpl {
           return false;
         }
         mergedEnv[symbol] = std::move(mergedBits);
+      }
+      if (externallyMergedSymbol && externallyMergedBits) {
+        mergedEnv[externallyMergedSymbol] = *externallyMergedBits;
       }
       return true;
     }
@@ -18671,6 +18764,10 @@ class SNLSVConstructorImpl {
 
         const bool mergeReplayEnv = activeProceduralReplayEnv_ && replaySymbols;
         auto* replayEnvPtr = activeProceduralReplayEnv_;
+        const slang::ast::ValueSymbol* replayLhsSymbol = nullptr;
+        if (mergeReplayEnv) {
+          tryGetRootValueSymbolReference(lhsExpr, replayLhsSymbol);
+        }
         ProceduralReplayEnv incomingReplayEnv;
         if (mergeReplayEnv) {
           incomingReplayEnv = *replayEnvPtr;
@@ -18738,7 +18835,9 @@ class SNLSVConstructorImpl {
                   trueReplayEnv,
                   mergedReplayEnv,
                   condSourceRange,
-                  failureReason)) {
+                  failureReason,
+                  replayLhsSymbol,
+                  &dataBits)) {
               return false;
             }
             *replayEnvPtr = std::move(mergedReplayEnv);
@@ -18775,7 +18874,9 @@ class SNLSVConstructorImpl {
                 trueReplayEnv,
                 mergedReplayEnv,
                 condSourceRange,
-                failureReason)) {
+                failureReason,
+                replayLhsSymbol,
+                &dataBits)) {
             return false;
           }
           *replayEnvPtr = std::move(mergedReplayEnv);
@@ -18793,6 +18894,10 @@ class SNLSVConstructorImpl {
 
         const bool mergeReplayEnv = activeProceduralReplayEnv_ && replaySymbols;
         auto* replayEnvPtr = activeProceduralReplayEnv_;
+        const slang::ast::ValueSymbol* replayLhsSymbol = nullptr;
+        if (mergeReplayEnv) {
+          tryGetRootValueSymbolReference(lhsExpr, replayLhsSymbol);
+        }
         ProceduralReplayEnv incomingReplayEnv;
         if (mergeReplayEnv) {
           incomingReplayEnv = *replayEnvPtr;
@@ -18915,7 +19020,9 @@ class SNLSVConstructorImpl {
                     itemReplayEnv,
                     nextReplayEnv,
                     itemSourceRange,
-                    failureReason)) {
+                    failureReason,
+                    replayLhsSymbol,
+                    &mergedBits)) {
                 return false;
               }
               mergedReplayEnv = std::move(nextReplayEnv);
@@ -18945,7 +19052,9 @@ class SNLSVConstructorImpl {
                   itemReplayEnv,
                   nextReplayEnv,
                   itemSourceRange,
-                  failureReason)) {
+                  failureReason,
+                  replayLhsSymbol,
+                  &selectedBits)) {
               return false;
             }
             mergedReplayEnv = std::move(nextReplayEnv);

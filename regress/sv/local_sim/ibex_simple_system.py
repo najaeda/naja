@@ -42,6 +42,97 @@ def write_word_vmem(binary_path: Path, vmem_path: Path, base_address: int) -> No
             stream.write(f"{int.from_bytes(word_bytes, 'little'):08x}\n")
 
 
+def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
+    common_dir = repo_dir / "examples" / "sw" / "simple_system" / "common"
+    common_c_path = common_dir / "simple_system_common.c"
+    common_h_path = common_dir / "simple_system_common.h"
+
+    def apply_replacements(path: Path, replacements: dict[str, str]) -> None:
+        text = path.read_text(encoding="utf-8")
+        for old, new in replacements.items():
+            if old in text:
+                text = text.replace(old, new, 1)
+        path.write_text(text, encoding="utf-8")
+
+    apply_replacements(common_c_path, {
+        'asm volatile(\n      "csrw minstret,       x0\\n"': (
+            'asm volatile(\n'
+            '      ".option push\\n"\n'
+            '      ".option arch, +zicsr\\n"\n'
+            '      "csrw minstret,       x0\\n"'
+        ),
+        '      "csrw mhpmcounter31h, x0\\n");': (
+            '      "csrw mhpmcounter31h, x0\\n"\n'
+            '      ".option pop\\n");'
+        ),
+        '__asm__ volatile("csrr %0, mepc;" : "=r"(result));': (
+            '__asm__ volatile(".option push\\n"\n'
+            '                   ".option arch, +zicsr\\n"\n'
+            '                   "csrr %0, mepc;\\n"\n'
+            '                   ".option pop\\n" : "=r"(result));'
+        ),
+        '__asm__ volatile("csrr %0, mcause;" : "=r"(result));': (
+            '__asm__ volatile(".option push\\n"\n'
+            '                   ".option arch, +zicsr\\n"\n'
+            '                   "csrr %0, mcause;\\n"\n'
+            '                   ".option pop\\n" : "=r"(result));'
+        ),
+        '__asm__ volatile("csrr %0, mtval;" : "=r"(result));': (
+            '__asm__ volatile(".option push\\n"\n'
+            '                   ".option arch, +zicsr\\n"\n'
+            '                   "csrr %0, mtval;\\n"\n'
+            '                   ".option pop\\n" : "=r"(result));'
+        ),
+        'asm volatile("csrs  mie, %0\\n" : : "r"(0x80));': (
+            'asm volatile(".option push\\n"\n'
+            '             ".option arch, +zicsr\\n"\n'
+            '             "csrs  mie, %0\\n"\n'
+            '             ".option pop\\n" : : "r"(0x80));'
+        ),
+        'asm volatile("csrs  mstatus, %0\\n" : : "r"(0x8));': (
+            'asm volatile(".option push\\n"\n'
+            '             ".option arch, +zicsr\\n"\n'
+            '             "csrs  mstatus, %0\\n"\n'
+            '             ".option pop\\n" : : "r"(0x8));'
+        ),
+        'void timer_disable(void) { asm volatile("csrc  mie, %0\\n" : : "r"(0x80)); }': (
+            'void timer_disable(void) {\n'
+            '  asm volatile(".option push\\n"\n'
+            '               ".option arch, +zicsr\\n"\n'
+            '               "csrc  mie, %0\\n"\n'
+            '               ".option pop\\n" : : "r"(0x80));\n'
+            '}'
+        ),
+    })
+    apply_replacements(common_h_path, {
+        '#define PCOUNT_READ(name, dst) asm volatile("csrr %0, " #name ";" : "=r"(dst))': (
+            '#define PCOUNT_READ(name, dst) \\\n'
+            '  asm volatile(".option push\\n" \\\n'
+            '               ".option arch, +zicsr\\n" \\\n'
+            '               "csrr %0, " #name ";\\n" \\\n'
+            '               ".option pop\\n" : "=r"(dst))'
+        ),
+        'asm volatile("csrw  0x320, %0\\n" : : "r"(inhibit_val));': (
+            'asm volatile(".option push\\n"\n'
+            '               ".option arch, +zicsr\\n"\n'
+            '               "csrw  0x320, %0\\n"\n'
+            '               ".option pop\\n" : : "r"(inhibit_val));'
+        ),
+        'asm volatile("csrs 0x7c0, 1");': (
+            'asm volatile(".option push\\n"\n'
+            '                 ".option arch, +zicsr\\n"\n'
+            '                 "csrs 0x7c0, 1\\n"\n'
+            '                 ".option pop\\n");'
+        ),
+        'asm volatile("csrc 0x7c0, 1");': (
+            'asm volatile(".option push\\n"\n'
+            '                 ".option arch, +zicsr\\n"\n'
+            '                 "csrc 0x7c0, 1\\n"\n'
+            '                 ".option pop\\n");'
+        ),
+    })
+
+
 def normalize_vc(vc_path: Path, generated_path: Path, primitives_path: Path) -> list[str]:
     base_dir = vc_path.parent
     args: list[str] = []
@@ -433,6 +524,7 @@ def main() -> int:
     work_dir.mkdir(parents=True, exist_ok=True)
 
     tool_prefix = find_riscv_tool_prefix()
+    patch_ibex_common_csr_asm(repo_dir)
     hello_dir = repo_dir / "examples" / "sw" / "simple_system" / "hello_test"
     run([
         "make",
@@ -441,7 +533,7 @@ def main() -> int:
         "hello_test.elf",
         f"CC={tool_prefix}gcc",
         f"OBJCOPY={tool_prefix}objcopy",
-        "ARCH=rv32imc_zicsr",
+        "ARCH=rv32imc",
     ])
     firmware = repo_dir / "examples" / "sw" / "simple_system" / "hello_test" / "hello_test.vmem"
     firmware_bin = hello_dir / "hello_test.bin"
