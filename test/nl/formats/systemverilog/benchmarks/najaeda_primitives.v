@@ -116,7 +116,7 @@ module naja_mem #(
   parameter RST_ENABLE = 0,
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
-  parameter INIT = 1'b0
+  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}
 ) (
   input CLK,
   input RST,
@@ -131,6 +131,7 @@ module naja_mem #(
   integer rp;
   integer wp;
   integer later;
+  integer addr_index;
   reg allow_write;
   reg [ABITS-1:0] addr_value;
 
@@ -147,8 +148,9 @@ module naja_mem #(
   always @* begin
     for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin
       addr_value = RADDR[rp*ABITS +: ABITS];
-      if (addr_value < DEPTH)
-        RDATA[rp*WIDTH +: WIDTH] = mem[addr_value];
+      addr_index = integer'(addr_value);
+      if (addr_index < DEPTH)
+        RDATA[rp*WIDTH +: WIDTH] = mem[addr_index];
       else
         RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};
     end
@@ -168,8 +170,9 @@ module naja_mem #(
             if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)
               allow_write = 1'b0;
           end
-          if (allow_write && addr_value < DEPTH)
-            mem[addr_value] <= WDATA[wp*WIDTH +: WIDTH];
+          addr_index = integer'(addr_value);
+          if (allow_write && addr_index < DEPTH)
+            mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];
         end
       end
     end

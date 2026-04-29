@@ -287,7 +287,7 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
     dumped.find(".INIT(128'h00112233445566778899AABBCCDDEEFF)"));
   EXPECT_EQ(std::string::npos, dumped.find("module naja_mem #("));
   EXPECT_EQ(std::string::npos, dumped.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
-  EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_value < DEPTH)"));
+  EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_index < DEPTH)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
@@ -322,7 +322,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
-  EXPECT_NE(std::string::npos, primitiveDump.find("if (allow_write && addr_value < DEPTH)"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (allow_write && addr_index < DEPTH)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testSequentialPrimitiveFileDump) {
