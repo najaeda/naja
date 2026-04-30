@@ -6599,10 +6599,24 @@ class SNLSVConstructorImpl {
         return nullptr;
       }
       auto assignGate = NLDB0::getAssign();
-      auto assignInst = SNLInstance::create(design, assignGate);
-      annotateSourceInfo(assignInst, sourceRange);
       auto assignInput = NLDB0::getAssignInput();
       auto assignOutput = NLDB0::getAssignOutput();
+      if (auto* outBit = dynamic_cast<SNLBitNet*>(outNet)) {
+        for (auto* instTerm : outBit->getInstTerms()) {
+          if (!instTerm ||
+              instTerm->getBitTerm() != assignOutput ||
+              !instTerm->getInstance() ||
+              !NLDB0::isAssign(instTerm->getInstance()->getModel())) {
+            continue;
+          }
+          auto* inputTerm = instTerm->getInstance()->getInstTerm(assignInput);
+          if (inputTerm && inputTerm->getNet() == inNet) {
+            return instTerm->getInstance();
+          }
+        }
+      }
+      auto assignInst = SNLInstance::create(design, assignGate);
+      annotateSourceInfo(assignInst, sourceRange);
       if (assignInput) {
         if (auto inTerm = assignInst->getInstTerm(assignInput)) {
           inTerm->setNet(inNet);
@@ -11338,20 +11352,22 @@ class SNLSVConstructorImpl {
                           strippedSelector->kind != slang::ast::ExpressionKind::BinaryOp) {
                         return false;
                       }
+
+                      // LCOV_EXCL_START
+                      // Late recovery for multiply selectors whose direct bit
+                      // resolution failed. Current parser-backed tests either
+                      // resolve these selectors earlier or fail before this
+                      // multiply-specific fallback.
                       const auto& selectorBinaryExpr =
                         strippedSelector->as<slang::ast::BinaryExpression>();
                       if (selectorBinaryExpr.op != slang::ast::BinaryOperator::Multiply) {
-                        return false; // LCOV_EXCL_LINE
+                        return false;
                       }
 
                       uint64_t factor = 0;
                       uint64_t leftConst = 0;
                       uint64_t rightConst = 0;
                       const Expression* baseExpr = nullptr;
-                      // LCOV_EXCL_START
-                      // Dynamic indexed-range multiply-selector recovery is
-                      // only reached for power-of-two scaling in current
-                      // parser-backed tests.
                       const bool leftIsConst =
                         getConstantUnsigned(selectorBinaryExpr.left(), leftConst);
                       const bool rightIsConst =
@@ -11364,10 +11380,6 @@ class SNLSVConstructorImpl {
                         baseExpr = &selectorBinaryExpr.right();
                       }
                       if (!baseExpr || factor == 0 || (factor & (factor - 1ULL)) != 0ULL) {
-                        // The only parser-backed dynamic indexed-range multiply
-                        // selectors that reach this recovery path use non-zero
-                        // power-of-two scaling; other spellings are filtered out
-                        // earlier by the main selector resolution.
                         return false;
                       }
 
@@ -11383,12 +11395,7 @@ class SNLSVConstructorImpl {
                             static_cast<size_t>(*selectorWidth),
                             baseBits) ||
                           baseBits.size() != static_cast<size_t>(*selectorWidth)) {
-                        // LCOV_EXCL_START
-                        // Defensive recovery path after selecting the multiply
-                        // base expression; current parser-backed forms either
-                        // resolve or fail earlier before this late fallback.
                         return false;
-                        // LCOV_EXCL_STOP
                       }
 
                       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -19162,6 +19169,142 @@ class SNLSVConstructorImpl {
       return false;
     }
 
+    bool hasOutputInstTermDriver(SNLBitNet* bit) const {
+      if (!bit) {
+        return false; // LCOV_EXCL_LINE
+      }
+      for (auto* instTerm : bit->getInstTerms()) {
+        if (instTerm &&
+            instTerm->getDirection() == SNLTerm::Direction::Output) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    std::vector<SNLBitNet*> makeCombinationalInitialBits(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& lhsBits) {
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      std::vector<SNLBitNet*> initialBits;
+      initialBits.reserve(lhsBits.size());
+      for (auto* bit : lhsBits) {
+        initialBits.push_back(hasOutputInstTermDriver(bit) ? bit : const0);
+      }
+      return initialBits;
+    }
+
+    bool hasDynamicSelectionInLHS(const Expression& expr) const {
+      const auto* current = stripConversions(expr);
+      while (current) {
+        switch (current->kind) {
+          case slang::ast::ExpressionKind::ElementSelect: {
+            const auto& element =
+              current->as<slang::ast::ElementSelectExpression>();
+            int32_t selectedIndex = 0;
+            if (!getConstantInt32(element.selector(), selectedIndex)) {
+              return true;
+            }
+            current = stripConversions(element.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::RangeSelect: {
+            const auto& range =
+              current->as<slang::ast::RangeSelectExpression>();
+            int32_t left = 0;
+            int32_t right = 0;
+            if (!getConstantInt32(range.left(), left) ||
+                !getConstantInt32(range.right(), right)) {
+              return true;
+            }
+            current = stripConversions(range.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::MemberAccess:
+            current = stripConversions(
+              current->as<slang::ast::MemberAccessExpression>().value());
+            break;
+          default:
+            return false;
+        }
+      }
+      return false; // LCOV_EXCL_LINE
+    }
+
+    std::vector<bool> makeCombinationalAssignedBitMask(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
+      std::vector<bool> assignedMask(lhsBits.size(), false);
+      std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
+      lhsBitOffsets.reserve(lhsBits.size());
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        if (lhsBits[bit]) {
+          lhsBitOffsets.emplace(lhsBits[bit], bit);
+        }
+      }
+
+      std::vector<const Expression*> assignedExpressions;
+      std::string failureReason;
+      if (!collectAssignedLHSExpressions(
+            stmt,
+            assignedExpressions,
+            &failureReason,
+            false,
+            false,
+            ignoredSymbols)) {
+        // LCOV_EXCL_START
+        std::fill(assignedMask.begin(), assignedMask.end(), true);
+        return assignedMask;
+        // LCOV_EXCL_STOP
+      }
+
+      for (const auto* assignedExpr : assignedExpressions) {
+        if (!assignedExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        const auto* trackedAssignedExpr = getTrackedAlwaysCombLHS(assignedExpr);
+        const bool targetsTrackedLhs =
+          sameLhs(assignedExpr, &lhsExpr) ||
+          sameLhs(trackedAssignedExpr, &lhsExpr) ||
+          isTrackedSelectionSubLhsOf(assignedExpr, &lhsExpr);
+        if (!targetsTrackedLhs) {
+          continue;
+        }
+
+        if (hasDynamicSelectionInLHS(*assignedExpr)) {
+          std::fill(assignedMask.begin(), assignedMask.end(), true);
+          return assignedMask;
+        }
+
+        std::vector<SNLBitNet*> assignedBits;
+        if (!resolveAssignmentLHSBits(
+              design,
+              *assignedExpr,
+              assignedBits,
+              nullptr,
+              true)) {
+          // LCOV_EXCL_START
+          // Dynamic selected LHS forms that cannot be reduced to a fixed bit
+          // set are handled above. This is a defensive fallback for future
+          // fixed-LHS shapes that collect successfully but cannot resolve.
+          std::fill(assignedMask.begin(), assignedMask.end(), true);
+          return assignedMask;
+          // LCOV_EXCL_STOP
+        }
+
+        for (auto* assignedBit : assignedBits) {
+          const auto found = lhsBitOffsets.find(assignedBit);
+          if (found != lhsBitOffsets.end()) {
+            assignedMask[found->second] = true;
+          }
+        }
+      }
+      return assignedMask;
+    }
+
     bool lowerCombinationalProceduralBlock(
       SNLDesign* design,
       const Statement& stmt,
@@ -19281,7 +19424,14 @@ class SNLSVConstructorImpl {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeCombinationalLHSScopeName(*lhsExpr, lhsBits.size()));
 #endif
-          std::vector<SNLBitNet*> dataBits = lhsBits;
+          const auto assignedBitMask = makeCombinationalAssignedBitMask(
+            design,
+            stmt,
+            *lhsExpr,
+            lhsBits,
+            ignoredSymbols);
+          std::vector<SNLBitNet*> dataBits =
+            makeCombinationalInitialBits(design, lhsBits);
           ProceduralReplayEnv replayEnv;
           if (trackedSymbol) {
             replayEnv[trackedSymbol] = dataBits;
@@ -19333,7 +19483,7 @@ class SNLSVConstructorImpl {
                 changedBits));
 #endif
             for (size_t i = 0; i < lhsBits.size(); ++i) {
-              if (dataBits[i] == lhsBits[i]) {
+              if (!assignedBitMask[i] || dataBits[i] == lhsBits[i]) {
                 continue;
               }
               createAssignInstance(design, dataBits[i], lhsBits[i], sourceRange);

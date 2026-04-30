@@ -2257,7 +2257,7 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  parameter RST_ENABLE = 0,\n";
   o << "  parameter RST_ASYNC = 0,\n";
   o << "  parameter RST_ACTIVE_LOW = 0,\n";
-  o << "  parameter INIT = 1'b0\n";
+  o << "  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}\n";
   o << ") (\n";
   o << "  input CLK,\n";
   o << "  input RST,\n";
@@ -2272,6 +2272,7 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  integer rp;\n";
   o << "  integer wp;\n";
   o << "  integer later;\n";
+  o << "  integer addr_index;\n";
   o << "  reg allow_write;\n";
   o << "  reg [ABITS-1:0] addr_value;\n\n";
   o << "  task automatic load_init;\n";
@@ -2285,8 +2286,9 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  always @* begin\n";
   o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
   o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";
-  o << "      if (addr_value < DEPTH)\n";
-  o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_value];\n";
+  o << "      addr_index = integer'(addr_value);\n";
+  o << "      if (addr_index < DEPTH)\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_index];\n";
   o << "      else\n";
   o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
   o << "    end\n";
@@ -2310,8 +2312,9 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
   o << "              allow_write = 1'b0;\n";
   o << "          end\n";
-  o << "          if (allow_write && addr_value < DEPTH)\n";
-  o << "            mem[addr_value] <= WDATA[wp*WIDTH +: WIDTH];\n";
+  o << "          addr_index = integer'(addr_value);\n";
+  o << "          if (allow_write && addr_index < DEPTH)\n";
+  o << "            mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];\n";
   o << "        end\n";
   o << "      end\n";
   o << "    end\n";

@@ -58,6 +58,10 @@ the current architecture:
   invalid/non-integral operands.
 - `resolveExpressionBits`: member-access fast-path fallthrough brace after
   failed recursive value resolution, prior to generic selectable fallback.
+- `resolveExpressionBits`: late dynamic indexed-range multiply-selector
+  recovery after direct selector bit resolution fails. Current parser-backed
+  tests either resolve these selectors before the recovery path or fail before
+  the multiply-specific fallback.
 - `resolveExpressionBits`: brace-only LCOV artifacts in call / binary /
   element-select / member-access blocks.
 - `getDriverFailureDetails`: parse-diagnostics aggregation from
