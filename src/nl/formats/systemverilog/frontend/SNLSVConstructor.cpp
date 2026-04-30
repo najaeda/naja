@@ -7037,11 +7037,9 @@ endmodule
             if (intValue.hasUnknown()) {
               return false;
             }
-            auto maybeValue = intValue.as<int64_t>();
-            if (!maybeValue) {
+            if (!tryGetInt64FromSVInt(intValue, value)) {
               return false;
             }
-            value = *maybeValue;
             return true;
           }
         }
