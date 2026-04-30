@@ -7,9 +7,11 @@
 
 #include <fstream>
 #include <map>
-#include <sstream>
 #include <memory>
+#include <optional>
 #include <set>
+#include <sstream>
+#include <tuple>
 #include <vector>
 
 #include "YosysLibertyParser.h"
@@ -91,10 +93,31 @@ struct BusType {
 
 using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
 using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
+using SequentialTermClocks = std::map<SNLBitTerm*, std::string, SNLBitTerm::InDesignLess>;
 
 struct ConstructedTerm {
   SNLScalarTerm* scalar{nullptr};
   SNLBusTerm* bus{nullptr};
+};
+
+struct PendingMemoryReadPort {
+  SNLBusTerm* dataBus{nullptr};
+  std::string addressName {};
+  std::string clockName   {};
+};
+
+struct PendingMemoryWriteBus {
+  SNLBusTerm* dataBus{nullptr};
+  std::string addressName {};
+  std::string clockName   {};
+};
+
+struct PendingMemoryInterface {
+  bool present {false};
+  size_t wordWidth {0};
+  size_t addressWidth {0};
+  std::vector<PendingMemoryReadPort> readPorts {};
+  std::vector<PendingMemoryWriteBus> writeBuses {};
 };
 
 BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
@@ -206,6 +229,128 @@ ConstructedTerm constructTerm(
   return term;
 }
 
+bool isSequentialTimingType(const std::string& timingType) {
+  return timingType == "hold_rising" || timingType == "setup_rising" ||
+         timingType == "rising_edge";
+}
+
+void registerSequentialClockForBitTerm(
+    SNLBitTerm* term,
+    const std::string& clockName,
+    SequentialTermClocks& seqTermClocks) {
+  const auto [it, inserted] = seqTermClocks.emplace(term, clockName);
+  if (!inserted && it->second != clockName) {
+    std::ostringstream reason;
+    reason << "Conflicting sequential clocks `" << it->second << "` and `"
+           << clockName << "` for term " << term->getName().getString();
+    throw SNLLibertyConstructorException(reason.str());
+  }
+}
+
+void registerSequentialClockFromTiming(
+    const Yosys::LibertyAst* child,
+    SNLBitTerm* term,
+    SequentialTermClocks& seqTermClocks) {
+  for (auto timingNode : child->children) {
+    if (timingNode->id != "timing") {
+      continue;
+    }
+    auto timingTypeNode = timingNode->find("timing_type");
+    if (timingTypeNode == nullptr ||
+        !isSequentialTimingType(timingTypeNode->value)) {
+      continue;
+    }
+    auto relatedPin = timingNode->find("related_pin");
+    if (relatedPin == nullptr) {
+      continue;
+    }
+    registerSequentialClockForBitTerm(term, relatedPin->value, seqTermClocks);
+  }
+}
+
+std::string getChildValueOrThrow(
+    const Yosys::LibertyAst* node,
+    const std::string& childID,
+    const std::string& context) {
+  auto child = findDirectChild(node, childID);
+  if (child == nullptr) {
+    std::ostringstream reason;
+    reason << "Missing `" << childID << "` while processing " << context;
+    throw SNLLibertyConstructorException(reason.str());
+  }
+  return child->value;
+}
+
+std::optional<PendingMemoryReadPort> extractMemoryReadPort(
+    const Yosys::LibertyAst* child,
+    SNLBusTerm* constructedBusTerm) {
+  if (constructedBusTerm == nullptr) {
+    return std::nullopt;
+  }
+  auto memoryRead = findDirectChild(child, "memory_read");
+  if (memoryRead == nullptr) {
+    return std::nullopt;
+  }
+  PendingMemoryReadPort port;
+  port.dataBus = constructedBusTerm;
+  port.addressName = getChildValueOrThrow(
+      memoryRead, "address", "Liberty memory_read for `" + child->args[0] + "`");
+  for (auto timingNode : child->children) {
+    if (timingNode->id != "timing") {
+      continue;
+    }
+    auto timingTypeNode = timingNode->find("timing_type");
+    if (timingTypeNode == nullptr || timingTypeNode->value != "rising_edge") {
+      continue;
+    }
+    auto relatedPin = timingNode->find("related_pin");
+    if (relatedPin != nullptr) {
+      port.clockName = relatedPin->value;
+      break;
+    }
+  }
+  return port;
+}
+
+std::optional<PendingMemoryWriteBus> extractMemoryWriteBus(
+    const Yosys::LibertyAst* child,
+    SNLBusTerm* constructedBusTerm) {
+  if (constructedBusTerm == nullptr) {
+    return std::nullopt;
+  }
+  auto memoryWrite = findDirectChild(child, "memory_write");
+  if (memoryWrite == nullptr) {
+    return std::nullopt;
+  }
+  PendingMemoryWriteBus bus;
+  bus.dataBus = constructedBusTerm;
+  bus.addressName = getChildValueOrThrow(
+      memoryWrite, "address", "Liberty memory_write for `" + child->args[0] + "`");
+  bus.clockName = getChildValueOrThrow(
+      memoryWrite, "clocked_on", "Liberty memory_write for `" + child->args[0] + "`");
+  return bus;
+}
+
+void populateMemoryInterfaceHeader(
+    const Yosys::LibertyAst* cell,
+    PendingMemoryInterface& memoryInterface) {
+  auto memoryNode = findDirectChild(cell, "memory");
+  if (memoryNode == nullptr) {
+    return;
+  }
+  memoryInterface.present = true;
+  auto addressWidthNode = findDirectChild(memoryNode, "address_width");
+  auto wordWidthNode = findDirectChild(memoryNode, "word_width");
+  if (addressWidthNode != nullptr) {
+    memoryInterface.addressWidth = static_cast<size_t>(
+        std::stoull(addressWidthNode->value));
+  }
+  if (wordWidthNode != nullptr) {
+    memoryInterface.wordWidth = static_cast<size_t>(
+        std::stoull(wordWidthNode->value));
+  }
+}
+
 void registerConstructedTermModeling(
   const Yosys::LibertyAst* child,
   const std::string& pinName,
@@ -214,22 +359,26 @@ void registerConstructedTermModeling(
   SNLBusTerm* constructedBusTerm,
   TermFunctions& termFunctions,
   TermPins& termFunctionPins,
-  TermFunctions& seqTermClocks) {
-  if (functionParsingType == FunctionParsingType::Sequential
-    and constructedScalarTerm) {
-    auto timingNode = const_cast<Yosys::LibertyAst*>(child)->find("timing");
-    if (timingNode) {
-      auto timingTypeNode = timingNode->find("timing_type");
-      if (timingTypeNode) {
-        auto timingType = timingTypeNode->value;
-        if (timingType == "hold_rising" or timingType == "setup_rising"
-          or timingType == "rising_edge") {
-          auto ckPin = timingNode->find("related_pin");
-          if (ckPin) {
-            seqTermClocks[constructedScalarTerm] = ckPin->value;
-          }
-        }
+  SequentialTermClocks& seqTermClocks,
+  PendingMemoryInterface& memoryInterface) {
+  if (functionParsingType == FunctionParsingType::Sequential) {
+    if (constructedScalarTerm) {
+      registerSequentialClockFromTiming(child, constructedScalarTerm, seqTermClocks);
+    } else if (constructedBusTerm) {
+      for (auto* bit : constructedBusTerm->getBits()) {
+        registerSequentialClockFromTiming(child, bit, seqTermClocks);
       }
+    }
+  }
+
+  if (memoryInterface.present) {
+    if (auto readPort = extractMemoryReadPort(child, constructedBusTerm);
+        readPort.has_value()) {
+      memoryInterface.readPorts.push_back(*readPort);
+    }
+    if (auto writeBus = extractMemoryWriteBus(child, constructedBusTerm);
+        writeBus.has_value()) {
+      memoryInterface.writeBuses.push_back(*writeBus);
     }
   }
   if (functionParsingType == FunctionParsingType::Combinational
@@ -328,7 +477,9 @@ void parseTerms(
   FunctionParsingType functionParsingType = FunctionParsingType::Ignore) {
   TermFunctions termFunctions;
   TermPins termFunctionPins;
-  TermFunctions seqTermClocks; //for sequential terms, key is clock term name
+  SequentialTermClocks seqTermClocks;
+  PendingMemoryInterface memoryInterface;
+  populateMemoryInterfaceHeader(cell, memoryInterface);
   for (auto child: cell->children) {
     if (child->id == "pin" or child->id == "bus") {
       auto constructedTerm = constructTerm(primitive, top, child);
@@ -340,7 +491,8 @@ void parseTerms(
         constructedTerm.bus,
         termFunctions,
         termFunctionPins,
-        seqTermClocks);
+        seqTermClocks,
+        memoryInterface);
     } else if (child->id == "bundle") {
       auto bundleDirectionNode = findDirectionNode(child);
       if (bundleDirectionNode != nullptr and bundleDirectionNode->value == "internal") {
@@ -370,7 +522,8 @@ void parseTerms(
           constructedTerm.bus,
           termFunctions,
           termFunctionPins,
-          seqTermClocks);
+          seqTermClocks,
+          memoryInterface);
       }
     }
   }
@@ -391,6 +544,113 @@ void parseTerms(
         } else if (term->getDirection() == SNLTerm::Direction::Output) {
           SNLDesignModeling::addClockToOutputsArcs(clock, {term});
         }
+      }
+    }
+    if (memoryInterface.present) {
+      // Liberty describes memories with separate memory_read/memory_write
+      // attributes on data buses plus timing arcs on address/control pins.
+      // Normalize those pieces into SNLDesignModeling::MemoryInterface so
+      // later passes can discover memories through one generic API.
+      SNLDesignModeling::MemoryInterface modelingInterface;
+      modelingInterface.width = memoryInterface.wordWidth;
+      modelingInterface.abits = memoryInterface.addressWidth;
+      modelingInterface.depth = memoryInterface.addressWidth == 0
+          ? 0
+          : (static_cast<size_t>(1) << memoryInterface.addressWidth);
+      if (!memoryInterface.readPorts.empty()) {
+        const auto& firstReadPort = memoryInterface.readPorts.front();
+        if (!firstReadPort.clockName.empty()) {
+          modelingInterface.clock = dynamic_cast<SNLScalarTerm*>(
+              primitive->getTerm(NLName(firstReadPort.clockName)));
+        }
+      }
+
+      std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> usedInputTerms;
+      for (const auto& readPort : memoryInterface.readPorts) {
+        SNLDesignModeling::MemoryReadPort modelingReadPort;
+        auto* addressTerm = primitive->getTerm(NLName(readPort.addressName));
+        auto* addressBus = dynamic_cast<SNLBusTerm*>(addressTerm);
+        if (addressBus == nullptr) {
+          std::ostringstream reason;
+          reason << "Memory read address `" << readPort.addressName
+                 << "` is not a bus in cell `" << primitive->getName().getString()
+                 << "`";
+          throw SNLLibertyConstructorException(reason.str());
+        }
+        for (auto* bit : addressBus->getBits()) {
+          modelingReadPort.address.push_back(bit);
+          usedInputTerms.insert(bit);
+        }
+        for (auto* bit : readPort.dataBus->getBits()) {
+          modelingReadPort.data.push_back(bit);
+        }
+        SNLDesignModeling::addCombinatorialArcs(
+            modelingReadPort.address, modelingReadPort.data);
+        modelingInterface.readPorts.push_back(std::move(modelingReadPort));
+      }
+
+      struct WritePortGroupKey {
+        std::string addressName;
+        std::string clockName;
+
+        bool operator<(const WritePortGroupKey& other) const {
+          return std::tie(addressName, clockName) <
+                 std::tie(other.addressName, other.clockName);
+        }
+      };
+      std::map<WritePortGroupKey, std::vector<SNLBusTerm*>> groupedWriteBuses;
+      for (const auto& writeBus : memoryInterface.writeBuses) {
+        groupedWriteBuses[{writeBus.addressName, writeBus.clockName}].push_back(
+            writeBus.dataBus);
+      }
+      for (const auto& [key, buses] : groupedWriteBuses) {
+        SNLDesignModeling::MemoryWritePort modelingWritePort;
+        auto* addressTerm = primitive->getTerm(NLName(key.addressName));
+        auto* addressBus = dynamic_cast<SNLBusTerm*>(addressTerm);
+        if (addressBus == nullptr) {
+          std::ostringstream reason;
+          reason << "Memory write address `" << key.addressName
+                 << "` is not a bus in cell `" << primitive->getName().getString()
+                 << "`";
+          throw SNLLibertyConstructorException(reason.str());
+        }
+        for (auto* bit : addressBus->getBits()) {
+          modelingWritePort.address.push_back(bit);
+          usedInputTerms.insert(bit);
+        }
+        if (!buses.empty()) {
+          for (auto* bit : buses.front()->getBits()) {
+            modelingWritePort.data.push_back(bit);
+            usedInputTerms.insert(bit);
+          }
+        }
+        if (buses.size() >= 2) {
+          for (auto* bit : buses[1]->getBits()) {
+            modelingWritePort.mask.push_back(bit);
+            usedInputTerms.insert(bit);
+          }
+        }
+        for (size_t busIndex = 2; busIndex < buses.size(); ++busIndex) {
+          SNLDesignModeling::BitTerms extraWriteInput;
+          for (auto* bit : buses[busIndex]->getBits()) {
+            extraWriteInput.push_back(bit);
+            usedInputTerms.insert(bit);
+          }
+          modelingWritePort.extraWriteInputs.push_back(std::move(extraWriteInput));
+        }
+        for (const auto& [timedTerm, timedClockName] : seqTermClocks) {
+          if (timedClockName != key.clockName ||
+              timedTerm->getDirection() == SNLTerm::Direction::Output ||
+              usedInputTerms.find(timedTerm) != usedInputTerms.end()) {
+            continue;
+          }
+          modelingWritePort.enables.push_back(timedTerm);
+        }
+        modelingInterface.writePorts.push_back(std::move(modelingWritePort));
+      }
+
+      if (modelingInterface.clock != nullptr && modelingInterface.isValid()) {
+        SNLDesignModeling::setMemoryInterface(primitive, modelingInterface);
       }
     }
   } else if (termFunctions.size() == 1 && outputs.size() == 1) {
@@ -467,7 +727,7 @@ void parseCell(
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
   //std::cerr << "Parse cell: " << cellName << std::endl;
   FunctionParsingType type = FunctionParsingType::Combinational;
-  if (cell->find("ff")) {
+  if (cell->find("ff") || cell->find("memory")) {
     type = FunctionParsingType::Sequential;
   } else if (cell->find("latch")) {
     type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE

@@ -6,7 +6,10 @@
 #pragma once
 #include <set>
 #include <list>
+#include <optional>
+#include <string>
 #include <variant>
+#include <vector>
 
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
@@ -37,6 +40,47 @@ class SNLDesignModeling {
     enum Type { PARAMETERIZED, NO_PARAMETER };
     using TimingModel = std::variant<ParameterizedArcs, TimingArcs>;
     using BitTerms = std::list<SNLBitTerm*>;
+    // Generic black-box memory description used by frontends and downstream
+    // tools. The terms are intentionally kept as SNL bit terms instead of
+    // frontend-specific names so users like SEC can model memories without
+    // hardcoding fakeram/CVA6 pin naming conventions.
+    enum class MemoryResetMode {
+      None,
+      AsyncLow,
+      AsyncHigh,
+      SyncLow,
+      SyncHigh
+    };
+    struct MemoryReadPort {
+      BitTerms address {};
+      BitTerms data    {};
+      BitTerms enables {};
+    };
+    struct MemoryWritePort {
+      BitTerms address {};
+      BitTerms data    {};
+      BitTerms mask    {};
+      BitTerms enables {};
+      // Extra write-side dependency buses are preserved for completeness, but
+      // callers may reject them if they only support address/data/mask/enable
+      // memories.
+      std::vector<BitTerms> extraWriteInputs {};
+    };
+    struct MemoryInterface {
+      size_t width  {0};
+      size_t depth  {0};
+      size_t abits  {0};
+      MemoryResetMode resetMode {MemoryResetMode::None};
+      SNLBitTerm* clock {nullptr};
+      SNLBitTerm* reset {nullptr};
+      std::vector<MemoryReadPort> readPorts   {};
+      std::vector<MemoryWritePort> writePorts {};
+
+      bool isValid() const {
+        return clock != nullptr && width > 0 && depth > 0 && abits > 0 &&
+               !readPorts.empty() && !writePorts.empty();
+      }
+    };
 
     //In case the Timing Modeling of a design depends on a parameter
     //Following method must be called prior to others
@@ -57,6 +101,13 @@ class SNLDesignModeling {
     static NajaCollection<SNLInstTerm*> getInputRelatedClocks(SNLInstTerm* iinput);
     static NajaCollection<SNLInstTerm*> getClockRelatedOutputs(SNLInstTerm* iclock);
     static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
+    // Attach or query a memory interface on a primitive design. For DB0 memory
+    // primitives the interface is synthesized from the existing DB0 signature,
+    // and for instances the returned interface is filtered to connected ports.
+    static void setMemoryInterface(SNLDesign* design, const MemoryInterface& interface);
+    static bool hasMemoryInterface(const SNLDesign* design);
+    static MemoryInterface getMemoryInterface(const SNLDesign* design);
+    static MemoryInterface getMemoryInterface(const SNLInstance* instance);
 
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
@@ -93,9 +144,13 @@ class SNLDesignModeling {
     NajaCollection<SNLInstTerm*> getClockRelatedInputs_(SNLInstTerm* iclock) const;
     NajaCollection<SNLInstTerm*> getOutputRelatedClocks_(SNLInstTerm* ioutput) const;
     NajaCollection<SNLInstTerm*> getInputRelatedClocks_(SNLInstTerm* iinput) const;
+    void setMemoryInterface_(const MemoryInterface& interface) { memoryInterface_ = interface; }
+    bool hasMemoryInterface_() const { return memoryInterface_.has_value(); }
+    MemoryInterface getMemoryInterface_() const { return *memoryInterface_; }
     Type          type_       { NO_PARAMETER };
     Parameter     parameter_  {};
     TimingModel   model_      {};
+    std::optional<MemoryInterface> memoryInterface_ {};
 };
 
 }  // namespace naja::NL
