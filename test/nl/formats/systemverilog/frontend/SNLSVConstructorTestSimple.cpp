@@ -4,14 +4,17 @@
 
 #include "gtest/gtest.h"
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
+#include <optional>
 #include <sstream>
 #include <unordered_set>
 
+#include "DNL.h"
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "SNLBusNet.h"
@@ -139,6 +142,365 @@ size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
     }
   }
   return count;
+}
+
+std::optional<naja::DNL::DNLID> resolveTransparentDriverTarget(
+    decltype(naja::DNL::get()) dnl,
+    naja::DNL::DNLID termID) {
+  std::unordered_set<naja::DNL::DNLID> visitedTerms;
+  naja::DNL::DNLID currentTermID = termID;
+  while (currentTermID != naja::DNL::DNLID_MAX &&
+         visitedTerms.insert(currentTermID).second) {
+    const auto& currentTerm = dnl->getDNLTerminalFromID(currentTermID);
+    if (currentTerm.isNull()) {
+      return std::nullopt;
+    }
+
+    if (currentTerm.getSnlBitTerm()->getDirection() != SNLTerm::Direction::Output) {
+      const auto isoID = currentTerm.getIsoID();
+      if (isoID == naja::DNL::DNLID_MAX) {
+        return std::nullopt;
+      }
+      const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+      if (iso.isConstant() || iso.getDrivers().size() != 1) {
+        return std::nullopt;
+      }
+      currentTermID = iso.getDrivers().front();
+      continue;
+    }
+
+    auto* model = currentTerm.getDNLInstance().getSNLModel();
+    if (model == nullptr || !NLDB0::isAssign(model)) {
+      return currentTermID;
+    }
+
+    auto* inputBitTerm = NLDB0::getAssignInput();
+    if (inputBitTerm == nullptr) {
+      return std::nullopt;
+    }
+    const auto& inputTerm =
+        currentTerm.getDNLInstance().getTerminalFromBitTerm(inputBitTerm);
+    if (inputTerm.isNull()) {
+      return std::nullopt;
+    }
+    currentTermID = inputTerm.getID();
+  }
+  return std::nullopt;
+}
+
+std::vector<std::string> collectTransparentMuxSelfReferences(SNLDesign* top) {
+  auto* universe = NLUniverse::get();
+  if (universe == nullptr) {
+    return {};
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+
+  std::vector<std::string> offenders;
+  for (naja::DNL::DNLID termID = 0; termID < dnl->getDNLTerms().size(); ++termID) {
+    const auto& term = dnl->getDNLTerminalFromID(termID);
+    if (term.isNull() || term.isTopPort()) {
+      continue;
+    }
+    auto* bitTerm = term.getSnlBitTerm();
+    if (bitTerm == nullptr || bitTerm->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto* model = term.getDNLInstance().getSNLModel();
+    if (model == nullptr || !NLDB0::isMux2(model)) {
+      continue;
+    }
+
+    const auto resolvedDriver = resolveTransparentDriverTarget(dnl, termID);
+    if (!resolvedDriver.has_value()) {
+      continue;
+    }
+    const auto& driverTerm = dnl->getDNLTerminalFromID(*resolvedDriver);
+    if (driverTerm.isNull()) {
+      continue;
+    }
+    if (driverTerm.getDNLInstance().getID() != term.getDNLInstance().getID()) {
+      continue;
+    }
+    auto* driverBitTerm = driverTerm.getSnlBitTerm();
+    if (driverBitTerm == nullptr ||
+        driverBitTerm->getDirection() != SNLTerm::Direction::Output) {
+      continue;
+    }
+
+    std::ostringstream message;
+    message << term.getDNLInstance().getFullPath() << "."
+            << bitTerm->getName().getString() << "[" << bitTerm->getBit() << "]"
+            << " resolves back to "
+            << driverTerm.getDNLInstance().getFullPath() << "."
+            << driverBitTerm->getName().getString() << "["
+            << driverBitTerm->getBit() << "]";
+    offenders.push_back(message.str());
+  }
+
+  naja::DNL::destroy();
+  return offenders;
+}
+
+std::vector<size_t> collectTopOutputIsoDriverCounts(SNLDesign* top) {
+  auto* universe = NLUniverse::get();
+  if (universe == nullptr) {
+    return {};
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+  std::vector<size_t> counts;
+  for (auto* term : top->getTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Output) {
+      continue;
+    }
+    for (auto* bit : term->getBits()) {
+      const auto termID = dnl->getTop().getTerminalFromBitTerm(bit).getID();
+      EXPECT_NE(termID, naja::DNL::DNLID_MAX);
+      if (termID == naja::DNL::DNLID_MAX) {
+        continue;
+      }
+      const auto& dnlTerm = dnl->getDNLTerminalFromID(termID);
+      const auto isoID = dnlTerm.getIsoID();
+      EXPECT_NE(isoID, naja::DNL::DNLID_MAX);
+      if (isoID == naja::DNL::DNLID_MAX) {
+        continue;
+      }
+      const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+      counts.push_back(iso.getDrivers().size());
+    }
+  }
+  naja::DNL::destroy();
+  return counts;
+}
+
+std::vector<std::string> collectMultiDrivenInternalInputTerms(
+    SNLDesign* top, const std::string& pathSubstring) {
+  auto* universe = NLUniverse::get();
+  if (universe == nullptr) {
+    return {};
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+  std::vector<std::string> offenders;
+  for (naja::DNL::DNLID termID = 0; termID < dnl->getDNLTerms().size(); ++termID) {
+    const auto& term = dnl->getDNLTerminalFromID(termID);
+    if (term.isNull() || term.isTopPort()) {
+      continue;
+    }
+    if (term.getDNLInstance().getFullPath().find(pathSubstring) == std::string::npos) {
+      continue;
+    }
+    auto* bitTerm = term.getSnlBitTerm();
+    if (bitTerm == nullptr || bitTerm->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    const auto isoID = term.getIsoID();
+    if (isoID == naja::DNL::DNLID_MAX) {
+      continue;
+    }
+    const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+    if (iso.getDrivers().size() <= 1) {
+      continue;
+    }
+    std::ostringstream message;
+    message << term.getDNLInstance().getFullPath() << "."
+            << bitTerm->getName().getString() << "[" << bitTerm->getBit() << "]"
+            << " iso=" << isoID
+            << " drivers=" << iso.getDrivers().size()
+            << " readers=" << iso.getReaders().size()
+            << " driver_terms=[";
+    bool firstDriver = true;
+    for (const auto driverID : iso.getDrivers()) {
+      if (!firstDriver) {
+        message << ", ";
+      }
+      firstDriver = false;
+      const auto& driver = dnl->getDNLTerminalFromID(driverID);
+      auto* driverBit = driver.getSnlBitTerm();
+      message << driver.getDNLInstance().getFullPath() << "."
+              << (driverBit ? driverBit->getName().getString() : std::string("<null>"))
+              << "["
+              << (driverBit ? std::to_string(driverBit->getBit()) : std::string("?"))
+              << "]";
+    }
+    message << "]";
+    offenders.push_back(message.str());
+  }
+  naja::DNL::destroy();
+  return offenders;
+}
+
+std::vector<std::string> collectNoDrivenInternalInputTerms(
+    SNLDesign* top, const std::string& pathSubstring) {
+  auto* universe = NLUniverse::get();
+  if (universe == nullptr) {
+    return {};
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+  std::vector<std::string> offenders;
+  for (naja::DNL::DNLID termID = 0; termID < dnl->getDNLTerms().size(); ++termID) {
+    const auto& term = dnl->getDNLTerminalFromID(termID);
+    if (term.isNull() || term.isTopPort()) {
+      continue;
+    }
+    if (term.getDNLInstance().getFullPath().find(pathSubstring) == std::string::npos) {
+      continue;
+    }
+    auto* bitTerm = term.getSnlBitTerm();
+    if (bitTerm == nullptr || bitTerm->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    const auto isoID = term.getIsoID();
+    if (isoID == naja::DNL::DNLID_MAX) {
+      continue;
+    }
+    const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+    // Constant-backed selector compares legitimately reach DNL as isos without
+    // explicit driver terminals; keep this helper focused on true floating
+    // internal inputs instead of flagging constant nets as regressions.
+    if (iso.isConstant()) {
+      continue;
+    }
+    if (!iso.getDrivers().empty()) {
+      continue;
+    }
+    std::ostringstream message;
+    SNLBitNet* net = nullptr;
+    if (term.getDNLInstance().isTop()) {
+      net = bitTerm->getNet();
+    } else if (auto* snlInstance = term.getDNLInstance().getSNLInstance()) {
+      if (auto* instTerm = snlInstance->getInstTerm(bitTerm)) {
+        net = instTerm->getNet();
+      }
+    }
+    message << term.getDNLInstance().getFullPath() << "."
+            << bitTerm->getName().getString() << "[" << bitTerm->getBit() << "]"
+            << " model="
+            << (term.getDNLInstance().getSNLModel()
+                  ? term.getDNLInstance().getSNLModel()->getName().getString()
+                  : std::string("<null>"))
+            << " iso=" << isoID
+            << " drivers=0"
+            << " readers=" << iso.getReaders().size()
+            << " net=";
+    if (auto* busBit = dynamic_cast<SNLBusNetBit*>(net)) {
+      message << busBit->getBus()->getName().getString()
+              << "[" << busBit->getBit() << "]";
+    } else if (net) {
+      message << net->getName().getString();
+    } else {
+      message << "<null>";
+    }
+    if (net) {
+      message << " net_bit_terms=[";
+      bool first = true;
+      for (auto* netBitTerm : net->getBitTerms()) {
+        if (!first) {
+          message << ", ";
+        }
+        first = false;
+        message << netBitTerm->getName().getString() << "[" << netBitTerm->getBit() << "]";
+      }
+      message << "] net_inst_terms=[";
+      first = true;
+      for (auto* netInstTerm : net->getInstTerms()) {
+        if (!first) {
+          message << ", ";
+        }
+        first = false;
+        message << netInstTerm->getInstance()->getName().getString() << "."
+                << netInstTerm->getBitTerm()->getName().getString() << "["
+                << netInstTerm->getBitTerm()->getBit() << "]";
+      }
+      message << "]";
+    }
+    offenders.push_back(message.str());
+  }
+  naja::DNL::destroy();
+  return offenders;
+}
+
+std::optional<std::string> findInternalInputIsoSummary(
+    SNLDesign* top,
+    const std::string& pathSubstring,
+    const std::string& termName,
+    int bitIndex) {
+  auto* universe = NLUniverse::get();
+  if (universe == nullptr) {
+    return std::nullopt;
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+  std::optional<std::string> result;
+  for (naja::DNL::DNLID termID = 0; termID < dnl->getDNLTerms().size(); ++termID) {
+    const auto& term = dnl->getDNLTerminalFromID(termID);
+    if (term.isNull() || term.isTopPort()) {
+      continue;
+    }
+    if (term.getDNLInstance().getFullPath().find(pathSubstring) == std::string::npos) {
+      continue;
+    }
+    auto* bitTerm = term.getSnlBitTerm();
+    if (bitTerm == nullptr || bitTerm->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    if (bitTerm->getName().getString() != termName || bitTerm->getBit() != bitIndex) {
+      continue;
+    }
+    const auto isoID = term.getIsoID();
+    if (isoID == naja::DNL::DNLID_MAX) {
+      continue;
+    }
+    const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+    std::ostringstream message;
+    message << term.getDNLInstance().getFullPath() << "."
+            << bitTerm->getName().getString() << "[" << bitTerm->getBit() << "]"
+            << " iso=" << isoID
+            << " drivers=" << iso.getDrivers().size()
+            << " readers=" << iso.getReaders().size();
+    result = message.str();
+    break;
+  }
+  naja::DNL::destroy();
+  return result;
+}
+
+std::string formatStringVector(const std::vector<std::string>& values) {
+  std::ostringstream stream;
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (i != 0) {
+      stream << "\n";
+    }
+    stream << values[i];
+  }
+  return stream.str();
+}
+
+std::vector<std::string> collectNetNamesContaining(
+    const SNLDesign* design,
+    const std::string& needle) {
+  std::vector<std::string> names;
+  if (design == nullptr) {
+    return names;
+  }
+  for (auto* net : design->getNets()) {
+    if (!net) {
+      continue;
+    }
+    const auto name = net->getName().getString();
+    if (name.find(needle) != std::string::npos) {
+      names.push_back(name);
+    }
+  }
+  std::sort(names.begin(), names.end());
+  return names;
 }
 
 void expectUnsupportedConstruct(
@@ -549,6 +911,316 @@ TEST_F(SNLSVConstructorTestSimple, parseGeneratedNetAndInstancesSupported) {
   EXPECT_EQ(2, childCount);
   EXPECT_EQ(2, childNames.size());
   EXPECT_EQ(2, localNetNames.size());
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseGeneratedTreeNodeBitsDoNotCollapseIntoMultiDriverOutputs) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "generated_tree_node_bits_no_collapse";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "generated_tree_node_bits_no_collapse.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module top(\n"
+         << "  input  logic [7:0] req_i,\n"
+         << "  output logic [6:0] node_o\n"
+         << ");\n"
+         << "  localparam int unsigned NumIn = 8;\n"
+         << "  localparam int unsigned NumLevels = $clog2(NumIn);\n"
+         << "  logic [2**NumLevels-2:0] req_nodes;\n"
+         << "  for (genvar level = 0; level < NumLevels; level++) begin : gen_levels\n"
+         << "    for (genvar l = 0; l < 2**level; l++) begin : gen_level\n"
+         << "      localparam int unsigned Idx0 = 2**level - 1 + l;\n"
+         << "      localparam int unsigned Idx1 = 2**(level + 1) - 1 + l * 2;\n"
+         << "      if (level == NumLevels-1) begin : gen_first_level\n"
+         << "        assign req_nodes[Idx0] = req_i[l*2] | req_i[l*2+1];\n"
+         << "      end else begin : gen_other_levels\n"
+         << "        assign req_nodes[Idx0] = req_nodes[Idx1] | req_nodes[Idx1+1];\n"
+         << "      end\n"
+         << "    end\n"
+         << "  end\n"
+         << "  assign node_o = req_nodes;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  const auto driverCounts = collectTopOutputIsoDriverCounts(top);
+  ASSERT_EQ(driverCounts.size(), 7u);
+  for (size_t i = 0; i < driverCounts.size(); ++i) {
+    EXPECT_EQ(driverCounts[i], 1u)
+        << "node_o[" << i << "] should have exactly one driver";
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseRoundRobinTreePackedTypeInternalInputsStaySingleDriven) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "rr_arb_tree_packed_type_single_driver";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "rr_arb_tree_packed_type_single_driver.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"sv(
+module lzc #(
+  parameter int unsigned WIDTH = 2,
+  parameter bit MODE = 1'b0,
+  parameter int unsigned CNT_WIDTH = (WIDTH > 1) ? $clog2(WIDTH) : 1
+) (
+  input  logic [WIDTH-1:0] in_i,
+  output logic [CNT_WIDTH-1:0] cnt_o,
+  output logic empty_o
+);
+  if (WIDTH == 1) begin : gen_degenerate_lzc
+    assign cnt_o[0] = !in_i[0];
+    assign empty_o = !in_i[0];
+  end else begin : gen_lzc
+    localparam int unsigned NumLevels = $clog2(WIDTH);
+    logic [WIDTH-1:0][NumLevels-1:0] index_lut;
+    logic [2**NumLevels-1:0] sel_nodes;
+    logic [2**NumLevels-1:0][NumLevels-1:0] index_nodes;
+    logic [WIDTH-1:0] in_tmp;
+    always_comb begin
+      for (int unsigned i = 0; i < WIDTH; i++) begin
+        in_tmp[i] = (MODE) ? in_i[WIDTH-1-i] : in_i[i];
+      end
+    end
+    for (genvar j = 0; unsigned'(j) < WIDTH; j++) begin : g_index_lut
+      assign index_lut[j] = (NumLevels)'(unsigned'(j));
+    end
+    for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : g_levels
+      if (unsigned'(level) == NumLevels - 1) begin : g_last_level
+        for (genvar k = 0; k < 2 ** level; k++) begin : g_level
+          if (unsigned'(k) * 2 < WIDTH - 1) begin : g_reduce
+            assign sel_nodes[2 ** level - 1 + k] = in_tmp[k * 2] | in_tmp[k * 2 + 1];
+            assign index_nodes[2 ** level - 1 + k] =
+                (in_tmp[k * 2] == 1'b1) ? index_lut[k * 2] : index_lut[k * 2 + 1];
+          end
+          if (unsigned'(k) * 2 == WIDTH - 1) begin : g_base
+            assign sel_nodes[2 ** level - 1 + k] = in_tmp[k * 2];
+            assign index_nodes[2 ** level - 1 + k] = index_lut[k * 2];
+          end
+          if (unsigned'(k) * 2 > WIDTH - 1) begin : g_out_of_range
+            assign sel_nodes[2 ** level - 1 + k] = 1'b0;
+            assign index_nodes[2 ** level - 1 + k] = '0;
+          end
+        end
+      end else begin : g_not_last_level
+        for (genvar l = 0; l < 2 ** level; l++) begin : g_level
+          assign sel_nodes[2 ** level - 1 + l] =
+              sel_nodes[2 ** (level + 1) - 1 + l * 2] |
+              sel_nodes[2 ** (level + 1) - 1 + l * 2 + 1];
+          assign index_nodes[2 ** level - 1 + l] =
+              (sel_nodes[2 ** (level + 1) - 1 + l * 2] == 1'b1)
+                  ? index_nodes[2 ** (level + 1) - 1 + l * 2]
+                  : index_nodes[2 ** (level + 1) - 1 + l * 2 + 1];
+        end
+      end
+    end
+    assign cnt_o = NumLevels > unsigned'(0) ? index_nodes[0] : 1'b0;
+    assign empty_o = NumLevels > unsigned'(0) ? ~sel_nodes[0] : ~(|in_i);
+  end
+endmodule
+
+module rr_arb_tree #(
+  parameter int unsigned NumIn      = 8,
+  parameter int unsigned DataWidth  = 32,
+  parameter type         DataType   = logic [DataWidth-1:0],
+  parameter bit          ExtPrio    = 1'b0,
+  parameter bit          AxiVldRdy  = 1'b0,
+  parameter bit          LockIn     = 1'b0,
+  parameter bit          FairArb    = 1'b1,
+  parameter int unsigned IdxWidth   = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
+  parameter type         idx_t      = logic [IdxWidth-1:0]
+) (
+  input  logic                clk_i,
+  input  logic                rst_ni,
+  input  logic                flush_i,
+  input  idx_t                rr_i,
+  input  logic    [NumIn-1:0] req_i,
+  output logic    [NumIn-1:0] gnt_o,
+  input  DataType [NumIn-1:0] data_i,
+  output logic                req_o,
+  input  logic                gnt_i,
+  output DataType             data_o,
+  output idx_t                idx_o
+);
+  if (NumIn == unsigned'(1)) begin : gen_pass_through
+    assign req_o    = req_i[0];
+    assign gnt_o[0] = gnt_i;
+    assign data_o   = data_i[0];
+    assign idx_o    = '0;
+  end else begin : gen_arbiter
+    localparam int unsigned NumLevels = unsigned'($clog2(NumIn));
+    idx_t    [2**NumLevels-2:0] index_nodes;
+    DataType [2**NumLevels-2:0] data_nodes;
+    logic    [2**NumLevels-2:0] gnt_nodes;
+    logic    [2**NumLevels-2:0] req_nodes;
+    idx_t                       rr_q;
+    logic [NumIn-1:0]           req_d;
+
+    assign req_o  = req_nodes[0];
+    assign data_o = data_nodes[0];
+    assign idx_o  = index_nodes[0];
+
+    if (ExtPrio) begin : gen_ext_rr
+      assign rr_q  = rr_i;
+      assign req_d = req_i;
+    end else begin : gen_int_rr
+      idx_t rr_d;
+      if (LockIn) begin : gen_lock
+        logic lock_d, lock_q;
+        logic [NumIn-1:0] req_q;
+        assign lock_d = req_o & ~gnt_i;
+        assign req_d  = (lock_q) ? req_q : req_i;
+        always_ff @(posedge clk_i or negedge rst_ni) begin
+          if (!rst_ni) begin
+            lock_q <= '0;
+          end else if (flush_i) begin
+            lock_q <= '0;
+          end else begin
+            lock_q <= lock_d;
+          end
+        end
+        always_ff @(posedge clk_i or negedge rst_ni) begin
+          if (!rst_ni) begin
+            req_q <= '0;
+          end else if (flush_i) begin
+            req_q <= '0;
+          end else begin
+            req_q <= req_d;
+          end
+        end
+      end else begin : gen_no_lock
+        assign req_d = req_i;
+      end
+
+      if (FairArb) begin : gen_fair_arb
+        logic [NumIn-1:0] upper_mask, lower_mask;
+        idx_t upper_idx, lower_idx, next_idx;
+        logic upper_empty, lower_empty;
+        for (genvar i = 0; i < NumIn; i++) begin : gen_mask
+          assign upper_mask[i] = (i > rr_q) ? req_d[i] : 1'b0;
+          assign lower_mask[i] = (i <= rr_q) ? req_d[i] : 1'b0;
+        end
+        lzc #(.WIDTH(NumIn), .MODE(1'b0)) i_lzc_upper(
+          .in_i(upper_mask), .cnt_o(upper_idx), .empty_o(upper_empty));
+        lzc #(.WIDTH(NumIn), .MODE(1'b0)) i_lzc_lower(
+          .in_i(lower_mask), .cnt_o(lower_idx), .empty_o());
+        assign next_idx = upper_empty ? lower_idx : upper_idx;
+        assign rr_d     = (gnt_i && req_o) ? next_idx : rr_q;
+      end else begin : gen_unfair_arb
+        assign rr_d = (gnt_i && req_o) ? ((rr_q == idx_t'(NumIn-1)) ? '0 : rr_q + 1'b1) : rr_q;
+      end
+
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          rr_q <= '0;
+        end else if (flush_i) begin
+          rr_q <= '0;
+        end else begin
+          rr_q <= rr_d;
+        end
+      end
+    end
+
+    assign gnt_nodes[0] = gnt_i;
+    for (genvar level = 0; unsigned'(level) < NumLevels; level++) begin : gen_levels
+      for (genvar l = 0; l < 2**level; l++) begin : gen_level
+        logic sel;
+        localparam int unsigned Idx0 = 2**level-1+l;
+        localparam int unsigned Idx1 = 2**(level+1)-1+l*2;
+        if (unsigned'(level) == NumLevels-1) begin : gen_first_level
+          if (unsigned'(l) * 2 < NumIn-1) begin : gen_reduce
+            assign req_nodes[Idx0] = req_d[l*2] | req_d[l*2+1];
+            assign sel = ~req_d[l*2] | req_d[l*2+1] & rr_q[NumLevels-1-level];
+            assign index_nodes[Idx0] = idx_t'(sel);
+            assign data_nodes[Idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
+            assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]) & ~sel;
+            assign gnt_o[l*2+1]      = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2+1]) & sel;
+          end
+          if (unsigned'(l) * 2 == NumIn-1) begin : gen_first
+            assign req_nodes[Idx0]   = req_d[l*2];
+            assign index_nodes[Idx0] = '0;
+            assign data_nodes[Idx0]  = data_i[l*2];
+            assign gnt_o[l*2]        = gnt_nodes[Idx0] & (AxiVldRdy | req_d[l*2]);
+          end
+          if (unsigned'(l) * 2 > NumIn-1) begin : gen_out_of_range
+            assign req_nodes[Idx0]   = 1'b0;
+            assign index_nodes[Idx0] = idx_t'('0);
+            assign data_nodes[Idx0]  = DataType'('0);
+          end
+        end else begin : gen_other_levels
+          assign req_nodes[Idx0] = req_nodes[Idx1] | req_nodes[Idx1+1];
+          assign sel = ~req_nodes[Idx1] | req_nodes[Idx1+1] & rr_q[NumLevels-1-level];
+          assign index_nodes[Idx0] =
+              (sel)
+                  ? idx_t'({1'b1, index_nodes[Idx1+1][NumLevels-unsigned'(level)-2:0]})
+                  : idx_t'({1'b0, index_nodes[Idx1][NumLevels-unsigned'(level)-2:0]});
+          assign data_nodes[Idx0]  = (sel) ? data_nodes[Idx1+1] : data_nodes[Idx1];
+          assign gnt_nodes[Idx1]   = gnt_nodes[Idx0] & ~sel;
+          assign gnt_nodes[Idx1+1] = gnt_nodes[Idx0] & sel;
+        end
+      end
+    end
+  end
+endmodule
+
+module top(
+  input logic clk_i,
+  input logic rst_ni,
+  input logic [7:0] req_i,
+  input logic gnt_i,
+  output logic [3:0] data_o
+);
+  typedef struct packed {
+    logic [3:0] data;
+    logic checked;
+    logic [1:0] be;
+    logic [2:0] tag;
+  } payload_t;
+  payload_t [7:0] data_q;
+  payload_t dirty_mux, clean_mux;
+  logic [2:0] dirty_ptr, clean_ptr;
+  logic req_dirty, req_clean;
+  logic [7:0] gnt_dirty, gnt_clean;
+  for (genvar i = 0; i < 8; ++i) begin : gen_data
+    assign data_q[i].data = {4{req_i[i]}};
+    assign data_q[i].checked = req_i[i];
+    assign data_q[i].be = {2{req_i[i]}};
+    assign data_q[i].tag = {3{req_i[i]}};
+  end
+  rr_arb_tree #(.NumIn(8), .LockIn(1'b1), .DataType(payload_t)) i_dirty_rr (
+    .clk_i(clk_i), .rst_ni(rst_ni), .flush_i('0), .rr_i('0), .req_i(req_i),
+    .gnt_o(gnt_dirty), .data_i(data_q), .gnt_i(gnt_i), .req_o(req_dirty),
+    .data_o(dirty_mux), .idx_o(dirty_ptr));
+  rr_arb_tree #(.NumIn(8), .DataType(payload_t)) i_clean_rr (
+    .clk_i(clk_i), .rst_ni(rst_ni), .flush_i('0), .rr_i('0), .req_i(req_i),
+    .gnt_o(gnt_clean), .data_i(data_q), .gnt_i(gnt_i), .req_o(req_clean),
+    .data_o(clean_mux), .idx_o(clean_ptr));
+  assign data_o = dirty_mux.data ^ clean_mux.data;
+endmodule
+)sv";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  const auto offenders = collectMultiDrivenInternalInputTerms(top, "i_dirty_rr");
+  EXPECT_TRUE(offenders.empty()) << formatStringVector(offenders);
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -3124,6 +3796,58 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_FALSE(top->isBlackBox());
   EXPECT_NE(top->getNet(NLName("instr_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombWholeVectorCopyThenSliceOverrideDoesNotCreateTransparentMuxSelfReference) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_whole_vector_copy_then_slice_override_no_self_reference";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_whole_vector_copy_then_slice_override_no_self_reference.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_whole_vector_copy_then_slice_override_no_self_reference(
+  input  logic [63:0] q_i,
+  input  logic [3:0]  nibble_i,
+  input  logic        update_i,
+  output logic [63:0] d_o
+);
+  logic [63:0] d;
+
+  always_comb begin
+    d = q_i;
+    if (update_i) begin
+      d[3:0] = nibble_i;
+    end
+  end
+
+  assign d_o = d;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_whole_vector_copy_then_slice_override_no_self_reference"));
+  ASSERT_NE(top, nullptr);
+
+  // Guard the SEC CVA6 perf-counter regression at the lowering layer: a
+  // whole-vector copy followed by a slice override must not produce a mux
+  // input that resolves back to the same mux output through transparent
+  // assign aliases.
+  const auto offenders = collectTransparentMuxSelfReferences(top);
+  EXPECT_TRUE(offenders.empty()) << formatStringVector(offenders);
 }
 
 TEST_F(
@@ -9199,6 +9923,317 @@ endmodule
   const auto dumpedText = readTextFile(dumpedVerilog);
   EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysCombDynamicPackedReadWriteKeepsMuxInputsSingleDriven) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_dynamic_packed_read_write_single_driven";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_dynamic_packed_read_write_single_driven.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_dynamic_packed_read_write_single_driven(
+  input  logic [1:0]       idx,
+  input  logic [63:0]      data_i,
+  input  logic [3:0][63:0] state_i,
+  output logic [63:0]      selected_o,
+  output logic [3:0][63:0] updated_o
+);
+  always_comb begin
+    updated_o = state_i;
+    updated_o[idx] = data_i;
+    selected_o = state_i[idx];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top =
+    library_->getSNLDesign(NLName("always_comb_dynamic_packed_read_write_single_driven"));
+  ASSERT_NE(top, nullptr);
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+
+  const auto multiDrivers = collectMultiDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseContinuousDynamicPackedReadIntoPackedMemberKeepsMuxInputsSingleDriven) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_dynamic_packed_read_into_packed_member";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_dynamic_packed_read_into_packed_member.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic [63:0] data;
+  logic [7:0]  user;
+  logic [7:0]  strb;
+} w_chan_t;
+
+typedef struct packed {
+  w_chan_t w;
+} axi_req_t;
+
+module continuous_dynamic_packed_read_into_packed_member(
+  input  logic [1:0]       idx,
+  input  logic [3:0][63:0] wr_data_i,
+  output axi_req_t         axi_req_o
+);
+  assign axi_req_o.w.data = wr_data_i[idx];
+  assign axi_req_o.w.user = '0;
+  assign axi_req_o.w.strb = '0;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top =
+    library_->getSNLDesign(NLName("continuous_dynamic_packed_read_into_packed_member"));
+  ASSERT_NE(top, nullptr);
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+
+  const auto multiDrivers = collectMultiDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseInstanceConnectedDynamicPackedReadKeepsChildMuxInputsDriven) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connected_dynamic_packed_read";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connected_dynamic_packed_read.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module child_mux(
+  input  logic [1:0]       idx_i,
+  input  logic [3:0][63:0] data_i,
+  output logic [63:0]      data_o
+);
+  assign data_o = data_i[idx_i];
+endmodule
+
+module instance_connected_dynamic_packed_read(
+  input  logic        sel_i,
+  input  logic [63:0] seed_i,
+  output logic [63:0] data_o
+);
+  logic [1:0] idx;
+  logic [3:0][63:0] stage_data;
+
+  always_comb begin
+    idx = 2'd1;
+    stage_data = '0;
+    stage_data[0] = seed_i;
+    stage_data[1] = ~seed_i;
+    stage_data[2] = {32'h01234567, 32'h89ABCDEF};
+    if (sel_i) begin
+      stage_data[3] = seed_i ^ 64'h00FF00FF00FF00FF;
+    end else begin
+      stage_data[3] = seed_i ^ 64'hFF00FF00FF00FF00;
+    end
+  end
+
+  child_mux i_child (
+    .idx_i (idx),
+    .data_i(stage_data),
+    .data_o(data_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("instance_connected_dynamic_packed_read"));
+  ASSERT_NE(top, nullptr);
+  auto* child = library_->getSNLDesign(NLName("child_mux"));
+  ASSERT_NE(child, nullptr);
+  auto* inst = top->getInstance(NLName("i_child"));
+  ASSERT_NE(inst, nullptr);
+  auto* stageData = top->getBusNet(NLName("stage_data"));
+  ASSERT_NE(stageData, nullptr);
+  auto* dataTerm = child->getBusTerm(NLName("data_i"));
+  ASSERT_NE(dataTerm, nullptr);
+  auto* dataBit0InstTerm = inst->getInstTerm(dataTerm->getBit(0));
+  ASSERT_NE(dataBit0InstTerm, nullptr);
+  EXPECT_EQ(static_cast<void*>(stageData->getBit(0)),
+            static_cast<void*>(dataBit0InstTerm->getNet()));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "i_child");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+
+  const auto multiDrivers = collectMultiDrivenInternalInputTerms(top, "i_child");
+  EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseLocalPackedStateReadKeepsMuxInputsDrivenWithoutChildBoundary) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "local_packed_state_read_without_child";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "local_packed_state_read_without_child.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module local_packed_state_read_without_child(
+  input  logic        sel_i,
+  input  logic [63:0] seed_i,
+  output logic [63:0] data_o
+);
+  logic [1:0] idx;
+  logic [3:0][63:0] stage_data;
+
+  always_comb begin
+    idx = 2'd1;
+    stage_data = '0;
+    stage_data[0] = seed_i;
+    stage_data[1] = ~seed_i;
+    stage_data[2] = {32'h01234567, 32'h89ABCDEF};
+    if (sel_i) begin
+      stage_data[3] = seed_i ^ 64'h00FF00FF00FF00FF;
+    end else begin
+      stage_data[3] = seed_i ^ 64'hFF00FF00FF00FF00;
+    end
+    data_o = stage_data[idx];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("local_packed_state_read_without_child"));
+  ASSERT_NE(top, nullptr);
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+
+  const auto multiDrivers = collectMultiDrivenInternalInputTerms(top, "naja_mux2__w64");
+  EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseDirectPackedPortConnectionKeepsChildMuxInputsSingleDriven) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "direct_packed_port_connection";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "direct_packed_port_connection.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module child_mux_direct(
+  input  logic [1:0]       idx_i,
+  input  logic [3:0][63:0] data_i,
+  output logic [63:0]      data_o
+);
+  assign data_o = data_i[idx_i];
+endmodule
+
+module direct_packed_port_connection(
+  input  logic [1:0]       idx_i,
+  input  logic [3:0][63:0] data_i,
+  output logic [63:0]      data_o
+);
+  child_mux_direct i_child (
+    .idx_i (idx_i),
+    .data_i(data_i),
+    .data_o(data_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("direct_packed_port_connection"));
+  ASSERT_NE(top, nullptr);
+  auto* child = library_->getSNLDesign(NLName("child_mux_direct"));
+  ASSERT_NE(child, nullptr);
+  auto* inst = top->getInstance(NLName("i_child"));
+  ASSERT_NE(inst, nullptr);
+  auto* topIdxNet = top->getBusNet(NLName("idx_i"));
+  ASSERT_NE(topIdxNet, nullptr);
+  auto* topDataNet = top->getBusNet(NLName("data_i"));
+  ASSERT_NE(topDataNet, nullptr);
+  auto* childIdxNet = child->getBusNet(NLName("idx_i"));
+  ASSERT_NE(childIdxNet, nullptr);
+  auto* childDataNet = child->getBusNet(NLName("data_i"));
+  ASSERT_NE(childDataNet, nullptr);
+  const auto childIdxNetNames = collectNetNamesContaining(child, "idx_i");
+  EXPECT_EQ(childIdxNetNames.size(), 1u) << formatStringVector(childIdxNetNames);
+  const auto childDataNetNames = collectNetNamesContaining(child, "data_i");
+  EXPECT_EQ(childDataNetNames.size(), 1u) << formatStringVector(childDataNetNames);
+  auto* childIdxTerm = child->getBusTerm(NLName("idx_i"));
+  ASSERT_NE(childIdxTerm, nullptr);
+  auto* childDataTerm = child->getBusTerm(NLName("data_i"));
+  ASSERT_NE(childDataTerm, nullptr);
+  EXPECT_EQ(static_cast<void*>(childIdxNet->getBit(0)),
+            static_cast<void*>(childIdxTerm->getBit(0)->getNet()));
+  EXPECT_EQ(static_cast<void*>(childDataNet->getBit(0)),
+            static_cast<void*>(childDataTerm->getBit(0)->getNet()));
+  EXPECT_GT(childIdxNet->getBit(0)->getInstTerms().size(), 0u);
+  EXPECT_GT(childDataNet->getBit(0)->getInstTerms().size(), 0u);
+  auto* childIdxBit0InstTerm = inst->getInstTerm(childIdxTerm->getBit(0));
+  ASSERT_NE(childIdxBit0InstTerm, nullptr);
+  auto* childDataBit0InstTerm = inst->getInstTerm(childDataTerm->getBit(0));
+  ASSERT_NE(childDataBit0InstTerm, nullptr);
+  EXPECT_EQ(static_cast<void*>(topIdxNet->getBit(0)),
+            static_cast<void*>(childIdxBit0InstTerm->getNet()));
+  EXPECT_EQ(static_cast<void*>(topDataNet->getBit(0)),
+            static_cast<void*>(childDataBit0InstTerm->getNet()));
+  const auto childIdxIsoSummary = findInternalInputIsoSummary(top, "i_child", "idx_i", 0);
+  ASSERT_TRUE(childIdxIsoSummary.has_value());
+  EXPECT_EQ(childIdxIsoSummary->find("drivers=0"), std::string::npos)
+    << *childIdxIsoSummary;
+  const auto childDataIsoSummary = findInternalInputIsoSummary(top, "i_child", "data_i", 0);
+  ASSERT_TRUE(childDataIsoSummary.has_value());
+  EXPECT_EQ(childDataIsoSummary->find("drivers=0"), std::string::npos)
+    << *childDataIsoSummary;
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "i_child");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+
+  const auto multiDrivers = collectMultiDrivenInternalInputTerms(top, "i_child");
+  EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {
