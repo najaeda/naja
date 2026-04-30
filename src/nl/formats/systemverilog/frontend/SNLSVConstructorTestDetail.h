@@ -57,7 +57,9 @@ struct ProceduralReplayEnvMergeTestResult {
     size_t mergedSymbolCount {0};
     bool missingTrueSymbolCopied {false};
     bool externalSymbolOverrodeBranches {false};
+    bool widthMismatchRejected {false};
     std::string failureReason;
+    std::string widthMismatchFailureReason;
 };
 
 struct ActiveForLoopConstantHelpersTestResult {
@@ -70,6 +72,7 @@ struct ActiveForLoopConstantHelpersTestResult {
     bool parameterUnsignedResolved {false};
     bool parameterInt64Resolved {false};
     bool multiplySourceOverflowRejected {false};
+    bool negativeEqualityOperandRejected {false};
 };
 
 struct SourceExcerptTestOptions {

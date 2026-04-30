@@ -7963,6 +7963,11 @@ TEST_F(
   EXPECT_TRUE(result->missingTrueSymbolCopied);
   EXPECT_TRUE(result->externalSymbolOverrodeBranches);
   EXPECT_TRUE(result->failureReason.empty());
+  EXPECT_TRUE(result->widthMismatchRejected);
+  EXPECT_NE(
+    std::string::npos,
+    result->widthMismatchFailureReason.find(
+      "width mismatch while merging always_comb replay symbol"));
 }
 
 TEST_F(
@@ -7979,6 +7984,7 @@ TEST_F(
   EXPECT_TRUE(result->parameterUnsignedResolved);
   EXPECT_TRUE(result->parameterInt64Resolved);
   EXPECT_TRUE(result->multiplySourceOverflowRejected);
+  EXPECT_TRUE(result->negativeEqualityOperandRejected);
 }
 
 TEST_F(
@@ -12687,6 +12693,45 @@ endmodule
   auto yNet = top->getBusNet(NLName("y"));
   ASSERT_NE(yNet, nullptr);
   EXPECT_EQ(3, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopUnaryBodyActionPreservesLoopNameConstants) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_unary_body_action_preserves_loop_name_constants";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_unary_body_action_preserves_loop_name_constants.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_unary_body_action_preserves_loop_name_constants(
+  output logic [1:0] y
+);
+  always_comb begin
+    y = 2'b00;
+    for (int i = 0; i < 2; i++) begin
+      y++;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_for_loop_unary_body_action_preserves_loop_name_constants"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(2, yNet->getWidth());
 }
 
 TEST_F(
