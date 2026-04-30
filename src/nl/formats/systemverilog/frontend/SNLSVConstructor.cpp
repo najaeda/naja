@@ -827,8 +827,9 @@ class SNLSVConstructorImpl {
       if (getCompilationFailureDetails(*compilation)) {
         return std::nullopt;
       }
+      compilation_ = std::move(compilation);
 
-      const auto& root = compilation->getRoot();
+      const auto& root = compilation_->getRoot();
       if (root.topInstances.empty()) {
         return std::nullopt;
       }
@@ -892,8 +893,9 @@ class SNLSVConstructorImpl {
       if (getCompilationFailureDetails(*compilation)) {
         return std::nullopt;
       }
+      compilation_ = std::move(compilation);
 
-      const auto& root = compilation->getRoot();
+      const auto& root = compilation_->getRoot();
       if (root.topInstances.empty()) {
         return std::nullopt;
       }
@@ -1580,6 +1582,107 @@ endmodule
       auto externalIt = mergedEnv.find(externalSymbol);
       result.externalSymbolOverrodeBranches =
         externalIt != mergedEnv.end() && externalIt->second == externalBits;
+      return result;
+    }
+
+    std::optional<detail::ActiveForLoopConstantHelpersTestResult>
+    testActiveForLoopConstantHelpers() {
+      auto syntaxTree = slang::syntax::SyntaxTree::fromText(
+        R"(module detail_test(
+  input logic [4:0] i,
+  output logic [4:0] y0,
+  output logic [63:0] y1,
+  output logic [4:0] y2,
+  output logic [63:0] y3
+);
+  localparam int unsigned P = 9;
+  assign y0 = i;
+  assign y1 = P;
+  assign y2 = 5'(i);
+  assign y3 = (i + 0) * 64'd9223372036854775808;
+endmodule
+)");
+      auto compilation = std::make_unique<slang::ast::Compilation>();
+      compilation->addSyntaxTree(syntaxTree);
+      if (getCompilationFailureDetails(*compilation)) {
+        return std::nullopt;
+      }
+      compilation_ = std::move(compilation);
+
+      const auto& root = compilation_->getRoot();
+      if (root.topInstances.empty()) {
+        return std::nullopt;
+      }
+
+      std::vector<const Expression*> rhsExprs;
+      for (const auto& sym : root.topInstances.front()->body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& assignment = sym.as<slang::ast::ContinuousAssignSymbol>().getAssignment();
+        if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
+          return std::nullopt;
+        }
+        rhsExprs.push_back(&assignment.as<slang::ast::AssignmentExpression>().right());
+      }
+      if (rhsExprs.size() != 4) {
+        return std::nullopt;
+      }
+
+      const auto* symbolExpr = stripConversions(*rhsExprs[0]);
+      if (!symbolExpr || !slang::ast::ValueExpressionBase::isKind(symbolExpr->kind)) {
+        return std::nullopt;
+      }
+      const auto& loopSymbol = symbolExpr->as<slang::ast::ValueExpressionBase>().symbol;
+
+      detail::ActiveForLoopConstantHelpersTestResult result;
+      activeForLoopConstants_.push_back({&loopSymbol, 11});
+      result.symbolDescriptionHit = getActiveForLoopConstant(*rhsExprs[0]) == 11;
+      activeForLoopConstants_.clear();
+
+      activeForLoopNameConstants_.push_back({"i", 12});
+      result.nameDescriptionHit = getActiveForLoopConstant(*rhsExprs[0]) == 12;
+      result.emptyIdentifierRejected = !containsIdentifierToken("i", "");
+      result.missingSourceRejected =
+        !getActiveForLoopConstantFromSourceRange(std::nullopt).has_value();
+      result.nameSourceHit =
+        getActiveForLoopConstantFromSourceRange(getSourceRange(*rhsExprs[3])) == 12;
+      activeForLoopNameConstants_.clear();
+
+      activeForLoopNameConstants_.push_back({"i", -1});
+      uint64_t unsignedValue = 0;
+      result.negativeUnsignedRejected = !getConstantUnsigned(*rhsExprs[2], unsignedValue);
+      activeForLoopNameConstants_.clear();
+
+      result.parameterUnsignedResolved =
+        getConstantUnsigned(*rhsExprs[1], unsignedValue) && unsignedValue == 9;
+      int64_t intValue = 0;
+      result.parameterInt64Resolved =
+        getConstantInt64(*rhsExprs[1], intValue) && intValue == 9;
+
+      auto* db = NLUniverse::getTopDB();
+      if (!db) {
+        auto* universe = NLUniverse::get();
+        if (universe) {
+          for (auto* candidate : universe->getUserDBs()) {
+            db = candidate;
+            break;
+          }
+        }
+      }
+      if (!db) {
+        return std::nullopt;
+      }
+      auto* detailLibrary = NLLibrary::create(db);
+      auto* detailDesign = SNLDesign::create(detailLibrary);
+      createNets(detailDesign, root.topInstances.front()->body);
+
+      activeForLoopNameConstants_.push_back({"i", 3});
+      std::vector<SNLBitNet*> bits;
+      result.multiplySourceOverflowRejected =
+        !resolveExpressionBits(detailDesign, *rhsExprs[3], 64, bits);
+      activeForLoopNameConstants_.clear();
+
       return result;
     }
 
@@ -6640,6 +6743,29 @@ endmodule
         }
       }
 
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+      if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+        if (symbol.kind == SymbolKind::Parameter) {
+          const auto& parameterValue = symbol.as<slang::ast::ParameterSymbol>().getValue();
+          if (parameterValue && parameterValue.isInteger()) {
+            const auto& intValue = parameterValue.integer();
+            if (intValue.hasUnknown()) {
+              return false;
+            }
+            auto maybeValue = intValue.as<uint64_t>();
+            if (!maybeValue) {
+              return false;
+            }
+            value = *maybeValue;
+            return true;
+          }
+        }
+      }
+
       const slang::ConstantValue* directConstant = expr.getConstant();
       slang::ConstantValue directEvaluatedConstant;
       const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
@@ -6664,28 +6790,6 @@ endmodule
         return true;
       }
 
-      const auto* stripped = stripConversions(expr);
-      if (!stripped) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
-        const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
-        if (symbol.kind == SymbolKind::Parameter) {
-          const auto& parameterValue = symbol.as<slang::ast::ParameterSymbol>().getValue();
-          if (parameterValue && parameterValue.isInteger()) {
-            const auto& intValue = parameterValue.integer();
-            if (intValue.hasUnknown()) {
-              return false;
-            }
-            auto maybeValue = intValue.as<uint64_t>();
-            if (!maybeValue) {
-              return false;
-            }
-            value = *maybeValue;
-            return true;
-          }
-        }
-      }
       const slang::ConstantValue* constant = stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
@@ -6919,25 +7023,6 @@ endmodule
         }
       }
 
-      const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
-      const slang::ConstantValue* directConstant =
-        containsActiveLoopVariable ? nullptr : expr.getConstant();
-      slang::ConstantValue directEvaluatedConstant;
-      const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
-      if (!containsActiveLoopVariable &&
-          (!directConstant || !directConstant->isInteger()) &&
-          directEvalSymbol) {
-        slang::ast::EvalContext evalContext(*directEvalSymbol);
-        directEvaluatedConstant = expr.eval(evalContext);
-        if (directEvaluatedConstant && directEvaluatedConstant.isInteger()) {
-          directConstant = &directEvaluatedConstant;
-        }
-      }
-      slang::ConstantValue directConvertedConstant;
-      if (convertConstantToIntegerIfNeeded(directConstant, directConvertedConstant)) {
-        return tryGetInt64FromSVInt(directConstant->integer(), value);
-      }
-
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -6960,6 +7045,25 @@ endmodule
             return true;
           }
         }
+      }
+
+      const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
+      const slang::ConstantValue* directConstant =
+        containsActiveLoopVariable ? nullptr : expr.getConstant();
+      slang::ConstantValue directEvaluatedConstant;
+      const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
+      if (!containsActiveLoopVariable &&
+          (!directConstant || !directConstant->isInteger()) &&
+          directEvalSymbol) {
+        slang::ast::EvalContext evalContext(*directEvalSymbol);
+        directEvaluatedConstant = expr.eval(evalContext);
+        if (directEvaluatedConstant && directEvaluatedConstant.isInteger()) {
+          directConstant = &directEvaluatedConstant;
+        }
+      }
+      slang::ConstantValue directConvertedConstant;
+      if (convertConstantToIntegerIfNeeded(directConstant, directConvertedConstant)) {
+        return tryGetInt64FromSVInt(directConstant->integer(), value);
       }
 
       if (stripped->kind == slang::ast::ExpressionKind::IntegerLiteral) {
@@ -22966,6 +23070,14 @@ testSVConstructorMergeProceduralReplayEnvs() {
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, config, options);
   return impl.testMergeProceduralReplayEnvs();
+}
+
+std::optional<ActiveForLoopConstantHelpersTestResult>
+testSVConstructorActiveForLoopConstantHelpers() {
+  SNLSVConstructor::Config config;
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, config, options);
+  return impl.testActiveForLoopConstantHelpers();
 }
 
 std::optional<ForLoopStepExpressionTestResult>

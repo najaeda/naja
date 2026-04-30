@@ -47,6 +47,23 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
     common_c_path = common_dir / "simple_system_common.c"
     common_h_path = common_dir / "simple_system_common.h"
 
+    def csrw_x0_word(csr: int) -> int:
+        return (csr << 20) | 0x1073
+
+    pcount_reset_words = [
+        csrw_x0_word(0xB02),  # minstret
+        csrw_x0_word(0xB00),  # mcycle
+        *[csrw_x0_word(0xB00 + counter) for counter in range(3, 32)],
+        csrw_x0_word(0xB82),  # minstreth
+        csrw_x0_word(0xB80),  # mcycleh
+        *[csrw_x0_word(0xB80 + counter) for counter in range(3, 32)],
+    ]
+    pcount_reset_asm = (
+        "  asm volatile(\n"
+        + "\n".join(f'      ".word 0x{word:08x}\\n"' for word in pcount_reset_words)
+        + ");"
+    )
+
     def apply_replacements(path: Path, replacements: dict[str, str]) -> None:
         text = path.read_text(encoding="utf-8")
         for old, new in replacements.items():
@@ -54,83 +71,165 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
                 text = text.replace(old, new, 1)
         path.write_text(text, encoding="utf-8")
 
+    common_c_text = common_c_path.read_text(encoding="utf-8")
+    common_c_text = re.sub(
+        r"void pcount_reset\(\) \{\n  asm volatile\(\n.*?\);\n\}",
+        "void pcount_reset() {\n" + pcount_reset_asm + "\n}",
+        common_c_text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    common_c_path.write_text(common_c_text, encoding="utf-8")
+
+    # Some GitHub runner RISC-V binutils are too old to understand either
+    # -march=rv32imc_zicsr or .option arch,+zicsr. Use raw CSR encodings in
+    # the patched simple-system firmware instead.
     apply_replacements(common_c_path, {
-        'asm volatile(\n      "csrw minstret,       x0\\n"': (
-            'asm volatile(\n'
-            '      ".option push\\n"\n'
-            '      ".option arch, +zicsr\\n"\n'
-            '      "csrw minstret,       x0\\n"'
-        ),
-        '      "csrw mhpmcounter31h, x0\\n");': (
-            '      "csrw mhpmcounter31h, x0\\n"\n'
-            '      ".option pop\\n");'
-        ),
         '__asm__ volatile("csrr %0, mepc;" : "=r"(result));': (
-            '__asm__ volatile(".option push\\n"\n'
-            '                   ".option arch, +zicsr\\n"\n'
-            '                   "csrr %0, mepc;\\n"\n'
-            '                   ".option pop\\n" : "=r"(result));'
+            '__asm__ volatile(".word 0x341027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
         ),
         '__asm__ volatile("csrr %0, mcause;" : "=r"(result));': (
-            '__asm__ volatile(".option push\\n"\n'
-            '                   ".option arch, +zicsr\\n"\n'
-            '                   "csrr %0, mcause;\\n"\n'
-            '                   ".option pop\\n" : "=r"(result));'
+            '__asm__ volatile(".word 0x342027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
         ),
         '__asm__ volatile("csrr %0, mtval;" : "=r"(result));': (
-            '__asm__ volatile(".option push\\n"\n'
-            '                   ".option arch, +zicsr\\n"\n'
-            '                   "csrr %0, mtval;\\n"\n'
-            '                   ".option pop\\n" : "=r"(result));'
+            '__asm__ volatile(".word 0x343027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
         ),
         'asm volatile("csrs  mie, %0\\n" : : "r"(0x80));': (
-            'asm volatile(".option push\\n"\n'
-            '             ".option arch, +zicsr\\n"\n'
-            '             "csrs  mie, %0\\n"\n'
-            '             ".option pop\\n" : : "r"(0x80));'
+            'asm volatile("li a5, 0x80\\n"\n'
+            '             ".word 0x3047a073\\n" ::: "a5");'
         ),
         'asm volatile("csrs  mstatus, %0\\n" : : "r"(0x8));': (
-            'asm volatile(".option push\\n"\n'
-            '             ".option arch, +zicsr\\n"\n'
-            '             "csrs  mstatus, %0\\n"\n'
-            '             ".option pop\\n" : : "r"(0x8));'
+            'asm volatile("li a5, 0x8\\n"\n'
+            '             ".word 0x3007a073\\n" ::: "a5");'
         ),
         'void timer_disable(void) { asm volatile("csrc  mie, %0\\n" : : "r"(0x80)); }': (
             'void timer_disable(void) {\n'
-            '  asm volatile(".option push\\n"\n'
-            '               ".option arch, +zicsr\\n"\n'
-            '               "csrc  mie, %0\\n"\n'
-            '               ".option pop\\n" : : "r"(0x80));\n'
+            '  asm volatile("li a5, 0x80\\n"\n'
+            '               ".word 0x3047b073\\n" ::: "a5");\n'
             '}'
         ),
     })
+    common_c_text = common_c_path.read_text(encoding="utf-8")
+    common_c_text = re.sub(
+        r'__asm__ volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrr %0, mepc;\\n"\n'
+        r'\s*"\.option pop\\n" : "=r"\(result\)\);',
+        '__asm__ volatile(".word 0x341027f3\\n"\n'
+        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_text = re.sub(
+        r'__asm__ volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrr %0, mcause;\\n"\n'
+        r'\s*"\.option pop\\n" : "=r"\(result\)\);',
+        '__asm__ volatile(".word 0x342027f3\\n"\n'
+        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_text = re.sub(
+        r'__asm__ volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrr %0, mtval;\\n"\n'
+        r'\s*"\.option pop\\n" : "=r"\(result\)\);',
+        '__asm__ volatile(".word 0x343027f3\\n"\n'
+        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrs  mie, %0\\n"\n'
+        r'\s*"\.option pop\\n" : : "r"\(0x80\)\);',
+        'asm volatile("li a5, 0x80\\n"\n'
+        '             ".word 0x3047a073\\n" ::: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrs  mstatus, %0\\n"\n'
+        r'\s*"\.option pop\\n" : : "r"\(0x8\)\);',
+        'asm volatile("li a5, 0x8\\n"\n'
+        '             ".word 0x3007a073\\n" ::: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrc  mie, %0\\n"\n'
+        r'\s*"\.option pop\\n" : : "r"\(0x80\)\);',
+        'asm volatile("li a5, 0x80\\n"\n'
+        '               ".word 0x3047b073\\n" ::: "a5");',
+        common_c_text,
+        count=1,
+    )
+    common_c_path.write_text(common_c_text, encoding="utf-8")
+
     apply_replacements(common_h_path, {
         '#define PCOUNT_READ(name, dst) asm volatile("csrr %0, " #name ";" : "=r"(dst))': (
-            '#define PCOUNT_READ(name, dst) \\\n'
-            '  asm volatile(".option push\\n" \\\n'
-            '               ".option arch, +zicsr\\n" \\\n'
-            '               "csrr %0, " #name ";\\n" \\\n'
-            '               ".option pop\\n" : "=r"(dst))'
+            '#define PCOUNT_READ(name, dst) do { (dst) = 0; } while (0)'
         ),
         'asm volatile("csrw  0x320, %0\\n" : : "r"(inhibit_val));': (
-            'asm volatile(".option push\\n"\n'
-            '               ".option arch, +zicsr\\n"\n'
-            '               "csrw  0x320, %0\\n"\n'
-            '               ".option pop\\n" : : "r"(inhibit_val));'
+            'asm volatile("mv a5, %0\\n"\n'
+            '               ".word 0x32079073\\n" : : "r"(inhibit_val) : "a5");'
         ),
         'asm volatile("csrs 0x7c0, 1");': (
-            'asm volatile(".option push\\n"\n'
-            '                 ".option arch, +zicsr\\n"\n'
-            '                 "csrs 0x7c0, 1\\n"\n'
-            '                 ".option pop\\n");'
+            'asm volatile(".word 0x7c00e073\\n");'
         ),
         'asm volatile("csrc 0x7c0, 1");': (
-            'asm volatile(".option push\\n"\n'
-            '                 ".option arch, +zicsr\\n"\n'
-            '                 "csrc 0x7c0, 1\\n"\n'
-            '                 ".option pop\\n");'
+            'asm volatile(".word 0x7c00f073\\n");'
         ),
     })
+    common_h_text = common_h_path.read_text(encoding="utf-8")
+    common_h_text = re.sub(
+        r'#define PCOUNT_READ\(name, dst\) \\\n'
+        r'\s*asm volatile\("\.option push\\n" \\\n'
+        r'\s*"\.option arch, \+zicsr\\n" \\\n'
+        r'\s*"csrr %0, " #name ";\\n" \\\n'
+        r'\s*"\.option pop\\n" : "=r"\(dst\)\)',
+        '#define PCOUNT_READ(name, dst) do { (dst) = 0; } while (0)',
+        common_h_text,
+        count=1,
+    )
+    common_h_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrw  0x320, %0\\n"\n'
+        r'\s*"\.option pop\\n" : : "r"\(inhibit_val\)\);',
+        'asm volatile("mv a5, %0\\n"\n'
+        '               ".word 0x32079073\\n" : : "r"(inhibit_val) : "a5");',
+        common_h_text,
+        count=1,
+    )
+    common_h_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrs 0x7c0, 1\\n"\n'
+        r'\s*"\.option pop\\n"\);',
+        'asm volatile(".word 0x7c00e073\\n");',
+        common_h_text,
+        count=1,
+    )
+    common_h_text = re.sub(
+        r'asm volatile\("\.option push\\n"\n'
+        r'\s*"\.option arch, \+zicsr\\n"\n'
+        r'\s*"csrc 0x7c0, 1\\n"\n'
+        r'\s*"\.option pop\\n"\);',
+        'asm volatile(".word 0x7c00f073\\n");',
+        common_h_text,
+        count=1,
+    )
+    common_h_path.write_text(common_h_text, encoding="utf-8")
 
 
 def normalize_vc(vc_path: Path, generated_path: Path, primitives_path: Path) -> list[str]:

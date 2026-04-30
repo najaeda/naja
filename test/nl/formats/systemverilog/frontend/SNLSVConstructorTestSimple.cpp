@@ -7967,6 +7967,22 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  activeForLoopConstantHelpersHandleNamesSourcesParametersAndOverflow) {
+  const auto result = detail::testSVConstructorActiveForLoopConstantHelpers();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(result->symbolDescriptionHit);
+  EXPECT_TRUE(result->nameDescriptionHit);
+  EXPECT_TRUE(result->emptyIdentifierRejected);
+  EXPECT_TRUE(result->missingSourceRejected);
+  EXPECT_TRUE(result->nameSourceHit);
+  EXPECT_TRUE(result->negativeUnsignedRejected);
+  EXPECT_TRUE(result->parameterUnsignedResolved);
+  EXPECT_TRUE(result->parameterInt64Resolved);
+  EXPECT_TRUE(result->multiplySourceOverflowRejected);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   applyForLoopStepExpressionHandlesOperandConstantAndBinaryRhsForms) {
   const auto sameValue =
     detail::testSVConstructorApplyForLoopStepExpressionFromForLoop(

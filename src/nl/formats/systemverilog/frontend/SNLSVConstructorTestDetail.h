@@ -60,6 +60,18 @@ struct ProceduralReplayEnvMergeTestResult {
     std::string failureReason;
 };
 
+struct ActiveForLoopConstantHelpersTestResult {
+    bool symbolDescriptionHit {false};
+    bool nameDescriptionHit {false};
+    bool emptyIdentifierRejected {false};
+    bool missingSourceRejected {false};
+    bool nameSourceHit {false};
+    bool negativeUnsignedRejected {false};
+    bool parameterUnsignedResolved {false};
+    bool parameterInt64Resolved {false};
+    bool multiplySourceOverflowRejected {false};
+};
+
 struct SourceExcerptTestOptions {
     std::string sourceText;
     std::optional<size_t> startOffset {0};
@@ -152,6 +164,9 @@ testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
 
 std::optional<ProceduralReplayEnvMergeTestResult>
 testSVConstructorMergeProceduralReplayEnvs();
+
+std::optional<ActiveForLoopConstantHelpersTestResult>
+testSVConstructorActiveForLoopConstantHelpers();
 
 std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromForLoop(
