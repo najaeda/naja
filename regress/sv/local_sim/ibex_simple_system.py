@@ -74,7 +74,7 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
     common_c_text = common_c_path.read_text(encoding="utf-8")
     common_c_text = re.sub(
         r"void pcount_reset\(\) \{\n  asm volatile\(\n.*?\);\n\}",
-        "void pcount_reset() {\n" + pcount_reset_asm + "\n}",
+        lambda _: "void pcount_reset() {\n" + pcount_reset_asm + "\n}",
         common_c_text,
         count=1,
         flags=re.DOTALL,
@@ -118,8 +118,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrr %0, mepc;\\n"\n'
         r'\s*"\.option pop\\n" : "=r"\(result\)\);',
-        '__asm__ volatile(".word 0x341027f3\\n"\n'
-        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        lambda _: (
+            '__asm__ volatile(".word 0x341027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -128,8 +130,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrr %0, mcause;\\n"\n'
         r'\s*"\.option pop\\n" : "=r"\(result\)\);',
-        '__asm__ volatile(".word 0x342027f3\\n"\n'
-        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        lambda _: (
+            '__asm__ volatile(".word 0x342027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -138,8 +142,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrr %0, mtval;\\n"\n'
         r'\s*"\.option pop\\n" : "=r"\(result\)\);',
-        '__asm__ volatile(".word 0x343027f3\\n"\n'
-        '                   "mv %0, a5\\n" : "=r"(result) :: "a5");',
+        lambda _: (
+            '__asm__ volatile(".word 0x343027f3\\n"\n'
+            '                   "mv %0, a5\\n" : "=r"(result) :: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -148,8 +154,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrs  mie, %0\\n"\n'
         r'\s*"\.option pop\\n" : : "r"\(0x80\)\);',
-        'asm volatile("li a5, 0x80\\n"\n'
-        '             ".word 0x3047a073\\n" ::: "a5");',
+        lambda _: (
+            'asm volatile("li a5, 0x80\\n"\n'
+            '             ".word 0x3047a073\\n" ::: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -158,8 +166,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrs  mstatus, %0\\n"\n'
         r'\s*"\.option pop\\n" : : "r"\(0x8\)\);',
-        'asm volatile("li a5, 0x8\\n"\n'
-        '             ".word 0x3007a073\\n" ::: "a5");',
+        lambda _: (
+            'asm volatile("li a5, 0x8\\n"\n'
+            '             ".word 0x3007a073\\n" ::: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -168,8 +178,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrc  mie, %0\\n"\n'
         r'\s*"\.option pop\\n" : : "r"\(0x80\)\);',
-        'asm volatile("li a5, 0x80\\n"\n'
-        '               ".word 0x3047b073\\n" ::: "a5");',
+        lambda _: (
+            'asm volatile("li a5, 0x80\\n"\n'
+            '               ".word 0x3047b073\\n" ::: "a5");'
+        ),
         common_c_text,
         count=1,
     )
@@ -197,7 +209,7 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n" \\\n'
         r'\s*"csrr %0, " #name ";\\n" \\\n'
         r'\s*"\.option pop\\n" : "=r"\(dst\)\)',
-        '#define PCOUNT_READ(name, dst) do { (dst) = 0; } while (0)',
+        lambda _: '#define PCOUNT_READ(name, dst) do { (dst) = 0; } while (0)',
         common_h_text,
         count=1,
     )
@@ -206,8 +218,10 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrw  0x320, %0\\n"\n'
         r'\s*"\.option pop\\n" : : "r"\(inhibit_val\)\);',
-        'asm volatile("mv a5, %0\\n"\n'
-        '               ".word 0x32079073\\n" : : "r"(inhibit_val) : "a5");',
+        lambda _: (
+            'asm volatile("mv a5, %0\\n"\n'
+            '               ".word 0x32079073\\n" : : "r"(inhibit_val) : "a5");'
+        ),
         common_h_text,
         count=1,
     )
@@ -216,7 +230,7 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrs 0x7c0, 1\\n"\n'
         r'\s*"\.option pop\\n"\);',
-        'asm volatile(".word 0x7c00e073\\n");',
+        lambda _: 'asm volatile(".word 0x7c00e073\\n");',
         common_h_text,
         count=1,
     )
@@ -225,7 +239,7 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         r'\s*"\.option arch, \+zicsr\\n"\n'
         r'\s*"csrc 0x7c0, 1\\n"\n'
         r'\s*"\.option pop\\n"\);',
-        'asm volatile(".word 0x7c00f073\\n");',
+        lambda _: 'asm volatile(".word 0x7c00f073\\n");',
         common_h_text,
         count=1,
     )
