@@ -229,6 +229,69 @@ cases:
         self.assertIn("/work/artifacts/github_sim-obj/Vtb_fake", run_command)
         self.assertTrue(run_kwargs["append_log"])
 
+    def test_run_local_sim_can_use_local_verilator_smoke_stage(self):
+        case = {
+            "name": "fake",
+            "top": "fake_top",
+            "output": "fake_naja.v",
+            "verilator": {
+                "suppressions": ["PINMISSING"],
+            },
+            "local_sim": {
+                "runner": "local",
+                "timeout_seconds": 34,
+                "top_module": "tb_fake",
+                "sources": ["{case}/tb_fake.sv"],
+                "suppressions": ["PINCONNECTEMPTY"],
+            },
+        }
+        commands = []
+
+        def fake_run_command(command, **kwargs):
+            commands.append((command, kwargs))
+
+        original_run_command = sv_regress.run_command
+        original_which = sv_regress.shutil.which
+        try:
+            sv_regress.run_command = fake_run_command
+            sv_regress.shutil.which = lambda tool: f"/usr/bin/{tool}"
+            with tempfile.TemporaryDirectory() as tmpdir:
+                case_dir = Path(tmpdir)
+                repo_dir = case_dir / "repo"
+                artifacts_dir = case_dir / "artifacts"
+                log_dir = artifacts_dir / "logs"
+                artifacts_dir.mkdir(parents=True)
+                repo_dir.mkdir()
+                generated = artifacts_dir / "fake_naja.v"
+                generated.write_text("module fake_top; endmodule\n", encoding="utf-8")
+                (case_dir / "tb_fake.sv").write_text("module tb_fake; endmodule\n", encoding="utf-8")
+
+                result = sv_regress.run_local_sim(
+                    case,
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=generated,
+                    log_dir=log_dir,
+                    require_tools=False,
+                )
+        finally:
+            sv_regress.run_command = original_run_command
+            sv_regress.shutil.which = original_which
+
+        self.assertEqual("passed", result["status"])
+        self.assertEqual(2, len(commands))
+        build_command, build_kwargs = commands[0]
+        run_command, run_kwargs = commands[1]
+        self.assertEqual("verilator", build_command[0])
+        self.assertIn("--binary", build_command)
+        self.assertIn("-Wno-PINMISSING", build_command)
+        self.assertIn("-Wno-PINCONNECTEMPTY", build_command)
+        self.assertIn(str(generated), build_command)
+        self.assertIn(str(artifacts_dir / "local_sim-obj" / "Vtb_fake"), run_command)
+        self.assertEqual(log_dir / "local-sim.log", build_kwargs["log_path"])
+        self.assertTrue(run_kwargs["append_log"])
+
     def test_local_sim_skips_when_optional_tool_is_missing(self):
         case = {
             "name": "fake",
@@ -248,6 +311,7 @@ cases:
                 repo_dir=repo_dir,
                 case_dir=case_dir,
                 artifacts_dir=artifacts_dir,
+                generated_path=artifacts_dir / "fake_naja.v",
                 log_dir=log_dir,
                 require_tools=False,
             )
@@ -384,6 +448,29 @@ src/rtl/top.sv
         self.assertEqual("cv32e40p_manifest.flist", cv32e40p["flist"])
         self.assertEqual("{repo}/rtl", cv32e40p["env"]["DESIGN_RTL_DIR"])
         self.assertIn("PINMISSING", cv32e40p["verilator"]["suppressions"])
+
+    def test_smoke_cases_have_github_and_local_sim_stages(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        for case_name, smoke_pass_regex, local_pass_regex, helper in [
+            (
+                "ibex",
+                "IBEX_SMOKE_PASS",
+                "IBEX_LOCAL_SIM_PASS",
+                "regress/sv/local_sim/ibex_simple_system.py",
+            ),
+            (
+                "cv32e40p",
+                "CV32E40P_SMOKE_PASS",
+                "CV32E40P_LOCAL_SIM_PASS",
+                "regress/sv/local_sim/cv32e40p_example_tb.py",
+            ),
+        ]:
+            case = sv_regress.select_cases(cases, case_name)[0]
+            self.assertEqual(smoke_pass_regex, case["github_sim"]["pass_regex"])
+            self.assertEqual(local_pass_regex, case["local_sim"]["pass_regex"])
+            self.assertIn("top_module", case["github_sim"])
+            self.assertIn("commands", case["local_sim"])
+            self.assertIn(helper, case["local_sim"]["commands"][0][1])
 
 
 if __name__ == "__main__":

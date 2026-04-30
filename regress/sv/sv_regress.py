@@ -39,6 +39,7 @@ PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
 DEFAULT_STAGES = ["lint", "github_sim"]
 VALID_STAGES = {"lint", "github_sim", "local_sim"}
 VALID_LINT_RUNNERS = {"docker", "local"}
+VALID_SIM_RUNNERS = {"docker", "local"}
 
 
 class RegressError(RuntimeError):
@@ -685,37 +686,56 @@ def run_verilator_binary_stage(
     image = config.get("image", case.get("verilator", {}).get("image", "verilator/verilator:v5.046"))
     obj_dir = artifacts_dir / f"{stage}-obj"
     top_module = config["top_module"]
-    build_command = [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        f"{case_dir}:/work",
-        "--entrypoint",
-        "verilator",
-        image,
-        *verilator_stage_flags(case, config),
-        "-Mdir",
-        docker_mount_path(case_dir, obj_dir),
-        docker_mount_path(case_dir, generated_path),
-        docker_mount_path(case_dir, primitives_path),
-        *(docker_mount_path(case_dir, source) for source in sources),
-    ]
+    runner = str(config.get("runner", "docker"))
+    if runner not in VALID_SIM_RUNNERS:
+        valid = ", ".join(sorted(VALID_SIM_RUNNERS))
+        raise RegressError(f"Unknown {stage} runner '{runner}'. Valid runners: {valid}")
+
+    if runner == "docker":
+        build_command = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{case_dir}:/work",
+            "--entrypoint",
+            "verilator",
+            image,
+            *verilator_stage_flags(case, config),
+            "-Mdir",
+            docker_mount_path(case_dir, obj_dir),
+            docker_mount_path(case_dir, generated_path),
+            docker_mount_path(case_dir, primitives_path),
+            *(docker_mount_path(case_dir, source) for source in sources),
+        ]
+    else:
+        build_command = [
+            "verilator",
+            *verilator_stage_flags(case, config),
+            "-Mdir",
+            str(obj_dir),
+            str(generated_path),
+            str(primitives_path),
+            *(str(source) for source in sources),
+        ]
     run_command_path = artifacts_dir / f"{stage}-run-command.json"
     build_command_path = artifacts_dir / f"{stage}-build-command.json"
     build_command_path.write_text(json.dumps(build_command, indent=2) + "\n", encoding="utf-8")
 
     executable = obj_dir / f"V{top_module}"
-    sim_command = [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        f"{case_dir}:/work",
-        "--entrypoint",
-        docker_mount_path(case_dir, executable),
-        image,
-    ]
+    if runner == "docker":
+        sim_command = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{case_dir}:/work",
+            "--entrypoint",
+            docker_mount_path(case_dir, executable),
+            image,
+        ]
+    else:
+        sim_command = [str(executable)]
     run_command_path.write_text(json.dumps(sim_command, indent=2) + "\n", encoding="utf-8")
 
     log_path = log_dir / f"{stage.replace('_', '-')}.log"
@@ -737,22 +757,44 @@ def run_local_sim(
     repo_dir: Path,
     case_dir: Path,
     artifacts_dir: Path,
+    generated_path: Path,
     log_dir: Path,
     require_tools: bool,
 ) -> dict[str, Any]:
     config = configured_stage(case, "local_sim")
     log_path = log_dir / "local-sim.log"
-    tool_checks = config.get("tool_checks", [])
-    if not isinstance(tool_checks, list):
+    configured_tool_checks = config.get("tool_checks", [])
+    if not isinstance(configured_tool_checks, list):
         raise RegressError(f"Invalid local_sim.tool_checks for case {case['name']}: expected list")
+    tool_checks = list(configured_tool_checks)
+    if "top_module" in config or "sources" in config:
+        tool_checks.append("verilator")
 
-    missing = [str(tool) for tool in tool_checks if shutil.which(str(tool)) is None]
+    missing: list[str] = []
+    for tool in tool_checks:
+        if isinstance(tool, list):
+            alternatives = [str(alternative) for alternative in tool]
+            if not any(shutil.which(alternative) for alternative in alternatives):
+                missing.append("one of {" + ", ".join(alternatives) + "}")
+        elif shutil.which(str(tool)) is None:
+            missing.append(str(tool))
     if missing:
         reason = f"missing optional local simulation tools: {', '.join(missing)}"
         log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
         if require_tools:
             raise RegressError(reason)
         return {"status": "skipped", "reason": reason, "log": str(log_path)}
+
+    if "top_module" in config or "sources" in config:
+        return run_verilator_binary_stage(
+            case,
+            stage="local_sim",
+            repo_dir=repo_dir,
+            case_dir=case_dir,
+            artifacts_dir=artifacts_dir,
+            generated_path=generated_path,
+            log_dir=log_dir,
+        )
 
     commands = config.get("commands", [])
     if not isinstance(commands, list):
@@ -863,6 +905,7 @@ def run_case(
                     repo_dir=repo_dir,
                     case_dir=case_dir,
                     artifacts_dir=artifacts_dir,
+                    generated_path=generated_path,
                     log_dir=log_dir,
                     require_tools=require_local_sim_tools,
                 )

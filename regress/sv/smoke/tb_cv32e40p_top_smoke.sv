@@ -23,6 +23,9 @@ module tb_cv32e40p_top_smoke;
 
   int unsigned cycle_count;
   int unsigned fetch_count;
+  int unsigned progress_count;
+  reg seen_fetch;
+  reg [31:0] last_fetch_addr;
 
   initial begin
     clk_i = 1'b0;
@@ -41,20 +44,49 @@ module tb_cv32e40p_top_smoke;
       data_rvalid_i <= 1'b0;
       cycle_count <= 0;
       fetch_count <= 0;
+      progress_count <= 0;
+      seen_fetch <= 1'b0;
+      last_fetch_addr <= 32'h0;
     end else begin
       instr_rvalid_i <= instr_req_o;
       data_rvalid_i <= data_req_o;
       cycle_count <= cycle_count + 1;
       if (instr_req_o) begin
         fetch_count <= fetch_count + 1;
+        if ((^instr_addr_o) === 1'bx) begin
+          $fatal(1, "CV32E40P_SMOKE_X_PC fetch_count=%0d", fetch_count);
+        end
+        if (!seen_fetch) begin
+          seen_fetch <= 1'b1;
+          progress_count <= 1;
+          last_fetch_addr <= instr_addr_o;
+        end else if (instr_addr_o != last_fetch_addr) begin
+          if (instr_addr_o <= last_fetch_addr) begin
+            $fatal(
+              1,
+              "CV32E40P_SMOKE_NON_FORWARD_PC previous=0x%08x current=0x%08x",
+              last_fetch_addr,
+              instr_addr_o);
+          end
+          progress_count <= progress_count + 1;
+          last_fetch_addr <= instr_addr_o;
+        end
       end
 
-      if (fetch_count >= FetchPassCount) begin
-        $display("CV32E40P_SMOKE_PASS fetch_count=%0d last_pc=0x%08x", fetch_count, instr_addr_o);
+      if (progress_count >= FetchPassCount) begin
+        $display(
+          "CV32E40P_SMOKE_PASS fetch_count=%0d progress_count=%0d last_pc=0x%08x",
+          fetch_count,
+          progress_count,
+          last_fetch_addr);
         $finish;
       end
       if (cycle_count >= TimeoutCycles) begin
-        $fatal(1, "CV32E40P_SMOKE_TIMEOUT fetch_count=%0d", fetch_count);
+        $fatal(
+          1,
+          "CV32E40P_SMOKE_TIMEOUT fetch_count=%0d progress_count=%0d",
+          fetch_count,
+          progress_count);
       end
     end
   end

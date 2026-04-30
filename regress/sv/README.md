@@ -13,10 +13,16 @@ Verilog netlist, then runs selected Verilator stages on that generated netlist.
 - Build Naja so `build/test/najaeda` exists.
 - Install Python dependencies, including `PyYAML`.
 - Install `fusesoc` for the Ibex setup flow.
-- Install Docker for the default Verilator runs, or install local `verilator`
-  when using `--lint-runner local`.
+- Install Docker for the default lint and GitHub smoke-simulation runs.
+- Install local `verilator` when using `--lint-runner local` or `local_sim`.
+- Install a RISC-V firmware toolchain for `local_sim`. The scripts prefer the
+  `riscv32-unknown-elf-` prefix and fall back to the common macOS
+  `riscv64-unknown-elf-` prefix. `RISCV` is inferred from `PATH` when unset for
+  CV32E40P.
 
-GitHub CI installs the Python dependencies and uses Dockerized Verilator.
+GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
+`External SV Regress` workflow runs lint; the `External SV Smoke Simulation`
+workflow runs the checked-in Ibex and CV32E40P smoke simulations.
 
 ## List Cases
 
@@ -110,8 +116,15 @@ build/sv-regress/<case>/artifacts/logs/verilator-lint.log
 
 ## Local Simulation Tier
 
-The `local_sim` stage is opt-in. It is intended for richer local Verilator
-flows that can reuse more of the upstream verification environment.
+The `local_sim` stage is opt-in and runs real firmware in upstream-style
+testbench environments:
+
+- Ibex uses upstream `examples/simple_system`, replaces the original
+  `ibex_top` with the Naja-generated `ibex_top`, builds `hello_test.vmem`, and
+  expects `IBEX_LOCAL_SIM_PASS`.
+- CV32E40P uses upstream `example_tb/core`, replaces the original
+  `cv32e40p_top` with the Naja-generated `cv32e40p_top`, builds
+  `custom/hello_world.hex`, and expects `CV32E40P_LOCAL_SIM_PASS`.
 
 ```sh
 python3 regress/sv/sv_regress.py run \
@@ -119,6 +132,15 @@ python3 regress/sv/sv_regress.py run \
   --case cv32e40p \
   --stage lint \
   --stage github_sim \
+  --stage local_sim
+```
+
+Run only local simulation:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case ibex \
+  --case cv32e40p \
   --stage local_sim
 ```
 

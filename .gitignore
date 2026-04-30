@@ -9,6 +9,7 @@ build
 build-*
 install
 venv
+.venv-sv-regress
 .vscode
 __pycache__
 src/apps/naja_edit/examples/**/*.log
