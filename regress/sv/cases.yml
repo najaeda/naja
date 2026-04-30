@@ -17,15 +17,12 @@ cases:
       BP_ROOT: "{repo}"
     dump:
       rtl_infos_as_attributes: true
-      assigns_as_instances: false
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
         - PINMISSING
-        - WIDTHEXPAND
-        - SELRANGE
-        - MULTIDRIVEN
+        - ASCRANGE
 
   - name: cva6
     repo: https://github.com/xtofalex/cva6.git
@@ -39,15 +36,13 @@ cases:
       TARGET_CFG: cv64a6_imafdc_sv39
     dump:
       rtl_infos_as_attributes: true
-      assigns_as_instances: true
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
         - PINMISSING
+        - ASCRANGE
         - WIDTHEXPAND
-        - SELRANGE
-        - MULTIDRIVEN
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
@@ -79,6 +74,23 @@ cases:
       timeout_seconds: 3600
       suppressions:
         - PINMISSING
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_ibex_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_ibex_top_smoke.sv"
+      pass_regex: "IBEX_SMOKE_PASS"
+      suppressions:
+        - PINCONNECTEMPTY
+        - TIMESCALEMOD
+    local_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      tool_checks:
+        - riscv32-unknown-elf-gcc
+      skip_reason: "Ibex local simple-system Verilator simulation needs the RISC-V firmware toolchain before running hello_test with the Naja ibex_top replacement."
+      pass_regex: "PASS|Simulation passed"
 
   - name: cv32e40p
     repo: https://github.com/openhwgroup/cv32e40p.git
@@ -96,3 +108,20 @@ cases:
       timeout_seconds: 3600
       suppressions:
         - PINMISSING
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_cv32e40p_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_cv32e40p_top_smoke.sv"
+      pass_regex: "CV32E40P_SMOKE_PASS"
+      suppressions:
+        - PINCONNECTEMPTY
+        - TIMESCALEMOD
+    local_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      tool_checks:
+        - riscv32-unknown-elf-gcc
+      skip_reason: "CV32E40P local example_tb/core Verilator simulation needs the RISC-V firmware toolchain before running custom/hello_world with the Naja cv32e40p_top replacement."
+      pass_regex: "PASS|Simulation passed"

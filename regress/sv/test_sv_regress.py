@@ -39,8 +39,38 @@ cases:
         self.assertEqual(["fake"], [case["name"] for case in cases])
         self.assertEqual(cases, sv_regress.select_cases(cases, "all"))
         self.assertEqual([cases[0]], sv_regress.select_cases(cases, "fake"))
+        self.assertEqual(cases, sv_regress.select_requested_cases(cases, None))
+        self.assertEqual([cases[0]], sv_regress.select_requested_cases(cases, ["fake"]))
+        self.assertEqual(cases, sv_regress.select_requested_cases(cases, ["all"]))
         with self.assertRaises(sv_regress.RegressError):
             sv_regress.select_cases(cases, "missing")
+
+    def test_parser_accumulates_repeated_case_options(self):
+        parser = sv_regress.build_parser()
+        args = parser.parse_args(["run", "--case", "ibex", "--case", "cv32e40p"])
+
+        self.assertEqual(["ibex", "cv32e40p"], args.case)
+
+    def test_stage_selection_defaults_and_deduplicates(self):
+        self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
+        self.assertEqual(
+            ["lint", "local_sim"],
+            sv_regress.select_stages(["lint", "local_sim", "lint"]),
+        )
+        with self.assertRaises(sv_regress.RegressError):
+            sv_regress.select_stages(["missing"])
+
+    def test_parser_accumulates_repeated_stage_options(self):
+        parser = sv_regress.build_parser()
+        args = parser.parse_args(["run", "--stage", "lint", "--stage", "local_sim"])
+
+        self.assertEqual(["lint", "local_sim"], args.stage)
+
+    def test_parser_accepts_local_lint_runner(self):
+        parser = sv_regress.build_parser()
+        args = parser.parse_args(["run", "--lint-runner", "local"])
+
+        self.assertEqual("local", args.lint_runner)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
@@ -87,6 +117,143 @@ cases:
         self.assertIn("/work/artifacts/fake_naja.v", command)
         self.assertIn("/work/artifacts/najaeda_primitives.v", command)
         self.assertEqual(12, kwargs["timeout"])
+        self.assertEqual(log_dir / "verilator-lint.log", kwargs["log_path"])
+
+    def test_run_lint_can_use_local_verilator(self):
+        case = {
+            "name": "fake",
+            "top": "fake_top",
+            "verilator": {
+                "image": "verilator/verilator:v5.046",
+                "timeout_seconds": 12,
+                "suppressions": ["PINMISSING"],
+                "extra_args": ["--timing"],
+            },
+        }
+        commands = []
+
+        def fake_run_command(command, **kwargs):
+            commands.append((command, kwargs))
+
+        original_run_command = sv_regress.run_command
+        try:
+            sv_regress.run_command = fake_run_command
+            with tempfile.TemporaryDirectory() as tmpdir:
+                case_dir = Path(tmpdir)
+                artifacts_dir = case_dir / "artifacts"
+                log_dir = artifacts_dir / "logs"
+                artifacts_dir.mkdir(parents=True)
+                generated = artifacts_dir / "fake_naja.v"
+                generated.write_text("module fake_top; endmodule\n", encoding="utf-8")
+
+                sv_regress.run_lint(
+                    case,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=generated,
+                    log_dir=log_dir,
+                    lint_runner="local",
+                )
+        finally:
+            sv_regress.run_command = original_run_command
+
+        self.assertEqual(1, len(commands))
+        command, kwargs = commands[0]
+        self.assertEqual("verilator", command[0])
+        self.assertNotIn("docker", command)
+        self.assertIn("--lint-only", command)
+        self.assertIn(str(generated), command)
+        self.assertIn(str(artifacts_dir / "najaeda_primitives.v"), command)
+        self.assertEqual(12, kwargs["timeout"])
+
+    def test_run_github_sim_builds_and_runs_binary(self):
+        case = {
+            "name": "fake",
+            "top": "fake_top",
+            "verilator": {
+                "image": "verilator/verilator:v5.046",
+                "timeout_seconds": 12,
+                "suppressions": ["PINMISSING"],
+            },
+            "github_sim": {
+                "image": "verilator/verilator:v5.046",
+                "timeout_seconds": 34,
+                "top_module": "tb_fake",
+                "sources": ["{case}/tb_fake.sv"],
+                "suppressions": ["PINCONNECTEMPTY"],
+            },
+        }
+        commands = []
+
+        def fake_run_command(command, **kwargs):
+            commands.append((command, kwargs))
+
+        original_run_command = sv_regress.run_command
+        try:
+            sv_regress.run_command = fake_run_command
+            with tempfile.TemporaryDirectory() as tmpdir:
+                case_dir = Path(tmpdir)
+                repo_dir = case_dir / "repo"
+                artifacts_dir = case_dir / "artifacts"
+                log_dir = artifacts_dir / "logs"
+                artifacts_dir.mkdir(parents=True)
+                repo_dir.mkdir()
+                generated = artifacts_dir / "fake_naja.v"
+                generated.write_text("module fake_top; endmodule\n", encoding="utf-8")
+                (case_dir / "tb_fake.sv").write_text("module tb_fake; endmodule\n", encoding="utf-8")
+
+                sv_regress.run_verilator_binary_stage(
+                    case,
+                    stage="github_sim",
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=generated,
+                    log_dir=log_dir,
+                )
+        finally:
+            sv_regress.run_command = original_run_command
+
+        self.assertEqual(2, len(commands))
+        build_command, build_kwargs = commands[0]
+        run_command, run_kwargs = commands[1]
+        self.assertIn("--binary", build_command)
+        self.assertIn("--top-module", build_command)
+        self.assertIn("tb_fake", build_command)
+        self.assertIn("-Wno-PINMISSING", build_command)
+        self.assertIn("-Wno-PINCONNECTEMPTY", build_command)
+        self.assertIn("/work/artifacts/fake_naja.v", build_command)
+        self.assertTrue(any(arg.endswith("/tb_fake.sv") for arg in build_command))
+        self.assertEqual(34, build_kwargs["timeout"])
+        self.assertEqual(log_dir / "github-sim.log", build_kwargs["log_path"])
+        self.assertIn("/work/artifacts/github_sim-obj/Vtb_fake", run_command)
+        self.assertTrue(run_kwargs["append_log"])
+
+    def test_local_sim_skips_when_optional_tool_is_missing(self):
+        case = {
+            "name": "fake",
+            "local_sim": {
+                "tool_checks": ["definitely-missing-riscv-tool"],
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            case_dir = Path(tmpdir) / "case"
+            repo_dir = case_dir / "repo"
+            artifacts_dir = case_dir / "artifacts"
+            log_dir = artifacts_dir / "logs"
+            log_dir.mkdir(parents=True)
+
+            result = sv_regress.run_local_sim(
+                case,
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
+                log_dir=log_dir,
+                require_tools=False,
+            )
+
+        self.assertEqual("skipped", result["status"])
+        self.assertIn("definitely-missing-riscv-tool", result["reason"])
 
     def test_materialize_flist_appends_manifest_entries(self):
         case = {
