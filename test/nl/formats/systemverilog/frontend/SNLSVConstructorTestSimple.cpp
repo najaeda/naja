@@ -7977,6 +7977,7 @@ TEST_F(
   ASSERT_TRUE(result.has_value());
   EXPECT_TRUE(result->symbolDescriptionHit);
   EXPECT_TRUE(result->nameDescriptionHit);
+  EXPECT_TRUE(result->crossScopeSymbolNameHit);
   EXPECT_TRUE(result->emptyIdentifierRejected);
   EXPECT_TRUE(result->missingSourceRejected);
   EXPECT_TRUE(result->nameSourceHit);
@@ -7985,6 +7986,7 @@ TEST_F(
   EXPECT_TRUE(result->parameterInt64Resolved);
   EXPECT_TRUE(result->multiplySourceOverflowRejected);
   EXPECT_TRUE(result->negativeEqualityOperandRejected);
+  EXPECT_TRUE(result->unknownParameterInt64Rejected);
 }
 
 TEST_F(
@@ -13222,6 +13224,46 @@ endmodule
   auto yNet = top->getBusNet(NLName("y"));
   ASSERT_NE(yNet, nullptr);
   EXPECT_EQ(3, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopMultiplyNonconstantFactorChecksOverflowGuard) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_multiply_nonconstant_factor_checks_overflow_guard";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_multiply_nonconstant_factor_checks_overflow_guard.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_multiply_nonconstant_factor_checks_overflow_guard(
+  input  logic [1:0] in,
+  output logic [1:0] y
+);
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < 1; i++) begin
+      y = i * in;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_for_loop_multiply_nonconstant_factor_checks_overflow_guard"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(2, yNet->getWidth());
 }
 
 TEST_F(

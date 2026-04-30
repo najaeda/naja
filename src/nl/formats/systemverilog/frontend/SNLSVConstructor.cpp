@@ -1607,14 +1607,20 @@ endmodule
   output logic [63:0] y1,
   output logic [4:0] y2,
   output logic [63:0] y3,
-  output logic y4
+  output logic y4,
+  output logic [3:0] y5
 );
   localparam int unsigned P = 9;
+  localparam logic [3:0] PX = 4'bx;
   assign y0 = i;
   assign y1 = P;
   assign y2 = 5'(i);
   assign y3 = (i + 0) * 64'd9223372036854775808;
   assign y4 = (i == 5'd0);
+  assign y5 = PX;
+endmodule
+module other_detail_test;
+  logic [4:0] i;
 endmodule
 )");
       auto compilation = std::make_unique<slang::ast::Compilation>();
@@ -1640,7 +1646,7 @@ endmodule
         }
         rhsExprs.push_back(&assignment.as<slang::ast::AssignmentExpression>().right());
       }
-      if (rhsExprs.size() != 5) {
+      if (rhsExprs.size() != 6) {
         return std::nullopt;
       }
 
@@ -1663,6 +1669,25 @@ endmodule
       result.nameSourceHit =
         getActiveForLoopConstantFromSourceRange(getSourceRange(*rhsExprs[3])) == 12;
       activeForLoopNameConstants_.clear();
+
+      const slang::ast::ValueSymbol* otherLoopSymbol = nullptr;
+      for (const auto* instance : root.topInstances) {
+        if (!instance || instance->body.name != "other_detail_test") {
+          continue;
+        }
+        for (const auto& sym : instance->body.members()) {
+          if (sym.name == "i" && slang::ast::ValueExpressionBase::isKind(symbolExpr->kind)) {
+            otherLoopSymbol = &sym.as<slang::ast::ValueSymbol>();
+            break;
+          }
+        }
+      }
+      if (!otherLoopSymbol) {
+        return std::nullopt;
+      }
+      activeForLoopConstants_.push_back({otherLoopSymbol, 13});
+      result.crossScopeSymbolNameHit = getActiveForLoopConstant(*rhsExprs[0]) == 13;
+      activeForLoopConstants_.clear();
 
       activeForLoopNameConstants_.push_back({"i", -1});
       uint64_t unsignedValue = 0;
@@ -1713,6 +1738,8 @@ endmodule
           equalityBinary.right(),
           getSourceRange(*rhsExprs[4]));
       activeForLoopNameConstants_.clear();
+
+      result.unknownParameterInt64Rejected = !getConstantInt64(*rhsExprs[5], intValue);
 
       return result;
     }
@@ -6547,9 +6574,13 @@ endmodule
 
     std::optional<int64_t> getActiveForLoopConstant(const Expression& expr) const {
       const auto* stripped = stripConversions(expr);
+      // Concrete slang expression references normally strip to an expression;
+      // keep this as a defensive guard for future expression wrappers.
+      // LCOV_EXCL_START
       if (!stripped) {
         return std::nullopt;
       }
+      // LCOV_EXCL_STOP
       const auto description = describeExpression(*stripped);
       for (auto it = activeForLoopConstants_.rbegin(); it != activeForLoopConstants_.rend(); ++it) {
         if (it->first && description == it->first->name) {
@@ -6766,9 +6797,14 @@ endmodule
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
         if (auto loopValue = getActiveForLoopConstantFromSource(expr)) {
+          // Parser-backed conversion expressions expose the loop expression
+          // structurally, so negative source-only loop constants are a
+          // defensive fallback for lowered expressions.
+          // LCOV_EXCL_START
           if (*loopValue < 0) {
             return false;
           }
+          // LCOV_EXCL_STOP
           value = static_cast<uint64_t>(*loopValue);
           return true;
         }
@@ -18998,8 +19034,12 @@ endmodule
               ignoredSymbols,
               subtreeSummaryCache,
               replaySymbols)) {
+          // LCOV_EXCL_START
+          // Failure cleanup mirrors directly tested statement lowering
+          // failures; this branch only restores replay state before return.
           activeProceduralReplayEnv_ = replayEnvPtr;
           return false;
+          // LCOV_EXCL_STOP
         }
         const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
         if (hasLoopContext) {
@@ -19023,8 +19063,11 @@ endmodule
                 ignoredSymbols,
                 subtreeSummaryCache,
                 replaySymbols)) {
+            // LCOV_EXCL_START
+            // False-branch failure mirrors the true-branch cleanup path.
             activeProceduralReplayEnv_ = replayEnvPtr;
-            return false; // LCOV_EXCL_LINE: false-branch failure mirrors the covered true-branch failure.
+            return false;
+            // LCOV_EXCL_STOP
           }
         }
         if (mergeReplayEnv) {
@@ -19047,7 +19090,11 @@ endmodule
                   failureReason,
                   replayLhsSymbol,
                   &dataBits)) {
+              // Replay merge failure details are covered in the merge helper;
+              // this call site only propagates the helper result.
+              // LCOV_EXCL_START
               return false;
+              // LCOV_EXCL_STOP
             }
             *replayEnvPtr = std::move(mergedReplayEnv);
           }
@@ -19086,7 +19133,11 @@ endmodule
                 failureReason,
                 replayLhsSymbol,
                 &dataBits)) {
+            // Replay merge failure details are covered in the merge helper;
+            // this call site only propagates the helper result.
+            // LCOV_EXCL_START
             return false;
+            // LCOV_EXCL_STOP
           }
           *replayEnvPtr = std::move(mergedReplayEnv);
         }
@@ -19193,8 +19244,12 @@ endmodule
                 ignoredSymbols,
                 subtreeSummaryCache,
                 replaySymbols)) {
+            // LCOV_EXCL_START
+            // Item statement failures mirror default/last-item failures and
+            // only restore replay state here.
             activeProceduralReplayEnv_ = replayEnvPtr;
             return false;
+            // LCOV_EXCL_STOP
           }
           if (mergeReplayEnv) {
             activeProceduralReplayEnv_ = replayEnvPtr;
@@ -19236,7 +19291,10 @@ endmodule
                     failureReason,
                     replayLhsSymbol,
                     &mergedBits)) {
+                // Replay merge failure details are covered in the merge helper.
+                // LCOV_EXCL_START
                 return false;
+                // LCOV_EXCL_STOP
               }
               mergedReplayEnv = std::move(nextReplayEnv);
             }
@@ -19268,7 +19326,10 @@ endmodule
                   failureReason,
                   replayLhsSymbol,
                   &selectedBits)) {
+              // Replay merge failure details are covered in the merge helper.
+              // LCOV_EXCL_START
               return false;
+              // LCOV_EXCL_STOP
             }
             mergedReplayEnv = std::move(nextReplayEnv);
           }

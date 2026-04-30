@@ -65,6 +65,7 @@ struct ProceduralReplayEnvMergeTestResult {
 struct ActiveForLoopConstantHelpersTestResult {
     bool symbolDescriptionHit {false};
     bool nameDescriptionHit {false};
+    bool crossScopeSymbolNameHit {false};
     bool emptyIdentifierRejected {false};
     bool missingSourceRejected {false};
     bool nameSourceHit {false};
@@ -73,6 +74,7 @@ struct ActiveForLoopConstantHelpersTestResult {
     bool parameterInt64Resolved {false};
     bool multiplySourceOverflowRejected {false};
     bool negativeEqualityOperandRejected {false};
+    bool unknownParameterInt64Rejected {false};
 };
 
 struct SourceExcerptTestOptions {
