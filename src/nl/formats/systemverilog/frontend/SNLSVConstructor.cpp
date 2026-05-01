@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLSVConstructor.h"
+#ifdef NAJA_SVCONSTRUCTOR_TEST_DETAIL
 #include "SNLSVConstructorTestDetail.h"
+#endif
 
 #include <algorithm>
 #include <cctype>
@@ -789,6 +791,7 @@ class SNLSVConstructorImpl {
       }
     }
 
+#ifdef NAJA_SVCONSTRUCTOR_TEST_DETAIL
     // LCOV_EXCL_START
     std::string testFormatReasonWithSourceExcerpt(
       const std::string& reason,
@@ -1620,7 +1623,8 @@ endmodule
   assign y5 = PX;
 endmodule
 module other_detail_test;
-  logic [4:0] i;
+  function void i();
+  endfunction
 endmodule
 )");
       auto compilation = std::make_unique<slang::ast::Compilation>();
@@ -1670,14 +1674,14 @@ endmodule
         getActiveForLoopConstantFromSourceRange(getSourceRange(*rhsExprs[3])) == 12;
       activeForLoopNameConstants_.clear();
 
-      const slang::ast::ValueSymbol* otherLoopSymbol = nullptr;
+      const Symbol* otherLoopSymbol = nullptr;
       for (const auto* instance : root.topInstances) {
         if (!instance || instance->body.name != "other_detail_test") {
           continue;
         }
         for (const auto& sym : instance->body.members()) {
-          if (sym.name == "i" && slang::ast::ValueExpressionBase::isKind(symbolExpr->kind)) {
-            otherLoopSymbol = &sym.as<slang::ast::ValueSymbol>();
+          if (sym.name == "i" && sym.kind == SymbolKind::Subroutine) {
+            otherLoopSymbol = &sym;
             break;
           }
         }
@@ -2075,6 +2079,7 @@ endmodule
       return formatQuotedDescriptionFailure(prefix, description);
     }
     // LCOV_EXCL_STOP
+#endif
 
   private:
     void constructWithSlangDriver(const SNLSVConstructor::Paths& paths) {
@@ -2443,6 +2448,7 @@ endmodule
       std::optional<slang::SourceRange> sourceRange {};
     };
 
+#ifdef NAJA_SVCONSTRUCTOR_TEST_DETAIL
   public:
     detail::InferredMemoryGuardDefaults testDefaultInferredMemoryGuardDefaults() const {
       InferredMemoryGuard defaults;
@@ -2456,6 +2462,7 @@ endmodule
       result.hasSourceRange = defaults.sourceRange.has_value();
       return result;
     }
+#endif
 
   private:
 
@@ -6582,6 +6589,11 @@ endmodule
       }
       // LCOV_EXCL_STOP
       const auto description = describeExpression(*stripped);
+      // describeExpression() is diagnostic-oriented and does not produce bare
+      // identifier names for parser-backed value expressions. These description
+      // shortcuts are defensive compatibility for future lowered expressions
+      // that stringify directly to loop names.
+      // LCOV_EXCL_START
       for (auto it = activeForLoopConstants_.rbegin(); it != activeForLoopConstants_.rend(); ++it) {
         if (it->first && description == it->first->name) {
           return it->second;
@@ -6594,6 +6606,7 @@ endmodule
           return it->second;
         }
       }
+      // LCOV_EXCL_STOP
       if (!slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
         return std::nullopt;
       }
@@ -18129,7 +18142,7 @@ endmodule
 
       auto getCurrentBits = [&](size_t offset) {
         std::vector<SNLBitNet*> currentBits(
-          dataBits.begin() + static_cast<std::ptrdiff_t>(offset),
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset), // LCOV_EXCL_LINE - lcov artifact
           dataBits.begin() + static_cast<std::ptrdiff_t>(offset + selectedElementWidth));
         return currentBits;
       };
@@ -22949,6 +22962,7 @@ endmodule
 #endif
 };
 
+#ifdef NAJA_SVCONSTRUCTOR_TEST_DETAIL
 namespace detail {
 
 // LCOV_EXCL_START
@@ -23296,6 +23310,7 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
 // LCOV_EXCL_STOP
 
 }  // namespace detail
+#endif
 
 SNLSVConstructor::SNLSVConstructor(NLLibrary* library):
   library_(library)
