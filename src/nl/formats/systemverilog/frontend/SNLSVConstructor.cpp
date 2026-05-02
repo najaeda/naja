@@ -3314,7 +3314,11 @@ endmodule
       const auto& canonical = stripped->type->getCanonicalType();
       const auto bitWidth = canonical.getBitstreamWidth();
       if (bitWidth <= 0) {
+        // Non-bitstream / zero-width expression types are filtered by callers
+        // before using this helper in parser-backed lowering paths.
+        // LCOV_EXCL_START
         return std::nullopt;
+        // LCOV_EXCL_STOP
       }
       return static_cast<size_t>(bitWidth);
     }
