@@ -396,6 +396,8 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_TRUE(memory0->isPrimitive());
   EXPECT_TRUE(NLDB0::isDB0Primitive(memory0));
   EXPECT_TRUE(NLDB0::isMemory(memory0));
+  ASSERT_NE(nullptr, memory0->getLibrary());
+  EXPECT_EQ(NLName("MEMORY"), memory0->getLibrary()->getName());
   EXPECT_EQ(NLName("naja_mem__w8_d16_a4_r2_w3_rst_async_low"), memory0->getName());
   EXPECT_EQ(signature, NLDB0::getMemorySignature(memory0));
 
@@ -524,7 +526,7 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     "0");
 }
 
-TEST_F(NLDB0Test, testMemoryRecognitionByStableSchemaOutsideDb0Library) {
+TEST_F(NLDB0Test, testMemoryRecognitionIsScopedToDB0MemoryLibrary) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
 
@@ -563,21 +565,43 @@ TEST_F(NLDB0Test, testMemoryRecognitionByStableSchemaOutsideDb0Library) {
       SNLBusTerm::create(memory, SNLTerm::Direction::Input, 7, 0, NLName("WDATA"));
   auto* we = SNLBusTerm::create(memory, SNLTerm::Direction::Input, 0, 0, NLName("WE"));
 
-  EXPECT_TRUE(NLDB0::isMemory(memory));
-  const auto signature = NLDB0::getMemorySignature(memory);
-  EXPECT_EQ(8u, signature.width);
-  EXPECT_EQ(4u, signature.depth);
-  EXPECT_EQ(2u, signature.abits);
-  EXPECT_EQ(1u, signature.readPorts);
-  EXPECT_EQ(1u, signature.writePorts);
-  EXPECT_EQ(NLDB0::MemoryResetMode::AsyncLow, signature.resetMode);
-  EXPECT_EQ(clk, NLDB0::getMemoryClock(memory));
-  EXPECT_EQ(rst, NLDB0::getMemoryReset(memory));
-  EXPECT_EQ(raddr, NLDB0::getMemoryReadAddress(memory));
-  EXPECT_EQ(rdata, NLDB0::getMemoryReadData(memory));
-  EXPECT_EQ(waddr, NLDB0::getMemoryWriteAddress(memory));
-  EXPECT_EQ(wdata, NLDB0::getMemoryWriteData(memory));
-  EXPECT_EQ(we, NLDB0::getMemoryWriteEnable(memory));
+  SNLDesignModeling::MemoryInterface interface;
+  interface.width = 8;
+  interface.depth = 4;
+  interface.abits = 2;
+  interface.clock = clk;
+  interface.reset = rst;
+  interface.resetMode = SNLDesignModeling::MemoryResetMode::AsyncLow;
+  interface.readPorts.push_back(
+      {.address = {static_cast<SNLBitTerm*>(raddr->getBit(0)),
+                   static_cast<SNLBitTerm*>(raddr->getBit(1))},
+       .data = {static_cast<SNLBitTerm*>(rdata->getBit(0)),
+                static_cast<SNLBitTerm*>(rdata->getBit(1)),
+                static_cast<SNLBitTerm*>(rdata->getBit(2)),
+                static_cast<SNLBitTerm*>(rdata->getBit(3)),
+                static_cast<SNLBitTerm*>(rdata->getBit(4)),
+                static_cast<SNLBitTerm*>(rdata->getBit(5)),
+                static_cast<SNLBitTerm*>(rdata->getBit(6)),
+                static_cast<SNLBitTerm*>(rdata->getBit(7))}});
+  interface.writePorts.push_back(
+      {.address = {static_cast<SNLBitTerm*>(waddr->getBit(0)),
+                   static_cast<SNLBitTerm*>(waddr->getBit(1))},
+       .data = {static_cast<SNLBitTerm*>(wdata->getBit(0)),
+                static_cast<SNLBitTerm*>(wdata->getBit(1)),
+                static_cast<SNLBitTerm*>(wdata->getBit(2)),
+                static_cast<SNLBitTerm*>(wdata->getBit(3)),
+                static_cast<SNLBitTerm*>(wdata->getBit(4)),
+                static_cast<SNLBitTerm*>(wdata->getBit(5)),
+                static_cast<SNLBitTerm*>(wdata->getBit(6)),
+                static_cast<SNLBitTerm*>(wdata->getBit(7))},
+       .enables = {static_cast<SNLBitTerm*>(we->getBit(0))}});
+  SNLDesignModeling::setMemoryInterface(memory, interface);
+
+  EXPECT_TRUE(SNLDesignModeling::hasMemoryInterface(memory));
+  EXPECT_FALSE(NLDB0::isMemory(memory));
+  EXPECT_THROW(NLDB0::getMemorySignature(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryClock(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReadAddress(memory), NLException);
 }
 
 TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {

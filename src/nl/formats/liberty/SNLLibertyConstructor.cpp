@@ -100,24 +100,24 @@ struct ConstructedTerm {
   SNLBusTerm* bus{nullptr};
 };
 
-struct PendingMemoryReadPort {
+struct LibertyMemoryReadPort {
   SNLBusTerm* dataBus{nullptr};
   std::string addressName {};
   std::string clockName   {};
 };
 
-struct PendingMemoryWriteBus {
+struct LibertyMemoryWriteBus {
   SNLBusTerm* dataBus{nullptr};
   std::string addressName {};
   std::string clockName   {};
 };
 
-struct PendingMemoryInterface {
+struct LibertyMemoryInterface {
   bool present {false};
   size_t wordWidth {0};
   size_t addressWidth {0};
-  std::vector<PendingMemoryReadPort> readPorts {};
-  std::vector<PendingMemoryWriteBus> writeBuses {};
+  std::vector<LibertyMemoryReadPort> readPorts {};
+  std::vector<LibertyMemoryWriteBus> writeBuses {};
 };
 
 BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
@@ -281,7 +281,7 @@ std::string getChildValueOrThrow(
   return child->value;
 }
 
-std::optional<PendingMemoryReadPort> extractMemoryReadPort(
+std::optional<LibertyMemoryReadPort> extractMemoryReadPort(
     const Yosys::LibertyAst* child,
     SNLBusTerm* constructedBusTerm) {
   if (constructedBusTerm == nullptr) {
@@ -291,7 +291,7 @@ std::optional<PendingMemoryReadPort> extractMemoryReadPort(
   if (memoryRead == nullptr) {
     return std::nullopt;
   }
-  PendingMemoryReadPort port;
+  LibertyMemoryReadPort port;
   port.dataBus = constructedBusTerm;
   port.addressName = getChildValueOrThrow(
       memoryRead, "address", "Liberty memory_read for `" + child->args[0] + "`");
@@ -312,7 +312,7 @@ std::optional<PendingMemoryReadPort> extractMemoryReadPort(
   return port;
 }
 
-std::optional<PendingMemoryWriteBus> extractMemoryWriteBus(
+std::optional<LibertyMemoryWriteBus> extractMemoryWriteBus(
     const Yosys::LibertyAst* child,
     SNLBusTerm* constructedBusTerm) {
   if (constructedBusTerm == nullptr) {
@@ -322,7 +322,7 @@ std::optional<PendingMemoryWriteBus> extractMemoryWriteBus(
   if (memoryWrite == nullptr) {
     return std::nullopt;
   }
-  PendingMemoryWriteBus bus;
+  LibertyMemoryWriteBus bus;
   bus.dataBus = constructedBusTerm;
   bus.addressName = getChildValueOrThrow(
       memoryWrite, "address", "Liberty memory_write for `" + child->args[0] + "`");
@@ -333,7 +333,7 @@ std::optional<PendingMemoryWriteBus> extractMemoryWriteBus(
 
 void populateMemoryInterfaceHeader(
     const Yosys::LibertyAst* cell,
-    PendingMemoryInterface& memoryInterface) {
+    LibertyMemoryInterface& memoryInterface) {
   auto memoryNode = findDirectChild(cell, "memory");
   if (memoryNode == nullptr) {
     return;
@@ -360,7 +360,7 @@ void registerConstructedTermModeling(
   TermFunctions& termFunctions,
   TermPins& termFunctionPins,
   SequentialTermClocks& seqTermClocks,
-  PendingMemoryInterface& memoryInterface) {
+  LibertyMemoryInterface& memoryInterface) {
   if (functionParsingType == FunctionParsingType::Sequential) {
     if (constructedScalarTerm) {
       registerSequentialClockFromTiming(child, constructedScalarTerm, seqTermClocks);
@@ -478,7 +478,7 @@ void parseTerms(
   TermFunctions termFunctions;
   TermPins termFunctionPins;
   SequentialTermClocks seqTermClocks;
-  PendingMemoryInterface memoryInterface;
+  LibertyMemoryInterface memoryInterface;
   populateMemoryInterfaceHeader(cell, memoryInterface);
   for (auto child: cell->children) {
     if (child->id == "pin" or child->id == "bus") {

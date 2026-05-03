@@ -25,6 +25,7 @@
 #endif
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
+  constexpr const char* MemoryLibraryName = "MEMORY";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
   constexpr const char* DLatchName = "naja_dlatch";
   constexpr const char* DFFNName = "naja_dffn";
@@ -109,11 +110,11 @@ namespace {
   }
 
   void createMemoryPrimitive(
-    naja::NL::NLLibrary* rootLibrary,
+    naja::NL::NLLibrary* memoryLibrary,
     const naja::NL::NLDB0::MemorySignature& signature) {
     using namespace naja::NL;
     auto memory = SNLDesign::create(
-      rootLibrary,
+      memoryLibrary,
       SNLDesign::Type::Primitive,
       NLName(getMemoryInternalName(signature)));
 
@@ -383,31 +384,26 @@ namespace {
                                : naja::NL::NLDB0::MemoryResetMode::SyncHigh;
   }
 
-  bool hasMemoryParameter(const naja::NL::SNLDesign* design, const char* name) {
-    return design && design->getParameter(naja::NL::NLName(name)) != nullptr;
+  naja::NL::NLLibrary* getMemoryLibrary() {
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return rootLibrary->getLibrary(naja::NL::NLName(MemoryLibraryName));
   }
 
-  bool hasMemoryInterface(const naja::NL::SNLDesign* design) {
-    if (!design) {
-      return false;
+  naja::NL::NLLibrary* getOrCreateMemoryLibrary() {
+    if (auto* existing = getMemoryLibrary()) {
+      return existing;
     }
-
-    return design->getScalarTerm(naja::NL::NLName("CLK")) != nullptr &&
-           design->getScalarTerm(naja::NL::NLName("RST")) != nullptr &&
-           design->getBusTerm(naja::NL::NLName("RADDR")) != nullptr &&
-           design->getBusTerm(naja::NL::NLName("RDATA")) != nullptr &&
-           design->getBusTerm(naja::NL::NLName("WADDR")) != nullptr &&
-           design->getBusTerm(naja::NL::NLName("WDATA")) != nullptr &&
-           design->getBusTerm(naja::NL::NLName("WE")) != nullptr &&
-           hasMemoryParameter(design, "WIDTH") &&
-           hasMemoryParameter(design, "DEPTH") &&
-           hasMemoryParameter(design, "ABITS") &&
-           hasMemoryParameter(design, "RD_PORTS") &&
-           hasMemoryParameter(design, "WR_PORTS") &&
-           hasMemoryParameter(design, "RST_ENABLE") &&
-           hasMemoryParameter(design, "RST_ASYNC") &&
-           hasMemoryParameter(design, "RST_ACTIVE_LOW") &&
-           hasMemoryParameter(design, "INIT");
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return naja::NL::NLLibrary::create(
+        rootLibrary,
+        naja::NL::NLLibrary::Type::Primitives,
+        naja::NL::NLName(MemoryLibraryName));
   }
 }
 
@@ -524,18 +520,7 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 }
 
 bool NLDB0::isMemory(const SNLDesign* design) {
-  if (!design || design->isUnnamed()) {
-    return false;
-  }
-  const auto& name = design->getName().getString();
-  if (name.rfind(MemoryPrefix, 0) != 0) {
-    return false;
-  }
-
-  // Inferred memories are intended to be DB0 primitives, but once they have
-  // the stable internal schema we can still recognize them generically even if
-  // they were recreated or copied outside the DB0 root library.
-  return hasMemoryInterface(design);
+  return design && design->isPrimitive() && design->getLibrary() == getMemoryLibrary();
 }
 
 NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLDesign* design) {
@@ -695,8 +680,8 @@ std::string designName = design->getLibrary()->getName().getString() + "." + des
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
-  auto* primitives = getDB0RootLibrary();
-  if (!primitives) {
+  auto* memoryLibrary = getOrCreateMemoryLibrary();
+  if (!memoryLibrary) {
     return nullptr;
   }
   if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
@@ -704,11 +689,11 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
     throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
   }
   const auto name = NLName(getMemoryInternalName(signature));
-  if (auto* existing = primitives->getSNLDesign(name)) {
+  if (auto* existing = memoryLibrary->getSNLDesign(name)) {
     return existing;
   }
-  createMemoryPrimitive(primitives, signature);
-  return primitives->getSNLDesign(name);
+  createMemoryPrimitive(memoryLibrary, signature);
+  return memoryLibrary->getSNLDesign(name);
 }
 
 SNLDesign* NLDB0::getAssign() {
