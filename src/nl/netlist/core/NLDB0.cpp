@@ -16,7 +16,6 @@
 #include "SNLInstance.h"
 #include "SNLDesignModeling.h"
 
-#include <cstring>
 #include <cstdint>
 #include <limits>
 #include <sstream>
@@ -52,59 +51,6 @@ namespace {
     std::ostringstream name;
     name << Mux2Prefix << width;
     return name.str();
-  }
-
-  bool getMux2InternalWidth(const naja::NL::SNLDesign* design, size_t& width) {
-    if (!design || design->isUnnamed()) {
-      return false;
-    }
-    const auto& name = design->getName().getString();
-    if (name.rfind(Mux2Prefix, 0) != 0) {
-      return false;
-    }
-    const size_t prefixSize = std::strlen(Mux2Prefix);
-    if (name.size() == prefixSize) {
-      return false;
-    }
-
-    size_t parsedWidth = 0;
-    for (size_t i = prefixSize; i < name.size(); ++i) {
-      const char digit = name[i];
-      if (digit < '0' || digit > '9') {
-        return false;
-      }
-      parsedWidth = parsedWidth * 10 + static_cast<size_t>(digit - '0');
-    }
-
-    if (parsedWidth == 0) {
-      return false;
-    }
-    width = parsedWidth;
-    return true;
-  }
-
-  bool hasMux2Interface(const naja::NL::SNLDesign* design, size_t width) {
-    if (!design) {
-      return false;
-    }
-
-    auto* inA = design->getBusTerm(naja::NL::NLName("A"));
-    auto* inB = design->getBusTerm(naja::NL::NLName("B"));
-    auto* sel = design->getScalarTerm(naja::NL::NLName("S"));
-    auto* out = design->getBusTerm(naja::NL::NLName("Y"));
-    if (!inA || !inB || !sel || !out) {
-      return false;
-    }
-
-    if (inA->getDirection() != naja::NL::SNLTerm::Direction::Input ||
-        inB->getDirection() != naja::NL::SNLTerm::Direction::Input ||
-        sel->getDirection() != naja::NL::SNLTerm::Direction::Input ||
-        out->getDirection() != naja::NL::SNLTerm::Direction::Output) {
-      return false;
-    }
-
-    return inA->getWidth() == width && inB->getWidth() == width &&
-           out->getWidth() == width;
   }
 
   template<typename CreatePrimitive>
@@ -886,14 +832,11 @@ SNLDesign* NLDB0::getOrCreateMux2(size_t width) {
 }
 
 bool NLDB0::isMux2(const SNLDesign* design) {
-  size_t width = 0;
-  if (!getMux2InternalWidth(design, width)) {
+  if (!isDB0Primitive(design) || !design || design->isUnnamed()) {
     return false;
   }
-  if (isDB0Primitive(design)) {
-    return true;
-  }
-  return hasMux2Interface(design, width);
+  const auto& name = design->getName().getString();
+  return name.rfind(Mux2Prefix, 0) == 0;
 }
 
 SNLBusTerm* NLDB0::getMux2InputA(const SNLDesign* mux2) {

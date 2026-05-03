@@ -12,6 +12,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesignModeling.h"
+#include "SNLInstance.h"
 #include "SNLParameter.h"
 #include "NLException.h"
 #include <algorithm>
@@ -38,56 +39,6 @@ struct SequentialPrimitiveData {
   std::vector<SNLBitTerm*> inputs;
   std::vector<SNLBitTerm*> outputs;
 };
-
-SNLDesign* createNonDB0WideMuxModel(NLLibrary* library, size_t width) {
-  auto* referenceMux = NLDB0::getOrCreateMux2(width);
-  if (referenceMux == nullptr) {
-    return nullptr;
-  }
-
-  auto* muxModel = SNLDesign::create(
-      library, SNLDesign::Type::Primitive, referenceMux->getName());
-  SNLParameter::create(
-      muxModel,
-      NLName("WIDTH"),
-      SNLParameter::Type::Decimal,
-      std::to_string(width));
-
-  auto* inA = SNLBusTerm::create(
-      muxModel,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(width - 1),
-      0,
-      NLName("A"));
-  auto* inB = SNLBusTerm::create(
-      muxModel,
-      SNLTerm::Direction::Input,
-      static_cast<NLID::Bit>(width - 1),
-      0,
-      NLName("B"));
-  auto* sel =
-      SNLScalarTerm::create(muxModel, SNLTerm::Direction::Input, NLName("S"));
-  auto* out = SNLBusTerm::create(
-      muxModel,
-      SNLTerm::Direction::Output,
-      static_cast<NLID::Bit>(width - 1),
-      0,
-      NLName("Y"));
-
-  const auto truthTable = NLDB0::getPrimitiveTruthTable(referenceMux);
-  std::vector<SNLTruthTable> truthTables(width, truthTable);
-  for (size_t bit = 0; bit < width; ++bit) {
-    SNLDesignModeling::BitTerms inputs{
-        inA->getBit(static_cast<NLID::Bit>(bit)),
-        inB->getBit(static_cast<NLID::Bit>(bit)),
-        sel};
-    SNLDesignModeling::BitTerms outputs{
-        out->getBit(static_cast<NLID::Bit>(bit))};
-    SNLDesignModeling::addCombinatorialArcs(inputs, outputs);
-  }
-  SNLDesignModeling::setTruthTables(muxModel, truthTables);
-  return muxModel;
-}
 
 }  // namespace
 
@@ -400,7 +351,7 @@ TEST_F(NLDB0Test, testWideMux2ModelingArcs) {
   }
 }
 
-TEST_F(NLDB0Test, testClonedWideMux2OutsideDB0IsRecognized) {
+TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
 
@@ -410,20 +361,22 @@ TEST_F(NLDB0Test, testClonedWideMux2OutsideDB0IsRecognized) {
   auto* db = NLDB::create(NLUniverse::get());
   ASSERT_NE(nullptr, db);
   auto* library =
-      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("designs"));
+      NLLibrary::create(db, NLLibrary::Type::Standard, NLName("designs"));
   ASSERT_NE(nullptr, library);
 
-  auto* mux24Clone = createNonDB0WideMuxModel(library, 4);
-  ASSERT_NE(nullptr, mux24Clone);
-  EXPECT_FALSE(NLDB0::isDB0Primitive(mux24Clone));
-  EXPECT_TRUE(NLDB0::isMux2(mux24Clone));
-  EXPECT_EQ(4u, SNLDesignModeling::getTruthTableCount(mux24Clone));
-  EXPECT_EQ(NLDB0::getPrimitiveTruthTable(mux24),
-            NLDB0::getPrimitiveTruthTable(mux24Clone));
-  EXPECT_EQ(4, NLDB0::getMux2InputA(mux24Clone)->getWidth());
-  EXPECT_EQ(4, NLDB0::getMux2InputB(mux24Clone)->getWidth());
-  EXPECT_EQ(4, NLDB0::getMux2Output(mux24Clone)->getWidth());
-  EXPECT_NE(nullptr, NLDB0::getMux2Select(mux24Clone));
+  auto* top =
+      SNLDesign::create(library, SNLDesign::Type::Standard, NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* muxInstance = SNLInstance::create(top, mux24, NLName("mux0"));
+  ASSERT_NE(nullptr, muxInstance);
+
+  auto* topClone = top->clone(NLName("topClone"));
+  ASSERT_NE(nullptr, topClone);
+  auto* clonedMuxInstance = topClone->getInstance(NLName("mux0"));
+  ASSERT_NE(nullptr, clonedMuxInstance);
+  EXPECT_EQ(mux24, clonedMuxInstance->getModel());
+  EXPECT_TRUE(NLDB0::isDB0Primitive(clonedMuxInstance->getModel()));
+  EXPECT_TRUE(NLDB0::isMux2(clonedMuxInstance->getModel()));
 }
 
 TEST_F(NLDB0Test, testMemoryPrimitive) {
