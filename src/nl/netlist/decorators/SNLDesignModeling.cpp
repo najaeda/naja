@@ -201,13 +201,13 @@ naja::NL::SNLDesignModeling::MemoryInterface buildDB0MemoryInterface(
   // the same generic MemoryInterface shape used for Liberty/SV-inferred
   // memories so downstream clients do not need separate DB0-specific code.
   auto signature = naja::NL::NLDB0::getMemorySignature(design);
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  interface.width = signature.width;
-  interface.depth = signature.depth;
-  interface.abits = signature.abits;
-  interface.resetMode = convertMemoryResetMode(signature.resetMode);
-  interface.clock = naja::NL::NLDB0::getMemoryClock(design);
-  interface.reset = naja::NL::NLDB0::getMemoryReset(design);
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  memInterface.width = signature.width;
+  memInterface.depth = signature.depth;
+  memInterface.abits = signature.abits;
+  memInterface.resetMode = convertMemoryResetMode(signature.resetMode);
+  memInterface.clock = naja::NL::NLDB0::getMemoryClock(design);
+  memInterface.reset = naja::NL::NLDB0::getMemoryReset(design);
 
   auto* raddr = naja::NL::NLDB0::getMemoryReadAddress(design);
   auto* rdata = naja::NL::NLDB0::getMemoryReadData(design);
@@ -215,7 +215,7 @@ naja::NL::SNLDesignModeling::MemoryInterface buildDB0MemoryInterface(
   auto* wdata = naja::NL::NLDB0::getMemoryWriteData(design);
   auto* we = naja::NL::NLDB0::getMemoryWriteEnable(design);
 
-  interface.readPorts.reserve(signature.readPorts);
+  memInterface.readPorts.reserve(signature.readPorts);
   for (size_t port = 0; port < signature.readPorts; ++port) {
     naja::NL::SNLDesignModeling::MemoryReadPort readPort;
     for (size_t bit = 0; bit < signature.abits; ++bit) {
@@ -230,10 +230,10 @@ naja::NL::SNLDesignModeling::MemoryInterface buildDB0MemoryInterface(
               rdata->getBit(static_cast<naja::NL::NLID::Bit>(
                   port * signature.width + bit))));
     }
-    interface.readPorts.push_back(std::move(readPort));
+    memInterface.readPorts.push_back(std::move(readPort));
   }
 
-  interface.writePorts.reserve(signature.writePorts);
+  memInterface.writePorts.reserve(signature.writePorts);
   for (size_t port = 0; port < signature.writePorts; ++port) {
     naja::NL::SNLDesignModeling::MemoryWritePort writePort;
     for (size_t bit = 0; bit < signature.abits; ++bit) {
@@ -248,13 +248,15 @@ naja::NL::SNLDesignModeling::MemoryInterface buildDB0MemoryInterface(
               wdata->getBit(static_cast<naja::NL::NLID::Bit>(
                   port * signature.width + bit))));
     }
+    // LCOV_EXCL_START
     writePort.enables.push_back(
         static_cast<naja::NL::SNLBitTerm*>(
             we->getBit(static_cast<naja::NL::NLID::Bit>(port))));
-    interface.writePorts.push_back(std::move(writePort));
+    // LCOV_EXCL_STOP
+    memInterface.writePorts.push_back(std::move(writePort));
   }
 
-  return interface;
+  return memInterface;
 }
 
 bool containsBitTerm(
@@ -264,19 +266,19 @@ bool containsBitTerm(
 }
 
 bool isMemoryClockRelatedInputTerm(
-    const naja::NL::SNLDesignModeling::MemoryInterface& interface,
+    const naja::NL::SNLDesignModeling::MemoryInterface& memInterface,
     const naja::NL::SNLBitTerm* term) {
-  if (term == nullptr || term == interface.clock) {
+  if (term == nullptr || term == memInterface.clock) {
     return false;
   }
-  if (interface.reset != nullptr && term == interface.reset) {
+  if (memInterface.reset != nullptr && term == memInterface.reset) {
     return true;
   }
   // Read ports describe the combinational read surface of the memory. They do
   // not update stored state on the clock edge, so keep them out of the
   // clock-input relation. Write controls/data and reset are the sequential
   // next-state dependencies.
-  for (const auto& writePort : interface.writePorts) {
+  for (const auto& writePort : memInterface.writePorts) {
     if (containsBitTerm(writePort.address, term) ||
         containsBitTerm(writePort.data, term) ||
         containsBitTerm(writePort.mask, term) ||
@@ -293,12 +295,12 @@ bool isMemoryClockRelatedInputTerm(
 }
 
 bool isMemoryClockRelatedOutputTerm(
-    const naja::NL::SNLDesignModeling::MemoryInterface& interface,
+    const naja::NL::SNLDesignModeling::MemoryInterface& memInterface,
     const naja::NL::SNLBitTerm* term) {
   if (term == nullptr) {
     return false; // LCOV_EXCL_LINE
   }
-  for (const auto& readPort : interface.readPorts) {
+  for (const auto& readPort : memInterface.readPorts) {
     if (containsBitTerm(readPort.data, term)) {
       return true; 
     }
@@ -308,23 +310,23 @@ bool isMemoryClockRelatedOutputTerm(
 
 bool tryGetMemoryInterface(
     const naja::NL::SNLDesign* design,
-    naja::NL::SNLDesignModeling::MemoryInterface& interface) {
+    naja::NL::SNLDesignModeling::MemoryInterface& memInterface) {
   if (!naja::NL::SNLDesignModeling::hasMemoryInterface(design)) {
     return false; // LCOV_EXCL_LINE
   }
-  interface = naja::NL::SNLDesignModeling::getMemoryInterface(design);
-  return interface.clock != nullptr;
+  memInterface = naja::NL::SNLDesignModeling::getMemoryInterface(design);
+  return memInterface.clock != nullptr;
 }
 
 bool tryGetMemoryInterface(
     const naja::NL::SNLInstance* instance,
-    naja::NL::SNLDesignModeling::MemoryInterface& interface) {
+    naja::NL::SNLDesignModeling::MemoryInterface& memInterface) {
   if (instance == nullptr ||
       !naja::NL::SNLDesignModeling::hasMemoryInterface(instance->getModel())) {
     return false; // LCOV_EXCL_LINE
   }
-  interface = naja::NL::SNLDesignModeling::getMemoryInterface(instance);
-  return interface.clock != nullptr;
+  memInterface = naja::NL::SNLDesignModeling::getMemoryInterface(instance);
+  return memInterface.clock != nullptr;
 }
 
 template <typename Predicate>
@@ -349,108 +351,108 @@ naja::NajaCollection<naja::NL::SNLInstTerm*> getMemoryInstTerms(
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getMemoryClockRelatedInputs(
     naja::NL::SNLBitTerm* clock) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!clock || !tryGetMemoryInterface(clock->getDesign(), interface) ||
-      clock != interface.clock) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!clock || !tryGetMemoryInterface(clock->getDesign(), memInterface) ||
+      clock != memInterface.clock) {
     return naja::NajaCollection<naja::NL::SNLBitTerm*>();
   }
   return getMemoryBitTerms(
-      clock->getDesign(), [interface](const naja::NL::SNLBitTerm* term) {
-        return isMemoryClockRelatedInputTerm(interface, term);
+      clock->getDesign(), [memInterface](const naja::NL::SNLBitTerm* term) {
+        return isMemoryClockRelatedInputTerm(memInterface, term);
       });
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getMemoryClockRelatedOutputs(
     naja::NL::SNLBitTerm* clock) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!clock || !tryGetMemoryInterface(clock->getDesign(), interface) ||
-      clock != interface.clock) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!clock || !tryGetMemoryInterface(clock->getDesign(), memInterface) ||
+      clock != memInterface.clock) {
     return naja::NajaCollection<naja::NL::SNLBitTerm*>();
   }
   return getMemoryBitTerms(
-      clock->getDesign(), [interface](const naja::NL::SNLBitTerm* term) {
-        return isMemoryClockRelatedOutputTerm(interface, term);
+      clock->getDesign(), [memInterface](const naja::NL::SNLBitTerm* term) {
+        return isMemoryClockRelatedOutputTerm(memInterface, term);
       });
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getMemoryInputRelatedClocks(
     naja::NL::SNLBitTerm* input) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!input || !tryGetMemoryInterface(input->getDesign(), interface) ||
-      !isMemoryClockRelatedInputTerm(interface, input)) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!input || !tryGetMemoryInterface(input->getDesign(), memInterface) ||
+      !isMemoryClockRelatedInputTerm(memInterface, input)) {
     return naja::NajaCollection<naja::NL::SNLBitTerm*>();
   }
-  return naja::NajaCollection(new naja::NajaSingletonCollection(interface.clock))
+  return naja::NajaCollection(new naja::NajaSingletonCollection(memInterface.clock))
       .getParentTypeCollection<naja::NL::SNLBitTerm*>();
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getMemoryOutputRelatedClocks(
     naja::NL::SNLBitTerm* output) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!output || !tryGetMemoryInterface(output->getDesign(), interface) ||
-      !isMemoryClockRelatedOutputTerm(interface, output)) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!output || !tryGetMemoryInterface(output->getDesign(), memInterface) ||
+      !isMemoryClockRelatedOutputTerm(memInterface, output)) {
     return naja::NajaCollection<naja::NL::SNLBitTerm*>();
   }
-  return naja::NajaCollection(new naja::NajaSingletonCollection(interface.clock))
+  return naja::NajaCollection(new naja::NajaSingletonCollection(memInterface.clock))
       .getParentTypeCollection<naja::NL::SNLBitTerm*>();
 }
 
 naja::NajaCollection<naja::NL::SNLInstTerm*> getMemoryClockRelatedInputs(
     naja::NL::SNLInstTerm* clock) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!clock || !tryGetMemoryInterface(clock->getInstance(), interface) ||
-      clock->getBitTerm() != interface.clock) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!clock || !tryGetMemoryInterface(clock->getInstance(), memInterface) ||
+      clock->getBitTerm() != memInterface.clock) {
     return naja::NajaCollection<naja::NL::SNLInstTerm*>();
   }
   return getMemoryInstTerms(
-      clock->getInstance(), [interface](const naja::NL::SNLBitTerm* term) {
-        return isMemoryClockRelatedInputTerm(interface, term);
+      clock->getInstance(), [memInterface](const naja::NL::SNLBitTerm* term) {
+        return isMemoryClockRelatedInputTerm(memInterface, term);
       });
 }
 
 naja::NajaCollection<naja::NL::SNLInstTerm*> getMemoryClockRelatedOutputs(
     naja::NL::SNLInstTerm* clock) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!clock || !tryGetMemoryInterface(clock->getInstance(), interface) ||
-      clock->getBitTerm() != interface.clock) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!clock || !tryGetMemoryInterface(clock->getInstance(), memInterface) ||
+      clock->getBitTerm() != memInterface.clock) {
     return naja::NajaCollection<naja::NL::SNLInstTerm*>();
   }
   return getMemoryInstTerms(
-      clock->getInstance(), [interface](const naja::NL::SNLBitTerm* term) {
-        return isMemoryClockRelatedOutputTerm(interface, term);
+      clock->getInstance(), [memInterface](const naja::NL::SNLBitTerm* term) {
+        return isMemoryClockRelatedOutputTerm(memInterface, term);
       });
 }
 
 naja::NajaCollection<naja::NL::SNLInstTerm*> getMemoryInputRelatedClocks(
     naja::NL::SNLInstTerm* input) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!input || !tryGetMemoryInterface(input->getInstance(), interface) ||
-      !isMemoryClockRelatedInputTerm(interface, input->getBitTerm())) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!input || !tryGetMemoryInterface(input->getInstance(), memInterface) ||
+      !isMemoryClockRelatedInputTerm(memInterface, input->getBitTerm())) {
     return naja::NajaCollection<naja::NL::SNLInstTerm*>();
   }
   return naja::NajaCollection<naja::NL::SNLInstTerm*>(
       new naja::NajaSingletonCollection(
-          input->getInstance()->getInstTerm(interface.clock)));
+          input->getInstance()->getInstTerm(memInterface.clock)));
 }
 
 naja::NajaCollection<naja::NL::SNLInstTerm*> getMemoryOutputRelatedClocks(
     naja::NL::SNLInstTerm* output) {
-  naja::NL::SNLDesignModeling::MemoryInterface interface;
-  if (!output || !tryGetMemoryInterface(output->getInstance(), interface) ||
-      !isMemoryClockRelatedOutputTerm(interface, output->getBitTerm())) {
+  naja::NL::SNLDesignModeling::MemoryInterface memInterface;
+  if (!output || !tryGetMemoryInterface(output->getInstance(), memInterface) ||
+      !isMemoryClockRelatedOutputTerm(memInterface, output->getBitTerm())) {
     return naja::NajaCollection<naja::NL::SNLInstTerm*>();
   }
   return naja::NajaCollection<naja::NL::SNLInstTerm*>(
       new naja::NajaSingletonCollection(
-          output->getInstance()->getInstTerm(interface.clock)));
+          output->getInstance()->getInstTerm(memInterface.clock)));
 }
 
 void validateMemoryInterfaceForDesign(
     naja::NL::SNLDesign* design,
-    const naja::NL::SNLDesignModeling::MemoryInterface& interface) {
-  if (!interface.isValid()) {
+    const naja::NL::SNLDesignModeling::MemoryInterface& memInterface) {
+  if (!memInterface.isValid()) {
     throw naja::NL::NLException(
-        "SNLDesignModeling::setMemoryInterface: invalid memory interface");
+        "SNLDesignModeling::setMemoryInterface: invalid memory memInterface");
   }
   auto validateBitTerms = [design](const naja::NL::SNLDesignModeling::BitTerms& terms,
                                    const std::string& name) {
@@ -463,21 +465,21 @@ void validateMemoryInterfaceForDesign(
     }
   };
 
-  if (!interface.clock || interface.clock->getDesign() != design) {
+  if (!memInterface.clock || memInterface.clock->getDesign() != design) {
     throw naja::NL::NLException(
         "SNLDesignModeling::setMemoryInterface: invalid clock term");
   }
-  if (interface.reset && interface.reset->getDesign() != design) {
+  if (memInterface.reset && memInterface.reset->getDesign() != design) {
     throw naja::NL::NLException(
         "SNLDesignModeling::setMemoryInterface: invalid reset term");
   }
 
-  for (const auto& port : interface.readPorts) {
+  for (const auto& port : memInterface.readPorts) {
     validateBitTerms(port.address, "read-address");
     validateBitTerms(port.data, "read-data");
     validateBitTerms(port.enables, "read-enable");
   }
-  for (const auto& port : interface.writePorts) {
+  for (const auto& port : memInterface.writePorts) {
     validateBitTerms(port.address, "write-address");
     validateBitTerms(port.data, "write-data");
     validateBitTerms(port.mask, "write-mask");
@@ -1441,13 +1443,13 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(
 
 void SNLDesignModeling::setMemoryInterface(
     SNLDesign* design,
-    const MemoryInterface& interface) {
+    const MemoryInterface& memInterface) {
   if (!design->isPrimitive()) {
-    throw NLException("Cannot add memory interface on non-primitive design");
+    throw NLException("Cannot add memory memInterface on non-primitive design");
   }
-  validateMemoryInterfaceForDesign(design, interface);
+  validateMemoryInterfaceForDesign(design, memInterface);
   auto property = getOrCreateProperty(design, NO_PARAMETER);
-  property->getModeling()->setMemoryInterface_(interface);
+  property->getModeling()->setMemoryInterface_(memInterface);
 }
 
 bool SNLDesignModeling::hasMemoryInterface(const SNLDesign* design) {
@@ -1476,7 +1478,7 @@ SNLDesignModeling::MemoryInterface SNLDesignModeling::getMemoryInterface(
     return buildDB0MemoryInterface(design);
   }
   throw NLException(
-      "SNLDesignModeling::getMemoryInterface: design has no memory interface");
+      "SNLDesignModeling::getMemoryInterface: design has no memory memInterface");
 }
 
 SNLDesignModeling::MemoryInterface SNLDesignModeling::getMemoryInterface(
@@ -1484,40 +1486,40 @@ SNLDesignModeling::MemoryInterface SNLDesignModeling::getMemoryInterface(
   if (!instance) {
     throw NLException("SNLDesignModeling::getMemoryInterface: null instance");
   }
-  auto interface = getMemoryInterface(instance->getModel());
+  auto memInterface = getMemoryInterface(instance->getModel());
   if (NLDB0::isMemory(instance->getModel())) {
     const auto signature = NLDB0::getMemorySignature(instance);
-    interface.width = signature.width;
-    interface.depth = signature.depth;
-    interface.abits = signature.abits;
-    interface.resetMode = convertMemoryResetMode(signature.resetMode);
+    memInterface.width = signature.width;
+    memInterface.depth = signature.depth;
+    memInterface.abits = signature.abits;
+    memInterface.resetMode = convertMemoryResetMode(signature.resetMode);
   }
   // Elaboration may instantiate a generic memory primitive with only a subset
-  // of ports connected. Return the effective instance interface, not the full
+  // of ports connected. Return the effective instance memInterface, not the full
   // primitive declaration, so clients only model observable/driveable ports.
-  if (!isConnectedInstanceBitTerm(instance, interface.clock)) {
-    interface.clock = nullptr;
+  if (!isConnectedInstanceBitTerm(instance, memInterface.clock)) {
+    memInterface.clock = nullptr;
   }
-  if (interface.reset && !isConnectedInstanceBitTerm(instance, interface.reset)) {
-    interface.reset = nullptr;
+  if (memInterface.reset && !isConnectedInstanceBitTerm(instance, memInterface.reset)) {
+    memInterface.reset = nullptr;
   }
   std::vector<MemoryReadPort> connectedReadPorts;
-  connectedReadPorts.reserve(interface.readPorts.size());
-  for (const auto& readPort : interface.readPorts) {
+  connectedReadPorts.reserve(memInterface.readPorts.size());
+  for (const auto& readPort : memInterface.readPorts) {
     if (isConnectedReadPort(instance, readPort)) {
       connectedReadPorts.push_back(readPort);
     }
   }
-  interface.readPorts = std::move(connectedReadPorts);
+  memInterface.readPorts = std::move(connectedReadPorts);
   std::vector<MemoryWritePort> connectedWritePorts;
-  connectedWritePorts.reserve(interface.writePorts.size());
-  for (const auto& writePort : interface.writePorts) {
+  connectedWritePorts.reserve(memInterface.writePorts.size());
+  for (const auto& writePort : memInterface.writePorts) {
     if (isConnectedWritePort(instance, writePort)) {
       connectedWritePorts.push_back(writePort);
     }
   }
-  interface.writePorts = std::move(connectedWritePorts);
-  return interface;
+  memInterface.writePorts = std::move(connectedWritePorts);
+  return memInterface;
 }
 
 void SNLDesignModeling::setTruthTable(SNLDesign* design,

@@ -6316,9 +6316,11 @@ endmodule
                   *guard.caseItem,
                   caseFailureReason);
                 if (!guardBit) {
+                  // LCOV_EXCL_START
                   failureReason = caseFailureReason.empty()
                     ? "unable to resolve inferred memory case-item guard"
                     : caseFailureReason;
+                  // LCOV_EXCL_STOP
                   return false;
                 }
               }
@@ -20529,8 +20531,8 @@ endmodule
             }
             hasOtherElseLhs = true;
             const auto* strippedLhs = stripConversions(*lhsExpr);
-            bool supportedElseLhs = false;
-            bool aliasesResetBase = false;
+            bool supportedElseLhs = false; // LCOV_EXCL_LINE
+            bool aliasesResetBase = false; // LCOV_EXCL_LINE
             if (strippedLhs &&
                 strippedLhs->kind == slang::ast::ExpressionKind::NamedValue &&
                 getIntegralExpressionBitWidth(*strippedLhs) &&

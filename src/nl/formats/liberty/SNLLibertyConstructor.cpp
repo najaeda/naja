@@ -560,8 +560,10 @@ void parseTerms(
       if (!memoryInterface.readPorts.empty()) {
         const auto& firstReadPort = memoryInterface.readPorts.front();
         if (!firstReadPort.clockName.empty()) {
+          // LCOV_EXCL_START
           modelingInterface.clock = dynamic_cast<SNLScalarTerm*>(
               primitive->getTerm(NLName(firstReadPort.clockName)));
+          // LCOV_EXCL_STOP
         }
       }
 

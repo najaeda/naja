@@ -107,7 +107,7 @@ class SNLDesignModeling {
     // Attach or query a memory interface on a primitive design. For DB0 memory
     // primitives the interface is synthesized from the existing DB0 signature,
     // and for instances the returned interface is filtered to connected ports.
-    static void setMemoryInterface(SNLDesign* design, const MemoryInterface& interface);
+    static void setMemoryInterface(SNLDesign* design, const MemoryInterface& memInterface);
     static bool hasMemoryInterface(const SNLDesign* design);
     static MemoryInterface getMemoryInterface(const SNLDesign* design);
     static MemoryInterface getMemoryInterface(const SNLInstance* instance);
@@ -147,7 +147,7 @@ class SNLDesignModeling {
     NajaCollection<SNLInstTerm*> getClockRelatedInputs_(SNLInstTerm* iclock) const;
     NajaCollection<SNLInstTerm*> getOutputRelatedClocks_(SNLInstTerm* ioutput) const;
     NajaCollection<SNLInstTerm*> getInputRelatedClocks_(SNLInstTerm* iinput) const;
-    void setMemoryInterface_(const MemoryInterface& interface) { memoryInterface_ = interface; }
+    void setMemoryInterface_(const MemoryInterface& memInterface) { memoryInterface_ = memInterface; }
     bool hasMemoryInterface_() const { return memoryInterface_.has_value(); }
     MemoryInterface getMemoryInterface_() const { return *memoryInterface_; }
     Type          type_       { NO_PARAMETER };
