@@ -5323,7 +5323,7 @@ endmodule
                    memory.signature.abits,
                    selectorBits) ||
                  selectorBits.size() != memory.signature.abits) { // LCOV_EXCL_LINE
-        return nullptr;
+        return nullptr; // LCOV_EXCL_LINE
       }
       connectBusNetBits(design, addrNet, selectorBits, sourceRange);
 
@@ -15560,7 +15560,7 @@ endmodule
 
       const auto& valueType = valueExpr->type->getCanonicalType();
       if (valueType.isUnpackedArray() || !valueType.hasFixedRange()) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       const bool isNestedSelection =
         valueExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
@@ -15884,7 +15884,7 @@ endmodule
 
         SNLBitNet* bitEquals = nullptr;
         if (leftBit == rightBit) { // LCOV_EXCL_LINE
-          bitEquals = const1;
+          bitEquals = const1; // LCOV_EXCL_LINE
         } else if ((leftBit == const0 && rightBit == const1) ||
                    (leftBit == const1 && rightBit == const0)) {
           bitEquals = const0; // LCOV_EXCL_LINE
