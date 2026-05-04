@@ -14679,7 +14679,9 @@ endmodule
           slang::ast::ValueExpressionBase::isKind(rightExpr->kind)) {
         const auto& leftSym = leftExpr->as<slang::ast::ValueExpressionBase>().symbol;
         const auto& rightSym = rightExpr->as<slang::ast::ValueExpressionBase>().symbol;
-        return &leftSym == &rightSym || leftSym.name == rightSym.name;
+        return &leftSym == &rightSym ||
+               (leftSym.getParentScope() == rightSym.getParentScope() &&
+                leftSym.name == rightSym.name);
       }
       int64_t leftConst = 0;
       int64_t rightConst = 0;
@@ -15367,7 +15369,7 @@ endmodule
       if (!baseExpr) {
         return lhsExpr; // LCOV_EXCL_LINE
       }
-      return baseExpr; // LCOV_EXCL_LINE
+      return getTrackedProceduralReplayLHS(baseExpr);
     }
 
     const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
@@ -19925,14 +19927,14 @@ endmodule
             replaySymbols->contains(&declStmt.symbol)) {
           std::vector<SNLBitNet*> initBits;
           std::optional<size_t> width;
-          // Replay locals model the value stored in the declared variable, not
-          // the uncast RHS width. For example, `logic [3:0] index = a[11:0]`
-          // must cache four bits so later assignments to `index` merge cleanly.
-          if (auto range = getRangeFromType(declStmt.symbol.getType())) {
+          const auto& declType = declStmt.symbol.getType().getCanonicalType();
+          if (declType.isIntegral() && declType.getBitWidth() > 0) {
+            width = static_cast<size_t>(declType.getBitWidth());
+          } else if (auto range = getRangeFromType(declStmt.symbol.getType())) {
             width = static_cast<size_t>(range->width());
           }
           if (!width) {
-            width = getRepresentableExpressionBitWidth(*initializer); // LCOV_EXCL_LINE
+            width = getRepresentableExpressionBitWidth(*initializer);
           }
           if (!width || !*width ||
               !resolveExpressionBits(design, *initializer, static_cast<size_t>(*width), initBits) ||
@@ -20534,7 +20536,20 @@ endmodule
                 getIntegralExpressionBitWidth(*strippedLhs) &&
                 !isSequentialFallbackBaseTrackingSuppressed(*strippedLhs)) {
               supportedElseLhs = true;
+              aliasesResetBase = isTrackedSelectionSubLhsOf(resetLhsExpr, strippedLhs);
             } else {
+              if (!supportedElseLhs &&
+                  isTrackedSelectionSubLhsOf(resetLhsExpr, lhsExpr) &&
+                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
+                supportedElseLhs = true;
+                aliasesResetBase = true;
+              }
+              if (!supportedElseLhs &&
+                  isTrackedSelectionSubLhsOf(lhsExpr, resetLhsExpr) &&
+                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
+                supportedElseLhs = true;
+                aliasesResetBase = true;
+              }
               // LCOV_EXCL_START
               // Parser-backed sequential lowering handles reset-whole /
               // else-select aliases before this fallback decides whether
@@ -20593,9 +20608,10 @@ endmodule
             }
             bool alreadyPresent = false;
             for (const auto* existing : conditionalLHSExpressions) {
-              if (sameLhs(existing, lhsExpr)) {
-                alreadyPresent = true; // LCOV_EXCL_LINE
-                break; // LCOV_EXCL_LINE
+              if (sameLhs(existing, lhsExpr) ||
+                  isTrackedSelectionSubLhsOf(existing, lhsExpr)) {
+                alreadyPresent = true;
+                break;
               }
             }
             if (!alreadyPresent) {
