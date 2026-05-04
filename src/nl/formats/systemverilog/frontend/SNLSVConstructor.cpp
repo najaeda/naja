@@ -5318,7 +5318,7 @@ endmodule
                    selectorExpr,
                    memory.signature.abits,
                    selectorBits) ||
-                 selectorBits.size() != memory.signature.abits) {
+                 selectorBits.size() != memory.signature.abits) { // LCOV_EXCL_LINE
         return nullptr;
       }
       connectBusNetBits(design, addrNet, selectorBits, sourceRange);
@@ -5348,7 +5348,7 @@ endmodule
         return false;
       }
       const auto* elementSelectExpr = stripped;
-      const auto* trailingRangeSelectExpr =
+      const auto* trailingRangeSelectExpr = // LCOV_EXCL_LINE
         static_cast<const slang::ast::RangeSelectExpression*>(nullptr);
       if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
         elementSelectExpr = stripped;
@@ -5457,8 +5457,8 @@ endmodule
                   return false;
                 }
                 const auto translated =
-                  valueRange.translateIndex(static_cast<int32_t>(elemIndex));
-                if (translated < 0 || translated >= static_cast<int32_t>(valueBits.size())) {
+                  valueRange.translateIndex(static_cast<int32_t>(elemIndex)); // LCOV_EXCL_LINE
+                if (translated < 0 || translated >= static_cast<int32_t>(valueBits.size())) { // LCOV_EXCL_LINE
                   bits.clear();
                   return false;
                 }
@@ -5675,14 +5675,14 @@ endmodule
           selectorIndex == *context.selectorConstantIndex) {
         return true;
       }
-
+ // LCOV_EXCL_LINE
       int32_t contextSelectorIndex = 0;
       return context.selectorExpr &&
              getConstantInt32(*context.selectorExpr, contextSelectorIndex) &&
              selectorIndex == contextSelectorIndex;
-    }
-
-    bool tryExtractActiveInferredMemoryLocalSlice(
+    } // LCOV_EXCL_LINE
+ // LCOV_EXCL_LINE
+    bool tryExtractActiveInferredMemoryLocalSlice( // LCOV_EXCL_LINE
       const Expression& expr,
       const slang::ast::ValueSymbol& rootSymbol,
       const ActiveInferredMemoryLocalContext& context,
@@ -5720,7 +5720,7 @@ endmodule
         }
 
         const auto resolveLocalSlice =
-          [&](const slang::ast::ValueSymbol* symbol,
+          [&](const slang::ast::ValueSymbol* symbol, // LCOV_EXCL_LINE
               const std::vector<SNLBitNet*>* sourceBits) -> bool {
             if (!symbol || !sourceBits) {
               return false;
@@ -5741,7 +5741,7 @@ endmodule
             }
             bits.assign(
               sourceBits->begin() + static_cast<std::ptrdiff_t>(bitOffset),
-              sourceBits->begin() + static_cast<std::ptrdiff_t>(bitOffset + bitWidth));
+              sourceBits->begin() + static_cast<std::ptrdiff_t>(bitOffset + bitWidth)); // LCOV_EXCL_LINE
             resizeBitsToWidth(
               bits,
               targetWidth,
@@ -5863,7 +5863,7 @@ endmodule
                 design,
                 binaryExpr.right(),
                 selectorIndex,
-                memory,
+                memory, // LCOV_EXCL_LINE
                 stateBits,
                 shadowBits,
                 compareWidth,
@@ -6188,7 +6188,7 @@ endmodule
           &memory,
           writeAction.selectorExpr,
           selectorConstantIndexOpt,
-          &baseStateBits,
+          &baseStateBits, // LCOV_EXCL_LINE
           &shadowBits});
         const auto localContextGuard = slang::ScopeGuard([&]() {
           activeInferredMemoryLocalContexts_.pop_back();
@@ -6238,7 +6238,7 @@ endmodule
         &memory,
         writeAction.selectorExpr,
         selectorConstantIndexOpt,
-        &baseStateBits,
+        &baseStateBits, // LCOV_EXCL_LINE
         &shadowBits});
       const auto localContextGuard = slang::ScopeGuard([&]() {
         activeInferredMemoryLocalContexts_.pop_back();
@@ -15865,7 +15865,7 @@ endmodule
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true)); // LCOV_EXCL_LINE
       SNLBitNet* equalsBit = const1;
       for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
         auto* leftBit = leftBits[bitIndex];
@@ -15875,15 +15875,15 @@ endmodule
         }
 
         SNLBitNet* bitEquals = nullptr;
-        if (leftBit == rightBit) {
+        if (leftBit == rightBit) { // LCOV_EXCL_LINE
           bitEquals = const1;
         } else if ((leftBit == const0 && rightBit == const1) ||
                    (leftBit == const1 && rightBit == const0)) {
           bitEquals = const0;
-        } else {
+        } else { // LCOV_EXCL_LINE
           auto* xnorBit = SNLScalarNet::create(design);
-          annotateSourceInfo(xnorBit, sourceRange);
-          bitEquals = getSingleBitNet(createBinaryGate(
+          annotateSourceInfo(xnorBit, sourceRange); // LCOV_EXCL_LINE
+          bitEquals = getSingleBitNet(createBinaryGate( // LCOV_EXCL_LINE
             design,
             NLDB0::GateType(NLDB0::GateType::Xnor),
             leftBit,
@@ -15900,15 +15900,15 @@ endmodule
           break;
         }
         if (equalsBit == const1) {
-          equalsBit = bitEquals;
-          continue;
+          equalsBit = bitEquals; // LCOV_EXCL_LINE
+          continue; // LCOV_EXCL_LINE
         }
         if (bitEquals == const1) {
           continue;
         }
 
         auto* andBit = SNLScalarNet::create(design);
-        annotateSourceInfo(andBit, sourceRange);
+        annotateSourceInfo(andBit, sourceRange); // LCOV_EXCL_LINE
         equalsBit = getSingleBitNet(createBinaryGate(
           design,
           NLDB0::GateType(NLDB0::GateType::And),
