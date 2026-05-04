@@ -178,18 +178,6 @@ naja::NajaCollection<naja::NL::SNLInstTerm*> getDB0OutputRelatedClocks(
       new naja::NajaSingletonCollection(instance->getInstTerm(db0Clock)));
 }
 
-naja::NL::SNLDesignModeling::BitTerms collectBusBits(
-    naja::NL::SNLBusTerm* bus) {
-  naja::NL::SNLDesignModeling::BitTerms bits;
-  if (!bus) {
-    return bits;
-  }
-  for (auto* bit : bus->getBits()) {
-    bits.push_back(bit);
-  }
-  return bits;
-}
-
 naja::NL::SNLDesignModeling::MemoryResetMode convertMemoryResetMode(
     naja::NL::NLDB0::MemoryResetMode mode) {
   switch (mode) {
