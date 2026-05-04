@@ -19982,6 +19982,18 @@ endmodule
               supportedElseLhs = true;
               aliasesResetBase = isTrackedSelectionSubLhsOf(resetLhsExpr, strippedLhs);
             } else {
+              if (!supportedElseLhs &&
+                  isTrackedSelectionSubLhsOf(resetLhsExpr, lhsExpr) &&
+                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
+                supportedElseLhs = true;
+                aliasesResetBase = true;
+              }
+              if (!supportedElseLhs &&
+                  isTrackedSelectionSubLhsOf(lhsExpr, resetLhsExpr) &&
+                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
+                supportedElseLhs = true;
+                aliasesResetBase = true;
+              }
               // LCOV_EXCL_START
               // Parser-backed sequential lowering handles reset-whole /
               // else-select aliases before this fallback decides whether
@@ -19994,18 +20006,6 @@ endmodule
                 aliasesResetBase = true;
               }
               // LCOV_EXCL_STOP
-              if (!supportedElseLhs &&
-                  isTrackedSelectionSubLhsOf(lhsExpr, resetLhsExpr) &&
-                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
-                supportedElseLhs = true;
-                aliasesResetBase = true;
-              }
-              if (!supportedElseLhs &&
-                  isTrackedSelectionSubLhsOf(resetLhsExpr, lhsExpr) &&
-                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
-                supportedElseLhs = true;
-                aliasesResetBase = true;
-              }
             }
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;

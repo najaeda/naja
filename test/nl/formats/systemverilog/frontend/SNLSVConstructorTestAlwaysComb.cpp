@@ -1150,6 +1150,99 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedArrayLocalInitializerReplayWidthSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_array_local_initializer_replay_width_supported");
+
+  const auto svPath =
+    outPath /
+    "always_comb_unpacked_array_local_initializer_replay_width_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_unpacked_array_local_initializer_replay_width_supported(
+  input  logic       sel_i,
+  input  logic [3:0] lo_i,
+  input  logic [3:0] hi_i,
+  output logic [7:0] data_o
+);
+  typedef logic [3:0] pair_t [0:1];
+
+  always_comb begin
+    data_o = '0;
+    unique case (sel_i)
+      1'b0: begin
+        automatic pair_t pair = '{lo_i, hi_i};
+        data_o = {pair[1], pair[0]};
+      end
+      default: begin
+        data_o = {hi_i, lo_i};
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_array_local_initializer_replay_width_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* data = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(data, nullptr);
+  ASSERT_EQ(8, data->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedStructLocalInitializerReplayUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_struct_local_initializer_replay_unsupported");
+
+  const auto svPath =
+    outPath / "always_comb_unpacked_struct_local_initializer_replay_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_unpacked_struct_local_initializer_replay_unsupported(
+  input  logic       sel_i,
+  input  logic [3:0] data_i,
+  output logic [3:0] data_o
+);
+  typedef struct {
+    logic [3:0] data;
+  } tmp_t;
+
+  always_comb begin
+    data_o = '0;
+    unique case (sel_i)
+      1'b0: begin
+        automatic tmp_t tmp = '{data: data_i};
+        data_o = tmp.data;
+      end
+      default: begin
+        data_o = ~data_i;
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {
+      "Unsupported combinational block",
+      "unable to resolve always_comb initializer bits for local 'tmp'"
+    });
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseFunctionDirectReturnLocalAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

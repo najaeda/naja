@@ -21107,6 +21107,126 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialSingleResetWholeVectorWithPartialElseWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_single_reset_whole_vector_with_partial_else_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_reset_whole_vector_with_partial_else_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_reset_whole_vector_with_partial_else_writes_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       wr_lo_i,
+  input  logic       wr_hi_i,
+  input  logic [3:0] data_i,
+  output logic [7:0] q_o
+);
+  typedef struct packed {
+    logic [3:0] hi;
+    logic [3:0] lo;
+  } entry_t;
+
+  entry_t [1:0] state_q;
+
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_state
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          state_q[gidx] <= '0;
+        end else begin
+          if (wr_lo_i) begin
+            state_q[gidx].lo <= data_i;
+          end else if (wr_hi_i) begin
+            state_q[gidx].hi <= data_i;
+          end
+        end
+      end
+    end
+  endgenerate
+
+  assign q_o = state_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_reset_whole_vector_with_partial_else_writes_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* q = top->getBusNet(NLName("q_o"));
+  ASSERT_NE(q, nullptr);
+  ASSERT_EQ(8, q->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleResetSubfieldWithWholeElementElseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_single_reset_subfield_with_whole_element_else_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_reset_subfield_with_whole_element_else_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_reset_subfield_with_whole_element_else_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [7:0] data_i,
+  output logic [7:0] q_o
+);
+  typedef struct packed {
+    logic [3:0] hi;
+    logic [3:0] lo;
+  } entry_t;
+
+  entry_t [1:0] state_q;
+
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_state
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          state_q[gidx].lo[1:0] <= '0;
+        end else begin
+          state_q[gidx] <= data_i;
+        end
+      end
+    end
+  endgenerate
+
+  assign q_o = state_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_reset_subfield_with_whole_element_else_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* q = top->getBusNet(NLName("q_o"));
+  ASSERT_NE(q, nullptr);
+  ASSERT_EQ(8, q->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultiAssignmentElseConcatRHSResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
