@@ -16,7 +16,7 @@
 
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
-
+#include "NajaCollection.h" 
 namespace naja::NL {
 
 class SNLInstance;
