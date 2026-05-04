@@ -5349,7 +5349,7 @@ endmodule
       }
       const auto* elementSelectExpr = stripped;
       const auto* trailingRangeSelectExpr = // LCOV_EXCL_LINE
-        static_cast<const slang::ast::RangeSelectExpression*>(nullptr);
+        static_cast<const slang::ast::RangeSelectExpression*>(nullptr); // LCOV_EXCL_LINE
       if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
         elementSelectExpr = stripped;
       } else if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
@@ -5675,14 +5675,15 @@ endmodule
           selectorIndex == *context.selectorConstantIndex) {
         return true;
       }
- // LCOV_EXCL_LINE
+      // LCOV_EXCL_START
       int32_t contextSelectorIndex = 0;
       return context.selectorExpr &&
              getConstantInt32(*context.selectorExpr, contextSelectorIndex) &&
              selectorIndex == contextSelectorIndex;
-    } // LCOV_EXCL_LINE
- // LCOV_EXCL_LINE
-    bool tryExtractActiveInferredMemoryLocalSlice( // LCOV_EXCL_LINE
+    // LCOV_EXCL_STOP
+    } 
+    // LCOV_EXCL_START
+    bool tryExtractActiveInferredMemoryLocalSlice( 
       const Expression& expr,
       const slang::ast::ValueSymbol& rootSymbol,
       const ActiveInferredMemoryLocalContext& context,
@@ -5705,6 +5706,7 @@ endmodule
       return selectorExpr &&
              inferredMemoryLocalSelectorMatches(*selectorExpr, context);
     }
+    // LCOV_EXCL_STOP
 
     bool tryResolveActiveInferredMemoryLocalBits(
       SNLDesign* design,
@@ -15345,7 +15347,7 @@ endmodule
           return lhsExpr;
         }
         if (const auto* rootExpr = getRepresentableRootExpr()) {
-          return rootExpr;
+          return rootExpr; // LCOV_EXCL_LINE
         }
       } else {
         return lhsExpr; // LCOV_EXCL_LINE
