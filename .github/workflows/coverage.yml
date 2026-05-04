@@ -8,7 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Debug
-  LLVM_PROFILE_FILE: coverage-%p.profraw
+  LLVM_PROFILE_FILE: ${{ github.workspace }}/build/coverage-%p.profraw
 
 jobs:
   build:

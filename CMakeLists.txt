@@ -68,17 +68,27 @@ set(LEFDEF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lefdef)
 add_library(coverage_config INTERFACE)
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
 if(CODE_COVERAGE)
-  # Add required flags (GCC & LLVM/Clang)
   target_compile_options(coverage_config INTERFACE
-    -O0        # no optimization
-    -g         # generate debug info
-    --coverage # sets all required flags
+    -O0
+    -g
   )
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(coverage_config INTERFACE
+      -fprofile-instr-generate
+      -fcoverage-mapping
+    )
+    target_link_options(coverage_config INTERFACE
+      -fprofile-instr-generate
+      -fcoverage-mapping
+    )
+  else()
+    target_compile_options(coverage_config INTERFACE --coverage)
+    target_link_options(coverage_config INTERFACE --coverage)
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Avoid corrupt profile counters when coverage data is updated from parallel code paths.
     target_compile_options(coverage_config INTERFACE -fprofile-update=atomic)
   endif()
-  target_link_options(coverage_config INTERFACE --coverage)
   target_compile_definitions(coverage_config INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 endif(CODE_COVERAGE)
 
