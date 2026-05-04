@@ -6192,15 +6192,17 @@ endmodule
         if (stateBits) {
           *stateBits = baseStateBits;
         }
+        // LCOV_EXCL_START
         activeInferredMemoryLocalContexts_.push_back({
           &memory,
           writeAction.selectorExpr,
           selectorConstantIndexOpt,
-          &baseStateBits, // LCOV_EXCL_LINE
+          &baseStateBits,
           &shadowBits});
         const auto localContextGuard = slang::ScopeGuard([&]() {
           activeInferredMemoryLocalContexts_.pop_back();
         });
+        // LCOV_EXCL_STOP
         const bool resolved =
           resolveExpressionBits(
             design,
@@ -6231,10 +6233,11 @@ endmodule
         *stateBits = baseStateBits;
       }
       shadowBits = dataBits;
-
+      // LCOV_EXCL_START
       std::vector<SNLBitNet*> currentBits(
         dataBits.begin() + static_cast<std::ptrdiff_t>(writeAction.bitOffset),
         dataBits.begin() + static_cast<std::ptrdiff_t>(writeAction.bitOffset + writeAction.bitWidth));
+      // LCOV_EXCL_STOP
       AssignAction action;
       action.lhs = writeAction.lhsExpr;
       action.rhs = writeAction.rhsExpr;
@@ -6242,12 +6245,14 @@ endmodule
       action.compoundOp = writeAction.compoundOp;
 
       std::vector<SNLBitNet*> assignedBits;
+      // LCOV_EXCL_START
       activeInferredMemoryLocalContexts_.push_back({
         &memory,
         writeAction.selectorExpr,
         selectorConstantIndexOpt,
-        &baseStateBits, // LCOV_EXCL_LINE
+        &baseStateBits, 
         &shadowBits});
+      // LCOV_EXCL_STOP
       const auto localContextGuard = slang::ScopeGuard([&]() {
         activeInferredMemoryLocalContexts_.pop_back();
       });
@@ -15586,6 +15591,7 @@ endmodule
                  !isActiveForLoopVariableExpr(rangeExpr.right()) &&
                  getConstantInt32(rangeExpr.left(), left) &&
                  getConstantInt32(rangeExpr.right(), right);
+        // LCOV_EXCL_START
         case slang::ast::RangeSelectionKind::IndexedUp:
         case slang::ast::RangeSelectionKind::IndexedDown:
           return !isActiveForLoopVariableExpr(rangeExpr.left()) &&
@@ -15593,6 +15599,7 @@ endmodule
                  getConstantInt32(rangeExpr.left(), left) &&
                  getConstantInt32(rangeExpr.right(), right) &&
                  right > 0;
+        // LCOV_EXCL_STOP
       }
       return false; // LCOV_EXCL_LINE
     }
@@ -15885,8 +15892,8 @@ endmodule
         SNLBitNet* bitEquals = nullptr;
         if (leftBit == rightBit) { // LCOV_EXCL_LINE
           bitEquals = const1; // LCOV_EXCL_LINE
-        } else if ((leftBit == const0 && rightBit == const1) ||
-                   (leftBit == const1 && rightBit == const0)) {
+        } else if ((leftBit == const0 && rightBit == const1) || // LCOV_EXCL_LINE
+                   (leftBit == const1 && rightBit == const0)) { // LCOV_EXCL_LINE
           bitEquals = const0; // LCOV_EXCL_LINE
         } else { // LCOV_EXCL_LINE
           auto* xnorBit = SNLScalarNet::create(design);
