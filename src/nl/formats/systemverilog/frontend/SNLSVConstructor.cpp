@@ -19993,6 +19993,12 @@ endmodule
                 aliasesResetBase = true;
               }
               // LCOV_EXCL_STOP
+              if (!supportedElseLhs &&
+                  isTrackedSelectionSubLhsOf(lhsExpr, resetLhsExpr) &&
+                  !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
+                supportedElseLhs = true;
+                aliasesResetBase = true;
+              }
             }
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;

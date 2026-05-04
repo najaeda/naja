@@ -20996,6 +20996,62 @@ endmodule
     {"fallback currently supports only multi-LHS reset branches"});
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleElementResetWithExclusivePartialWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_single_element_reset_exclusive_partial_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_element_reset_exclusive_partial_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_element_reset_exclusive_partial_writes_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic        wr_lo_i,
+  input  logic        wr_hi_i,
+  input  logic        inc_i,
+  input  logic [31:0] data_i,
+  input  logic [63:0] inc_data_i,
+  output logic [63:0] counter_o
+);
+  logic [63:0] counter_q [0:1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      counter_q[0] <= '0;
+    end else begin
+      if (wr_lo_i) begin
+        counter_q[0][31:0] <= data_i;
+      end else if (wr_hi_i) begin
+        counter_q[0][63:32] <= data_i;
+      end else if (inc_i) begin
+        counter_q[0] <= inc_data_i;
+      end
+    end
+  end
+
+  assign counter_o = counter_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_element_reset_exclusive_partial_writes_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("counter_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSignedLocalparamConstantSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
