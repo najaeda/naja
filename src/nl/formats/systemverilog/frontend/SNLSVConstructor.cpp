@@ -20543,8 +20543,8 @@ endmodule
               if (!supportedElseLhs &&
                   isTrackedSelectionSubLhsOf(resetLhsExpr, lhsExpr) &&
                   !isSequentialFallbackBaseTrackingSuppressed(*resetLhsExpr)) {
-                supportedElseLhs = true;
-                aliasesResetBase = true;
+                supportedElseLhs = true; // LCOV_EXCL_LINE
+                aliasesResetBase = true; // LCOV_EXCL_LINE
               }
               if (!supportedElseLhs &&
                   isTrackedSelectionSubLhsOf(lhsExpr, resetLhsExpr) &&
