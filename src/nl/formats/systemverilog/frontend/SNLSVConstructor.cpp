@@ -5680,7 +5680,7 @@ endmodule
       return context.selectorExpr &&
              getConstantInt32(*context.selectorExpr, contextSelectorIndex) &&
              selectorIndex == contextSelectorIndex;
-    // LCOV_EXCL_STOP
+      // LCOV_EXCL_STOP
     } 
     // LCOV_EXCL_START
     bool tryExtractActiveInferredMemoryLocalSlice( 
