@@ -16,11 +16,11 @@
 
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
-#include "NajaCollection.h" 
 namespace naja::NL {
 
 class SNLInstance;
 class SNLInstTerm;
+class SNLDesign;
 
 /**
  * \brief SNLDesignModeling allows to add timing informations on primitives and blackboxes.
