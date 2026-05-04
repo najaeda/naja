@@ -15869,7 +15869,7 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       const std::optional<slang::SourceRange>& sourceRange) {
       if (leftBits.size() != rightBits.size() || leftBits.empty()) {
-        return nullptr; LCOV_EXCL_LINE
+        return nullptr; // LCOV_EXCL_LINE
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
