@@ -21055,6 +21055,23 @@ endmodule
     NLName("seq_single_element_reset_exclusive_partial_writes_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("counter_o")), nullptr);
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_single_element_reset_exclusive_partial_writes_supported_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[63])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[64])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[127])"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSignedLocalparamConstantSupported) {

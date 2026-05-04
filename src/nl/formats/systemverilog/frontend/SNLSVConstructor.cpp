@@ -20040,9 +20040,10 @@ endmodule
             }
             bool alreadyPresent = false;
             for (const auto* existing : conditionalLHSExpressions) {
-              if (sameLhs(existing, lhsExpr)) {
-                alreadyPresent = true; // LCOV_EXCL_LINE
-                break; // LCOV_EXCL_LINE
+              if (sameLhs(existing, lhsExpr) ||
+                  isTrackedSelectionSubLhsOf(existing, lhsExpr)) {
+                alreadyPresent = true;
+                break;
               }
             }
             if (!alreadyPresent) {
