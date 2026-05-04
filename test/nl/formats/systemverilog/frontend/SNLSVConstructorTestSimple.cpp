@@ -21023,21 +21023,26 @@ TEST_F(
   input  logic [63:0] inc_data_i,
   output logic [63:0] counter_o
 );
-  logic [63:0] counter_q [0:1];
+  logic [1:0][63:0] counter_q;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      counter_q[0] <= '0;
-    end else begin
-      if (wr_lo_i) begin
-        counter_q[0][31:0] <= data_i;
-      end else if (wr_hi_i) begin
-        counter_q[0][63:32] <= data_i;
-      end else if (inc_i) begin
-        counter_q[0] <= inc_data_i;
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_counter
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          counter_q[gidx] <= '0;
+        end else begin
+          if (wr_lo_i) begin
+            counter_q[gidx][31:0] <= data_i;
+          end else if (wr_hi_i) begin
+            counter_q[gidx][63:32] <= data_i;
+          end else if (inc_i) begin
+            counter_q[gidx] <= inc_data_i;
+          end
+        end
       end
     end
-  end
+  endgenerate
 
   assign counter_o = counter_q[0];
 endmodule
