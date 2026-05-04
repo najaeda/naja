@@ -37,7 +37,7 @@ DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
-VALID_STAGES = {"lint", "github_sim", "local_sim"}
+VALID_STAGES = {"load_dump", "lint", "github_sim", "helloworld_sim"}
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}
 
@@ -751,7 +751,7 @@ def run_verilator_binary_stage(
     return {"status": "passed", "log": str(log_path)}
 
 
-def run_local_sim(
+def run_helloworld_sim(
     case: dict[str, Any],
     *,
     repo_dir: Path,
@@ -761,11 +761,11 @@ def run_local_sim(
     log_dir: Path,
     require_tools: bool,
 ) -> dict[str, Any]:
-    config = configured_stage(case, "local_sim")
-    log_path = log_dir / "local-sim.log"
+    config = configured_stage(case, "helloworld_sim")
+    log_path = log_dir / "helloworld-sim.log"
     configured_tool_checks = config.get("tool_checks", [])
     if not isinstance(configured_tool_checks, list):
-        raise RegressError(f"Invalid local_sim.tool_checks for case {case['name']}: expected list")
+        raise RegressError(f"Invalid helloworld_sim.tool_checks for case {case['name']}: expected list")
     tool_checks = list(configured_tool_checks)
     if "top_module" in config or "sources" in config:
         tool_checks.append("verilator")
@@ -779,7 +779,7 @@ def run_local_sim(
         elif shutil.which(str(tool)) is None:
             missing.append(str(tool))
     if missing:
-        reason = f"missing optional local simulation tools: {', '.join(missing)}"
+        reason = f"missing optional helloworld simulation tools: {', '.join(missing)}"
         log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
         if require_tools:
             raise RegressError(reason)
@@ -788,7 +788,7 @@ def run_local_sim(
     if "top_module" in config or "sources" in config:
         return run_verilator_binary_stage(
             case,
-            stage="local_sim",
+            stage="helloworld_sim",
             repo_dir=repo_dir,
             case_dir=case_dir,
             artifacts_dir=artifacts_dir,
@@ -798,9 +798,9 @@ def run_local_sim(
 
     commands = config.get("commands", [])
     if not isinstance(commands, list):
-        raise RegressError(f"Invalid local_sim.commands for case {case['name']}: expected list")
+        raise RegressError(f"Invalid helloworld_sim.commands for case {case['name']}: expected list")
     if not commands:
-        reason = config.get("skip_reason", "local simulation commands are not configured")
+        reason = config.get("skip_reason", "helloworld simulation commands are not configured")
         log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
         if require_tools:
             raise RegressError(str(reason))
@@ -811,7 +811,7 @@ def run_local_sim(
     for index, command in enumerate(commands):
         if not isinstance(command, list):
             raise RegressError(
-                f"Invalid local_sim.commands[{index}] for case {case['name']}: expected argument list"
+                f"Invalid helloworld_sim.commands[{index}] for case {case['name']}: expected argument list"
             )
         formatted_command = format_command(
             command,
@@ -819,7 +819,7 @@ def run_local_sim(
             case_dir=case_dir,
             artifacts_dir=artifacts_dir,
         )
-        (artifacts_dir / f"local-sim-command-{index}.json").write_text(
+        (artifacts_dir / f"helloworld-sim-command-{index}.json").write_text(
             json.dumps(formatted_command, indent=2) + "\n",
             encoding="utf-8",
         )
@@ -836,8 +836,28 @@ def run_local_sim(
     if pass_regex:
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
         if not re.search(str(pass_regex), log_text):
-            raise RegressError(f"local_sim did not match pass_regex {pass_regex!r}")
+            raise RegressError(f"helloworld_sim did not match pass_regex {pass_regex!r}")
     return {"status": "passed", "log": str(log_path)}
+
+
+def run_load_dump(
+    case: dict[str, Any],
+    *,
+    generated_path: Path,
+    log_dir: Path,
+) -> dict[str, Any]:
+    if not generated_path.exists():
+        raise RegressError(f"load_dump did not find generated Verilog: {generated_path}")
+    log_path = log_dir / "load-dump.log"
+    log_path.write_text(
+        f"LOAD_DUMP_PASS {case['name']} {generated_path}\n",
+        encoding="utf-8",
+    )
+    return {
+        "status": "passed",
+        "log": str(log_path),
+        "generated_verilog": str(generated_path),
+    }
 
 
 def run_case(
@@ -847,7 +867,7 @@ def run_case(
     stages: list[str],
     *,
     lint_runner: str = "docker",
-    require_local_sim_tools: bool = False,
+    require_helloworld_sim_tools: bool = False,
 ) -> dict[str, Any]:
     case_name = case["name"]
     case_dir = work_dir / case_name
@@ -880,7 +900,13 @@ def run_case(
         summary["generated_verilog"] = str(generated_path)
         for stage in stages:
             print(f"--- stage: {stage} ---", flush=True)
-            if stage == "lint":
+            if stage == "load_dump":
+                result = run_load_dump(
+                    case,
+                    generated_path=generated_path,
+                    log_dir=log_dir,
+                )
+            elif stage == "lint":
                 result = run_lint(
                     case,
                     case_dir=case_dir,
@@ -899,15 +925,15 @@ def run_case(
                     generated_path=generated_path,
                     log_dir=log_dir,
                 )
-            elif stage == "local_sim":
-                result = run_local_sim(
+            elif stage == "helloworld_sim":
+                result = run_helloworld_sim(
                     case,
                     repo_dir=repo_dir,
                     case_dir=case_dir,
                     artifacts_dir=artifacts_dir,
                     generated_path=generated_path,
                     log_dir=log_dir,
-                    require_tools=require_local_sim_tools,
+                    require_tools=require_helloworld_sim_tools,
                 )
             else:  # pragma: no cover - guarded by select_stages.
                 raise RegressError(f"Unhandled stage: {stage}")
@@ -959,7 +985,7 @@ def command_run(args: argparse.Namespace) -> int:
                     args.najaeda_pythonpath,
                     stages,
                     lint_runner=args.lint_runner,
-                    require_local_sim_tools=args.require_local_sim_tools,
+                    require_helloworld_sim_tools=args.require_helloworld_sim_tools,
                 )
             )
         except Exception as exc:
@@ -1020,9 +1046,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the lint stage with Dockerized Verilator or the local verilator binary.",
     )
     run_parser.add_argument(
-        "--require-local-sim-tools",
+        "--require-helloworld-sim-tools",
         action="store_true",
-        help="Fail local_sim when optional firmware/toolchain dependencies are missing.",
+        help="Fail helloworld_sim when optional firmware/toolchain dependencies are missing.",
     )
     run_parser.add_argument("--keep-going", action="store_true", help="Continue after a case fails")
     run_parser.set_defaults(func=command_run)

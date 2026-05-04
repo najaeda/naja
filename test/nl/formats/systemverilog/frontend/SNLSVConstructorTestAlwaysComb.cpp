@@ -1038,6 +1038,211 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombSameNameLocalsDifferentWidthsSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_same_name_locals_different_widths_supported");
+
+  const auto svPath =
+    outPath / "always_comb_same_name_locals_different_widths_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_same_name_locals_different_widths_supported(
+  input  logic       sel_i,
+  input  logic [3:0] narrow_i,
+  input  logic [11:0] addr_i,
+  input  logic [7:0] wide_i,
+  output logic [7:0] data_o
+);
+  always_comb begin
+    data_o = '0;
+    unique case (sel_i)
+      1'b0: begin
+        automatic logic [3:0] index = addr_i - 12'h3A0;
+        if (index[0]) begin
+          index = index >> 1;
+        end
+        data_o[3:0] = index;
+      end
+      default: begin
+        automatic logic [7:0] index = wide_i;
+        data_o = index;
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_same_name_locals_different_widths_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* data = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(data, nullptr);
+  ASSERT_EQ(8, data->getWidth());
+  for (auto* bit : data->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_LE(countOutputInstTermDrivers(bit), 1u) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedStructArrayTemporaryDynamicMemberReplaySupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_struct_array_temporary_dynamic_member_replay_supported");
+
+  const auto svPath =
+    outPath /
+    "always_comb_unpacked_struct_array_temporary_dynamic_member_replay_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic       checked;
+  logic [2:0] hit;
+} entry_t;
+
+module always_comb_unpacked_struct_array_temporary_dynamic_member_replay_supported(
+  input  logic       en_i,
+  input  logic       ptr_i,
+  input  logic [2:0] hit_i,
+  input  entry_t [1:0] entry_q_i,
+  output entry_t [1:0] entry_d_o,
+  output logic [2:0] selected_hit_o
+);
+  entry_t [1:0] entry_d;
+
+  always_comb begin
+    entry_d = entry_q_i;
+    if (en_i) begin
+      entry_d[ptr_i].checked = 1'b1;
+      entry_d[ptr_i].hit = hit_i;
+    end
+    selected_hit_o = entry_d[ptr_i].hit;
+  end
+
+  assign entry_d_o = entry_d;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_struct_array_temporary_dynamic_member_replay_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* entryD = top->getBusNet(NLName("entry_d_o"));
+  ASSERT_NE(entryD, nullptr);
+  ASSERT_EQ(8, entryD->getWidth());
+  auto* selectedHit = top->getBusNet(NLName("selected_hit_o"));
+  ASSERT_NE(selectedHit, nullptr);
+  ASSERT_EQ(3, selectedHit->getWidth());
+  for (auto* bit : selectedHit->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_LE(countOutputInstTermDrivers(bit), 1u) << bit->getString();
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedArrayLocalInitializerReplayWidthSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_array_local_initializer_replay_width_supported");
+
+  const auto svPath =
+    outPath /
+    "always_comb_unpacked_array_local_initializer_replay_width_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_unpacked_array_local_initializer_replay_width_supported(
+  input  logic       sel_i,
+  input  logic [3:0] lo_i,
+  input  logic [3:0] hi_i,
+  output logic [7:0] data_o
+);
+  typedef logic [3:0] pair_t [0:1];
+
+  always_comb begin
+    data_o = '0;
+    unique case (sel_i)
+      1'b0: begin
+        automatic pair_t pair = '{lo_i, hi_i};
+        data_o = {pair[1], pair[0]};
+      end
+      default: begin
+        data_o = {hi_i, lo_i};
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_array_local_initializer_replay_width_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* data = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(data, nullptr);
+  ASSERT_EQ(8, data->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombUnpackedStructLocalInitializerReplayUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_unpacked_struct_local_initializer_replay_unsupported");
+
+  const auto svPath =
+    outPath / "always_comb_unpacked_struct_local_initializer_replay_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_unpacked_struct_local_initializer_replay_unsupported(
+  input  logic       sel_i,
+  input  logic [3:0] data_i,
+  output logic [3:0] data_o
+);
+  typedef struct {
+    logic [3:0] data;
+  } tmp_t;
+
+  always_comb begin
+    data_o = '0;
+    unique case (sel_i)
+      1'b0: begin
+        automatic tmp_t tmp = '{data: data_i};
+        data_o = tmp.data;
+      end
+      default: begin
+        data_o = ~data_i;
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {
+      "Unsupported combinational block",
+      "unable to resolve always_comb initializer bits for local 'tmp'"
+    });
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseFunctionDirectReturnLocalAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

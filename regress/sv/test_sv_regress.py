@@ -54,23 +54,57 @@ cases:
     def test_stage_selection_defaults_and_deduplicates(self):
         self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
         self.assertEqual(
-            ["lint", "local_sim"],
-            sv_regress.select_stages(["lint", "local_sim", "lint"]),
+            ["load_dump", "lint", "helloworld_sim"],
+            sv_regress.select_stages(["load_dump", "lint", "helloworld_sim", "lint"]),
         )
         with self.assertRaises(sv_regress.RegressError):
             sv_regress.select_stages(["missing"])
 
     def test_parser_accumulates_repeated_stage_options(self):
         parser = sv_regress.build_parser()
-        args = parser.parse_args(["run", "--stage", "lint", "--stage", "local_sim"])
+        args = parser.parse_args(["run", "--stage", "lint", "--stage", "helloworld_sim"])
 
-        self.assertEqual(["lint", "local_sim"], args.stage)
+        self.assertEqual(["lint", "helloworld_sim"], args.stage)
 
     def test_parser_accepts_local_lint_runner(self):
         parser = sv_regress.build_parser()
         args = parser.parse_args(["run", "--lint-runner", "local"])
 
         self.assertEqual("local", args.lint_runner)
+
+    def test_run_load_dump_records_generated_verilog(self):
+        case = {
+            "name": "fake",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            generated = tmpdir_path / "artifacts" / "fake_naja.v"
+            log_dir = tmpdir_path / "artifacts" / "logs"
+            generated.parent.mkdir(parents=True)
+            log_dir.mkdir()
+            generated.write_text("module fake; endmodule\n", encoding="utf-8")
+
+            result = sv_regress.run_load_dump(
+                case,
+                generated_path=generated,
+                log_dir=log_dir,
+            )
+
+        self.assertEqual("passed", result["status"])
+        self.assertEqual(str(generated), result["generated_verilog"])
+        self.assertEqual(str(log_dir / "load-dump.log"), result["log"])
+
+    def test_large_cases_use_load_dump_stage_in_ci(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        for case_name in ("black_parrot", "cva6"):
+            case = sv_regress.select_cases(cases, case_name)[0]
+            self.assertIn("output", case)
+            self.assertIn("dump", case)
+
+        workflow = (
+            sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-regress.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--case black_parrot --case cva6 --stage load_dump", workflow)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
@@ -229,7 +263,7 @@ cases:
         self.assertIn("/work/artifacts/github_sim-obj/Vtb_fake", run_command)
         self.assertTrue(run_kwargs["append_log"])
 
-    def test_run_local_sim_can_use_local_verilator_smoke_stage(self):
+    def test_run_helloworld_sim_can_use_local_verilator_smoke_stage(self):
         case = {
             "name": "fake",
             "top": "fake_top",
@@ -237,7 +271,7 @@ cases:
             "verilator": {
                 "suppressions": ["PINMISSING"],
             },
-            "local_sim": {
+            "helloworld_sim": {
                 "runner": "local",
                 "timeout_seconds": 34,
                 "top_module": "tb_fake",
@@ -266,7 +300,7 @@ cases:
                 generated.write_text("module fake_top; endmodule\n", encoding="utf-8")
                 (case_dir / "tb_fake.sv").write_text("module tb_fake; endmodule\n", encoding="utf-8")
 
-                result = sv_regress.run_local_sim(
+                result = sv_regress.run_helloworld_sim(
                     case,
                     repo_dir=repo_dir,
                     case_dir=case_dir,
@@ -288,14 +322,14 @@ cases:
         self.assertIn("-Wno-PINMISSING", build_command)
         self.assertIn("-Wno-PINCONNECTEMPTY", build_command)
         self.assertIn(str(generated), build_command)
-        self.assertIn(str(artifacts_dir / "local_sim-obj" / "Vtb_fake"), run_command)
-        self.assertEqual(log_dir / "local-sim.log", build_kwargs["log_path"])
+        self.assertIn(str(artifacts_dir / "helloworld_sim-obj" / "Vtb_fake"), run_command)
+        self.assertEqual(log_dir / "helloworld-sim.log", build_kwargs["log_path"])
         self.assertTrue(run_kwargs["append_log"])
 
-    def test_local_sim_skips_when_optional_tool_is_missing(self):
+    def test_helloworld_sim_skips_when_optional_tool_is_missing(self):
         case = {
             "name": "fake",
-            "local_sim": {
+            "helloworld_sim": {
                 "tool_checks": ["definitely-missing-riscv-tool"],
             },
         }
@@ -306,7 +340,7 @@ cases:
             log_dir = artifacts_dir / "logs"
             log_dir.mkdir(parents=True)
 
-            result = sv_regress.run_local_sim(
+            result = sv_regress.run_helloworld_sim(
                 case,
                 repo_dir=repo_dir,
                 case_dir=case_dir,
@@ -449,28 +483,28 @@ src/rtl/top.sv
         self.assertEqual("{repo}/rtl", cv32e40p["env"]["DESIGN_RTL_DIR"])
         self.assertIn("PINMISSING", cv32e40p["verilator"]["suppressions"])
 
-    def test_smoke_cases_have_github_and_local_sim_stages(self):
+    def test_smoke_cases_have_github_and_helloworld_sim_stages(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
-        for case_name, smoke_pass_regex, local_pass_regex, helper in [
+        for case_name, smoke_pass_regex, helloworld_pass_regex, helper in [
             (
                 "ibex",
                 "IBEX_SMOKE_PASS",
-                "IBEX_LOCAL_SIM_PASS",
-                "regress/sv/local_sim/ibex_simple_system.py",
+                "IBEX_HELLOWORLD_SIM_PASS",
+                "regress/sv/helloworld_sim/ibex_simple_system.py",
             ),
             (
                 "cv32e40p",
                 "CV32E40P_SMOKE_PASS",
-                "CV32E40P_LOCAL_SIM_PASS",
-                "regress/sv/local_sim/cv32e40p_example_tb.py",
+                "CV32E40P_HELLOWORLD_SIM_PASS",
+                "regress/sv/helloworld_sim/cv32e40p_example_tb.py",
             ),
         ]:
             case = sv_regress.select_cases(cases, case_name)[0]
             self.assertEqual(smoke_pass_regex, case["github_sim"]["pass_regex"])
-            self.assertEqual(local_pass_regex, case["local_sim"]["pass_regex"])
+            self.assertEqual(helloworld_pass_regex, case["helloworld_sim"]["pass_regex"])
             self.assertIn("top_module", case["github_sim"])
-            self.assertIn("commands", case["local_sim"])
-            self.assertIn(helper, case["local_sim"]["commands"][0][1])
+            self.assertIn("commands", case["helloworld_sim"])
+            self.assertIn(helper, case["helloworld_sim"]["commands"][0][1])
 
 
 if __name__ == "__main__":

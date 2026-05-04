@@ -285,7 +285,7 @@ def check_generated_netlist(generated_path: Path) -> None:
     if constructor_source.exists() and generated_path.stat().st_mtime < constructor_source.stat().st_mtime:
         raise SystemExit(
             f"generated netlist is older than {constructor_source}; regenerate with "
-            "regress/sv/sv_regress.py run before launching local_sim directly: "
+            "regress/sv/sv_regress.py run before launching helloworld_sim directly: "
             f"{generated_path}"
         )
 
@@ -311,7 +311,7 @@ def check_generated_netlist(generated_path: Path) -> None:
         raise SystemExit(
             "generated ibex_register_file_ff write decoder still looks stale: "
             "all decoded write-address comparisons appear to target zero. "
-            "Regenerate ibex_naja.v with the rebuilt Naja Python module before rerunning local_sim."
+            "Regenerate ibex_naja.v with the rebuilt Naja Python module before rerunning helloworld_sim."
         )
 
 
@@ -632,7 +632,7 @@ def main() -> int:
     generated_path = args.generated.resolve()
     primitives_path = args.primitives.resolve()
     check_generated_netlist(generated_path)
-    work_dir = artifacts_dir / "local_sim" / "ibex_simple_system"
+    work_dir = artifacts_dir / "helloworld_sim" / "ibex_simple_system"
     obj_dir = work_dir / "obj"
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -733,7 +733,7 @@ def main() -> int:
                 f"Naja netlist progress counters: {progress_text}"
             )
         raise SystemExit(f"Ibex simple-system did not print {expected_output!r}.")
-    print("IBEX_LOCAL_SIM_PASS")
+    print("IBEX_HELLOWORLD_SIM_PASS")
     return 0
 
 

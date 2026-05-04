@@ -20996,6 +20996,84 @@ endmodule
     {"fallback currently supports only multi-LHS reset branches"});
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleElementResetWithExclusivePartialWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_single_element_reset_exclusive_partial_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_element_reset_exclusive_partial_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_element_reset_exclusive_partial_writes_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic        wr_lo_i,
+  input  logic        wr_hi_i,
+  input  logic        inc_i,
+  input  logic [31:0] data_i,
+  input  logic [63:0] inc_data_i,
+  output logic [63:0] counter_o
+);
+  logic [1:0][63:0] counter_q;
+
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_counter
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          counter_q[gidx] <= '0;
+        end else begin
+          if (wr_lo_i) begin
+            counter_q[gidx][31:0] <= data_i;
+          end else if (wr_hi_i) begin
+            counter_q[gidx][63:32] <= data_i;
+          end else if (inc_i) begin
+            counter_q[gidx] <= inc_data_i;
+          end
+        end
+      end
+    end
+  endgenerate
+
+  assign counter_o = counter_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_element_reset_exclusive_partial_writes_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("counter_o")), nullptr);
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_single_element_reset_exclusive_partial_writes_supported_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  const auto countOccurrences = [](const std::string& text, const std::string& needle) {
+    size_t count = 0;
+    for (size_t pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) {
+      ++count;
+    }
+    return count;
+  };
+
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[63])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[64])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[127])"));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSignedLocalparamConstantSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -21025,6 +21103,121 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_signed_localparam_constant_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleResetWholeVectorWithPartialElseWritesSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_single_reset_whole_vector_with_partial_else_writes_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_reset_whole_vector_with_partial_else_writes_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_reset_whole_vector_with_partial_else_writes_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       wr_lo_i,
+  input  logic       wr_hi_i,
+  input  logic [3:0] data_i,
+  output logic [7:0] q_o
+);
+  typedef struct packed {
+    logic [3:0] hi;
+    logic [3:0] lo;
+  } entry_t;
+
+  entry_t [1:0] state_q;
+
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_state
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          state_q[gidx] <= '0;
+        end else begin
+          if (wr_lo_i) begin
+            state_q[gidx].lo <= data_i;
+          end else if (wr_hi_i) begin
+            state_q[gidx].hi <= data_i;
+          end
+        end
+      end
+    end
+  endgenerate
+
+  assign q_o = state_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_reset_whole_vector_with_partial_else_writes_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* q = top->getBusNet(NLName("q_o"));
+  ASSERT_NE(q, nullptr);
+  ASSERT_EQ(8, q->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSingleResetSubfieldWithWholeElementElseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_single_reset_subfield_with_whole_element_else_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_single_reset_subfield_with_whole_element_else_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_single_reset_subfield_with_whole_element_else_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [7:0] data_i,
+  output logic [7:0] q_o
+);
+  logic [7:0] state_q [0:1];
+
+  genvar gidx;
+  generate
+    for (gidx = 0; gidx < 2; gidx++) begin : gen_state
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          state_q[gidx][3:0] <= '0;
+        end else begin
+          state_q[gidx] <= data_i;
+        end
+      end
+    end
+  endgenerate
+
+  assign q_o = state_q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_reset_subfield_with_whole_element_else_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* q = top->getBusNet(NLName("q_o"));
+  ASSERT_NE(q, nullptr);
+  ASSERT_EQ(8, q->getWidth());
 }
 
 TEST_F(
