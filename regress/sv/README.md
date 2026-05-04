@@ -21,9 +21,10 @@ Verilog netlist, then runs selected Verilator stages on that generated netlist.
   CV32E40P.
 
 GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
-`External SV Regress` workflow runs lint; the `External SV Simulation` workflow
-runs the checked-in Ibex and CV32E40P smoke simulations plus the Ibex
-helloworld simulation.
+`External SV Regress` workflow runs lint for the small external designs and
+load/dump checks for the large BlackParrot and CVA6 designs. The `External SV
+Simulation` workflow runs the checked-in Ibex and CV32E40P smoke simulations
+plus the Ibex helloworld simulation.
 
 ## List Cases
 
@@ -41,6 +42,21 @@ python3 regress/sv/sv_regress.py run --case ibex --case cv32e40p
 
 This matches the lightweight CI intent: Verilator lint plus checked-in smoke
 simulation testbenches.
+
+## Large Design Load/Dump
+
+BlackParrot and CVA6 are too large for GitHub-hosted simulation jobs, so CI
+only checks that Naja can load, elaborate, and dump them back to Verilog:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case black_parrot \
+  --case cva6 \
+  --stage load_dump
+```
+
+The generated Verilog and `load-dump.log` are written under each case artifact
+directory.
 
 ## Ibex Smoke Simulation
 
@@ -174,6 +190,7 @@ Useful files include:
 ```text
 summary.json
 logs/generate.log
+logs/load-dump.log
 logs/verilator-lint.log
 logs/github-sim.log
 logs/helloworld-sim.log

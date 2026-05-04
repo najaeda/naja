@@ -54,8 +54,8 @@ cases:
     def test_stage_selection_defaults_and_deduplicates(self):
         self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
         self.assertEqual(
-            ["lint", "helloworld_sim"],
-            sv_regress.select_stages(["lint", "helloworld_sim", "lint"]),
+            ["load_dump", "lint", "helloworld_sim"],
+            sv_regress.select_stages(["load_dump", "lint", "helloworld_sim", "lint"]),
         )
         with self.assertRaises(sv_regress.RegressError):
             sv_regress.select_stages(["missing"])
@@ -71,6 +71,40 @@ cases:
         args = parser.parse_args(["run", "--lint-runner", "local"])
 
         self.assertEqual("local", args.lint_runner)
+
+    def test_run_load_dump_records_generated_verilog(self):
+        case = {
+            "name": "fake",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            generated = tmpdir_path / "artifacts" / "fake_naja.v"
+            log_dir = tmpdir_path / "artifacts" / "logs"
+            generated.parent.mkdir(parents=True)
+            log_dir.mkdir()
+            generated.write_text("module fake; endmodule\n", encoding="utf-8")
+
+            result = sv_regress.run_load_dump(
+                case,
+                generated_path=generated,
+                log_dir=log_dir,
+            )
+
+        self.assertEqual("passed", result["status"])
+        self.assertEqual(str(generated), result["generated_verilog"])
+        self.assertEqual(str(log_dir / "load-dump.log"), result["log"])
+
+    def test_large_cases_use_load_dump_stage_in_ci(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        for case_name in ("black_parrot", "cva6"):
+            case = sv_regress.select_cases(cases, case_name)[0]
+            self.assertIn("output", case)
+            self.assertIn("dump", case)
+
+        workflow = (
+            sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-regress.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--case black_parrot --case cva6 --stage load_dump", workflow)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {

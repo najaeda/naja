@@ -37,7 +37,7 @@ DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
-VALID_STAGES = {"lint", "github_sim", "helloworld_sim"}
+VALID_STAGES = {"load_dump", "lint", "github_sim", "helloworld_sim"}
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}
 
@@ -840,6 +840,26 @@ def run_helloworld_sim(
     return {"status": "passed", "log": str(log_path)}
 
 
+def run_load_dump(
+    case: dict[str, Any],
+    *,
+    generated_path: Path,
+    log_dir: Path,
+) -> dict[str, Any]:
+    if not generated_path.exists():
+        raise RegressError(f"load_dump did not find generated Verilog: {generated_path}")
+    log_path = log_dir / "load-dump.log"
+    log_path.write_text(
+        f"LOAD_DUMP_PASS {case['name']} {generated_path}\n",
+        encoding="utf-8",
+    )
+    return {
+        "status": "passed",
+        "log": str(log_path),
+        "generated_verilog": str(generated_path),
+    }
+
+
 def run_case(
     case: dict[str, Any],
     work_dir: Path,
@@ -880,7 +900,13 @@ def run_case(
         summary["generated_verilog"] = str(generated_path)
         for stage in stages:
             print(f"--- stage: {stage} ---", flush=True)
-            if stage == "lint":
+            if stage == "load_dump":
+                result = run_load_dump(
+                    case,
+                    generated_path=generated_path,
+                    log_dir=log_dir,
+                )
+            elif stage == "lint":
                 result = run_lint(
                     case,
                     case_dir=case_dir,
