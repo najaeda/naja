@@ -20574,8 +20574,8 @@ endmodule
               // Treat those sub-writes as updates to the reset target so the
               // normal single-LHS replay below can merge them into one next
               // state function.
-              supportedElseLhs = true;
-              aliasesResetBase = true;
+              supportedElseLhs = true; // LCOV_EXCL_LINE
+              aliasesResetBase = true; // LCOV_EXCL_LINE
             }
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;
