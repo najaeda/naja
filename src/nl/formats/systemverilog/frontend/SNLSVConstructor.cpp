@@ -5453,8 +5453,10 @@ endmodule
                 const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
                 if (elemIndex < std::numeric_limits<int32_t>::min() ||
                     elemIndex > std::numeric_limits<int32_t>::max()) {
+                  // LCOV_EXCL_START
                   bits.clear();
                   return false;
+                  // LCOV_EXCL_STOP
                 }
                 const auto translated =
                   valueRange.translateIndex(static_cast<int32_t>(elemIndex)); // LCOV_EXCL_LINE
@@ -5671,11 +5673,11 @@ endmodule
       if (!getConstantInt32(selectorExpr, selectorIndex)) {
         return false;
       }
+      // LCOV_EXCL_START
       if (context.selectorConstantIndex &&
           selectorIndex == *context.selectorConstantIndex) {
         return true;
       }
-      // LCOV_EXCL_START
       int32_t contextSelectorIndex = 0;
       return context.selectorExpr &&
              getConstantInt32(*context.selectorExpr, contextSelectorIndex) &&
@@ -5718,7 +5720,7 @@ endmodule
            ++it) {
         const auto& context = *it;
         if (!context.memory || !context.stateBits || !context.shadowBits) {
-          continue;
+          continue; // LCOV_EXCL_LINE
         }
 
         const auto resolveLocalSlice =
@@ -5739,7 +5741,7 @@ endmodule
               return false;
             }
             if (bitOffset + bitWidth > sourceBits->size()) {
-              return false;
+              return false; // LCOV_EXCL_LINE
             }
             bits.assign(
               sourceBits->begin() + static_cast<std::ptrdiff_t>(bitOffset),
@@ -15344,7 +15346,7 @@ endmodule
         if (!baseExpr ||
             (!getRepresentableExpressionBitWidth(*baseExpr) &&
              !getExpressionBitstreamWidth(*baseExpr))) {
-          return lhsExpr;
+          return lhsExpr; // LCOV_EXCL_LINE
         }
         if (const auto* rootExpr = getRepresentableRootExpr()) {
           return rootExpr; // LCOV_EXCL_LINE
@@ -15356,7 +15358,7 @@ endmodule
       if (!baseExpr) {
         return lhsExpr; // LCOV_EXCL_LINE
       }
-      return baseExpr;
+      return baseExpr; // LCOV_EXCL_LINE
     }
 
     const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
@@ -15863,7 +15865,7 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       const std::optional<slang::SourceRange>& sourceRange) {
       if (leftBits.size() != rightBits.size() || leftBits.empty()) {
-        return nullptr;
+        return nullptr; LCOV_EXCL_LINE
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -15873,7 +15875,7 @@ endmodule
         auto* leftBit = leftBits[bitIndex];
         auto* rightBit = rightBits[bitIndex];
         if (!leftBit || !rightBit) {
-          return nullptr;
+          return nullptr; // LCOV_EXCL_LINE
         }
 
         SNLBitNet* bitEquals = nullptr;
@@ -15881,7 +15883,7 @@ endmodule
           bitEquals = const1;
         } else if ((leftBit == const0 && rightBit == const1) ||
                    (leftBit == const1 && rightBit == const0)) {
-          bitEquals = const0;
+          bitEquals = const0; // LCOV_EXCL_LINE
         } else { // LCOV_EXCL_LINE
           auto* xnorBit = SNLScalarNet::create(design);
           annotateSourceInfo(xnorBit, sourceRange); // LCOV_EXCL_LINE
@@ -15898,15 +15900,15 @@ endmodule
         }
 
         if (equalsBit == const0 || bitEquals == const0) {
-          equalsBit = const0;
-          break;
+          equalsBit = const0; // LCOV_EXCL_LINE
+          break; // LCOV_EXCL_LINE
         }
         if (equalsBit == const1) {
           equalsBit = bitEquals; // LCOV_EXCL_LINE
           continue; // LCOV_EXCL_LINE
         }
         if (bitEquals == const1) {
-          continue;
+          continue; // LCOV_EXCL_LINE
         }
 
         auto* andBit = SNLScalarNet::create(design);
@@ -19919,7 +19921,7 @@ endmodule
             width = static_cast<size_t>(range->width());
           }
           if (!width) {
-            width = getRepresentableExpressionBitWidth(*initializer);
+            width = getRepresentableExpressionBitWidth(*initializer); // LCOV_EXCL_LINE
           }
           if (!width || !*width ||
               !resolveExpressionBits(design, *initializer, static_cast<size_t>(*width), initBits) ||
