@@ -21190,19 +21190,14 @@ TEST_F(
   input  logic [7:0] data_i,
   output logic [7:0] q_o
 );
-  typedef struct packed {
-    logic [3:0] hi;
-    logic [3:0] lo;
-  } entry_t;
-
-  entry_t [1:0] state_q;
+  logic [7:0] state_q [0:1];
 
   genvar gidx;
   generate
     for (gidx = 0; gidx < 2; gidx++) begin : gen_state
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-          state_q[gidx].lo[1:0] <= '0;
+          state_q[gidx][3:0] <= '0;
         end else begin
           state_q[gidx] <= data_i;
         end
