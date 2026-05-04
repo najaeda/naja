@@ -10676,3 +10676,262 @@ endmodule
     svPath,
     {"unable to resolve a single-bit clock net"});
 }
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceResetInitUnaryPlusConditionFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_reset_init_unary_plus_condition_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_reset_init_unary_plus_condition_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_reset_init_unary_plus_condition_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        if (+addr_i[0]) begin
+          mem_q[i] <= 8'hAA;
+        end
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement pattern for sequential lowering"});
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDNextIndexedCommitExpressionSelectorNameFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_next_indexed_commit_expression_selector_name_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_next_indexed_commit_expression_selector_name_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_next_indexed_commit_expression_selector_name_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      if (i < 2) begin
+        mem_next[i + 0] = mem_d[i];
+      end else begin
+        mem_next[i + 0] = mem_q[i];
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_next;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"direct multi-assignment LHS is not an integral signal"});
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceCombinationalAlwaysSequentialCandidateFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_comb_always_seq_candidate_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_comb_always_seq_candidate_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_comb_always_seq_candidate_fallback(
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always @* begin
+    mem_q = mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_comb_always_seq_candidate_fallback"));
+  ASSERT_NE(top, nullptr);
+  for (auto inst : top->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceIgnorableSequentialCandidateFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_ignorable_sequential_candidate_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_ignorable_sequential_candidate_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_ignorable_sequential_candidate_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    $display("ignored");
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_ignorable_sequential_candidate_fallback"));
+  ASSERT_NE(top, nullptr);
+  for (auto inst : top->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceSharedSequentialNedgeClockFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_shared_sequential_nedge_clock_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_shared_sequential_nedge_clock_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_shared_sequential_nedge_clock_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(negedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++) begin
+        mem_q[i] <= 8'h00;
+      end
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential event list; missing posedge clock event"});
+}
