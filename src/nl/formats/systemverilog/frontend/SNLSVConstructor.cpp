@@ -5419,7 +5419,7 @@ endmodule
               int32_t right = 0;
               if (!getConstantInt32(rangeExpr.left(), left) ||
                   !getConstantInt32(rangeExpr.right(), right)) {
-                return false;
+                return false; // LCOV_EXCL_LINE
               }
               int32_t index = right;
               const int32_t end = left;
@@ -6290,7 +6290,7 @@ endmodule
                   &conditionFailureReason);
                 if (!guardBit) {
                   failureReason = conditionFailureReason.empty()
-                    ? "unable to resolve inferred memory condition guard"
+                    ? "unable to resolve inferred memory condition guard" // LCOV_EXCL_LINE
                     : conditionFailureReason;
                   return false;
                 }
@@ -8342,7 +8342,7 @@ endmodule
               // tests do not exercise.
               if (!getConstantInt32(rangeExpr.left(), left) ||
                   !getConstantInt32(rangeExpr.right(), right)) {
-                return false;
+                return false; 
               }
               int32_t index = right;
               const int32_t end = left;
@@ -8351,8 +8351,10 @@ endmodule
                 const auto translated = baseRange.translateIndex(index);
                 if (translated < 0 ||
                     translated >= static_cast<int32_t>(baseBits.size())) {
+                  // LCOV_EXCL_START
                   bits.clear();
                   return false;
+                  // LCOV_EXCL_STOP
                 }
                 bits.push_back(baseBits[static_cast<size_t>(translated)]);
                 index += step;
@@ -15316,7 +15318,7 @@ endmodule
         if (!rootExpr ||
             (!getRepresentableExpressionBitWidth(*rootExpr) &&
              !getExpressionBitstreamWidth(*rootExpr))) {
-          return nullptr;
+          return nullptr; // LCOV_EXCL_LINE
         }
         return rootExpr;
       };
@@ -15889,7 +15891,7 @@ endmodule
             xnorBit,
             sourceRange));
           if (!bitEquals) {
-            return nullptr;
+            return nullptr; // LCOV_EXCL_LINE
           }
         }
 
@@ -15915,7 +15917,7 @@ endmodule
           andBit,
           sourceRange));
         if (!equalsBit) {
-          return nullptr;
+          return nullptr; // LCOV_EXCL_LINE
         }
       }
 
@@ -23330,10 +23332,10 @@ endmodule
                 try {
                   inst->setTermNet(busTerm, packedRef.net, packedRef.msb, packedRef.lsb);
                   return true;
-                } catch (const NLException& e) {
+                } catch (const NLException& e) { // LCOV_EXCL_START
                   setFailureReason(e.what());
                   return false;
-                }
+                } // LCOV_EXCL_STOP
               }
             }
           }

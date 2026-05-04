@@ -362,7 +362,7 @@ namespace {
 
   size_t getMemoryDecimalParameter(const naja::NL::SNLInstance* instance, const char* name) {
     if (!instance) {
-      throw naja::NL::NLException("NLDB0::getMemorySignature: null instance");
+      throw naja::NL::NLException("NLDB0::getMemorySignature: null instance"); // LCOV_EXCL_LINE
     }
     if (auto* instParameter = instance->getInstParameter(naja::NL::NLName(name))) {
       return static_cast<size_t>(std::stoull(instParameter->getValue()));

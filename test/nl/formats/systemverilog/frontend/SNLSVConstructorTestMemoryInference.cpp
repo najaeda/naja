@@ -8722,6 +8722,1253 @@ endmodule
   EXPECT_EQ("1", wrPortsParam->getValue());
 }
 
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceIndexedRangeReadSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_indexed_range_read_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_indexed_range_read_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_indexed_range_read_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [1:0] lo_o,
+  output logic [1:0] hi_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign lo_o = mem_q[addr_i][2 +: 2];
+  assign hi_o = mem_q[addr_i][5 -: 2];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("qd_memory_inference_indexed_range_read_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* rdPortsParam = memoryInst->getInstParameter(NLName("RD_PORTS"));
+  ASSERT_NE(nullptr, rdPortsParam);
+  EXPECT_EQ("2", rdPortsParam->getValue());
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDNextLocalCommitConstantVectorEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_next_local_commit_constant_vector_equality_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_next_local_commit_constant_vector_equality_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_next_local_commit_constant_vector_equality_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  logic [7:0] mem_next [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i][1:0] = 2'b10;
+    mem_d[addr_i][3:2] = data_i[1:0];
+  end
+
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      mem_next[i] = mem_d[i];
+      if (mem_d[i][1:0] == 2'b01) begin
+        mem_next[i] = mem_q[i];
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_next;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_next_local_commit_constant_vector_equality_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceDynamicReadRangeFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_dynamic_read_range_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_dynamic_read_range_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_dynamic_read_range_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [2:0] start_i,
+  input  logic [7:0] data_i,
+  output logic [1:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i][start_i +: 2];
+endmodule
+  )";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_dynamic_read_range_fallback"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceOutOfRangeIndexedReadFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_out_of_range_indexed_read_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_out_of_range_indexed_read_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_out_of_range_indexed_read_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [1:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i][8 +: 2];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_out_of_range_indexed_read_fallback"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceOutOfRangeSimpleReadFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_out_of_range_simple_read_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_out_of_range_simple_read_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_out_of_range_simple_read_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [1:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i][8:7];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_out_of_range_simple_read_fallback"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceIndexedReadRangeOverflowFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_indexed_read_range_overflow_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_indexed_read_range_overflow_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_indexed_read_range_overflow_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [1:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i][32'sh80000000 -: 2];
+endmodule
+)";
+  svFile.close();
+
+  EXPECT_THROW(constructor.construct(svPath), SNLSVConstructorException);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceConstantLocalSelfUpdateSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_constant_local_self_update_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_constant_local_self_update_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_constant_local_self_update_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[2'b01] = mem_d[2'b01] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_constant_local_self_update_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceMismatchedLocalSelectorFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_mismatched_local_selector_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_mismatched_local_selector_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_mismatched_local_selector_fallback(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = mem_d[addr_i ^ 2'b01] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_mismatched_local_selector_fallback"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceEquivalentConstantLocalSelectorSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_equivalent_constant_local_selector_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_equivalent_constant_local_selector_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_equivalent_constant_local_selector_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[2'b01] = mem_d[2'd1] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_equivalent_constant_local_selector_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceMixedAddressEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_mixed_address_equality_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_mixed_address_equality_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_mixed_address_equality_supported(
+  input  logic       clk_i,
+  input  logic       en_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[2'b00] = data_i;
+    if (en_i) begin
+      mem_d[2'b01] = ~data_i;
+    end
+    mem_d[addr_i] = mem_d[addr_i] ^ data_i;
+    mem_d[addr_i ^ 2'b10] = data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_mixed_address_equality_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("4", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceWriteAddressEqualityPaths) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_write_address_equality_paths";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_write_address_equality_paths.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_write_address_equality_paths(
+  input  logic       clk_i,
+  input  logic       en_i,
+  input  logic [1:0] addr_i,
+  input  logic [1:0] alt_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (en_i) begin
+      mem_d[addr_i] = data_i;
+      mem_d[alt_i] = ~data_i;
+      mem_d[{addr_i[1], addr_i[0]}] = data_i ^ 8'h55;
+      mem_d[{addr_i[1], alt_i[0]}] = data_i ^ 8'haa;
+      mem_d[{addr_i[1], 1'b0}] = data_i ^ 8'h33;
+      mem_d[{addr_i[1], 1'b1}] = data_i ^ 8'hcc;
+      mem_d[2'd0] = data_i + 8'h01;
+      mem_d[2'd1] = data_i + 8'h02;
+    end else begin
+      mem_d[addr_i] = data_i - 8'h01;
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i] ^ mem_q[alt_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_write_address_equality_paths"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("9", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceAddressCollisionEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_address_collision_equality_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_address_collision_equality_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_address_collision_equality_supported(
+  input  logic       clk_i,
+  input  logic       en_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (en_i) begin
+      mem_d[addr_i] = data_i;
+      mem_d[{addr_i[1], addr_i[0]}] = ~data_i;
+      mem_d[{addr_i[1], ~addr_i[0]}] = data_i ^ 8'h55;
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_address_collision_equality_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("3", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceConstantAddressMismatchBeforeSelfUpdate) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_constant_address_mismatch_before_self_update";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_constant_address_mismatch_before_self_update.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_constant_address_mismatch_before_self_update(
+  input  logic       clk_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[2'b00] = data_i;
+    mem_d[2'b01] = mem_d[2'b01] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[2'b01];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_constant_address_mismatch_before_self_update"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSymbolicAddressEqualitySelfUpdate) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_symbolic_address_equality_self_update";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_symbolic_address_equality_self_update.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_symbolic_address_equality_self_update(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[{addr_i[1], addr_i[0]}] = data_i;
+    mem_d[{addr_i[1], addr_i[0]}] =
+        mem_d[{addr_i[1], addr_i[0]}] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_symbolic_address_equality_self_update"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSymbolicAddressConstOneEqualitySelfUpdate) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_symbolic_address_const_one_equality_self_update";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_symbolic_address_const_one_equality_self_update.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_symbolic_address_const_one_equality_self_update(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[{addr_i[1], addr_i[0]}] = data_i;
+    mem_d[{addr_i[1], addr_i[1]}] =
+        mem_d[{addr_i[1], addr_i[1]}] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_symbolic_address_const_one_equality_self_update"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSymbolicAddressConstZeroBreakSelfUpdate) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_symbolic_address_const_zero_break_self_update";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_symbolic_address_const_zero_break_self_update.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_symbolic_address_const_zero_break_self_update(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[{1'b0, addr_i[0]}] = data_i;
+    mem_d[{1'b1, addr_i[1]}] =
+        mem_d[{1'b1, addr_i[1]}] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_symbolic_address_const_zero_break_self_update"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("2", wrPortsParam->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceLocalparamSelectorSelfUpdateSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_localparam_selector_self_update_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_localparam_selector_self_update_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_localparam_selector_self_update_supported(
+  input  logic       clk_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  localparam int IDX = 1;
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[IDX] = mem_d[2'd1] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[IDX];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_localparam_selector_self_update_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceLoopConstantSelectorSelfUpdateSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_loop_constant_selector_self_update_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_loop_constant_selector_self_update_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_loop_constant_selector_self_update_supported(
+  input  logic       clk_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    for (int i = 0; i < 4; i++) begin
+      if (i == 2) begin
+        mem_d[i] = mem_d[2'd2] ^ data_i;
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[2'd2];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_loop_constant_selector_self_update_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceExpressionConstantLocalSelectorSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_expression_constant_local_selector_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "qd_memory_inference_expression_constant_local_selector_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_expression_constant_local_selector_supported(
+  input  logic       clk_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[2'd1] = mem_d[(2'd0 + 2'd1)] ^ data_i;
+  end
+
+  always_ff @(posedge clk_i) begin
+    mem_q <= mem_d;
+  end
+
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_expression_constant_local_selector_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseSequentialResetPackedIndexedRangeLHSFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_reset_packed_indexed_range_lhs_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "sequential_reset_packed_indexed_range_lhs_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_reset_packed_indexed_range_lhs_fallback_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] data_i,
+  output logic [7:0] data_o
+);
+  localparam int BASE = 2;
+  localparam int WIDTH = 2;
+  logic [7:0] q [0:1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q[0][BASE +: WIDTH] <= 2'b00;
+      q[1][5 -: WIDTH] <= 2'b00;
+    end else begin
+      q[0][BASE +: WIDTH] <= data_i;
+      q[1][5 -: WIDTH] <= data_i;
+    end
+  end
+
+  assign data_o = q[0] ^ q[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("sequential_reset_packed_indexed_range_lhs_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseSequentialResetWholeThenPackedIndexedSlice) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_reset_whole_then_packed_indexed_slice";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "sequential_reset_whole_then_packed_indexed_slice.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_reset_whole_then_packed_indexed_slice(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] q [0:0];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q[0] <= 8'h00;
+    end else begin
+      q[0][2 +: 2] <= data_i;
+    end
+  end
+
+  assign data_o = q[0];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("sequential_reset_whole_then_packed_indexed_slice"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseCombinationalScalarLocalInitializerReplaySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "combinational_scalar_local_initializer_replay_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "combinational_scalar_local_initializer_replay_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module combinational_scalar_local_initializer_replay_supported(
+  input  logic sel_i,
+  input  logic data_i,
+  input  logic alt_i,
+  output logic [3:0] data_o
+);
+  typedef struct packed {
+    logic value;
+  } bit_box_t;
+
+  always_comb begin
+    data_o = 4'h0;
+    if (sel_i) begin
+      bit_box_t tmp = '{value: data_i};
+      data_o = {3'b000, tmp.value};
+    end else begin
+      bit_box_t tmp = '{value: alt_i};
+      data_o = {tmp.value, 3'b000};
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("combinational_scalar_local_initializer_replay_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseUnrepresentableSelectionTrackedLHSFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unrepresentable_selection_tracked_lhs_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unrepresentable_selection_tracked_lhs_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module unrepresentable_selection_tracked_lhs_fallback(
+  input  logic       sel_i,
+  input  logic [1:0] addr_i,
+  output logic       data_o
+);
+  real items [0:3];
+
+  always_comb begin
+    if (sel_i) begin
+      items[addr_i] = 1.0;
+    end else begin
+      items[addr_i] = 0.0;
+    end
+    data_o = sel_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"))
+      << reason;
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseSequentialNestedPackedIndexedRangeLHSFallbackSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_nested_packed_indexed_range_lhs_fallback_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "sequential_nested_packed_indexed_range_lhs_fallback_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_nested_packed_indexed_range_lhs_fallback_supported(
+  input  logic       clk_i,
+  input  logic [1:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] q [0:1];
+
+  always_ff @(posedge clk_i) begin
+    q[0][2 +: 2] <= data_i;
+    q[1][5 -: 2] <= data_i;
+  end
+
+  assign data_o = q[0] ^ q[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("sequential_nested_packed_indexed_range_lhs_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, parseAscendingOutputTruncatedPortConnectionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "ascending_output_truncated_port_connection_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "ascending_output_truncated_port_connection_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module ascending_child(output logic [0:3] out_o);
+  assign out_o = 4'b1010;
+endmodule
+
+module ascending_output_truncated_port_connection_supported(
+  output logic [1:0] out_o
+);
+  ascending_child child(.out_o(out_o));
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("ascending_output_truncated_port_connection_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1, top->getInstances().size());
+}
+
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceDynamicIndexedRangeWriteFallback) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

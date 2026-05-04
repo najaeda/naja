@@ -14,6 +14,7 @@
 #include "SNLBusTerm.h"
 
 #include "SNLLibertyConstructor.h"
+#include "SNLLibertyConstructorException.h"
 #include "NLBitVecDynamic.h"
 #include "SNLDesignModeling.h"
 #include "SNLCapnP.h"
@@ -321,6 +322,7 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
     }
     pin(ce_in) {
       direction : input;
+      timing() { related_pin : "clk"; timing_type : combinational; }
       timing() { related_pin : "clk"; timing_type : setup_rising; }
       timing() { related_pin : "clk"; timing_type : hold_rising; }
     }
@@ -328,6 +330,8 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
       bus_type : mem_data;
       direction : output;
       memory_read() { address : addr_in; }
+      timing() { timing_type : rising_edge; }
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
       timing() { related_pin : "clk"; timing_type : rising_edge; }
     }
     bus(addr_in) {
@@ -344,6 +348,13 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
       timing() { related_pin : "clk"; timing_type : hold_rising; }
     }
     bus(w_mask_in) {
+      bus_type : mem_data;
+      direction : input;
+      memory_write() { address : addr_in; clocked_on : "clk"; }
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
+      timing() { related_pin : "clk"; timing_type : hold_rising; }
+    }
+    bus(w_aux_in) {
       bus_type : mem_data;
       direction : input;
       memory_write() { address : addr_in; clocked_on : "clk"; }
@@ -369,6 +380,8 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
   ASSERT_EQ(1u, interface.writePorts.size());
   EXPECT_EQ(4u, interface.writePorts.front().data.size());
   EXPECT_EQ(4u, interface.writePorts.front().mask.size());
+  ASSERT_EQ(1u, interface.writePorts.front().extraWriteInputs.size());
+  EXPECT_EQ(4u, interface.writePorts.front().extraWriteInputs.front().size());
   EXPECT_EQ(2u, interface.writePorts.front().enables.size());
 
   std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> enableTerms(
@@ -376,4 +389,157 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
       interface.writePorts.front().enables.end());
   EXPECT_EQ(1u, enableTerms.count(weIn));
   EXPECT_EQ(1u, enableTerms.count(ceIn));
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertySequentialClockConflictsAreRejected) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_conflicting_sequential_clocks.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(seqlib) {
+  cell(ff_conflict) {
+    ff(IQ, IQN) { clocked_on : "clk0"; next_state : "d"; }
+    pin(clk0) { direction : input; clock : true; }
+    pin(clk1) { direction : input; clock : true; }
+    pin(d) { direction : input; }
+    pin(q) {
+      direction : output;
+      timing() { related_pin : "clk0"; timing_type : rising_edge; }
+      timing() { related_pin : "clk1"; timing_type : rising_edge; }
+    }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryRequiresReadAddress) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_memory_missing_read_address.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(memlib) {
+  type (mem_data) {
+    base_type : array; data_type : bit; bit_width : 2; bit_from : 1; bit_to : 0; downto : true;
+  }
+  cell(mem) {
+    memory() { type : ram; address_width : 1; word_width : 2; }
+    pin(clk) { direction : input; clock : true; }
+    bus(rd_out) {
+      bus_type : mem_data;
+      direction : output;
+      memory_read() {}
+      timing() { related_pin : "clk"; timing_type : rising_edge; }
+    }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryRequiresWriteClock) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_memory_missing_write_clock.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(memlib) {
+  type (mem_data) {
+    base_type : array; data_type : bit; bit_width : 2; bit_from : 1; bit_to : 0; downto : true;
+  }
+  type (mem_addr) {
+    base_type : array; data_type : bit; bit_width : 1; bit_from : 0; bit_to : 0; downto : true;
+  }
+  cell(mem) {
+    memory() { type : ram; address_width : 1; word_width : 2; }
+    pin(clk) { direction : input; clock : true; }
+    bus(addr_in) { bus_type : mem_addr; direction : input; }
+    bus(wd_in) {
+      bus_type : mem_data;
+      direction : input;
+      memory_write() { address : addr_in; }
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
+    }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryRequiresBusAddresses) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_memory_scalar_addresses.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(memlib) {
+  type (mem_data) {
+    base_type : array; data_type : bit; bit_width : 2; bit_from : 1; bit_to : 0; downto : true;
+  }
+  cell(mem) {
+    memory() { type : ram; address_width : 1; word_width : 2; }
+    pin(clk) { direction : input; clock : true; }
+    pin(addr_in) {
+      direction : input;
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
+    }
+    bus(rd_out) {
+      bus_type : mem_data;
+      direction : output;
+      memory_read() { address : addr_in; }
+      timing() { related_pin : "clk"; timing_type : rising_edge; }
+    }
+    bus(wd_in) {
+      bus_type : mem_data;
+      direction : input;
+      memory_write() { address : addr_in; clocked_on : "clk"; }
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
+    }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryRequiresWriteBusAddress) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_memory_scalar_write_address.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(memlib) {
+  type (mem_data) {
+    base_type : array; data_type : bit; bit_width : 2; bit_from : 1; bit_to : 0; downto : true;
+  }
+  type (mem_addr) {
+    base_type : array; data_type : bit; bit_width : 1; bit_from : 0; bit_to : 0; downto : true;
+  }
+  cell(mem) {
+    memory() { type : ram; address_width : 1; word_width : 2; }
+    pin(clk) { direction : input; clock : true; }
+    bus(rd_addr) { bus_type : mem_addr; direction : input; }
+    pin(wr_addr) { direction : input; }
+    bus(rd_out) {
+      bus_type : mem_data;
+      direction : output;
+      memory_read() { address : rd_addr; }
+      timing() { related_pin : "clk"; timing_type : rising_edge; }
+    }
+    bus(wd_in) {
+      bus_type : mem_data;
+      direction : input;
+      memory_write() { address : wr_addr; clocked_on : "clk"; }
+      timing() { related_pin : "clk"; timing_type : setup_rising; }
+    }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
 }

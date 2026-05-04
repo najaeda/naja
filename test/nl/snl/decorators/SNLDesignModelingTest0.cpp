@@ -318,6 +318,7 @@ TEST_F(SNLDesignModelingTest0,
   auto addr = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 1, 0, NLName("ADDR"));
   auto wdata = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 1, 0, NLName("WDATA"));
   auto wmask = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 1, 0, NLName("WMASK"));
+  auto wextra = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 0, 0, NLName("WEXTRA"));
   auto rdata = SNLBusTerm::create(mem, SNLTerm::Direction::Output, 1, 0, NLName("RDATA"));
 
   auto* addr0 = static_cast<SNLBitTerm*>(addr->getBit(0));
@@ -326,6 +327,7 @@ TEST_F(SNLDesignModelingTest0,
   auto* wdata1 = static_cast<SNLBitTerm*>(wdata->getBit(1));
   auto* wmask0 = static_cast<SNLBitTerm*>(wmask->getBit(0));
   auto* wmask1 = static_cast<SNLBitTerm*>(wmask->getBit(1));
+  auto* wextra0 = static_cast<SNLBitTerm*>(wextra->getBit(0));
   auto* rdata0 = static_cast<SNLBitTerm*>(rdata->getBit(0));
   auto* rdata1 = static_cast<SNLBitTerm*>(rdata->getBit(1));
 
@@ -342,7 +344,8 @@ TEST_F(SNLDesignModelingTest0,
       {.address = {addr0, addr1},
        .data = {wdata0, wdata1},
        .mask = {wmask0, wmask1},
-       .enables = {we}});
+       .enables = {we},
+       .extraWriteInputs = {{wextra0}}});
   SNLDesignModeling::setMemoryInterface(mem, interface);
 
   // The memory interface itself is enough to describe the sequential timing
@@ -358,7 +361,8 @@ TEST_F(SNLDesignModelingTest0,
   EXPECT_THAT(
       std::vector(SNLDesignModeling::getClockRelatedInputs(clk).begin(),
                   SNLDesignModeling::getClockRelatedInputs(clk).end()),
-      UnorderedElementsAre(rst, we, addr0, addr1, wdata0, wdata1, wmask0, wmask1));
+      UnorderedElementsAre(
+          rst, we, addr0, addr1, wdata0, wdata1, wmask0, wmask1, wextra0));
   EXPECT_THAT(
       std::vector(SNLDesignModeling::getOutputRelatedClocks(rdata0).begin(),
                   SNLDesignModeling::getOutputRelatedClocks(rdata0).end()),
@@ -367,12 +371,16 @@ TEST_F(SNLDesignModelingTest0,
       std::vector(SNLDesignModeling::getInputRelatedClocks(wdata1).begin(),
                   SNLDesignModeling::getInputRelatedClocks(wdata1).end()),
       ElementsAre(clk));
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(wdata0).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(wdata0).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(rdata0).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(wdata0).empty());
 
   auto inst = SNLInstance::create(top, mem, NLName("mem0"));
   size_t netIndex = 0;
   for (auto* term : std::vector<SNLBitTerm*>{
            clk, rst, we, addr0, addr1, wdata0, wdata1, wmask0, wmask1, rdata0,
-           rdata1}) {
+           wextra0, rdata1}) {
     auto* net = SNLScalarNet::create(
         top, NLName(std::string("n") + std::to_string(netIndex++)));
     inst->getInstTerm(term)->setNet(net);
@@ -385,14 +393,56 @@ TEST_F(SNLDesignModelingTest0,
       UnorderedElementsAre(inst->getInstTerm(rdata0), inst->getInstTerm(rdata1)));
   EXPECT_THAT(
       std::vector(
+          SNLDesignModeling::getClockRelatedInputs(inst->getInstTerm(clk)).begin(),
+          SNLDesignModeling::getClockRelatedInputs(inst->getInstTerm(clk)).end()),
+      UnorderedElementsAre(
+          inst->getInstTerm(rst), inst->getInstTerm(we),
+          inst->getInstTerm(addr0), inst->getInstTerm(addr1),
+          inst->getInstTerm(wdata0), inst->getInstTerm(wdata1),
+          inst->getInstTerm(wmask0), inst->getInstTerm(wmask1),
+          inst->getInstTerm(wextra0)));
+  EXPECT_TRUE(
+      SNLDesignModeling::getClockRelatedInputs(inst->getInstTerm(wdata0)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getClockRelatedOutputs(inst->getInstTerm(wdata0)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(rdata0)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getOutputRelatedClocks(inst->getInstTerm(wdata0)).empty());
+  EXPECT_THAT(
+      std::vector(
           SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(wmask0)).begin(),
           SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(wmask0)).end()),
+      ElementsAre(inst->getInstTerm(clk)));
+  EXPECT_THAT(
+      std::vector(
+          SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(wextra0)).begin(),
+          SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(wextra0)).end()),
       ElementsAre(inst->getInstTerm(clk)));
   EXPECT_THAT(
       std::vector(
           SNLDesignModeling::getOutputRelatedClocks(inst->getInstTerm(rdata1)).begin(),
           SNLDesignModeling::getOutputRelatedClocks(inst->getInstTerm(rdata1)).end()),
       ElementsAre(inst->getInstTerm(clk)));
+
+  auto plain = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("PLAIN"));
+  auto plainIn = SNLScalarTerm::create(
+      plain, SNLTerm::Direction::Input, NLName("I"));
+  auto plainOut = SNLScalarTerm::create(
+      plain, SNLTerm::Direction::Output, NLName("O"));
+  auto plainInst = SNLInstance::create(top, plain, NLName("plain0"));
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(plainIn).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(plainIn).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(plainIn).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(plainOut).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getClockRelatedInputs(plainInst->getInstTerm(plainIn)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getClockRelatedOutputs(plainInst->getInstTerm(plainIn)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getInputRelatedClocks(plainInst->getInstTerm(plainIn)).empty());
+  EXPECT_TRUE(
+      SNLDesignModeling::getOutputRelatedClocks(plainInst->getInstTerm(plainOut)).empty());
 }
 
 TEST_F(SNLDesignModelingTest0,
@@ -405,6 +455,7 @@ TEST_F(SNLDesignModelingTest0,
   auto mem = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("MEM2W"));
 
   auto clk = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("CLK"));
+  auto rst = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("RST"));
   auto raddr = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 1, 0, NLName("RADDR"));
   auto rdata = SNLBusTerm::create(mem, SNLTerm::Direction::Output, 3, 0, NLName("RDATA"));
   auto w0addr = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 1, 0, NLName("W0_ADDR"));
@@ -415,6 +466,7 @@ TEST_F(SNLDesignModelingTest0,
   auto w1data = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 3, 0, NLName("W1_DATA"));
   auto w1mask = SNLBusTerm::create(mem, SNLTerm::Direction::Input, 3, 0, NLName("W1_MASK"));
   auto we1 = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("WE1"));
+  auto w1extra = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("W1_EXTRA"));
 
   SNLDesignModeling::BitTerms readDataBits;
   SNLDesignModeling::BitTerms updateInputs;
@@ -441,6 +493,7 @@ TEST_F(SNLDesignModelingTest0,
   interface.depth = 4;
   interface.abits = 2;
   interface.clock = clk;
+  interface.reset = rst;
   interface.readPorts.push_back(
       {.address = {static_cast<SNLBitTerm*>(raddr->getBit(0)),
                    static_cast<SNLBitTerm*>(raddr->getBit(1))},
@@ -471,10 +524,16 @@ TEST_F(SNLDesignModelingTest0,
                 static_cast<SNLBitTerm*>(w1mask->getBit(1)),
                 static_cast<SNLBitTerm*>(w1mask->getBit(2)),
                 static_cast<SNLBitTerm*>(w1mask->getBit(3))},
-       .enables = {we1}});
+       .enables = {we1},
+       .extraWriteInputs = {{w1extra}}});
   SNLDesignModeling::setMemoryInterface(mem, interface);
 
   auto inst = SNLInstance::create(top, mem, NLName("mem0"));
+  const auto disconnectedInterface = SNLDesignModeling::getMemoryInterface(inst);
+  EXPECT_EQ(nullptr, disconnectedInterface.clock);
+  EXPECT_EQ(nullptr, disconnectedInterface.reset);
+  EXPECT_TRUE(disconnectedInterface.readPorts.empty());
+  EXPECT_TRUE(disconnectedInterface.writePorts.empty());
 
   auto* clkNet = SNLScalarNet::create(top, NLName("clk"));
   inst->getInstTerm(clk)->setNet(clkNet);
@@ -501,6 +560,20 @@ TEST_F(SNLDesignModelingTest0,
   }
   auto* we0Net = SNLScalarNet::create(top, NLName("we0"));
   inst->getInstTerm(we0)->setNet(we0Net);
+  for (int bit = 0; bit <= 1; ++bit) {
+    auto* net = SNLScalarNet::create(top, NLName("w1addr_" + std::to_string(bit)));
+    inst->getInstTerm(static_cast<SNLBitTerm*>(w1addr->getBit(bit)))->setNet(net);
+  }
+  for (int bit = 0; bit <= 3; ++bit) {
+    auto* dataNet =
+        SNLScalarNet::create(top, NLName("w1data_" + std::to_string(bit)));
+    auto* maskNet =
+        SNLScalarNet::create(top, NLName("w1mask_" + std::to_string(bit)));
+    inst->getInstTerm(static_cast<SNLBitTerm*>(w1data->getBit(bit)))->setNet(dataNet);
+    inst->getInstTerm(static_cast<SNLBitTerm*>(w1mask->getBit(bit)))->setNet(maskNet);
+  }
+  auto* we1Net = SNLScalarNet::create(top, NLName("we1"));
+  inst->getInstTerm(we1)->setNet(we1Net);
 
   // Guard a real SEC regression: instance-level memory consumers should only
   // see connected ports, otherwise disconnected formal write ports become
@@ -515,6 +588,70 @@ TEST_F(SNLDesignModelingTest0,
                   instInterface.writePorts.front().address.end()),
       ElementsAre(static_cast<SNLBitTerm*>(w0addr->getBit(0)),
                   static_cast<SNLBitTerm*>(w0addr->getBit(1))));
+}
+
+TEST_F(SNLDesignModelingTest0, testMemoryInterfaceValidationErrors) {
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  auto mem = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("MEM1P"));
+  auto other = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("OTHER"));
+
+  auto clk = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("CLK"));
+  auto addr = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("ADDR"));
+  auto wdata = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("WDATA"));
+  auto we = SNLScalarTerm::create(mem, SNLTerm::Direction::Input, NLName("WE"));
+  auto rdata = SNLScalarTerm::create(mem, SNLTerm::Direction::Output, NLName("RDATA"));
+  auto otherTerm = SNLScalarTerm::create(other, SNLTerm::Direction::Input, NLName("OTHER"));
+
+  auto makeInterface = [&]() {
+    SNLDesignModeling::MemoryInterface interface;
+    interface.width = 1;
+    interface.depth = 2;
+    interface.abits = 1;
+    interface.clock = clk;
+    interface.readPorts.push_back({.address = {addr}, .data = {rdata}});
+    interface.writePorts.push_back(
+        {.address = {addr}, .data = {wdata}, .enables = {we}});
+    return interface;
+  };
+
+  EXPECT_THROW(
+      SNLDesignModeling::setMemoryInterface(top, makeInterface()),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setMemoryInterface(
+          mem, SNLDesignModeling::MemoryInterface{}),
+      NLException);
+
+  auto invalidClock = makeInterface();
+  invalidClock.clock = otherTerm;
+  EXPECT_THROW(SNLDesignModeling::setMemoryInterface(mem, invalidClock), NLException);
+
+  auto invalidReset = makeInterface();
+  invalidReset.reset = otherTerm;
+  EXPECT_THROW(SNLDesignModeling::setMemoryInterface(mem, invalidReset), NLException);
+
+  auto invalidReadAddress = makeInterface();
+  invalidReadAddress.readPorts.front().address = {otherTerm};
+  EXPECT_THROW(
+      SNLDesignModeling::setMemoryInterface(mem, invalidReadAddress),
+      NLException);
+
+  auto invalidExtraWrite = makeInterface();
+  invalidExtraWrite.writePorts.front().extraWriteInputs.push_back({otherTerm});
+  EXPECT_THROW(
+      SNLDesignModeling::setMemoryInterface(mem, invalidExtraWrite),
+      NLException);
+
+  EXPECT_THROW(
+      SNLDesignModeling::getMemoryInterface(static_cast<const SNLDesign*>(nullptr)),
+      NLException);
+  EXPECT_FALSE(SNLDesignModeling::hasMemoryInterface(static_cast<const SNLDesign*>(nullptr)));
+  EXPECT_THROW(SNLDesignModeling::getMemoryInterface(top), NLException);
+  EXPECT_THROW(SNLDesignModeling::getMemoryInterface(static_cast<SNLInstance*>(nullptr)), NLException);
 }
 
 TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {

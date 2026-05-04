@@ -469,9 +469,11 @@ TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
   signatureTemplate.resetMode = NLDB0::MemoryResetMode::None;
   auto* memory = NLDB0::getOrCreateMemory(signatureTemplate);
   ASSERT_NE(nullptr, memory);
+  EXPECT_EQ(signatureTemplate, NLDB0::getMemorySignature(memory));
 
   auto* inst = SNLInstance::create(top, memory, NLName("mem0"));
   ASSERT_NE(nullptr, inst);
+  EXPECT_EQ(signatureTemplate, NLDB0::getMemorySignature(inst));
   SNLInstParameter::create(inst, memory->getParameter(NLName("WIDTH")), "7");
   SNLInstParameter::create(inst, memory->getParameter(NLName("DEPTH")), "4");
   SNLInstParameter::create(inst, memory->getParameter(NLName("ABITS")), "2");
@@ -488,6 +490,19 @@ TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
   EXPECT_EQ(3u, signature.readPorts);
   EXPECT_EQ(2u, signature.writePorts);
   EXPECT_EQ(NLDB0::MemoryResetMode::SyncLow, signature.resetMode);
+
+  const auto instInterface = SNLDesignModeling::getMemoryInterface(inst);
+  EXPECT_EQ(7u, instInterface.width);
+  EXPECT_EQ(4u, instInterface.depth);
+  EXPECT_EQ(2u, instInterface.abits);
+  EXPECT_EQ(SNLDesignModeling::MemoryResetMode::SyncLow, instInterface.resetMode);
+  EXPECT_EQ(nullptr, instInterface.clock);
+  EXPECT_TRUE(instInterface.readPorts.empty());
+  EXPECT_TRUE(instInterface.writePorts.empty());
+
+  EXPECT_THROW(
+      NLDB0::getMemorySignature(static_cast<const SNLInstance*>(nullptr)),
+      NLException);
 }
 
 TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
@@ -496,8 +511,10 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
 
   auto checkMemory = [](NLDB0::MemoryResetMode mode,
                         const char* expectedName,
+                        const char* expectedEnable,
                         const char* expectedAsync,
-                        const char* expectedActiveLow) {
+                        const char* expectedActiveLow,
+                        SNLDesignModeling::MemoryResetMode expectedModelingMode) {
     NLDB0::MemorySignature signature;
     signature.width = 4;
     signature.depth = 8;
@@ -509,21 +526,64 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     auto* memory = NLDB0::getOrCreateMemory(signature);
     ASSERT_NE(nullptr, memory);
     EXPECT_EQ(NLName(expectedName), memory->getName());
-    EXPECT_EQ("1", memory->getParameter(NLName("RST_ENABLE"))->getValue());
+    EXPECT_EQ(expectedEnable, memory->getParameter(NLName("RST_ENABLE"))->getValue());
     EXPECT_EQ(expectedAsync, memory->getParameter(NLName("RST_ASYNC"))->getValue());
     EXPECT_EQ(expectedActiveLow, memory->getParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+    EXPECT_EQ(expectedModelingMode, SNLDesignModeling::getMemoryInterface(memory).resetMode);
   };
 
   checkMemory(
+    NLDB0::MemoryResetMode::None,
+    "naja_mem__w4_d8_a3_r1_w1_rst_none",
+    "0",
+    "0",
+    "0",
+    SNLDesignModeling::MemoryResetMode::None);
+  checkMemory(
+    NLDB0::MemoryResetMode::AsyncHigh,
+    "naja_mem__w4_d8_a3_r1_w1_rst_async_high",
+    "1",
+    "1",
+    "0",
+    SNLDesignModeling::MemoryResetMode::AsyncHigh);
+  checkMemory(
     NLDB0::MemoryResetMode::SyncLow,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_low",
+    "1",
     "0",
-    "1");
+    "1",
+    SNLDesignModeling::MemoryResetMode::SyncLow);
   checkMemory(
     NLDB0::MemoryResetMode::SyncHigh,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_high",
+    "1",
     "0",
-    "0");
+    "0",
+    SNLDesignModeling::MemoryResetMode::SyncHigh);
+}
+
+TEST_F(NLDB0Test, testMalformedDB0MemorySignatureThrows) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::MemorySignature signature;
+  signature.width = 4;
+  signature.depth = 8;
+  signature.abits = 3;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(nullptr, memory);
+  auto* memoryLibrary = memory->getLibrary();
+  ASSERT_NE(nullptr, memoryLibrary);
+
+  auto* malformed = SNLDesign::create(
+      memoryLibrary,
+      SNLDesign::Type::Primitive,
+      NLName("naja_mem__missing_width"));
+  ASSERT_TRUE(NLDB0::isMemory(malformed));
+  EXPECT_THROW(NLDB0::getMemorySignature(malformed), NLException);
 }
 
 TEST_F(NLDB0Test, testMemoryRecognitionIsScopedToDB0MemoryLibrary) {
@@ -601,7 +661,17 @@ TEST_F(NLDB0Test, testMemoryRecognitionIsScopedToDB0MemoryLibrary) {
   EXPECT_FALSE(NLDB0::isMemory(memory));
   EXPECT_THROW(NLDB0::getMemorySignature(memory), NLException);
   EXPECT_THROW(NLDB0::getMemoryClock(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReset(memory), NLException);
   EXPECT_THROW(NLDB0::getMemoryReadAddress(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReadData(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteAddress(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteData(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteEnable(memory), NLException);
+
+  auto* designs = NLLibrary::create(db, NLName("designs"));
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* inst = SNLInstance::create(top, memory, NLName("non_db0_mem"));
+  EXPECT_THROW(NLDB0::getMemorySignature(inst), NLException);
 }
 
 TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {

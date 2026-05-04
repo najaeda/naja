@@ -1962,6 +1962,64 @@ endmodule
   EXPECT_NE(top->getScalarTerm(NLName("y")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseNarrowOutputPortConnectionsRespectPackedRangeDirection) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "narrow_output_port_connections";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "narrow_output_port_connections.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module asc_child(output logic [0:3] y);
+endmodule
+
+module desc_child(output logic [3:0] y);
+endmodule
+
+module narrow_output_port_connections_top(
+  output logic [1:0] asc,
+  output logic [1:0] desc
+);
+  asc_child u_asc(.y(asc));
+  desc_child u_desc(.y(desc));
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("narrow_output_port_connections_top"));
+  ASSERT_NE(nullptr, top);
+  auto* ascChild = library_->getSNLDesign(NLName("asc_child"));
+  auto* descChild = library_->getSNLDesign(NLName("desc_child"));
+  ASSERT_NE(nullptr, ascChild);
+  ASSERT_NE(nullptr, descChild);
+  auto* ascY = ascChild->getBusTerm(NLName("y"));
+  auto* descY = descChild->getBusTerm(NLName("y"));
+  ASSERT_NE(nullptr, ascY);
+  ASSERT_NE(nullptr, descY);
+
+  auto* uAsc = top->getInstance(NLName("u_asc"));
+  auto* uDesc = top->getInstance(NLName("u_desc"));
+  ASSERT_NE(nullptr, uAsc);
+  ASSERT_NE(nullptr, uDesc);
+
+  EXPECT_NE(nullptr, uAsc->getInstTerm(static_cast<SNLBitTerm*>(ascY->getBit(0)))->getNet());
+  EXPECT_NE(nullptr, uAsc->getInstTerm(static_cast<SNLBitTerm*>(ascY->getBit(1)))->getNet());
+  EXPECT_EQ(nullptr, uAsc->getInstTerm(static_cast<SNLBitTerm*>(ascY->getBit(2)))->getNet());
+  EXPECT_EQ(nullptr, uAsc->getInstTerm(static_cast<SNLBitTerm*>(ascY->getBit(3)))->getNet());
+
+  EXPECT_NE(nullptr, uDesc->getInstTerm(static_cast<SNLBitTerm*>(descY->getBit(0)))->getNet());
+  EXPECT_NE(nullptr, uDesc->getInstTerm(static_cast<SNLBitTerm*>(descY->getBit(1)))->getNet());
+  EXPECT_EQ(nullptr, uDesc->getInstTerm(static_cast<SNLBitTerm*>(descY->getBit(2)))->getNet());
+  EXPECT_EQ(nullptr, uDesc->getInstTerm(static_cast<SNLBitTerm*>(descY->getBit(3)))->getNet());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectHugeLiteralIndexUnderAdd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -26130,6 +26188,62 @@ endmodule
   EXPECT_EQ(0u, countOccurrences(dumpedText, ".Q(q_o[6])"));
   EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[4] = 1'b0"));
   EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[5] = 1'b0"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialGeneratedPacked2DIndexedRangeSelectNoDuplicateDrivers) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_generated_packed_2d_indexed_range_select_no_duplicate_drivers";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_generated_packed_2d_indexed_range_select_no_duplicate_drivers.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_generated_packed_2d_indexed_range_select_no_duplicate_drivers(
+  input  logic             clk_i,
+  input  logic             rst_ni,
+  input  logic [3:0][3:0] d_i,
+  output logic [3:0][3:0] q_o
+);
+  localparam int BASE = 1;
+  localparam int WIDTH = 2;
+
+  for (genvar i = 0; i < 4; i++) begin : g_regs
+    if (i < 1) begin : g_tie_off
+      assign q_o[i] = '0;
+    end else begin : g_flops
+      assign q_o[i][3] = '0;
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          q_o[i][BASE +: WIDTH] <= '0;
+        end else begin
+          q_o[i][BASE +: WIDTH] <= d_i[i][BASE +: WIDTH];
+        end
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_generated_packed_2d_indexed_range_select_no_duplicate_drivers"));
+  ASSERT_NE(top, nullptr);
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_generated_packed_2d_indexed_range_select_no_duplicate_drivers_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[5] = 1'b0"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[6] = 1'b0"));
 }
 
 TEST_F(
