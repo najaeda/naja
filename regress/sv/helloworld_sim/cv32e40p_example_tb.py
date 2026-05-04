@@ -61,7 +61,7 @@ def main() -> int:
     generated_path = args.generated.resolve()
     primitives_path = args.primitives.resolve()
     tb_dir = repo_dir / "example_tb" / "core"
-    work_dir = artifacts_dir / "local_sim" / "cv32e40p_example_tb"
+    work_dir = artifacts_dir / "helloworld_sim" / "cv32e40p_example_tb"
     obj_dir = work_dir / "obj"
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +110,7 @@ def main() -> int:
 
     executable = obj_dir / "Vtb_top"
     run([str(executable), f"+firmware={firmware}", f"+maxcycles={args.max_cycles}"], cwd=work_dir)
-    print("CV32E40P_LOCAL_SIM_PASS")
+    print("CV32E40P_HELLOWORLD_SIM_PASS")
     return 0
 
 

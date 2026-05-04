@@ -1,4 +1,4 @@
-name: SV Simulation
+name: SV Unit Test Simulation
 
 on:
   push:
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  simulate:
+  sv-unit-test-sim:
     runs-on: ubuntu-latest
 
     steps:

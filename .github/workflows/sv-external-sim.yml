@@ -1,4 +1,4 @@
-name: External SV Smoke Simulation
+name: External SV Simulation
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  sv-smoke-sim:
+  sv-external-sim:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 
@@ -81,16 +81,16 @@ jobs:
       - name: Run external SV smoke simulations
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage github_sim
 
-      - name: Run Ibex hello local simulation
+      - name: Run Ibex helloworld simulation
         run: |
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
             --case ibex \
-            --stage local_sim \
-            --require-local-sim-tools
+            --stage helloworld_sim \
+            --require-helloworld-sim-tools
 
-      - name: Upload SV smoke simulation artifacts
+      - name: Upload external SV simulation artifacts
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sv-smoke-sim-artifacts
+          name: sv-external-sim-artifacts
           path: ${{ github.workspace }}/build/sv-regress

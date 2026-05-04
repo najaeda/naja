@@ -82,7 +82,7 @@ cases:
       pass_regex: "IBEX_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
-    local_sim:
+    helloworld_sim:
       timeout_seconds: 7200
       tool_checks:
         - verilator
@@ -94,7 +94,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/local_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -103,7 +103,7 @@ cases:
           - "{artifacts}/ibex_naja.v"
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
-      pass_regex: "IBEX_LOCAL_SIM_PASS"
+      pass_regex: "IBEX_HELLOWORLD_SIM_PASS"
 
   - name: cv32e40p
     repo: https://github.com/openhwgroup/cv32e40p.git
@@ -130,7 +130,7 @@ cases:
       pass_regex: "CV32E40P_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
-    local_sim:
+    helloworld_sim:
       timeout_seconds: 7200
       tool_checks:
         - verilator
@@ -141,7 +141,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/local_sim/cv32e40p_example_tb.py"
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -150,4 +150,4 @@ cases:
           - "{artifacts}/cv32e40p_naja.v"
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
-      pass_regex: "CV32E40P_LOCAL_SIM_PASS"
+      pass_regex: "CV32E40P_HELLOWORLD_SIM_PASS"

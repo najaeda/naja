@@ -14,15 +14,16 @@ Verilog netlist, then runs selected Verilator stages on that generated netlist.
 - Install Python dependencies, including `PyYAML`.
 - Install `fusesoc` for the Ibex setup flow.
 - Install Docker for the default lint and GitHub smoke-simulation runs.
-- Install local `verilator` when using `--lint-runner local` or `local_sim`.
-- Install a RISC-V firmware toolchain for `local_sim`. The scripts prefer the
+- Install local `verilator` when using `--lint-runner local` or `helloworld_sim`.
+- Install a RISC-V firmware toolchain for `helloworld_sim`. The scripts prefer the
   `riscv32-unknown-elf-` prefix and fall back to the common macOS
   `riscv64-unknown-elf-` prefix. `RISCV` is inferred from `PATH` when unset for
   CV32E40P.
 
 GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
-`External SV Regress` workflow runs lint; the `External SV Smoke Simulation`
-workflow runs the checked-in Ibex and CV32E40P smoke simulations.
+`External SV Regress` workflow runs lint; the `External SV Simulation` workflow
+runs the checked-in Ibex and CV32E40P smoke simulations plus the Ibex
+helloworld simulation.
 
 ## List Cases
 
@@ -114,17 +115,17 @@ The lint log is:
 build/sv-regress/<case>/artifacts/logs/verilator-lint.log
 ```
 
-## Local Simulation Tier
+## Helloworld Simulation Tier
 
-The `local_sim` stage is opt-in and runs real firmware in upstream-style
+The `helloworld_sim` stage is opt-in and runs real firmware in upstream-style
 testbench environments:
 
 - Ibex uses upstream `examples/simple_system`, replaces the original
   `ibex_top` with the Naja-generated `ibex_top`, builds `hello_test.vmem`, and
-  expects `IBEX_LOCAL_SIM_PASS`.
+  expects `IBEX_HELLOWORLD_SIM_PASS`.
 - CV32E40P uses upstream `example_tb/core`, replaces the original
   `cv32e40p_top` with the Naja-generated `cv32e40p_top`, builds
-  `custom/hello_world.hex`, and expects `CV32E40P_LOCAL_SIM_PASS`.
+  `custom/hello_world.hex`, and expects `CV32E40P_HELLOWORLD_SIM_PASS`.
 
 ```sh
 python3 regress/sv/sv_regress.py run \
@@ -132,32 +133,32 @@ python3 regress/sv/sv_regress.py run \
   --case cv32e40p \
   --stage lint \
   --stage github_sim \
-  --stage local_sim
+  --stage helloworld_sim
 ```
 
-Run only local simulation:
+Run only helloworld simulation:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
   --case ibex \
   --case cv32e40p \
-  --stage local_sim
+  --stage helloworld_sim
 ```
 
-Missing optional local simulation tools are reported as skipped. To make missing
+Missing optional helloworld simulation tools are reported as skipped. To make missing
 tools fail the command:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
   --case ibex \
-  --stage local_sim \
-  --require-local-sim-tools
+  --stage helloworld_sim \
+  --require-helloworld-sim-tools
 ```
 
-The local simulation log is:
+The helloworld simulation log is:
 
 ```text
-build/sv-regress/<case>/artifacts/logs/local-sim.log
+build/sv-regress/<case>/artifacts/logs/helloworld-sim.log
 ```
 
 ## Artifacts
@@ -175,11 +176,11 @@ summary.json
 logs/generate.log
 logs/verilator-lint.log
 logs/github-sim.log
-logs/local-sim.log
+logs/helloworld-sim.log
 verilator-lint-command.json
 github_sim-build-command.json
 github_sim-run-command.json
-local-sim-command-<n>.json
+helloworld-sim-command-<n>.json
 ```
 
 The legacy `verilator-command.json` is still written for compatibility and
