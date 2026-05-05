@@ -35,12 +35,12 @@ def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None 
 
 
 def find_riscv_tool_prefix() -> str:
-    for prefix in ("riscv32-unknown-elf-", "riscv64-unknown-elf-"):
+    for prefix in ("riscv32-unknown-elf-", "riscv-none-elf-", "riscv64-unknown-elf-"):
         if shutil.which(prefix + "gcc") and shutil.which(prefix + "objcopy"):
             return prefix
     raise SystemExit(
-        "missing RISC-V toolchain: expected riscv32-unknown-elf-{gcc,objcopy} "
-        "or riscv64-unknown-elf-{gcc,objcopy}"
+        "missing RISC-V toolchain: expected riscv32-unknown-elf-{gcc,objcopy}, "
+        "riscv-none-elf-{gcc,objcopy}, or riscv64-unknown-elf-{gcc,objcopy}"
     )
 
 
@@ -73,47 +73,17 @@ def resolve_existing_absolute_path(path_text: str) -> Path | None:
 
 
 def resolve_gcc_file(gcc: str, gcc_args: list[str], filename: str) -> Path | None:
-    for extra_args in ([], ["--specs=picolibc.specs"]):
-        result = capture_optional([
-            gcc,
-            *extra_args,
-            *gcc_args,
-            f"-print-file-name={filename}",
-        ])
-        if result is None:
-            continue
-        resolved = resolve_existing_absolute_path(result)
-        if resolved is not None:
-            return resolved
-    return None
-
-
-def find_rv32_picolibc_file(toolchain_root: Path, filename: str) -> Path | None:
-    roots = [
-        toolchain_root.parent / "lib" / "picolibc",
-        Path("/usr/lib/picolibc"),
-        Path("/usr/local/lib/picolibc"),
-    ]
-    seen: set[Path] = set()
-    for root in roots:
-        root = root.resolve()
-        if root in seen:
-            continue
-        seen.add(root)
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob(filename)):
-            if any(part.startswith("rv32") for part in path.parts) and "ilp32" in path.parts:
-                return path.resolve()
-    return None
+    result = capture_optional([gcc, *gcc_args, f"-print-file-name={filename}"])
+    if result is None:
+        return None
+    return resolve_existing_absolute_path(result)
 
 
 def infer_include_dir(toolchain_root: Path, rv32_libc: Path) -> Path:
     candidates = [ancestor / "include" for ancestor in rv32_libc.parents]
     candidates += [
         toolchain_root / "riscv64-unknown-elf" / "include",
-        # Ubuntu's picolibc-riscv64-unknown-elf package installs libraries under
-        # .../riscv64-unknown-elf/lib/<multilib>/<abi> and headers beside lib/.
+        toolchain_root / "riscv-none-elf" / "include",
         rv32_libc.parent.parent.parent / "include",
     ]
     for candidate in candidates:
@@ -132,23 +102,19 @@ def infer_riscv_root(env: dict[str, str], tool_prefix: str, work_dir: Path) -> N
     if not gcc:
         return
     toolchain_root = Path(gcc).resolve().parents[1]
-    if tool_prefix == "riscv64-unknown-elf-":
+    if tool_prefix in ("riscv64-unknown-elf-", "riscv-none-elf-"):
         compat_root = work_dir / "riscv32-prefix-compat"
         compat_target = compat_root / "riscv32-unknown-elf"
         rv32_gcc_args = [
             "-march=rv32imc_zicsr",
             "-mabi=ilp32",
         ]
-        rv32_libc = (
-            resolve_gcc_file(gcc, rv32_gcc_args, "libc.a")
-            or find_rv32_picolibc_file(toolchain_root, "libc.a")
-        )
+        rv32_libc = resolve_gcc_file(gcc, rv32_gcc_args, "libc.a")
         if rv32_libc is None:
             raise SystemExit(
                 "missing RV32 C library for CV32E40P hello_world: "
                 f"{gcc} did not resolve libc.a for -march=rv32imc_zicsr -mabi=ilp32. "
-                "On Ubuntu, install picolibc-riscv64-unknown-elf; on other systems, "
-                "install an RV32 bare-metal libc for riscv64-unknown-elf-gcc."
+                "Install an RV32 newlib-capable bare-metal RISC-V GCC toolchain."
             )
         rv32_lib = rv32_libc.parent
         include_dir = infer_include_dir(toolchain_root, rv32_libc)
@@ -187,15 +153,6 @@ def write_generated_netlist_tb_subsystem(source: Path, target: Path) -> Path:
         raise SystemExit(f"could not patch cv32e40p_top instance parameters in {source}")
     target.write_text(text.replace(parameterized_instance, plain_instance), encoding="utf-8")
     return target
-
-
-def patch_syscalls_errno_declaration(source: Path) -> None:
-    text = source.read_text(encoding="utf-8")
-    old = "#include <errno.h>\n#undef errno\nextern int errno;\n"
-    new = "#include <errno.h>\n"
-    if old not in text:
-        return
-    source.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def write_verilator_mm_ram(source: Path, target: Path) -> Path:
@@ -336,8 +293,6 @@ def build_firmware(
     tool_prefix: str,
     env: dict[str, str],
 ) -> Path:
-    patch_syscalls_errno_declaration(tb_dir / "custom" / "syscalls.c")
-
     if program_name == "hello_world":
         run([
             "make",
@@ -411,13 +366,16 @@ def main() -> int:
         tb_dir / "cv32e40p_tb_subsystem.sv",
         work_dir / "cv32e40p_tb_subsystem_naja.sv",
     )
-    patched_mm_ram = write_verilator_mm_ram(
-        tb_dir / "mm_ram.sv",
-        work_dir / "mm_ram_naja.sv",
-    )
-    patched_interrupt_generator = write_verilator_interrupt_generator(
-        work_dir / "cv32e40p_random_interrupt_generator_naja.sv",
-    )
+    patched_mm_ram = tb_dir / "mm_ram.sv"
+    patched_interrupt_generator = None
+    if args.program == "interrupt":
+        patched_mm_ram = write_verilator_mm_ram(
+            tb_dir / "mm_ram.sv",
+            work_dir / "mm_ram_naja.sv",
+        )
+        patched_interrupt_generator = write_verilator_interrupt_generator(
+            work_dir / "cv32e40p_random_interrupt_generator_naja.sv",
+        )
 
     env = os.environ.copy()
     tool_prefix = find_riscv_tool_prefix()
@@ -444,11 +402,12 @@ def main() -> int:
         tb_dir / "riscv_rvalid_stall.sv",
         tb_dir / "dp_ram.sv",
         patched_mm_ram,
-        patched_interrupt_generator,
         tb_dir / "amo_shim.sv",
         patched_tb_subsystem,
         tb_dir / "tb_top.sv",
     ]
+    if patched_interrupt_generator is not None:
+        tb_sources.insert(5, patched_interrupt_generator)
     command = [
         "verilator",
         "--binary",

@@ -24,12 +24,12 @@ def run(args: list[str], *, cwd: Path | None = None) -> None:
 
 
 def find_riscv_tool_prefix() -> str:
-    for prefix in ("riscv32-unknown-elf-", "riscv64-unknown-elf-"):
+    for prefix in ("riscv32-unknown-elf-", "riscv-none-elf-", "riscv64-unknown-elf-"):
         if shutil.which(prefix + "gcc") and shutil.which(prefix + "objcopy"):
             return prefix
     raise SystemExit(
-        "missing RISC-V toolchain: expected riscv32-unknown-elf-{gcc,objcopy} "
-        "or riscv64-unknown-elf-{gcc,objcopy}"
+        "missing RISC-V toolchain: expected riscv32-unknown-elf-{gcc,objcopy}, "
+        "riscv-none-elf-{gcc,objcopy}, or riscv64-unknown-elf-{gcc,objcopy}"
     )
 
 

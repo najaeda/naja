@@ -89,8 +89,10 @@ cases:
         - fusesoc
         - make
         - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
           - riscv64-unknown-elf-gcc
         - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
@@ -136,8 +138,10 @@ cases:
         - verilator
         - make
         - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
           - riscv64-unknown-elf-gcc
         - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3

@@ -18,6 +18,8 @@ jobs:
   sv-external-sim:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    env:
+      XPACK_RISCV_VERSION: 14.2.0-3
 
     steps:
       - uses: actions/checkout@v6
@@ -33,9 +35,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -yq \
-            binutils-riscv64-unknown-elf \
-            gcc-riscv64-unknown-elf \
-            picolibc-riscv64-unknown-elf \
             libboost-dev \
             libcapnp-dev \
             libfl-dev \
@@ -43,6 +42,18 @@ jobs:
             capnproto
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
+
+      - name: Install RISC-V newlib toolchain
+        run: |
+          archive="xpack-riscv-none-elf-gcc-${XPACK_RISCV_VERSION}-linux-x64.tar.gz"
+          url="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_RISCV_VERSION}/${archive}"
+          mkdir -p "${HOME}/.local/xpack-riscv-none-elf-gcc"
+          curl -L --fail --retry 3 --output "/tmp/${archive}" "${url}"
+          tar -xzf "/tmp/${archive}" -C "${HOME}/.local/xpack-riscv-none-elf-gcc" --strip-components=1
+          echo "${HOME}/.local/xpack-riscv-none-elf-gcc/bin" >> "${GITHUB_PATH}"
+          "${HOME}/.local/xpack-riscv-none-elf-gcc/bin/riscv-none-elf-gcc" --version
+          "${HOME}/.local/xpack-riscv-none-elf-gcc/bin/riscv-none-elf-gcc" \
+            -march=rv32imc_zicsr -mabi=ilp32 -print-file-name=libc.a
 
       - name: Set up Verilator 5.046 wrapper
         run: |
