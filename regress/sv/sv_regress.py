@@ -751,9 +751,10 @@ def run_verilator_binary_stage(
     return {"status": "passed", "log": str(log_path)}
 
 
-def run_helloworld_sim(
+def run_configured_command_sim(
     case: dict[str, Any],
     *,
+    stage: str,
     repo_dir: Path,
     case_dir: Path,
     artifacts_dir: Path,
@@ -761,11 +762,11 @@ def run_helloworld_sim(
     log_dir: Path,
     require_tools: bool,
 ) -> dict[str, Any]:
-    config = configured_stage(case, "helloworld_sim")
-    log_path = log_dir / "helloworld-sim.log"
+    config = configured_stage(case, stage)
+    log_path = log_dir / f"{stage.replace('_', '-')}.log"
     configured_tool_checks = config.get("tool_checks", [])
     if not isinstance(configured_tool_checks, list):
-        raise RegressError(f"Invalid helloworld_sim.tool_checks for case {case['name']}: expected list")
+        raise RegressError(f"Invalid {stage}.tool_checks for case {case['name']}: expected list")
     tool_checks = list(configured_tool_checks)
     if "top_module" in config or "sources" in config:
         tool_checks.append("verilator")
@@ -779,7 +780,7 @@ def run_helloworld_sim(
         elif shutil.which(str(tool)) is None:
             missing.append(str(tool))
     if missing:
-        reason = f"missing optional helloworld simulation tools: {', '.join(missing)}"
+        reason = f"missing optional {stage} tools: {', '.join(missing)}"
         log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
         if require_tools:
             raise RegressError(reason)
@@ -788,7 +789,7 @@ def run_helloworld_sim(
     if "top_module" in config or "sources" in config:
         return run_verilator_binary_stage(
             case,
-            stage="helloworld_sim",
+            stage=stage,
             repo_dir=repo_dir,
             case_dir=case_dir,
             artifacts_dir=artifacts_dir,
@@ -798,9 +799,9 @@ def run_helloworld_sim(
 
     commands = config.get("commands", [])
     if not isinstance(commands, list):
-        raise RegressError(f"Invalid helloworld_sim.commands for case {case['name']}: expected list")
+        raise RegressError(f"Invalid {stage}.commands for case {case['name']}: expected list")
     if not commands:
-        reason = config.get("skip_reason", "helloworld simulation commands are not configured")
+        reason = config.get("skip_reason", f"{stage} commands are not configured")
         log_path.write_text(f"SKIPPED: {reason}\n", encoding="utf-8")
         if require_tools:
             raise RegressError(str(reason))
@@ -811,7 +812,7 @@ def run_helloworld_sim(
     for index, command in enumerate(commands):
         if not isinstance(command, list):
             raise RegressError(
-                f"Invalid helloworld_sim.commands[{index}] for case {case['name']}: expected argument list"
+                f"Invalid {stage}.commands[{index}] for case {case['name']}: expected argument list"
             )
         formatted_command = format_command(
             command,
@@ -819,7 +820,7 @@ def run_helloworld_sim(
             case_dir=case_dir,
             artifacts_dir=artifacts_dir,
         )
-        (artifacts_dir / f"helloworld-sim-command-{index}.json").write_text(
+        (artifacts_dir / f"{stage.replace('_', '-')}-command-{index}.json").write_text(
             json.dumps(formatted_command, indent=2) + "\n",
             encoding="utf-8",
         )
@@ -836,8 +837,30 @@ def run_helloworld_sim(
     if pass_regex:
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
         if not re.search(str(pass_regex), log_text):
-            raise RegressError(f"helloworld_sim did not match pass_regex {pass_regex!r}")
+            raise RegressError(f"{stage} did not match pass_regex {pass_regex!r}")
     return {"status": "passed", "log": str(log_path)}
+
+
+def run_helloworld_sim(
+    case: dict[str, Any],
+    *,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    generated_path: Path,
+    log_dir: Path,
+    require_tools: bool,
+) -> dict[str, Any]:
+    return run_configured_command_sim(
+        case,
+        stage="helloworld_sim",
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+        generated_path=generated_path,
+        log_dir=log_dir,
+        require_tools=require_tools,
+    )
 
 
 def run_load_dump(

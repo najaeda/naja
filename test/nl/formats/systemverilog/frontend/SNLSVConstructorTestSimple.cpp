@@ -25462,6 +25462,58 @@ endmodule
   EXPECT_GT(countMux2Instances(top), 0u);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parsePackedStructMemberBitOffsetsFollowPackedLayout) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "packed_struct_member_bit_offsets_follow_packed_layout";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "packed_struct_member_bit_offsets_follow_packed_layout.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module packed_struct_member_bit_offsets_follow_packed_layout(
+  input  logic [6:0] status_i,
+  output logic       uie_o,
+  output logic       mie_o,
+  output logic       mprv_o
+);
+  typedef struct packed {
+    logic       uie;
+    logic       mie;
+    logic       upie;
+    logic       mpie;
+    logic [1:0] mpp;
+    logic       mprv;
+  } status_t;
+
+  status_t status;
+
+  assign status = status_i;
+  assign uie_o  = status.uie;
+  assign mie_o  = status.mie;
+  assign mprv_o = status.mprv;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("packed_struct_member_bit_offsets_follow_packed_layout"));
+  ASSERT_NE(top, nullptr);
+  const auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "packed_struct_member_bit_offsets_follow_packed_layout_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+
+  EXPECT_NE(std::string::npos, dumpedText.find("assign uie_o = status[6]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("assign mie_o = status[5]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("assign mprv_o = status[0]"));
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseSequentialResetPackedArrayPartialWritesSupported) {
