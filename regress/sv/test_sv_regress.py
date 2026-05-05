@@ -117,6 +117,7 @@ cases:
         ).read_text(encoding="utf-8")
 
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
+        self.assertIn("picolibc-riscv64-unknown-elf", workflow)
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
         self.assertIn("--require-helloworld-sim-tools", workflow)

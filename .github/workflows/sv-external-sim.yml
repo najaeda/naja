@@ -35,6 +35,7 @@ jobs:
           sudo apt-get install -yq \
             binutils-riscv64-unknown-elf \
             gcc-riscv64-unknown-elf \
+            picolibc-riscv64-unknown-elf \
             libboost-dev \
             libcapnp-dev \
             libfl-dev \

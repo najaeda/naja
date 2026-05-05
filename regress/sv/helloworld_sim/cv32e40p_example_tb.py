@@ -55,6 +55,76 @@ def capture(args: list[str]) -> str:
     ).stdout.strip()
 
 
+def capture_optional(args: list[str]) -> str | None:
+    try:
+        return capture(args)
+    except subprocess.CalledProcessError:
+        return None
+
+
+def resolve_existing_absolute_path(path_text: str) -> Path | None:
+    path = Path(path_text)
+    if not path.is_absolute():
+        return None
+    resolved = path.resolve()
+    if not resolved.exists():
+        return None
+    return resolved
+
+
+def resolve_gcc_file(gcc: str, gcc_args: list[str], filename: str) -> Path | None:
+    for extra_args in ([], ["--specs=picolibc.specs"]):
+        result = capture_optional([
+            gcc,
+            *extra_args,
+            *gcc_args,
+            f"-print-file-name={filename}",
+        ])
+        if result is None:
+            continue
+        resolved = resolve_existing_absolute_path(result)
+        if resolved is not None:
+            return resolved
+    return None
+
+
+def find_rv32_picolibc_file(toolchain_root: Path, filename: str) -> Path | None:
+    roots = [
+        toolchain_root.parent / "lib" / "picolibc",
+        Path("/usr/lib/picolibc"),
+        Path("/usr/local/lib/picolibc"),
+    ]
+    seen: set[Path] = set()
+    for root in roots:
+        root = root.resolve()
+        if root in seen:
+            continue
+        seen.add(root)
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob(filename)):
+            if any(part.startswith("rv32") for part in path.parts) and "ilp32" in path.parts:
+                return path.resolve()
+    return None
+
+
+def infer_include_dir(toolchain_root: Path, rv32_libc: Path) -> Path:
+    candidates = [ancestor / "include" for ancestor in rv32_libc.parents]
+    candidates += [
+        toolchain_root / "riscv64-unknown-elf" / "include",
+        # Ubuntu's picolibc-riscv64-unknown-elf package installs libraries under
+        # .../riscv64-unknown-elf/lib/<multilib>/<abi> and headers beside lib/.
+        rv32_libc.parent.parent.parent / "include",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise SystemExit(
+        "missing RISC-V target include directory; checked: "
+        + ", ".join(str(candidate) for candidate in candidates)
+    )
+
+
 def infer_riscv_root(env: dict[str, str], tool_prefix: str, work_dir: Path) -> None:
     if env.get("RISCV"):
         return
@@ -65,19 +135,23 @@ def infer_riscv_root(env: dict[str, str], tool_prefix: str, work_dir: Path) -> N
     if tool_prefix == "riscv64-unknown-elf-":
         compat_root = work_dir / "riscv32-prefix-compat"
         compat_target = compat_root / "riscv32-unknown-elf"
-        rv32_libc = Path(capture([
-            gcc,
+        rv32_gcc_args = [
             "-march=rv32imc_zicsr",
             "-mabi=ilp32",
-            "-print-file-name=libc.a",
-        ])).resolve()
+        ]
+        rv32_libc = (
+            resolve_gcc_file(gcc, rv32_gcc_args, "libc.a")
+            or find_rv32_picolibc_file(toolchain_root, "libc.a")
+        )
+        if rv32_libc is None:
+            raise SystemExit(
+                "missing RV32 C library for CV32E40P hello_world: "
+                f"{gcc} did not resolve libc.a for -march=rv32imc_zicsr -mabi=ilp32. "
+                "On Ubuntu, install picolibc-riscv64-unknown-elf; on other systems, "
+                "install an RV32 bare-metal libc for riscv64-unknown-elf-gcc."
+            )
         rv32_lib = rv32_libc.parent
-        target_root = toolchain_root / "riscv64-unknown-elf"
-        include_dir = target_root / "include"
-        if not rv32_libc.exists():
-            raise SystemExit(f"missing RV32 multilib libc for CV32E40P hello_world: {rv32_libc}")
-        if not include_dir.exists():
-            raise SystemExit(f"missing RISC-V target include directory: {include_dir}")
+        include_dir = infer_include_dir(toolchain_root, rv32_libc)
         compat_root.mkdir(parents=True, exist_ok=True)
         if compat_target.is_symlink():
             compat_target.unlink()

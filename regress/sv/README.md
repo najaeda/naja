@@ -18,7 +18,9 @@ Verilog netlist, then runs selected Verilator stages on that generated netlist.
 - Install a RISC-V firmware toolchain for `helloworld_sim`. The scripts prefer the
   `riscv32-unknown-elf-` prefix and fall back to the common macOS
   `riscv64-unknown-elf-` prefix. `RISCV` is inferred from `PATH` when unset for
-  CV32E40P.
+  CV32E40P. On Ubuntu, `gcc-riscv64-unknown-elf` also needs
+  `picolibc-riscv64-unknown-elf` for the RV32 bare-metal C library used by the
+  CV32E40P firmware.
 
 GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
 `External SV Regress` workflow runs lint for the small external designs and
