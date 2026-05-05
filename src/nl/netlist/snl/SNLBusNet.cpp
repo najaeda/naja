@@ -302,7 +302,7 @@ const char* SNLBusNet::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNet::getString() const {
-  return getName().getString() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
+  return SNLUtils::getBusNamedString(getName(), "net", getID(), getMSB(), getLSB());
 }
 //LCOV_EXCL_STOP
 

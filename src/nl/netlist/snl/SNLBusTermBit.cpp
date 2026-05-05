@@ -9,6 +9,7 @@
 #include "NLException.h"
 
 #include "SNLBusTerm.h"
+#include "SNLUtils.h"
 
 namespace naja::NL {
 
@@ -90,7 +91,7 @@ const char* SNLBusTermBit::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTermBit::getString() const {
-  return getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]";
+  return SNLUtils::getBitNamedString(getBus()->getName(), "term", getBus()->getID(), getBit());
 }
 //LCOV_EXCL_STOP
 

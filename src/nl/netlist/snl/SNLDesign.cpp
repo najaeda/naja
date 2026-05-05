@@ -28,6 +28,7 @@
 #include "SNLDesignModeling.h"
 #include "SNLExceptions.h"
 #include "SNLRTLInfos.h"
+#include "SNLUtils.h"
 
 namespace naja::NL {
 
@@ -695,11 +696,7 @@ const char* SNLDesign::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLDesign::getString() const {
-  if (not isUnnamed()) {
-    return getName().getString();
-  } else {
-    return "<unnamed>";
-  }
+  return SNLUtils::getNamedString(getName(), "design", getID());
 }
 //LCOV_EXCL_STOP
 

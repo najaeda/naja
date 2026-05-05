@@ -434,7 +434,7 @@ const char* SNLBusTerm::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTerm::getString() const {
-  return getName().getString() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
+  return SNLUtils::getBusNamedString(getName(), "term", getID(), getMSB(), getLSB());
 }
 //LCOV_EXCL_STOP
 

@@ -8,6 +8,7 @@
 #include "NLException.h"
 
 #include "SNLBusNet.h"
+#include "SNLUtils.h"
 
 namespace naja::NL {
 
@@ -76,7 +77,7 @@ NLName SNLBusNetBit::getName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNetBit::getString() const {
-  return getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]";
+  return SNLUtils::getBitNamedString(getBus()->getName(), "net", getBus()->getID(), getBit());
 }
 //LCOV_EXCL_STOP
 

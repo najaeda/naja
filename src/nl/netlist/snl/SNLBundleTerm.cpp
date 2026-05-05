@@ -16,6 +16,7 @@
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLMacros.h"
+#include "SNLUtils.h"
 
 namespace naja::NL {
 
@@ -203,7 +204,7 @@ const char* SNLBundleTerm::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBundleTerm::getString() const {
-  return getName().getString();
+  return SNLUtils::getNamedString(getName(), "term", getID());
 }
 //LCOV_EXCL_STOP
 

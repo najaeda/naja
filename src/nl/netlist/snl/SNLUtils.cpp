@@ -80,4 +80,33 @@ SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
   return nullptr;
 }
 
+std::string SNLUtils::getUnnamedIDString(const char* tag, std::uint64_t id) {
+  return "<" + std::string(tag) + ":" + std::to_string(id) + ">";
+}
+
+std::string SNLUtils::getNamedString(const NLName& name, const char* tag, std::uint64_t id) {
+  if (not name.empty()) {
+    return name.getString();
+  }
+  return getUnnamedIDString(tag, id);
+}
+
+std::string SNLUtils::getBusNamedString(
+    const NLName& name,
+    const char* tag,
+    std::uint64_t id,
+    NLID::Bit msb,
+    NLID::Bit lsb) {
+  return getNamedString(name, tag, id) + "["
+    + std::to_string(msb) + ":" + std::to_string(lsb) + "]";
+}
+
+std::string SNLUtils::getBitNamedString(
+    const NLName& name,
+    const char* tag,
+    std::uint64_t id,
+    NLID::Bit bit) {
+  return getNamedString(name, tag, id) + "[" + std::to_string(bit) + "]";
+}
+
 }  // namespace naja::NL
