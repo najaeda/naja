@@ -14,6 +14,7 @@ class NLUniverse;
 class NLDB;
 class NLLibrary;
 class SNLDesign;
+class SNLInstance;
 class SNLScalarTerm;
 class SNLBusTerm;
 
@@ -80,7 +81,21 @@ class NLDB0 {
     static NLLibrary* getDB0RootLibrary();
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
+    /// \brief True only for fully managed memory primitives created by NLDB0.
+    ///
+    /// Liberty/Python clients can still attach a generic memory interface to
+    /// their own primitives with SNLDesignModeling; those designs deliberately
+    /// remain outside NLDB0 ownership and must not be reported here.
     static bool isMemory(const SNLDesign* design);
+    static MemorySignature getMemorySignature(const SNLDesign* design);
+    static MemorySignature getMemorySignature(const SNLInstance* instance);
+    static SNLScalarTerm* getMemoryClock(const SNLDesign* design);
+    static SNLScalarTerm* getMemoryReset(const SNLDesign* design);
+    static SNLBusTerm* getMemoryReadAddress(const SNLDesign* design);
+    static SNLBusTerm* getMemoryReadData(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteAddress(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteData(const SNLDesign* design);
+    static SNLBusTerm* getMemoryWriteEnable(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -177,6 +192,7 @@ class NLDB0 {
     static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
     ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
     static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
+    /// \brief Create or reuse a fully managed DB0 memory primitive.
     static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
   private:
     static NLDB* create(NLUniverse* universe);

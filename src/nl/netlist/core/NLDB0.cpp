@@ -13,6 +13,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLParameter.h"
+#include "SNLInstance.h"
 #include "SNLDesignModeling.h"
 
 #include <cstdint>
@@ -24,6 +25,7 @@
 #endif
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
+  constexpr const char* MemoryLibraryName = "MEMORY";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
   constexpr const char* DLatchName = "naja_dlatch";
   constexpr const char* DFFNName = "naja_dffn";
@@ -108,11 +110,11 @@ namespace {
   }
 
   void createMemoryPrimitive(
-    naja::NL::NLLibrary* rootLibrary,
+    naja::NL::NLLibrary* memoryLibrary,
     const naja::NL::NLDB0::MemorySignature& signature) {
     using namespace naja::NL;
     auto memory = SNLDesign::create(
-      rootLibrary,
+      memoryLibrary,
       SNLDesign::Type::Primitive,
       NLName(getMemoryInternalName(signature)));
 
@@ -348,6 +350,61 @@ namespace {
     }
     SNLDesignModeling::setTruthTables(mux2, truthTables);
   }
+
+  size_t getMemoryDecimalParameter(const naja::NL::SNLDesign* design, const char* name) {
+    auto* parameter = design ? design->getParameter(naja::NL::NLName(name)) : nullptr;
+    if (!parameter) {
+      throw naja::NL::NLException(
+          std::string("NLDB0 memory primitive is missing parameter ") + name);
+    }
+    return static_cast<size_t>(std::stoull(parameter->getValue()));
+  }
+
+  size_t getMemoryDecimalParameter(const naja::NL::SNLInstance* instance, const char* name) {
+    if (!instance) {
+      throw naja::NL::NLException("NLDB0::getMemorySignature: null instance"); // LCOV_EXCL_LINE
+    }
+    if (auto* instParameter = instance->getInstParameter(naja::NL::NLName(name))) {
+      return static_cast<size_t>(std::stoull(instParameter->getValue()));
+    }
+    return getMemoryDecimalParameter(instance->getModel(), name);
+  }
+
+  naja::NL::NLDB0::MemoryResetMode getMemoryResetMode(size_t resetEnable,
+                                                      size_t resetAsync,
+                                                      size_t resetActiveLow) {
+    if (resetEnable == 0) {
+      return naja::NL::NLDB0::MemoryResetMode::None;
+    }
+    if (resetAsync != 0) {
+      return resetActiveLow != 0 ? naja::NL::NLDB0::MemoryResetMode::AsyncLow
+                                 : naja::NL::NLDB0::MemoryResetMode::AsyncHigh;
+    }
+    return resetActiveLow != 0 ? naja::NL::NLDB0::MemoryResetMode::SyncLow
+                               : naja::NL::NLDB0::MemoryResetMode::SyncHigh;
+  }
+
+  naja::NL::NLLibrary* getMemoryLibrary() {
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return rootLibrary->getLibrary(naja::NL::NLName(MemoryLibraryName));
+  }
+
+  naja::NL::NLLibrary* getOrCreateMemoryLibrary() {
+    if (auto* existing = getMemoryLibrary()) {
+      return existing;
+    }
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return naja::NL::NLLibrary::create(
+        rootLibrary,
+        naja::NL::NLLibrary::Type::Primitives,
+        naja::NL::NLName(MemoryLibraryName));
+  }
 }
 
 namespace naja::NL {
@@ -463,11 +520,90 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 }
 
 bool NLDB0::isMemory(const SNLDesign* design) {
-  if (!isDB0Primitive(design) || !design || design->isUnnamed()) {
-    return false;
+  return design && design->isPrimitive() && design->getLibrary() == getMemoryLibrary();
+}
+
+NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemorySignature: design is not a memory primitive");
   }
-  const auto& name = design->getName().getString();
-  return name.rfind(MemoryPrefix, 0) == 0;
+  MemorySignature signature;
+  signature.width = getMemoryDecimalParameter(design, "WIDTH");
+  signature.depth = getMemoryDecimalParameter(design, "DEPTH");
+  signature.abits = getMemoryDecimalParameter(design, "ABITS");
+  signature.readPorts = getMemoryDecimalParameter(design, "RD_PORTS");
+  signature.writePorts = getMemoryDecimalParameter(design, "WR_PORTS");
+  signature.resetMode = getMemoryResetMode(
+      getMemoryDecimalParameter(design, "RST_ENABLE"),
+      getMemoryDecimalParameter(design, "RST_ASYNC"),
+      getMemoryDecimalParameter(design, "RST_ACTIVE_LOW"));
+  return signature;
+}
+
+NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLInstance* instance) {
+  if (!instance || !isMemory(instance->getModel())) {
+    throw NLException("NLDB0::getMemorySignature: instance is not a memory primitive");
+  }
+  MemorySignature signature;
+  signature.width = getMemoryDecimalParameter(instance, "WIDTH");
+  signature.depth = getMemoryDecimalParameter(instance, "DEPTH");
+  signature.abits = getMemoryDecimalParameter(instance, "ABITS");
+  signature.readPorts = getMemoryDecimalParameter(instance, "RD_PORTS");
+  signature.writePorts = getMemoryDecimalParameter(instance, "WR_PORTS");
+  signature.resetMode = getMemoryResetMode(
+      getMemoryDecimalParameter(instance, "RST_ENABLE"),
+      getMemoryDecimalParameter(instance, "RST_ASYNC"),
+      getMemoryDecimalParameter(instance, "RST_ACTIVE_LOW"));
+  return signature;
+}
+
+SNLScalarTerm* NLDB0::getMemoryClock(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryClock: design is not a memory primitive");
+  }
+  return design->getScalarTerm(NLName("CLK"));
+}
+
+SNLScalarTerm* NLDB0::getMemoryReset(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryReset: design is not a memory primitive");
+  }
+  return design->getScalarTerm(NLName("RST"));
+}
+
+SNLBusTerm* NLDB0::getMemoryReadAddress(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryReadAddress: design is not a memory primitive");
+  }
+  return design->getBusTerm(NLName("RADDR"));
+}
+
+SNLBusTerm* NLDB0::getMemoryReadData(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryReadData: design is not a memory primitive");
+  }
+  return design->getBusTerm(NLName("RDATA"));
+}
+
+SNLBusTerm* NLDB0::getMemoryWriteAddress(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryWriteAddress: design is not a memory primitive");
+  }
+  return design->getBusTerm(NLName("WADDR"));
+}
+
+SNLBusTerm* NLDB0::getMemoryWriteData(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryWriteData: design is not a memory primitive");
+  }
+  return design->getBusTerm(NLName("WDATA"));
+}
+
+SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
+  if (!isMemory(design)) {
+    throw NLException("NLDB0::getMemoryWriteEnable: design is not a memory primitive");
+  }
+  return design->getBusTerm(NLName("WE"));
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
@@ -544,8 +680,8 @@ std::string designName = design->getLibrary()->getName().getString() + "." + des
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
-  auto* primitives = getDB0RootLibrary();
-  if (!primitives) {
+  auto* memoryLibrary = getOrCreateMemoryLibrary();
+  if (!memoryLibrary) {
     return nullptr;
   }
   if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
@@ -553,11 +689,11 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
     throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
   }
   const auto name = NLName(getMemoryInternalName(signature));
-  if (auto* existing = primitives->getSNLDesign(name)) {
+  if (auto* existing = memoryLibrary->getSNLDesign(name)) {
     return existing;
   }
-  createMemoryPrimitive(primitives, signature);
-  return primitives->getSNLDesign(name);
+  createMemoryPrimitive(memoryLibrary, signature);
+  return memoryLibrary->getSNLDesign(name);
 }
 
 SNLDesign* NLDB0::getAssign() {

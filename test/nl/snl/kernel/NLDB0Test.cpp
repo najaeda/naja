@@ -12,6 +12,8 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesignModeling.h"
+#include "SNLInstance.h"
+#include "SNLParameter.h"
 #include "NLException.h"
 #include <algorithm>
 using namespace naja::NL;
@@ -349,6 +351,34 @@ TEST_F(NLDB0Test, testWideMux2ModelingArcs) {
   }
 }
 
+TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* mux24 = NLDB0::getOrCreateMux2(4);
+  ASSERT_NE(nullptr, mux24);
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library =
+      NLLibrary::create(db, NLLibrary::Type::Standard, NLName("designs"));
+  ASSERT_NE(nullptr, library);
+
+  auto* top =
+      SNLDesign::create(library, SNLDesign::Type::Standard, NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* muxInstance = SNLInstance::create(top, mux24, NLName("mux0"));
+  ASSERT_NE(nullptr, muxInstance);
+
+  auto* topClone = top->clone(NLName("topClone"));
+  ASSERT_NE(nullptr, topClone);
+  auto* clonedMuxInstance = topClone->getInstance(NLName("mux0"));
+  ASSERT_NE(nullptr, clonedMuxInstance);
+  EXPECT_EQ(mux24, clonedMuxInstance->getModel());
+  EXPECT_TRUE(NLDB0::isDB0Primitive(clonedMuxInstance->getModel()));
+  EXPECT_TRUE(NLDB0::isMux2(clonedMuxInstance->getModel()));
+}
+
 TEST_F(NLDB0Test, testMemoryPrimitive) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -366,18 +396,21 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_TRUE(memory0->isPrimitive());
   EXPECT_TRUE(NLDB0::isDB0Primitive(memory0));
   EXPECT_TRUE(NLDB0::isMemory(memory0));
+  ASSERT_NE(nullptr, memory0->getLibrary());
+  EXPECT_EQ(NLName("MEMORY"), memory0->getLibrary()->getName());
   EXPECT_EQ(NLName("naja_mem__w8_d16_a4_r2_w3_rst_async_low"), memory0->getName());
+  EXPECT_EQ(signature, NLDB0::getMemorySignature(memory0));
 
   auto* memory1 = NLDB0::getOrCreateMemory(signature);
   EXPECT_EQ(memory0, memory1);
 
-  ASSERT_NE(nullptr, memory0->getScalarTerm(NLName("CLK")));
-  ASSERT_NE(nullptr, memory0->getScalarTerm(NLName("RST")));
-  auto* raddr = memory0->getBusTerm(NLName("RADDR"));
-  auto* rdata = memory0->getBusTerm(NLName("RDATA"));
-  auto* waddr = memory0->getBusTerm(NLName("WADDR"));
-  auto* wdata = memory0->getBusTerm(NLName("WDATA"));
-  auto* we = memory0->getBusTerm(NLName("WE"));
+  ASSERT_NE(nullptr, NLDB0::getMemoryClock(memory0));
+  ASSERT_NE(nullptr, NLDB0::getMemoryReset(memory0));
+  auto* raddr = NLDB0::getMemoryReadAddress(memory0);
+  auto* rdata = NLDB0::getMemoryReadData(memory0);
+  auto* waddr = NLDB0::getMemoryWriteAddress(memory0);
+  auto* wdata = NLDB0::getMemoryWriteData(memory0);
+  auto* we = NLDB0::getMemoryWriteEnable(memory0);
   ASSERT_NE(nullptr, raddr);
   ASSERT_NE(nullptr, rdata);
   ASSERT_NE(nullptr, waddr);
@@ -403,8 +436,8 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_TRUE(SNLDesignModeling::hasModeling(memory0));
   EXPECT_TRUE(SNLDesignModeling::isSequential(memory0));
 
-  auto* clk = memory0->getScalarTerm(NLName("CLK"));
-  auto* rst = memory0->getScalarTerm(NLName("RST"));
+  auto* clk = NLDB0::getMemoryClock(memory0);
+  auto* rst = NLDB0::getMemoryReset(memory0);
   ASSERT_NE(nullptr, clk);
   ASSERT_NE(nullptr, rst);
 
@@ -419,14 +452,69 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_EQ(raddr->getWidth() / 2, readInputs.size());
 }
 
+TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* db = NLDB0::getDB0();
+  ASSERT_NE(nullptr, db);
+  auto* topLibrary = NLLibrary::create(db, NLName("WORK"));
+  auto* top = SNLDesign::create(topLibrary, SNLDesign::Type::Standard, NLName("top"));
+  NLDB0::MemorySignature signatureTemplate;
+  signatureTemplate.width = 4;
+  signatureTemplate.depth = 8;
+  signatureTemplate.abits = 3;
+  signatureTemplate.readPorts = 1;
+  signatureTemplate.writePorts = 1;
+  signatureTemplate.resetMode = NLDB0::MemoryResetMode::None;
+  auto* memory = NLDB0::getOrCreateMemory(signatureTemplate);
+  ASSERT_NE(nullptr, memory);
+  EXPECT_EQ(signatureTemplate, NLDB0::getMemorySignature(memory));
+
+  auto* inst = SNLInstance::create(top, memory, NLName("mem0"));
+  ASSERT_NE(nullptr, inst);
+  EXPECT_EQ(signatureTemplate, NLDB0::getMemorySignature(inst));
+  SNLInstParameter::create(inst, memory->getParameter(NLName("WIDTH")), "7");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("DEPTH")), "4");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("ABITS")), "2");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("RD_PORTS")), "3");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("WR_PORTS")), "2");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("RST_ENABLE")), "1");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("RST_ASYNC")), "0");
+  SNLInstParameter::create(inst, memory->getParameter(NLName("RST_ACTIVE_LOW")), "1");
+
+  const auto signature = NLDB0::getMemorySignature(inst);
+  EXPECT_EQ(7u, signature.width);
+  EXPECT_EQ(4u, signature.depth);
+  EXPECT_EQ(2u, signature.abits);
+  EXPECT_EQ(3u, signature.readPorts);
+  EXPECT_EQ(2u, signature.writePorts);
+  EXPECT_EQ(NLDB0::MemoryResetMode::SyncLow, signature.resetMode);
+
+  const auto instInterface = SNLDesignModeling::getMemoryInterface(inst);
+  EXPECT_EQ(7u, instInterface.width);
+  EXPECT_EQ(4u, instInterface.depth);
+  EXPECT_EQ(2u, instInterface.abits);
+  EXPECT_EQ(SNLDesignModeling::MemoryResetMode::SyncLow, instInterface.resetMode);
+  EXPECT_EQ(nullptr, instInterface.clock);
+  EXPECT_TRUE(instInterface.readPorts.empty());
+  EXPECT_TRUE(instInterface.writePorts.empty());
+
+  EXPECT_THROW(
+      NLDB0::getMemorySignature(static_cast<const SNLInstance*>(nullptr)),
+      NLException);
+}
+
 TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
 
   auto checkMemory = [](NLDB0::MemoryResetMode mode,
                         const char* expectedName,
+                        const char* expectedEnable,
                         const char* expectedAsync,
-                        const char* expectedActiveLow) {
+                        const char* expectedActiveLow,
+                        SNLDesignModeling::MemoryResetMode expectedModelingMode) {
     NLDB0::MemorySignature signature;
     signature.width = 4;
     signature.depth = 8;
@@ -438,21 +526,152 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     auto* memory = NLDB0::getOrCreateMemory(signature);
     ASSERT_NE(nullptr, memory);
     EXPECT_EQ(NLName(expectedName), memory->getName());
-    EXPECT_EQ("1", memory->getParameter(NLName("RST_ENABLE"))->getValue());
+    EXPECT_EQ(expectedEnable, memory->getParameter(NLName("RST_ENABLE"))->getValue());
     EXPECT_EQ(expectedAsync, memory->getParameter(NLName("RST_ASYNC"))->getValue());
     EXPECT_EQ(expectedActiveLow, memory->getParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+    EXPECT_EQ(expectedModelingMode, SNLDesignModeling::getMemoryInterface(memory).resetMode);
   };
 
   checkMemory(
+    NLDB0::MemoryResetMode::None,
+    "naja_mem__w4_d8_a3_r1_w1_rst_none",
+    "0",
+    "0",
+    "0",
+    SNLDesignModeling::MemoryResetMode::None);
+  checkMemory(
+    NLDB0::MemoryResetMode::AsyncHigh,
+    "naja_mem__w4_d8_a3_r1_w1_rst_async_high",
+    "1",
+    "1",
+    "0",
+    SNLDesignModeling::MemoryResetMode::AsyncHigh);
+  checkMemory(
     NLDB0::MemoryResetMode::SyncLow,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_low",
+    "1",
     "0",
-    "1");
+    "1",
+    SNLDesignModeling::MemoryResetMode::SyncLow);
   checkMemory(
     NLDB0::MemoryResetMode::SyncHigh,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_high",
+    "1",
     "0",
-    "0");
+    "0",
+    SNLDesignModeling::MemoryResetMode::SyncHigh);
+}
+
+TEST_F(NLDB0Test, testMalformedDB0MemorySignatureThrows) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::MemorySignature signature;
+  signature.width = 4;
+  signature.depth = 8;
+  signature.abits = 3;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(nullptr, memory);
+  auto* memoryLibrary = memory->getLibrary();
+  ASSERT_NE(nullptr, memoryLibrary);
+
+  auto* malformed = SNLDesign::create(
+      memoryLibrary,
+      SNLDesign::Type::Primitive,
+      NLName("naja_mem__missing_width"));
+  ASSERT_TRUE(NLDB0::isMemory(malformed));
+  EXPECT_THROW(NLDB0::getMemorySignature(malformed), NLException);
+}
+
+TEST_F(NLDB0Test, testMemoryRecognitionIsScopedToDB0MemoryLibrary) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("work"));
+  ASSERT_NE(nullptr, library);
+
+  auto* memory = SNLDesign::create(
+      library,
+      SNLDesign::Type::Primitive,
+      NLName("naja_mem__w8_d4_a2_r1_w1_rst_async_low"));
+  ASSERT_NE(nullptr, memory);
+  EXPECT_FALSE(NLDB0::isDB0Primitive(memory));
+
+  SNLParameter::create(memory, NLName("WIDTH"), SNLParameter::Type::Decimal, "8");
+  SNLParameter::create(memory, NLName("DEPTH"), SNLParameter::Type::Decimal, "4");
+  SNLParameter::create(memory, NLName("ABITS"), SNLParameter::Type::Decimal, "2");
+  SNLParameter::create(memory, NLName("RD_PORTS"), SNLParameter::Type::Decimal, "1");
+  SNLParameter::create(memory, NLName("WR_PORTS"), SNLParameter::Type::Decimal, "1");
+  SNLParameter::create(memory, NLName("RST_ENABLE"), SNLParameter::Type::Decimal, "1");
+  SNLParameter::create(memory, NLName("RST_ASYNC"), SNLParameter::Type::Decimal, "1");
+  SNLParameter::create(memory, NLName("RST_ACTIVE_LOW"), SNLParameter::Type::Decimal, "1");
+  SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "32'b0");
+
+  auto* clk = SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
+  auto* rst = SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+  auto* raddr =
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, 1, 0, NLName("RADDR"));
+  auto* rdata =
+      SNLBusTerm::create(memory, SNLTerm::Direction::Output, 7, 0, NLName("RDATA"));
+  auto* waddr =
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, 1, 0, NLName("WADDR"));
+  auto* wdata =
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, 7, 0, NLName("WDATA"));
+  auto* we = SNLBusTerm::create(memory, SNLTerm::Direction::Input, 0, 0, NLName("WE"));
+
+  SNLDesignModeling::MemoryInterface interface;
+  interface.width = 8;
+  interface.depth = 4;
+  interface.abits = 2;
+  interface.clock = clk;
+  interface.reset = rst;
+  interface.resetMode = SNLDesignModeling::MemoryResetMode::AsyncLow;
+  interface.readPorts.push_back(
+      {.address = {static_cast<SNLBitTerm*>(raddr->getBit(0)),
+                   static_cast<SNLBitTerm*>(raddr->getBit(1))},
+       .data = {static_cast<SNLBitTerm*>(rdata->getBit(0)),
+                static_cast<SNLBitTerm*>(rdata->getBit(1)),
+                static_cast<SNLBitTerm*>(rdata->getBit(2)),
+                static_cast<SNLBitTerm*>(rdata->getBit(3)),
+                static_cast<SNLBitTerm*>(rdata->getBit(4)),
+                static_cast<SNLBitTerm*>(rdata->getBit(5)),
+                static_cast<SNLBitTerm*>(rdata->getBit(6)),
+                static_cast<SNLBitTerm*>(rdata->getBit(7))}});
+  interface.writePorts.push_back(
+      {.address = {static_cast<SNLBitTerm*>(waddr->getBit(0)),
+                   static_cast<SNLBitTerm*>(waddr->getBit(1))},
+       .data = {static_cast<SNLBitTerm*>(wdata->getBit(0)),
+                static_cast<SNLBitTerm*>(wdata->getBit(1)),
+                static_cast<SNLBitTerm*>(wdata->getBit(2)),
+                static_cast<SNLBitTerm*>(wdata->getBit(3)),
+                static_cast<SNLBitTerm*>(wdata->getBit(4)),
+                static_cast<SNLBitTerm*>(wdata->getBit(5)),
+                static_cast<SNLBitTerm*>(wdata->getBit(6)),
+                static_cast<SNLBitTerm*>(wdata->getBit(7))},
+       .enables = {static_cast<SNLBitTerm*>(we->getBit(0))}});
+  SNLDesignModeling::setMemoryInterface(memory, interface);
+
+  EXPECT_TRUE(SNLDesignModeling::hasMemoryInterface(memory));
+  EXPECT_FALSE(NLDB0::isMemory(memory));
+  EXPECT_THROW(NLDB0::getMemorySignature(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryClock(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReset(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReadAddress(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryReadData(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteAddress(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteData(memory), NLException);
+  EXPECT_THROW(NLDB0::getMemoryWriteEnable(memory), NLException);
+
+  auto* designs = NLLibrary::create(db, NLName("designs"));
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* inst = SNLInstance::create(top, memory, NLName("non_db0_mem"));
+  EXPECT_THROW(NLDB0::getMemorySignature(inst), NLException);
 }
 
 TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
