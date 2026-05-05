@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -11,6 +12,15 @@ REGRESS_SV_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(REGRESS_SV_ROOT))
 
 import sv_regress
+
+CV32E40P_HELPER_SPEC = importlib.util.spec_from_file_location(
+    "cv32e40p_example_tb",
+    REGRESS_SV_ROOT / "helloworld_sim" / "cv32e40p_example_tb.py",
+)
+assert CV32E40P_HELPER_SPEC is not None
+cv32e40p_example_tb = importlib.util.module_from_spec(CV32E40P_HELPER_SPEC)
+assert CV32E40P_HELPER_SPEC.loader is not None
+CV32E40P_HELPER_SPEC.loader.exec_module(cv32e40p_example_tb)
 
 
 class SVRegressRunnerTest(unittest.TestCase):
@@ -121,6 +131,21 @@ cases:
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
         self.assertIn("--require-helloworld-sim-tools", workflow)
+
+    def test_cv32e40p_helper_patches_errno_redeclaration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            syscalls = Path(tmpdir) / "syscalls.c"
+            syscalls.write_text(
+                "#include <errno.h>\n#undef errno\nextern int errno;\nerrno = ENOSYS;\n",
+                encoding="utf-8",
+            )
+
+            cv32e40p_example_tb.patch_syscalls_errno_declaration(syscalls)
+
+            patched = syscalls.read_text(encoding="utf-8")
+        self.assertIn("#include <errno.h>\nerrno = ENOSYS;\n", patched)
+        self.assertNotIn("#undef errno", patched)
+        self.assertNotIn("extern int errno", patched)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {

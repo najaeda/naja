@@ -189,6 +189,15 @@ def write_generated_netlist_tb_subsystem(source: Path, target: Path) -> Path:
     return target
 
 
+def patch_syscalls_errno_declaration(source: Path) -> None:
+    text = source.read_text(encoding="utf-8")
+    old = "#include <errno.h>\n#undef errno\nextern int errno;\n"
+    new = "#include <errno.h>\n"
+    if old not in text:
+        return
+    source.write_text(text.replace(old, new), encoding="utf-8")
+
+
 def write_verilator_mm_ram(source: Path, target: Path) -> Path:
     text = source.read_text(encoding="utf-8")
     guarded_instance = """`ifndef VERILATOR
@@ -327,6 +336,8 @@ def build_firmware(
     tool_prefix: str,
     env: dict[str, str],
 ) -> Path:
+    patch_syscalls_errno_declaration(tb_dir / "custom" / "syscalls.c")
+
     if program_name == "hello_world":
         run([
             "make",
