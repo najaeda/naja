@@ -5,7 +5,6 @@
 #include "gtest/gtest.h"
 
 #include <array>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -570,138 +569,6 @@ std::string formatStringVector(const std::vector<std::string>& values) {
     stream << values[i];
   }
   return stream.str();
-}
-
-struct Cva6SourceContext {
-  std::filesystem::path cva6RepoDir;
-  std::filesystem::path hpdcacheDir;
-  std::string targetCfg;
-};
-
-std::optional<Cva6SourceContext> resolveCva6SourceContext() {
-  const auto* cva6RepoDirEnv = std::getenv("CVA6_REPO_DIR");
-  const auto* hpdcacheDirEnv = std::getenv("HPDCACHE_DIR");
-  const auto* targetCfgEnv = std::getenv("TARGET_CFG");
-
-  std::filesystem::path cva6RepoDir;
-  if (cva6RepoDirEnv != nullptr && *cva6RepoDirEnv != '\0') {
-    cva6RepoDir = cva6RepoDirEnv;
-  } else {
-    const std::filesystem::path fallbackRepoDir("/Users/noamcohen/dev/CVA6/cva6");
-    if (std::filesystem::exists(fallbackRepoDir)) {
-      cva6RepoDir = fallbackRepoDir;
-    }
-  }
-
-  if (cva6RepoDir.empty() || !std::filesystem::exists(cva6RepoDir)) {
-    return std::nullopt;
-  }
-
-  std::filesystem::path hpdcacheDir;
-  if (hpdcacheDirEnv != nullptr && *hpdcacheDirEnv != '\0') {
-    hpdcacheDir = hpdcacheDirEnv;
-  } else {
-    const auto fallbackHpdcacheDir =
-        cva6RepoDir / "core" / "cache_subsystem" / "hpdcache";
-    if (std::filesystem::exists(fallbackHpdcacheDir)) {
-      hpdcacheDir = fallbackHpdcacheDir;
-    }
-  }
-
-  if (hpdcacheDir.empty() || !std::filesystem::exists(hpdcacheDir)) {
-    return std::nullopt;
-  }
-
-  std::string targetCfg = "cv64a6_imafdc_sv39";
-  if (targetCfgEnv != nullptr && *targetCfgEnv != '\0') {
-    targetCfg = targetCfgEnv;
-  }
-
-  return Cva6SourceContext{
-      std::move(cva6RepoDir), std::move(hpdcacheDir), std::move(targetCfg)};
-}
-
-std::string substituteFlistVariables(
-    std::string text,
-    const Cva6SourceContext& context) {
-  const std::array<std::pair<std::string_view, std::string>, 3> substitutions{{
-      {"${CVA6_REPO_DIR}", context.cva6RepoDir.string()},
-      {"${HPDCACHE_DIR}", context.hpdcacheDir.string()},
-      {"${TARGET_CFG}", context.targetCfg},
-  }};
-
-  for (const auto& [needle, replacement] : substitutions) {
-    size_t pos = 0;
-    while ((pos = text.find(needle, pos)) != std::string::npos) {
-      text.replace(pos, needle.size(), replacement);
-      pos += replacement.size();
-    }
-  }
-  return text;
-}
-
-void collectExpandedSlangArgsFromCommandFile(
-    const std::filesystem::path& commandFile,
-    const Cva6SourceContext& context,
-    std::unordered_set<std::string>& visitedFiles,
-    std::vector<std::string>& args) {
-  const auto normalizedPath = std::filesystem::weakly_canonical(commandFile);
-  if (!visitedFiles.insert(normalizedPath.string()).second) {
-    return;
-  }
-
-  std::ifstream input(normalizedPath);
-  ASSERT_TRUE(input.good()) << "Failed to read command file: " << normalizedPath.string();
-
-  std::string line;
-  while (std::getline(input, line)) {
-    line = substituteFlistVariables(line, context);
-    const auto commentPos = line.find("//");
-    if (commentPos != std::string::npos) {
-      line.erase(commentPos);
-    }
-    const auto first = line.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) {
-      continue;
-    }
-    const auto last = line.find_last_not_of(" \t\r\n");
-    line = line.substr(first, last - first + 1);
-    if (line.empty()) {
-      continue;
-    }
-
-    if (line.rfind("-F ", 0) == 0 || line.rfind("-f ", 0) == 0) {
-      const auto nestedPath =
-          normalizedPath.parent_path() / line.substr(3);
-      collectExpandedSlangArgsFromCommandFile(
-          nestedPath, context, visitedFiles, args);
-      continue;
-    }
-    args.push_back(std::move(line));
-  }
-}
-
-SNLSVConstructor::Paths buildExpandedCva6SlangArgs(
-    const Cva6SourceContext& context,
-    const std::string& topName,
-    const std::vector<std::filesystem::path>& extraSources = {}) {
-  const auto flistPath = context.cva6RepoDir / "core" / "Flist.cva6";
-  std::unordered_set<std::string> visitedFiles;
-  std::vector<std::string> args;
-  collectExpandedSlangArgsFromCommandFile(
-      flistPath, context, visitedFiles, args);
-  for (const auto& extraSource : extraSources) {
-    args.push_back(extraSource.string());
-  }
-  args.push_back("--top");
-  args.push_back(topName);
-
-  SNLSVConstructor::Paths paths;
-  paths.reserve(args.size());
-  for (const auto& arg : args) {
-    paths.emplace_back(arg);
-  }
-  return paths;
 }
 
 void expectUnsupportedConstruct(
@@ -5724,397 +5591,267 @@ endmodule
   EXPECT_TRUE(boundaryIssues.empty()) << formatStringVector(boundaryIssues);
 }
 
-TEST_F(
-  SNLSVConstructorTestMemoryInference,
-  parseRealCva6PerfCountersModuleKeepsStructuredMemoryDependenciesSupported) {
-  const auto context = resolveCva6SourceContext();
-  if (!context.has_value()) {
-    GTEST_SKIP() << "CVA6 source tree is not available for the real-source memory regression test";
-  }
+std::string makeIndependentCva6PerfCountersSource(
+    const std::string& moduleName,
+    bool useConfigParameter = false) {
+  std::ostringstream source;
+  if (useConfigParameter) {
+    source << R"(package independent_cva6_cfg_pkg;
+  typedef struct packed {
+    int unsigned XLEN;
+    int unsigned MHPMCounterNum;
+  } cva6_cfg_t;
+  localparam cva6_cfg_t cva6_cfg = '{XLEN: 64, MHPMCounterNum: 3};
+endpackage
 
+module )" << moduleName << R"( import independent_cva6_cfg_pkg::*;
+#(
+  parameter cva6_cfg_t CVA6Cfg = cva6_cfg
+) (
+)";
+  } else {
+    source << "module " << moduleName << R"((
+)";
+  }
+  source << R"(  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic        debug_mode_i,
+  input  logic [11:0] addr_i,
+  input  logic        we_i,
+  input  logic [63:0] data_i,
+  input  logic [31:0] mcountinhibit_i,
+  input  logic [2:0]  event_inputs_i,
+  input  logic [1:0][3:0] commit_fu_i,
+  input  logic [1:0][3:0] commit_op_i,
+  input  logic [1:0][4:0] commit_rd_i,
+  input  logic [1:0] commit_ack_i,
+  output logic [63:0] data_o
+);
+)";
+  if (useConfigParameter) {
+    source << R"(  localparam int unsigned XLEN = CVA6Cfg.XLEN;
+  localparam int unsigned MHPMCounterNum = CVA6Cfg.MHPMCounterNum;
+)";
+  } else {
+    source << R"(  localparam int unsigned XLEN = 64;
+  localparam int unsigned MHPMCounterNum = 3;
+)";
+  }
+  source << R"(
+  typedef logic [11:0] csr_addr_t;
+  localparam csr_addr_t CSR_MHPM_COUNTER_3  = 12'hB03;
+  localparam csr_addr_t CSR_MHPM_COUNTER_3H = 12'hB83;
+  localparam csr_addr_t CSR_MHPM_EVENT_3    = 12'h323;
+  localparam csr_addr_t CSR_HPM_COUNTER_3   = 12'hC03;
+  localparam csr_addr_t CSR_HPM_COUNTER_3H  = 12'hC83;
+
+  localparam logic [3:0] LOAD      = 4'd1;
+  localparam logic [3:0] STORE     = 4'd2;
+  localparam logic [3:0] CTRL_FLOW = 4'd3;
+  localparam logic [3:0] ADD       = 4'd4;
+  localparam logic [3:0] JALR      = 4'd5;
+
+  logic [63:0] generic_counter_d[MHPMCounterNum:1];
+  logic [63:0] generic_counter_q[MHPMCounterNum:1];
+  logic [4:0]  mhpmevent_d[MHPMCounterNum:1];
+  logic [4:0]  mhpmevent_q[MHPMCounterNum:1];
+  logic        events[MHPMCounterNum:1];
+  logic [1:0]  load_event;
+  logic [1:0]  store_event;
+  logic [1:0]  branch_event;
+  logic [1:0]  call_event;
+  logic [1:0]  return_event;
+  logic        read_access_exception;
+  logic        update_access_exception;
+
+  always_comb begin : Mux
+    events[MHPMCounterNum:1] = '{default: 1'b0};
+    load_event = '0;
+    store_event = '0;
+    branch_event = '0;
+    call_event = '0;
+    return_event = '0;
+
+    for (int unsigned j = 0; j < 2; j++) begin
+      load_event[j] = commit_ack_i[j] & (commit_fu_i[j] == LOAD);
+      store_event[j] = commit_ack_i[j] & (commit_fu_i[j] == STORE);
+      branch_event[j] = commit_ack_i[j] & (commit_fu_i[j] == CTRL_FLOW);
+      call_event[j] = commit_ack_i[j] & (commit_fu_i[j] == CTRL_FLOW) &
+                      ((commit_op_i[j] == ADD) | (commit_op_i[j] == JALR)) &
+                      ((commit_rd_i[j] == 5'd1) | (commit_rd_i[j] == 5'd5));
+      return_event[j] = commit_ack_i[j] & (commit_op_i[j] == JALR) &
+                        (commit_rd_i[j] == 5'd0);
+    end
+
+    for (int unsigned i = 1; i <= MHPMCounterNum; i++) begin
+      if (mhpmevent_q[i] == 5'b00000) begin
+        events[i] = 1'b0;
+      end else if (mhpmevent_q[i] == 5'b00001) begin
+        events[i] = event_inputs_i[i-1];
+      end else if (mhpmevent_q[i] == 5'b00010) begin
+        events[i] = |load_event;
+      end else if (mhpmevent_q[i] == 5'b00011) begin
+        events[i] = |store_event;
+      end else if (mhpmevent_q[i] == 5'b00100) begin
+        events[i] = |branch_event;
+      end else if (mhpmevent_q[i] == 5'b00101) begin
+        events[i] = |call_event;
+      end else if (mhpmevent_q[i] == 5'b00110) begin
+        events[i] = |return_event;
+      end else begin
+        events[i] = we_i ^ addr_i[i % 12];
+      end
+    end
+  end
+
+  always_comb begin : generic_counter
+    generic_counter_d = generic_counter_q;
+    mhpmevent_d = mhpmevent_q;
+    data_o = '0;
+    read_access_exception = 1'b0;
+    update_access_exception = 1'b0;
+
+    for (int unsigned i = 1; i <= MHPMCounterNum; i++) begin
+      if ((!debug_mode_i) && (!we_i)) begin
+        if (((events[i]) == 1'b1) && (!mcountinhibit_i[i+2])) begin
+          generic_counter_d[i] = generic_counter_q[i] + 1'b1;
+        end
+      end
+    end
+
+    if ((addr_i >= CSR_MHPM_COUNTER_3) &&
+        (addr_i < (CSR_MHPM_COUNTER_3 + MHPMCounterNum))) begin
+      if (XLEN == 32) begin
+        data_o[31:0] = generic_counter_q[addr_i-CSR_MHPM_COUNTER_3+1][31:0];
+      end else begin
+        data_o = generic_counter_q[addr_i-CSR_MHPM_COUNTER_3+1];
+      end
+    end else if ((addr_i >= CSR_MHPM_COUNTER_3H) &&
+                 (addr_i < (CSR_MHPM_COUNTER_3H + MHPMCounterNum))) begin
+      if (XLEN == 32) begin
+        data_o[31:0] = generic_counter_q[addr_i-CSR_MHPM_COUNTER_3H+1][63:32];
+      end else begin
+        read_access_exception = 1'b1;
+      end
+    end else if ((addr_i >= CSR_MHPM_EVENT_3) &&
+                 (addr_i < (CSR_MHPM_EVENT_3 + MHPMCounterNum))) begin
+      data_o[4:0] = mhpmevent_q[addr_i-CSR_MHPM_EVENT_3+1];
+    end else if ((addr_i >= CSR_HPM_COUNTER_3) &&
+                 (addr_i < (CSR_HPM_COUNTER_3 + MHPMCounterNum))) begin
+      data_o = generic_counter_q[addr_i-CSR_HPM_COUNTER_3+1];
+    end else if ((addr_i >= CSR_HPM_COUNTER_3H) &&
+                 (addr_i < (CSR_HPM_COUNTER_3H + MHPMCounterNum))) begin
+      if (XLEN == 32) begin
+        data_o[31:0] = generic_counter_q[addr_i-CSR_HPM_COUNTER_3H+1][63:32];
+      end else begin
+        read_access_exception = 1'b1;
+      end
+    end
+
+    if (we_i) begin
+      if ((addr_i >= CSR_MHPM_COUNTER_3) &&
+          (addr_i < (CSR_MHPM_COUNTER_3 + MHPMCounterNum))) begin
+        if (XLEN == 32) begin
+          generic_counter_d[addr_i-CSR_MHPM_COUNTER_3+1][31:0] = data_i[31:0];
+        end else begin
+          generic_counter_d[addr_i-CSR_MHPM_COUNTER_3+1] = data_i;
+        end
+      end else if ((addr_i >= CSR_MHPM_COUNTER_3H) &&
+                   (addr_i < (CSR_MHPM_COUNTER_3H + MHPMCounterNum))) begin
+        if (XLEN == 32) begin
+          generic_counter_d[addr_i-CSR_MHPM_COUNTER_3H+1][63:32] = data_i[31:0];
+        end else begin
+          update_access_exception = 1'b1;
+        end
+      end else if ((addr_i >= CSR_MHPM_EVENT_3) &&
+                   (addr_i < (CSR_MHPM_EVENT_3 + MHPMCounterNum))) begin
+        mhpmevent_d[addr_i-CSR_MHPM_EVENT_3+1] = data_i[4:0];
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      generic_counter_q <= '{default: 0};
+      mhpmevent_q <= '{default: 0};
+    end else begin
+      generic_counter_q <= generic_counter_d;
+      mhpmevent_q <= mhpmevent_d;
+    end
+  end
+endmodule
+)";
+  return source.str();
+}
+
+SNLDesign* constructIndependentCva6PerfCounters(
+    NLLibrary* library,
+    const std::string& moduleName,
+    bool useConfigParameter = false) {
+  SNLSVConstructor constructor(library);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath =
-      outPath /
-      "real_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported";
+  outPath /= moduleName;
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto wrapperPath =
-      outPath /
-      "real_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported.sv";
-  std::ofstream wrapperFile(wrapperPath);
-  ASSERT_TRUE(wrapperFile.good());
-  wrapperFile
-      << R"(module real_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported
-  import ariane_pkg::*;
-#(
-  parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
-) ();
-  localparam type branchpredict_sbe_t = struct packed {
-    cf_t                     cf;
-    logic [CVA6Cfg.VLEN-1:0] predict_address;
-  };
+  const auto svPath = outPath / (moduleName + ".sv");
+  std::ofstream svFile(svPath);
+  if (!svFile.good()) {
+    ADD_FAILURE() << "Failed to create " << svPath.string();
+    return nullptr;
+  }
+  svFile << makeIndependentCva6PerfCountersSource(
+      moduleName, useConfigParameter);
+  svFile.close();
 
-  localparam type exception_t = struct packed {
-    logic [CVA6Cfg.XLEN-1:0]  cause;
-    logic [CVA6Cfg.XLEN-1:0]  tval;
-    logic [CVA6Cfg.GPLEN-1:0] tval2;
-    logic [31:0]              tinst;
-    logic                     gva;
-    logic                     valid;
-  };
+  constructor.construct(svPath);
+  return library->getSNLDesign(NLName(moduleName));
+}
 
-  localparam type bp_resolve_t = struct packed {
-    logic                    valid;
-    logic [CVA6Cfg.VLEN-1:0] pc;
-    logic [CVA6Cfg.VLEN-1:0] target_address;
-    logic                    is_mispredict;
-    logic                    is_taken;
-    cf_t                     cf_type;
-  };
-
-  localparam type icache_dreq_t = struct packed {
-    logic                    req;
-    logic                    kill_s1;
-    logic                    kill_s2;
-    logic                    spec;
-    logic [CVA6Cfg.VLEN-1:0] vaddr;
-  };
-
-  localparam type cbo_t = logic [7:0];
-
-  localparam type dcache_req_i_t = struct packed {
-    logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] address_index;
-    logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]   address_tag;
-    logic [CVA6Cfg.XLEN-1:0]               data_wdata;
-    logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0]  data_wuser;
-    logic                                  data_req;
-    logic                                  data_we;
-    logic [(CVA6Cfg.XLEN/8)-1:0]           data_be;
-    logic [1:0]                            data_size;
-    logic [CVA6Cfg.DcacheIdWidth-1:0]      data_id;
-    logic                                  kill_req;
-    logic                                  tag_valid;
-    cbo_t                                  cbo_op;
-  };
-
-  localparam type scoreboard_entry_t = struct packed {
-    logic [CVA6Cfg.VLEN-1:0]              pc;
-    logic [CVA6Cfg.TRANS_ID_BITS-1:0]     trans_id;
-    fu_t                                  fu;
-    fu_op                                 op;
-    logic [REG_ADDR_SIZE-1:0]             rs1;
-    logic [REG_ADDR_SIZE-1:0]             rs2;
-    logic [REG_ADDR_SIZE-1:0]             rd;
-    logic [CVA6Cfg.XLEN-1:0]              result;
-    logic                                 valid;
-    logic                                 use_imm;
-    logic                                 use_zimm;
-    logic                                 use_pc;
-    exception_t                           ex;
-    branchpredict_sbe_t                   bp;
-    logic                                 is_compressed;
-    logic                                 is_macro_instr;
-    logic                                 is_last_macro_instr;
-    logic                                 is_double_rd_macro_instr;
-    logic                                 vfp;
-    logic                                 is_zcmt;
-  };
-
-  logic clk_i;
-  logic rst_ni;
-  logic debug_mode_i;
-  logic [11:0] addr_i;
-  logic we_i;
-  logic [CVA6Cfg.XLEN-1:0] data_i;
-  logic [CVA6Cfg.XLEN-1:0] data_o;
-  scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i;
-  logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack_i;
-  logic l1_icache_miss_i;
-  logic l1_dcache_miss_i;
-  logic itlb_miss_i;
-  logic dtlb_miss_i;
-  logic sb_full_i;
-  logic if_empty_i;
-  exception_t ex_i;
-  logic eret_i;
-  bp_resolve_t resolved_branch_i;
-  exception_t branch_exceptions_i;
-  icache_dreq_t l1_icache_access_i;
-  dcache_req_i_t [2:0] l1_dcache_access_i;
-  logic [2:0][CVA6Cfg.DCACHE_SET_ASSOC-1:0] miss_vld_bits_i;
-  logic i_tlb_flush_i;
-  logic stall_issue_i;
-  logic [31:0] mcountinhibit_i;
-
-  perf_counters #(
-    .CVA6Cfg(CVA6Cfg),
-    .bp_resolve_t(bp_resolve_t),
-    .dcache_req_i_t(dcache_req_i_t),
-    .dcache_req_o_t(dcache_req_i_t),
-    .exception_t(exception_t),
-    .icache_dreq_t(icache_dreq_t),
-    .scoreboard_entry_t(scoreboard_entry_t)
-  ) dut (
-    .clk_i(clk_i),
-    .rst_ni(rst_ni),
-    .debug_mode_i(debug_mode_i),
-    .addr_i(addr_i),
-    .we_i(we_i),
-    .data_i(data_i),
-    .data_o(data_o),
-    .commit_instr_i(commit_instr_i),
-    .commit_ack_i(commit_ack_i),
-    .l1_icache_miss_i(l1_icache_miss_i),
-    .l1_dcache_miss_i(l1_dcache_miss_i),
-    .itlb_miss_i(itlb_miss_i),
-    .dtlb_miss_i(dtlb_miss_i),
-    .sb_full_i(sb_full_i),
-    .if_empty_i(if_empty_i),
-    .ex_i(ex_i),
-    .eret_i(eret_i),
-    .resolved_branch_i(resolved_branch_i),
-    .branch_exceptions_i(branch_exceptions_i),
-    .l1_icache_access_i(l1_icache_access_i),
-    .l1_dcache_access_i(l1_dcache_access_i),
-    .miss_vld_bits_i(miss_vld_bits_i),
-    .i_tlb_flush_i(i_tlb_flush_i),
-    .stall_issue_i(stall_issue_i),
-    .mcountinhibit_i(mcountinhibit_i)
-  );
-endmodule
-)";
-  wrapperFile.close();
-
-  SNLSVConstructor constructor(library_);
-  const auto args = buildExpandedCva6SlangArgs(
-      *context,
-      "real_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported",
-      {wrapperPath});
-  constructor.construct(args);
-
-  auto* top = library_->getSNLDesign(
-      NLName("real_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported"));
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseIndependentCva6PerfCountersModuleKeepsStructuredMemoryDependenciesSupported) {
+  auto* top = constructIndependentCva6PerfCounters(
+      library_,
+      "independent_cva6_perf_counters_module_keeps_structured_memory_dependencies_supported");
   ASSERT_NE(top, nullptr);
 
-  // Guard the real CVA6 perf-counter source rather than a handwritten model:
-  // every inferred-memory dependency bit exposed by the actual RTL module must
-  // trace through a supported combinational cone instead of later surfacing as
-  // a skipped `structured memory dependency` in KF extraction.
+  // Reproduce the CVA6 perf-counter inferred-memory boundary shape without an
+  // external CVA6 checkout: lower/upper CSR windows, event CSR writes, explicit
+  // event equality, and event muxing must all trace to supported roots.
   const auto boundaryIssues = collectUnsupportedMemoryBoundaryTerms(top);
   EXPECT_TRUE(boundaryIssues.empty()) << formatStringVector(boundaryIssues);
 }
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
-  parseRealCva6PerfCountersModuleWithTargetConfigKeepsStructuredMemoryDependenciesSupported) {
-  const auto context = resolveCva6SourceContext();
-  if (!context.has_value()) {
-    GTEST_SKIP() << "CVA6 source tree is not available for the real-source memory regression test";
-  }
-
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath =
-      outPath /
-      "real_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
-
-  const auto wrapperPath =
-      outPath /
-      "real_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported.sv";
-  std::ofstream wrapperFile(wrapperPath);
-  ASSERT_TRUE(wrapperFile.good());
-  wrapperFile
-      << R"(module real_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported
-  import ariane_pkg::*;
-  import cva6_config_pkg::*;
-#(
-  parameter config_pkg::cva6_cfg_t CVA6Cfg =
-      build_config_pkg::build_config(cva6_cfg)
-) ();
-  localparam type branchpredict_sbe_t = struct packed {
-    cf_t                     cf;
-    logic [CVA6Cfg.VLEN-1:0] predict_address;
-  };
-
-  localparam type exception_t = struct packed {
-    logic [CVA6Cfg.XLEN-1:0]  cause;
-    logic [CVA6Cfg.XLEN-1:0]  tval;
-    logic [CVA6Cfg.GPLEN-1:0] tval2;
-    logic [31:0]              tinst;
-    logic                     gva;
-    logic                     valid;
-  };
-
-  localparam type bp_resolve_t = struct packed {
-    logic                    valid;
-    logic [CVA6Cfg.VLEN-1:0] pc;
-    logic [CVA6Cfg.VLEN-1:0] target_address;
-    logic                    is_mispredict;
-    logic                    is_taken;
-    cf_t                     cf_type;
-  };
-
-  localparam type icache_dreq_t = struct packed {
-    logic                    req;
-    logic                    kill_s1;
-    logic                    kill_s2;
-    logic                    spec;
-    logic [CVA6Cfg.VLEN-1:0] vaddr;
-  };
-
-  localparam type cbo_t = logic [7:0];
-
-  localparam type dcache_req_i_t = struct packed {
-    logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] address_index;
-    logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]   address_tag;
-    logic [CVA6Cfg.XLEN-1:0]               data_wdata;
-    logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0]  data_wuser;
-    logic                                  data_req;
-    logic                                  data_we;
-    logic [(CVA6Cfg.XLEN/8)-1:0]           data_be;
-    logic [1:0]                            data_size;
-    logic [CVA6Cfg.DcacheIdWidth-1:0]      data_id;
-    logic                                  kill_req;
-    logic                                  tag_valid;
-    cbo_t                                  cbo_op;
-  };
-
-  localparam type scoreboard_entry_t = struct packed {
-    logic [CVA6Cfg.VLEN-1:0]              pc;
-    logic [CVA6Cfg.TRANS_ID_BITS-1:0]     trans_id;
-    fu_t                                  fu;
-    fu_op                                 op;
-    logic [REG_ADDR_SIZE-1:0]             rs1;
-    logic [REG_ADDR_SIZE-1:0]             rs2;
-    logic [REG_ADDR_SIZE-1:0]             rd;
-    logic [CVA6Cfg.XLEN-1:0]              result;
-    logic                                 valid;
-    logic                                 use_imm;
-    logic                                 use_zimm;
-    logic                                 use_pc;
-    exception_t                           ex;
-    branchpredict_sbe_t                   bp;
-    logic                                 is_compressed;
-    logic                                 is_macro_instr;
-    logic                                 is_last_macro_instr;
-    logic                                 is_double_rd_macro_instr;
-    logic                                 vfp;
-    logic                                 is_zcmt;
-  };
-
-  logic clk_i;
-  logic rst_ni;
-  logic debug_mode_i;
-  logic [11:0] addr_i;
-  logic we_i;
-  logic [CVA6Cfg.XLEN-1:0] data_i;
-  logic [CVA6Cfg.XLEN-1:0] data_o;
-  scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i;
-  logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack_i;
-  logic l1_icache_miss_i;
-  logic l1_dcache_miss_i;
-  logic itlb_miss_i;
-  logic dtlb_miss_i;
-  logic sb_full_i;
-  logic if_empty_i;
-  exception_t ex_i;
-  logic eret_i;
-  bp_resolve_t resolved_branch_i;
-  exception_t branch_exceptions_i;
-  icache_dreq_t l1_icache_access_i;
-  dcache_req_i_t [2:0] l1_dcache_access_i;
-  logic [2:0][CVA6Cfg.DCACHE_SET_ASSOC-1:0] miss_vld_bits_i;
-  logic i_tlb_flush_i;
-  logic stall_issue_i;
-  logic [31:0] mcountinhibit_i;
-
-  perf_counters #(
-    .CVA6Cfg(CVA6Cfg),
-    .bp_resolve_t(bp_resolve_t),
-    .dcache_req_i_t(dcache_req_i_t),
-    .dcache_req_o_t(dcache_req_i_t),
-    .exception_t(exception_t),
-    .icache_dreq_t(icache_dreq_t),
-    .scoreboard_entry_t(scoreboard_entry_t)
-  ) dut (
-    .clk_i(clk_i),
-    .rst_ni(rst_ni),
-    .debug_mode_i(debug_mode_i),
-    .addr_i(addr_i),
-    .we_i(we_i),
-    .data_i(data_i),
-    .data_o(data_o),
-    .commit_instr_i(commit_instr_i),
-    .commit_ack_i(commit_ack_i),
-    .l1_icache_miss_i(l1_icache_miss_i),
-    .l1_dcache_miss_i(l1_dcache_miss_i),
-    .itlb_miss_i(itlb_miss_i),
-    .dtlb_miss_i(dtlb_miss_i),
-    .sb_full_i(sb_full_i),
-    .if_empty_i(if_empty_i),
-    .ex_i(ex_i),
-    .eret_i(eret_i),
-    .resolved_branch_i(resolved_branch_i),
-    .branch_exceptions_i(branch_exceptions_i),
-    .l1_icache_access_i(l1_icache_access_i),
-    .l1_dcache_access_i(l1_dcache_access_i),
-    .miss_vld_bits_i(miss_vld_bits_i),
-    .i_tlb_flush_i(i_tlb_flush_i),
-    .stall_issue_i(stall_issue_i),
-    .mcountinhibit_i(mcountinhibit_i)
-  );
-endmodule
-)";
-  wrapperFile.close();
-
-  SNLSVConstructor constructor(library_);
-  const auto args = buildExpandedCva6SlangArgs(
-      *context,
-      "real_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported",
-      {wrapperPath});
-  constructor.construct(args);
-
-  auto* top = library_->getSNLDesign(
-      NLName("real_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported"));
+  parseIndependentCva6PerfCountersModuleWithTargetConfigKeepsStructuredMemoryDependenciesSupported) {
+  auto* top = constructIndependentCva6PerfCounters(
+      library_,
+      "independent_cva6_perf_counters_module_with_target_config_keeps_structured_memory_dependencies_supported",
+      true);
   ASSERT_NE(top, nullptr);
 
-  // Guard the exact configured CVA6 perf-counter path that later shows up in
-  // KF as `generic_counter_q_mem.WE[1]`: the inferred-memory boundary exposed
-  // by the real target config must stay driven all the way back to supported
-  // combinational roots.
+  // Reproduce the target-config path from the real CVA6 test with a local
+  // packed config parameter instead of cva6_config_pkg/build_config_pkg.
   const auto boundaryIssues = collectUnsupportedMemoryBoundaryTerms(top);
   EXPECT_TRUE(boundaryIssues.empty()) << formatStringVector(boundaryIssues);
 }
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
-  parseRealCva6TopKeepsPerfCounterMemoryWriteDataBoundarySupported) {
-  const auto context = resolveCva6SourceContext();
-  if (!context.has_value()) {
-    GTEST_SKIP() << "CVA6 source tree is not available for the real-source memory regression test";
-  }
-
-  SNLSVConstructor constructor(library_);
-  const auto args = buildExpandedCva6SlangArgs(*context, "cva6");
-  constructor.construct(args);
-
-  auto* top = library_->getSNLDesign(NLName("cva6"));
+  parseIndependentCva6TopKeepsPerfCounterMemoryWriteDataBoundarySupported) {
+  auto* top = constructIndependentCva6PerfCounters(
+      library_,
+      "independent_cva6_top_keeps_perf_counter_memory_write_data_boundary_supported");
   ASSERT_NE(top, nullptr);
 
   const auto boundaryIssues = collectUnsupportedMemoryBoundaryTerms(top);
   std::vector<std::string> perfCounterWriteDataIssues;
   for (const auto& issue : boundaryIssues) {
-    // Guard the exact full-CVA6 regression currently surfacing in KF as a
-    // logical-loop skip while tracing the inferred perf-counter memory write
-    // data boundary. This path should lower to a supported cone back to
-    // top/seq/const terms, not a self-referential mux chain.
-    if (issue.find("generic_counter_q_mem.WDATA[384]") != std::string::npos) {
+    if (issue.find("generic_counter_q_mem.WDATA") != std::string::npos) {
       perfCounterWriteDataIssues.push_back(issue);
     }
   }
@@ -6124,36 +5861,16 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
-  parseRealCva6TopDoesNotCreateTransparentMuxSelfReferenceOnPerfCounterWriteDataPath) {
-  const auto context = resolveCva6SourceContext();
-  if (!context.has_value()) {
-    GTEST_SKIP() << "CVA6 source tree is not available for the real-source memory regression test";
-  }
-
-  SNLSVConstructor constructor(library_);
-  const auto args = buildExpandedCva6SlangArgs(*context, "cva6");
-  constructor.construct(args);
-
-  auto* top = library_->getSNLDesign(NLName("cva6"));
+  parseIndependentCva6TopDoesNotCreateTransparentMuxSelfReferenceOnPerfCounterWriteDataPath) {
+  auto* top = constructIndependentCva6PerfCounters(
+      library_,
+      "independent_cva6_top_no_transparent_mux_self_reference_on_perf_counter_write_data_path");
   ASSERT_NE(top, nullptr);
 
   const auto offenders = collectTransparentCombinationalSelfReferences(
-    top,
-    {"csr_regfile_i.32255."});
-  std::vector<std::string> perfCounterMuxSelfReferences;
-  for (const auto& offender : offenders) {
-    // Guard the exact CVA6 perf-counter lowering bug currently reproduced in
-    // KF as a logical-loop skip on generic_counter_q_mem.WDATA[384]: no mux
-    // input in that cone should resolve back to the same mux output through
-    // transparent assign aliases.
-    if (offender.find("csr_regfile_i.32255.") != std::string::npos ||
-        offender.find("generic_counter_q_mem") != std::string::npos) {
-      perfCounterMuxSelfReferences.push_back(offender);
-    }
-  }
-
-  EXPECT_TRUE(perfCounterMuxSelfReferences.empty())
-      << formatStringVector(perfCounterMuxSelfReferences);
+      top,
+      {"generic_counter_q_mem"});
+  EXPECT_TRUE(offenders.empty()) << formatStringVector(offenders);
 }
 
 TEST_F(
