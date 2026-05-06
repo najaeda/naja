@@ -3453,6 +3453,59 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
+  parseDirectSequentialMemoryAsyncResetConditionMismatchFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "direct_sequential_memory_async_reset_condition_mismatch_fallback";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "direct_sequential_memory_async_reset_condition_mismatch_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module direct_sequential_memory_async_reset_condition_mismatch_fallback(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       w_v_i,
+  input  logic [1:0] w_addr_i,
+  input  logic [7:0] w_data_i,
+  output logic [7:0] r_data_o
+);
+  logic [7:0] mem [0:3];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni) begin
+      mem <= '{default: '0};
+    end else begin
+      for (int i = 0; i < 4; i++) begin
+        if (w_v_i && (w_addr_i == i[1:0])) begin
+          mem[i] <= w_data_i;
+        end
+      end
+    end
+  end
+
+  assign r_data_o = mem[w_addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("direct_sequential_memory_async_reset_condition_mismatch_fallback"));
+  ASSERT_NE(nullptr, top);
+  for (auto inst : top->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
   parseQDMemoryInferenceSharedSequentialWholeArrayCopyIgnoresUnaryExpressionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

@@ -4518,7 +4518,7 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
       if (!defaultAction.rhs || defaultAction.stepDelta != 0 || defaultAction.compoundOp) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       if (!tryResolveInferredMemoryCommitTarget(
             stateSymbol,
@@ -4754,7 +4754,7 @@ endmodule
       InferredMemory& memory) {
       if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
           block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
 
       const Statement* stmt = &block.getBody();

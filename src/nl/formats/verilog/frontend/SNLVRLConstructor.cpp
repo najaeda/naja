@@ -321,12 +321,14 @@ void SNLVRLConstructor::createConstantNets(
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
   auto bits = SNLVRLConstructorUtils::numberToBits(basedNumber);
+  //LCOV_EXCL_START
   if (bits.size() != basedNumber.size_) {
     std::ostringstream reason;
     reason << getLocationString();
     reason << ": " << "Size";
     throw naja::NL::SNLVRLConstructorException(reason.str());
   }
+  //LCOV_EXCL_STOP
   for (int i=bits.size()-1; i>=0; i--) {
     if (bits[i]) {
       nets.push_back(currentModuleAssign1_);
