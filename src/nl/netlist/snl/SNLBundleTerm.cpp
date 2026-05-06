@@ -136,9 +136,11 @@ void SNLBundleTerm::preDestroy() {
   commonPreDestroy();
 }
 
+//LCOV_EXCL_START
 SNLTerm* SNLBundleTerm::clone(SNLDesign*) const {
   throw NLException("SNLBundleTerm cloning is handled explicitly by SNLDesign");
 }
+//LCOV_EXCL_STOP
 
 void SNLBundleTerm::addMember(SNLTerm* member) {
   members_.push_back(member);
