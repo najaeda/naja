@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+
 #include "SNLDesign.h"
 
 namespace naja::NL {
@@ -20,6 +23,19 @@ class SNLUtils {
     static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
     static NLID::Bit getWidth(int msb, int lsb);
     static SNLDesign* findTop(const NLLibrary* library);
+    static std::string getUnnamedIDString(const char* tag, std::uint64_t id);
+    static std::string getNamedString(const NLName& name, const char* tag, std::uint64_t id);
+    static std::string getBusNamedString(
+        const NLName& name,
+        const char* tag,
+        std::uint64_t id,
+        NLID::Bit msb,
+        NLID::Bit lsb);
+    static std::string getBitNamedString(
+        const NLName& name,
+        const char* tag,
+        std::uint64_t id,
+        NLID::Bit bit);
 };
 
 } // namespace naja::NL

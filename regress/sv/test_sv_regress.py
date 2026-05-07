@@ -55,7 +55,12 @@ cases:
         self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
         self.assertEqual(
             ["load_dump", "lint", "helloworld_sim"],
-            sv_regress.select_stages(["load_dump", "lint", "helloworld_sim", "lint"]),
+            sv_regress.select_stages([
+                "load_dump",
+                "lint",
+                "helloworld_sim",
+                "lint",
+            ]),
         )
         with self.assertRaises(sv_regress.RegressError):
             sv_regress.select_stages(["missing"])
@@ -105,6 +110,18 @@ cases:
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-regress.yml"
         ).read_text(encoding="utf-8")
         self.assertIn("--case black_parrot --case cva6 --stage load_dump", workflow)
+
+    def test_external_sim_ci_runs_cv32e40p_helloworld(self):
+        workflow = (
+            sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Run CV32E40P helloworld simulation", workflow)
+        self.assertIn("xpack-riscv-none-elf-gcc", workflow)
+        self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
+        self.assertIn("--case cv32e40p", workflow)
+        self.assertIn("--stage helloworld_sim", workflow)
+        self.assertIn("--require-helloworld-sim-tools", workflow)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
@@ -505,7 +522,22 @@ src/rtl/top.sv
             self.assertIn("top_module", case["github_sim"])
             self.assertIn("commands", case["helloworld_sim"])
             self.assertIn(helper, case["helloworld_sim"]["commands"][0][1])
-
+            self.assertIn(
+                [
+                    "riscv32-unknown-elf-gcc",
+                    "riscv-none-elf-gcc",
+                    "riscv64-unknown-elf-gcc",
+                ],
+                case["helloworld_sim"]["tool_checks"],
+            )
+            self.assertIn(
+                [
+                    "riscv32-unknown-elf-objcopy",
+                    "riscv-none-elf-objcopy",
+                    "riscv64-unknown-elf-objcopy",
+                ],
+                case["helloworld_sim"]["tool_checks"],
+            )
 
 if __name__ == "__main__":
     unittest.main()

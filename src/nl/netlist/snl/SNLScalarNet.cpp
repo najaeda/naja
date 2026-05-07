@@ -12,6 +12,7 @@
 
 #include "SNLDesign.h"
 #include "SNLMacros.h"
+#include "SNLUtils.h"
 
 namespace naja::NL {
 
@@ -120,7 +121,7 @@ const char* SNLScalarNet::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLScalarNet::getString() const {
-  return getName().getString();
+  return SNLUtils::getNamedString(getName(), "net", getID());
 }
 //LCOV_EXCL_STOP
 

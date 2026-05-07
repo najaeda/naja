@@ -22,6 +22,7 @@ class SNLAttributeValue {
     SNLAttributeValue(Type type, const std::string& value): type_(type), value_(value) {};
     std::string getString() const { return value_; }
     bool isString() const { return type_ == Type::STRING; }
+    bool isNumber() const { return type_ == Type::NUMBER; }
     bool empty() const { return value_.empty(); }
     bool operator==(const SNLAttributeValue& rv) const = default;
     bool operator<(const SNLAttributeValue& rv) const {

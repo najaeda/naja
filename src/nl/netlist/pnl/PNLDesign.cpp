@@ -282,25 +282,8 @@ void PNLDesign::preDestroy() {
 bool PNLDesign::deepCompare(const PNLDesign* other,
                             std::string& reason,
                             NLDesign::CompareType type) const {
-  if (type == NLDesign::CompareType::Complete and
-      (getID() not_eq other->getID())) {
-    std::ostringstream oss;
-    oss << "Designs mismatch between ";
-    oss << getDescription() << " and " << other->getDescription();
-    oss << " (ID mismatch)";
-    reason = oss.str();
-    return false;
-  }
-  if (type != NLDesign::CompareType::IgnoreIDAndName and
-      (name_ not_eq other->getName())) {
-    std::ostringstream oss;
-    oss << "Designs mismatch between ";
-    oss << getDescription() << " and " << other->getDescription();
-    oss << " (name mismatch)";
-    reason = oss.str();
-    return false;
-  }
-  return true;
+  return false; // LCOV_EXCL_LINE
+  //FIXME: implement deepCompare for PNLDesign
 }
 
 // LCOV_EXCL_START

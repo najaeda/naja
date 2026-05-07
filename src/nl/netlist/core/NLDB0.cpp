@@ -221,7 +221,7 @@ namespace {
 
   void createAssignPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
-    auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
+    auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("assign"));
     auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
     auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
 

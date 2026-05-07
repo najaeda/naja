@@ -151,6 +151,26 @@ TEST_F(SNLAttributesTest, testAttributeCompare) {
   EXPECT_LT(attribute4, attribute5);
   EXPECT_LE(attribute4, attribute5);
   EXPECT_GE(attribute5, attribute4);
+
+  auto value0 = SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "0");
+  auto value1 = SNLAttributeValue("0");
+  auto value2 = SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "0");
+  auto value3 = SNLAttributeValue("0");
+  EXPECT_TRUE(value0.isNumber());
+  EXPECT_FALSE(value0.isString());
+  EXPECT_FALSE(value1.isNumber());
+  EXPECT_TRUE(value1.isString());
+  EXPECT_TRUE(value2.isNumber());
+  EXPECT_FALSE(value2.isString());
+  EXPECT_FALSE(value3.isNumber());
+  EXPECT_TRUE(value3.isString());
+  EXPECT_EQ(value0, value2);
+  EXPECT_EQ(value1, value3);
+  EXPECT_NE(value0, value1);
+  EXPECT_TRUE(value0 < value1);
+  EXPECT_TRUE(value1 > value0);
+  EXPECT_TRUE(value0 <= value1);
+  EXPECT_TRUE(value1 >= value0);
 }
 
 TEST_F(SNLAttributesTest, testCompare) {

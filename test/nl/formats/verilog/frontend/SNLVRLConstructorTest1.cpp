@@ -398,6 +398,58 @@ TEST_F(SNLVRLConstructorTest1, testCurrentInstancePortConnectionUnsupportedExpre
   }
 }
 
+TEST_F(SNLVRLConstructorTest1, testAssignUnsupportedUnsignedNumber) {
+  auto testPath = std::filesystem::temp_directory_path() / "naja_vrl_assign_unsupported_unsigned_number.v";
+  {
+    std::ofstream stream(testPath);
+    stream
+      << "module top(out);\n"
+      << "  output out;\n"
+      << "  assign out = 1;\n"
+      << "endmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  constructor.parse(testPath);
+  constructor.setFirstPass(false);
+
+  try {
+    constructor.parse(testPath);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("Only base numbers are supported"));
+  }
+
+  std::filesystem::remove(testPath);
+}
+
+TEST_F(SNLVRLConstructorTest1, testAddAssignUnsupportedExpression) {
+  auto top = SNLDesign::create(library_, NLName("top"));
+  SNLScalarNet::create(top, NLName("n"));
+
+  SNLVRLConstructor constructor(library_);
+  constructor.currentModule_ = top;
+  constructor.currentPath_ = "synthetic.v";
+  constructor.setCurrentLocation(12, 17);
+  constructor.setFirstPass(false);
+
+  naja::verilog::RangeIdentifiers identifiers {
+    naja::verilog::RangeIdentifier(naja::verilog::Identifier("n"))
+  };
+
+  naja::verilog::Expression expression;
+  expression.valid_ = true;
+  expression.supported_ = false;
+  expression.value_ = std::string("\"FOO\"");
+
+  try {
+    constructor.addAssign(identifiers, expression);
+    FAIL();
+  } catch (const SNLVRLConstructorException& e) {
+    EXPECT_NE(std::string::npos, std::string(e.what()).find("\"FOO\" is not currently supported"));
+  }
+}
+
 TEST_F(SNLVRLConstructorTest1, testOrderedInstanceConnectionPortIndexTooLarge) {
   auto model = SNLDesign::create(library_, NLName("model"));
   SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("A"));

@@ -184,6 +184,7 @@ TEST_F(SNLDesignTest, testCreation0) {
   SNLDesign* model = SNLDesign::create(library, NLName("model"));
   ASSERT_NE(model, nullptr);
   EXPECT_EQ("model", model->getName().getString());
+  EXPECT_EQ("model", model->getString());
   EXPECT_EQ(1, model->getID());
   EXPECT_EQ(NLID(1, 0, 1), model->getNLID());
   EXPECT_LT(design->getNLID(), model->getNLID());
@@ -205,6 +206,7 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(anon, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 2)));
   EXPECT_EQ(anon, NLUniverse::get()->getObject(NLID(1, 0, 2)));
   EXPECT_TRUE(anon->isUnnamed());
+  EXPECT_EQ("<design:2>", anon->getString());
   EXPECT_EQ(anon, library->getSNLDesign(2));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());
@@ -227,6 +229,7 @@ TEST_F(SNLDesignTest, testCreation1) {
   ASSERT_NE(anon, nullptr);
   EXPECT_EQ(0, anon->getID());
   EXPECT_TRUE(anon->isUnnamed());
+  EXPECT_EQ("<design:0>", anon->getString());
   EXPECT_EQ(anon, library->getSNLDesign(0));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());

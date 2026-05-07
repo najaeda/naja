@@ -618,9 +618,9 @@ const char* SNLInstance::getTypeName() const {
 std::string SNLInstance::getString() const {
   if (isUnnamed()) {
     if (getModel()->isAssign()) {
-      return "<assign: " + std::to_string(getID()) + ">";
+      return SNLUtils::getUnnamedIDString("assign", getID());
     } else {
-      return "<anonymous:" + std::to_string(getID()) + ">";
+      return SNLUtils::getUnnamedIDString("inst", getID());
     }
   } else {
     return getName().getString();

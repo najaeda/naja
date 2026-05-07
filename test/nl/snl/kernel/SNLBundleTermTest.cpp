@@ -397,6 +397,42 @@ TEST_F(SNLBundleTermTest, testBundledBusCreateWithID) {
     NLException);
 }
 
+TEST_F(SNLBundleTermTest, testBundleDestroyRemovesTermAndMembers) {
+  auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
+  auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));
+  auto d0 = SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  auto d1 = SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 1, 0, NLName("D1"));
+
+  ASSERT_NE(nullptr, bundle);
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+  EXPECT_EQ(bundle, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(d0, primitive->getScalarTerm(NLName("D0")));
+  EXPECT_EQ(d1, primitive->getBusTerm(NLName("D1")));
+  EXPECT_THAT(
+    std::vector<SNLTerm*>(primitive->getTerms().begin(), primitive->getTerms().end()),
+    ElementsAre(bundle));
+  EXPECT_THAT(
+    std::vector<SNLTerm*>(bundle->getMembers().begin(), bundle->getMembers().end()),
+    ElementsAre(d0, d1));
+
+  const auto bundleID = bundle->getID();
+  const auto d0ID = d0->getID();
+  const auto d1ID = d1->getID();
+
+  bundle->destroy();
+
+  EXPECT_EQ(nullptr, primitive->getBundleTerm(bundleID));
+  EXPECT_EQ(nullptr, primitive->getBundleTerm(NLName("D")));
+  EXPECT_EQ(nullptr, primitive->getTerm(bundleID));
+  EXPECT_EQ(nullptr, primitive->getScalarTerm(d0ID));
+  EXPECT_EQ(nullptr, primitive->getScalarTerm(NLName("D0")));
+  EXPECT_EQ(nullptr, primitive->getBusTerm(d1ID));
+  EXPECT_EQ(nullptr, primitive->getBusTerm(NLName("D1")));
+  EXPECT_TRUE(primitive->getTerms().empty());
+  EXPECT_TRUE(primitive->getBitTerms().empty());
+}
+
 TEST_F(SNLBundleTermTest, testBundledBusBitDestroyRebuildsBundleBits) {
   auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("prim"));
   auto bundle = SNLBundleTerm::create(primitive, SNLTerm::Direction::Input, NLName("D"));

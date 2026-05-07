@@ -16,15 +16,16 @@ Verilog netlist, then runs selected Verilator stages on that generated netlist.
 - Install Docker for the default lint and GitHub smoke-simulation runs.
 - Install local `verilator` when using `--lint-runner local` or `helloworld_sim`.
 - Install a RISC-V firmware toolchain for `helloworld_sim`. The scripts prefer the
-  `riscv32-unknown-elf-` prefix and fall back to the common macOS
-  `riscv64-unknown-elf-` prefix. `RISCV` is inferred from `PATH` when unset for
-  CV32E40P.
+  `riscv32-unknown-elf-` prefix and also accept `riscv-none-elf-` and
+  `riscv64-unknown-elf-`. `RISCV` is inferred from `PATH` when unset for
+  CV32E40P. CV32E40P's upstream testbench links its firmware against newlib; the
+  GitHub workflow installs xPack GNU RISC-V Embedded GCC for that reason.
 
 GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
 `External SV Regress` workflow runs lint for the small external designs and
 load/dump checks for the large BlackParrot and CVA6 designs. The `External SV
 Simulation` workflow runs the checked-in Ibex and CV32E40P smoke simulations
-plus the Ibex helloworld simulation.
+plus the Ibex and CV32E40P helloworld simulations.
 
 ## List Cases
 
@@ -141,7 +142,8 @@ testbench environments:
   expects `IBEX_HELLOWORLD_SIM_PASS`.
 - CV32E40P uses upstream `example_tb/core`, replaces the original
   `cv32e40p_top` with the Naja-generated `cv32e40p_top`, builds
-  `custom/hello_world.hex`, and expects `CV32E40P_HELLOWORLD_SIM_PASS`.
+  `custom/hello_world.hex`, compiles the upstream Verilator testbench around
+  the generated netlist, and expects `CV32E40P_HELLOWORLD_SIM_PASS`.
 
 ```sh
 python3 regress/sv/sv_regress.py run \
