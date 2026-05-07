@@ -98,14 +98,21 @@ jobs:
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
             --case ibex \
             --stage helloworld_sim \
-            --require-helloworld-sim-tools
+            --require-firmware-sim-tools
 
       - name: Run CV32E40P helloworld simulation
         run: |
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
             --case cv32e40p \
             --stage helloworld_sim \
-            --require-helloworld-sim-tools
+            --require-firmware-sim-tools
+
+      - name: Run CV32E40P interrupt simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cv32e40p \
+            --stage interrupt_sim \
+            --require-firmware-sim-tools
 
       - name: Upload external SV simulation artifacts
         uses: actions/upload-artifact@v7

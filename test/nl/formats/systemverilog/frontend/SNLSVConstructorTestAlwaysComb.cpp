@@ -889,6 +889,75 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombPackedStructCaseSubfieldClearUnderEmptyIfBranch) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_packed_struct_case_subfield_clear_under_empty_if_branch");
+
+  const auto svPath =
+    outPath / "always_comb_packed_struct_case_subfield_clear_under_empty_if_branch.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_packed_struct_case_subfield_clear_under_empty_if_branch(
+  input  logic       save_i,
+  input  logic       debug_i,
+  input  logic [1:0] priv_i,
+  input  logic [2:0] status_q_i,
+  output logic [2:0] status_n_o
+);
+  typedef struct packed {
+    logic mie;
+    logic mpie;
+    logic mpp;
+  } status_s;
+
+  status_s status_q;
+  status_s status_n;
+
+  always_comb begin
+    status_q = status_q_i;
+    status_n = status_q;
+    unique case (1'b1)
+      save_i: begin
+        unique case (priv_i)
+          2'b11: begin
+            if (debug_i) begin
+            end else begin
+              status_n.mpie = status_q.mie;
+              status_n.mie  = 1'b0;
+              status_n.mpp  = 1'b1;
+            end
+          end
+          default: ;
+        endcase
+      end
+      default: ;
+    endcase
+    status_n_o = status_n;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName(
+    "always_comb_packed_struct_case_subfield_clear_under_empty_if_branch"));
+  ASSERT_NE(top, nullptr);
+  auto* statusN = top->getBusNet(NLName("status_n"));
+  auto* debug = dynamic_cast<SNLBitNet*>(top->getNet(NLName("debug_i")));
+  ASSERT_NE(statusN, nullptr);
+  ASSERT_NE(debug, nullptr);
+  ASSERT_EQ(3, statusN->getWidth());
+
+  ASSERT_NE(statusN->getBit(2), nullptr);
+  EXPECT_EQ(1u, countOutputInstTermDrivers(statusN->getBit(2)));
+  EXPECT_GT(countMux2InputUses(debug), 0u);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombPackedStructOutputFieldCaseNoOverlappingDrivers) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
