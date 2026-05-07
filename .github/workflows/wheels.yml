@@ -192,7 +192,7 @@ jobs:
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
-        run: python -m pip install cibuildwheel==3.3.0 delvewheel
+        run: python -m pip install cibuildwheel==3.4.1 delvewheel
       - name: Build wheels
         env:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
