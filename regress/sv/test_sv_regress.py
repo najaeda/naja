@@ -8,8 +8,11 @@ import tempfile
 import unittest
 
 REGRESS_SV_ROOT = Path(__file__).resolve().parent
+HELLOWORLD_SIM_ROOT = REGRESS_SV_ROOT / "helloworld_sim"
 sys.path.insert(0, str(REGRESS_SV_ROOT))
+sys.path.insert(0, str(HELLOWORLD_SIM_ROOT))
 
+import cv32e40p_example_tb
 import sv_regress
 
 
@@ -54,11 +57,12 @@ cases:
     def test_stage_selection_defaults_and_deduplicates(self):
         self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
         self.assertEqual(
-            ["load_dump", "lint", "helloworld_sim"],
+            ["load_dump", "lint", "helloworld_sim", "interrupt_sim"],
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
                 "helloworld_sim",
+                "interrupt_sim",
                 "lint",
             ]),
         )
@@ -76,6 +80,17 @@ cases:
         args = parser.parse_args(["run", "--lint-runner", "local"])
 
         self.assertEqual("local", args.lint_runner)
+
+    def test_parser_accepts_firmware_tool_requirement_aliases(self):
+        parser = sv_regress.build_parser()
+
+        args = parser.parse_args(["run", "--require-firmware-sim-tools"])
+        legacy_args = parser.parse_args(["run", "--require-helloworld-sim-tools"])
+        expected_failure_args = parser.parse_args(["run", "--allow-expected-failures"])
+
+        self.assertTrue(args.require_firmware_sim_tools)
+        self.assertTrue(legacy_args.require_firmware_sim_tools)
+        self.assertTrue(expected_failure_args.allow_expected_failures)
 
     def test_run_load_dump_records_generated_verilog(self):
         case = {
@@ -111,17 +126,20 @@ cases:
         ).read_text(encoding="utf-8")
         self.assertIn("--case black_parrot --case cva6 --stage load_dump", workflow)
 
-    def test_external_sim_ci_runs_cv32e40p_helloworld(self):
+    def test_external_sim_ci_runs_cv32e40p_firmware_sims(self):
         workflow = (
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"
         ).read_text(encoding="utf-8")
 
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
+        self.assertIn("Run CV32E40P interrupt simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
-        self.assertIn("--require-helloworld-sim-tools", workflow)
+        self.assertIn("--stage interrupt_sim", workflow)
+        self.assertIn("--require-firmware-sim-tools", workflow)
+        self.assertNotIn("--allow-expected-failures", workflow)
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
@@ -370,6 +388,88 @@ cases:
         self.assertEqual("skipped", result["status"])
         self.assertIn("definitely-missing-riscv-tool", result["reason"])
 
+    def test_expected_failure_configured_sim_can_be_allowed(self):
+        case = {
+            "name": "fake",
+            "interrupt_sim": {
+                "expected_failure": True,
+                "expected_failure_reason": "known interrupt gap",
+                "commands": [["run-interrupt"]],
+            },
+        }
+
+        def fake_run_command(command, **kwargs):
+            raise sv_regress.RegressError("interrupt timed out")
+
+        original_run_command = sv_regress.run_command
+        try:
+            sv_regress.run_command = fake_run_command
+            with tempfile.TemporaryDirectory() as tmpdir:
+                case_dir = Path(tmpdir) / "case"
+                repo_dir = case_dir / "repo"
+                artifacts_dir = case_dir / "artifacts"
+                log_dir = artifacts_dir / "logs"
+                repo_dir.mkdir(parents=True)
+                log_dir.mkdir(parents=True)
+
+                result = sv_regress.run_configured_command_sim(
+                    case,
+                    stage="interrupt_sim",
+                    repo_dir=repo_dir,
+                    case_dir=case_dir,
+                    artifacts_dir=artifacts_dir,
+                    generated_path=artifacts_dir / "fake_naja.v",
+                    log_dir=log_dir,
+                    require_tools=False,
+                    allow_expected_failures=True,
+                )
+        finally:
+            sv_regress.run_command = original_run_command
+
+        self.assertEqual("expected_failure", result["status"])
+        self.assertEqual("known interrupt gap", result["reason"])
+
+    def test_expected_failure_configured_sim_still_fails_by_default(self):
+        case = {
+            "name": "fake",
+            "interrupt_sim": {
+                "expected_failure": True,
+                "expected_failure_reason": "known interrupt gap",
+                "commands": [["run-interrupt"]],
+            },
+        }
+
+        def fake_run_command(command, **kwargs):
+            raise sv_regress.RegressError("interrupt timed out")
+
+        original_run_command = sv_regress.run_command
+        try:
+            sv_regress.run_command = fake_run_command
+            with tempfile.TemporaryDirectory() as tmpdir:
+                case_dir = Path(tmpdir) / "case"
+                repo_dir = case_dir / "repo"
+                artifacts_dir = case_dir / "artifacts"
+                log_dir = artifacts_dir / "logs"
+                repo_dir.mkdir(parents=True)
+                log_dir.mkdir(parents=True)
+
+                with self.assertRaisesRegex(
+                    sv_regress.RegressError,
+                    "--allow-expected-failures",
+                ):
+                    sv_regress.run_configured_command_sim(
+                        case,
+                        stage="interrupt_sim",
+                        repo_dir=repo_dir,
+                        case_dir=case_dir,
+                        artifacts_dir=artifacts_dir,
+                        generated_path=artifacts_dir / "fake_naja.v",
+                        log_dir=log_dir,
+                        require_tools=False,
+                    )
+        finally:
+            sv_regress.run_command = original_run_command
+
     def test_materialize_flist_appends_manifest_entries(self):
         case = {
             "name": "fake",
@@ -538,6 +638,60 @@ src/rtl/top.sv
                 ],
                 case["helloworld_sim"]["tool_checks"],
             )
+
+    def test_cv32e40p_interrupt_sim_stage_uses_upstream_example_tb(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cv32e40p = sv_regress.select_cases(cases, "cv32e40p")[0]
+        interrupt_sim = cv32e40p["interrupt_sim"]
+
+        self.assertIn("interrupt_sim", sv_regress.VALID_STAGES)
+        self.assertEqual("CV32E40P_INTERRUPT_SIM_PASS", interrupt_sim["pass_regex"])
+        self.assertIn("regress/sv/helloworld_sim/cv32e40p_example_tb.py",
+                      interrupt_sim["commands"][0][1])
+        self.assertIn("--program", interrupt_sim["commands"][0])
+        self.assertIn("interrupt", interrupt_sim["commands"][0])
+        self.assertIn("--max-cycles", interrupt_sim["commands"][0])
+        self.assertIn("20000000", interrupt_sim["commands"][0])
+        self.assertNotIn("expected_failure", interrupt_sim)
+        self.assertNotIn("expected_failure_reason", interrupt_sim)
+        self.assertIn(
+            [
+                "riscv32-unknown-elf-gcc",
+                "riscv-none-elf-gcc",
+                "riscv64-unknown-elf-gcc",
+            ],
+            interrupt_sim["tool_checks"],
+        )
+
+
+class CV32E40PExampleTbTest(unittest.TestCase):
+    def test_manifest_parser_substitutes_design_rtl_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_dir = Path(tmpdir)
+            rtl_dir = repo_dir / "rtl"
+            rtl_dir.mkdir()
+            (repo_dir / "cv32e40p_manifest.flist").write_text(
+                """
+// comment
++incdir+${DESIGN_RTL_DIR}/include
+${DESIGN_RTL_DIR}/cv32e40p_pkg.sv
+
+${DESIGN_RTL_DIR}/cv32e40p_top.sv
+""",
+                encoding="utf-8",
+            )
+
+            include_dirs, sources = cv32e40p_example_tb.read_cv32e40p_manifest(repo_dir)
+
+        self.assertEqual([f"+incdir+{rtl_dir}/include"], include_dirs)
+        self.assertEqual(
+            [
+                (rtl_dir / "cv32e40p_pkg.sv").resolve(),
+                (rtl_dir / "cv32e40p_top.sv").resolve(),
+            ],
+            sources,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

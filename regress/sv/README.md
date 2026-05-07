@@ -25,7 +25,8 @@ GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
 `External SV Regress` workflow runs lint for the small external designs and
 load/dump checks for the large BlackParrot and CVA6 designs. The `External SV
 Simulation` workflow runs the checked-in Ibex and CV32E40P smoke simulations
-plus the Ibex and CV32E40P helloworld simulations.
+plus the Ibex helloworld simulation, the CV32E40P helloworld simulation, and an
+upstream CV32E40P interrupt simulation.
 
 ## List Cases
 
@@ -163,14 +164,14 @@ python3 regress/sv/sv_regress.py run \
   --stage helloworld_sim
 ```
 
-Missing optional helloworld simulation tools are reported as skipped. To make missing
+Missing optional firmware simulation tools are reported as skipped. To make missing
 tools fail the command:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
   --case ibex \
   --stage helloworld_sim \
-  --require-helloworld-sim-tools
+  --require-firmware-sim-tools
 ```
 
 The helloworld simulation log is:
@@ -178,6 +179,40 @@ The helloworld simulation log is:
 ```text
 build/sv-regress/<case>/artifacts/logs/helloworld-sim.log
 ```
+
+## CV32E40P Interrupt Simulation Tier
+
+The `interrupt_sim` stage runs the CV32E40P upstream `example_tb/core`
+interrupt program with the same generated `cv32e40p_top` netlist and expects
+`CV32E40P_INTERRUPT_SIM_PASS` when the generated netlist handles the interrupt
+sequence correctly:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case cv32e40p \
+  --stage interrupt_sim \
+  --require-firmware-sim-tools
+```
+
+The interrupt simulation log is:
+
+```text
+build/sv-regress/cv32e40p/artifacts/logs/interrupt-sim.log
+```
+
+For local diagnosis, pass `--sim-plusarg +naja_irq_debug` to
+`regress/sv/helloworld_sim/cv32e40p_example_tb.py` to print the interrupt mode,
+pending word, visible IRQ lines, acknowledge ID, and core PC. Use
+`--sim-plusarg +naja_irq_entry_debug` for a focused 96-cycle trace once Test 2
+raises all IRQs. The same helper also accepts `--core-source rtl`, which builds
+the upstream CV32E40P RTL from `cv32e40p_manifest.flist` into a separate
+`interrupt_sim_rtl` work directory for reference comparison.
+
+The core-v-verif UVM environment remains outside the GitHub open-tool tier
+because it needs a full SystemVerilog/UVM commercial simulator stack. Its
+Verilator-compatible CV32E40P core-testbench path overlaps with the upstream
+CV32E40P core testbench used here, so the CI tier focuses on expanding those
+firmware simulations.
 
 ## Artifacts
 
@@ -196,10 +231,12 @@ logs/load-dump.log
 logs/verilator-lint.log
 logs/github-sim.log
 logs/helloworld-sim.log
+logs/interrupt-sim.log
 verilator-lint-command.json
 github_sim-build-command.json
 github_sim-run-command.json
 helloworld-sim-command-<n>.json
+interrupt-sim-command-<n>.json
 ```
 
 The legacy `verilator-command.json` is still written for compatibility and

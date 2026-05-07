@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run CV32E40P example_tb/core firmware with a Naja-generated cv32e40p_top."""
+"""Run CV32E40P example_tb/core firmware with CV32E40P RTL or a Naja netlist."""
 
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ def infer_riscv_root(env: dict[str, str], tool_prefix: str, work_dir: Path) -> N
         env["RISCV"] = str(toolchain_root)
 
 
-def write_generated_netlist_tb_subsystem(source: Path, target: Path) -> Path:
+def write_parameterless_tb_subsystem(source: Path, target: Path) -> Path:
     text = source.read_text(encoding="utf-8")
     parameterized_instance = """  cv32e40p_top #(
       .PULP_XPULP      (PULP_XPULP),
@@ -151,7 +151,56 @@ def write_generated_netlist_tb_subsystem(source: Path, target: Path) -> Path:
     plain_instance = "  cv32e40p_top top_i ("
     if parameterized_instance not in text:
         raise SystemExit(f"could not patch cv32e40p_top instance parameters in {source}")
-    target.write_text(text.replace(parameterized_instance, plain_instance), encoding="utf-8")
+    debug_anchor = """
+endmodule  // cv32e40p_tb_subsystem
+"""
+    debug_block = """
+  // Core-side IRQ entry probe; signal names are shared by RTL and Naja netlist output.
+  wire        naja_irq_core_all_pending = irq_software && irq_timer && irq_external && irq_fast == 16'hffff;
+  wire        naja_core_irq_req         = top_i.core_i.id_stage_i.irq_req_ctrl;
+  wire [4:0]  naja_core_irq_id          = top_i.core_i.id_stage_i.irq_id_ctrl;
+  wire [4:0]  naja_core_fsm_cs          = top_i.core_i.id_stage_i.controller_i.ctrl_fsm_cs;
+  wire [4:0]  naja_core_fsm_ns          = top_i.core_i.id_stage_i.controller_i.ctrl_fsm_ns;
+  logic       naja_irq_core_entry_active;
+  int unsigned naja_irq_core_entry_cycles;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : naja_irq_core_entry_debug
+    if (!rst_ni) begin
+      naja_irq_core_entry_active <= 1'b0;
+      naja_irq_core_entry_cycles <= 0;
+    end else if ($test$plusargs("naja_irq_entry_debug")) begin
+      if (!naja_irq_core_entry_active && naja_irq_core_all_pending) begin
+        naja_irq_core_entry_active <= 1'b1;
+        naja_irq_core_entry_cycles <= 0;
+      end
+      if ((naja_irq_core_entry_active || naja_irq_core_all_pending)
+          && naja_irq_core_entry_cycles < 96) begin
+        $display(
+            "[NAJA_IRQ_ENTRY_CORE] c=%0d t=%0t pc_if=0x%08x pc_id=0x%08x instr_addr=0x%08x instr=0x%08x instr_id=0x%08x valid=%0b dec=%0b id_ready=%0b id_valid=%0b irq_req=%0b irq_id=%0d irq_ack=%0b ack_id=%0d pc_set=%0b pc_mux=0x%0h exc_pc=0x%0h vec=%0d trap=%0d cause=0x%02x csr_cause=0x%02x csr_save=%0b%0b%0b%0b mie=%0b mie31=%0b mip=0x%08x mtvec_mode=%0d mtvec=0x%06x mepc=0x%08x fsm=%0d/%0d",
+            naja_irq_core_entry_cycles, $time, top_i.core_i.pc_if, top_i.core_i.pc_id,
+            instr_addr, instr_rdata, top_i.core_i.instr_rdata_id,
+            top_i.core_i.instr_valid_id, top_i.core_i.is_decoding,
+            top_i.core_i.id_ready, top_i.core_i.id_valid,
+            naja_core_irq_req, naja_core_irq_id, irq_ack, irq_id_out,
+            top_i.core_i.pc_set, top_i.core_i.pc_mux_id,
+            top_i.core_i.exc_pc_mux_id, top_i.core_i.m_exc_vec_pc_mux_id,
+            top_i.core_i.trap_addr_mux, top_i.core_i.exc_cause,
+            top_i.core_i.csr_cause, top_i.core_i.csr_save_cause,
+            top_i.core_i.csr_save_if, top_i.core_i.csr_save_id,
+            top_i.core_i.csr_save_ex, top_i.core_i.m_irq_enable,
+            top_i.core_i.mie_bypass[31], top_i.core_i.mip,
+            top_i.core_i.mtvec_mode, top_i.core_i.mtvec, top_i.core_i.mepc,
+            naja_core_fsm_cs, naja_core_fsm_ns);
+        naja_irq_core_entry_cycles <= naja_irq_core_entry_cycles + 1;
+      end
+    end
+  end
+
+"""
+    patched = text.replace(parameterized_instance, plain_instance)
+    if debug_anchor not in patched:
+        raise SystemExit(f"could not patch core IRQ debug probe in {source}")
+    target.write_text(patched.replace(debug_anchor, debug_block + debug_anchor), encoding="utf-8")
     return target
 
 
@@ -195,10 +244,73 @@ def write_verilator_mm_ram(source: Path, target: Path) -> Path:
       .irq_pc_id_i     (pc_core_id_i),
       .irq_pc_trig_i   (rnd_stall_regs[13]),
       .irq_lines_i     (rnd_stall_regs[14][31:0])
-  );"""
+    );"""
     if guarded_instance not in text:
         raise SystemExit(f"could not patch interrupt generator instance in {source}")
-    target.write_text(text.replace(guarded_instance, plain_instance), encoding="utf-8")
+    debug_anchor = """  // the amo shim has a different encoding of atomics
+"""
+    debug_block = """  // Lightweight IRQ probe for the CV32E40P interrupt firmware debug path.
+  Interrupts_tb_t naja_irq_debug_prev_lines;
+  logic           naja_irq_debug_prev_ack;
+  logic [4:0]     naja_irq_debug_prev_id;
+  int unsigned    naja_irq_debug_events;
+  logic           naja_irq_entry_active;
+  int unsigned    naja_irq_entry_cycles;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : naja_irq_debug
+    if (!rst_ni) begin
+      naja_irq_debug_prev_lines <= '0;
+      naja_irq_debug_prev_ack   <= 1'b0;
+      naja_irq_debug_prev_id    <= '0;
+      naja_irq_debug_events     <= 0;
+      naja_irq_entry_active     <= 1'b0;
+      naja_irq_entry_cycles     <= 0;
+    end else begin
+      if ($test$plusargs("naja_irq_debug")) begin
+        if (naja_irq_debug_events < 128
+            && (irq_rnd_lines != naja_irq_debug_prev_lines
+            || irq_ack_i != naja_irq_debug_prev_ack
+            || irq_id_i != naja_irq_debug_prev_id)) begin
+          $display(
+              "[NAJA_IRQ_DEBUG] t=%0t pc=0x%08x mode=0x%08x irq_word=0x%08x sw=%0b timer=%0b ext=%0b fast=0x%04x ack=%0b id=%0d",
+              $time, pc_core_id_i, rnd_stall_regs[10], rnd_stall_regs[14],
+              irq_rnd_lines.irq_software, irq_rnd_lines.irq_timer,
+              irq_rnd_lines.irq_external, irq_rnd_lines.irq_fast,
+              irq_ack_i, irq_id_i);
+          naja_irq_debug_events <= naja_irq_debug_events + 1;
+        end
+        naja_irq_debug_prev_lines <= irq_rnd_lines;
+        naja_irq_debug_prev_ack   <= irq_ack_i;
+        naja_irq_debug_prev_id    <= irq_id_i;
+      end
+
+      if ($test$plusargs("naja_irq_entry_debug")) begin
+        if (!naja_irq_entry_active
+            && rnd_stall_regs[10] == 32'd4
+            && rnd_stall_regs[14] == 32'hffff_ffff) begin
+          naja_irq_entry_active <= 1'b1;
+          naja_irq_entry_cycles <= 0;
+        end
+        if ((naja_irq_entry_active
+            || (rnd_stall_regs[10] == 32'd4 && rnd_stall_regs[14] == 32'hffff_ffff))
+            && naja_irq_entry_cycles < 96) begin
+          $display(
+              "[NAJA_IRQ_ENTRY] c=%0d t=%0t pc=0x%08x irq_word=0x%08x fast=0x%04x sw=%0b timer=%0b ext=%0b ack=%0b id=%0d",
+              naja_irq_entry_cycles, $time, pc_core_id_i, rnd_stall_regs[14],
+              irq_rnd_lines.irq_fast, irq_rnd_lines.irq_software,
+              irq_rnd_lines.irq_timer, irq_rnd_lines.irq_external,
+              irq_ack_i, irq_id_i);
+          naja_irq_entry_cycles <= naja_irq_entry_cycles + 1;
+        end
+      end
+    end
+  end
+
+"""
+    patched = text.replace(guarded_instance, plain_instance)
+    if debug_anchor not in patched:
+        raise SystemExit(f"could not patch IRQ debug probe in {source}")
+    target.write_text(patched.replace(debug_anchor, debug_block + debug_anchor), encoding="utf-8")
     return target
 
 
@@ -228,23 +340,61 @@ def write_verilator_interrupt_generator(target: Path) -> Path:
   logic [31:0] irq_mode_q;
   logic [18:0] irq_lines_q;
   logic [31:0] cycle_count_q;
-  logic [3:0] random_fast_id_q;
+  logic [31:0] random_irq_id_q;
 
   function automatic logic [18:0] map_irq_word(input logic [31:0] irq_word);
     map_irq_word = {irq_word[3], irq_word[7], irq_word[11], irq_word[31:16]};
   endfunction
 
+  function automatic logic [18:0] map_irq_id(input logic [31:0] irq_id);
+    map_irq_id = '0;
+    unique case (irq_id)
+      32'd3: map_irq_id[18] = 1'b1;
+      32'd7: map_irq_id[17] = 1'b1;
+      32'd11: map_irq_id[16] = 1'b1;
+      default: begin
+        if (irq_id >= 32'd16 && irq_id <= 32'd31) begin
+          map_irq_id[irq_id - 32'd16] = 1'b1;
+        end
+      end
+    endcase
+  endfunction
+
+  function automatic logic [31:0] bounded_irq_id(
+      input logic [31:0] irq_id,
+      input logic [31:0] min_id,
+      input logic [31:0] max_id
+  );
+    if (irq_id < min_id || irq_id > max_id) begin
+      bounded_irq_id = min_id;
+    end else begin
+      bounded_irq_id = irq_id;
+    end
+  endfunction
+
+  function automatic logic [31:0] next_irq_id(
+      input logic [31:0] irq_id,
+      input logic [31:0] min_id,
+      input logic [31:0] max_id
+  );
+    if (irq_id < min_id || irq_id >= max_id) begin
+      next_irq_id = min_id;
+    end else begin
+      next_irq_id = irq_id + 32'd1;
+    end
+  endfunction
+
   assign irq_ack_o = irq_ack_i;
   assign irq_rnd_lines_o = irq_lines_q;
-  assign irq_act_id_o = {28'd0, random_fast_id_q} + 32'd16;
-  assign irq_id_we_o = 1'b0;
+  assign irq_act_id_o = random_irq_id_q;
+  assign irq_id_we_o = irq_ack_i;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       irq_mode_q <= 32'd0;
       irq_lines_q <= '0;
       cycle_count_q <= 32'd0;
-      random_fast_id_q <= 4'd0;
+      random_irq_id_q <= 32'd0;
     end else begin
       irq_mode_q <= irq_mode_i;
 
@@ -255,13 +405,19 @@ def write_verilator_interrupt_generator(target: Path) -> Path:
         end
 
         RANDOM: begin
-          if (irq_mode_q != RANDOM || irq_lines_q != '0) begin
+          if (irq_mode_q != RANDOM) begin
+            irq_lines_q <= '0;
+            cycle_count_q <= 32'd0;
+            random_irq_id_q <= bounded_irq_id(irq_min_id_i, irq_min_id_i, irq_max_id_i);
+          end else if (irq_ack_i) begin
             irq_lines_q <= '0;
             cycle_count_q <= 32'd0;
           end else if (cycle_count_q >= irq_min_cycles_i) begin
-            irq_lines_q <= {3'b0, (16'h1 << random_fast_id_q)};
+            irq_lines_q <= map_irq_id(random_irq_id_q);
             cycle_count_q <= 32'd0;
-            random_fast_id_q <= random_fast_id_q + 4'd1;
+            random_irq_id_q <= next_irq_id(random_irq_id_q, irq_min_id_i, irq_max_id_i);
+          end else if (irq_lines_q != '0) begin
+            cycle_count_q <= 32'd0;
           end else begin
             cycle_count_q <= cycle_count_q + 32'd1;
           end
@@ -282,6 +438,27 @@ def write_verilator_interrupt_generator(target: Path) -> Path:
 endmodule
 """, encoding="utf-8")
     return target
+
+
+def normalize_manifest_token(token: str, *, rtl_dir: Path) -> str:
+    return token.replace("${DESIGN_RTL_DIR}", str(rtl_dir))
+
+
+def read_cv32e40p_manifest(repo_dir: Path) -> tuple[list[str], list[Path]]:
+    rtl_dir = repo_dir / "rtl"
+    manifest = repo_dir / "cv32e40p_manifest.flist"
+    include_dirs: list[str] = []
+    sources: list[Path] = []
+    for raw_line in manifest.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("//"):
+            continue
+        token = normalize_manifest_token(line, rtl_dir=rtl_dir)
+        if token.startswith("+incdir+"):
+            include_dirs.append(token)
+        else:
+            sources.append(Path(token).resolve())
+    return include_dirs, sources
 
 
 def build_firmware(
@@ -348,8 +525,20 @@ def main() -> int:
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--generated", type=Path, required=True)
     parser.add_argument("--primitives", type=Path, required=True)
+    parser.add_argument(
+        "--core-source",
+        choices=("generated", "rtl"),
+        default="generated",
+        help="Use the Naja-generated cv32e40p_top netlist or upstream RTL.",
+    )
     parser.add_argument("--program", choices=sorted(PROGRAMS), default="hello_world")
     parser.add_argument("--max-cycles", default="2000000")
+    parser.add_argument(
+        "--sim-plusarg",
+        action="append",
+        default=[],
+        help="Extra Verilator runtime plusarg, for example +naja_irq_debug.",
+    )
     args = parser.parse_args()
     program = PROGRAMS[args.program]
 
@@ -359,10 +548,11 @@ def main() -> int:
     primitives_path = args.primitives.resolve()
     tb_dir = repo_dir / "example_tb" / "core"
     rtl_include_dir = repo_dir / "rtl" / "include"
-    work_dir = artifacts_dir / f"{args.program}_sim" / "cv32e40p_example_tb"
+    stage_dir = f"{args.program}_sim" if args.core_source == "generated" else f"{args.program}_sim_rtl"
+    work_dir = artifacts_dir / stage_dir / "cv32e40p_example_tb"
     obj_dir = work_dir / "obj"
     work_dir.mkdir(parents=True, exist_ok=True)
-    patched_tb_subsystem = write_generated_netlist_tb_subsystem(
+    patched_tb_subsystem = write_parameterless_tb_subsystem(
         tb_dir / "cv32e40p_tb_subsystem.sv",
         work_dir / "cv32e40p_tb_subsystem_naja.sv",
     )
@@ -408,6 +598,12 @@ def main() -> int:
     ]
     if patched_interrupt_generator is not None:
         tb_sources.insert(5, patched_interrupt_generator)
+    core_include_dirs: list[str] = []
+    if args.core_source == "rtl":
+        core_include_dirs, core_sources = read_cv32e40p_manifest(repo_dir)
+    else:
+        core_sources = [generated_path, primitives_path]
+
     command = [
         "verilator",
         "--binary",
@@ -419,19 +615,27 @@ def main() -> int:
         str(obj_dir),
         "+incdir+" + str(tb_dir / "include"),
         "+incdir+" + str(rtl_include_dir),
+        *core_include_dirs,
         "-Wno-PINMISSING",
         "-Wno-TIMESCALEMOD",
         "-Wno-WIDTH",
         "-Wno-REALCVT",
-        *(str(source) for source in package_sources),
-        str(generated_path),
-        str(primitives_path),
+        "-Wno-CASEINCOMPLETE",
+        "-Wno-COMBDLY",
+        "-Wno-UNOPTFLAT",
+        *(str(source) for source in ([] if args.core_source == "rtl" else package_sources)),
+        *(str(source) for source in core_sources),
         *(str(source) for source in tb_sources),
     ]
     run(command, cwd=repo_dir)
 
     executable = obj_dir / "Vtb_top"
-    run([str(executable), f"+firmware={firmware}", f"+maxcycles={args.max_cycles}"], cwd=work_dir)
+    run([
+        str(executable),
+        f"+firmware={firmware}",
+        f"+maxcycles={args.max_cycles}",
+        *args.sim_plusarg,
+    ], cwd=work_dir)
     print(program["pass_marker"])
     return 0
 

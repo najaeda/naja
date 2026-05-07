@@ -37,7 +37,8 @@ DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
-VALID_STAGES = {"load_dump", "lint", "github_sim", "helloworld_sim"}
+CONFIGURED_COMMAND_SIM_STAGES = {"helloworld_sim", "interrupt_sim"}
+VALID_STAGES = {"load_dump", "lint", "github_sim", *CONFIGURED_COMMAND_SIM_STAGES}
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}
 
@@ -761,6 +762,7 @@ def run_configured_command_sim(
     generated_path: Path,
     log_dir: Path,
     require_tools: bool,
+    allow_expected_failures: bool = False,
 ) -> dict[str, Any]:
     config = configured_stage(case, stage)
     log_path = log_dir / f"{stage.replace('_', '-')}.log"
@@ -807,37 +809,52 @@ def run_configured_command_sim(
             raise RegressError(str(reason))
         return {"status": "skipped", "reason": str(reason), "log": str(log_path)}
 
-    env = case_env(case, repo_dir, case_dir, artifacts_dir)
-    timeout = int(config.get("timeout_seconds", 7200))
-    for index, command in enumerate(commands):
-        if not isinstance(command, list):
-            raise RegressError(
-                f"Invalid {stage}.commands[{index}] for case {case['name']}: expected argument list"
+    expected_failure = bool(config.get("expected_failure", False))
+    expected_failure_reason = str(config.get("expected_failure_reason", "")).strip()
+    try:
+        env = case_env(case, repo_dir, case_dir, artifacts_dir)
+        timeout = int(config.get("timeout_seconds", 7200))
+        for index, command in enumerate(commands):
+            if not isinstance(command, list):
+                raise RegressError(
+                    f"Invalid {stage}.commands[{index}] for case {case['name']}: "
+                    "expected argument list"
+                )
+            formatted_command = format_command(
+                command,
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
             )
-        formatted_command = format_command(
-            command,
-            repo_dir=repo_dir,
-            case_dir=case_dir,
-            artifacts_dir=artifacts_dir,
-        )
-        (artifacts_dir / f"{stage.replace('_', '-')}-command-{index}.json").write_text(
-            json.dumps(formatted_command, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        run_command(
-            formatted_command,
-            cwd=repo_dir,
-            env=env,
-            timeout=timeout,
-            log_path=log_path,
-            append_log=index > 0,
-        )
+            (artifacts_dir / f"{stage.replace('_', '-')}-command-{index}.json").write_text(
+                json.dumps(formatted_command, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            run_command(
+                formatted_command,
+                cwd=repo_dir,
+                env=env,
+                timeout=timeout,
+                log_path=log_path,
+                append_log=index > 0,
+            )
 
-    pass_regex = config.get("pass_regex")
-    if pass_regex:
-        log_text = log_path.read_text(encoding="utf-8", errors="replace")
-        if not re.search(str(pass_regex), log_text):
-            raise RegressError(f"{stage} did not match pass_regex {pass_regex!r}")
+        pass_regex = config.get("pass_regex")
+        if pass_regex:
+            log_text = log_path.read_text(encoding="utf-8", errors="replace")
+            if not re.search(str(pass_regex), log_text):
+                raise RegressError(f"{stage} did not match pass_regex {pass_regex!r}")
+    except RegressError as exc:
+        if expected_failure and allow_expected_failures:
+            reason = expected_failure_reason or str(exc)
+            return {"status": "expected_failure", "reason": reason, "log": str(log_path)}
+        if expected_failure:
+            hint = f"{exc} ({stage} is marked expected_failure"
+            if expected_failure_reason:
+                hint += f": {expected_failure_reason}"
+            hint += "; rerun with --allow-expected-failures to treat it as nonfatal)"
+            raise RegressError(hint) from exc
+        raise
     return {"status": "passed", "log": str(log_path)}
 
 
@@ -850,6 +867,7 @@ def run_helloworld_sim(
     generated_path: Path,
     log_dir: Path,
     require_tools: bool,
+    allow_expected_failures: bool = False,
 ) -> dict[str, Any]:
     return run_configured_command_sim(
         case,
@@ -860,6 +878,32 @@ def run_helloworld_sim(
         generated_path=generated_path,
         log_dir=log_dir,
         require_tools=require_tools,
+        allow_expected_failures=allow_expected_failures,
+    )
+
+
+def run_configured_firmware_sim(
+    case: dict[str, Any],
+    *,
+    stage: str,
+    repo_dir: Path,
+    case_dir: Path,
+    artifacts_dir: Path,
+    generated_path: Path,
+    log_dir: Path,
+    require_tools: bool,
+    allow_expected_failures: bool = False,
+) -> dict[str, Any]:
+    return run_configured_command_sim(
+        case,
+        stage=stage,
+        repo_dir=repo_dir,
+        case_dir=case_dir,
+        artifacts_dir=artifacts_dir,
+        generated_path=generated_path,
+        log_dir=log_dir,
+        require_tools=require_tools,
+        allow_expected_failures=allow_expected_failures,
     )
 
 
@@ -890,7 +934,8 @@ def run_case(
     stages: list[str],
     *,
     lint_runner: str = "docker",
-    require_helloworld_sim_tools: bool = False,
+    require_firmware_sim_tools: bool = False,
+    allow_expected_failures: bool = False,
 ) -> dict[str, Any]:
     case_name = case["name"]
     case_dir = work_dir / case_name
@@ -948,15 +993,17 @@ def run_case(
                     generated_path=generated_path,
                     log_dir=log_dir,
                 )
-            elif stage == "helloworld_sim":
-                result = run_helloworld_sim(
+            elif stage in CONFIGURED_COMMAND_SIM_STAGES:
+                result = run_configured_firmware_sim(
                     case,
+                    stage=stage,
                     repo_dir=repo_dir,
                     case_dir=case_dir,
                     artifacts_dir=artifacts_dir,
                     generated_path=generated_path,
                     log_dir=log_dir,
-                    require_tools=require_helloworld_sim_tools,
+                    require_tools=require_firmware_sim_tools,
+                    allow_expected_failures=allow_expected_failures,
                 )
             else:  # pragma: no cover - guarded by select_stages.
                 raise RegressError(f"Unhandled stage: {stage}")
@@ -1008,7 +1055,8 @@ def command_run(args: argparse.Namespace) -> int:
                     args.najaeda_pythonpath,
                     stages,
                     lint_runner=args.lint_runner,
-                    require_helloworld_sim_tools=args.require_helloworld_sim_tools,
+                    require_firmware_sim_tools=args.require_firmware_sim_tools,
+                    allow_expected_failures=args.allow_expected_failures,
                 )
             )
         except Exception as exc:
@@ -1070,8 +1118,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument(
         "--require-helloworld-sim-tools",
+        dest="require_firmware_sim_tools",
         action="store_true",
-        help="Fail helloworld_sim when optional firmware/toolchain dependencies are missing.",
+        help="Fail configured firmware simulation stages when optional dependencies are missing.",
+    )
+    run_parser.add_argument(
+        "--require-firmware-sim-tools",
+        dest="require_firmware_sim_tools",
+        action="store_true",
+        help="Fail configured firmware simulation stages when optional dependencies are missing.",
+    )
+    run_parser.add_argument(
+        "--allow-expected-failures",
+        action="store_true",
+        help="Treat manifest stages marked expected_failure as nonfatal.",
     )
     run_parser.add_argument("--keep-going", action="store_true", help="Continue after a case fails")
     run_parser.set_defaults(func=command_run)

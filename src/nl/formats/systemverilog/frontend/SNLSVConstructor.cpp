@@ -19169,17 +19169,30 @@ endmodule
       handled = true;
 
       std::vector<SNLBitNet*> selectedLhsBits;
-      if (!resolveAssignmentLHSBits(
-            design,
-            assignedLHS,
-            selectedLhsBits,
-            &failureReason)) {
-        // LCOV_EXCL_START
-        // collectAssignedLHSExpressions tracks selection bases before replay,
-        // so parser-backed fixed sub-assignments resolve here or are rejected
-        // earlier when collecting the tracked LHS.
-        return false;
-        // LCOV_EXCL_STOP
+      {
+        const auto* savedActiveProceduralReplayLHS = activeProceduralReplayLHS_;
+        const auto* savedActiveProceduralReplayBits = activeProceduralReplayBits_;
+        auto* savedActiveProceduralReplayEnv = activeProceduralReplayEnv_;
+        activeProceduralReplayLHS_ = nullptr;
+        activeProceduralReplayBits_ = nullptr;
+        activeProceduralReplayEnv_ = nullptr;
+        const auto physicalLhsResolutionGuard = slang::ScopeGuard([&]() {
+          activeProceduralReplayLHS_ = savedActiveProceduralReplayLHS;
+          activeProceduralReplayBits_ = savedActiveProceduralReplayBits;
+          activeProceduralReplayEnv_ = savedActiveProceduralReplayEnv;
+        });
+        if (!resolveAssignmentLHSBits(
+              design,
+              assignedLHS,
+              selectedLhsBits,
+              &failureReason)) {
+          // LCOV_EXCL_START
+          // collectAssignedLHSExpressions tracks selection bases before replay,
+          // so parser-backed fixed sub-assignments resolve here or are rejected
+          // earlier when collecting the tracked LHS.
+          return false;
+          // LCOV_EXCL_STOP
+        }
       }
       if (selectedLhsBits.empty()) {
         // LCOV_EXCL_START
@@ -19902,7 +19915,7 @@ endmodule
                   itemSourceRange,
                   failureReason,
                   replayLhsSymbol,
-                  &selectedBits)) {
+                  &mergedBits)) {
               // Replay merge failure details are covered in the merge helper.
               // LCOV_EXCL_START
               return false;

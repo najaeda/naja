@@ -155,3 +155,30 @@ cases:
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
       pass_regex: "CV32E40P_HELLOWORLD_SIM_PASS"
+    interrupt_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cv32e40p_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "interrupt"
+          - "--max-cycles"
+          - "20000000"
+      pass_regex: "CV32E40P_INTERRUPT_SIM_PASS"
