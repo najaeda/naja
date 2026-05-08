@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run Ibex simple-system hello_test with a Naja-generated ibex_top."""
+"""Run Ibex simple-system firmware with a Naja-generated ibex_top."""
 
 from __future__ import annotations
 
@@ -16,6 +16,24 @@ import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+PASS_TEXT = "PASS: All test sequences behaved as expected"
+PROGRAMS = {
+    "hello_test": {
+        "expected_output": "Hello simple system",
+        "pass_marker": "IBEX_HELLOWORLD_SIM_PASS",
+        "stage_dir": "helloworld_sim",
+    },
+    "dit_test": {
+        "expected_output": PASS_TEXT,
+        "pass_marker": "IBEX_DIT_SIM_PASS",
+        "stage_dir": "dit_sim",
+    },
+    "dummy_instr_test": {
+        "expected_output": PASS_TEXT,
+        "pass_marker": "IBEX_DUMMY_INSTR_SIM_PASS",
+        "stage_dir": "dummy_instr_sim",
+    },
+}
 
 
 def run(args: list[str], *, cwd: Path | None = None) -> None:
@@ -46,6 +64,16 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
     common_dir = repo_dir / "examples" / "sw" / "simple_system" / "common"
     common_c_path = common_dir / "simple_system_common.c"
     common_h_path = common_dir / "simple_system_common.h"
+    dit_test_c_path = repo_dir / "examples" / "sw" / "simple_system" / "dit_test" / "dit_test.c"
+    dit_test_s_path = (
+        repo_dir / "examples" / "sw" / "simple_system" / "dit_test" / "count_ones_zeros.S"
+    )
+    dummy_test_c_path = (
+        repo_dir / "examples" / "sw" / "simple_system" / "dummy_instr_test" / "dummy_instr_test.c"
+    )
+    dummy_test_s_path = (
+        repo_dir / "examples" / "sw" / "simple_system" / "dummy_instr_test" / "busy_work.S"
+    )
 
     def csrw_x0_word(csr: int) -> int:
         return (csr << 20) | 0x1073
@@ -69,6 +97,12 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         for old, new in replacements.items():
             if old in text:
                 text = text.replace(old, new, 1)
+        path.write_text(text, encoding="utf-8")
+
+    def apply_all_replacements(path: Path, replacements: dict[str, str]) -> None:
+        text = path.read_text(encoding="utf-8")
+        for old, new in replacements.items():
+            text = text.replace(old, new)
         path.write_text(text, encoding="utf-8")
 
     common_c_text = common_c_path.read_text(encoding="utf-8")
@@ -244,6 +278,36 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
         count=1,
     )
     common_h_path.write_text(common_h_text, encoding="utf-8")
+
+    # Keep the self-checking Ibex firmware tests buildable with older RISC-V
+    # binutils that do not accept Zicsr mnemonics under -march=rv32imc.
+    apply_replacements(dit_test_c_path, {
+        '__asm__ volatile("csrsi 0x7c0, 0x2");': (
+            '__asm__ volatile(".word 0x7c016073\\n");'
+        ),
+        '__asm__ volatile("csrci 0x7c0, 0x2");': (
+            '__asm__ volatile(".word 0x7c017073\\n");'
+        ),
+        '__asm__ volatile("csrsi 0x7c0, 0x1");': (
+            '__asm__ volatile(".word 0x7c00e073\\n");'
+        ),
+        '__asm__ volatile("csrci 0x7c0, 0x1");': (
+            '__asm__ volatile(".word 0x7c00f073\\n");'
+        ),
+    })
+    apply_replacements(dummy_test_c_path, {
+        '__asm__ volatile("csrsi 0x7c0, 0x4");': (
+            '__asm__ volatile(".word 0x7c026073\\n");'
+        ),
+        '__asm__ volatile("csrci 0x7c0, 0x4");': (
+            '__asm__ volatile(".word 0x7c027073\\n");'
+        ),
+    })
+    for path in (dit_test_s_path, dummy_test_s_path):
+        apply_all_replacements(path, {
+            "csrr t5, mcycle": ".word 0xb0002f73",
+            "csrr t6, mcycle": ".word 0xb0002ff3",
+        })
 
 
 def normalize_vc(vc_path: Path, generated_path: Path, primitives_path: Path) -> list[str]:
@@ -623,42 +687,53 @@ def main() -> int:
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--generated", type=Path, required=True)
     parser.add_argument("--primitives", type=Path, required=True)
+    parser.add_argument("--program", choices=sorted(PROGRAMS), default="hello_test")
     parser.add_argument("--max-cycles", default="200000")
+    parser.add_argument(
+        "--secure-ibex",
+        action="store_true",
+        help="Compile the simple-system wrapper with SecureIbex memory integrity wiring enabled.",
+    )
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
+    program = args.program
+    program_config = PROGRAMS[program]
     repo_dir = args.repo.resolve()
     artifacts_dir = args.artifacts.resolve()
     generated_path = args.generated.resolve()
     primitives_path = args.primitives.resolve()
     check_generated_netlist(generated_path)
-    work_dir = artifacts_dir / "helloworld_sim" / "ibex_simple_system"
+    stage_dir = str(program_config["stage_dir"])
+    if args.secure_ibex:
+        stage_dir = "secure_" + stage_dir
+    work_dir = artifacts_dir / stage_dir / "ibex_simple_system"
     obj_dir = work_dir / "obj"
     work_dir.mkdir(parents=True, exist_ok=True)
 
     tool_prefix = find_riscv_tool_prefix()
     patch_ibex_common_csr_asm(repo_dir)
-    hello_dir = repo_dir / "examples" / "sw" / "simple_system" / "hello_test"
+    program_dir = repo_dir / "examples" / "sw" / "simple_system" / program
     run([
         "make",
         "-C",
-        str(hello_dir),
-        "hello_test.elf",
+        str(program_dir),
+        f"{program}.elf",
         f"CC={tool_prefix}gcc",
         f"OBJCOPY={tool_prefix}objcopy",
         "ARCH=rv32imc",
     ])
-    firmware = repo_dir / "examples" / "sw" / "simple_system" / "hello_test" / "hello_test.vmem"
-    firmware_bin = hello_dir / "hello_test.bin"
+    firmware = program_dir / f"{program}.vmem"
+    firmware_bin = program_dir / f"{program}.bin"
     run([
         tool_prefix + "objcopy",
         "-O", "binary",
-        str(hello_dir / "hello_test.elf"),
+        str(program_dir / f"{program}.elf"),
         str(firmware_bin),
     ])
     write_word_vmem(firmware_bin, firmware, base_address=0)
     if not firmware.exists():
-        raise SystemExit(f"missing Ibex hello_test firmware: {firmware}")
+        raise SystemExit(f"missing Ibex {program} firmware: {firmware}")
 
     vc_path = next((repo_dir / "build" / "fusesoc").glob("**/lint-verilator/*.vc"))
     patched_system = patched_simple_system(repo_dir, work_dir)
@@ -711,9 +786,10 @@ def main() -> int:
         "--unroll-count",
         "72",
         f'-GSRAMInitFile="{firmware}"',
-        *rtl_args,
-        *(str(source) for source in cpp_sources),
     ]
+    if args.secure_ibex:
+        command.append("-GSecureIbex=1")
+    command.extend([*rtl_args, *(str(source) for source in cpp_sources)])
     run(command, cwd=repo_dir)
 
     executable = obj_dir / "Vibex_simple_system"
@@ -723,17 +799,17 @@ def main() -> int:
     run(sim_args, cwd=work_dir)
     log_path = work_dir / "ibex_simple_system.log"
     log_text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
-    expected_output = "Hello simple system"
+    expected_output = str(program_config["expected_output"])
     if expected_output not in log_text:
         progress_path = work_dir / "naja_ibex_progress.log"
         if progress_path.exists():
             progress_text = progress_path.read_text(encoding="utf-8", errors="replace").strip()
             raise SystemExit(
-                f"Ibex simple-system did not print {expected_output!r}. "
+                f"Ibex simple-system {program} did not print {expected_output!r}. "
                 f"Naja netlist progress counters: {progress_text}"
             )
-        raise SystemExit(f"Ibex simple-system did not print {expected_output!r}.")
-    print("IBEX_HELLOWORLD_SIM_PASS")
+        raise SystemExit(f"Ibex simple-system {program} did not print {expected_output!r}.")
+    print(str(program_config["pass_marker"]))
     return 0
 
 

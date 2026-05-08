@@ -20498,14 +20498,6 @@ endmodule
         return false;
       }
 
-      for (const auto* lhsExpr : resetLHSExpressions) {
-        if (lhsExpr && isSequentialFallbackBaseTrackingSuppressed(*lhsExpr)) {
-          failureReason =
-            "fallback currently excludes memory-style whole-array commit branches";
-          return false;
-        }
-      }
-
       std::vector<const Expression*> conditionalLHSExpressions = resetLHSExpressions;
       if (resetLHSExpressions.size() == 1 && topCond.ifFalse) {
         std::vector<const Expression*> rawElseLHSExpressions;

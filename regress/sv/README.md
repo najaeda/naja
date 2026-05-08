@@ -25,8 +25,8 @@ GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
 `External SV Regress` workflow runs lint for the small external designs and
 load/dump checks for the large BlackParrot and CVA6 designs. The `External SV
 Simulation` workflow runs the checked-in Ibex and CV32E40P smoke simulations
-plus the Ibex helloworld simulation, the CV32E40P helloworld simulation, and an
-upstream CV32E40P interrupt simulation.
+plus the Ibex helloworld simulation, SecureIbex diagnostics, the CV32E40P
+helloworld simulation, and an upstream CV32E40P interrupt simulation.
 
 ## List Cases
 
@@ -141,6 +141,18 @@ testbench environments:
 - Ibex uses upstream `examples/simple_system`, replaces the original
   `ibex_top` with the Naja-generated `ibex_top`, builds `hello_test.vmem`, and
   expects `IBEX_HELLOWORLD_SIM_PASS`.
+- The `ibex_dit_sim` and `ibex_dummy_instr_sim` stages reuse the same upstream
+  simple-system environment to run the self-checking `dit_test` and
+  `dummy_instr_test` programs. They are currently marked expected-failure
+  diagnostics because the default generated `ibex_naja.v` is built without a
+  `SecureIbex` parameter override, so the firmware reaches the checks but the
+  security feature CSR writes do not enable data-independent timing or dummy
+  instruction insertion in the generated core.
+- The `ibex_secure_dit_sim` and `ibex_secure_dummy_instr_sim` stages generate a
+  separate `ibex_secure_naja.v` with `-GSecureIbex=1`, then compile the upstream
+  simple-system wrapper with matching SecureIbex memory-integrity wiring. These
+  are the GitHub diagnostics for the real secure configuration and are required
+  to pass.
 - CV32E40P uses upstream `example_tb/core`, replaces the original
   `cv32e40p_top` with the Naja-generated `cv32e40p_top`, builds
   `custom/hello_world.hex`, compiles the upstream Verilator testbench around
@@ -152,7 +164,9 @@ python3 regress/sv/sv_regress.py run \
   --case cv32e40p \
   --stage lint \
   --stage github_sim \
-  --stage helloworld_sim
+  --stage helloworld_sim \
+  --stage ibex_secure_dit_sim \
+  --stage ibex_secure_dummy_instr_sim
 ```
 
 Run only helloworld simulation:
@@ -171,6 +185,16 @@ tools fail the command:
 python3 regress/sv/sv_regress.py run \
   --case ibex \
   --stage helloworld_sim \
+  --require-firmware-sim-tools
+```
+
+Run the SecureIbex simple-system diagnostics:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case ibex \
+  --stage ibex_secure_dit_sim \
+  --stage ibex_secure_dummy_instr_sim \
   --require-firmware-sim-tools
 ```
 
@@ -232,6 +256,8 @@ logs/verilator-lint.log
 logs/github-sim.log
 logs/helloworld-sim.log
 logs/interrupt-sim.log
+ibex_secure.flist
+ibex_secure_diagnostics.log
 verilator-lint-command.json
 github_sim-build-command.json
 github_sim-run-command.json

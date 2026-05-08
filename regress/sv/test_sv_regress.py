@@ -13,6 +13,8 @@ sys.path.insert(0, str(REGRESS_SV_ROOT))
 sys.path.insert(0, str(HELLOWORLD_SIM_ROOT))
 
 import cv32e40p_example_tb
+import ibex_secure_netlist
+import ibex_simple_system
 import sv_regress
 
 
@@ -57,11 +59,24 @@ cases:
     def test_stage_selection_defaults_and_deduplicates(self):
         self.assertEqual(["lint", "github_sim"], sv_regress.select_stages(None))
         self.assertEqual(
-            ["load_dump", "lint", "helloworld_sim", "interrupt_sim"],
+            [
+                "load_dump",
+                "lint",
+                "helloworld_sim",
+                "ibex_dit_sim",
+                "ibex_dummy_instr_sim",
+                "ibex_secure_dit_sim",
+                "ibex_secure_dummy_instr_sim",
+                "interrupt_sim",
+            ],
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
                 "helloworld_sim",
+                "ibex_dit_sim",
+                "ibex_dummy_instr_sim",
+                "ibex_secure_dit_sim",
+                "ibex_secure_dummy_instr_sim",
                 "interrupt_sim",
                 "lint",
             ]),
@@ -131,12 +146,17 @@ cases:
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"
         ).read_text(encoding="utf-8")
 
+        self.assertIn("Run Ibex helloworld simulation", workflow)
+        self.assertIn("Run Ibex secure simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
         self.assertIn("Run CV32E40P interrupt simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
+        self.assertIn("--case ibex", workflow)
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
+        self.assertIn("--stage ibex_secure_dit_sim", workflow)
+        self.assertIn("--stage ibex_secure_dummy_instr_sim", workflow)
         self.assertIn("--stage interrupt_sim", workflow)
         self.assertIn("--require-firmware-sim-tools", workflow)
         self.assertNotIn("--allow-expected-failures", workflow)
@@ -662,6 +682,90 @@ src/rtl/top.sv
             ],
             interrupt_sim["tool_checks"],
         )
+
+    def test_ibex_extended_sim_stages_use_upstream_simple_system_tests(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        ibex = sv_regress.select_cases(cases, "ibex")[0]
+
+        self.assertIn("ibex_dit_sim", sv_regress.VALID_STAGES)
+        self.assertIn("ibex_dummy_instr_sim", sv_regress.VALID_STAGES)
+        self.assertIn("ibex_secure_dit_sim", sv_regress.VALID_STAGES)
+        self.assertIn("ibex_secure_dummy_instr_sim", sv_regress.VALID_STAGES)
+        self.assertEqual("IBEX_DIT_SIM_PASS", ibex["ibex_dit_sim"]["pass_regex"])
+        self.assertEqual(
+            "IBEX_DUMMY_INSTR_SIM_PASS",
+            ibex["ibex_dummy_instr_sim"]["pass_regex"],
+        )
+        self.assertTrue(ibex["ibex_dit_sim"]["expected_failure"])
+        self.assertTrue(ibex["ibex_dummy_instr_sim"]["expected_failure"])
+        self.assertIn("dit_test", ibex["ibex_dit_sim"]["commands"][0])
+        self.assertIn("dummy_instr_test", ibex["ibex_dummy_instr_sim"]["commands"][0])
+        self.assertIn("dit_test", ibex_simple_system.PROGRAMS)
+        self.assertIn("dummy_instr_test", ibex_simple_system.PROGRAMS)
+        self.assertEqual(
+            "PASS: All test sequences behaved as expected",
+            ibex_simple_system.PROGRAMS["dit_test"]["expected_output"],
+        )
+        for stage_name in ("ibex_dit_sim", "ibex_dummy_instr_sim"):
+            stage = ibex[stage_name]
+            command = stage["commands"][0]
+            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", command[1])
+            self.assertIn("--program", command)
+            self.assertIn("--max-cycles", command)
+            self.assertIn(
+                [
+                    "riscv32-unknown-elf-gcc",
+                    "riscv-none-elf-gcc",
+                    "riscv64-unknown-elf-gcc",
+                ],
+                stage["tool_checks"],
+            )
+
+        self.assertEqual("IBEX_SECURE_NETLIST_PASS", ibex_secure_netlist.SECURE_PASS_MARKER)
+        for stage_name, program, marker in (
+            ("ibex_secure_dit_sim", "dit_test", "IBEX_DIT_SIM_PASS"),
+            (
+                "ibex_secure_dummy_instr_sim",
+                "dummy_instr_test",
+                "IBEX_DUMMY_INSTR_SIM_PASS",
+            ),
+        ):
+            stage = ibex[stage_name]
+            self.assertEqual(marker, stage["pass_regex"])
+            self.assertNotIn("expected_failure", stage)
+            self.assertNotIn("expected_failure_reason", stage)
+            self.assertEqual(2, len(stage["commands"]))
+            secure_command = stage["commands"][0]
+            sim_command = stage["commands"][1]
+            self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", secure_command[1])
+            self.assertIn("--output", secure_command)
+            self.assertIn("{artifacts}/ibex_secure_naja.v", secure_command)
+            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", sim_command[1])
+            self.assertIn("{artifacts}/ibex_secure_naja.v", sim_command)
+            self.assertIn("--secure-ibex", sim_command)
+            self.assertIn("--program", sim_command)
+            self.assertIn(program, sim_command)
+
+    def test_ibex_secure_netlist_flist_enables_secure_ibex(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            vc_path = tmpdir_path / "ibex.vc"
+            vc_path.write_text(
+                """
+# ignored
++define+SYNTHESIS
++incdir+rtl/include
+rtl/ibex_top.sv
+""",
+                encoding="utf-8",
+            )
+
+            content = ibex_secure_netlist.secure_flist_content(vc_path)
+
+        self.assertTrue(content.startswith("-GSecureIbex=1\n"))
+        self.assertIn("+define+SYNTHESIS", content)
+        self.assertIn("+incdir+" + str(tmpdir_path / "rtl" / "include"), content)
+        self.assertIn(str(tmpdir_path / "rtl" / "ibex_top.sv"), content)
 
 
 class CV32E40PExampleTbTest(unittest.TestCase):

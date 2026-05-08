@@ -106,6 +106,144 @@ cases:
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
       pass_regex: "IBEX_HELLOWORLD_SIM_PASS"
+    ibex_dit_sim:
+      timeout_seconds: 7200
+      expected_failure: true
+      expected_failure_reason: "Generated Ibex netlist is currently built without SecureIbex enabled, so the upstream DIT firmware reaches the check but DIT CSR writes do not remove branch timing variation."
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dit_test"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DIT_SIM_PASS"
+    ibex_dummy_instr_sim:
+      timeout_seconds: 7200
+      expected_failure: true
+      expected_failure_reason: "Generated Ibex netlist is currently built without SecureIbex/DummyInstructions enabled, so the upstream dummy-instruction firmware reaches the check but dummy-instruction CSR writes do not perturb timing."
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dummy_instr_test"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
+    ibex_secure_dit_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dit_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DIT_SIM_PASS"
+    ibex_secure_dummy_instr_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dummy_instr_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
 
   - name: cv32e40p
     repo: https://github.com/openhwgroup/cv32e40p.git
