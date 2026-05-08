@@ -37,7 +37,14 @@ DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
 PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
-CONFIGURED_COMMAND_SIM_STAGES = {"helloworld_sim", "interrupt_sim"}
+CONFIGURED_COMMAND_SIM_STAGES = {
+    "helloworld_sim",
+    "interrupt_sim",
+    "ibex_dit_sim",
+    "ibex_dummy_instr_sim",
+    "ibex_secure_dit_sim",
+    "ibex_secure_dummy_instr_sim",
+}
 VALID_STAGES = {"load_dump", "lint", "github_sim", *CONFIGURED_COMMAND_SIM_STAGES}
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}

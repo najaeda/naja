@@ -100,6 +100,14 @@ jobs:
             --stage helloworld_sim \
             --require-firmware-sim-tools
 
+      - name: Run Ibex secure simple-system diagnostics
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case ibex \
+            --stage ibex_secure_dit_sim \
+            --stage ibex_secure_dummy_instr_sim \
+            --require-firmware-sim-tools
+
       - name: Run CV32E40P helloworld simulation
         run: |
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \

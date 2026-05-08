@@ -26041,6 +26041,130 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialWholeUnpackedArrayResetDefaultCopySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_whole_unpacked_array_reset_default_copy_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_whole_unpacked_array_reset_default_copy_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_whole_unpacked_array_reset_default_copy_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic [15:0] d_i,
+  output logic [7:0]  q0_o,
+  output logic [7:0]  q1_o
+);
+  logic [7:0] data_d [1:0];
+  logic [7:0] data_q [1:0];
+
+  assign data_d[0] = d_i[7:0];
+  assign data_d[1] = d_i[15:8];
+  assign q0_o = data_q[0];
+  assign q1_o = data_q[1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      data_q <= '{default: 0};
+    end else begin
+      data_q <= data_d;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_whole_unpacked_array_reset_default_copy_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    }
+  }
+  EXPECT_EQ(16u, dffrnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiLHSWholeUnpackedArrayResetDefaultCopySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_lhs_whole_unpacked_array_reset_default_copy_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_lhs_whole_unpacked_array_reset_default_copy_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_lhs_whole_unpacked_array_reset_default_copy_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic [3:0]  ctrl_i,
+  input  logic [15:0] d_i,
+  output logic [3:0]  ctrl_o,
+  output logic [7:0]  q0_o,
+  output logic [7:0]  q1_o
+);
+  logic [3:0] ctrl_q;
+  logic [7:0] data_d [1:0];
+  logic [7:0] data_q [1:0];
+
+  assign data_d[0] = d_i[7:0];
+  assign data_d[1] = d_i[15:8];
+  assign ctrl_o = ctrl_q;
+  assign q0_o = data_q[0];
+  assign q1_o = data_q[1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      ctrl_q <= 4'h0;
+      data_q <= '{default: 0};
+    end else begin
+      ctrl_q <= ctrl_i;
+      data_q <= data_d;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_lhs_whole_unpacked_array_reset_default_copy_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    }
+  }
+  EXPECT_EQ(20u, dffrnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialGeneratedUnpackedArrayElementNoDuplicateDrivers) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
