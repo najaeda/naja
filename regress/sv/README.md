@@ -148,6 +148,9 @@ testbench environments:
   `SecureIbex` parameter override, so the firmware reaches the checks but the
   security feature CSR writes do not enable data-independent timing or dummy
   instruction insertion in the generated core.
+- The `ibex_pmp_sim` stage generates a separate `ibex_pmp_naja.v` with
+  `-GPMPEnable=1`, then runs upstream `pmp_smoke_test` and checks that the
+  protected store raises the expected store access fault.
 - The `ibex_secure_dit_sim` and `ibex_secure_dummy_instr_sim` stages generate a
   separate `ibex_secure_naja.v` with `-GSecureIbex=1`, then compile the upstream
   simple-system wrapper with matching SecureIbex memory-integrity wiring. These
@@ -165,6 +168,7 @@ python3 regress/sv/sv_regress.py run \
   --stage lint \
   --stage github_sim \
   --stage helloworld_sim \
+  --stage ibex_pmp_sim \
   --stage ibex_secure_dit_sim \
   --stage ibex_secure_dummy_instr_sim
 ```
@@ -188,11 +192,12 @@ python3 regress/sv/sv_regress.py run \
   --require-firmware-sim-tools
 ```
 
-Run the SecureIbex simple-system diagnostics:
+Run the extended Ibex simple-system diagnostics:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
   --case ibex \
+  --stage ibex_pmp_sim \
   --stage ibex_secure_dit_sim \
   --stage ibex_secure_dummy_instr_sim \
   --require-firmware-sim-tools
@@ -258,6 +263,8 @@ logs/helloworld-sim.log
 logs/interrupt-sim.log
 ibex_secure.flist
 ibex_secure_diagnostics.log
+ibex_pmp.flist
+ibex_pmp_diagnostics.log
 verilator-lint-command.json
 github_sim-build-command.json
 github_sim-run-command.json

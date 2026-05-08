@@ -65,6 +65,7 @@ cases:
                 "helloworld_sim",
                 "ibex_dit_sim",
                 "ibex_dummy_instr_sim",
+                "ibex_pmp_sim",
                 "ibex_secure_dit_sim",
                 "ibex_secure_dummy_instr_sim",
                 "interrupt_sim",
@@ -75,6 +76,7 @@ cases:
                 "helloworld_sim",
                 "ibex_dit_sim",
                 "ibex_dummy_instr_sim",
+                "ibex_pmp_sim",
                 "ibex_secure_dit_sim",
                 "ibex_secure_dummy_instr_sim",
                 "interrupt_sim",
@@ -147,7 +149,7 @@ cases:
         ).read_text(encoding="utf-8")
 
         self.assertIn("Run Ibex helloworld simulation", workflow)
-        self.assertIn("Run Ibex secure simple-system diagnostics", workflow)
+        self.assertIn("Run Ibex extended simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
         self.assertIn("Run CV32E40P interrupt simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
@@ -155,6 +157,7 @@ cases:
         self.assertIn("--case ibex", workflow)
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
+        self.assertIn("--stage ibex_pmp_sim", workflow)
         self.assertIn("--stage ibex_secure_dit_sim", workflow)
         self.assertIn("--stage ibex_secure_dummy_instr_sim", workflow)
         self.assertIn("--stage interrupt_sim", workflow)
@@ -689,6 +692,7 @@ src/rtl/top.sv
 
         self.assertIn("ibex_dit_sim", sv_regress.VALID_STAGES)
         self.assertIn("ibex_dummy_instr_sim", sv_regress.VALID_STAGES)
+        self.assertIn("ibex_pmp_sim", sv_regress.VALID_STAGES)
         self.assertIn("ibex_secure_dit_sim", sv_regress.VALID_STAGES)
         self.assertIn("ibex_secure_dummy_instr_sim", sv_regress.VALID_STAGES)
         self.assertEqual("IBEX_DIT_SIM_PASS", ibex["ibex_dit_sim"]["pass_regex"])
@@ -702,6 +706,7 @@ src/rtl/top.sv
         self.assertIn("dummy_instr_test", ibex["ibex_dummy_instr_sim"]["commands"][0])
         self.assertIn("dit_test", ibex_simple_system.PROGRAMS)
         self.assertIn("dummy_instr_test", ibex_simple_system.PROGRAMS)
+        self.assertIn("pmp_smoke_test", ibex_simple_system.PROGRAMS)
         self.assertEqual(
             "PASS: All test sequences behaved as expected",
             ibex_simple_system.PROGRAMS["dit_test"]["expected_output"],
@@ -720,6 +725,23 @@ src/rtl/top.sv
                 ],
                 stage["tool_checks"],
             )
+
+        pmp_stage = ibex["ibex_pmp_sim"]
+        self.assertEqual("IBEX_PMP_SIM_PASS", pmp_stage["pass_regex"])
+        self.assertNotIn("expected_failure", pmp_stage)
+        self.assertEqual(2, len(pmp_stage["commands"]))
+        self.assertEqual(
+            "MCAUSE: 0x00000007",
+            ibex_simple_system.PROGRAMS["pmp_smoke_test"]["expected_output"],
+        )
+        pmp_netlist_command = pmp_stage["commands"][0]
+        pmp_sim_command = pmp_stage["commands"][1]
+        self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", pmp_netlist_command[1])
+        self.assertIn("--variant", pmp_netlist_command)
+        self.assertIn("pmp", pmp_netlist_command)
+        self.assertIn("{artifacts}/ibex_pmp_naja.v", pmp_netlist_command)
+        self.assertIn("{artifacts}/ibex_pmp_naja.v", pmp_sim_command)
+        self.assertIn("pmp_smoke_test", pmp_sim_command)
 
         self.assertEqual("IBEX_SECURE_NETLIST_PASS", ibex_secure_netlist.SECURE_PASS_MARKER)
         for stage_name, program, marker in (
@@ -765,6 +787,20 @@ rtl/ibex_top.sv
         self.assertTrue(content.startswith("-GSecureIbex=1\n"))
         self.assertIn("+define+SYNTHESIS", content)
         self.assertIn("+incdir+" + str(tmpdir_path / "rtl" / "include"), content)
+        self.assertIn(str(tmpdir_path / "rtl" / "ibex_top.sv"), content)
+
+    def test_ibex_pmp_netlist_flist_enables_pmp(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            vc_path = tmpdir_path / "ibex.vc"
+            vc_path.write_text("rtl/ibex_top.sv\n", encoding="utf-8")
+
+            content = ibex_secure_netlist.variant_flist_content(
+                vc_path,
+                ibex_secure_netlist.VARIANTS["pmp"]["params"],
+            )
+
+        self.assertTrue(content.startswith("-GPMPEnable=1\n"))
         self.assertIn(str(tmpdir_path / "rtl" / "ibex_top.sv"), content)
 
 

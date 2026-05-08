@@ -42,6 +42,7 @@ CONFIGURED_COMMAND_SIM_STAGES = {
     "interrupt_sim",
     "ibex_dit_sim",
     "ibex_dummy_instr_sim",
+    "ibex_pmp_sim",
     "ibex_secure_dit_sim",
     "ibex_secure_dummy_instr_sim",
 }

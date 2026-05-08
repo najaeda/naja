@@ -33,6 +33,11 @@ PROGRAMS = {
         "pass_marker": "IBEX_DUMMY_INSTR_SIM_PASS",
         "stage_dir": "dummy_instr_sim",
     },
+    "pmp_smoke_test": {
+        "expected_output": "MCAUSE: 0x00000007",
+        "pass_marker": "IBEX_PMP_SIM_PASS",
+        "stage_dir": "pmp_sim",
+    },
 }
 
 
@@ -73,6 +78,9 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
     )
     dummy_test_s_path = (
         repo_dir / "examples" / "sw" / "simple_system" / "dummy_instr_test" / "busy_work.S"
+    )
+    pmp_test_c_path = (
+        repo_dir / "examples" / "sw" / "simple_system" / "pmp_smoke_test" / "pmp_smoke_test.c"
     )
 
     def csrw_x0_word(csr: int) -> int:
@@ -308,6 +316,20 @@ def patch_ibex_common_csr_asm(repo_dir: Path) -> None:
             "csrr t5, mcycle": ".word 0xb0002f73",
             "csrr t6, mcycle": ".word 0xb0002ff3",
         })
+    apply_replacements(pmp_test_c_path, {
+        """  __asm__ volatile(
+      "csrw pmpaddr0, %1\\n"
+      "csrw pmpcfg0, %0\\n"
+      :
+      : "r"(TEST_PMPCFG0), "r"(pmpaddr0));""": """  __asm__ volatile(
+      "mv a5, %1\\n"
+      ".word 0x3b079073\\n"
+      "mv a5, %0\\n"
+      ".word 0x3a079073\\n"
+      :
+      : "r"(TEST_PMPCFG0), "r"(pmpaddr0)
+      : "a5");""",
+    })
 
 
 def normalize_vc(vc_path: Path, generated_path: Path, primitives_path: Path) -> list[str]:
