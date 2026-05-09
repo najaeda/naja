@@ -105,8 +105,8 @@ jobs:
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
             --case ibex \
             --stage ibex_pmp_sim \
-            --stage ibex_secure_dit_sim \
-            --stage ibex_secure_dummy_instr_sim \
+            --stage ibex_dit_sim \
+            --stage ibex_dummy_instr_sim \
             --require-firmware-sim-tools
 
       - name: Run CV32E40P helloworld simulation
@@ -116,11 +116,12 @@ jobs:
             --stage helloworld_sim \
             --require-firmware-sim-tools
 
-      - name: Run CV32E40P interrupt simulation
+      - name: Run CV32E40P extended example TB simulations
         run: |
           python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
             --case cv32e40p \
             --stage interrupt_sim \
+            --stage cv32e40p_hwlp_sim \
             --require-firmware-sim-tools
 
       - name: Upload external SV simulation artifacts

@@ -143,34 +143,44 @@ testbench environments:
   expects `IBEX_HELLOWORLD_SIM_PASS`.
 - The `ibex_dit_sim` and `ibex_dummy_instr_sim` stages reuse the same upstream
   simple-system environment to run the self-checking `dit_test` and
-  `dummy_instr_test` programs. They are currently marked expected-failure
-  diagnostics because the default generated `ibex_naja.v` is built without a
-  `SecureIbex` parameter override, so the firmware reaches the checks but the
-  security feature CSR writes do not enable data-independent timing or dummy
-  instruction insertion in the generated core.
+  `dummy_instr_test` programs. They generate a separate `ibex_secure_naja.v`
+  with `-GSecureIbex=1`, then compile the upstream simple-system wrapper with
+  matching SecureIbex memory-integrity wiring.
 - The `ibex_pmp_sim` stage generates a separate `ibex_pmp_naja.v` with
   `-GPMPEnable=1`, then runs upstream `pmp_smoke_test` and checks that the
   protected store raises the expected store access fault.
 - The `ibex_secure_dit_sim` and `ibex_secure_dummy_instr_sim` stages generate a
   separate `ibex_secure_naja.v` with `-GSecureIbex=1`, then compile the upstream
   simple-system wrapper with matching SecureIbex memory-integrity wiring. These
-  are the GitHub diagnostics for the real secure configuration and are required
-  to pass.
+  are compatibility aliases for the secure configuration.
 - CV32E40P uses upstream `example_tb/core`, replaces the original
   `cv32e40p_top` with the Naja-generated `cv32e40p_top`, builds
   `custom/hello_world.hex`, compiles the upstream Verilator testbench around
   the generated netlist, and expects `CV32E40P_HELLOWORLD_SIM_PASS`.
+- The `cv32e40p_hwlp_sim` stage generates a separate `cv32e40p_pulp_naja.v`
+  with `-GCOREV_PULP=1`, patches the upstream `hwlp_test` hardware-loop
+  mnemonics into raw instruction words for stock RISC-V GNU toolchains, and
+  expects `CV32E40P_HWLP_SIM_PASS`.
+
+Case-specific stages must be launched per case:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
   --case ibex \
-  --case cv32e40p \
   --stage lint \
   --stage github_sim \
   --stage helloworld_sim \
   --stage ibex_pmp_sim \
-  --stage ibex_secure_dit_sim \
-  --stage ibex_secure_dummy_instr_sim
+  --stage ibex_dit_sim \
+  --stage ibex_dummy_instr_sim
+
+python3 regress/sv/sv_regress.py run \
+  --case cv32e40p \
+  --stage lint \
+  --stage github_sim \
+  --stage helloworld_sim \
+  --stage interrupt_sim \
+  --stage cv32e40p_hwlp_sim
 ```
 
 Run only helloworld simulation:
@@ -198,8 +208,17 @@ Run the extended Ibex simple-system diagnostics:
 python3 regress/sv/sv_regress.py run \
   --case ibex \
   --stage ibex_pmp_sim \
-  --stage ibex_secure_dit_sim \
-  --stage ibex_secure_dummy_instr_sim \
+  --stage ibex_dit_sim \
+  --stage ibex_dummy_instr_sim \
+  --require-firmware-sim-tools
+```
+
+Run the CV32E40P hardware-loop diagnostic:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case cv32e40p \
+  --stage cv32e40p_hwlp_sim \
   --require-firmware-sim-tools
 ```
 
@@ -209,7 +228,7 @@ The helloworld simulation log is:
 build/sv-regress/<case>/artifacts/logs/helloworld-sim.log
 ```
 
-## CV32E40P Interrupt Simulation Tier
+## CV32E40P Extended Simulation Tier
 
 The `interrupt_sim` stage runs the CV32E40P upstream `example_tb/core`
 interrupt program with the same generated `cv32e40p_top` netlist and expects
@@ -223,10 +242,21 @@ python3 regress/sv/sv_regress.py run \
   --require-firmware-sim-tools
 ```
 
-The interrupt simulation log is:
+The `cv32e40p_hwlp_sim` stage runs the upstream `hwlp_test` program against a
+`COREV_PULP=1` generated netlist:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case cv32e40p \
+  --stage cv32e40p_hwlp_sim \
+  --require-firmware-sim-tools
+```
+
+The extended CV32E40P simulation logs are:
 
 ```text
 build/sv-regress/cv32e40p/artifacts/logs/interrupt-sim.log
+build/sv-regress/cv32e40p/artifacts/logs/cv32e40p-hwlp-sim.log
 ```
 
 For local diagnosis, pass `--sim-plusarg +naja_irq_debug` to
@@ -260,16 +290,24 @@ logs/load-dump.log
 logs/verilator-lint.log
 logs/github-sim.log
 logs/helloworld-sim.log
+logs/ibex-dit-sim.log
+logs/ibex-dummy-instr-sim.log
 logs/interrupt-sim.log
+logs/cv32e40p-hwlp-sim.log
 ibex_secure.flist
 ibex_secure_diagnostics.log
 ibex_pmp.flist
 ibex_pmp_diagnostics.log
+cv32e40p_pulp.flist
+cv32e40p_pulp_diagnostics.log
 verilator-lint-command.json
 github_sim-build-command.json
 github_sim-run-command.json
 helloworld-sim-command-<n>.json
+ibex-dit-sim-command-<n>.json
+ibex-dummy-instr-sim-command-<n>.json
 interrupt-sim-command-<n>.json
+cv32e40p-hwlp-sim-command-<n>.json
 ```
 
 The legacy `verilator-command.json` is still written for compatibility and
