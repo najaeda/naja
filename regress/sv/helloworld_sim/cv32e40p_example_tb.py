@@ -10,8 +10,11 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
+
+HWLP_PASS_MARKER = "CV32E40P_HWLP_SIM_PASS"
 
 PROGRAMS = {
     "hello_world": {
@@ -26,12 +29,122 @@ PROGRAMS = {
         "gcc_flags": "-march=rv32imc_zicsr -mabi=ilp32 -Wno-error=int-conversion",
         "pass_marker": "CV32E40P_INTERRUPT_SIM_PASS",
     },
+    "hwlp": {
+        "firmware": "hwlp_naja.hex",
+        "gcc_flags": "-march=rv32im_zicsr_zifencei -mabi=ilp32 -Wno-error=int-conversion",
+        "pass_marker": HWLP_PASS_MARKER,
+    },
 }
+
+CV32E40P_HWLP_OPCODE = 0b0101011
+CV32E40P_HWLP_FUNCT3 = 0b100
+HWLP_REGISTER_IDS = {
+    "x0": 0,
+    "x1": 1,
+}
+GPR_IDS = {
+    "zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4,
+    "t0": 5, "t1": 6, "t2": 7, "s0": 8, "fp": 8, "s1": 9,
+    "a0": 10, "a1": 11, "a2": 12, "a3": 13, "a4": 14, "a5": 15,
+    "a6": 16, "a7": 17, "s2": 18, "s3": 19, "s4": 20, "s5": 21,
+    "s6": 22, "s7": 23, "s8": 24, "s9": 25, "s10": 26, "s11": 27,
+    "t3": 28, "t4": 29, "t5": 30, "t6": 31,
+}
+GPR_IDS.update({f"x{index}": index for index in range(32)})
 
 
 def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     print("$ " + (" ".join(args) if cwd is None else f"(cd {cwd} && {' '.join(args)})"), flush=True)
     subprocess.run(args, cwd=str(cwd) if cwd else None, env=env, check=True)
+
+
+def encode_hwlp_instruction(*, funct4: int, loop_id: int, rs1: int, imm12: int) -> int:
+    return (
+        ((imm12 & 0xfff) << 20)
+        | ((rs1 & 0x1f) << 15)
+        | (CV32E40P_HWLP_FUNCT3 << 12)
+        | ((funct4 & 0xf) << 8)
+        | ((loop_id & 0x1) << 7)
+        | CV32E40P_HWLP_OPCODE
+    )
+
+
+def hwlp_byte_length_to_encoded(value: str) -> int:
+    byte_length = int(value, 0)
+    if byte_length % 4 != 0:
+        raise SystemExit(f"CV32E40P HWLP byte length must be 4-byte aligned: {value}")
+    encoded = byte_length // 4
+    if not 0 <= encoded <= 31:
+        raise SystemExit(f"CV32E40P HWLP encoded byte length out of range: {value}")
+    return encoded
+
+
+def hwlp_loop_id(register: str) -> int:
+    try:
+        return HWLP_REGISTER_IDS[register.strip()]
+    except KeyError as exc:
+        raise SystemExit(f"unsupported CV32E40P HWLP loop register: {register}") from exc
+
+
+def gpr_id(register: str) -> int:
+    try:
+        return GPR_IDS[register.strip()]
+    except KeyError as exc:
+        raise SystemExit(f"unsupported CV32E40P HWLP source register: {register}") from exc
+
+
+def hwlp_setupi_word(loop_register: str, count: str, byte_length: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0110,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=hwlp_byte_length_to_encoded(byte_length),
+        imm12=int(count, 0),
+    )
+
+
+def hwlp_setup_word(loop_register: str, source_register: str, byte_length: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0111,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=gpr_id(source_register),
+        imm12=hwlp_byte_length_to_encoded(byte_length),
+    )
+
+
+def hwlp_starti_word(loop_register: str, byte_length: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0000,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=0,
+        imm12=hwlp_byte_length_to_encoded(byte_length),
+    )
+
+
+def hwlp_endi_word(loop_register: str, byte_length: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0010,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=0,
+        imm12=hwlp_byte_length_to_encoded(byte_length),
+    )
+
+
+def hwlp_counti_word(loop_register: str, count: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0100,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=0,
+        imm12=int(count, 0),
+    )
+
+
+def hwlp_count_word(loop_register: str, source_register: str) -> int:
+    return encode_hwlp_instruction(
+        funct4=0b0101,
+        loop_id=hwlp_loop_id(loop_register),
+        rs1=gpr_id(source_register),
+        imm12=0,
+    )
 
 
 def find_riscv_tool_prefix() -> str:
@@ -461,6 +574,57 @@ def read_cv32e40p_manifest(repo_dir: Path) -> tuple[list[str], list[Path]]:
     return include_dirs, sources
 
 
+def patch_cv32e40p_hwlp_header(header_path: Path) -> None:
+    text = header_path.read_text(encoding="utf-8")
+
+    replacements = [
+        (
+            r"lp\.setupi\s+(x[01]),\s*([0-9]+),\s*([0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_setupi_word(match[1], match[2], match[3]):08x}"
+            ),
+        ),
+        (
+            r"lp\.setup\s+(x[01]),\s*([a-z0-9]+),\s*([0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_setup_word(match[1], match[2], match[3]):08x}"
+            ),
+        ),
+        (
+            r"lp\.starti\s+(x[01]),\s*([0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_starti_word(match[1], match[2]):08x}"
+            ),
+        ),
+        (
+            r"lp\.endi\s+(x[01]),\s*([0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_endi_word(match[1], match[2]):08x}"
+            ),
+        ),
+        (
+            r"lp\.counti\s+(x[01]),\s*([0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_counti_word(match[1], match[2]):08x}"
+            ),
+        ),
+        (
+            r"lp\.count\s+(x[01]),\s*([a-z0-9]+)",
+            lambda match: (
+                f".word 0x{hwlp_count_word(match[1], match[2]):08x}"
+            ),
+        ),
+    ]
+
+    patched = text
+    for pattern, replacement in replacements:
+        patched = re.sub(pattern, replacement, patched)
+    if re.search(r"lp\.(setupi|setup|starti|endi|counti|count)\s+x[01]", patched):
+        raise SystemExit(f"could not patch all CV32E40P HWLP mnemonics in {header_path}")
+    if patched != text:
+        header_path.write_text(patched, encoding="utf-8")
+
+
 def build_firmware(
     *,
     program_name: str,
@@ -478,6 +642,43 @@ def build_firmware(
             "CUSTOM_GCC_FLAGS=" + str(program["gcc_flags"]),
         ], cwd=tb_dir, env=env)
         return tb_dir / str(program["firmware"])
+
+    if program_name == "hwlp":
+        patch_cv32e40p_hwlp_header(tb_dir / "hwlp_test" / "hwlp.h")
+        elf = work_dir / "hwlp_naja.elf"
+        hex_path = work_dir / str(program["firmware"])
+        riscv_root = Path(env["RISCV"])
+        run([
+            tool_prefix + "gcc",
+            "-o",
+            str(elf),
+            "-w",
+            "-O0",
+            "-g",
+            "-nostdlib",
+            *str(program["gcc_flags"]).split(),
+            "-T",
+            str(tb_dir / "custom" / "link.ld"),
+            "-static",
+            str(tb_dir / "custom" / "crt0.S"),
+            str(tb_dir / "hwlp_test" / "hwlp_test.c"),
+            str(tb_dir / "mem_stall" / "mem_stall.c"),
+            str(tb_dir / "custom" / "syscalls.c"),
+            str(tb_dir / "custom" / "vectors.S"),
+            "-I",
+            str(riscv_root / "riscv32-unknown-elf" / "include"),
+            "-I",
+            str(tb_dir / "mem_stall"),
+            "-I",
+            str(tb_dir / "hwlp_test"),
+            "-L",
+            str(riscv_root / "riscv32-unknown-elf" / "lib"),
+            "-lc",
+            "-lm",
+            "-lgcc",
+        ], cwd=tb_dir, env=env)
+        run([tool_prefix + "objcopy", "-O", "verilog", str(elf), str(hex_path)], cwd=tb_dir, env=env)
+        return hex_path
 
     if program_name != "interrupt":
         raise SystemExit(f"unsupported CV32E40P program: {program_name}")

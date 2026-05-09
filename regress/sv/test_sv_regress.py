@@ -13,6 +13,7 @@ sys.path.insert(0, str(REGRESS_SV_ROOT))
 sys.path.insert(0, str(HELLOWORLD_SIM_ROOT))
 
 import cv32e40p_example_tb
+import cv32e40p_variant_netlist
 import ibex_secure_netlist
 import ibex_simple_system
 import sv_regress
@@ -62,6 +63,7 @@ cases:
             [
                 "load_dump",
                 "lint",
+                "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
                 "ibex_dummy_instr_sim",
@@ -73,6 +75,7 @@ cases:
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
+                "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
                 "ibex_dummy_instr_sim",
@@ -151,16 +154,19 @@ cases:
         self.assertIn("Run Ibex helloworld simulation", workflow)
         self.assertIn("Run Ibex extended simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
-        self.assertIn("Run CV32E40P interrupt simulation", workflow)
+        self.assertIn("Run CV32E40P extended example TB simulations", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
         self.assertIn("--case ibex", workflow)
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
         self.assertIn("--stage ibex_pmp_sim", workflow)
-        self.assertIn("--stage ibex_secure_dit_sim", workflow)
-        self.assertIn("--stage ibex_secure_dummy_instr_sim", workflow)
+        self.assertIn("--stage ibex_dit_sim", workflow)
+        self.assertIn("--stage ibex_dummy_instr_sim", workflow)
+        self.assertNotIn("--stage ibex_secure_dit_sim", workflow)
+        self.assertNotIn("--stage ibex_secure_dummy_instr_sim", workflow)
         self.assertIn("--stage interrupt_sim", workflow)
+        self.assertIn("--stage cv32e40p_hwlp_sim", workflow)
         self.assertIn("--require-firmware-sim-tools", workflow)
         self.assertNotIn("--allow-expected-failures", workflow)
 
@@ -686,6 +692,40 @@ src/rtl/top.sv
             interrupt_sim["tool_checks"],
         )
 
+    def test_cv32e40p_hwlp_sim_stage_uses_pulp_netlist_variant(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cv32e40p = sv_regress.select_cases(cases, "cv32e40p")[0]
+        hwlp_sim = cv32e40p["cv32e40p_hwlp_sim"]
+
+        self.assertIn("cv32e40p_hwlp_sim", sv_regress.VALID_STAGES)
+        self.assertEqual("CV32E40P_HWLP_SIM_PASS", hwlp_sim["pass_regex"])
+        self.assertNotIn("expected_failure", hwlp_sim)
+        self.assertEqual(2, len(hwlp_sim["commands"]))
+        self.assertIn("hwlp", cv32e40p_example_tb.PROGRAMS)
+        self.assertEqual(
+            "CV32E40P_HWLP_SIM_PASS",
+            cv32e40p_example_tb.PROGRAMS["hwlp"]["pass_marker"],
+        )
+        netlist_command = hwlp_sim["commands"][0]
+        sim_command = hwlp_sim["commands"][1]
+        self.assertIn("regress/sv/helloworld_sim/cv32e40p_variant_netlist.py",
+                      netlist_command[1])
+        self.assertIn("--variant", netlist_command)
+        self.assertIn("pulp", netlist_command)
+        self.assertIn("{artifacts}/cv32e40p_pulp_naja.v", netlist_command)
+        self.assertIn("{artifacts}/cv32e40p_pulp_naja.v", sim_command)
+        self.assertIn("regress/sv/helloworld_sim/cv32e40p_example_tb.py", sim_command[1])
+        self.assertIn("--program", sim_command)
+        self.assertIn("hwlp", sim_command)
+        self.assertIn(
+            [
+                "riscv32-unknown-elf-gcc",
+                "riscv-none-elf-gcc",
+                "riscv64-unknown-elf-gcc",
+            ],
+            hwlp_sim["tool_checks"],
+        )
+
     def test_ibex_extended_sim_stages_use_upstream_simple_system_tests(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
         ibex = sv_regress.select_cases(cases, "ibex")[0]
@@ -700,10 +740,6 @@ src/rtl/top.sv
             "IBEX_DUMMY_INSTR_SIM_PASS",
             ibex["ibex_dummy_instr_sim"]["pass_regex"],
         )
-        self.assertTrue(ibex["ibex_dit_sim"]["expected_failure"])
-        self.assertTrue(ibex["ibex_dummy_instr_sim"]["expected_failure"])
-        self.assertIn("dit_test", ibex["ibex_dit_sim"]["commands"][0])
-        self.assertIn("dummy_instr_test", ibex["ibex_dummy_instr_sim"]["commands"][0])
         self.assertIn("dit_test", ibex_simple_system.PROGRAMS)
         self.assertIn("dummy_instr_test", ibex_simple_system.PROGRAMS)
         self.assertIn("pmp_smoke_test", ibex_simple_system.PROGRAMS)
@@ -711,12 +747,26 @@ src/rtl/top.sv
             "PASS: All test sequences behaved as expected",
             ibex_simple_system.PROGRAMS["dit_test"]["expected_output"],
         )
-        for stage_name in ("ibex_dit_sim", "ibex_dummy_instr_sim"):
+        for stage_name, program, marker in (
+            ("ibex_dit_sim", "dit_test", "IBEX_DIT_SIM_PASS"),
+            ("ibex_dummy_instr_sim", "dummy_instr_test", "IBEX_DUMMY_INSTR_SIM_PASS"),
+        ):
             stage = ibex[stage_name]
-            command = stage["commands"][0]
-            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", command[1])
-            self.assertIn("--program", command)
-            self.assertIn("--max-cycles", command)
+            self.assertEqual(marker, stage["pass_regex"])
+            self.assertNotIn("expected_failure", stage)
+            self.assertNotIn("expected_failure_reason", stage)
+            self.assertEqual(2, len(stage["commands"]))
+            secure_command = stage["commands"][0]
+            sim_command = stage["commands"][1]
+            self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", secure_command[1])
+            self.assertIn("--output", secure_command)
+            self.assertIn("{artifacts}/ibex_secure_naja.v", secure_command)
+            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", sim_command[1])
+            self.assertIn("{artifacts}/ibex_secure_naja.v", sim_command)
+            self.assertIn("--secure-ibex", sim_command)
+            self.assertIn("--program", sim_command)
+            self.assertIn(program, sim_command)
+            self.assertIn("--max-cycles", sim_command)
             self.assertIn(
                 [
                     "riscv32-unknown-elf-gcc",
@@ -831,6 +881,38 @@ ${DESIGN_RTL_DIR}/cv32e40p_top.sv
             ],
             sources,
         )
+
+    def test_hwlp_instruction_encoding_uses_corev_pulp_custom_opcode(self):
+        setupi = cv32e40p_example_tb.hwlp_setupi_word("x1", "10", "16")
+        self.assertEqual(0x00a246ab, setupi)
+
+        setup = cv32e40p_example_tb.hwlp_setup_word("x1", "t0", "24")
+        self.assertEqual(0x0062c7ab, setup)
+
+    def test_cv32e40p_pulp_netlist_flist_enables_corev_pulp(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_dir = Path(tmpdir)
+            rtl_dir = repo_dir / "rtl"
+            rtl_dir.mkdir()
+            flist_path = repo_dir / "cv32e40p_manifest.flist"
+            flist_path.write_text(
+                """
+// comment
++incdir+${DESIGN_RTL_DIR}/include
+${DESIGN_RTL_DIR}/cv32e40p_top.sv
+""",
+                encoding="utf-8",
+            )
+
+            content = cv32e40p_variant_netlist.variant_flist_content(
+                flist_path,
+                cv32e40p_variant_netlist.VARIANTS["pulp"]["params"],
+                rtl_dir=rtl_dir,
+            )
+
+        self.assertTrue(content.startswith("-GCOREV_PULP=1\n"))
+        self.assertIn("+incdir+" + str(rtl_dir / "include"), content)
+        self.assertIn(str(rtl_dir / "cv32e40p_top.sv"), content)
 
 
 if __name__ == "__main__":

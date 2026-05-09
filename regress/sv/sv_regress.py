@@ -38,6 +38,7 @@ PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
 CONFIGURED_COMMAND_SIM_STAGES = {
+    "cv32e40p_hwlp_sim",
     "helloworld_sim",
     "interrupt_sim",
     "ibex_dit_sim",
