@@ -3,14 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate flists for pulp-platform/axi using Bender.
+"""Generate the RTL flist for pulp-platform/axi using Bender.
 
 Requires bender to be installed (https://github.com/pulp-platform/bender).
 On macOS: brew install bender   OR   cargo install bender
 
-Produces two artefacts:
-  --output          RTL flist for Naja's SystemVerilog loader
-  --output/../axi_sim_sources.f  VIP sources + include dirs for Verilator sim
+Produces:
+  --output   RTL flist for Naja's SystemVerilog loader
 """
 
 from __future__ import annotations
@@ -55,11 +54,10 @@ def main() -> int:
     subprocess.run(["bender", "update"], check=True, cwd=str(args.repo))
 
     # ------------------------------------------------------------------ #
-    # 2. Resolve package paths (needed by both flists)                    #
+    # 2. Resolve package paths                                            #
     # ------------------------------------------------------------------ #
     print("Resolving package paths via bender …", flush=True)
-    cc_path = bender_path("common_cells",        cwd=args.repo)
-    cv_path = bender_path("common_verification", cwd=args.repo)
+    cc_path = bender_path("common_cells", cwd=args.repo)
 
     # ------------------------------------------------------------------ #
     # 3. RTL flist for Naja's SV loader                                   #
@@ -80,24 +78,6 @@ def main() -> int:
     args.output.write_text(rtl_content, encoding="utf-8")
     print(f"Wrote RTL flist: {args.output}", flush=True)
 
-    # ------------------------------------------------------------------ #
-    # 4. Sim sources file for Verilator (VIP files + include dirs)        #
-    #                                                                      #
-    # Uses `bender path` to get exact checkout locations so the file is   #
-    # always consistent with the pinned Bender.lock versions.             #
-    # ------------------------------------------------------------------ #
-
-    sim_lines: list[str] = [
-        # Include dirs needed by axi/typedef.svh and axi/assign.svh macros
-        f"+incdir+{args.repo}/include",
-        f"+incdir+{cc_path}/include",
-        # axi_pkg.sv must be compiled: typedef.svh macros reference axi_pkg:: types
-        str(args.repo / "src/axi_pkg.sv"),
-    ]
-
-    sim_flist = args.output.parent / "axi_sim_sources.f"
-    sim_flist.write_text("\n".join(sim_lines) + "\n", encoding="utf-8")
-    print(f"Wrote sim sources: {sim_flist}", flush=True)
     return 0
 
 

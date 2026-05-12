@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 // Suppress lint warnings from upstream VIP sources that are not generated
 // by Naja.  Lint is only meaningful on the Naja-generated netlist
 // (axi_naja.v) and on the testbench wrapper (tb_axi_cut_smoke.sv).
