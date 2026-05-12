@@ -120,21 +120,23 @@ std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation
 std::optional<std::string> getCompilationFailureDetails(
   slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
-  bool hasError = false;
+  // Collect only error-level (and above) diagnostics so the failure message
+  // is actionable.  Warnings are reported separately via the diagnostics
+  // report dump and should not pollute the exception text.
+  slang::Diagnostics errors;
   for (const auto& diag : diags) {
     if (diag.isError()) {
-      hasError = true;
-      break;
+      errors.push_back(diag);
     }
   }
-  if (!hasError) {
+  if (errors.empty()) {
     return std::nullopt;
   }
 
   std::ostringstream reason;
   reason << "SystemVerilog compilation failed";
   if (const auto* sourceManager = compilation.getSourceManager()) {
-    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, diags);
+    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, errors);
     if (!details.empty()) {
       reason << ":\n" << details;
     }
@@ -2089,7 +2091,7 @@ endmodule
       driver.addStandardArgs();
 
       std::vector<std::string> args;
-      args.reserve(paths.size() + 7);
+      args.reserve(paths.size() + 7 + options_.suppressWarnings.size());
       args.emplace_back("snl_sv_constructor");
       args.emplace_back("--translate-off-format");
       args.emplace_back("pragma,translate_off,translate_on");
@@ -2097,6 +2099,9 @@ endmodule
       args.emplace_back("synthesis,translate_off,translate_on");
       args.emplace_back("--translate-off-format");
       args.emplace_back("synopsys,translate_off,translate_on");
+      for (const auto& w : options_.suppressWarnings) {
+        args.emplace_back("-Wno-" + w);
+      }
       for (const auto& path : paths) {
         args.emplace_back(path.string());
       }
@@ -7682,6 +7687,28 @@ endmodule
           }
         }
 
+        // Fallback: evaluate using the compilation root as context.
+        // Handles system functions ($bits, $clog2, $size, …) and any other
+        // expression Slang can constant-fold but whose symbol cannot be found
+        // by getConstantEvalSymbol (e.g. Call expressions).
+        if (compilation_) {
+          // Use the first compilation unit as the EvalContext scope.
+          // RootSymbol has no parent, so it cannot be passed to EvalContext
+          // directly; a CompilationUnitSymbol (child of root) is safe.
+          auto compUnits = compilation_->getCompilationUnits();
+          if (compUnits.empty()) { return false; }
+          slang::ast::EvalContext rootEvalContext(*compUnits[0]);
+          auto rootEvalResult = stripped->eval(rootEvalContext);
+          if (!rootEvalResult) {
+            rootEvalResult = expr.eval(rootEvalContext);
+          }
+          if (rootEvalResult && rootEvalResult.isInteger()) {
+            const auto& intVal = rootEvalResult.integer();
+            if (!intVal.hasUnknown()) {
+              return tryGetInt64FromSVInt(intVal, value);
+            }
+          }
+        }
         return false;
       }
       return tryGetInt64FromSVInt(constant->integer(), value);
@@ -10294,6 +10321,23 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+        }
+      }
+      // Fallback: evaluate using the compilation root as context.
+      // Handles SimpleAssignmentPattern/StructuredAssignmentPattern of
+      // constant aggregates (e.g. packed arrays of structs from package
+      // constants), system functions, and any expression Slang can
+      // constant-fold but whose symbol is not reachable via
+      // getConstantEvalSymbol.
+      slang::ConstantValue compilationEvaluatedConstant;
+      if ((!constant || !constant->isInteger()) && compilation_) {
+        auto compUnitsForEval = compilation_->getCompilationUnits();
+        if (!compUnitsForEval.empty()) {
+          slang::ast::EvalContext rootEvalContext(*compUnitsForEval[0]);
+          compilationEvaluatedConstant = stripped->eval(rootEvalContext);
+          if (compilationEvaluatedConstant && compilationEvaluatedConstant.isInteger()) {
+            constant = &compilationEvaluatedConstant;
+          }
         }
       }
       slang::ConstantValue convertedConstant;
@@ -21279,6 +21323,14 @@ endmodule
       }
 
       if (!rhsNet) {
+        // Call expressions (DPI imports, user functions that cannot be
+        // reduced to a net or constant) are non-synthesizable.  For
+        // structural netlist construction treat their result as constant-zero
+        // so that sequential blocks containing them can still be lowered.
+        if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::Call) {
+          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+          return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
+        }
         reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }

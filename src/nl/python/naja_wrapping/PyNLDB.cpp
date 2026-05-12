@@ -252,20 +252,22 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   int include_source_info_in_elaborated_ast_json = 1;  // Default: true
   PyObject* flist = nullptr;  // Optional: string path passed as slang -f
   PyObject* diagnostics_report_path = nullptr;  // Optional: string
+  PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
-    "diagnostics_report_path",
+    "diagnostics_report_path", "suppress_warnings",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOO:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOO:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
-    &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path)) {
+    &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
+    &suppress_warnings)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -312,6 +314,24 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     }
     options.diagnosticsReportPath =
       std::filesystem::path(PyUnicode_AsUTF8(diagnostics_report_path));
+  }
+
+  if (suppress_warnings != nullptr && suppress_warnings != Py_None) {
+    if (not PyList_Check(suppress_warnings)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: suppress_warnings must be a list, got: "
+          << getStringForPyObject(suppress_warnings);
+      setError(oss.str());
+      return nullptr;
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(suppress_warnings); ++i) {
+      PyObject* item = PyList_GetItem(suppress_warnings, i);
+      if (not PyUnicode_Check(item)) {
+        setError("NLDB.loadSystemVerilog: suppress_warnings items must be strings");
+        return nullptr;
+      }
+      options.suppressWarnings.push_back(PyUnicode_AsUTF8(item));
+    }
   }
 
   using Paths = std::vector<std::filesystem::path>;

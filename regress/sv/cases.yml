@@ -43,6 +43,40 @@ cases:
         - PINMISSING
         - ASCRANGE
 
+  # Full CVA6 SoC testharness (ariane_testharness) — Path B simulation target.
+  # Phase 1: load_dump + lint only.  Simulation (helloworld_sim) added once
+  # Naja can elaborate the testharness successfully.
+  - name: cva6_testharness
+    repo: https://github.com/openhwgroup/cva6.git
+    commit: f0c274cad66b84cd58379880741680351c7ce9ab
+    top: ariane_testharness
+    flist: "{artifacts}/cva6_testharness.flist"
+    setup_timeout_seconds: 3600
+    setup_commands:
+      - - python3
+        - "{naja}/regress/sv/cva6_sim_flist.py"
+        - "--repo"
+        - "{repo}"
+        - "--output"
+        - "{artifacts}/cva6_testharness.flist"
+    output: cva6_testharness_naja.v
+    sv_suppress_warnings:
+      - case-redundant-default   # fpnew_pkg.sv: unique case with default label
+      - sign-conversion          # fpnew_pkg.sv: int unsigned → int implicit cast
+    env:
+      CVA6_REPO_DIR: "{repo}"
+      HPDCACHE_DIR: "{repo}/core/cache_subsystem/hpdcache"
+      TARGET_CFG: cv64a6_imafdc_sv39
+    dump:
+      rtl_infos_as_attributes: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - PINMISSING
+        - ASCRANGE
+        - TIMESCALEMOD
+
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
     commit: eede2fbbef007d53cafbd85d937b897751c40a54
