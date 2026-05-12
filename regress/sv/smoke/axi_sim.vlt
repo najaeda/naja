@@ -1,0 +1,31 @@
+// Suppress lint warnings from upstream VIP sources that are not generated
+// by Naja.  Lint is only meaningful on the Naja-generated netlist
+// (axi_naja.v) and on the testbench wrapper (tb_axi_cut_smoke.sv).
+`verilator_config
+
+lint_off -rule ASCRANGE     -file "*/axi_intf.sv"
+lint_off -rule WIDTHEXPAND  -file "*/axi_intf.sv"
+lint_off -rule WIDTH        -file "*/axi_intf.sv"
+lint_off -rule UNUSED       -file "*/axi_intf.sv"
+lint_off -rule UNDRIVEN     -file "*/axi_intf.sv"
+
+lint_off -rule ASCRANGE     -file "*/axi_pkg.sv"
+lint_off -rule WIDTHEXPAND  -file "*/axi_pkg.sv"
+lint_off -rule WIDTH        -file "*/axi_pkg.sv"
+lint_off -rule UNUSED       -file "*/axi_pkg.sv"
+
+lint_off -rule WIDTHTRUNC   -file "*/rand_id_queue.sv"
+lint_off -rule WIDTHEXPAND  -file "*/rand_id_queue.sv"
+lint_off -rule WIDTH        -file "*/rand_id_queue.sv"
+lint_off -rule UNUSED       -file "*/rand_id_queue.sv"
+lint_off -rule UNDRIVEN     -file "*/rand_id_queue.sv"
+
+lint_off -rule WIDTHTRUNC   -file "*/axi_test.sv"
+lint_off -rule WIDTHEXPAND  -file "*/axi_test.sv"
+lint_off -rule WIDTH        -file "*/axi_test.sv"
+lint_off -rule ASCRANGE     -file "*/axi_test.sv"
+lint_off -rule UNUSED       -file "*/axi_test.sv"
+lint_off -rule UNUSEDSIGNAL -file "*/axi_test.sv"
+lint_off -rule UNDRIVEN     -file "*/axi_test.sv"
+lint_off -rule CASEINCOMPLETE -file "*/axi_test.sv"
+lint_off -rule UNOPTFLAT    -file "*/axi_test.sv"

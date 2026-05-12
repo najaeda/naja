@@ -416,3 +416,40 @@ cases:
           - "--max-cycles"
           - "2000000"
       pass_regex: "CV32E40P_HWLP_SIM_PASS"
+
+  - name: axi
+    repo: https://github.com/pulp-platform/axi.git
+    commit: e286bb1a4aba6fc145f3cb41bd78665c5868e2a9
+    top: axi_cut_top
+    flist: "{artifacts}/axi.flist"
+    setup_timeout_seconds: 1800
+    setup_commands:
+      - - python3
+        - "{naja}/regress/sv/axi_flist.py"
+        - "--repo"
+        - "{repo}"
+        - "--output"
+        - "{artifacts}/axi.flist"
+    output: axi_naja.v
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_axi_cut_smoke
+      # axi_pkg.sv + include dirs are resolved by bender into axi_sim_sources.f
+      sources:
+        - "{naja}/regress/sv/smoke/tb_axi_cut_smoke.sv"
+      extra_args:
+        - "-f"
+        - "artifacts/axi_sim_sources.f"
+      pass_regex: "AXI_CUT_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
+        - WIDTHEXPAND
