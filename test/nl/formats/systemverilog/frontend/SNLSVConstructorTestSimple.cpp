@@ -13718,6 +13718,10 @@ endmodule
   EXPECT_NE(top->getNet(NLName("hit")), nullptr);
 }
 
+// Previously this test verified that SimpleAssignmentPattern in always_comb
+// was unsupported.  The compilation-based constant-evaluation fallback now
+// correctly folds '{1'b1,1'b0,1'b1,1'b0} → 4'b1010, so construction
+// should succeed.
 TEST_F(
   SNLSVConstructorTestSimple,
   parseAlwaysCombConstantTrueConditionalSelectedBranchUnsupportedPropagated) {
@@ -13747,10 +13751,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve always_comb RHS bits"});
+  // SimpleAssignmentPattern is now constant-evaluated via the compilation
+  // EvalContext fallback — construction must succeed.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
+  // y is a 4-bit output port
+  auto yTerm = top->getBusTerm(NLName("y"));
+  EXPECT_NE(nullptr, yTerm);
 }
 
 TEST_F(

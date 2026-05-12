@@ -6678,6 +6678,59 @@ endmodule
         ++svPerfReport_.portSymbolsVisited;
 #endif
         if (sym->kind != SymbolKind::Port) {
+          // Interface ports (e.g. AXI_BUS.Slave slave) are flattened into
+          // individual scalar/bus terms using the modport signal list.
+          if (sym->kind == SymbolKind::InterfacePort) {
+            const auto& ifacePort = sym->as<slang::ast::InterfacePortSymbol>();
+            const std::string portPrefix(ifacePort.name);
+            if (!ifacePort.modport.empty()) {
+              // The interface port creates an InstanceSymbol (the interface
+              // instance) inside the module body under the same name.
+              // Search for it to reach the live ModportSymbol.
+              const slang::ast::ModportSymbol* modportSym = nullptr;
+              for (const auto& member : body.members()) {
+                if (std::string_view(member.name) == ifacePort.name &&
+                    member.kind == SymbolKind::Instance) {
+                  const auto* mpSym =
+                    member.as<slang::ast::InstanceSymbol>().body.find(
+                      ifacePort.modport);
+                  if (mpSym && mpSym->kind == SymbolKind::Modport) {
+                    modportSym = &mpSym->as<slang::ast::ModportSymbol>();
+                  }
+                  break;
+                }
+              }
+              if (modportSym) {
+                for (const auto& mpMember : modportSym->members()) {
+                  if (mpMember.kind != SymbolKind::ModportPort) {
+                    continue;
+                  }
+                  const auto& mpPort =
+                    mpMember.as<slang::ast::ModportPortSymbol>();
+                  const std::string flatName =
+                    portPrefix + "__" + std::string(mpPort.name);
+                  auto direction = toSNLDirection(mpPort.direction);
+                  if (!direction) {
+                    continue;
+                  }
+                  auto range = getRangeFromType(mpPort.getType());
+                  if (range && range->width() > 1) {
+                    auto term = SNLBusTerm::create(
+                      design, *direction,
+                      static_cast<NLID::Bit>(range->left),
+                      static_cast<NLID::Bit>(range->right),
+                      NLName(flatName));
+                    annotateSourceInfo(term, getSourceRange(*sym));
+                  } else {
+                    auto term = SNLScalarTerm::create(
+                      design, *direction, NLName(flatName));
+                    annotateSourceInfo(term, getSourceRange(*sym));
+                  }
+                }
+                continue;
+              }
+            }
+          }
           std::string portName(sym->name);
           if (portName.empty()) {
             portName = "<anonymous>";
@@ -7690,8 +7743,16 @@ endmodule
         // Fallback: evaluate using the compilation root as context.
         // Handles system functions ($bits, $clog2, $size, …) and any other
         // expression Slang can constant-fold but whose symbol cannot be found
-        // by getConstantEvalSymbol (e.g. Call expressions).
-        if (compilation_) {
+        // by getConstantEvalSymbol.  User-defined function calls are excluded
+        // so that non-synthesizable constructs remain detectable.
+        const bool isUserDefinedCallInt =
+          stripped->kind == slang::ast::ExpressionKind::Call &&
+          [&]() -> bool {
+            const auto& ce = stripped->as<slang::ast::CallExpression>();
+            const auto nm = ce.getSubroutineName();
+            return nm.empty() || nm[0] != '$';
+          }();
+        if (compilation_ && !isUserDefinedCallInt) {
           // Use the first compilation unit as the EvalContext scope.
           // RootSymbol has no parent, so it cannot be passed to EvalContext
           // directly; a CompilationUnitSymbol (child of root) is safe.
@@ -10326,11 +10387,23 @@ endmodule
       // Fallback: evaluate using the compilation root as context.
       // Handles SimpleAssignmentPattern/StructuredAssignmentPattern of
       // constant aggregates (e.g. packed arrays of structs from package
-      // constants), system functions, and any expression Slang can
-      // constant-fold but whose symbol is not reachable via
-      // getConstantEvalSymbol.
+      // constants) and system functions ($bits, $clog2, etc.).
+      //
+      // Deliberately excluded: user-defined function calls — those are handled
+      // by the resolveSimple*FunctionCall* helpers above.  Silently evaluating
+      // them here would hide non-synthesizable constructs (e.g. string
+      // arguments) that callers must be able to detect as unsupported.
       slang::ConstantValue compilationEvaluatedConstant;
-      if ((!constant || !constant->isInteger()) && compilation_) {
+      const bool isUserDefinedCall =
+        stripped->kind == slang::ast::ExpressionKind::Call &&
+        [&]() -> bool {
+          const auto& callExpr =
+            stripped->as<slang::ast::CallExpression>();
+          const auto nm = callExpr.getSubroutineName();
+          return nm.empty() || nm[0] != '$';
+        }();
+      if ((!constant || !constant->isInteger()) &&
+          compilation_ && !isUserDefinedCall) {
         auto compUnitsForEval = compilation_->getCompilationUnits();
         if (!compUnitsForEval.empty()) {
           slang::ast::EvalContext rootEvalContext(*compUnitsForEval[0]);
@@ -23222,6 +23295,77 @@ endmodule
         }
         auto term = model->getTerm(NLName(portName));
         if (!term) {
+          // If this is a flattened interface port, try to connect each
+          // individual signal term.  The model's terms are named
+          // <portName>__<signalName> (created in createTerms above).
+          if (conn->port.kind == SymbolKind::InterfacePort) {
+            const auto& ifacePort =
+              conn->port.as<slang::ast::InterfacePortSymbol>();
+            auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
+            if (modportSym && ifaceSymbol &&
+                ifaceSymbol->kind == SymbolKind::Instance) {
+              const auto& ifaceBody =
+                ifaceSymbol->as<slang::ast::InstanceSymbol>().body;
+              for (const auto& mpMember : modportSym->members()) {
+                if (mpMember.kind != SymbolKind::ModportPort) {
+                  continue;
+                }
+                const auto& mpPort =
+                  mpMember.as<slang::ast::ModportPortSymbol>();
+                const std::string flatTermName =
+                  portName + "__" + std::string(mpPort.name);
+                auto* flatTerm = model->getTerm(NLName(flatTermName));
+                if (!flatTerm) {
+                  continue;
+                }
+                // Look up the interface signal in the parent design.
+                const auto* signalSym = ifaceBody.find(mpPort.name);
+                if (!signalSym) {
+                  continue;
+                }
+                // ValueSymbol covers VariableSymbol and NetSymbol.
+                if (signalSym->kind != SymbolKind::Variable &&
+                    signalSym->kind != SymbolKind::Net) {
+                  continue;
+                }
+                const auto& valueSym =
+                  signalSym->as<slang::ast::ValueSymbol>();
+                auto* signalNet =
+                  getLoweredValueSymbolNet(inst->getDesign(), valueSym);
+                if (!signalNet) {
+                  continue;
+                }
+                // Connect the net bits directly to the flat instance term.
+                // (connectTermBits is a lambda defined later in this scope.)
+                std::vector<SNLBitNet*> netBits = collectBits(signalNet);
+                if (!netBits.empty()) {
+                  if (auto* scalarTerm =
+                        dynamic_cast<SNLScalarTerm*>(flatTerm)) {
+                    auto* si = inst->getInstTerm(scalarTerm);
+                    if (si && netBits.front()) {
+                      si->setNet(netBits.front());
+                    }
+                  } else if (auto* busTerm =
+                               dynamic_cast<SNLBusTerm*>(flatTerm)) {
+                    auto msb = busTerm->getMSB();
+                    auto lsb = busTerm->getLSB();
+                    auto step = lsb <= msb ? 1 : -1;
+                    size_t bitIdx = 0;
+                    for (auto b = lsb;
+                         b != msb + step && bitIdx < netBits.size();
+                         b += step, ++bitIdx) {
+                      auto* bt = busTerm->getBit(b);
+                      auto* si = bt ? inst->getInstTerm(bt) : nullptr;
+                      if (si && netBits[bitIdx]) {
+                        si->setNet(netBits[bitIdx]);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            continue;
+          }
           std::ostringstream reason;
           reason << "Unsupported instance connection: missing term '" << portName
                  << "' on model '" << model->getName().getString() << "'";
