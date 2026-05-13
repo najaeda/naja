@@ -97,12 +97,18 @@ def main() -> int:
     # ------------------------------------------------------------------ #
     # 2. Core RTL — expanded from core/Flist.cva6                        #
     # ------------------------------------------------------------------ #
-    # Directories excluded from the flattened core flist.
-    # fpga-support contains FPGA-specific RAM primitives (SyncDpRam_*.sv etc.)
-    # that are not needed for simulation and some lack a trailing newline which
-    # Slang treats as a fatal error.
+    # Files/directories excluded from the flattened core flist.
     core_flist_excludes = (
+        # fpga-support: FPGA-specific RAM primitives, not needed for simulation;
+        # some also lack a trailing newline which Slang rejects.
         "/fpga-support/",
+        # CVXIF driver interface files have port dimensions that use
+        # CVA6Cfg.NrRgprPorts / CVA6Cfg.NrIssuePorts.  In the
+        # cv64a6_imafdc_sv39 configuration CVXIF is disabled, making those
+        # values 0 (0/0 = X).  Slang emits a hard error for unknown-bit
+        # port dimensions, so exclude these files.
+        "cvxif_issue_register_commit_if_driver.sv",
+        "cvxif_compressed_if_driver.sv",
     )
 
     print("Expanding core/Flist.cva6 via flist_flattener.py …", flush=True)
@@ -132,8 +138,11 @@ def main() -> int:
     # ------------------------------------------------------------------ #
     # 4. SoC sources — src variable from Makefile (non-wildcard)         #
     # ------------------------------------------------------------------ #
+    # ariane.sv is the synthesizable DUT top.  It wraps the CVA6 core and
+    # exposes an AXI interface — it does NOT include any testbench components.
+    # The simulation testbench (ariane_testharness) stays unmodified and wraps
+    # ariane during the simulation step.
     src_explicit = [
-        "core/cva6_rvfi.sv",
         "corev_apu/src/ariane.sv",
         "corev_apu/rv_plic/rtl/rv_plic_target.sv",
         "corev_apu/rv_plic/rtl/rv_plic_gateway.sv",
@@ -166,17 +175,17 @@ def main() -> int:
         "vendor/pulp-platform/tech_cells_generic/src/deprecated/cluster_clk_cells.sv",
         "vendor/pulp-platform/tech_cells_generic/src/deprecated/pulp_clk_cells.sv",
         "vendor/pulp-platform/tech_cells_generic/src/rtl/tc_clk.sv",
-        # Instruction tracing infrastructure
+        # Instruction tracing infrastructure (packages used by rvfi_tracer in
+        # the testbench — only needed when compiling ariane_testharness, but
+        # ariane.sv itself imports te_pkg so it must be included here).
         "corev_apu/instr_tracing/ITI/include/iti_pkg.sv",
         "corev_apu/instr_tracing/rv_tracer-main/include/te_pkg.sv",
         "corev_apu/instr_tracing/rv_encapsulator-main/src/include/encap_pkg.sv",
-        # Testharness and peripherals
-        "corev_apu/tb/ariane_testharness.sv",
-        "corev_apu/tb/ariane_peripherals.sv",
-        "corev_apu/tb/rvfi_tracer.sv",
-        "corev_apu/tb/common/uart.sv",
-        "corev_apu/tb/common/SimDTM.sv",
-        "corev_apu/tb/common/SimJTAG.sv",
+        # NOTE: ariane_testharness.sv, rvfi_tracer.sv, SimDTM.sv, SimJTAG.sv
+        # and ariane_peripherals.sv are the VERIFICATION ENVIRONMENT —
+        # they are NOT part of the synthesizable DUT.  They stay unmodified
+        # and wrap the Naja-generated ariane netlist during the simulation step.
+        # Do NOT add them here.
         # Instruction tracing modules
         "corev_apu/instr_tracing/ITI/cva6_iti/iti.sv",
         "corev_apu/instr_tracing/ITI/cva6_iti/block_retirement.sv",

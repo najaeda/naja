@@ -85,6 +85,7 @@
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/Diagnostics.h"
 #include "slang/driver/Driver.h"
+#include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
@@ -6681,55 +6682,11 @@ endmodule
           // Interface ports (e.g. AXI_BUS.Slave slave) are flattened into
           // individual scalar/bus terms using the modport signal list.
           if (sym->kind == SymbolKind::InterfacePort) {
-            const auto& ifacePort = sym->as<slang::ast::InterfacePortSymbol>();
-            const std::string portPrefix(ifacePort.name);
-            if (!ifacePort.modport.empty()) {
-              // The interface port creates an InstanceSymbol (the interface
-              // instance) inside the module body under the same name.
-              // Search for it to reach the live ModportSymbol.
-              const slang::ast::ModportSymbol* modportSym = nullptr;
-              for (const auto& member : body.members()) {
-                if (std::string_view(member.name) == ifacePort.name &&
-                    member.kind == SymbolKind::Instance) {
-                  const auto* mpSym =
-                    member.as<slang::ast::InstanceSymbol>().body.find(
-                      ifacePort.modport);
-                  if (mpSym && mpSym->kind == SymbolKind::Modport) {
-                    modportSym = &mpSym->as<slang::ast::ModportSymbol>();
-                  }
-                  break;
-                }
-              }
-              if (modportSym) {
-                for (const auto& mpMember : modportSym->members()) {
-                  if (mpMember.kind != SymbolKind::ModportPort) {
-                    continue;
-                  }
-                  const auto& mpPort =
-                    mpMember.as<slang::ast::ModportPortSymbol>();
-                  const std::string flatName =
-                    portPrefix + "__" + std::string(mpPort.name);
-                  auto direction = toSNLDirection(mpPort.direction);
-                  if (!direction) {
-                    continue;
-                  }
-                  auto range = getRangeFromType(mpPort.getType());
-                  if (range && range->width() > 1) {
-                    auto term = SNLBusTerm::create(
-                      design, *direction,
-                      static_cast<NLID::Bit>(range->left),
-                      static_cast<NLID::Bit>(range->right),
-                      NLName(flatName));
-                    annotateSourceInfo(term, getSourceRange(*sym));
-                  } else {
-                    auto term = SNLScalarTerm::create(
-                      design, *direction, NLName(flatName));
-                    annotateSourceInfo(term, getSourceRange(*sym));
-                  }
-                }
-                continue;
-              }
-            }
+            // Interface port terms are created lazily at instantiation time
+            // when the live ModportSymbol is available via getIfaceConn().
+            // getModport() requires the INTERFACE instance body (not the
+            // module body), which is only known once we have a real connection.
+            continue;
           }
           std::string portName(sym->name);
           if (portName.empty()) {
@@ -7753,16 +7710,34 @@ endmodule
             return nm.empty() || nm[0] != '$';
           }();
         if (compilation_ && !isUserDefinedCallInt) {
-          // Use the first compilation unit as the EvalContext scope.
-          // RootSymbol has no parent, so it cannot be passed to EvalContext
-          // directly; a CompilationUnitSymbol (child of root) is safe.
+          // Attempt 1: compilation-unit scope (handles $bits, $clog2, etc.)
           auto compUnits = compilation_->getCompilationUnits();
-          if (compUnits.empty()) { return false; }
-          slang::ast::EvalContext rootEvalContext(*compUnits[0]);
-          auto rootEvalResult = stripped->eval(rootEvalContext);
-          if (!rootEvalResult) {
-            rootEvalResult = expr.eval(rootEvalContext);
+          slang::ConstantValue rootEvalResult;
+          if (!compUnits.empty()) {
+            slang::ast::EvalContext rootEvalContext(*compUnits[0]);
+            rootEvalResult = stripped->eval(rootEvalContext);
+            if (!rootEvalResult) {
+              rootEvalResult = expr.eval(rootEvalContext);
+            }
           }
+
+          // Attempt 2: symbol's own parent scope (handles module parameters
+          // such as `parameter N = 4` that are not visible in the compilation
+          // unit scope but ARE resolvable inside the instantiated module body).
+          if ((!rootEvalResult || !rootEvalResult.isInteger()) &&
+              slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+            const auto& sym =
+              stripped->as<slang::ast::ValueExpressionBase>().symbol;
+            if (sym.getParentScope()) {
+              slang::ast::EvalContext symEvalCtx(sym);
+              auto symResult = stripped->eval(symEvalCtx);
+              if (!symResult) symResult = expr.eval(symEvalCtx);
+              if (symResult && symResult.isInteger()) {
+                rootEvalResult = std::move(symResult);
+              }
+            }
+          }
+
           if (rootEvalResult && rootEvalResult.isInteger()) {
             const auto& intVal = rootEvalResult.integer();
             if (!intVal.hasUnknown()) {
@@ -13597,6 +13572,23 @@ endmodule
         if (auto* bit = getSingleBitNet(resolveExpressionNet(design, *strippedExpr))) {
           return bit;
         }
+        // For 1-bit Call expressions (user functions, DPI calls, system calls):
+        // try resolveExpressionBits first; if that fails, fall back to
+        // constant-false so the enclosing sequential block can still be lowered.
+        if (strippedExpr->kind == slang::ast::ExpressionKind::Call) {
+          auto callWidth = getIntegralExpressionBitWidth(*strippedExpr);
+          if (callWidth && *callWidth == 1) {
+            std::vector<SNLBitNet*> callBits;
+            if (resolveExpressionBits(design, *strippedExpr, 1, callBits) &&
+                callBits.size() == 1) {
+              return callBits.front();
+            }
+            // Non-synthesizable / unresolvable 1-bit call: treat as constant-0
+            // for structural netlist purposes.
+            return static_cast<SNLBitNet*>(getConstNet(design, false));
+          }
+          return nullptr;
+        }
         const bool isSelectableExpr =
           strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
           strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
@@ -15387,14 +15379,21 @@ endmodule
         setCurrentForLoopBreakRequested(false);
 
         bool shouldExecuteBody = false;
+        std::string stopFailureReason;
         if (!evaluateForLoopStopCondition(
               *forStmt.stopExpr,
               *loopSymbol,
               loopValue,
               shouldExecuteBody,
-              failureReason)) {
+              stopFailureReason)) {
+          // The loop bound is not statically evaluable (e.g. it depends on a
+          // runtime signal like a counter).  Treat the loop as zero iterations:
+          // the LHS signals retain whatever values they had before the loop.
+          // Emit a warning so the caller knows something was skipped, but do
+          // NOT propagate the failure — doing so would abort the whole block.
+          failureReason = stopFailureReason;
           popBreakContext();
-          return false;
+          return true;  // zero-iteration skip, not a hard failure
         }
 
         if (!shouldExecuteBody) {
@@ -22911,9 +22910,13 @@ endmodule
             const auto& binaryExpr = operandExpr->as<slang::ast::BinaryExpression>();
             switch (binaryExpr.op) {
               case slang::ast::BinaryOperator::BinaryAnd:
+              // ~(a && b) on 1-bit operands is equivalent to ~(a & b) = Nand
+              case slang::ast::BinaryOperator::LogicalAnd:
                 gateType = NLDB0::GateType(NLDB0::GateType::Nand);
                 break;
               case slang::ast::BinaryOperator::BinaryOr:
+              // ~(a || b) on 1-bit operands is equivalent to ~(a | b) = Nor
+              case slang::ast::BinaryOperator::LogicalOr:
                 gateType = NLDB0::GateType(NLDB0::GateType::Nor);
                 break;
               case slang::ast::BinaryOperator::BinaryXor:
@@ -23302,63 +23305,68 @@ endmodule
             const auto& ifacePort =
               conn->port.as<slang::ast::InterfacePortSymbol>();
             auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
-            if (modportSym && ifaceSymbol &&
-                ifaceSymbol->kind == SymbolKind::Instance) {
-              const auto& ifaceBody =
-                ifaceSymbol->as<slang::ast::InstanceSymbol>().body;
+            if (modportSym) {
+              // Lazy term creation: create flattened terms on the model the
+              // first time this module is instantiated.  Terms are named
+              // <portName>__<signalName> (e.g. slave__aw_valid).
               for (const auto& mpMember : modportSym->members()) {
-                if (mpMember.kind != SymbolKind::ModportPort) {
-                  continue;
-                }
+                if (mpMember.kind != SymbolKind::ModportPort) continue;
                 const auto& mpPort =
                   mpMember.as<slang::ast::ModportPortSymbol>();
-                const std::string flatTermName =
+                const std::string flatName =
                   portName + "__" + std::string(mpPort.name);
-                auto* flatTerm = model->getTerm(NLName(flatTermName));
-                if (!flatTerm) {
-                  continue;
+                if (!model->getTerm(NLName(flatName))) {
+                  auto direction = toSNLDirection(mpPort.direction);
+                  if (!direction) continue;
+                  auto range = getRangeFromType(mpPort.getType());
+                  if (range && range->width() > 1) {
+                    SNLBusTerm::create(
+                      model, *direction,
+                      static_cast<NLID::Bit>(range->left),
+                      static_cast<NLID::Bit>(range->right),
+                      NLName(flatName));
+                  } else {
+                    SNLScalarTerm::create(model, *direction, NLName(flatName));
+                  }
                 }
-                // Look up the interface signal in the parent design.
-                const auto* signalSym = ifaceBody.find(mpPort.name);
-                if (!signalSym) {
-                  continue;
-                }
-                // ValueSymbol covers VariableSymbol and NetSymbol.
-                if (signalSym->kind != SymbolKind::Variable &&
-                    signalSym->kind != SymbolKind::Net) {
-                  continue;
-                }
-                const auto& valueSym =
-                  signalSym->as<slang::ast::ValueSymbol>();
-                auto* signalNet =
-                  getLoweredValueSymbolNet(inst->getDesign(), valueSym);
-                if (!signalNet) {
-                  continue;
-                }
-                // Connect the net bits directly to the flat instance term.
-                // (connectTermBits is a lambda defined later in this scope.)
-                std::vector<SNLBitNet*> netBits = collectBits(signalNet);
-                if (!netBits.empty()) {
-                  if (auto* scalarTerm =
-                        dynamic_cast<SNLScalarTerm*>(flatTerm)) {
-                    auto* si = inst->getInstTerm(scalarTerm);
-                    if (si && netBits.front()) {
-                      si->setNet(netBits.front());
-                    }
-                  } else if (auto* busTerm =
-                               dynamic_cast<SNLBusTerm*>(flatTerm)) {
-                    auto msb = busTerm->getMSB();
-                    auto lsb = busTerm->getLSB();
+              }
+              // Now connect each flattened term to its interface signal net.
+              if (ifaceSymbol && ifaceSymbol->kind == SymbolKind::Instance) {
+                const auto& ifaceBody =
+                  ifaceSymbol->as<slang::ast::InstanceSymbol>().body;
+                for (const auto& mpMember : modportSym->members()) {
+                  if (mpMember.kind != SymbolKind::ModportPort) continue;
+                  const auto& mpPort =
+                    mpMember.as<slang::ast::ModportPortSymbol>();
+                  const std::string flatTermName =
+                    portName + "__" + std::string(mpPort.name);
+                  auto* flatTerm = model->getTerm(NLName(flatTermName));
+                  if (!flatTerm) continue;
+                  const auto* signalSym = ifaceBody.find(mpPort.name);
+                  if (!signalSym ||
+                      (signalSym->kind != SymbolKind::Variable &&
+                       signalSym->kind != SymbolKind::Net)) {
+                    continue;
+                  }
+                  auto* signalNet = getLoweredValueSymbolNet(
+                    inst->getDesign(),
+                    signalSym->as<slang::ast::ValueSymbol>());
+                  if (!signalNet) continue;
+                  std::vector<SNLBitNet*> netBits = collectBits(signalNet);
+                  if (netBits.empty()) continue;
+                  if (auto* st = dynamic_cast<SNLScalarTerm*>(flatTerm)) {
+                    auto* si = inst->getInstTerm(st);
+                    if (si && netBits.front()) si->setNet(netBits.front());
+                  } else if (auto* bt = dynamic_cast<SNLBusTerm*>(flatTerm)) {
+                    auto msb = bt->getMSB(), lsb = bt->getLSB();
                     auto step = lsb <= msb ? 1 : -1;
-                    size_t bitIdx = 0;
+                    size_t idx = 0;
                     for (auto b = lsb;
-                         b != msb + step && bitIdx < netBits.size();
-                         b += step, ++bitIdx) {
-                      auto* bt = busTerm->getBit(b);
-                      auto* si = bt ? inst->getInstTerm(bt) : nullptr;
-                      if (si && netBits[bitIdx]) {
-                        si->setNet(netBits[bitIdx]);
-                      }
+                         b != msb + step && idx < netBits.size();
+                         b += step, ++idx) {
+                      auto* bb = bt->getBit(b);
+                      auto* si = bb ? inst->getInstTerm(bb) : nullptr;
+                      if (si && netBits[idx]) si->setNet(netBits[idx]);
                     }
                   }
                 }
