@@ -15,13 +15,13 @@ set(SOURCES
   PySNLNetComponent.cpp
   PySNLTerm.cpp
   PySNLTermDirection.cpp 
-  PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
+  PySNLBusTerm.cpp PySNLBundleTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp PySNLInstParameter.cpp PySNLInstTerm.cpp
   PySNLAttributes.cpp
   PySNLDesigns.cpp
   PySNLParameters.cpp PySNLInstParameters.cpp
   PySNLNetComponents.cpp
-  PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
+  PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp PySNLBundleTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLOccurrences.cpp
@@ -34,7 +34,7 @@ if (BUILD_NAJA_PYTHON)
   target_link_libraries(naja_python
     PUBLIC
     naja_nl_dump
-    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    naja_snl_verilog naja_snl_systemverilog naja_snl_liberty naja_snl_visual
     naja_opt
     naja_metrics
     Python3::Module
@@ -43,7 +43,7 @@ else(BUILD_NAJA_PYTHON)
   target_link_libraries(naja_python
     PUBLIC
     naja_nl_dump
-    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    naja_snl_verilog naja_snl_systemverilog naja_snl_liberty naja_snl_visual
     naja_opt
     naja_metrics
     Python3::Python

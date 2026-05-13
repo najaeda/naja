@@ -61,16 +61,16 @@ if __name__ == '__main__':
     netlist.load_primitives('xilinx')
     
     start = time.time()
-    print('Starting DLE')
+    logging.info('Starting DLE')
 
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
-    print(f'deleted {len(nb_deleted)} leaves')
+    logging.info(f'deleted {len(nb_deleted)} leaves')
 
     end = time.time()
-    print('DLE done in', end - start, 'seconds')
+    logging.info(f'DLE done in {end - start} seconds')
 
     top.dump_verilog("resultDLEwithNajaEDA.v")

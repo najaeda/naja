@@ -1,0 +1,418 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cases:
+  - name: black_parrot
+    repo: https://github.com/black-parrot/black-parrot.git
+    commit: 05ef10db21254c0b54fac4439a08de8329b05699
+    top: bp_multicore
+    flist: bp_top/flist.vcs
+    flist_append:
+      - $BP_DIR/external/basejump_stl/bsg_dataflow/bsg_fifo_1r1w_small_hardened.sv
+      - $BP_DIR/external/basejump_stl/bsg_dataflow/bsg_fifo_1r1w_small_hardened_multi.sv
+    output: black_parrot_naja.v
+    env:
+      BP_DIR: "{repo}"
+      BP_ROOT: "{repo}"
+    dump:
+      rtl_infos_as_attributes: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - PINMISSING
+        - ASCRANGE
+
+  - name: cva6
+    repo: https://github.com/xtofalex/cva6.git
+    commit: bead12b083b4457a1ae87b8b9c8812a9d64bfc54
+    top: cva6
+    flist: core/Flist.cva6
+    output: cva6_naja.v
+    env:
+      CVA6_REPO_DIR: "{repo}"
+      HPDCACHE_DIR: "{repo}/core/cache_subsystem/hpdcache"
+      TARGET_CFG: cv64a6_imafdc_sv39
+    dump:
+      rtl_infos_as_attributes: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - PINMISSING
+        - ASCRANGE
+
+  - name: ibex
+    repo: https://github.com/lowRISC/ibex.git
+    commit: eede2fbbef007d53cafbd85d937b897751c40a54
+    top: ibex_top
+    flist: build/fusesoc/lowrisc_ibex_ibex_top_0.1/lint-verilator/lowrisc_ibex_ibex_top_0.1.vc
+    flist_glob: build/fusesoc/**/lint-verilator/*.vc
+    flist_format: fusesoc_vc
+    setup_timeout_seconds: 3600
+    setup_commands:
+      - - fusesoc
+        - --cores-root
+        - "{repo}"
+        - run
+        - --target=lint
+        - --setup
+        - --build-root
+        - "{repo}/build/fusesoc"
+        - --mapping=lowrisc:prim_generic:all:0.1
+        - lowrisc:ibex:ibex_top
+    output: ibex_naja.v
+    env:
+      XDG_CACHE_HOME: "{case}/.cache"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_ibex_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_ibex_top_smoke.sv"
+      pass_regex: "IBEX_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
+    helloworld_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "IBEX_HELLOWORLD_SIM_PASS"
+    ibex_dit_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dit_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DIT_SIM_PASS"
+    ibex_dummy_instr_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dummy_instr_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
+    ibex_pmp_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--variant"
+          - "pmp"
+          - "--output"
+          - "{artifacts}/ibex_pmp_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_pmp_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "pmp_smoke_test"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_PMP_SIM_PASS"
+    ibex_secure_dit_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dit_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DIT_SIM_PASS"
+    ibex_secure_dummy_instr_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - fusesoc
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--output"
+          - "{artifacts}/ibex_secure_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/ibex_secure_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "dummy_instr_test"
+          - "--secure-ibex"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
+
+  - name: cv32e40p
+    repo: https://github.com/openhwgroup/cv32e40p.git
+    commit: 360d272898d81806be3377193870dbf83a3ea79f
+    top: cv32e40p_top
+    flist: cv32e40p_manifest.flist
+    output: cv32e40p_naja.v
+    env:
+      DESIGN_RTL_DIR: "{repo}/rtl"
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - PINMISSING
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_cv32e40p_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_cv32e40p_top_smoke.sv"
+      pass_regex: "CV32E40P_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
+    helloworld_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cv32e40p_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "CV32E40P_HELLOWORLD_SIM_PASS"
+    interrupt_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - make
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cv32e40p_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "interrupt"
+          - "--max-cycles"
+          - "20000000"
+      pass_regex: "CV32E40P_INTERRUPT_SIM_PASS"
+    cv32e40p_hwlp_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - verilator
+        - - riscv32-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv64-unknown-elf-gcc
+        - - riscv32-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv64-unknown-elf-objcopy
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_variant_netlist.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--variant"
+          - "pulp"
+          - "--output"
+          - "{artifacts}/cv32e40p_pulp_naja.v"
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cv32e40p_pulp_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "hwlp"
+          - "--max-cycles"
+          - "2000000"
+      pass_regex: "CV32E40P_HWLP_SIM_PASS"

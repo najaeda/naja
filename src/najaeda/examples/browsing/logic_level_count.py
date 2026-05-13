@@ -25,9 +25,9 @@ if __name__ == '__main__':
     start = time.time()
     
     trace_back_terms = list(top.get_output_bit_terms())
-    print("Number of top terms to trace back: ", len(trace_back_terms))
+    logging.info(f"Number of top terms to trace back: {len(trace_back_terms)}")
     num_leaves = sum(1 for _ in top.get_leaf_children())
-    print("Number of leaves: ", num_leaves)
+    logging.info(f"Number of leaves: {num_leaves}")
     for leaf in top.get_leaf_children():
         if leaf.is_sequential():
             for term in leaf.get_input_bit_terms():
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     
     global_max_logic_level = 0
     path2ll = {}
-    print("Number of leaf terms to trace back: ", len(trace_back_terms))
+    logging.info(f"Number of leaf terms to trace back: {len(trace_back_terms)}")
     for termToTrace in trace_back_terms:
         queue = deque([(termToTrace, [])])
         max_logic_level = 0
@@ -66,6 +66,6 @@ if __name__ == '__main__':
         if max_logic_level > global_max_logic_level:
             global_max_logic_level = max_logic_level
     
-    print(global_max_logic_level)
+    logging.info(f"{global_max_logic_level}")
     end = time.time()
-    print('LL count done in', end - start, 'seconds')
+    logging.info(f"LL count done in {end - start} seconds")

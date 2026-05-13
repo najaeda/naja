@@ -61,7 +61,25 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(
     constInputs.push_back(
         ConstantInput(termID2index[constTerm.first], constTerm.second));
   }
-  return truthTable.getReducedWithConstants(constInputs);
+  auto reducedBase = truthTable;
+  if (truthTable.size() > 0 &&
+      !NLBitDependencies::isSimple(truthTable.getDependencies())) {
+    const auto localDeps = SNLTruthTable::fullDependencies(truthTable.size());
+    if (truthTable.isGeneric()) {
+      reducedBase = SNLTruthTable(
+          truthTable.size(), truthTable.getGenericType(), localDeps);
+    } else if (truthTable.size() <= 6) {
+      reducedBase = SNLTruthTable(
+          truthTable.size(), static_cast<uint64_t>(truthTable.bits()), localDeps);
+    } else {
+      std::vector<bool> bits(truthTable.bits().size(), false);
+      for (size_t i = 0; i < bits.size(); ++i) {
+        bits[i] = truthTable.bits().bit(i);
+      }
+      reducedBase = SNLTruthTable(truthTable.size(), bits, localDeps);
+    }
+  }
+  return reducedBase.getReducedWithConstants(constInputs);
 }
 
 void ReductionOptimization::replaceInstance(

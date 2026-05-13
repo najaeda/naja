@@ -498,3 +498,21 @@ TEST_F(SNLInstanceTest0, testErrors) {
   //Add non existing Param on instance
   //EXPECT_THROW(ins->addParameterValue(NLName("ERROR"), "ERROR"), NLException);
 }
+
+TEST_F(SNLInstanceTest0, testGetStringUnnamedFallback) {
+  NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto scalarTerm = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i0"));
+  auto busTerm = SNLBusTerm::create(model, SNLTerm::Direction::Output, 3, 0);
+  auto inst = SNLInstance::create(top, model);
+
+  EXPECT_EQ("<inst:0>", inst->getString());
+  EXPECT_EQ("<inst:0>/i0", inst->getInstTerm(scalarTerm)->getString());
+  EXPECT_EQ("<inst:0>/<term:1>[2]", inst->getInstTerm(busTerm->getBit(2))->getString());
+
+  inst->setName(NLName("u0"));
+  busTerm->setName(NLName("bus"));
+  EXPECT_EQ("u0", inst->getString());
+  EXPECT_EQ("u0/bus[2]", inst->getInstTerm(busTerm->getBit(2))->getString());
+}

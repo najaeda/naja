@@ -10,6 +10,7 @@
 #include "PyNLLibrary.h"
 
 #include "PySNLScalarTerm.h"
+#include "PySNLBundleTerm.h"
 #include "PySNLBusTerm.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
@@ -20,6 +21,7 @@
 #include "PySNLInstTerms.h"
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
+#include "PySNLBundleTerms.h"
 #include "PySNLNets.h"
 #include "PySNLScalarNets.h"
 #include "PySNLBusNets.h"
@@ -31,6 +33,7 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "NLBitDependencies.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
@@ -109,18 +112,31 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   return PySNLDesign_Link(newDesign);
 }
 
-static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args) {
-  const char* arg0 = nullptr;
-  const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "ss:SNLDesign.dumpVerilog", &arg0, &arg1)) {
+static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+  const char* path = nullptr;
+  const char* topFileName = nullptr;
+  int dumpRTLInfosAsAttributes = 0;
+  int dumpAssignsAsInstances = 0;
+
+  static const char* const kwords[] = {
+    "path", "top_file_name", "dumpRTLInfosAsAttributes", "dumpAssignsAsInstances",
+    nullptr
+  };
+
+  if (not PyArg_ParseTupleAndKeywords(
+    args, kwargs, "ss|pp:SNLDesign.dumpVerilog",
+    const_cast<char**>(kwords),
+    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.dumpVerilog()")
   TRY
   SNLVRLDumper dumper;
-  dumper.setTopFileName(arg1);
-  dumper.dumpDesign(selfObject, std::filesystem::path(arg0));
+  dumper.setTopFileName(topFileName);
+  dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  dumper.setDumpAssignsAsInstances(dumpAssignsAsInstances);
+  dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;
 }
@@ -285,9 +301,14 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.setTruthTable()")
-  auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
-  size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
-  SNLTruthTable truthTable(size, tt);
+  std::vector<size_t> deps;
+  for (auto term: selfObject->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      deps.push_back(term->getOrderID());
+    }
+  }
+  size_t size = deps.size();
+  SNLTruthTable truthTable(size, tt, NLBitDependencies::encodeBits(deps));
   try {
     SNLDesignModeling::setTruthTable(selfObject, truthTable);
   } catch (const NLException& e) {
@@ -308,7 +329,15 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
     setError("malformed SNLDesign.setTruthTables method");
     return nullptr;
   }
+  METHOD_HEAD("SNLDesign.setTruthTables()")
   std::vector<SNLTruthTable> truthTables;
+  std::vector<size_t> deps;
+  for (auto term: selfObject->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      deps.push_back(term->getOrderID());
+    }
+  }
+  auto encodedDeps = NLBitDependencies::encodeBits(deps);
   for (int i=0; i<PyList_Size(arg0); ++i) {
     PyObject* item = PyList_GetItem(arg0, i);
     if (not PyLong_Check(item)) {
@@ -329,9 +358,10 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
       return nullptr;
     }
     uint64_t mask = PyLong_AsUnsignedLongLong(item);;
-    truthTables.push_back(SNLTruthTable(size, mask));
+    auto tableDeps =
+        deps.empty() ? SNLTruthTable::fullDependencies(size) : encodedDeps;
+    truthTables.push_back(SNLTruthTable(size, mask, tableDeps));
   }
-  METHOD_HEAD("SNLDesign.setTruthTables()")
   try {
     SNLDesignModeling::setTruthTables(selfObject, truthTables);
   } catch (const NLException& e) {
@@ -483,6 +513,7 @@ GetObjectByName(SNLDesign, SNLInstance, getInstance)
 GetObjectByName(SNLDesign, SNLTerm, getTerm)
 GetObjectByName(SNLDesign, SNLScalarTerm, getScalarTerm)
 GetObjectByName(SNLDesign, SNLBusTerm, getBusTerm)
+GetObjectByName(SNLDesign, SNLBundleTerm, getBundleTerm)
 GetObjectByName(SNLDesign, SNLNet, getNet)
 GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
@@ -511,6 +542,7 @@ GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
 GetContainerMethod(SNLDesign, SNLBusTerm*, SNLBusTerms, BusTerms)
+GetContainerMethod(SNLDesign, SNLBundleTerm*, SNLBundleTerms, BundleTerms)
 GetContainerMethod(SNLDesign, SNLNet*, SNLNets, Nets)
 GetContainerMethod(SNLDesign, SNLScalarNet*, SNLScalarNets, ScalarNets)
 GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
@@ -595,6 +627,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "retrieve a SNLScalarTerm."},
   { "getBusTerm", (PyCFunction)PySNLDesign_getBusTerm, METH_VARARGS,
     "retrieve a SNLBusTerm."},
+  { "getBundleTerm", (PyCFunction)PySNLDesign_getBundleTerm, METH_VARARGS,
+    "retrieve a SNLBundleTerm."},
   { "getNet", (PyCFunction)PySNLDesign_getNet, METH_VARARGS,
     "retrieve a SNLNet."},
   { "getScalarNet", (PyCFunction)PySNLDesign_getScalarNet, METH_VARARGS,
@@ -617,6 +651,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLScalarTerms."},
   { "getBusTerms", (PyCFunction)PySNLDesign_getBusTerms, METH_NOARGS,
     "get a container of SNLBusTerms."},
+  { "getBundleTerms", (PyCFunction)PySNLDesign_getBundleTerms, METH_NOARGS,
+    "get a container of SNLBundleTerms."},
   { "getNets", (PyCFunction)PySNLDesign_getNets, METH_NOARGS,
     "get a container of SNLNets."},
   { "getScalarNets", (PyCFunction)PySNLDesign_getScalarNets, METH_NOARGS,
@@ -643,7 +679,7 @@ PyMethodDef PySNLDesign_Methods[] = {
     "destroy this SNLDesign."},
   { "clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
     "clone this SNLDesign."},
-  { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS,
+  { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS|METH_KEYWORDS,
     "dump verilog file of this SNLDesign."},
   { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
     "dump full dot file for this SNLDesign."},

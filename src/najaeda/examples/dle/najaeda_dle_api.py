@@ -20,7 +20,7 @@ if __name__ == '__main__':
     netlist.load_primitives('xilinx')
 
     start = time.time()
-    print('Starting DLE')
+    logging.info('Starting DLE')
 
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
@@ -29,6 +29,6 @@ if __name__ == '__main__':
     netlist.apply_dle()
     
     end = time.time()
-    print('DLE done in', end - start, 'seconds')
+    logging.info(f'DLE done in {end - start} seconds')
 
     top.dump_verilog("resultDLEwithNajaAPI.v")

@@ -30,6 +30,6 @@ TEST_F(SNLDesignTruthTableTest0, testTruthTablesConflictError) {
   auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
   auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
   //set truth table
-  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
-  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, SNLTruthTable::fullDependencies(2)));
+  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1, SNLTruthTable::fullDependencies(2))), NLException);
 }

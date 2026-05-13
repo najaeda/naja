@@ -6,10 +6,15 @@
 
 #include <cassert>
 #include <algorithm>
+#include <chrono>
+#include <cctype>
+#include <cstdlib>
+#include <iomanip>
 #include <sstream>
 #include <fstream>
 #include <unordered_set>
 
+#include "NajaLog.h"
 #include "NajaUtils.h"
 #include "NajaPerf.h"
 
@@ -19,6 +24,7 @@
 #include "SNLDesign.h"
 #include "SNLParameter.h"
 #include "SNLScalarTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
@@ -26,9 +32,31 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLAttributes.h"
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
 #include "SNLUtils.h"
 
 namespace {
+
+std::vector<const naja::NL::SNLTerm*> getVerilogInterfaceTerms(const naja::NL::SNLDesign* design) {
+  std::vector<const naja::NL::SNLTerm*> terms;
+  for (auto term: design->getTerms()) {
+    if (auto bundle = dynamic_cast<const naja::NL::SNLBundleTerm*>(term)) {
+      for (auto member: bundle->getMembers()) {
+        terms.push_back(member);
+      }
+    } else {
+      terms.push_back(term);
+    }
+  }
+  return terms;
+}
+
+// LCOV_EXCL_START
+double toMilliseconds(const std::chrono::nanoseconds& duration) {
+  return std::chrono::duration<double, std::milli>(duration).count();
+}
+// LCOV_EXCL_STOP
 
 size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
@@ -47,6 +75,18 @@ size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
 }
 
 using ContiguousNetBits = std::vector<naja::NL::SNLBitNet*>;
+
+char getAssignConstantBitValue(const naja::NL::SNLBitNet* bit) {
+  switch (bit->getType()) {
+    case naja::NL::SNLNet::Type::Assign0:
+      return '0';
+    case naja::NL::SNLNet::Type::Assign1:
+      return '1';
+    default:
+      throw naja::NL::SNLVRLDumperException("ERROR"); //LCOV_EXCL_LINE
+  }
+}
+
 void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (not firstElement) {
@@ -57,13 +97,7 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
     std::string constantStr;
     for (auto bit: bits) {
-      if (bit->getType() == naja::NL::SNLNet::Type::Assign0) {
-        constantStr += "0";
-      } else if (bit->getType() == naja::NL::SNLNet::Type::Assign1) {
-        constantStr += "1";
-      } else {
-        throw naja::NL::SNLVRLDumperException("ERROR");
-      }
+      constantStr += getAssignConstantBitValue(bit);
     }
     if (constantStr.size() < 4) {
       //binary
@@ -77,6 +111,63 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
   }
   bits.clear();
+}
+
+bool isUnsignedDecimal(const std::string& value) {
+  return std::all_of(
+    value.begin(),
+    value.end(),
+    [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+std::string normalizeParameterValue(
+  naja::NL::SNLParameter::Type type,
+  const std::string& value) {
+  if (type != naja::NL::SNLParameter::Type::Boolean) {
+    return value;
+  }
+  if (value == "0" || value == "FALSE") {
+    return "0";
+  }
+  if (value == "1" || value == "TRUE") {
+    return "1";
+  }
+  return value;
+}
+
+std::string getEmittedDefaultParameterValue(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLParameter* parameter) {
+  using namespace naja::NL;
+  const auto& parameterName = parameter->getName();
+  if (NLDB0::isMemory(instance->getModel())) {
+    if (parameterName == NLName("WIDTH") ||
+        parameterName == NLName("DEPTH") ||
+        parameterName == NLName("ABITS") ||
+        parameterName == NLName("RD_PORTS") ||
+        parameterName == NLName("WR_PORTS")) {
+      return "1";
+    }
+    if (parameterName == NLName("RST_ENABLE") ||
+        parameterName == NLName("RST_ASYNC") ||
+        parameterName == NLName("RST_ACTIVE_LOW")) {
+      return "0";
+    }
+    if (parameterName == NLName("INIT")) {
+      return "1'b0";
+    }
+  }
+  return parameter->getValue();
+}
+
+bool shouldDumpInstParameter(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLInstParameter* instParameter) {
+  const auto* parameter = instParameter->getParameter();
+  return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
+         normalizeParameterValue(
+           parameter->getType(),
+           getEmittedDefaultParameterValue(instance, parameter));
 }
 
 std::string dumpName(const std::string& name) {
@@ -145,56 +236,750 @@ std::string dumpName(const std::string& name) {
   return name;
 }
 
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
-  if (not bits.empty()) {
-    if (bits[0]->isAssignConstant()) {
-      dumpConstantRange(bits, firstElement, concatenation, o);
-    } else {
-      if (not firstElement) {
-        o += ", ";
-        concatenation = true;
-      } else {
-        firstElement = false;
-      }
-      naja::NL::SNLBusNetBit* rangeMSBBit = static_cast<naja::NL::SNLBusNetBit*>(bits[0]);
-      naja::NL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
-      naja::NL::SNLBusNetBit* rangeLSBBit =static_cast<naja::NL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::NL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
-      naja::NL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::NL::NLID::Bit busMSB = bus->getMSB();
-      naja::NL::NLID::Bit busLSB = bus->getLSB();
-      if (rangeMSB == busMSB and rangeLSB == busLSB) {
-        o += dumpName(bus->getName().getString());
-      } else if (rangeMSB == rangeLSB) {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += "]";
-      } else {
-        o += dumpName(bus->getName().getString()) + "[";
-        o += std::to_string(rangeMSB);
-        o += ":";
-        o += std::to_string(rangeLSB);
-        o += "]";
-      }
-      bits.clear();
+std::string getBusBitConcatenationString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& bitNetToString) {
+  assert(not bits.empty());
+  std::string concatenation = "{";
+  for (size_t i = 0; i < bits.size(); ++i) {
+    if (i != 0) {
+      concatenation += ", ";
     }
+    concatenation += bitNetToString(bits[i]);
+  }
+  concatenation += "}";
+  return concatenation;
+}
+
+naja::NL::NLID::Bit getCanonicalRangeStep(const naja::NL::SNLBusNet* bus) {
+  return (bus->getMSB() > bus->getLSB()) ? -1 : 1;
+}
+
+bool isCanonicalBusRangeOrder(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+  assert(not bits.empty());
+  if (bits.size() == 1) {
+    return true;
+  }
+  auto bus = bits.front()->getBus();
+  auto expectedStep = getCanonicalRangeStep(bus);
+  for (size_t i = 1; i < bits.size(); ++i) {
+    if (bits[i]->getBus() != bus) {
+      return false; // LCOV_EXCL_LINE: defensive, current callers only pass same-bus ranges.
+    }
+    auto actualStep = bits[i]->getBit() - bits[i - 1]->getBit();
+    if (actualStep != expectedStep) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isCanonicalBusRangeOrder(const ContiguousNetBits& bits) {
+  assert(not bits.empty());
+  if (bits.size() == 1) {
+    return true;
+  }
+  auto firstBit = static_cast<const naja::NL::SNLBusNetBit*>(bits.front());
+  auto bus = firstBit->getBus();
+  auto expectedStep = getCanonicalRangeStep(bus);
+  for (size_t i = 1; i < bits.size(); ++i) {
+    auto previousBit = static_cast<const naja::NL::SNLBusNetBit*>(bits[i - 1]);
+    auto currentBit = static_cast<const naja::NL::SNLBusNetBit*>(bits[i]);
+    if (currentBit->getBus() != bus) {
+      return false; // LCOV_EXCL_LINE: defensive, current callers only pass same-bus ranges.
+    }
+    auto actualStep = currentBit->getBit() - previousBit->getBit();
+    if (actualStep != expectedStep) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void normalizeAssignGroupOutputOrder(
+  std::vector<const naja::NL::SNLBitNet*>& inputBits,
+  std::vector<const naja::NL::SNLBusNetBit*>& outputBits) {
+  assert(inputBits.size() == outputBits.size());
+  assert(not outputBits.empty());
+  if (outputBits.size() == 1) {
+    return;
+  }
+  auto outputBus = outputBits.front()->getBus();
+  auto expectedOutputStep = getCanonicalRangeStep(outputBus);
+  auto outputStep = outputBits[1]->getBit() - outputBits[0]->getBit();
+  if (outputStep != expectedOutputStep) {
+    std::reverse(inputBits.begin(), inputBits.end());
+    std::reverse(outputBits.begin(), outputBits.end());
   }
 }
 
-std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
-  if (auto scalarNet = dynamic_cast<const naja::NL::SNLScalarNet*>(bitNet)) {
-    return dumpName(scalarNet->getName().getString());
-  } else {
-    auto busNetBit = static_cast<const naja::NL::SNLBusNetBit*>(bitNet);
-    auto bus = busNetBit->getBus();
-    auto busName = dumpName(bus->getName().getString());
-    return busName + "[" + std::to_string(busNetBit->getBit()) + "]";
+bool isContiguousBitDelta(const naja::NL::NLID::Bit delta) {
+  return delta == 1 or delta == -1;
+}
+
+bool getAssignConnectivity(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLBitNet*& inputNet,
+  const naja::NL::SNLBitNet*& outputNet) {
+  inputNet = nullptr;
+  outputNet = nullptr;
+  auto inputTerm = instance->getInstTerm(naja::NL::NLDB0::getAssignInput());
+  auto outputTerm = instance->getInstTerm(naja::NL::NLDB0::getAssignOutput());
+  if (inputTerm and outputTerm) {
+    inputNet = inputTerm->getNet();
+    outputNet = outputTerm->getNet();
   }
+  return inputNet and outputNet;
+}
+
+bool dumpSingleAssign(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  std::ostream& o,
+  const auto& bitNetToString) {
+  std::string inputNetString;
+  if (inputNet->isConstant0()) {
+    inputNetString = "1'b0";
+  } else if (inputNet->isConstant1()) {
+    inputNetString = "1'b1";
+  } else {
+    inputNetString = bitNetToString(inputNet);
+  }
+  auto outputNetString = bitNetToString(outputNet);
+  o << "assign " << outputNetString << " = " << inputNetString << ";" << '\n';
+  return true;
+}
+
+std::string getBusBitRangeString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& busNetToString) {
+  assert(not bits.empty());
+  auto firstBit = bits.front();
+  auto lastBit = bits.back();
+  auto bus = firstBit->getBus();
+  assert(bus == lastBit->getBus());
+  auto busName = busNetToString(bus);
+  if (firstBit->getBit() == bus->getMSB() and lastBit->getBit() == bus->getLSB()) {
+    return busName;
+  }
+  return busName + "[" + std::to_string(firstBit->getBit()) + ":" + std::to_string(lastBit->getBit()) + "]";
+}
+
+std::string getAssignConstantString(const std::vector<const naja::NL::SNLBitNet*>& bits) {
+  assert(not bits.empty());
+  std::string bitString;
+  bitString.reserve(bits.size());
+  for (auto bit: bits) {
+    bitString += getAssignConstantBitValue(bit);
+  }
+  return std::to_string(bits.size()) + "'b" + bitString;
+}
+
+enum class AssignInputMode {
+  Bus,
+  Constant
+};
+
+struct AssignGroup {
+  AssignInputMode                              inputMode_ {AssignInputMode::Bus};
+  std::vector<const naja::NL::SNLBitNet*>      inputBits_ {};
+  std::vector<const naja::NL::SNLBusNetBit*>   outputBits_{};
+  bool                                          hasOutputStep_{false};
+  naja::NL::NLID::Bit                           outputStep_{0};
+  bool                                          hasInputStep_ {false};
+  naja::NL::NLID::Bit                           inputStep_ {0};
+};
+
+enum class AssignChunkInputKind {
+  Constant,
+  Bus,
+  Other
+};
+
+struct AssignBusChunk {
+  const naja::NL::SNLBusNet*                    outputBus_ {nullptr};
+  std::vector<const naja::NL::SNLBusNetBit*>    outputBits_ {};
+  AssignChunkInputKind                          inputKind_ {AssignChunkInputKind::Other};
+  const naja::NL::SNLBusNet*                    inputBus_ {nullptr};
+  std::vector<const naja::NL::SNLBusNetBit*>    inputBusBits_ {};
+  std::string                                   inputString_ {};
+};
+
+struct AssignEmission {
+  bool            hasBusChunk_ {false};
+  AssignBusChunk  busChunk_ {};
+  std::string     text_ {};
+};
+
+bool initializeAssignGroup(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  AssignGroup& group) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+  if (inputNet->isAssignConstant()) {
+    group.inputMode_ = AssignInputMode::Constant;
+  } else {
+    auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet);
+    if (not inputBusBit) {
+      return false;
+    }
+    group.inputMode_ = AssignInputMode::Bus;
+  }
+  group.inputBits_.push_back(inputNet);
+  group.outputBits_.push_back(outputBusBit);
+  return true;
+}
+
+std::string getAssignInputString(
+  const naja::NL::SNLBitNet* inputNet,
+  const auto& bitNetToString) {
+  if (inputNet->isConstant0()) {
+    return "1'b0";
+  }
+  if (inputNet->isConstant1()) {
+    return "1'b1";
+  }
+  return bitNetToString(inputNet);
+}
+
+std::string getBusBitOrRangeString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& busNetToString) {
+  assert(not bits.empty());
+  assert(bits.size() > 1);
+  return getBusBitRangeString(bits, busNetToString);
+}
+
+std::string getBusAssignInputString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& inputBits,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not inputBits.empty());
+  assert(inputBits.size() > 1);
+  if (isCanonicalBusRangeOrder(inputBits)) {
+    return getBusBitRangeString(inputBits, busNetToString);
+  }
+  return getBusBitConcatenationString(inputBits, bitNetToString);
+}
+
+bool createSingleAssignBusChunk(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  const auto& bitNetToString,
+  AssignBusChunk& chunk) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+
+  chunk.outputBus_ = outputBusBit->getBus();
+  chunk.outputBits_.push_back(outputBusBit);
+  chunk.inputString_ = getAssignInputString(inputNet, bitNetToString);
+
+  if (inputNet->isAssignConstant()) {
+    chunk.inputKind_ = AssignChunkInputKind::Constant;
+    return true;
+  }
+
+  if (auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet)) {
+    chunk.inputKind_ = AssignChunkInputKind::Bus;
+    chunk.inputBus_ = inputBusBit->getBus();
+    chunk.inputBusBits_.push_back(inputBusBit);
+    return true;
+  }
+
+  chunk.inputKind_ = AssignChunkInputKind::Other;
+  return true;
+}
+
+AssignBusChunk createAssignGroupBusChunk(
+  const AssignGroup& group,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not group.outputBits_.empty());
+  auto inputBits = group.inputBits_;
+  auto outputBits = group.outputBits_;
+  normalizeAssignGroupOutputOrder(inputBits, outputBits);
+
+  AssignBusChunk chunk;
+  chunk.outputBus_ = outputBits.front()->getBus();
+  chunk.outputBits_ = std::move(outputBits);
+
+  if (group.inputMode_ == AssignInputMode::Constant) {
+    chunk.inputKind_ = AssignChunkInputKind::Constant;
+    chunk.inputString_ = getAssignConstantString(inputBits);
+    return chunk;
+  }
+
+  chunk.inputKind_ = AssignChunkInputKind::Bus;
+  chunk.inputBusBits_.reserve(inputBits.size());
+  for (auto inputBit: inputBits) {
+    chunk.inputBusBits_.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
+  }
+  chunk.inputBus_ = chunk.inputBusBits_.front()->getBus();
+  chunk.inputString_ = getBusAssignInputString(
+    chunk.inputBusBits_,
+    bitNetToString,
+    busNetToString);
+  return chunk;
+}
+
+std::string getAssignBusChunkText(
+  const AssignBusChunk& chunk,
+  const auto& busNetToString) {
+  auto outputString = getBusBitOrRangeString(
+    chunk.outputBits_,
+    busNetToString);
+  return "assign " + outputString + " = " + chunk.inputString_ + ";";
+}
+
+bool areChunksWholeBusAssignable(
+  const std::vector<const AssignBusChunk*>& chunks,
+  std::vector<const AssignBusChunk*>& sortedChunks) {
+  if (chunks.size() <= 1) {
+    return false;
+  }
+
+  auto outputBus = chunks.front()->outputBus_;
+  if (not outputBus) {
+    return false; // LCOV_EXCL_LINE: bus chunks are only created for bus outputs.
+  }
+
+  const naja::NL::SNLBusNet* uniqueInputBus = nullptr;
+  for (auto chunk: chunks) {
+    if (chunk->outputBus_ != outputBus) {
+      return false; // LCOV_EXCL_LINE: caller groups chunks by output bus before calling.
+    }
+    if (chunk->inputKind_ == AssignChunkInputKind::Other) {
+      return false;
+    }
+    if (chunk->inputKind_ == AssignChunkInputKind::Bus) {
+      if (not uniqueInputBus) {
+        uniqueInputBus = chunk->inputBus_;
+      } else if (uniqueInputBus != chunk->inputBus_) {
+        return false;
+      }
+    }
+  }
+
+  sortedChunks = chunks;
+  auto step = getCanonicalRangeStep(outputBus);
+  std::sort(
+    sortedChunks.begin(),
+    sortedChunks.end(),
+    [step](const AssignBusChunk* lhs, const AssignBusChunk* rhs) {
+      auto lhsBit = lhs->outputBits_.front()->getBit();
+      auto rhsBit = rhs->outputBits_.front()->getBit();
+      return (step < 0) ? (lhsBit > rhsBit) : (lhsBit < rhsBit);
+    });
+
+  auto expectedBit = outputBus->getMSB();
+  size_t coveredBits = 0;
+  for (auto chunk: sortedChunks) {
+    if (not isCanonicalBusRangeOrder(chunk->outputBits_)) {
+      return false; // LCOV_EXCL_LINE: chunk output bits are normalized at creation.
+    }
+    if (chunk->outputBits_.front()->getBit() != expectedBit) {
+      return false;
+    }
+    coveredBits += chunk->outputBits_.size();
+    expectedBit = chunk->outputBits_.back()->getBit() + step;
+  }
+
+  return coveredBits == static_cast<size_t>(outputBus->getWidth()) &&
+         expectedBit == outputBus->getLSB() + step;
+}
+
+std::string buildWholeBusAssignInputString(
+  const std::vector<const AssignBusChunk*>& sortedChunks,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not sortedChunks.empty());
+
+  bool sameInputBus = true;
+  const naja::NL::SNLBusNet* inputBus = nullptr;
+  std::vector<const naja::NL::SNLBusNetBit*> inputBits;
+  for (auto chunk: sortedChunks) {
+    if (chunk->inputKind_ != AssignChunkInputKind::Bus) {
+      sameInputBus = false;
+      break;
+    }
+    if (not inputBus) {
+      inputBus = chunk->inputBus_;
+    } else if (inputBus != chunk->inputBus_) {
+      sameInputBus = false; // LCOV_EXCL_LINE: areChunksWholeBusAssignable filters mixed input buses.
+      break; // LCOV_EXCL_LINE
+    }
+    inputBits.insert(
+      inputBits.end(),
+      chunk->inputBusBits_.begin(),
+      chunk->inputBusBits_.end());
+  }
+
+  if (sameInputBus and isCanonicalBusRangeOrder(inputBits)) {
+    return getBusAssignInputString(inputBits, bitNetToString, busNetToString);
+  }
+
+  std::string concatenation = "{";
+  for (size_t i = 0; i < sortedChunks.size(); ++i) {
+    if (i != 0) {
+      concatenation += ", ";
+    }
+    concatenation += sortedChunks[i]->inputString_;
+  }
+  concatenation += "}";
+  return concatenation;
+}
+
+std::string buildWholeBusAssignText(
+  const std::vector<const AssignBusChunk*>& sortedChunks,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  assert(not sortedChunks.empty());
+  auto outputString = busNetToString(sortedChunks.front()->outputBus_);
+  auto inputString = buildWholeBusAssignInputString(
+    sortedChunks,
+    bitNetToString,
+    busNetToString);
+  return "assign " + outputString + " = " + inputString + ";";
+}
+
+bool appendAssignGroup(
+  AssignGroup& group,
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+
+  auto previousOutputBit = group.outputBits_.back();
+  if (outputBusBit->getBus() != previousOutputBit->getBus()) {
+    return false;
+  }
+
+  auto outputDelta = outputBusBit->getBit() - previousOutputBit->getBit();
+  if (not isContiguousBitDelta(outputDelta)) {
+    return false;
+  }
+  if (group.hasOutputStep_ and outputDelta != group.outputStep_) {
+    return false;
+  }
+
+  if (group.inputMode_ == AssignInputMode::Constant) {
+    if (not inputNet->isAssignConstant()) {
+      return false;
+    }
+  } else {
+    auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet);
+    if (not inputBusBit) {
+      return false;
+    }
+    auto previousInputBusBit = static_cast<const naja::NL::SNLBusNetBit*>(group.inputBits_.back());
+    if (inputBusBit->getBus() != previousInputBusBit->getBus()) {
+      return false;
+    }
+    auto inputDelta = inputBusBit->getBit() - previousInputBusBit->getBit();
+    if (not isContiguousBitDelta(inputDelta)) {
+      return false;
+    }
+    if (group.hasInputStep_ and inputDelta != group.inputStep_) {
+      return false;
+    }
+    if (not group.hasInputStep_) {
+      group.inputStep_ = inputDelta;
+      group.hasInputStep_ = true;
+    }
+  }
+
+  if (not group.hasOutputStep_) {
+    group.outputStep_ = outputDelta;
+    group.hasOutputStep_ = true;
+  }
+  group.inputBits_.push_back(inputNet);
+  group.outputBits_.push_back(outputBusBit);
+  return true;
+}
+
+bool dumpAssignGroup(
+  const AssignGroup& group,
+  std::ostream& o,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
+  auto chunk = createAssignGroupBusChunk(group, bitNetToString, busNetToString);
+  o << getAssignBusChunkText(chunk, busNetToString) << '\n';
+  return true;
 }
 
 }
 
 namespace naja::NL {
+
+SNLVRLDumper::SNLVRLDumper() {
+  initializeDetailedPerfConfig();
+}
+
+SNLVRLDumper::DetailedPerfScopedTimer::DetailedPerfScopedTimer(
+  DetailedPerfReport& report,
+  std::chrono::nanoseconds& bucket,
+  size_t& calls):
+  report_((report.enabled && report.sessionActive) ? &report : nullptr),
+  bucket_((report.enabled && report.sessionActive) ? &bucket : nullptr) {
+  if (report_) {
+    // LCOV_EXCL_START
+    ++calls;
+    start_ = std::chrono::steady_clock::now();
+    // LCOV_EXCL_STOP
+  }
+}
+
+SNLVRLDumper::DetailedPerfScopedTimer::~DetailedPerfScopedTimer() {
+  if (report_) {
+    *bucket_ += std::chrono::steady_clock::now() - start_; // LCOV_EXCL_LINE
+  }
+}
+
+SNLVRLDumper::DetailedPerfSessionGuard::DetailedPerfSessionGuard(
+  SNLVRLDumper& dumper,
+  const std::string& context):
+  dumper_(&dumper),
+  started_(dumper.beginDetailedPerfSession(context)) {}
+
+SNLVRLDumper::DetailedPerfSessionGuard::~DetailedPerfSessionGuard() {
+  if (dumper_ && started_) {
+    dumper_->finalizeDetailedPerfSession(); // LCOV_EXCL_LINE
+  }
+}
+
+void SNLVRLDumper::initializeDetailedPerfConfig() {
+  const char* reportEnv = std::getenv("NAJA_VRL_DUMPER_REPORT");
+  if (!reportEnv) {
+    return;
+  }
+  // LCOV_EXCL_START
+  std::string reportPath(reportEnv);
+  if (reportPath.empty() || reportPath == "1") {
+    reportPath = "vrl_dumper_perf.log";
+  }
+  detailedPerfReport_.enabled = true;
+  detailedPerfReport_.reportPath = reportPath;
+  // LCOV_EXCL_STOP
+}
+
+bool SNLVRLDumper::beginDetailedPerfSession(const std::string& context) {
+  if (!detailedPerfReport_.enabled || detailedPerfReport_.sessionActive) {
+    return false;
+  }
+  // LCOV_EXCL_START
+  auto reportPath = detailedPerfReport_.reportPath;
+  detailedPerfReport_ = DetailedPerfReport {};
+  detailedPerfReport_.enabled = true;
+  detailedPerfReport_.sessionActive = true;
+  detailedPerfReport_.reportPath = std::move(reportPath);
+  detailedPerfReport_.context = context;
+  detailedPerfReport_.sessionStart = std::chrono::steady_clock::now();
+  return true;
+  // LCOV_EXCL_STOP
+}
+
+// LCOV_EXCL_START
+void SNLVRLDumper::finalizeDetailedPerfSession() {
+  if (!detailedPerfReport_.enabled || !detailedPerfReport_.sessionActive) {
+    return;
+  }
+  detailedPerfReport_.totalDuration =
+    std::chrono::steady_clock::now() - detailedPerfReport_.sessionStart;
+  detailedPerfReport_.sessionActive = false;
+
+  std::ofstream output(detailedPerfReport_.reportPath, std::ios::out | std::ios::app);
+  if (!output) {
+    NAJA_LOG_WARN(
+      "Unable to write Verilog dumper performance report: {}",
+      detailedPerfReport_.reportPath.string());
+    return;
+  }
+
+  output << "=== SNLVRLDumper Perf Report ===\n";
+  output << "context=" << detailedPerfReport_.context << "\n";
+  output << std::fixed << std::setprecision(3);
+  output << "time.total_ms=" << toMilliseconds(detailedPerfReport_.totalDuration) << "\n";
+  output << "time.dumpAttributes_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesDuration) << "\n";
+  output << "count.dumpAttributes_calls=" << detailedPerfReport_.dumpAttributesCalls << "\n";
+  output << "count.dumpAttributes_empty_calls="
+         << detailedPerfReport_.dumpAttributesEmptyCalls << "\n";
+  output << "count.dumpAttributes_nonempty_calls="
+         << detailedPerfReport_.dumpAttributesNonEmptyCalls << "\n";
+  output << "count.dumped_attributes=" << detailedPerfReport_.dumpedAttributesCount << "\n";
+  output << "time.dumpAttributes_snl_attributes_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesSNLAttributesDuration) << "\n";
+  output << "count.dumped_snl_attributes="
+         << detailedPerfReport_.dumpedSNLAttributesCount << "\n";
+  output << "time.dumpAttributes_rtl_infos_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesRTLInfosDuration) << "\n";
+  output << "count.dumped_rtl_infos="
+         << detailedPerfReport_.dumpedRTLInfosCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesCount > 0) {
+    const double dumpAttributesMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesDuration).count();
+    output << "derived.dumpAttributes_us_per_attribute="
+           << (dumpAttributesMicros / detailedPerfReport_.dumpedAttributesCount) << "\n";
+  }
+  if (detailedPerfReport_.dumpedSNLAttributesCount > 0) {
+    const double dumpSNLAttributesMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesSNLAttributesDuration).count();
+    output << "derived.dumpAttributes_snl_attributes_us_per_attribute="
+           << (dumpSNLAttributesMicros / detailedPerfReport_.dumpedSNLAttributesCount) << "\n";
+  }
+  if (detailedPerfReport_.dumpedRTLInfosCount > 0) {
+    const double dumpRTLInfosMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesRTLInfosDuration).count();
+    output << "derived.dumpAttributes_rtl_infos_us_per_attribute="
+           << (dumpRTLInfosMicros / detailedPerfReport_.dumpedRTLInfosCount) << "\n";
+  }
+  output << "time.dumpAttributes_design_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesDesignDuration) << "\n";
+  output << "count.dumpAttributes_design_calls="
+         << detailedPerfReport_.dumpAttributesDesignCalls << "\n";
+  output << "count.dumped_attributes_design="
+         << detailedPerfReport_.dumpedAttributesDesignCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesDesignCount > 0) {
+    const double dumpAttributesDesignMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesDesignDuration).count();
+    output << "derived.dumpAttributes_design_us_per_attribute="
+           << (dumpAttributesDesignMicros / detailedPerfReport_.dumpedAttributesDesignCount)
+           << "\n";
+  }
+  output << "time.dumpAttributes_instance_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesInstanceDuration) << "\n";
+  output << "count.dumpAttributes_instance_calls="
+         << detailedPerfReport_.dumpAttributesInstanceCalls << "\n";
+  output << "count.dumped_attributes_instance="
+         << detailedPerfReport_.dumpedAttributesInstanceCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesInstanceCount > 0) {
+    const double dumpAttributesInstanceMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesInstanceDuration).count();
+    output << "derived.dumpAttributes_instance_us_per_attribute="
+           << (dumpAttributesInstanceMicros / detailedPerfReport_.dumpedAttributesInstanceCount)
+           << "\n";
+  }
+  output << "time.dumpAttributes_net_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesNetDuration) << "\n";
+  output << "count.dumpAttributes_net_calls="
+         << detailedPerfReport_.dumpAttributesNetCalls << "\n";
+  output << "count.dumped_attributes_net="
+         << detailedPerfReport_.dumpedAttributesNetCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesNetCount > 0) {
+    const double dumpAttributesNetMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesNetDuration).count();
+    output << "derived.dumpAttributes_net_us_per_attribute="
+           << (dumpAttributesNetMicros / detailedPerfReport_.dumpedAttributesNetCount)
+           << "\n";
+  }
+  output << "time.dumpInterface_ms="
+         << toMilliseconds(detailedPerfReport_.dumpInterfaceDuration) << "\n";
+  output << "count.dumpInterface_calls=" << detailedPerfReport_.dumpInterfaceCalls << "\n";
+  output << "time.dumpNets_ms=" << toMilliseconds(detailedPerfReport_.dumpNetsDuration) << "\n";
+  output << "count.dumpNets_calls=" << detailedPerfReport_.dumpNetsCalls << "\n";
+  output << "time.dumpInstances_ms="
+         << toMilliseconds(detailedPerfReport_.dumpInstancesDuration) << "\n";
+  output << "count.dumpInstances_calls=" << detailedPerfReport_.dumpInstancesCalls << "\n";
+  output << "time.dumpTermAssigns_ms="
+         << toMilliseconds(detailedPerfReport_.dumpTermAssignsDuration) << "\n";
+  output << "count.dumpTermAssigns_calls=" << detailedPerfReport_.dumpTermAssignsCalls << "\n";
+  output << "time.dumpParameters_ms="
+         << toMilliseconds(detailedPerfReport_.dumpParametersDuration) << "\n";
+  output << "count.dumpParameters_calls=" << detailedPerfReport_.dumpParametersCalls << "\n";
+  output << "time.dumpOneDesign_ms="
+         << toMilliseconds(detailedPerfReport_.dumpOneDesignDuration) << "\n";
+  output << "count.dumpOneDesign_calls=" << detailedPerfReport_.dumpOneDesignCalls << "\n";
+  output << "time.dumpDesign_stream_ms="
+         << toMilliseconds(detailedPerfReport_.dumpDesignStreamDuration) << "\n";
+  output << "count.dumpDesign_stream_calls=" << detailedPerfReport_.dumpDesignStreamCalls << "\n";
+  output << "time.dumpDesign_path_ms="
+         << toMilliseconds(detailedPerfReport_.dumpDesignPathDuration) << "\n";
+  output << "count.dumpDesign_path_calls=" << detailedPerfReport_.dumpDesignPathCalls << "\n";
+  output << "time.dumpLibrary_stream_ms="
+         << toMilliseconds(detailedPerfReport_.dumpLibraryStreamDuration) << "\n";
+  output << "count.dumpLibrary_stream_calls=" << detailedPerfReport_.dumpLibraryStreamCalls
+         << "\n";
+  output << "time.dumpLibrary_path_ms="
+         << toMilliseconds(detailedPerfReport_.dumpLibraryPathDuration) << "\n";
+  output << "count.dumpLibrary_path_calls=" << detailedPerfReport_.dumpLibraryPathCalls << "\n";
+
+  struct PhaseStat {
+    const char* name;
+    std::chrono::nanoseconds duration;
+    size_t calls;
+  };
+  std::vector<PhaseStat> phases {
+    {"dumpAttributes", detailedPerfReport_.dumpAttributesDuration,
+      detailedPerfReport_.dumpAttributesCalls},
+    {"dumpAttributes_snl_attributes", detailedPerfReport_.dumpAttributesSNLAttributesDuration,
+      detailedPerfReport_.dumpAttributesCalls},
+    {"dumpAttributes_rtl_infos", detailedPerfReport_.dumpAttributesRTLInfosDuration,
+      detailedPerfReport_.dumpAttributesCalls},
+    {"dumpInterface", detailedPerfReport_.dumpInterfaceDuration,
+      detailedPerfReport_.dumpInterfaceCalls},
+    {"dumpNets", detailedPerfReport_.dumpNetsDuration,
+      detailedPerfReport_.dumpNetsCalls},
+    {"dumpInstances", detailedPerfReport_.dumpInstancesDuration,
+      detailedPerfReport_.dumpInstancesCalls},
+    {"dumpTermAssigns", detailedPerfReport_.dumpTermAssignsDuration,
+      detailedPerfReport_.dumpTermAssignsCalls},
+    {"dumpParameters", detailedPerfReport_.dumpParametersDuration,
+      detailedPerfReport_.dumpParametersCalls},
+    {"dumpOneDesign", detailedPerfReport_.dumpOneDesignDuration,
+      detailedPerfReport_.dumpOneDesignCalls},
+    {"dumpDesign_stream", detailedPerfReport_.dumpDesignStreamDuration,
+      detailedPerfReport_.dumpDesignStreamCalls},
+    {"dumpDesign_path", detailedPerfReport_.dumpDesignPathDuration,
+      detailedPerfReport_.dumpDesignPathCalls},
+    {"dumpLibrary_stream", detailedPerfReport_.dumpLibraryStreamDuration,
+      detailedPerfReport_.dumpLibraryStreamCalls},
+    {"dumpLibrary_path", detailedPerfReport_.dumpLibraryPathDuration,
+      detailedPerfReport_.dumpLibraryPathCalls},
+  };
+  std::sort(phases.begin(), phases.end(),
+    [](const PhaseStat& lhs, const PhaseStat& rhs) {
+      return lhs.duration > rhs.duration;
+    });
+
+  const double totalMs = toMilliseconds(detailedPerfReport_.totalDuration);
+  output << "hotspots.top_by_time=\n";
+  size_t rank = 1;
+  for (const auto& phase: phases) {
+    if (phase.duration.count() == 0 && phase.calls == 0) {
+      continue;
+    }
+    const double phaseMs = toMilliseconds(phase.duration);
+    const double pctTotal = totalMs > 0.0 ? (100.0 * phaseMs / totalMs) : 0.0;
+    const double phaseMicros =
+      std::chrono::duration<double, std::micro>(phase.duration).count();
+    const double avgMicrosPerCall = phase.calls > 0
+      ? (phaseMicros / phase.calls)
+      : 0.0;
+    output << "hotspot." << rank
+           << "=" << phase.name
+           << " time_ms=" << phaseMs
+           << " pct_total=" << pctTotal
+           << " calls=" << phase.calls
+           << " avg_us_per_call=" << avgMicrosPerCall
+           << "\n";
+    ++rank;
+  }
+  output << "\n";
+}
+// LCOV_EXCL_STOP
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -210,6 +995,14 @@ void SNLVRLDumper::setTopFileName(const std::string& name) {
 
 void SNLVRLDumper::setDumpHierarchy(bool mode) {
   configuration_.setDumpHierarchy(mode);
+}
+
+void SNLVRLDumper::setDumpRTLInfosAsAttributes(bool mode) {
+  configuration_.setDumpRTLInfosAsAttributes(mode);
+}
+
+void SNLVRLDumper::setDumpAssignsAsInstances(bool mode) {
+  configuration_.setDumpAssignsAsInstances(mode);
 }
 
 std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
@@ -252,6 +1045,30 @@ NLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNamin
   return uniqueNetName;
 }
 
+NLName SNLVRLDumper::createUnusedWireName(
+  const SNLInstTerm* instTerm,
+  DesignInsideAnonymousNaming& naming) {
+  auto key = std::make_pair(
+    instTerm->getInstance()->getID(),
+    instTerm->getBitTerm()->getFlatID());
+  auto it = naming.unusedWireNames_.find(key);
+  if (it != naming.unusedWireNames_.end()) {
+    return it->second;
+  }
+
+  std::string wireName =
+    "_naja_unused_" + std::to_string(instTerm->getInstance()->getID()) +
+    "_" + std::to_string(instTerm->getBitTerm()->getFlatID());
+  int conflict = 0;
+  NLName uniqueWireName(wireName);
+  while (naming.netTermNameSet_.find(uniqueWireName) != naming.netTermNameSet_.end()) {
+    uniqueWireName = NLName(wireName + "_" + std::to_string(conflict++));
+  }
+  naming.netTermNameSet_.insert(uniqueWireName);
+  naming.unusedWireNames_[key] = uniqueWireName;
+  return uniqueWireName;
+}
+
 NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
   if (net->isUnnamed()) {
     auto it = naming.netNames_.find(net->getID());
@@ -262,34 +1079,176 @@ NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNa
   }
 }
 
-void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
+NLName SNLVRLDumper::getUnusedWireName(
+  const SNLInstTerm* instTerm,
+  const DesignInsideAnonymousNaming& naming) {
+  auto key = std::make_pair(
+    instTerm->getInstance()->getID(),
+    instTerm->getBitTerm()->getFlatID());
+  auto it = naming.unusedWireNames_.find(key);
+  assert(it != naming.unusedWireNames_.end());
+  return it->second;
+}
+
+std::string SNLVRLDumper::getBitNetString(
+  const SNLBitNet* bitNet,
+  const DesignInsideAnonymousNaming& naming) {
+  if (!bitNet) {
+    throw SNLVRLDumperException("Error while writing verilog: unexpected unconnected bit net");
+  }
+  if (bitNet->isAssign0()) {
+    return "1'b0";
+  }
+  if (bitNet->isAssign1()) {
+    return "1'b1";
+  }
+  if (auto scalarNet = dynamic_cast<const SNLScalarNet*>(bitNet)) {
+    auto netName = getNetName(scalarNet, naming);
+    return dumpName(netName.getString());
+  }
+  auto busNetBit = static_cast<const SNLBusNetBit*>(bitNet);
+  auto bus = busNetBit->getBus();
+  auto busName = getNetName(bus, naming);
+  return dumpName(busName.getString()) + "[" + std::to_string(busNetBit->getBit()) + "]";
+}
+
+void SNLVRLDumper::dumpAttributes(
+  const NLObject* object,
+  std::ostream& o,
+  AttributeDumpSite site) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpAttributesDuration,
+    detailedPerfReport_.dumpAttributesCalls);
+  const bool perfActive = detailedPerfReport_.enabled && detailedPerfReport_.sessionActive;
+  std::chrono::steady_clock::time_point siteStart {};
+  if (perfActive) {
+    // LCOV_EXCL_START
+    siteStart = std::chrono::steady_clock::now();
+    switch (site) {
+      case AttributeDumpSite::Design:
+        ++detailedPerfReport_.dumpAttributesDesignCalls;
+        break;
+      case AttributeDumpSite::Instance:
+        ++detailedPerfReport_.dumpAttributesInstanceCalls;
+        break;
+      case AttributeDumpSite::Net:
+        ++detailedPerfReport_.dumpAttributesNetCalls;
+        break;
+      // LCOV_EXCL_STOP
+    }
+  }
+  size_t dumpedSNLAttributes = 0;
+  size_t dumpedRTLInfos = 0;
+  std::chrono::steady_clock::time_point snlAttributesStart {};
+  if (perfActive) {
+    snlAttributesStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
+  }
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
+    ++dumpedSNLAttributes;
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
+      o << "=";
       if (attribute.getValue().isString()) {
-        o << "=\"";
+        o << "\"";
       }
-      o << "=" << attribute.getValue().getString();
+      o << attribute.getValue().getString();
       if (attribute.getValue().isString()) {
         o << "\"";
       }
     }
-    o << " *)" << std::endl;
+    o << " *)\n";
+  }
+  if (perfActive) {
+    // LCOV_EXCL_START
+    detailedPerfReport_.dumpAttributesSNLAttributesDuration +=
+      std::chrono::steady_clock::now() - snlAttributesStart;
+    // LCOV_EXCL_STOP
+  }
+  if (configuration_.isDumpRTLInfosAsAttributes()) {
+    const SNLRTLInfos* rtlInfos = nullptr;
+    if (auto design = dynamic_cast<const SNLDesign*>(object)) {
+      rtlInfos = design->getRTLInfos();
+    } else if (auto designObject = dynamic_cast<const SNLDesignObject*>(object)) {
+      rtlInfos = designObject->getRTLInfos();
+    }
+    std::chrono::steady_clock::time_point rtlInfosStart {};
+    if (perfActive) {
+      rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
+    }
+    if (rtlInfos) {
+      for (const auto& info : rtlInfos->getInfos()) {
+        ++dumpedRTLInfos;
+        o << "(* ";
+        o << info.first.getString();
+        if (!info.second.empty()) {
+          o << "=";
+          const bool valueIsNumber = isUnsignedDecimal(info.second);
+          if (!valueIsNumber) {
+            o << "\"";
+          }
+          o << info.second;
+          if (!valueIsNumber) {
+            o << "\"";
+          }
+        }
+        o << " *)\n";
+      }
+    }
+    if (perfActive) {
+      // LCOV_EXCL_START
+      detailedPerfReport_.dumpAttributesRTLInfosDuration +=
+        std::chrono::steady_clock::now() - rtlInfosStart;
+      // LCOV_EXCL_STOP
+    }
+  }
+  const size_t dumpedAttributes = dumpedSNLAttributes + dumpedRTLInfos;
+  if (perfActive) {
+    // LCOV_EXCL_START
+    if (dumpedAttributes == 0) {
+      ++detailedPerfReport_.dumpAttributesEmptyCalls;
+    } else {
+      ++detailedPerfReport_.dumpAttributesNonEmptyCalls;
+    }
+    detailedPerfReport_.dumpedAttributesCount += dumpedAttributes;
+    detailedPerfReport_.dumpedSNLAttributesCount += dumpedSNLAttributes;
+    detailedPerfReport_.dumpedRTLInfosCount += dumpedRTLInfos;
+    const auto siteDuration = std::chrono::steady_clock::now() - siteStart;
+    switch (site) {
+      case AttributeDumpSite::Design:
+        detailedPerfReport_.dumpAttributesDesignDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesDesignCount += dumpedAttributes;
+        break;
+      case AttributeDumpSite::Instance:
+        detailedPerfReport_.dumpAttributesInstanceDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesInstanceCount += dumpedAttributes;
+        break;
+      case AttributeDumpSite::Net:
+        detailedPerfReport_.dumpAttributesNetDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesNetCount += dumpedAttributes;
+        break;
+    }
+    // LCOV_EXCL_STOP
   }
 }
 
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpInterfaceDuration,
+    detailedPerfReport_.dumpInterfaceCalls);
+  auto interfaceTerms = getVerilogInterfaceTerms(design);
   size_t nbChars = std::char_traits<char>::length("module  (");
   nbChars += design->getName().getString().size();
   o << "(";
   bool first = true;
-  for (auto term: design->getTerms()) {
+  for (auto term: interfaceTerms) {
     if (not first) {
       o << ",";
       nbChars += 1;
       if (nbChars > 80) {
-        o << std::endl;
+        o << '\n';
         nbChars = 0;
       }
       nbChars += 1;
@@ -299,7 +1258,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     }
     nbChars += dumpDirection(term, o) + 1;
     o << " ";
-    if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
+    if (auto bus = dynamic_cast<const SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
       nbChars += 3 + std::to_string(bus->getMSB()).size() + std::to_string(bus->getLSB()).size();
     }
@@ -320,17 +1279,21 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   } else {
     netName = net->getName();
   }
-  dumpAttributes(net, o);
+  dumpAttributes(net, o, AttributeDumpSite::Net);
   o << "wire ";
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
   o << dumpName(netName.getString());
-  o << ";" << std::endl;
+  o << ";" << '\n';
   return true;
 }
 
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpNetsDuration,
+    detailedPerfReport_.dumpNetsCalls);
   bool atLeastOne = false;
   for (auto net: design->getNets()) {
     if (not net->isUnnamed()) {
@@ -346,28 +1309,157 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
     }
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
+}
+
+void SNLVRLDumper::collectUnusedWireNames(
+  const SNLDesign* design,
+  DesignInsideAnonymousNaming& naming) {
+  for (auto instance: design->getInstances()) {
+    if (NLDB0::isAssign(instance->getModel())) {
+      continue;
+    }
+    if (NLDB0::isGate(instance->getModel())) {
+      for (auto instTerm: instance->getInstTerms()) {
+        if (not instTerm->getNet()) {
+          createUnusedWireName(instTerm, naming);
+        }
+      }
+      continue;
+    }
+
+    const SNLTerm* previousTerm = nullptr;
+    InstTermVector instTerms;
+    for (auto instTerm: instance->getInstTerms()) {
+      auto bitTerm = instTerm->getBitTerm();
+      const SNLTerm* currentTerm = nullptr;
+      if (dynamic_cast<SNLScalarTerm*>(bitTerm)) {
+        currentTerm = bitTerm;
+      } else {
+        auto busTermBit = static_cast<SNLBusTermBit*>(bitTerm);
+        currentTerm = busTermBit->getBus();
+      }
+      if (currentTerm != previousTerm) {
+        if (previousTerm) {
+          const bool hasConnected = std::any_of(
+            instTerms.begin(),
+            instTerms.end(),
+            [](const SNLInstTerm* term) { return term->getNet() != nullptr; });
+          if (hasConnected) {
+            for (auto previousInstTerm: instTerms) {
+              if (not previousInstTerm->getNet()) {
+                createUnusedWireName(previousInstTerm, naming);
+              }
+            }
+          }
+        }
+        instTerms.clear();
+      }
+      instTerms.push_back(instTerm);
+      previousTerm = currentTerm;
+    }
+    if (previousTerm) {
+      const bool hasConnected = std::any_of(
+        instTerms.begin(),
+        instTerms.end(),
+        [](const SNLInstTerm* term) { return term->getNet() != nullptr; });
+      if (hasConnected) {
+        for (auto instTerm: instTerms) {
+          if (not instTerm->getNet()) {
+            createUnusedWireName(instTerm, naming);
+          }
+        }
+      }
+    }
+  }
+}
+
+void SNLVRLDumper::dumpUnusedWireDeclarations(
+  std::ostream& o,
+  const DesignInsideAnonymousNaming& naming) {
+  if (naming.unusedWireNames_.empty()) {
+    return;
+  }
+  for (const auto& [_, name]: naming.unusedWireNames_) {
+    o << "wire " << dumpName(name.getString()) << ";" << '\n';
+  }
+  o << '\n';
 }
 
 void SNLVRLDumper::dumpInsTermConnectivity(
   const SNLTerm* term,
   BitNetVector& termNets,
+  const InstTermVector& instTerms,
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
+  assert(termNets.size() == instTerms.size());
   if (std::any_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
     assert(not termNets.empty());
     bool concatenation = false;
     bool firstElement = true;
     std::string connectionStr;
     ContiguousNetBits contiguousBits;
-    for (auto net: termNets) {
+    auto dumpRangeWithNaming = [&](ContiguousNetBits& bits) {
+      if (bits.empty()) {
+        return;
+      }
+      if (bits[0]->isAssignConstant()) {
+        dumpConstantRange(bits, firstElement, concatenation, connectionStr);
+        return;
+      }
+      if (not firstElement) {
+        connectionStr += ", ";
+        concatenation = true;
+      } else {
+        firstElement = false;
+      }
+      if (not isCanonicalBusRangeOrder(bits)) {
+        concatenation = true;
+        for (size_t i = 0; i < bits.size(); ++i) {
+          if (i != 0) {
+            connectionStr += ", ";
+          }
+          auto* bit = static_cast<SNLBusNetBit*>(bits[i]);
+          auto bitName = getNetName(bit->getBus(), naming);
+          connectionStr += dumpName(bitName.getString()) + "[";
+          connectionStr += std::to_string(bit->getBit());
+          connectionStr += "]";
+        }
+        bits.clear();
+        return;
+      }
+      auto* rangeMSBBit = static_cast<SNLBusNetBit*>(bits[0]);
+      auto rangeMSB = rangeMSBBit->getBit();
+      auto* rangeLSBBit = static_cast<SNLBusNetBit*>(bits[bits.size() - 1]);
+      auto rangeLSB = rangeLSBBit->getBit();
+      auto* bus = rangeMSBBit->getBus();
+      auto busName = getNetName(bus, naming);
+      auto busMSB = bus->getMSB();
+      auto busLSB = bus->getLSB();
+      if (rangeMSB == busMSB && rangeLSB == busLSB) {
+        connectionStr += dumpName(busName.getString());
+      } else if (rangeMSB == rangeLSB) {
+        connectionStr += dumpName(busName.getString()) + "[";
+        connectionStr += std::to_string(rangeMSB);
+        connectionStr += "]";
+      } else {
+        connectionStr += dumpName(busName.getString()) + "[";
+        connectionStr += std::to_string(rangeMSB);
+        connectionStr += ":";
+        connectionStr += std::to_string(rangeLSB);
+        connectionStr += "]";
+      }
+      bits.clear();
+    };
+    for (size_t i = 0; i < termNets.size(); ++i) {
+      auto net = termNets[i];
       if (net) {
         if (net->isAssignConstant()) {
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
             if (not previousBit->isAssignConstant()) {
-              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              dumpRangeWithNaming(contiguousBits);
               contiguousBits = { net };
             } else {
               contiguousBits.push_back(net);
@@ -376,7 +1468,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
             contiguousBits.push_back(net);
           }
         } else if (dynamic_cast<SNLScalarNet*>(net)) {
-          dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+          dumpRangeWithNaming(contiguousBits);
           NLName netName = getNetName(net, naming);
           if (not firstElement) {
             connectionStr += ", ";
@@ -391,7 +1483,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
             if (previousBit->isAssignConstant()) {
-              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              dumpRangeWithNaming(contiguousBits);
               contiguousBits = { busNetBit };
             } else {
               SNLBusNetBit* previousBusBit = static_cast<SNLBusNetBit*>(previousBit);
@@ -400,7 +1492,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
                 or (previousBusBit->getBit() == busNetBit->getBit()-1))) {
                 contiguousBits.push_back(busNetBit);
               } else {
-                dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+                dumpRangeWithNaming(contiguousBits);
                 contiguousBits = { busNetBit };
               }
             }
@@ -409,7 +1501,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           }
         }
       } else {
-        dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+        dumpRangeWithNaming(contiguousBits);
         //dump dummy bit
         if (not firstElement) {
           connectionStr += ", ";
@@ -417,11 +1509,11 @@ void SNLVRLDumper::dumpInsTermConnectivity(
         } else {
           firstElement = false;
         }
-        connectionStr += "DUMMY";
+        connectionStr += dumpName(getUnusedWireName(instTerms[i], naming).getString());
       }
     }
     if (not contiguousBits.empty()) {
-      dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+      dumpRangeWithNaming(contiguousBits);
     }
     o << "  ." + term->getName().getString() + "(";
     if (concatenation) {
@@ -444,6 +1536,7 @@ void SNLVRLDumper::dumpInstanceInterface(
   const DesignInsideAnonymousNaming& naming) {
   o << " (";
   BitNetVector termNets;
+  InstTermVector instTerms;
   SNLTerm* previousTerm = nullptr;
   bool first = true;
   for (auto instTerm: instance->getInstTerms()) {
@@ -467,11 +1560,15 @@ void SNLVRLDumper::dumpInstanceInterface(
           } else {
             o << ",";
           }
-          o << std::endl;
-          dumpInsTermConnectivity(previousTerm, termNets, o, naming);
+          o << '\n';
+          dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
         }
       }
       termNets = { instTerm->getNet() };
+      instTerms = { instTerm };
+    }
+    if (currentTerm == previousTerm) {
+      instTerms.push_back(instTerm);
     }
     previousTerm = currentTerm;
   }
@@ -483,22 +1580,34 @@ void SNLVRLDumper::dumpInstanceInterface(
       } else {
         o << ",";
       }
-      o << std::endl;
-      dumpInsTermConnectivity(previousTerm, termNets, o, naming);
+      o << '\n';
+      dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
     }
   }
-  o <<  std::endl << ")";
+  o << '\n' << ")";
 }
 
 void SNLVRLDumper::dumpInstParameters(
   const SNLInstance* instance,
   std::ostream& o) {
-  if (not instance->getInstParameters().empty()) {
+  std::vector<const SNLInstParameter*> dumpedParameters;
+  for (auto instParameter: instance->getInstParameters()) {
+    if (shouldDumpInstParameter(instance, instParameter)) {
+      dumpedParameters.push_back(instParameter);
+    }
+  }
+  std::sort(
+    dumpedParameters.begin(),
+    dumpedParameters.end(),
+    [](const SNLInstParameter* lhs, const SNLInstParameter* rhs) {
+      return lhs->getName().getString() < rhs->getName().getString();
+    });
+  if (not dumpedParameters.empty()) {
     bool first = true;
-    o << "#(" << std::endl;
-    for (auto instParameter: instance->getInstParameters()) {
+    o << "#(" << '\n';
+    for (auto instParameter: dumpedParameters) {
       if (not first) {
-        o << "," << std::endl;
+        o << "," << '\n';
       }
       first = false;
       o << "  ." << instParameter->getName().getString();
@@ -524,14 +1633,98 @@ void SNLVRLDumper::dumpInstParameters(
       }
       o << ")";
     }
-    o << std::endl << ") ";
+    o << '\n' << ") ";
   }
 }
+
+// LCOV_EXCL_START
+bool SNLVRLDumper::dumpAssignInstance(
+  const SNLInstance* instance,
+  std::ostream& o,
+  DesignInsideAnonymousNaming& naming) {
+  assert(NLDB0::isAssign(instance->getModel()));
+  const SNLBitNet* inputNet = nullptr;
+  const SNLBitNet* outputNet = nullptr;
+  if (not getAssignConnectivity(instance, inputNet, outputNet)) {
+    return false;
+  }
+
+  std::string instanceName;
+  if (instance->isUnnamed()) {
+    instanceName = createInstanceName(instance, naming);
+  } else {
+    instanceName = instance->getName().getString();
+  }
+
+  dumpAttributes(instance, o, AttributeDumpSite::Instance);
+  o << "assign_module " << dumpName(instanceName) << " ("
+    << getAssignInputString(
+      inputNet,
+      [&](const SNLBitNet* bitNet) { return getBitNetString(bitNet, naming); })
+    << ", "
+    << getBitNetString(outputNet, naming)
+    << ");" << '\n';
+  return true;
+}
+// LCOV_EXCL_STOP
 
 bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (NLDB0::isMux2(instance->getModel())) {
+    emitNajaMux2Model_ = true;
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    std::string widthValue = "1";
+    if (auto* widthParam = instance->getModel()->getParameter(NLName("WIDTH"))) {
+      widthValue = widthParam->getValue();
+    }
+    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+      widthValue = widthInstParam->getValue();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mux2 ";
+    if (widthValue != "1") {
+      o << "#(" << '\n';
+      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << ") ";
+    }
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (NLDB0::isMemory(instance->getModel())) {
+    emitNajaMemModel_ = true;
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mem ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (auto* model = instance->getModel();
+      NLDB0::isFA(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
+      NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
+      NLDB0::isDFFSE(model) ||
+      (model && NLDB0::isDB0Primitive(model) && !model->isUnnamed() &&
+       model->getName() == NLName("naja_dff"))) {
+    emitNajaPrimitiveModels_ = true;
+  }
   if (NLDB0::isGate(instance->getModel())) {
     auto gateName = NLDB0::getGateName(instance->getModel());
     o << gateName << " ";
@@ -548,40 +1741,23 @@ bool SNLVRLDumper::dumpInstance(
       }
       auto net = instTerm->getNet();
       if (net) {
-        o << getBitNetString(net);
+        o << getBitNetString(net, naming);
       } else {
-        o << "DUMMY";
+        o << dumpName(getUnusedWireName(instTerm, naming).getString());
       }
     }
     o << ");";
-    o << std::endl;
+    o << '\n';
     return true;
-  } else if (NLDB0::isAssign(instance->getModel())) {
-    auto inputNet = instance->getInstTerm(NLDB0::getAssignInput())->getNet();
-    auto outputNet = instance->getInstTerm(NLDB0::getAssignOutput())->getNet();
-    if (inputNet and outputNet) {
-      std::string inputNetString;
-      if (inputNet->isConstant0()) {
-        inputNetString = "1'b0";
-      } else if (inputNet->isConstant1()) {
-        inputNetString = "1'b1";
-      } else {
-        inputNetString = getBitNetString(inputNet);
-      }
-      auto outputNetString = getBitNetString(outputNet);
-      o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
-      return true;
-    } else {
-      return false;
-    }
   }
+  assert(not NLDB0::isAssign(instance->getModel()));
   std::string instanceName;
   if (instance->isUnnamed()) {
     instanceName = createInstanceName(instance, naming);
   } else {
     instanceName = instance->getName().getString();
   }
-  dumpAttributes(instance, o);
+  dumpAttributes(instance, o, AttributeDumpSite::Instance);
   auto model = instance->getModel();
   if (not model->isUnnamed()) { //FIXME !!
     o << dumpName(model->getName().getString()) << " ";
@@ -589,17 +1765,157 @@ bool SNLVRLDumper::dumpInstance(
   dumpInstParameters(instance, o);
   o << dumpName(instanceName);
   dumpInstanceInterface(instance, o, naming);
-  o << ";" << std::endl;
+  o << ";" << '\n';
   return true;
 }
 
 void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpInstancesDuration,
+    detailedPerfReport_.dumpInstancesCalls);
   bool blankLine = false;
+  auto bitNetToString = [&](const SNLBitNet* bitNet) {
+    return getBitNetString(bitNet, naming);
+  };
+  auto busNetToString = [&](const SNLBusNet* busNet) {
+    auto busName = getNetName(busNet, naming);
+    return dumpName(busName.getString());
+  };
+  auto dumpAssignInstances = [&](const std::vector<const SNLInstance*>& assignInstances) {
+    std::vector<AssignEmission> emissions;
+    size_t i = 0;
+    while (i < assignInstances.size()) {
+      const SNLBitNet* inputNet = nullptr;
+      const SNLBitNet* outputNet = nullptr;
+      if (not getAssignConnectivity(assignInstances[i], inputNet, outputNet)) {
+        ++i;
+        continue;
+      }
+      AssignGroup group;
+      if (not initializeAssignGroup(inputNet, outputNet, group)) {
+        AssignEmission emission;
+        emission.text_ =
+          "assign " + getBitNetString(outputNet, naming) +
+          " = " + getAssignInputString(inputNet, bitNetToString) + ";";
+        emission.hasBusChunk_ = createSingleAssignBusChunk(
+          inputNet,
+          outputNet,
+          bitNetToString,
+          emission.busChunk_);
+        emissions.push_back(std::move(emission));
+        ++i;
+        continue;
+      }
+
+      size_t groupSize = 1;
+      while (i + groupSize < assignInstances.size()) {
+        const SNLBitNet* nextInputNet = nullptr;
+        const SNLBitNet* nextOutputNet = nullptr;
+        if (not getAssignConnectivity(assignInstances[i + groupSize], nextInputNet, nextOutputNet)) {
+          break;
+        }
+        if (not appendAssignGroup(group, nextInputNet, nextOutputNet)) {
+          break;
+        }
+        ++groupSize;
+      }
+
+      AssignEmission emission;
+      if (group.outputBits_.size() > 1) {
+        emission.hasBusChunk_ = true;
+        emission.busChunk_ = createAssignGroupBusChunk(
+          group,
+          bitNetToString,
+          busNetToString);
+        emission.text_ = getAssignBusChunkText(
+          emission.busChunk_,
+          busNetToString);
+      } else {
+        emission.text_ =
+          "assign " + getBitNetString(outputNet, naming) +
+          " = " + getAssignInputString(inputNet, bitNetToString) + ";";
+        emission.hasBusChunk_ = createSingleAssignBusChunk(
+          inputNet,
+          outputNet,
+          bitNetToString,
+          emission.busChunk_);
+      }
+      emissions.push_back(std::move(emission));
+      i += groupSize;
+    }
+
+    size_t emissionIndex = 0;
+    while (emissionIndex < emissions.size()) {
+      size_t consumed = 1;
+      bool emittedWholeBusAssign = false;
+      if (emissions[emissionIndex].hasBusChunk_) {
+        std::vector<const AssignBusChunk*> sameBusChunks;
+        auto outputBus = emissions[emissionIndex].busChunk_.outputBus_;
+        while (emissionIndex + sameBusChunks.size() < emissions.size()) {
+          const auto& emission = emissions[emissionIndex + sameBusChunks.size()];
+          if (not emission.hasBusChunk_ or emission.busChunk_.outputBus_ != outputBus) {
+            break;
+          }
+          sameBusChunks.push_back(&emission.busChunk_);
+        }
+
+        std::vector<const AssignBusChunk*> sortedChunks;
+        if (areChunksWholeBusAssignable(sameBusChunks, sortedChunks)) {
+          if (blankLine) {
+            o << '\n';
+          }
+          o << buildWholeBusAssignText(
+            sortedChunks,
+            bitNetToString,
+            busNetToString) << '\n';
+          blankLine = true;
+          consumed = sameBusChunks.size();
+          emittedWholeBusAssign = true;
+        }
+      }
+
+      if (not emittedWholeBusAssign) {
+        if (blankLine) {
+          o << '\n';
+        }
+        o << emissions[emissionIndex].text_ << '\n';
+        blankLine = true;
+      }
+      emissionIndex += consumed;
+    }
+  };
+
+  std::vector<const SNLInstance*> assignInstances;
   for (auto instance: design->getInstances()) {
+    if (NLDB0::isAssign(instance->getModel())) {
+      if (configuration_.isDumpAssignsAsInstances()) {
+        // LCOV_EXCL_START
+        if (not assignInstances.empty()) {
+          dumpAssignInstances(assignInstances);
+          assignInstances.clear();
+        }
+        if (blankLine) {
+          o << '\n';
+        }
+        blankLine = dumpAssignInstance(instance, o, naming);
+        // LCOV_EXCL_STOP
+        continue;
+      }
+      assignInstances.push_back(instance);
+      continue;
+    }
+    if (not assignInstances.empty()) {
+      dumpAssignInstances(assignInstances);
+      assignInstances.clear();
+    }
     if (blankLine) {
-      o << std::endl;
+      o << '\n';
     }
     blankLine = dumpInstance(instance, o, naming);
+  }
+  if (not assignInstances.empty()) {
+    dumpAssignInstances(assignInstances);
   }
 }
 
@@ -611,10 +1927,10 @@ void SNLVRLDumper::dumpTermNetAssign(
   std::ostream& o) {
     switch (direction) {
       case SNLTerm::Direction::Input:
-        o << "assign " << netName << " = " << termNetName << ";" << std::endl;
+        o << "assign " << netName << " = " << termNetName << ";" << '\n';
         break;
       case SNLTerm::Direction::Output:
-        o << "assign " << termNetName << " = " << netName << ";" << std::endl;
+        o << "assign " << termNetName << " = " << netName << ";" << '\n';
         break;
       default:
         {
@@ -629,6 +1945,10 @@ void SNLVRLDumper::dumpTermNetAssign(
 }
 
 void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpTermAssignsDuration,
+    detailedPerfReport_.dumpTermAssignsCalls);
   bool atLeastOne = false;
   for (auto term: design->getBitTerms()) {
     auto net = term->getNet();
@@ -722,7 +2042,7 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
     }
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
 }
 
@@ -744,23 +2064,41 @@ void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o)
   } else {
     o << parameter->getValue();
   }
-  o << " ;" << std::endl;
+  o << " ;" << '\n';
 }
 
 void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
-  bool atLeastOne = false;
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpParametersDuration,
+    detailedPerfReport_.dumpParametersCalls);
+  std::vector<const SNLParameter*> parameters;
   for (auto parameter: design->getParameters()) {
+    parameters.push_back(parameter);
+  }
+  std::sort(
+    parameters.begin(),
+    parameters.end(),
+    [](const SNLParameter* lhs, const SNLParameter* rhs) {
+      return lhs->getName().getString() < rhs->getName().getString();
+    });
+  bool atLeastOne = false;
+  for (auto parameter: parameters) {
     atLeastOne = true;
     dumpParameter(parameter, o);
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
 }
 
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpOneDesignDuration,
+    detailedPerfReport_.dumpOneDesignCalls);
   DesignInsideAnonymousNaming naming;
-  for (auto term: design->getTerms()) {
+  for (auto term: getVerilogInterfaceTerms(design)) {
     if (not term->isUnnamed()) {
       naming.netTermNameSet_.insert(term->getName());
     }
@@ -773,23 +2111,228 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isUnnamed()) {
     createDesignName(design);
   }
-  dumpAttributes(design, o);
+  collectUnusedWireNames(design, naming);
+  dumpAttributes(design, o, AttributeDumpSite::Design);
   o << "module " << dumpName(design->getName().getString());
 
   dumpInterface(design, o, naming);
-  o << std::endl;
+  o << '\n';
 
   dumpParameters(design, o);
   dumpNets(design, o, naming);
+  dumpUnusedWireDeclarations(o, naming);
   dumpTermAssigns(design, o);
 
   dumpInstances(design, o, naming);
 
   o << "endmodule //" << design->getName().getString();
-  o << std::endl;
+  o << '\n';
+}
+
+void SNLVRLDumper::dumpNajaFAModel(std::ostream& o) {
+  o << "module naja_fa(\n";
+  o << "  input A,\n";
+  o << "  input B,\n";
+  o << "  input CI,\n";
+  o << "  output S,\n";
+  o << "  output CO\n";
+  o << ");\n";
+  o << "  assign {CO, S} = A + B + CI;\n";
+  o << "endmodule //naja_fa\n";
+}
+
+void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
+  o << "module naja_mux2 #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input [WIDTH-1:0] A,\n";
+  o << "  input [WIDTH-1:0] B,\n";
+  o << "  input S,\n";
+  o << "  output [WIDTH-1:0] Y\n";
+  o << ");\n";
+  o << "  assign Y = S ? B : A;\n";
+  o << "endmodule //naja_mux2\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
+  o << "module naja_dff(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C) begin\n";
+  o << "    Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dff\n";
+}
+
+void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
+  o << "module naja_dlatch(\n";
+  o << "  input E,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @* begin\n";
+  o << "    if (E) Q = D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dlatch\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
+  o << "module naja_dffn(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(negedge C) begin\n";
+  o << "    Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffn\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFRNModel(std::ostream& o) {
+  o << "module naja_dffrn(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input RN,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or negedge RN) begin\n";
+  o << "    if (!RN) Q <= 1'b0;\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffrn\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
+  o << "module naja_dffe(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C) begin\n";
+  o << "    if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffe\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFREModel(std::ostream& o) {
+  o << "module naja_dffre(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  input R,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge R) begin\n";
+  o << "    if (R) Q <= 1'b0;\n";
+  o << "    else if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffre\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
+  o << "module naja_dffse(\n";
+  o << "  input C,\n";
+  o << "  input D,\n";
+  o << "  input E,\n";
+  o << "  input S,\n";
+  o << "  output reg Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge S) begin\n";
+  o << "    if (S) Q <= 1'b1;\n";
+  o << "    else if (E) Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffse\n";
+}
+
+void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
+  o << "module naja_mem #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter DEPTH = 1,\n";
+  o << "  parameter ABITS = 1,\n";
+  o << "  parameter RD_PORTS = 1,\n";
+  o << "  parameter WR_PORTS = 1,\n";
+  o << "  parameter RST_ENABLE = 0,\n";
+  o << "  parameter RST_ASYNC = 0,\n";
+  o << "  parameter RST_ACTIVE_LOW = 0,\n";
+  o << "  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}\n";
+  o << ") (\n";
+  o << "  input CLK,\n";
+  o << "  input RST,\n";
+  o << "  input [RD_PORTS*ABITS-1:0] RADDR,\n";
+  o << "  output reg [RD_PORTS*WIDTH-1:0] RDATA,\n";
+  o << "  input [WR_PORTS*ABITS-1:0] WADDR,\n";
+  o << "  input [WR_PORTS*WIDTH-1:0] WDATA,\n";
+  o << "  input [WR_PORTS-1:0] WE\n";
+  o << ");\n\n";
+  o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
+  o << "  integer i;\n";
+  o << "  integer rp;\n";
+  o << "  integer wp;\n";
+  o << "  integer later;\n";
+  o << "  integer addr_index;\n";
+  o << "  reg allow_write;\n";
+  o << "  reg [ABITS-1:0] addr_value;\n\n";
+  o << "  task automatic load_init;\n";
+  o << "    integer init_idx;\n";
+  o << "    begin\n";
+  o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
+  o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "    end\n";
+  o << "  endtask\n\n";
+  o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
+  o << "  always @* begin\n";
+  o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
+  o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";
+  o << "      addr_index = integer'(addr_value);\n";
+  o << "      if (addr_index < DEPTH)\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_index];\n";
+  o << "      else\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
+  o << "    end\n";
+  o << "  end\n\n";
+  o << "  always @(posedge CLK";
+  o << " or ";
+  o << "posedge RST";
+  o << " or ";
+  o << "negedge RST";
+  o << ") begin\n";
+  o << "    if (RST_ASYNC && reset_active) begin\n";
+  o << "      load_init();\n";
+  o << "    end else begin\n";
+  o << "      if (!RST_ASYNC && reset_active)\n";
+  o << "        load_init();\n";
+  o << "      else begin\n";
+  o << "        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
+  o << "          allow_write = WE[wp];\n";
+  o << "          addr_value = WADDR[wp*ABITS +: ABITS];\n";
+  o << "          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
+  o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
+  o << "              allow_write = 1'b0;\n";
+  o << "          end\n";
+  o << "          addr_index = integer'(addr_value);\n";
+  o << "          if (allow_write && addr_index < DEPTH)\n";
+  o << "            mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end\n";
+  o << "  end\n";
+  o << "endmodule //naja_mem\n";
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+  std::string context("dumpDesign(stream): ");
+  context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpDesignStreamDuration,
+    detailedPerfReport_.dumpDesignStreamCalls);
+  emitNajaMemModel_ = false;
+  emitNajaMux2Model_ = false;
+  emitNajaPrimitiveModels_ = false;
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
@@ -798,7 +2341,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
       const SNLDesign* design = designLevel.first;
       if (not design->isPrimitive()) {
         if (not first) {
-          o << std::endl;
+          o << '\n';
         }
         first = false;
         dumpOneDesign(design, o);
@@ -810,6 +2353,16 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
+  std::string context("dumpLibrary(stream): ");
+  context += library->isUnnamed() ? "anonymous_library" : library->getName().getString();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpLibraryStreamDuration,
+    detailedPerfReport_.dumpLibraryStreamCalls);
+  emitNajaMemModel_ = false;
+  emitNajaMux2Model_ = false;
+  emitNajaPrimitiveModels_ = false;
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
@@ -825,6 +2378,13 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   return "top.v";
 } 
 
+std::string SNLVRLDumper::getPrimitiveFileName() const {
+  if (configuration_.hasLibraryFileName()) {
+    return configuration_.getLibraryFileName();
+  }
+  return "naja_primitives.v";
+}
+
 std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
@@ -835,7 +2395,50 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   return "library.v";
 } 
 
+void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
+  if (!emitNajaPrimitiveModels_) {
+    return;
+  }
+  std::filesystem::path filePath = path/getPrimitiveFileName();
+  std::ofstream outFile;
+  outFile.open(filePath);
+  NajaUtils::createBanner(
+    outFile,
+    "Verilog file for naja primitives",
+    "//"
+  );
+  outFile << '\n';
+  dumpNajaFAModel(outFile);
+  outFile << '\n';
+  dumpNajaMux2Model(outFile);
+  outFile << '\n';
+  dumpNajaDFFModel(outFile);
+  outFile << '\n';
+  dumpNajaDLatchModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFRNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFEModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFREModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSEModel(outFile);
+  outFile << '\n';
+  dumpNajaMemModel(outFile);
+}
+
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  std::string context("dumpDesign(path): ");
+  context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
+  context += " -> ";
+  context += path.string();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpDesignPathDuration,
+    detailedPerfReport_.dumpDesignPathCalls);
   NajaPerf::Scope scope("SNLVRLDumper::dumpDesign");
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
@@ -858,8 +2461,11 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       "Verilog file for " + design->getName().getString(),
       "//"
     );
-    outFile << std::endl;
+    outFile << '\n';
     dumpDesign(design, outFile);
+    if (emitNajaPrimitiveModels_) {
+      dumpNajaPrimitiveFile(path);
+    }
   } else {
     SNLVRLDumper streamDumper;
     SNLVRLDumper::Configuration configuration(configuration_);
@@ -867,6 +2473,9 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     streamDumper.setConfiguration(configuration);
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+    bool emitNajaMemModel = false;
+    bool emitNajaMux2Model = false;
+    bool emitNajaPrimitiveModels = false;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
       std::filesystem::path filePath = path/getTopFileName(design);
@@ -877,13 +2486,32 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
         "Verilog file for " + design->getName().getString(),
         "//"
       );
-      outFile << std::endl;
+      outFile << '\n';
       streamDumper.dumpDesign(design, outFile);
+      emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
+      emitNajaMux2Model = emitNajaMux2Model or streamDumper.emitNajaMux2Model_;
+      emitNajaPrimitiveModels =
+        emitNajaPrimitiveModels or streamDumper.emitNajaPrimitiveModels_;
+    }
+    emitNajaMemModel_ = emitNajaMemModel;
+    emitNajaMux2Model_ = emitNajaMux2Model;
+    emitNajaPrimitiveModels_ = emitNajaPrimitiveModels;
+    if (emitNajaPrimitiveModels) {
+      dumpNajaPrimitiveFile(path);
     }
   }
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::path& path) {
+  std::string context("dumpLibrary(path): ");
+  context += library->isUnnamed() ? "anonymous_library" : library->getName().getString();
+  context += " -> ";
+  context += path.string();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpLibraryPathDuration,
+    detailedPerfReport_.dumpLibraryPathCalls);
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     if (not library->isUnnamed()) {
@@ -905,8 +2533,11 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
       "Verilog file for " + library->getName().getString(),
       "//"
     );
-    outFile << std::endl;
+    outFile << '\n';
     dumpLibrary(library, outFile);
+    if (emitNajaPrimitiveModels_) {
+      dumpNajaPrimitiveFile(path);
+    }
   } else {
     for (auto design: library->getSNLDesigns()) {
       dumpDesign(design, path);

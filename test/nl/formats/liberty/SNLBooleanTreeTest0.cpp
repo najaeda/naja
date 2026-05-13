@@ -294,6 +294,26 @@ TEST_F(SNLBooleanTreeTest0, testFunctionError) {
   EXPECT_THROW(tree->parseInput(test, "A", pos), SNLLibertyConstructorException);
 }
 
+TEST_F(SNLBooleanTreeTest0, testImplicitAndExpression) {
+  auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("TEST_IMPLICIT_AND"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(test, SNLTerm::Direction::Input, NLName("A")));
+  inputs.push_back(SNLScalarTerm::create(test, SNLTerm::Direction::Input, NLName("B")));
+  inputs.push_back(SNLScalarTerm::create(test, SNLTerm::Direction::Input, NLName("CI")));
+  SNLScalarTerm::create(test, SNLTerm::Direction::Output, NLName("Y"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+
+  // Liberty allows implicit AND by adjacency: ((A ^ B) CI) == ((A ^ B) & CI), (A B) == (A & B).
+  constexpr const char* function = "(((A ^ B) CI) | (A B))";
+  ASSERT_NO_THROW(tree->parse(test, function));
+  ASSERT_NE(nullptr, tree->getRoot());
+
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(3, tt.size());
+  uint64_t result = 0xE8; // carry function: (A&B) | (CI&(A^B))
+  EXPECT_TRUE(NLBitVecDynamic(result, 8) == tt.bits());
+}
+
 TEST_F(SNLBooleanTreeTest0, testEmptyTreeError) {
   auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("TEST"));
   auto tree = std::make_unique<SNLBooleanTree>();

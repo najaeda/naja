@@ -25,7 +25,7 @@ top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'tinyrocket.v'))
 
 # snippet-start: print_design_visitor
 def print_instance(instance):
-    print(f"{instance}:{instance.get_model_name()}")
+    logging.info(f"{instance}:{instance.get_model_name()}")
 visitor_config = instance_visitor.VisitorConfig(callback=print_instance)
 instance_visitor.visit(top, visitor_config)
 # snippet-end: print_design_visitor

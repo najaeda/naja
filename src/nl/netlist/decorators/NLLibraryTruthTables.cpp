@@ -1,0 +1,170 @@
+// SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "NLLibraryTruthTables.h"
+
+#include <sstream>
+
+#include "NajaPrivateProperty.h"
+
+#include "NLLibrary.h"
+#include "NLException.h"
+
+#include "SNLDesignModeling.h"
+
+namespace {
+
+class NLLibraryModelingProperty: public naja::NajaPrivateProperty {
+  public:
+    using Inherit = naja::NajaPrivateProperty;
+    static const inline std::string Name = "NLLibraryModelingProperty";
+    static NLLibraryModelingProperty* create(
+      naja::NL::NLLibrary* library,
+      const naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
+      preCreate(library, Name);
+      NLLibraryModelingProperty* property = new NLLibraryModelingProperty();
+      property->truthTables_ = truthTables;
+      property->postCreate(library);
+      return property;
+    }
+    std::string getName() const override {
+      return Name;
+    }
+    //LCOV_EXCL_START
+    std::string getString() const override {
+      return Name;
+    }
+    //LCOV_EXCL_STOP
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables getTruthTables() const {
+      return truthTables_;
+    }
+  private:
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables  truthTables_ {};
+};
+
+NLLibraryModelingProperty* getProperty(const naja::NL::NLLibrary* library) {
+  auto property =
+    static_cast<NLLibraryModelingProperty*>(library->getProperty(NLLibraryModelingProperty::Name));
+  if (property) {
+    return property;
+  }
+  return nullptr;
+}
+
+naja::NL::SNLTruthTable canonicalizeTruthTableForLookup(
+    const naja::NL::SNLTruthTable& tt) {
+  const auto deps = naja::NL::SNLTruthTable::fullDependencies(tt.size());
+  if (tt.isGeneric()) {
+    return naja::NL::SNLTruthTable(tt.size(), tt.getGenericType(), deps);
+  }
+  if (tt.size() <= 6) {
+    return naja::NL::SNLTruthTable(
+        tt.size(), static_cast<uint64_t>(tt.bits()), deps);
+  }
+
+  std::vector<bool> bits(tt.bits().size(), false);
+  for (size_t i = 0; i < bits.size(); ++i) {
+    bits[i] = tt.bits().bit(i);
+  }
+  return naja::NL::SNLTruthTable(tt.size(), bits, deps);
+}
+
+naja::NL::SNLTruthTable getCommonTruthTable(const naja::NL::SNLDesign* design) {
+  using namespace naja::NL;
+  const auto count = SNLDesignModeling::getTruthTableCount(design);
+  if (count == 0) {
+    return {};
+  }
+  if (count == 1) {
+    return SNLDesignModeling::getTruthTable(design);
+  }
+
+  bool first = true;
+  SNLTruthTable commonTruthTable;
+  for (const auto* term: design->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto currentTruthTable = SNLDesignModeling::getTruthTable(design, term->getFlatID());
+    if (!currentTruthTable.isInitialized()) {
+      return {};
+    }
+    if (first) {
+      commonTruthTable = currentTruthTable;
+      first = false;
+      continue;
+    }
+    if (currentTruthTable != commonTruthTable) {
+      return {};
+    }
+  }
+  return commonTruthTable;
+}
+
+} // namespace
+
+namespace naja::NL {
+
+NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibrary* library) {
+  if (library->getType() != NLLibrary::Type::Primitives) {
+    return {};
+  }
+  LibraryTruthTables truthTables;
+  for (auto design : library->getSNLDesigns()) {
+    SNLTruthTable tt = getCommonTruthTable(design);
+    if (tt.isInitialized()) {
+      auto canonicalTT = canonicalizeTruthTableForLookup(tt);
+      auto it = truthTables.find(canonicalTT);
+      if (it != truthTables.end()) {
+        it->second.push_back(design);
+      } else {
+        truthTables[canonicalTT] = {design};
+      }
+    }
+  }
+  NLLibraryModelingProperty::create(library, truthTables);
+  return truthTables;
+}
+
+NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::getTruthTables(const NLLibrary* library) {
+  auto property = getProperty(library);
+  if (property) {
+    return property->getTruthTables();
+  }
+  return {};
+}
+
+std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>
+NLLibraryTruthTables::getDesignForTruthTable(const NLLibrary* library, const SNLTruthTable& tt) {
+  NLLibraryTruthTables::LibraryTruthTables truthTables = NLLibraryTruthTables::getTruthTables(library);
+  if (truthTables.empty()) {
+    return std::pair(nullptr, Indexes());
+  }
+  Indexes indexes;
+  auto lookupTT = canonicalizeTruthTableForLookup(tt);
+  auto it = truthTables.find(lookupTT);
+  if (it == truthTables.end()) {
+    //retry with reduced truth table
+    for (uint32_t i = 0; i < lookupTT.size(); ++i) {
+      if (lookupTT.hasNoInfluence(i)) {
+        SNLTruthTable reducedTT = lookupTT.removeVariable(i);
+        it = truthTables.find(canonicalizeTruthTableForLookup(reducedTT));
+        if (it != truthTables.end()) {
+          indexes.push_back(i);
+          break;
+        }
+      }
+    }
+  }
+  if (it == truthTables.end()) {
+    return std::pair(nullptr, Indexes());
+  }
+  const auto& primitives = it->second;
+  if (primitives.empty()) {
+    return std::pair(nullptr, Indexes());
+  }
+  return std::pair(primitives[0], indexes);
+}
+
+}  // namespace naja::NL

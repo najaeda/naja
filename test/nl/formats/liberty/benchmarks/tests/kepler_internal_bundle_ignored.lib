@@ -1,0 +1,30 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+library (example) {
+  cell ("cell_def") {
+    latch_bank (IQ1, IQN1, 4) {
+      enable : "!CK";
+      data_in : "(D * !SE) + (SI * SE) + (D * SI)";
+      power_down_function : "!VDD + VSS";
+    }
+    latch_bank (IQ, IQN, 4) {
+      enable : "CK";
+      data_in : "Vq";
+      power_down_function : "!VDDR + VSS";
+    }
+    bundle (Vq) {
+      members ("Vq0", "Vq1", "Vq2", "Vq3");
+      direction : "internal";
+      function : "IQ1";
+    }
+    pin (CK) {
+      clock : true;
+      direction : input;
+    }
+    pin (SE) {
+      direction : input;
+    }
+  }
+}

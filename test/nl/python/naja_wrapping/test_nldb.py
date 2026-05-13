@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import tempfile
 import unittest
 import naja
 import faulthandler 
@@ -150,6 +151,72 @@ class SNLDBTest(unittest.TestCase):
     self.assertEqual(0, a.getLSB())
     self.assertEqual(2, a.getWidth())
 
+  def testSystemVerilog(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    sv_file = os.path.join(formats_path, "systemverilog", "benchmarks", "simple", "simple.sv")
+    output_path = os.environ.get('SNL_WRAPPING_TEST_PATH')
+    self.assertIsNotNone(output_path)
+    json_path = os.path.join(output_path, "simple_elaborated_ast_python.json")
+    diagnostics_path = os.path.join(output_path, "simple_diagnostics_python.txt")
+
+    top = db.loadSystemVerilog(
+      [sv_file],
+      elaborated_ast_json_path=json_path,
+      diagnostics_report_path=diagnostics_path)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+    self.assertEqual(3, sum(1 for _ in top.getTerms()))
+    self.assertTrue(os.path.exists(json_path))
+    self.assertTrue(os.path.exists(diagnostics_path))
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadSystemVerilog([sv_file], keep_assigns=False)
+    self.assertIsNotNone(top)
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    flist_path = os.path.join(output_path, "simple_systemverilog_python.f")
+    with open(flist_path, "w", encoding="utf-8") as flist:
+      flist.write(f"{sv_file}\n")
+    top = db.loadSystemVerilog([], flist=flist_path)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+
+  def testDesignDumpVerilogOptions(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    sv_file = os.path.join(
+      formats_path, "systemverilog", "benchmarks", "simple", "simple.sv")
+
+    top = db.loadSystemVerilog([sv_file])
+    self.assertIsNotNone(top)
+
+    with tempfile.TemporaryDirectory() as dump_dir:
+      without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(without_rtl_infos))
+      with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+
+      with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(with_rtl_infos),
+        dumpRTLInfosAsAttributes=True)
+      with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertIn("sv_src_file", dumped_text)
+
   def testDestroy(self):
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)
@@ -172,7 +239,31 @@ class SNLDBTest(unittest.TestCase):
     primitivesNoExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0")]
     primitivesCorrect = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.lib")]
     primitivesWrongExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.sd")]
+    systemverilog_path = os.path.join(formats_path, "systemverilog")
+    svFile = os.path.join(systemverilog_path, "benchmarks/simple/simple.sv")
+    missingSvFile = os.path.join(systemverilog_path, "benchmarks/missing/missing.sv")
+    with tempfile.NamedTemporaryFile("w", suffix=".sv", delete=False) as multiTopFile:
+      multiTopFile.write("module top_a; endmodule\n")
+      multiTopFile.write("module top_b; endmodule\n")
+      multiTopPath = multiTopFile.name
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog()
+    with self.assertRaises(RuntimeError) as context:
+      db.loadSystemVerilog([missingSvFile])
+    self.assertIn("Error while parsing SystemVerilog:", str(context.exception))
+    try:
+      with self.assertRaises(RuntimeError) as context:
+        db.loadSystemVerilog([multiTopPath])
+      self.assertIn("No top design was found after parsing systemverilog", str(context.exception))
+    finally:
+      if os.path.exists(multiTopPath):
+        os.remove(multiTopPath)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog("Error")
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog(designs)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")

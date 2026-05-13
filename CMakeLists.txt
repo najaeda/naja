@@ -20,6 +20,11 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+if(BUILD_NAJA_PYTHON AND WIN32)
+  # Make imported targets from find_package() globally visible so parent
+  # directories can consume fmt exported by thirdparty/slang.
+  set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
+endif()
 
 #RPATH settings
 if(BUILD_NAJA_PYTHON)
@@ -53,6 +58,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
+option(ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+  "Enable internal SystemVerilog constructor performance reporting instrumentation" OFF)
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
 set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.17.0/include)
@@ -67,6 +74,10 @@ if(CODE_COVERAGE)
     -g         # generate debug info
     --coverage # sets all required flags
   )
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Avoid corrupt profile counters when coverage data is updated from parallel code paths.
+    target_compile_options(coverage_config INTERFACE -fprofile-update=atomic)
+  endif()
   target_link_options(coverage_config INTERFACE --coverage)
   target_compile_definitions(coverage_config INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 endif(CODE_COVERAGE)
@@ -86,7 +97,14 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
-  find_package(Boost REQUIRED)
+  # Do not call find_package(Boost) here because thirdparty/slang can
+  # intentionally provide its own Boost::headers target fallback when Boost
+  # >= 1.87 is unavailable. Creating Boost::headers in the top-level project
+  # causes a target-name collision in that fallback path.
+  find_path(Boost_INCLUDE_DIR
+    NAMES boost/version.hpp
+    REQUIRED)
+  set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
   find_package(TBB REQUIRED)
   find_package(CapnProto REQUIRED)
   find_package(ZLIB REQUIRED)
@@ -95,6 +113,9 @@ if(NOT BUILD_ONLY_DOC)
   else()
     find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
   endif()
+  # Keep the exact interpreter used during configure and reuse it in test commands.
+  set(NAJA_PYTHON_EXECUTABLE "${Python3_EXECUTABLE}" CACHE INTERNAL "Python interpreter for Naja tests")
+  message(STATUS "Naja test Python interpreter: ${NAJA_PYTHON_EXECUTABLE}")
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
@@ -131,6 +152,17 @@ endif()
 
 if(NOT BUILD_ONLY_DOC)
   add_subdirectory(thirdparty)
+  add_library(naja_fmt INTERFACE)
+  if(BUILD_NAJA_PYTHON AND WIN32)
+    if(TARGET fmt AND NOT TARGET fmt::fmt)
+      add_library(fmt::fmt ALIAS fmt)
+    endif()
+    if(NOT TARGET fmt::fmt)
+      message(FATAL_ERROR "Expected fmt target (fmt::fmt) for Windows Python build")
+    endif()
+    target_link_libraries(naja_fmt INTERFACE fmt::fmt)
+    target_compile_definitions(naja_fmt INTERFACE SPDLOG_FMT_EXTERNAL)
+  endif()
   add_subdirectory(src)
   if(PROJECT_IS_TOP_LEVEL AND BUILD_BENCHMARKS)
     add_subdirectory(bench)

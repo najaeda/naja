@@ -5,9 +5,13 @@
 
 #include "gtest/gtest.h"
 
+#include <filesystem>
+#include <fstream>
+
 #include "NLUniverse.h"
 #include "SNLBusNet.h"
 #include "SNLBusTerm.h"
+#include "SNLOccurrence.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "DNL.h"
@@ -24,6 +28,53 @@ void executeCommand(const std::string& command) {
   if (result != 0) {
     std::cerr << "Command execution failed." << std::endl;
   }
+}
+
+struct TestInstData : InstData {
+  explicit TestInstData(std::string name = "node")
+      : name_(std::move(name)), model_(name_), inst_(name_) {}
+
+  std::string getName() const override { return name_; }
+  std::string getModelName() const override { return model_; }
+  std::string getInstName() const override { return inst_; }
+
+  std::string name_;
+  std::string model_;
+  std::string inst_;
+};
+
+struct TestPortData : PortData {
+  explicit TestPortData(std::string name) : name_(std::move(name)) {}
+
+  std::string getName() const override { return name_; }
+  std::string getFullName() const { return name_; }
+
+  std::string name_;
+};
+
+struct TestWireData : WireData {
+  explicit TestWireData(std::string name) : name_(std::move(name)) {}
+
+  std::string getName() const override { return name_; }
+
+  std::string name_;
+};
+
+struct TestBusData : BusData {
+  explicit TestBusData(std::string name) : name_(std::move(name)) {}
+
+  std::string getName() const override { return name_; }
+
+  std::string name_;
+};
+
+using TestGraph = NetlistGraph<TestInstData, TestPortData, TestWireData, TestBusData>;
+
+std::filesystem::path makeTempPath(const std::string& name) {
+  auto path = std::filesystem::temp_directory_path() / name;
+  std::error_code ec;
+  std::filesystem::remove(path, ec);
+  return path;
 }
 
 }
@@ -44,7 +95,9 @@ class SNLVisualTests : public ::testing::Test {
     // Code here will be called immediately after each test (right
     // before the destructor).
     // Destroy the SNL
-    NLUniverse::get()->destroy();
+    if (NLUniverse::get()) {
+      NLUniverse::get()->destroy();
+    }
   }
 };
 
@@ -364,4 +417,125 @@ TEST_F(SNLVisualTests, BusTest) {
   executeCommand(std::string(std::string("dot -Tsvg ") + dotFileNameEquis +
                      std::string(" -o ") + svgFileNameEquis)
              .c_str());
+}
+
+TEST_F(SNLVisualTests, ManualGraphCoverage) {
+  TestGraph graph;
+  graph.addInst(InstNode<TestInstData>(TestInstData("top"), 0, 0));
+  graph.setTop(0);
+
+  for (size_t index = 0; index < 101; ++index) {
+    BusNode<TestBusData, TestPortData> inBus(
+        TestBusData("in_bus_" + std::to_string(index)), graph.getBuses().size());
+    PortNode<TestPortData> inBusPort(
+        TestPortData("in_bus_bit_" + std::to_string(index)), graph.getPorts().size());
+    graph.addPort(inBusPort);
+    inBus.addPort(inBusPort.getId());
+    graph.addBus(inBus);
+    graph.getInst(0).addInBus(inBus.getId());
+  }
+
+  for (size_t index = 0; index < 101; ++index) {
+    PortNode<TestPortData> inPort(
+        TestPortData("in_port_" + std::to_string(index)), graph.getPorts().size());
+    graph.addPort(inPort);
+    graph.getInst(0).addInPort(inPort.getId());
+  }
+
+  for (size_t index = 0; index < 101; ++index) {
+    BusNode<TestBusData, TestPortData> outBus(
+        TestBusData("out_bus_" + std::to_string(index)), graph.getBuses().size());
+    PortNode<TestPortData> outBusPort(
+        TestPortData("out_bus_bit_" + std::to_string(index)), graph.getPorts().size());
+    graph.addPort(outBusPort);
+    outBus.addPort(outBusPort.getId());
+    graph.addBus(outBus);
+    graph.getInst(0).addOutBus(outBus.getId());
+  }
+
+  for (size_t index = 0; index < 101; ++index) {
+    PortNode<TestPortData> outPort(
+        TestPortData("out_port_" + std::to_string(index)), graph.getPorts().size());
+    graph.addPort(outPort);
+    graph.getInst(0).addOutPort(outPort.getId());
+  }
+
+  auto dumpPath = makeTempPath("naja-visual-manual-graph.dot");
+  {
+    std::fstream dumpFile(dumpPath, std::ios::out);
+    ASSERT_TRUE(dumpFile.is_open());
+    size_t nextLeafID = 0;
+    graph.dumpDotFileRec(&graph.getInst(0), dumpFile, nextLeafID);
+  }
+
+  TestGraph alignGraph;
+  alignGraph.addInst(InstNode<TestInstData>(TestInstData("align_top"), 0, 0));
+  alignGraph.addInst(InstNode<TestInstData>(TestInstData("align_child"), 0, 1));
+  alignGraph.setTop(0);
+  alignGraph.getInst(0).addChild(1);
+  alignGraph.getInst(1).setInPortsLeaf(10);
+  alignGraph.getInst(1).setOutPortsLeaf(20);
+  for (size_t leaf = 0; leaf < 205; ++leaf) {
+    alignGraph.getInst(1).addLeafId(100 + leaf);
+  }
+
+  auto alignPath = makeTempPath("naja-visual-align-graph.dot");
+  {
+    std::fstream alignFile(alignPath, std::ios::out);
+    ASSERT_TRUE(alignFile.is_open());
+    int childCount = 101;
+    alignGraph.alignRec(&alignGraph.getInst(1), alignFile, childCount);
+    int parentCount = 101;
+    alignGraph.alignRec(&alignGraph.getInst(0), alignFile, parentCount);
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(dumpPath, ec);
+  std::filesystem::remove(alignPath, ec);
+}
+
+TEST_F(SNLVisualTests, EquipotentialFilteringCoverage) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
+  univ->setTopDesign(top);
+  auto* topBus =
+      SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, NLName("TOPBUS"));
+  auto* topFiltered =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("TOP_FILTERED"));
+
+  SNLDesign* selected =
+      SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("selected"));
+  auto* selectedBus = SNLBusTerm::create(
+      selected, SNLTerm::Direction::Input, 0, 1, NLName("BUS"));
+  auto* selectedUnnamedOutput =
+      SNLScalarTerm::create(selected, SNLTerm::Direction::Output);
+
+  SNLDesign* skipped =
+      SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("skipped"));
+  SNLScalarTerm::create(skipped, SNLTerm::Direction::Input, NLName("I"));
+
+  auto* selectedInst = SNLInstance::create(top, selected, NLName("selectedInst"));
+  SNLInstance::create(top, skipped, NLName("skippedInst"));
+
+  auto* selectedBusNet = SNLBusNet::create(top, 0, 1, NLName("selectedBusNet"));
+  topBus->setNet(selectedBusNet);
+  selectedInst->setTermNet(selectedBus, selectedBusNet);
+  auto* filteredScalarNet =
+      SNLScalarNet::create(top, NLName("filteredScalarNet"));
+  topFiltered->setNet(filteredScalarNet);
+  selectedInst->getInstTerm(selectedUnnamedOutput)->setNet(filteredScalarNet);
+
+  std::vector<SNLEquipotential> equis{
+      SNLEquipotential(topBus->getBit(0)), SNLEquipotential(topFiltered)};
+  SnlVisualiser visualiser(top, equis);
+  visualiser.process();
+
+  auto& selectedNode = visualiser.getNetlistGraph().getInst(1);
+  EXPECT_FALSE(selectedNode.getInBuses().empty());
+  EXPECT_FALSE(selectedNode.getOutPorts().empty());
+  EXPECT_EQ(2u, visualiser.getNetlistGraph().getInsts().size());
 }

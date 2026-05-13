@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -16,6 +17,7 @@
 
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
@@ -30,6 +32,20 @@
 #include "SNLVRLConstructorException.h"
 
 namespace {
+
+std::vector<naja::NL::SNLTerm*> getConnectableTerms(naja::NL::SNLDesign* design) {
+  std::vector<naja::NL::SNLTerm*> terms;
+  for (auto term: design->getTerms()) {
+    if (auto bundle = dynamic_cast<naja::NL::SNLBundleTerm*>(term)) {
+      for (auto member: bundle->getMembers()) {
+        terms.push_back(member);
+      }
+    } else {
+      terms.push_back(term);
+    }
+  }
+  return terms;
+}
 
 void collectAttributes(
   naja::NL::NLObject* object,
@@ -305,12 +321,14 @@ void SNLVRLConstructor::createConstantNets(
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
   auto bits = SNLVRLConstructorUtils::numberToBits(basedNumber);
+  //LCOV_EXCL_START
   if (bits.size() != basedNumber.size_) {
     std::ostringstream reason;
     reason << getLocationString();
     reason << ": " << "Size";
     throw naja::NL::SNLVRLConstructorException(reason.str());
   }
+  //LCOV_EXCL_STOP
   for (int i=bits.size()-1; i>=0; i--) {
     if (bits[i]) {
       nets.push_back(currentModuleAssign1_);
@@ -643,8 +661,8 @@ void SNLVRLConstructor::addAssign(
       }
       case naja::verilog::Expression::Type::CONCATENATION: {
         SNLInstance::Nets bitNets;
-        auto concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
-        collectConcatenationBitNets(concatenation, rightNets);
+        auto concatenation = std::get<std::shared_ptr<naja::verilog::Concatenation>>(expression.value_);
+        collectConcatenationBitNets(*concatenation, rightNets);
         break;
       }
       default: {
@@ -745,6 +763,17 @@ void SNLVRLConstructor::currentInstancePortConnection(
   naja::NL::SNLTerm* term,
   const naja::verilog::Expression& expression) {
   if (expression.valid_) {
+    if (term == nullptr) {
+      std::ostringstream reason;
+      reason << getLocationString() << ": null term in instance connection";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    if (dynamic_cast<SNLBundleTerm*>(term)) {
+      std::ostringstream reason;
+      reason << getLocationString() << ": direct connection to bundle term "
+             << term->getString() << " is not supported";
+      throw SNLVRLConstructorException(reason.str());
+    }
     if (not expression.supported_) {
       std::ostringstream reason;
       reason << getLocationString();
@@ -792,8 +821,8 @@ void SNLVRLConstructor::currentInstancePortConnection(
       }
       case naja::verilog::Expression::Type::CONCATENATION: {
         SNLInstance::Nets bitNets;
-        auto concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
-        collectConcatenationBitNets(concatenation, bitNets);
+        auto concatenation = std::get<std::shared_ptr<naja::verilog::Concatenation>>(expression.value_);
+        collectConcatenationBitNets(*concatenation, bitNets);
         using BitTerms = std::vector<SNLBitTerm*>;
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         if (not busTerm) {
@@ -870,7 +899,15 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
   if (not inFirstPass()) {
     assert(currentInstance_);
     SNLDesign* model = currentInstance_->getModel();
-    SNLTerm* term = model->getTerm(NLID::DesignObjectID(portIndex));
+    auto connectableTerms = getConnectableTerms(model);
+    if (portIndex >= connectableTerms.size()) {
+      std::ostringstream reason;
+      reason << getLocationString()
+        << ": ordered port index " << portIndex
+        << " exceeds model interface size for " << model->getName().getString();
+      throw SNLVRLConstructorException(reason.str());
+    }
+    SNLTerm* term = connectableTerms[portIndex];
     currentInstancePortConnection(term, expression);
     NAJA_LOG_TRACE("Instance connection: {}  - connection",
       currentInstance_->getString(),  term->getString());

@@ -20,7 +20,20 @@ class NajaObject {
 
     ///\return a string describing the object type
     virtual const char* getTypeName() const = 0;
-    ///\return a simple string describing the object. Usually object name.
+    /**
+     * \brief Return a short, human-readable string describing the object.
+     *
+     * This string is intended for display, logs, diagnostics, debug dumps,
+     * scripting representations, and GUI labels. It usually matches the
+     * object's name when one exists, but implementations may return a generated
+     * display string for unnamed objects.
+     *
+     * Do not use this method for algorithmic purposes, such as map or set keys,
+     * identity checks, ordering, persistence, or serialization. Use stable object
+     * identifiers like IDs.
+     *
+     * \return a display string describing the object.
+     */
     virtual std::string getString() const = 0;
     ///\return a string extensively describing the object. Useful for debug.
     virtual std::string getDescription() const = 0;

@@ -9,6 +9,7 @@ import hashlib
 import struct
 import sys
 import os
+import tempfile
 from enum import Enum
 from typing import Union, List, Iterator
 from dataclasses import dataclass
@@ -1735,10 +1736,14 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(self, path: str):
+    def dump_verilog(
+            self,
+            path: str,
+            config: "VerilogDumpConfig" = None):
         """Dump the verilog of this instance.
 
         :param str path: the file path where to dump the verilog.
+        :param config: the configuration to use when dumping the verilog.
         :rtype: None
         :raises ValueError: if the path does not end with .v.
         :raises FileNotFoundError: if the directory of the path does not exist.
@@ -1749,7 +1754,21 @@ class Instance:
         dir_path = os.path.dirname(path) or "."
         if not os.path.exists(dir_path):
             raise FileNotFoundError(f"The directory {dir_path} does not exist")
-        self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
+        if config is None:
+            config = VerilogDumpConfig()
+        top_name = get_top().get_name()
+        logging.info(
+            f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
+        start_time = time.time()
+        self.__get_snl_model().dumpVerilog(
+            dir_path,
+            os.path.basename(path),
+            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes,
+            dumpAssignsAsInstances=config.dumpAssignsAsInstances)
+        execution_time = time.time() - start_time
+        logging.info(
+            f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
+            f"in {execution_time:.2f} seconds")
 
     def get_truth_table(self):
         """
@@ -1853,6 +1872,23 @@ class VerilogConfig:
             )
 
 
+@dataclass
+class VerilogDumpConfig:
+    dumpRTLInfosAsAttributes: bool = False
+    dumpAssignsAsInstances: bool = False
+
+
+@dataclass
+class SystemVerilogConfig:
+    keep_assigns: bool = True
+    elaborated_ast_json_path: str = None
+    diagnostics_report_path: str = None
+    pretty_print_elaborated_ast_json: bool = True
+    include_source_info_in_elaborated_ast_json: bool = True
+    flist: str = None
+    top: str = None
+
+
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
     """Load verilog files into the top design.
 
@@ -1869,7 +1905,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
-    logging.info(f"Loading verilog: {', '.join(files)}")
+    logging.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
@@ -1878,8 +1914,81 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time
-    logging.info(f"Loading done in {execution_time:.2f} seconds")
-    return get_top()
+    top = get_top()
+    logging.info(
+        f"Gate-level Verilog loading done for top '{top.get_name()}' in "
+        f"{execution_time:.2f} seconds")
+    return top
+
+
+def load_system_verilog(
+        files: Union[str, List[str]],
+        config: SystemVerilogConfig = None) -> Instance:
+    """Load SystemVerilog files into the top design.
+
+    :param files: a list of SystemVerilog files to load or a single file.
+    :param config: the configuration to use when loading the files.
+    :return: the top Instance.
+    :rtype: Instance
+    :raises Exception: if no files are provided.
+    """
+    if config is None:
+        config = SystemVerilogConfig()
+    if isinstance(files, str):
+        files = [files]
+    if not files or len(files) == 0:
+        if not config.flist:
+            raise Exception("No systemverilog files provided")
+        files = []
+    start_time = time.time()
+    if files:
+        logging.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
+    else:
+        logging.info(f"Starting SystemVerilog loading from flist: {config.flist}")
+    if config.top is not None:
+        logging.info(f"SystemVerilog loading top override requested: {config.top}")
+
+    if config.top is not None and not isinstance(config.top, str):
+        raise ValueError(
+            "SystemVerilogConfig.top must be a str "
+            f"(got {type(config.top).__name__})")
+    if isinstance(config.top, str) and not config.top.strip():
+        raise ValueError("SystemVerilogConfig.top must not be empty")
+
+    effective_flist = config.flist
+    temp_flist_path = None
+    if config.top is not None:
+        # Expose top selection at najaeda layer without changing the C++ API:
+        # build a temporary command file that injects slang --top.
+        with tempfile.NamedTemporaryFile(
+                "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
+            temp_flist_path = top_flist.name
+            top_flist.write(f"--top {config.top}\n")
+            if config.flist:
+                quoted_flist = config.flist.replace("\\", "\\\\").replace("\"", "\\\"")
+                top_flist.write(f"-f \"{quoted_flist}\"\n")
+        effective_flist = temp_flist_path
+
+    try:
+        __get_top_db().loadSystemVerilog(
+            files,
+            keep_assigns=config.keep_assigns,
+            elaborated_ast_json_path=config.elaborated_ast_json_path,
+            diagnostics_report_path=config.diagnostics_report_path,
+            pretty_print_elaborated_ast_json=config.pretty_print_elaborated_ast_json,
+            include_source_info_in_elaborated_ast_json=(
+                config.include_source_info_in_elaborated_ast_json),
+            flist=effective_flist,
+        )
+    finally:
+        if temp_flist_path and os.path.exists(temp_flist_path):
+            os.remove(temp_flist_path)
+
+    execution_time = time.time() - start_time
+    top = get_top()
+    logging.info(
+        f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
+    return top
 
 
 def load_liberty(files: Union[str, List[str]]):

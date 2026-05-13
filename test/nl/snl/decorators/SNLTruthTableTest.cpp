@@ -11,7 +11,7 @@ using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
 
-  SNLTruthTable ttand2(2, 0b1000);
+  SNLTruthTable ttand2(2, 0b1000, SNLTruthTable::fullDependencies(2));
   EXPECT_EQ(2, ttand2.size());
   EXPECT_EQ(0b1000, ttand2.bits().operator uint64_t());
   EXPECT_FALSE(ttand2.all0());
@@ -23,7 +23,7 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(reducedtt.size(), 1);
   //buffer
   EXPECT_EQ(0b10, reducedtt.bits().operator uint64_t());
-  SNLTruthTable ttor2(2, 0b1110);
+  SNLTruthTable ttor2(2, 0b1110, SNLTruthTable::fullDependencies(2));
   reducedtt = ttor2.getReducedWithConstant(0, 0);
   EXPECT_EQ(reducedtt.size(), 1);
   //buffer
@@ -32,7 +32,7 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(reducedtt.size(), 0);
   EXPECT_TRUE(reducedtt.all1());
 
-  SNLTruthTable ttand4(4, 0b1000000000000000);
+  SNLTruthTable ttand4(4, 0b1000000000000000, SNLTruthTable::fullDependencies(4));
   reducedtt = ttand4.getReducedWithConstant(0, 0);
   EXPECT_EQ(reducedtt.size(), 0);
   EXPECT_TRUE(reducedtt.all0());
@@ -40,7 +40,7 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(reducedtt.size(), 3);
   //and3
   EXPECT_EQ(0b10000000, reducedtt.bits().operator uint64_t());
-  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000));
+  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000, SNLTruthTable::fullDependencies(3)));
   
   reducedtt = ttand4.getReducedWithConstant(1, 0);
   EXPECT_EQ(reducedtt.size(), 0);
@@ -49,9 +49,9 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = ttand4.getReducedWithConstant(1, 1);
   //and3
   EXPECT_EQ(0b10000000, reducedtt.bits().operator uint64_t());
-  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000));
+  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000, SNLTruthTable::fullDependencies(3)));
 
-  SNLTruthTable ttor4(4, 0b1111111111111110);
+  SNLTruthTable ttor4(4, 0b1111111111111110, SNLTruthTable::fullDependencies(4));
   reducedtt = ttor4.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 0);
   EXPECT_TRUE(reducedtt.all1());
@@ -59,9 +59,9 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = ttor4.getReducedWithConstant(0, 0);
   //or3
   EXPECT_EQ(0b11111110, reducedtt.bits().operator uint64_t());
-  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b11111110));
+  EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b11111110, SNLTruthTable::fullDependencies(3)));
 
-  SNLTruthTable ttxor2(2, 0b0110);
+  SNLTruthTable ttxor2(2, 0b0110, SNLTruthTable::fullDependencies(2));
   reducedtt = ttxor2.getReducedWithConstant(0, 0);
   //buffer
   EXPECT_EQ(0b10, reducedtt.bits().operator uint64_t());
@@ -72,7 +72,7 @@ TEST(SNLTruthTableTest, test) {
 
   //function: "!(A | (B1 & B2))";
   //order 0: A 1: B1 2: B2
-  SNLTruthTable tt(3, 0x15);
+  SNLTruthTable tt(3, 0x15, SNLTruthTable::fullDependencies(3));
   
   //set A to 1 => Logic0
   reducedtt = tt.getReducedWithConstant(0, 1);
@@ -112,26 +112,196 @@ TEST(SNLTruthTableTest, test) {
 }
 
 TEST(SNLTruthTableTest, testConstants) {
-  SNLTruthTable tt0(0, 0);
+  SNLTruthTable tt0(0, 0, SNLTruthTable::fullDependencies(0));
   EXPECT_TRUE(tt0.all0());
   EXPECT_FALSE(tt0.all1());
   EXPECT_EQ(tt0, SNLTruthTable::Logic0());
 
-  SNLTruthTable tt1(0, 1);
+  SNLTruthTable tt1(0, 1, SNLTruthTable::fullDependencies(0));
   EXPECT_FALSE(tt1.all0());
   EXPECT_TRUE(tt1.all1());
   EXPECT_EQ(tt1, SNLTruthTable::Logic1());
 
-  SNLTruthTable tt2(4, 0b11); //not all one
+  SNLTruthTable tt2(4, 0b11, SNLTruthTable::fullDependencies(4)); //not all one
   EXPECT_FALSE(tt2.all1());
   EXPECT_FALSE(tt2.all0());
   EXPECT_NE(tt2, SNLTruthTable::Logic1());
 }
 
+TEST(SNLTruthTableTest, testGenericReduction) {
+  SNLTruthTable and2(
+      2, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(2));
+  EXPECT_TRUE(and2.isGeneric());
+  EXPECT_EQ(SNLTruthTable::Buf(), and2.getReducedWithConstant(0, true));
+  EXPECT_EQ(SNLTruthTable::Logic0(), and2.getReducedWithConstant(0, false));
+
+  SNLTruthTable xor3(
+      3, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(3));
+  EXPECT_EQ(
+      SNLTruthTable(
+          2,
+          SNLTruthTable::GenericType::XNOR,
+          SNLTruthTable::fullDependencies(2)),
+      xor3.getReducedWithConstant(0, true));
+
+  SNLTruthTable xnor2(
+      2, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(2));
+  EXPECT_EQ(SNLTruthTable::Buf(), xnor2.getReducedWithConstant(0, true));
+  EXPECT_EQ(SNLTruthTable::Inv(), xnor2.getReducedWithConstant(0, false));
+}
+
+TEST(SNLTruthTableTest, testGenericCoverageEdges) {
+  EXPECT_THROW(
+      SNLTruthTable(
+          1,
+          SNLTruthTable::GenericType::AND,
+          SNLTruthTable::fullDependencies(2)),
+      NLException);
+
+  const SNLTruthTable or2(
+      2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2));
+  const SNLTruthTable nor2(
+      2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2));
+  EXPECT_LT(or2, nor2);
+
+  const SNLTruthTable nonInitialized(1, 0b10, {});
+  EXPECT_FALSE(nonInitialized.isInitialized());
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2)),
+      SNLTruthTable(
+          3, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(3))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Logic0(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::XNOR, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+}
+
+TEST(SNLTruthTableTest, testGenericSingleInputAndEmptyEdges) {
+  EXPECT_EQ(
+      SNLTruthTable::Logic1(),
+      SNLTruthTable(
+          1, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(1))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NAND, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, true));
+  EXPECT_EQ(
+      SNLTruthTable::Buf(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::OR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::NOR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, false));
+  EXPECT_EQ(
+      SNLTruthTable::Inv(),
+      SNLTruthTable(
+          2, SNLTruthTable::GenericType::XOR, SNLTruthTable::fullDependencies(2))
+          .getReducedWithConstant(0, true));
+
+  SNLTruthTable empty;
+  EXPECT_FALSE(empty.all0());
+  EXPECT_FALSE(empty.all1());
+}
+
 TEST(SNLTruthTable, testMultipleConstantInputs) {
   //mux truth table
   //function		: "((S & B) | (A & !S))";
-  SNLTruthTable tt(3, 0xCA);
+  SNLTruthTable tt(3, 0xCA, SNLTruthTable::fullDependencies(3));
 
   //A&B are 0
   auto reducedtt = tt.getReducedWithConstants({{0, 0}, {1, 0}});
@@ -184,14 +354,14 @@ TEST(SNLTruthTable, testMultipleConstantInputs) {
 }
 
 TEST(SNLTruthTable, testErrors) {
-  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), NLException);
-  SNLTruthTable tt(4, 0xFFFF);
+  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF, SNLTruthTable::fullDependencies(8)), NLException);
+  SNLTruthTable tt(4, 0xFFFF, SNLTruthTable::fullDependencies(4));
   EXPECT_THROW(tt.getReducedWithConstant(5, 0), NLException);
   EXPECT_THROW(tt.removeVariable(5), NLException);
 }
 
 TEST(SNLTruthTable, testWrongSizeDeps) {
-  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), NLException);
+  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF, SNLTruthTable::fullDependencies(8)), NLException);
   EXPECT_THROW(SNLTruthTable(4, 0xFFFF, {1,2,3,4}), NLException);
 }
 
@@ -203,7 +373,7 @@ TEST(SNLTruthTableTest, VectorCtorThrowsForSizeUpTo6) {
   // For size 0…6, the vector<bool> constructor should be disallowed
   for (uint32_t sz = 0; sz <= 6; ++sz) {
     std::vector<bool> v(1u << sz, false);
-    EXPECT_THROW(SNLTruthTable(sz, v), NLException)
+    EXPECT_THROW(SNLTruthTable(sz, v, SNLTruthTable::fullDependencies(sz)), NLException)
         << "Expected exception for size=" << sz;
   }
 }
@@ -218,7 +388,7 @@ TEST(SNLTruthTableTest, VectorCtorAcceptsForSizeAbove6) {
 
     // Must not throw
     EXPECT_NO_THROW({
-      SNLTruthTable tt(sz, v);
+      SNLTruthTable tt(sz, v, SNLTruthTable::fullDependencies(sz));
       EXPECT_EQ(sz, tt.size());
       // We don’t assert all0/all1 or bits().operator uint64_t() here because
       // that logic isn’t yet reliable on vector<bool> path.
@@ -229,7 +399,7 @@ TEST(SNLTruthTableTest, VectorCtorAcceptsForSizeAbove6) {
 TEST(SNLTruthTableTest, VectorCtorZeroPattern) {
   // A 7‐input table of all‐zeros must construct and size()=7
   std::vector<bool> allz(1u << 7, false);
-  SNLTruthTable t7z(7, allz);
+  SNLTruthTable t7z(7, allz, SNLTruthTable::fullDependencies(7));
   EXPECT_EQ(7u, t7z.size());
   // At least this must hold, even if all0()/bits().operator uint64_t() aren’t reliable:
   EXPECT_TRUE(t7z.isInitialized());
@@ -238,7 +408,7 @@ TEST(SNLTruthTableTest, VectorCtorZeroPattern) {
 TEST(SNLTruthTableTest, VectorCtorAllOnesPattern) {
   // A 8‐input table of all‐ones must construct and size()=8
   std::vector<bool> allo(1u << 8, true);
-  SNLTruthTable t8o(8, allo);
+  SNLTruthTable t8o(8, allo, SNLTruthTable::fullDependencies(8));
   EXPECT_EQ(8u, t8o.size());
   EXPECT_TRUE(t8o.isInitialized());
 }
@@ -266,7 +436,7 @@ TEST(SNLTruthTableTest, VectorCtor_BasicProps) {
   v7[127] = true;
 
   // Must accept size > 6
-  SNLTruthTable tt7(7, v7);
+  SNLTruthTable tt7(7, v7, SNLTruthTable::fullDependencies(7));
   EXPECT_TRUE(tt7.isInitialized());
   EXPECT_EQ(7u, tt7.size());
 
@@ -278,13 +448,13 @@ TEST(SNLTruthTableTest, VectorCtor_BasicProps) {
   EXPECT_NE(std::string::npos, s.find("|00010000"));
 
   // two tables built from identical data compare equal
-  SNLTruthTable tt7b(7, v7);
+  SNLTruthTable tt7b(7, v7, SNLTruthTable::fullDependencies(7));
   EXPECT_TRUE(tt7 == tt7b);
   EXPECT_FALSE(tt7 < tt7b);
 
   // flipping one entry changes the low-word, so ordering flips
   v7[3] = false;  
-  SNLTruthTable tt7c(7, v7);
+  SNLTruthTable tt7c(7, v7, SNLTruthTable::fullDependencies(7));
   EXPECT_FALSE(tt7c == tt7b);
   EXPECT_TRUE(tt7c < tt7b);  // now low-bits = 0 < 8
 }
@@ -293,7 +463,7 @@ TEST(SNLTruthTableTest, VectorCtor_CtorThrowsSizeLE6) {
   // For sizes 0..6, vector<bool> ctor must throw
   for (uint32_t sz = 0; sz <= 6; ++sz) {
     std::vector<bool> v(1u << sz, false);
-    EXPECT_THROW(SNLTruthTable(sz, v), NLException)
+    EXPECT_THROW(SNLTruthTable(sz, v, SNLTruthTable::fullDependencies(sz)), NLException)
         << "size=" << sz << " should not accept vector<bool>";
   }
 }
@@ -439,7 +609,7 @@ TEST(SNLTruthTable, Or7TruthTable) {
   }
 
   // construct the 7-input OR table
-  SNLTruthTable tt(N, bits);
+  SNLTruthTable tt(N, bits, SNLTruthTable::fullDependencies(N));
   EXPECT_EQ(tt.size(), N);
 
   // index 0 => OR(all zeros)==0
@@ -476,7 +646,7 @@ TEST(SNLTruthTable, Or8TruthTable) {
   }
 
   // construct the 7-input OR table
-  SNLTruthTable tt(N, bits);
+  SNLTruthTable tt(N, bits, SNLTruthTable::fullDependencies(N));
   EXPECT_EQ(tt.size(), N);
 
   // index 0 => OR(all zeros)==0
@@ -551,13 +721,13 @@ TEST(SNLTruthTable, all0_all1_large) {
 
   // all‐zero table
   std::vector<bool> zeros(rows, false);
-  SNLTruthTable t0(SZ, zeros);
+  SNLTruthTable t0(SZ, zeros, SNLTruthTable::fullDependencies(SZ));
   EXPECT_TRUE (t0.all0());
   EXPECT_FALSE(t0.all1());
 
   // all‐one table
   std::vector<bool> ones(rows, true);
-  SNLTruthTable t1(SZ, ones);
+  SNLTruthTable t1(SZ, ones, SNLTruthTable::fullDependencies(SZ));
   EXPECT_FALSE(t1.all0());
   EXPECT_TRUE (t1.all1());
 }

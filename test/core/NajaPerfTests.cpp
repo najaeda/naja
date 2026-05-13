@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <thread>
 
 #include "NajaPerf.h"
@@ -13,6 +14,61 @@ using namespace naja;
 #ifndef NAJA_CORE_TESTS_PATH
 #define NAJA_CORE_TESTS_PATH "Undefined"
 #endif
+
+namespace {
+void setEnvVar(const char* name, const std::string& value) {
+#ifdef _WIN32
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), 1);
+#endif
+}
+
+void unsetEnvVar(const char* name) {
+#ifdef _WIN32
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
+}
+}  // namespace
+
+TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultWhenUnset) {
+  unsetEnvVar("NAJA_PERF_TEST_PATH");
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+}
+
+TEST(NajaPerfTests, getLogPathFromEnvUsesEnvValue) {
+  setEnvVar("NAJA_PERF_TEST_PATH", "custom_perf.log");
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
+    std::filesystem::path("custom_perf.log"));
+  unsetEnvVar("NAJA_PERF_TEST_PATH");
+}
+
+TEST(NajaPerfTests, getLogPathFromEnvFallsBackForEmptyAndLegacyEnable) {
+  setEnvVar("NAJA_PERF_TEST_PATH", "");
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+
+  setEnvVar("NAJA_PERF_TEST_PATH", "1");
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+  unsetEnvVar("NAJA_PERF_TEST_PATH");
+}
+
+TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultForNullOrEmptyEnvVarName) {
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv(nullptr, "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+  EXPECT_EQ(
+    NajaPerf::getLogPathFromEnv("", "naja_perf.log"),
+    std::filesystem::path("naja_perf.log"));
+}
 
 TEST(NajaPerfTests, test0) {
   std::filesystem::path logPath(NAJA_CORE_TESTS_PATH);

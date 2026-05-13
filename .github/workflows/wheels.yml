@@ -26,7 +26,7 @@ jobs:
     outputs:
       artifact_name: parser-generated-sources
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -45,7 +45,7 @@ jobs:
           cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parser-generated-sources
           path: generated/*
@@ -57,92 +57,92 @@ jobs:
     strategy:
       matrix:
         include:
-          # Linux 64 bit manylinux2014
+          # Linux wheels: use manylinux_2_28 for a modern C++20 toolchain
           - os: ubuntu-latest
             python: 39
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 310
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 311
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 312
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 313
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 313t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             free_threaded_support: True
           - os: ubuntu-latest
             python: 314
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 314t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             free_threaded_support: True
 
           - os: ubuntu-24.04-arm
             python: 310
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 311
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 313
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 314
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
 
           # MacOS arm64
-          - os: macos-14
+          - os: macos-15
             python: 39
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 310
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 311
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 312
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 313
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
-          - os: macos-14
+          - os: macos-15
             python: 314
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 314t
             platform_id: macosx_arm64
             free_threaded_support: True
@@ -166,7 +166,7 @@ jobs:
 
     steps:
       # build steps
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - name: Setup Python
@@ -175,7 +175,7 @@ jobs:
           python-version: "3.11" 
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: parser-generated-sources
           path: generated
@@ -192,11 +192,16 @@ jobs:
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
-        run: python -m pip install cibuildwheel==3.3.0 delvewheel
+        run: python -m pip install cibuildwheel==3.4.1 delvewheel
       - name: Build wheels
         env:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
+          CIBW_ENVIRONMENT_MACOS: >-
+            SKLEARN_SKIP_NETWORK_TESTS=1
+            MACOSX_DEPLOYMENT_TARGET=11.0
+            CC=/usr/bin/clang
+            CXX=/usr/bin/clang++
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -237,9 +242,45 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
+      - name: Verify macOS wheel compatibility tag
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          wheels=(wheelhouse/*.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "No wheels found in wheelhouse/"
+            exit 1
+          fi
+
+          unexpected=0
+          for wheel in "${wheels[@]}"; do
+            filename="$(basename "$wheel")"
+
+            if [[ "$filename" != *macosx_11_0_arm64.whl ]]; then
+              echo "Unexpected macOS wheel tag (expected macosx_11_0_arm64): $filename"
+              unexpected=1
+            fi
+
+            if [[ "$filename" =~ macosx_([0-9]+)_([0-9]+)_arm64 ]]; then
+              major="${BASH_REMATCH[1]}"
+              minor="${BASH_REMATCH[2]}"
+              if (( major > 11 || (major == 11 && minor > 0) )); then
+                echo "Unsupported macOS baseline tag detected (>=12.0): $filename"
+                unexpected=1
+              fi
+            fi
+          done
+
+          if [ "$unexpected" -ne 0 ]; then
+            echo "macOS wheel compatibility check failed."
+            exit 1
+          fi
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
@@ -255,13 +296,13 @@ jobs:
     steps:
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
           path: dist
           merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.13.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
@@ -275,12 +316,12 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@v1.13.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true

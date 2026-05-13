@@ -321,8 +321,8 @@ TEST_F(SNLTermTest, testSetNetErrors) {
 }
 
 TEST_F(SNLTermTest, testErrors) {
-  EXPECT_THROW(SNLScalarTerm::create(nullptr, SNLTerm::Direction::Input), NLException);
-  EXPECT_THROW(SNLBusTerm::create(nullptr, SNLTerm::Direction::Input, 31, 0), NLException);
+  EXPECT_THROW(SNLScalarTerm::create(static_cast<SNLDesign*>(nullptr), SNLTerm::Direction::Input), NLException);
+  EXPECT_THROW(SNLBusTerm::create(static_cast<SNLDesign*>(nullptr), SNLTerm::Direction::Input, 31, 0), NLException);
 
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
@@ -598,4 +598,22 @@ TEST_F(SNLTermTest, testResizeLSBFailsOnSlaveInstanceConnected) {
   instTerm->setNet(topNet);
 
   EXPECT_THROW(term->setLSB(1), NLException);
+}
+
+TEST_F(SNLTermTest, testGetStringUnnamedFallback) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto scalarTerm = SNLScalarTerm::create(design, SNLTerm::Direction::Input);
+  auto busTerm = SNLBusTerm::create(design, SNLTerm::Direction::Output, 3, 0);
+
+  EXPECT_EQ("<term:0>", scalarTerm->getString());
+  EXPECT_EQ("<term:1>[3:0]", busTerm->getString());
+  EXPECT_EQ("<term:1>[2]", busTerm->getBit(2)->getString());
+
+  scalarTerm->setName(NLName("i0"));
+  busTerm->setName(NLName("bus"));
+  EXPECT_EQ("i0", scalarTerm->getString());
+  EXPECT_EQ("bus[3:0]", busTerm->getString());
+  EXPECT_EQ("bus[2]", busTerm->getBit(2)->getString());
 }

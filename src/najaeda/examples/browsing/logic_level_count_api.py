@@ -25,15 +25,15 @@ if __name__ == '__main__':
     
     start = time.time()
     
-    print("Logic level count ", netlist.get_max_logic_level()[0])
+    logging.info(f"Logic level count {netlist.get_max_logic_level()[0]}")
     
     end = time.time()
-    print('LL count done in', end - start, 'seconds')
+    logging.info(f"LL count done in {end - start} seconds")
     
     # print the max logic level paths
     max_level_paths = netlist.get_max_logic_level()[1]
     for path in max_level_paths:
         for term in path:
-            print(term)
+            logging.info(f"{term}")
             for attr in term.get_instance().get_attributes():
-                print("   ", attr)
+                logging.info(f"   {attr}")

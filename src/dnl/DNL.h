@@ -5,6 +5,8 @@
 
 
 #pragma once
+#include <cstdint>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -20,6 +22,7 @@
 #include "tbb/enumerable_thread_specific.h"
 
 #include "NLUniverse.h"
+#include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
@@ -54,9 +57,34 @@ class DNLInstanceFull;
 typedef DNL<DNLInstanceFull, DNLTerminalFull> DNLFull;
 
 struct visited {
-    std::vector<bool> visited;
-    std::vector<bool> toVisitAsInstTerm;
-    std::vector<bool> toVisitAsBitTerm;
+    void resize(size_t nBits) {
+      words.resize((nBits + 63) / 64);
+    }
+
+    void beginTraversal(size_t nBits) {
+      resize(nBits);
+      for (uint32_t wordIndex : touchedWords) {
+        words[wordIndex] = 0;
+      }
+      touchedWords.clear();
+    }
+
+    bool test(size_t bit) const {
+      return (words[bit >> 6] & (uint64_t{1} << (bit & 63))) != 0;
+    }
+
+    void set(size_t bit) {
+      const size_t wordIndex = bit >> 6;
+      const uint64_t mask = uint64_t{1} << (bit & 63);
+      uint64_t& word = words[wordIndex];
+      if (word == 0) {
+        touchedWords.push_back(static_cast<uint32_t>(wordIndex));
+      }
+      word |= mask;
+    }
+
+    std::vector<uint64_t> words;
+    std::vector<uint32_t> touchedWords;
 };
 
 struct SNLBitTermCompare {
@@ -166,7 +194,7 @@ class DNLInstanceFull {
    * \brief Check if the DNLInstanceFull is top.
    * \return True if the DNLInstanceFull is top.
    */
-  bool isTop() const { return parent_ == (DNLID)DNLID_MAX; }
+  bool isTop() const { return id_ == 0; }
   const std::pair<DNLID, DNLID>& getChildren() const {
     return childrenIndexes_;
   }
@@ -230,6 +258,11 @@ class DNLTerminalFull {
    */
   const DNLInstanceFull& getDNLInstance() const;
   /**
+   * \brief Get the full unique ID of the DNLTerminalFull.
+   * \return full unique ID of the DNLTerminalFull.
+   */
+  std::vector<naja::NL::NLID::DesignObjectID> getFullPathIDs() const;
+  /**
    * \brief Check if the DNLTerminalFull is null.
    * \return True if the DNLTerminalFull is null.
    */
@@ -267,6 +300,16 @@ class DNLTerminalFull {
 
 class DNLIso {
  public:
+
+  // Iso type ENUM : STANDART, CONST0, CONST1, SHADOW
+  enum IsoType {
+    STANDART,
+    CONST0,
+    CONST1,
+    AMBIGUOUS,
+    SHADOW
+  };
+
   DNLIso(DNLID id = DNLID_MAX);
   /**
    * \brief Clear the DNLIso.
@@ -327,10 +370,19 @@ class DNLIso {
   }
   virtual ~DNLIso() {}
 
+  void setIsoType(IsoType isoType) { isoType_ = isoType; }
+
+  bool isConstant0() const { return isoType_ == IsoType::CONST0; }
+  bool isConstant1() const { return isoType_ == IsoType::CONST1; }
+  bool isConstant() const { return isConstant0() || isConstant1(); }
+
+  IsoType getType() const { return isoType_; }
+
  private:
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> drivers_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> readers_;
   DNLID id_ = DNLID_MAX;
+  IsoType isoType_ = IsoType::STANDART;
 };
 
 class DNLComplexIso : public DNLIso {
@@ -395,12 +447,17 @@ class DNLIsoDB {
    * \brief Add a shadow DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the shadow DNLIso.
    */
-  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); shadowIsos_.push_back(isoid); }
+  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); getIsoFromIsoID(isoid).setIsoType(DNLIso::IsoType::SHADOW); shadowIsos_.push_back(isoid); }
   /**
    * \brief Add a constant 0 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the constant 0 DNLIso.
    */
   void addConstant0Iso(DNLID isoid) { constant0Isos_.insert(isoid); }
+  /**
+   * \brief Remove a constant 0 DNLIso from the DNLIsoDB.
+   * \param isoid The DNL ID of the constant 0 DNLIso.
+   */
+  void removeConstant0Iso(DNLID isoid) { constant0Isos_.erase(isoid); }
   /**
    * \brief Get the constant 0 DNLIso in the DNLIsoDB.
    * \return The constant 0 DNLIso in the DNLIsoDB.
@@ -411,6 +468,11 @@ class DNLIsoDB {
    * \param isoid The DNL ID of the constant 1 DNLIso.
    */
   void addConstant1Iso(DNLID isoid) { constant1Isos_.insert(isoid); }
+  /**
+   * \brief Remove a constant 1 DNLIso from the DNLIsoDB.
+   * \param isoid The DNL ID of the constant 1 DNLIso.
+   */
+  void removeConstant1Iso(DNLID isoid) { constant1Isos_.erase(isoid); }
   /**
    * \brief Get the constant 1 DNLIso in the DNLIsoDB.
    * \return The constant 1 DNLIso in the DNLIsoDB.
@@ -441,8 +503,13 @@ class DNLIsoDBBuilder {
    * \param updateDriverIsoID Update the driver iso ID.
    * \param updateConst Update the constant iso.
    */
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, 
-  bool updateReadersIsoID = false, bool updateDriverIsoID = false, bool updateConst = false);
+  void treatDriver(const DNLTerminal& term,
+                   DNLIso& iso,
+                   visited& visitedDB,
+                   std::function<void(DNLIso& iso, DNLID fid)> updateRaderIsoID = [](DNLIso& iso, DNLID fid){},
+                   std::function<void(DNLIso& iso, DNLID fid)> updateDriverIsoID = [](DNLIso& iso, DNLID fid){},
+                   std::function<void(DNLIso& iso, DNLIsoDB& db, SNLBitNet* net)> updateConstant = 
+                    [](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net){});
   /**
    * \brief Process the DNLIsoDBBuilder.
    */
@@ -452,19 +519,19 @@ class DNLIsoDBBuilder {
    * \brief Register a constant 0 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the DNLIso.
    */
-  void addConstantIso0(DNLID iso) { db_.addConstant0Iso(iso); }
+  void addConstantIso0(DNLID iso) { db_.addConstant0Iso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONST0); }
   /**
    * \brief Register a constant 1 DNLIso to the DNLIsoDB.
    * \param isoid The DNL ID of the DNLIso.
    */
-  void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); }
+  void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONST1); }
   /**
    * \brief Add a DNLIso to the DNLIsoDB.
    * \return The added DNLIso.
    */
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
-  DNL<DNLInstance, DNLTerminal> dnl_;
+  const DNL<DNLInstance, DNLTerminal>& dnl_; // We keep the DNL const as we sometimes use a standalone treatDriver for complex iso
 };
 
 template <class DNLInstance, class DNLTerminal>
@@ -488,7 +555,7 @@ class DNL {
      * \param dnlIsoId The DNL ID of the DNLIso.
      * \param DNLIso The DNLIso to update.
    */
-  void getCustomIso(DNLID dnlIsoId, DNLIso& DNLIso) const;
+  void getCustomIso(DNLID dnlIsoId, DNLIso& iso) const;
   /**
    * \brief Get the DNLInstances of the DNL.
    * \return The DNLInstances of the DNL.

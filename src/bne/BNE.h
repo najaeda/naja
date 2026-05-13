@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "ActionTree.h"
 
 namespace naja::BNE {
@@ -26,13 +28,13 @@ class BNE {
   /**
    * \brief Add a drive with constant action to the BNE.
    * \param pathToDrive The context.
-   * \param termToDrive The term to drive.
+   * \param termToDrive Flat bit-term position in the instance model interface.
    * \param value The value to drive.
    */
   void addDriveWithConstantAction(
       const std::vector<NLID::DesignObjectID>& context,
       const NLID::DesignObjectID& pathToDrive,
-      const NLID::DesignObjectID& termToDrive,
+      size_t flatTermToDrive,
       const double& value,
       SNLBitTerm* topTermToDrive = nullptr);
   /**

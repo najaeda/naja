@@ -1,0 +1,132 @@
+name: External SV Simulation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  sv-external-sim:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      XPACK_RISCV_VERSION: 14.2.0-3
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq \
+            libboost-dev \
+            libcapnp-dev \
+            libfl-dev \
+            libtbb-dev \
+            capnproto
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyyaml fusesoc
+
+      - name: Install RISC-V newlib toolchain
+        run: |
+          archive="xpack-riscv-none-elf-gcc-${XPACK_RISCV_VERSION}-linux-x64.tar.gz"
+          url="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_RISCV_VERSION}/${archive}"
+          mkdir -p "${HOME}/.local/xpack-riscv-none-elf-gcc"
+          curl -L --fail --retry 3 --output "/tmp/${archive}" "${url}"
+          tar -xzf "/tmp/${archive}" -C "${HOME}/.local/xpack-riscv-none-elf-gcc" --strip-components=1
+          echo "${HOME}/.local/xpack-riscv-none-elf-gcc/bin" >> "${GITHUB_PATH}"
+          "${HOME}/.local/xpack-riscv-none-elf-gcc/bin/riscv-none-elf-gcc" --version
+          "${HOME}/.local/xpack-riscv-none-elf-gcc/bin/riscv-none-elf-gcc" \
+            -march=rv32imc_zicsr -mabi=ilp32 -print-file-name=libc.a
+
+      - name: Set up Verilator 5.046 wrapper
+        run: |
+          mkdir -p "${HOME}/.local/bin"
+          cat > "${HOME}/.local/bin/verilator" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${PWD}" \
+            verilator/verilator:v5.046 \
+            "$@"
+          EOF
+          chmod +x "${HOME}/.local/bin/verilator"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SANITIZERS=OFF \
+            -DLONG_TESTS=OFF \
+            -DPython3_EXECUTABLE=$(which python3)
+
+      - name: Build naja Python module
+        run: cmake --build ${{ github.workspace }}/build --target naja --config Release -j$(nproc)
+
+      - name: Prepare najaeda Python package for script execution
+        run: |
+          mkdir -p ${{ github.workspace }}/build/test/najaeda
+          cp -R \
+            ${{ github.workspace }}/src/najaeda/najaeda \
+            ${{ github.workspace }}/build/test/najaeda/
+          ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
+            ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
+
+      - name: Run external SV smoke simulations
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage github_sim
+
+      - name: Run Ibex helloworld simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case ibex \
+            --stage helloworld_sim \
+            --require-firmware-sim-tools
+
+      - name: Run Ibex extended simple-system diagnostics
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case ibex \
+            --stage ibex_pmp_sim \
+            --stage ibex_dit_sim \
+            --stage ibex_dummy_instr_sim \
+            --require-firmware-sim-tools
+
+      - name: Run CV32E40P helloworld simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cv32e40p \
+            --stage helloworld_sim \
+            --require-firmware-sim-tools
+
+      - name: Run CV32E40P extended example TB simulations
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cv32e40p \
+            --stage interrupt_sim \
+            --stage cv32e40p_hwlp_sim \
+            --require-firmware-sim-tools
+
+      - name: Upload external SV simulation artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sv-external-sim-artifacts
+          path: ${{ github.workspace }}/build/sv-regress

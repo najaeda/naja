@@ -23,14 +23,14 @@ if __name__ == '__main__':
     top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'vexriscv.v'))
     
     max_fanout = netlist.get_max_fanout()
-    print("max_fanout",max_fanout)
-    print(max_fanout[0])
+    logging.info(f"max_fanout {max_fanout}")
+    logging.info(f"{max_fanout[0]}")
     for terms in max_fanout[1]:
-        print(terms)
-        print("Fanout for terminal", terms[0],":")
+        logging.info(f"{terms}")
+        logging.info(f"Fanout for terminal {terms[0]}:")
         for attr in terms[0].get_instance().get_attributes():
-                print("   ", attr)
+                logging.info(f"   {attr}")
         for t in terms[1]:
-            print(t)
+            logging.info(f"{t}")
             for attr in t.get_instance().get_attributes():
-                print("   ", attr)
+                logging.info(f"   {attr}")

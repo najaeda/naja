@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
+#include <cstddef>
+
 #include "DNL.h"
 #include <unordered_map>
 #include "SNLTruthTable.h"
@@ -53,10 +55,10 @@ class ConstantPropagation {
   std::set<DNLID> constants0_;
   std::set<DNLID> constants1_;
   std::set<DNLID> partialConstantInstances_;
-  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, NLID::DesignObjectID, DNLID>>
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, size_t, DNLID>>
       constant0Readers_;
   std::vector<SNLBitTerm*> constant0TopReaders_;
-  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, NLID::DesignObjectID, DNLID>>
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, size_t, DNLID>>
       constant1Readers_;
   std::vector<std::tuple<std::vector<NLID::DesignObjectID>, std::vector<std::pair<NLID::DesignObjectID, int>>, DNLID>>
       partialConstantReaders_;

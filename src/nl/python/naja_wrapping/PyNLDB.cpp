@@ -15,6 +15,7 @@
 #include "NLDB.h"
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
+#include "SNLSVConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
@@ -243,6 +244,124 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   return PySNLDesign_Link(top);
 }
 
+PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+  PyObject* files = nullptr;
+  int keep_assigns = 1;  // Default: true
+  PyObject* elaborated_ast_json_path = nullptr;  // Optional: string
+  int pretty_print_elaborated_ast_json = 1;  // Default: true
+  int include_source_info_in_elaborated_ast_json = 1;  // Default: true
+  PyObject* flist = nullptr;  // Optional: string path passed as slang -f
+  PyObject* diagnostics_report_path = nullptr;  // Optional: string
+
+  static const char* const kwords[] = {
+    "files", "keep_assigns", "elaborated_ast_json_path",
+    "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
+    "diagnostics_report_path",
+    nullptr
+  };
+
+  if (not PyArg_ParseTupleAndKeywords(
+    args, kwargs, "O|pOppOO:NLDB.loadSystemVerilog",
+    const_cast<char**>(kwords),
+    &files, &keep_assigns, &elaborated_ast_json_path,
+    &pretty_print_elaborated_ast_json,
+    &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path)) {
+    setError("malformed NLDB loadSystemVerilog");
+    return nullptr;
+  }
+
+  if (not PyList_Check(files)) {
+    setError("malformed NLDB.loadSystemVerilog method");
+    return nullptr;
+  }
+
+  NLDB* db = self->object_;
+  SNLDesign* top = nullptr;
+  TRY
+  // SystemVerilog parsing elaborates designs into the DESIGN library.
+  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
+  if (designLibrary == nullptr) {
+    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+  }
+  SNLSVConstructor constructor(designLibrary);
+  SNLSVConstructor::ConstructOptions options;
+  options.prettyPrintElaboratedASTJson = pretty_print_elaborated_ast_json;
+  options.includeSourceInfoInElaboratedASTJson =
+    include_source_info_in_elaborated_ast_json;
+
+  if (elaborated_ast_json_path != nullptr &&
+      elaborated_ast_json_path != Py_None) {
+    if (not PyUnicode_Check(elaborated_ast_json_path)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: elaborated_ast_json_path must be a str, got: "
+          << getStringForPyObject(elaborated_ast_json_path);
+      setError(oss.str());
+      return nullptr;
+    }
+    options.elaboratedASTJsonPath =
+      std::filesystem::path(PyUnicode_AsUTF8(elaborated_ast_json_path));
+  }
+  if (diagnostics_report_path != nullptr &&
+      diagnostics_report_path != Py_None) {
+    if (not PyUnicode_Check(diagnostics_report_path)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: diagnostics_report_path must be a str, got: "
+          << getStringForPyObject(diagnostics_report_path);
+      setError(oss.str());
+      return nullptr;
+    }
+    options.diagnosticsReportPath =
+      std::filesystem::path(PyUnicode_AsUTF8(diagnostics_report_path));
+  }
+
+  using Paths = std::vector<std::filesystem::path>;
+  Paths inputPaths;
+  if (flist != nullptr && flist != Py_None) {
+    if (not PyUnicode_Check(flist)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: flist must be a str, got: "
+          << getStringForPyObject(flist);
+      setError(oss.str());
+      return nullptr;
+    }
+    inputPaths.emplace_back(std::filesystem::path("-f"));
+    inputPaths.emplace_back(std::filesystem::path(PyUnicode_AsUTF8(flist)));
+  }
+  for (int i = 0; i < PyList_Size(files); ++i) {
+    PyObject* object = PyList_GetItem(files, i);
+    if (not PyUnicode_Check(object)) {
+      setError("NLDB loadSystemVerilog argument should be a file path");
+      return nullptr;
+    }
+    std::string pathStr = PyUnicode_AsUTF8(object);
+    const std::filesystem::path path(pathStr);
+    inputPaths.push_back(path);
+  }
+
+  try {
+    constructor.construct(inputPaths, options);
+  } catch (const std::exception& e) {
+    std::ostringstream error;
+    error << "Error while parsing SystemVerilog: ";
+    setError(error.str() + e.what());
+    return nullptr;
+  }
+
+  if (not keep_assigns) {
+    db->mergeAssigns();
+  }
+  top = SNLUtils::findTop(designLibrary);
+  if (top) {
+    NLUniverse::get()->setTopDesign(top);
+    NLUniverse::get()->setTopDB(top->getDB());
+  } else {
+    setError("No top design was found after parsing systemverilog");
+    return nullptr;
+  }
+  NLCATCH
+  return PySNLDesign_Link(top);
+}
+
 PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:NLDB.dumpVerilog", &arg)) {
@@ -311,6 +430,18 @@ PyMethodDef PyNLDB_Methods[] = {
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
+  { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
+    "create a design from SystemVerilog format.\n\n"
+    "Warning:\n"
+    "  SystemVerilog support is under active development and in early beta mode.\n\n"
+    "Args:\n"
+    "  files (list[str]): input SystemVerilog files\n"
+    "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
+    "  elaborated_ast_json_path (str, optional): dump Slang elaborated AST JSON to this path\n"
+    "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
+    "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
+    "  flist (str, optional): slang -f command file path\n"
+    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

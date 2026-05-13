@@ -35,6 +35,12 @@ void executeCommand(const std::string& command) {
   }
 }
 
+struct InterleavedInstanceData {
+  SNLDesign* model {};
+  SNLInstance* instance {};
+  std::vector<SNLScalarTerm*> inputs;
+};
+
 }
 
 using namespace naja;
@@ -83,7 +89,7 @@ TEST_F(ReductionOptTests, test) {
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
+  EXPECT_EQ(SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)), and2TruthTable);
 }
 
 TEST_F(ReductionOptTests, testTruthTablesMap) {
@@ -441,6 +447,86 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   printf("Netlist statistics: %s\n", netlistStats.getReport().c_str());
 }
 
+TEST_F(ReductionOptTests, testReduceTruthTableWithSparseDependencies) {
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* primitiveLibrary =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("testPrimitives"));
+  ASSERT_NE(nullptr, primitiveLibrary);
+  auto* designLibrary = NLLibrary::create(db, NLName("testLibrary"));
+  ASSERT_NE(nullptr, designLibrary);
+  auto* top = SNLDesign::create(designLibrary, NLName("top"));
+  ASSERT_NE(nullptr, top);
+
+  auto createInterleavedInstance =
+      [&](const std::string& name, size_t inputCount) -> InterleavedInstanceData {
+    auto* model = SNLDesign::create(
+        primitiveLibrary, SNLDesign::Type::Primitive, NLName(name));
+    std::vector<SNLScalarTerm*> inputs;
+    inputs.reserve(inputCount);
+    inputs.push_back(
+        SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("I0")));
+    auto* output =
+        SNLScalarTerm::create(model, SNLTerm::Direction::Output, NLName("O"));
+    (void)output;
+    for (size_t index = 1; index < inputCount; ++index) {
+      inputs.push_back(SNLScalarTerm::create(
+          model,
+          SNLTerm::Direction::Input,
+          NLName("I" + std::to_string(index))));
+    }
+    auto* instance = SNLInstance::create(top, model, NLName(name + "_inst"));
+    return {model, instance, inputs};
+  };
+
+  auto sparseDeps = [](const std::vector<SNLScalarTerm*>& inputs) {
+    std::vector<size_t> deps;
+    deps.reserve(inputs.size());
+    for (auto* input: inputs) {
+      deps.push_back(input->getFlatID());
+    }
+    return NLBitDependencies::encodeBits(deps);
+  };
+
+  auto maskData = createInterleavedInstance("mask_cell", 2);
+  auto maskDeps = sparseDeps(maskData.inputs);
+  EXPECT_FALSE(NLBitDependencies::isSimple(maskDeps));
+  SNLTruthTable sparseAnd2(2, 0b1000, maskDeps);
+  auto reducedMask = ReductionOptimization::reduceTruthTable(
+      maskData.instance, sparseAnd2, {{maskData.inputs.back()->getID(), 1}});
+  EXPECT_EQ(SNLTruthTable::Buf(), reducedMask);
+
+  auto genericData = createInterleavedInstance("generic_cell", 2);
+  auto genericDeps = sparseDeps(genericData.inputs);
+  EXPECT_FALSE(NLBitDependencies::isSimple(genericDeps));
+  SNLTruthTable sparseAndGeneric(
+      2, SNLTruthTable::GenericType::AND, genericDeps);
+  auto reducedGeneric = ReductionOptimization::reduceTruthTable(
+      genericData.instance,
+      sparseAndGeneric,
+      {{genericData.inputs.back()->getID(), 1}});
+  EXPECT_EQ(SNLTruthTable::Buf(), reducedGeneric);
+  reducedGeneric = ReductionOptimization::reduceTruthTable(
+      genericData.instance,
+      sparseAndGeneric,
+      {{genericData.inputs.front()->getID(), 0}});
+  EXPECT_EQ(SNLTruthTable::Logic0(), reducedGeneric);
+
+  auto vectorData = createInterleavedInstance("vector_cell", 7);
+  auto vectorDeps = sparseDeps(vectorData.inputs);
+  EXPECT_FALSE(NLBitDependencies::isSimple(vectorDeps));
+  std::vector<bool> and7Bits(1u << 7, false);
+  and7Bits.back() = true;
+  SNLTruthTable sparseAnd7(7, and7Bits, vectorDeps);
+  auto reducedVector = ReductionOptimization::reduceTruthTable(
+      vectorData.instance,
+      sparseAnd7,
+      {{vectorData.inputs.back()->getID(), 1}});
+  EXPECT_EQ(
+      SNLTruthTable(6, 1ULL << 63, SNLTruthTable::fullDependencies(6)),
+      reducedVector);
+}
+
 
 
 TEST_F(ReductionOptTests, test_bne) {
@@ -474,7 +560,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
+  EXPECT_EQ(SNLTruthTable(2, 0x8, SNLTruthTable::fullDependencies(2)), and2TruthTable);
 }
 
 TEST_F(ReductionOptTests, testTruthTablesMap_bne) {

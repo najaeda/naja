@@ -6,8 +6,10 @@
 *.swp
 *.DS_Store
 build
+build-*
 install
 venv
+.venv-sv-regress
 .vscode
 __pycache__
 src/apps/naja_edit/examples/**/*.log
@@ -26,3 +28,7 @@ src/apps/naja_edit/examples/addaccu/*.txt
 src/apps/naja_edit/examples/addaccu/*_snl
 src/apps/naja_edit/examples/test_args/top_out.v
 src/apps/naja_edit/examples/adder/verilator.done
+
+# regress: fetched external content
+regress/liberty/
+regress/designs/verilog/megaboom/sources/

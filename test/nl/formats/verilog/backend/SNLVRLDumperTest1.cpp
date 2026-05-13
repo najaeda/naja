@@ -6,11 +6,13 @@
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 #include "SNLVRLDumper.h"
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "SNLBundleTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -381,4 +383,65 @@ TEST_F(SNLVRLDumperTest1, test5) {
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest1, testReverseOrderedInstanceRangeUsesConcatenation) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top"));
+  ASSERT_TRUE(top);
+
+  auto data = SNLBusNet::create(top, 32, 0, NLName("data"));
+
+  auto model = SNLDesign::create(lib, NLName("wide_model"));
+  auto input = SNLBusTerm::create(model, SNLTerm::Direction::Input, 31, 0, NLName("i"));
+
+  auto instance = SNLInstance::create(top, model, NLName("reverse_instance"));
+  instance->setTermNet(input, 31, 0, data, 0, 31);
+
+  std::ostringstream stream;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top, stream);
+
+  auto dumped = stream.str();
+  EXPECT_EQ(std::string::npos, dumped.find(".i(data[0:31])"));
+  EXPECT_NE(std::string::npos, dumped.find(
+    ".i({data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], "
+    "data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], "
+    "data[16], data[17], data[18], data[19], data[20], data[21], data[22], data[23], "
+    "data[24], data[25], data[26], data[27], data[28], data[29], data[30], data[31]})"));
+}
+
+TEST_F(SNLVRLDumperTest1, testBundleTermsAreFlattenedInInterface) {
+  auto primitiveLibrary = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  ASSERT_NE(nullptr, primitiveLibrary);
+  auto bundlePrimitive = SNLDesign::create(
+    primitiveLibrary, SNLDesign::Type::Primitive, NLName("bundle_prim"));
+  ASSERT_NE(nullptr, bundlePrimitive);
+
+  SNLScalarTerm::create(bundlePrimitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto bundle = SNLBundleTerm::create(bundlePrimitive, SNLTerm::Direction::Input, NLName("D"));
+  ASSERT_NE(nullptr, bundle);
+  SNLScalarTerm::create(bundle, SNLTerm::Direction::Input, NLName("D0"));
+  SNLBusTerm::create(bundle, SNLTerm::Direction::Input, 1, 0, NLName("D1"));
+  SNLScalarTerm::create(bundlePrimitive, SNLTerm::Direction::Output, NLName("Q"));
+
+  std::ostringstream stream;
+  SNLVRLDumper dumper;
+  dumper.dumpLibrary(primitiveLibrary, stream);
+
+  const auto dumped = stream.str();
+  const auto ckPos = dumped.find("input CK");
+  const auto d0Pos = dumped.find("input D0");
+  const auto d1Pos = dumped.find("input [1:0] D1");
+  const auto qPos = dumped.find("output Q");
+
+  EXPECT_NE(std::string::npos, ckPos);
+  EXPECT_NE(std::string::npos, d0Pos);
+  EXPECT_NE(std::string::npos, d1Pos);
+  EXPECT_NE(std::string::npos, qPos);
+  EXPECT_LT(ckPos, d0Pos);
+  EXPECT_LT(d0Pos, d1Pos);
+  EXPECT_LT(d1Pos, qPos);
+  EXPECT_EQ(std::string::npos, dumped.find("input D,"));
 }

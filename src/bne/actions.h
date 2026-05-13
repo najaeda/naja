@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <vector>
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -60,12 +61,12 @@ class DriveWithConstantAction : public Action {
  public:
   DriveWithConstantAction(const std::vector<NLID::DesignObjectID>& context,
                           const NLID::DesignObjectID& pathToDrive,
-                          const NLID::DesignObjectID& termToDrive,
+                          size_t flatTermToDrive,
                           const double& value,
                           SNLBitTerm* topTermToDrive = nullptr)
       : Action(ActionType::DRIVE_WITH_CONSTANT),
         pathToDrive_(pathToDrive),
-        termToDrive_(termToDrive),
+        flatTermToDrive_(flatTermToDrive),
         value_(value),
         context_(context),
         topTermToDrive_(topTermToDrive) {}
@@ -79,13 +80,13 @@ class DriveWithConstantAction : public Action {
   const std::vector<NLID::DesignObjectID>& getContext() const override {
     return context_;
   }
-  const NLID::DesignObjectID& getTermToDrive() const { return termToDrive_; }
+  size_t getFlatTermToDrive() const { return flatTermToDrive_; }
   const SNLBitTerm* getTopTermToDrive() const { return topTermToDrive_; }
   // copy constructor
   DriveWithConstantAction(const DriveWithConstantAction& action)
       : Action(ActionType::DRIVE_WITH_CONSTANT),
         pathToDrive_(action.pathToDrive_),
-        termToDrive_(action.termToDrive_),
+        flatTermToDrive_(action.flatTermToDrive_),
         value_(action.value_),
         context_(action.context_),
         topTermToDrive_(action.topTermToDrive_) {}
@@ -95,7 +96,7 @@ class DriveWithConstantAction : public Action {
   void destroy() override { delete this; }
  private:
   NLID::DesignObjectID pathToDrive_;
-  NLID::DesignObjectID termToDrive_;
+  size_t flatTermToDrive_;
   double value_;
   std::vector<NLID::DesignObjectID> context_;
   SNLBitTerm* topTermToDrive_ = nullptr;

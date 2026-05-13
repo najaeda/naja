@@ -1,0 +1,45 @@
+library (test_gpio_bus_direction_bug) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit (1, ff);
+
+  type (bus_DRV_1_0) {
+    base_type : array;
+    data_type : bit;
+    bit_width : 2;
+    bit_from  : 1;
+    bit_to    : 0;
+    downto    : true;
+  }
+
+  cell (PADCELL_DRV_BUG) {
+    area : 100;
+    dont_touch : true;
+    dont_use : true;
+
+    pin (C) {
+      direction : input;
+      capacitance : 1.0;
+    }
+
+    bus (DRV) {
+      bus_type : bus_DRV_1_0;
+      pin (DRV[1]) {
+        direction : input;
+        capacitance : 5.0;
+      }
+      pin (DRV[0]) {
+        direction : input;
+        capacitance : 5.0;
+      }
+    }
+
+    pin (Y) {
+      direction : output;
+      function : "C";
+      max_capacitance : 100;
+    }
+  }
+}

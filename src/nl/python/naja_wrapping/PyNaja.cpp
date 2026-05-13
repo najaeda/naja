@@ -22,6 +22,7 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"
 #include "PySNLTermDirection.h"
+#include "PySNLBundleTerm.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
@@ -38,6 +39,7 @@
 #include "PySNLBitTerms.h"
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
+#include "PySNLBundleTerms.h"
 #include "PySNLNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLScalarNets.h"
@@ -171,15 +173,9 @@ static struct PyModuleDef najaModule = {
 
 PyMODINIT_FUNC PyInit_naja(void) {
   naja::log::initFromEnv();
-  if (const char* perfEnv = std::getenv("NAJA_PERF")) {
-    //LCOV_EXCL_START
-    std::string perfPath(perfEnv);
-    if (perfPath.empty() || perfPath == "1") {
-      perfPath = "naja_perf.log";
-    }
-    naja::NajaPerf::create(perfPath, "naja_python");
-    //LCOV_EXCL_STOP
-  }
+  naja::NajaPerf::create(
+    naja::NajaPerf::getLogPathFromEnv("NAJA_PERF", "naja_perf.log"),
+    "naja_python");
 
   PyNLUniverse_LinkPyType();
   PyNLDB_LinkPyType();
@@ -197,6 +193,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLNetComponent_LinkPyType ();
   PySNLTerm_LinkPyType();
   PySNLTermDirection_LinkPyType();
+  PySNLBundleTerm_LinkPyType();
   PySNLBusTerm_LinkPyType();
   PySNLBitTerm_LinkPyType();
   PySNLScalarTerm_LinkPyType();
@@ -218,6 +215,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLBitTerms_LinkPyType();
   PySNLScalarTerms_LinkPyType();
   PySNLBusTerms_LinkPyType();
+  PySNLBundleTerms_LinkPyType();
   PySNLNets_LinkPyType();
   PySNLBitNets_LinkPyType();
   PySNLScalarNets_LinkPyType();
@@ -245,6 +243,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY_SUB(SNLBusNetBit, SNLBitNet);
   PYTYPE_READY_SUB(SNLNetComponent, SNLDesignObject);
   PYTYPE_READY_SUB(SNLTerm, SNLNetComponent);
+  PYTYPE_READY_SUB(SNLBundleTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLBusTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLBitTerm, SNLTerm);
   PYTYPE_READY_SUB(SNLScalarTerm, SNLBitTerm);
@@ -273,6 +272,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLScalarTermsIterator);
   PYTYPE_READY(SNLBusTerms);
   PYTYPE_READY(SNLBusTermsIterator);
+  PYTYPE_READY(SNLBundleTerms);
+  PYTYPE_READY(SNLBundleTermsIterator);
   PYTYPE_READY(SNLNets);
   PYTYPE_READY(SNLNetsIterator);
   PYTYPE_READY(SNLBitNets);
@@ -315,6 +316,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLBusNetBit);
   PyModule_AddType(mod, &PyTypeSNLNetComponent);
   PyModule_AddType(mod, &PyTypeSNLTerm);
+  PyModule_AddType(mod, &PyTypeSNLBundleTerm);
   PyModule_AddType(mod, &PyTypeSNLBusTerm);
   PyModule_AddType(mod, &PyTypeSNLBitTerm);
   PyModule_AddType(mod, &PyTypeSNLScalarTerm);

@@ -1,0 +1,254 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "SNLScalarTerm.h"
+
+#include <sstream>
+
+#include "NajaLog.h"
+
+#include "NLException.h"
+
+#include "SNLBundleTerm.h"
+#include "SNLDesign.h"
+#include "SNLAttributes.h"
+#include "SNLMacros.h"
+#include "SNLUtils.h"
+
+namespace naja::NL {
+
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name):
+  super(),
+  design_(design),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name):
+  super(),
+  design_(design),
+  id_(id),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm::SNLScalarTerm(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm::SNLScalarTerm(SNLBundleTerm* bundleTerm, NLID::DesignObjectID id, Direction direction, const NLName& name):
+  super(),
+  design_(bundleTerm->getDesign()),
+  bundleTerm_(bundleTerm),
+  id_(id),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const NLName& name) {
+  preCreate(design, name);
+  SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
+  net->postCreateAndSetID();
+  return net;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name) {
+  preCreate(design, id, name);
+  SNLScalarTerm* net = new SNLScalarTerm(design, id, direction, name);
+  net->postCreate();
+  return net;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  SNLScalarTerm* term = new SNLScalarTerm(bundleTerm, direction, name);
+  term->postCreateAndSetID();
+  return term;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(
+  SNLBundleTerm* bundleTerm,
+  NLID::DesignObjectID id,
+  Direction direction,
+  const NLName& name) {
+  preCreate(bundleTerm, id, direction, name);
+  SNLScalarTerm* term = new SNLScalarTerm(bundleTerm, id, direction, name);
+  term->postCreate();
+  return term;
+}
+
+void SNLScalarTerm::preCreate(SNLDesign* design, const NLName& name) {
+  super::preCreate();
+  if (not design) {
+    throw NLException("malformed SNLScalarTerm creator with NULL design argument");
+  }
+  if (not name.empty() and design->getTerm(name)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm named: " + name.getString();
+    throw NLException(reason);
+  }
+}
+
+void SNLScalarTerm::preCreate(SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
+  preCreate(design, name);
+  if (design->getTerm(NLID::DesignObjectID(id))) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm with ID: " + std::to_string(id);
+    throw NLException(reason);
+  }
+}
+
+void SNLScalarTerm::preCreate(SNLBundleTerm* bundleTerm, Direction direction, const NLName& name) {
+  if (not bundleTerm) {
+    throw NLException("malformed SNLScalarTerm creator with NULL bundle argument");
+  }
+  auto* design = bundleTerm->getDesign();
+  preCreate(design, name);
+  if (bundleTerm->getDirection() != direction) {
+    throw NLException("cannot create SNLScalarTerm in SNLBundleTerm with different direction");
+  }
+  SNLTerm* lastTopLevelTerm = nullptr;
+  for (auto term: design->getTerms()) {
+    lastTopLevelTerm = term;
+  }
+  if (lastTopLevelTerm != bundleTerm) {
+    throw NLException("cannot create bundled SNLScalarTerm when bundle is not the last top-level term");
+  }
+}
+
+void SNLScalarTerm::preCreate(
+  SNLBundleTerm* bundleTerm,
+  NLID::DesignObjectID id,
+  Direction direction,
+  const NLName& name) {
+  preCreate(bundleTerm, direction, name);
+  if (bundleTerm->getDesign()->getTerm(id)) {
+    std::string reason = "SNLDesign " + bundleTerm->getDesign()->getString()
+      + " contains already a SNLScalarTerm with ID: " + std::to_string(id);
+    throw NLException(reason);
+  }
+}
+
+void SNLScalarTerm::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addTermAndSetID(this);
+}
+
+void SNLScalarTerm::postCreate() {
+  super::postCreate();
+  getDesign()->addTerm(this);
+}
+
+void SNLScalarTerm::commonPreDestroy() {
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
+  super::preDestroy();
+}
+
+void SNLScalarTerm::destroyFromDesign() {
+  getDesign()->terms_.erase(*this);
+  commonPreDestroy();
+  delete this;
+}
+
+void SNLScalarTerm::destroyFromBundle() {
+  getDesign()->removeTerm(this);
+  commonPreDestroy();
+  delete this;
+}
+
+void SNLScalarTerm::preDestroy() {
+  if (bundleTerm_) {
+    throw NLException("Cannot destroy a bundled SNLScalarTerm directly, destroy its SNLBundleTerm instead");
+  }
+  commonPreDestroy();
+  getDesign()->removeTerm(this);
+}
+
+SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
+  auto newScalarTerm = new SNLScalarTerm(design, id_, direction_, name_);
+  newScalarTerm->setFlatID(getFlatID());
+  SNLAttributes::cloneAttributes(this, newScalarTerm);
+  return newScalarTerm;
+}
+
+DESIGN_OBJECT_SET_NAME(SNLScalarTerm, Term, term)
+
+NLID SNLScalarTerm::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Term, id_, 0, 0);
+}
+
+NajaCollection<SNLBitTerm*> SNLScalarTerm::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLScalarTerm*>(this))).getParentTypeCollection<SNLBitTerm*>();
+}
+
+//LCOV_EXCL_START
+const char* SNLScalarTerm::getTypeName() const {
+  return "SNLScalarTerm";
+}
+//LCOV_EXCL_STOP
+ 
+//LCOV_EXCL_START
+std::string SNLScalarTerm::getString() const {
+  return SNLUtils::getNamedString(getName(), "term", getID());
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLScalarTerm::getDescription() const {
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName());
+  if (not isUnnamed()) {
+    stream << " " + getName().getString();
+  }
+  stream << " " << getID();
+  if (not getDesign()->isUnnamed()) {
+    stream << " " + getDesign()->getName().getString();
+  }
+  stream << " " << getDesign()->getID();
+  stream << ">";
+  return stream.str(); 
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+}
+//LCOV_EXCL_STOP
+
+bool SNLScalarTerm::deepCompare(const SNLNetComponent* other, std::string& reason) const {
+  const SNLScalarTerm* otherScalarTerm = dynamic_cast<const SNLScalarTerm*>(other);
+  if (not otherScalarTerm) {
+    //LCOV_EXCL_START
+    reason = "other term is not a SNLScalarTerm";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (direction_ != otherScalarTerm->direction_) {
+    //LCOV_EXCL_START
+    reason = "direction mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getID() != otherScalarTerm->getID()) {
+    //LCOV_EXCL_START
+    reason = "ID mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getFlatID() != otherScalarTerm->getFlatID()) {
+    //LCOV_EXCL_START
+    reason = "flatID mismatch between ";
+    reason += getString() + " FlatID: " + std::to_string(getFlatID());
+    reason += " and " + otherScalarTerm->getString();
+    reason += " FlatID: " + std::to_string(otherScalarTerm->getFlatID());
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  return SNLAttributes::compareAttributes(this, other, reason);
+}
+
+}  // namespace naja::NL

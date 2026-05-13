@@ -1,0 +1,9 @@
+library (example) {
+  cell ("cell_def") {
+    bundle (D) {
+      members (D0);
+      pin (D0) {
+      }
+    }
+  }
+}

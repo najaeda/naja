@@ -34,4 +34,4 @@ if __name__ == '__main__':
         if fanout > max_fanout:
             max_fanout = fanout
             
-    print(max_fanout)
+    logging.info(f"{max_fanout}")

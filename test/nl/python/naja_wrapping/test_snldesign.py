@@ -276,12 +276,12 @@ class SNLDesignTest(unittest.TestCase):
     o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
     self.assertEqual(None, design.getTruthTableByOutputID(o.getID()))
     # list of truth tables
-    tables = [1, 1]
+    tables = [2, 1]
     # set truth table for output
     design.setTruthTables(tables)
     
     # check truth table
-    self.assertEqual([1, 1], design.getTruthTableByOutputID(o.getID()))
+    self.assertEqual([2, 1], design.getTruthTableByOutputID(o.getID()))
 
   # testing setting truth table with more than 6 inputs
   def testTruthTableError(self):

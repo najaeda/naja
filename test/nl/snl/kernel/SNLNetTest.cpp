@@ -531,3 +531,18 @@ TEST_F(SNLNetTest, testRename) {
   //BusNetBit rename error
   EXPECT_THROW(net1->getBit(0)->setName(NLName("net0")), NLException);
 }
+
+TEST_F(SNLNetTest, testGetStringUnnamedFallback) {
+  auto scalarNet = SNLScalarNet::create(design_);
+  auto busNet = SNLBusNet::create(design_, 3, 0);
+
+  EXPECT_EQ("<net:0>", scalarNet->getString());
+  EXPECT_EQ("<net:1>[3:0]", busNet->getString());
+  EXPECT_EQ("<net:1>[2]", busNet->getBit(2)->getString());
+
+  scalarNet->setName(NLName("n0"));
+  busNet->setName(NLName("bus"));
+  EXPECT_EQ("n0", scalarNet->getString());
+  EXPECT_EQ("bus[3:0]", busNet->getString());
+  EXPECT_EQ("bus[2]", busNet->getBit(2)->getString());
+}

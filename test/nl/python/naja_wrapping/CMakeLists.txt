@@ -2,8 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+if(NOT NAJA_PYTHON_EXECUTABLE)
+  message(FATAL_ERROR "NAJA_PYTHON_EXECUTABLE is not set")
+endif()
+
 add_test(NAME naja-python-tests
-  COMMAND Python3::Interpreter -m unittest discover -v ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND "${NAJA_PYTHON_EXECUTABLE}" -m unittest discover -v ${CMAKE_CURRENT_SOURCE_DIR}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 

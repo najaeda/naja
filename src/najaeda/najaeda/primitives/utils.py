@@ -2,7 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from najaeda import naja
+try:
+    from najaeda import naja
+except ImportError:  # pragma: no cover
+    import naja
 
 
 def constructSequentialPrimitive(design, clk):

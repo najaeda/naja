@@ -75,12 +75,18 @@ The workflow for `naja_edit` is outlined in the schema below. It's important to 
 
 ### Workflow Details
 
-- **Input/Output format**: Supports structural (gate-level) Verilog and [SNL Interchange Format](#snl-interchange-format).
+- **Input/Output format**: Supports structural (gate-level) Verilog, SystemVerilog and [SNL Interchange Format](#snl-interchange-format).
+  SystemVerilog parsing in `naja_edit` is experimental and currently under active development.
 Convert netlists between formats by specifying the input (`-f`) and output (`-t`) options.
 
 ```bash
 #translation from verilog to SNL
 naja_edit -f verilog -t snl -i input.v -o output.snl
+```
+
+```bash
+#translation from SystemVerilog to Verilog with explicit top selection
+naja_edit -f systemverilog -t verilog -i input.sv -o output.v --sv_top top
 ```
 
 - **Python Netlist Manipulation/Editing**: Leverage the [SNL Python API](#python)
