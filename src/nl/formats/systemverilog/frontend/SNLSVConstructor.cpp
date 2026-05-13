@@ -7537,6 +7537,38 @@ endmodule
         }
       }
 
+      // Check the active procedural replay env for locally-tracked constant
+      // values.  Handles automatic local variables (e.g. idx_base, shift in
+      // PLRU trees) whose values are compile-time constants within a loop
+      // iteration but are not recognized by Slang's static constant folder.
+      // Only accepted when ALL replay bits have a constant (Assign0/Assign1)
+      // type — never when a mux gate or signal bit is in the replay vector.
+      if (activeProceduralReplayEnv_ &&
+          slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        const auto& replaySym =
+          stripped->as<slang::ast::ValueExpressionBase>().symbol;
+        auto replayFound = activeProceduralReplayEnv_->find(&replaySym);
+        if (replayFound != activeProceduralReplayEnv_->end() &&
+            !replayFound->second.empty() &&
+            replayFound->second.size() <= 64) {
+          bool allConst = true;
+          int64_t intVal = 0;
+          for (size_t rk = 0; rk < replayFound->second.size(); ++rk) {
+            const auto* rbit = replayFound->second[rk];
+            if (rbit && rbit->isConstant1()) {
+              intVal |= (int64_t(1) << static_cast<int>(rk));
+            } else if (!rbit || !rbit->isConstant0()) {
+              allConst = false;
+              break;
+            }
+          }
+          if (allConst) {
+            value = intVal;
+            return true;
+          }
+        }
+      }
+
       const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
       const slang::ConstantValue* directConstant =
         containsActiveLoopVariable ? nullptr : expr.getConstant();
@@ -7990,7 +8022,37 @@ endmodule
             std::vector<SNLBitNet*> memberBits;
             if (!resolveExpressionBits(design, *setter.expr, memberWidth, memberBits) ||
                 memberBits.size() != memberWidth) {
-              return std::nullopt;
+              // resolveExpressionBits may decline user-defined function calls
+              // (e.g. get_hpdcache_mem_size(param/8)) even when the argument is
+              // a compile-time constant.  Try a compilation-root EvalContext as
+              // a last resort — only accept unambiguous integer results.
+              memberBits.clear();
+              bool memberResolved = false;
+              if (compilation_) {
+                auto compUnits = compilation_->getCompilationUnits();
+                if (!compUnits.empty()) {
+                  slang::ast::EvalContext rootEvalContext(*compUnits[0]);
+                  auto constVal = setter.expr->eval(rootEvalContext);
+                  if (constVal && constVal.isInteger() &&
+                      !constVal.integer().hasUnknown()) {
+                    const auto& intVal = constVal.integer();
+                    const auto intWidth =
+                      static_cast<size_t>(intVal.getBitWidth());
+                    memberBits.reserve(memberWidth);
+                    for (size_t i = 0; i < memberWidth; ++i) {
+                      bool one =
+                        (i < intWidth) &&
+                        static_cast<bool>(intVal[static_cast<int32_t>(i)]);
+                      memberBits.push_back(
+                        static_cast<SNLBitNet*>(getConstNet(design, one)));
+                    }
+                    memberResolved = true;
+                  }
+                }
+              }
+              if (!memberResolved) {
+                return std::nullopt;
+              }
             }
 
             const auto offset = static_cast<size_t>(field.bitOffset);
@@ -14497,6 +14559,9 @@ endmodule
       if (!extractAssignment(*current, lhsExpr, action)) {
         return; // LCOV_EXCL_LINE: non-assignment statements are filtered before dependency collection.
       }
+      // Save the raw LHS before stripping to root so we can collect index
+      // symbols from selections like arr[idx].
+      const Expression* rawLhsExpr = lhsExpr;
       lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
       if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
         return;
@@ -14513,6 +14578,36 @@ endmodule
       }
       if (action.stepDelta != 0 || action.compoundOp) {
         deps.insert(lhsSymbol);
+      }
+      // Collect symbols used as index expressions in the LHS selection chain
+      // (e.g. for arr[idx_base+(i>>shift)]=v, add idx_base and shift).
+      // Without this, those locals wouldn't be in replaySymbols for arr's
+      // tracking pass and could not be evaluated as constants.
+      {
+        const auto* walking =
+          rawLhsExpr ? stripConversions(*rawLhsExpr) : nullptr;
+        const auto* root =
+          lhsExpr ? stripConversions(*lhsExpr) : nullptr;
+        while (walking && walking != root) {
+          if (walking->kind == slang::ast::ExpressionKind::ElementSelect) {
+            const auto& elemSel =
+              walking->as<slang::ast::ElementSelectExpression>();
+            collectExpressionRootValueSymbols(elemSel.selector(), deps);
+            walking = stripConversions(elemSel.value());
+          } else if (walking->kind == slang::ast::ExpressionKind::RangeSelect) {
+            const auto& rangeSel =
+              walking->as<slang::ast::RangeSelectExpression>();
+            collectExpressionRootValueSymbols(rangeSel.left(), deps);
+            collectExpressionRootValueSymbols(rangeSel.right(), deps);
+            walking = stripConversions(rangeSel.value());
+          } else if (walking->kind ==
+                     slang::ast::ExpressionKind::MemberAccess) {
+            walking = stripConversions(
+              walking->as<slang::ast::MemberAccessExpression>().value());
+          } else {
+            break;
+          }
+        }
       }
     }
 
@@ -17376,6 +17471,21 @@ endmodule
         }
         if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
           return true; // LCOV_EXCL_LINE
+        }
+        // Automatic local variables (e.g. idx_base, shift declared inside
+        // for-loop bodies) are purely loop-iteration intermediates: they are
+        // not design outputs and must not become tracked LHS targets.
+        // Their values are captured in the replay env of the enclosing
+        // tracked symbol's pass.
+        if (trackAlwaysCombDynamicLHS && lhsExpr) {
+          const slang::ast::ValueSymbol* autoSym = nullptr;
+          if (tryGetRootValueSymbolReference(*lhsExpr, autoSym) &&
+              autoSym &&
+              autoSym->kind == slang::ast::SymbolKind::Variable &&
+              autoSym->as<slang::ast::VariableSymbol>().lifetime ==
+                slang::ast::VariableLifetime::Automatic) {
+            return true;
+          }
         }
         if (trackAlwaysCombDynamicLHS) {
           appendTrackedSelectionLHS(lhsExpr, lhsExpressions);
