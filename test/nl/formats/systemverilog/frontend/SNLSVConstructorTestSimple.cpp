@@ -25553,6 +25553,58 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   EXPECT_GT(faCount, 0u);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAlignDownMultiplySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_align_down_multiply_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_align_down_multiply_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_align_down_multiply_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       en_i,
+  input  logic [2:0] word_i,
+  output logic [2:0] word_q
+);
+  typedef logic [2:0] word_t;
+  typedef logic unsigned [2:0] uint_t;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      word_q <= '0;
+    end else if (en_i) begin
+      word_q <= word_t'((uint_t'(word_i) / 3'd2) * 3'd2);
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_align_down_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffreModel || inst->getModel() == dffrnModel) {
+      ++flopCount;
+    }
+  }
+  EXPECT_EQ(3u, flopCount);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
