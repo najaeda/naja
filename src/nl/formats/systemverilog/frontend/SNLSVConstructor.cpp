@@ -15391,7 +15391,9 @@ endmodule
           // the LHS signals retain whatever values they had before the loop.
           // Emit a warning so the caller knows something was skipped, but do
           // NOT propagate the failure — doing so would abort the whole block.
-          failureReason = stopFailureReason;
+          // Also do NOT set failureReason here: returning true with a non-empty
+          // failureReason is an inconsistent state that causes callers to take
+          // a fallback path and generate duplicate (MULTIDRIVEN) assignments.
           popBreakContext();
           return true;  // zero-iteration skip, not a hard failure
         }
