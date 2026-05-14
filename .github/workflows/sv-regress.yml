@@ -36,6 +36,9 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
 
+      - name: Install bender
+        run: cargo install bender
+
       - name: Configure CMake
         run: |
           cmake -B ${{ github.workspace }}/build \
@@ -58,6 +61,9 @@ jobs:
 
       - name: Run external SV regress lint
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage lint
+
+      - name: Run AXI cut regress (lint + simulation)
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case axi
 
       - name: Run large external SV load and dump checks
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case black_parrot --case cva6 --stage load_dump

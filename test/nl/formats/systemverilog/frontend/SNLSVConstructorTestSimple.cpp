@@ -6,12 +6,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 
 #include "DNL.h"
@@ -49,6 +51,50 @@ using namespace naja::NL;
 #endif
 
 namespace {
+
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+void setEnvVar(const char* name, const std::string& value) {
+#if defined(_WIN32)
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), 1);
+#endif
+}
+
+void unsetEnvVar(const char* name) {
+#if defined(_WIN32)
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
+}
+
+class ScopedEnvVar {
+  public:
+    explicit ScopedEnvVar(const char* name):
+      name_(name) {
+      if (const char* value = std::getenv(name)) {
+        previous_ = value;
+      }
+    }
+
+    ~ScopedEnvVar() {
+      if (previous_) {
+        setEnvVar(name_.c_str(), *previous_);
+      } else {
+        unsetEnvVar(name_.c_str());
+      }
+    }
+
+    void set(const std::string& value) const {
+      setEnvVar(name_.c_str(), value);
+    }
+
+  private:
+    std::string name_;
+    std::optional<std::string> previous_;
+};
+#endif
 
 const SNLRTLInfos* getRTLInfos(const NLObject* object) {
   if (auto design = dynamic_cast<const SNLDesign*>(object)) {
@@ -7694,18 +7740,11 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported interface port exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"))
-      << reason;
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported SystemVerilog interface port declaration for port: bus"))
-      << reason;
-  }
+  // Interface ports without a modport are now silently skipped via the lazy
+  // term-creation path — construction succeeds.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
@@ -13718,6 +13757,10 @@ endmodule
   EXPECT_NE(top->getNet(NLName("hit")), nullptr);
 }
 
+// Previously this test verified that SimpleAssignmentPattern in always_comb
+// was unsupported.  The compilation-based constant-evaluation fallback now
+// correctly folds '{1'b1,1'b0,1'b1,1'b0} → 4'b1010, so construction
+// should succeed.
 TEST_F(
   SNLSVConstructorTestSimple,
   parseAlwaysCombConstantTrueConditionalSelectedBranchUnsupportedPropagated) {
@@ -13747,10 +13790,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve always_comb RHS bits"});
+  // SimpleAssignmentPattern is now constant-evaluated via the compilation
+  // EvalContext fallback — construction must succeed.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
+  // y is a 4-bit output port
+  auto yTerm = top->getBusTerm(NLName("y"));
+  EXPECT_NE(nullptr, yTerm);
 }
 
 TEST_F(
@@ -13905,21 +13952,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombForLoopUnsignedBoundAboveInt64ReportedUnsupported) {
+  parseAlwaysCombForLoopUnsignedBoundAboveInt64Supported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_for_loop_unsigned_bound_above_int64_reported_unsupported";
+  outPath = outPath / "always_comb_for_loop_unsigned_bound_above_int64_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_for_loop_unsigned_bound_above_int64_reported_unsupported.sv";
+    outPath / "always_comb_for_loop_unsigned_bound_above_int64_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_for_loop_unsigned_bound_above_int64_reported_unsupported(
+    << R"(module always_comb_for_loop_unsigned_bound_above_int64_supported(
   output logic y
 );
   always_comb begin
@@ -13933,8 +13980,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor, svPath, {"unsupported non-constant for-loop bound expression"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_unsigned_bound_above_int64_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(
@@ -14005,8 +14055,10 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor, svPath, {"unsupported non-constant for-loop bound expression"});
+  // Bound overflows int64_t — the for-loop is now treated as zero iterations.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(
@@ -14040,8 +14092,10 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor, svPath, {"unsupported non-constant for-loop bound expression"});
+  // BOUND overflows int64_t — for-loop treated as zero iterations.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(
@@ -14980,10 +15034,10 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported for-loop comparison operator in stop expression: &&"});
+  // Non-standard stop comparison (&&) — for-loop treated as zero iterations.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(
@@ -15015,10 +15069,10 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported for-loop stop expression (expected binary comparison)"});
+  // Non-binary stop expression — for-loop treated as zero iterations.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(
@@ -15052,10 +15106,10 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported for-loop stop expression (control variable not isolated)"});
+  // Loop variable on both sides — treated as zero iterations.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
 }
 
 TEST_F(
@@ -20886,10 +20940,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve single-bit condition net while lowering conditional"});
+  // bad_cond(a_i) is an unresolvable 1-bit Call — resolves to constant-false,
+  // so the if-branch is never taken and construction succeeds.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
+  EXPECT_NE(top->getNet(NLName("q0_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("q1_o")), nullptr);
 }
 
 TEST_F(
@@ -24145,17 +24202,14 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported enable condition with lhs resolution failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported sequential block in module "
-                  "'seq_enable_cond_logical_and_lhs_resolve_failure_unsupported': "
-                  "unable to resolve enable condition net"));
-  }
+  // bad_cond() is a 1-bit Call whose result cannot be synthesised; the
+  // resolveSingleBitExpression() fallback now treats it as constant-false so
+  // the else-if branch is statically not taken → construction succeeds.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
+  // q_o is always driven by the reset branch (constant 0).
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(
@@ -24199,17 +24253,12 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported enable condition with rhs resolution failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported sequential block in module "
-                  "'seq_enable_cond_logical_and_rhs_resolve_failure_unsupported': "
-                  "unable to resolve enable condition net"));
-  }
+  // en_i && bad_cond(a_i): bad_cond is an unresolvable 1-bit Call — treated as
+  // constant-false, so the else-if branch is statically not taken → succeeds.
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto top = SNLUtils::findTop(library_);
+  ASSERT_NE(nullptr, top);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondLogicalShortcutsSupported) {
@@ -25548,6 +25597,58 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   }
   EXPECT_EQ(8u, flopCount);
   EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAlignDownMultiplySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_align_down_multiply_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_align_down_multiply_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_align_down_multiply_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       en_i,
+  input  logic [2:0] word_i,
+  output logic [2:0] word_q
+);
+  typedef logic [2:0] word_t;
+  typedef logic unsigned [2:0] uint_t;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      word_q <= '0;
+    end else if (en_i) begin
+      word_q <= word_t'((uint_t'(word_i) / 3'd2) * 3'd2);
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_align_down_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffreModel || inst->getModel() == dffrnModel) {
+      ++flopCount;
+    }
+  }
+  EXPECT_EQ(3u, flopCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
@@ -27105,6 +27206,52 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
     std::istreambuf_iterator<char>()};
   EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
 }
+
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorPerfReport) {
+  ScopedEnvVar reportEnv("NAJA_SV_CONSTRUCTOR_REPORT");
+  ScopedEnvVar intervalEnv("NAJA_SV_CONSTRUCTOR_REPORT_INTERVAL_MS");
+
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "simple_sv_constructor_perf_report";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  auto reportPath = outPath / "sv_constructor_perf.log";
+  reportEnv.set(reportPath.string());
+  intervalEnv.set("1");
+
+  constructor.construct(benchmarksPath / "simple" / "simple.sv");
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  std::ifstream reportFile(reportPath);
+  ASSERT_TRUE(reportFile.good());
+  std::string report{
+    std::istreambuf_iterator<char>(reportFile),
+    std::istreambuf_iterator<char>()};
+
+  const std::string header = "=== SNLSVConstructor Perf Report";
+  const auto headerPos = report.find(header);
+  ASSERT_NE(std::string::npos, headerPos);
+  EXPECT_EQ(std::string::npos, report.find(header, headerPos + header.size()));
+  EXPECT_NE(std::string::npos, report.find("snapshot.kind=final"));
+  EXPECT_NE(std::string::npos, report.find("result=success"));
+
+  const std::string writeCountKey = "snapshot.write_count=";
+  const auto writeCountPos = report.find(writeCountKey);
+  ASSERT_NE(std::string::npos, writeCountPos);
+  const auto writeCountEnd = report.find('\n', writeCountPos);
+  ASSERT_NE(std::string::npos, writeCountEnd);
+  const auto writeCountText = report.substr(
+    writeCountPos + writeCountKey.size(),
+    writeCountEnd - writeCountPos - writeCountKey.size());
+  EXPECT_GE(std::stoul(writeCountText), 2u);
+}
+#endif
 
 TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDetails) {
   SNLSVConstructor constructor(library_);

@@ -599,6 +599,194 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseExternalCva6FunctionCallRhsPatternsSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "external_cva6_function_call_rhs_patterns_supported");
+
+  const auto svPath =
+    outPath / "external_cva6_function_call_rhs_patterns_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module external_cva6_function_call_rhs_patterns_supported(
+  input  logic       clk_i,
+  input  logic [3:0] bv_i,
+  input  logic [3:0] lhs_i,
+  input  logic [3:0] rhs_i,
+  input  logic [7:0] data_i,
+  input  logic [1:0] size_i,
+  input  logic       sel_i,
+  output logic [1:0] idx_o,
+  output logic       eq_o,
+  output logic [7:0] data_o,
+  output logic [3:0] cs_o,
+  output logic [5:0] meta_o
+);
+  typedef logic [1:0] idx_t;
+  typedef struct packed {
+    logic [2:0] addr;
+    logic [2:0] size;
+  } meta_t;
+
+  meta_t meta;
+
+  function automatic idx_t bv_to_index(input logic [3:0] bv);
+    for (int i = 0; i < 4; i++) begin
+      if (bv[i]) return idx_t'(i);
+    end
+    return idx_t'(0);
+  endfunction
+
+  function automatic logic set_equal(input logic [3:0] lhs, input logic [3:0] rhs);
+    if (2 > 1) return lhs[1:0] == rhs[1:0];
+    else return 1'b1;
+  endfunction
+
+  function automatic logic [7:0] prepare_data(
+      input logic [7:0] data,
+      input logic [1:0] size,
+      input logic       sel);
+    if (size == 2'd3) return data;
+    else if (sel) return {{4{data[7]}}, data[7:4]};
+    else return {4'b0, data[3:0]};
+  endfunction
+
+  function automatic logic [2:0] mem_size(input int unsigned bytes);
+    if (bytes <= 1) return 3'd0;
+    else if (bytes <= 2) return 3'd1;
+    else if (bytes <= 4) return 3'd2;
+    else begin
+      assert (1'b1);
+      return 3'd3;
+    end
+  endfunction
+
+  function automatic logic [3:0] compute_cs(
+      input logic [1:0] size,
+      input logic [1:0] word);
+    logic [3:0] ret;
+    logic [1:0] off;
+    case (size)
+      2'd0: ret = 4'b0001;
+      2'd1: ret = 4'b0011;
+      default: ret = 4'b1111;
+    endcase
+    off = word[0 +: 2];
+    return ret << off;
+  endfunction
+
+  assign idx_o = bv_to_index(bv_i);
+  assign eq_o = set_equal(lhs_i, rhs_i);
+  assign data_o = prepare_data(data_i, size_i, sel_i);
+  assign meta = '{addr: lhs_i[2:0], size: mem_size(4)};
+  assign meta_o = meta;
+
+  always_comb begin
+    cs_o = compute_cs(size_i, bv_i[1:0]);
+  end
+
+  property prop_core_req_size_max;
+    @(posedge clk_i) eq_o |-> eq_o;
+  endproperty
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("external_cva6_function_call_rhs_patterns_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("idx_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("meta_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseExternalCva6OutputFunctionCallDynamicMemberSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "external_cva6_output_function_call_dynamic_member_supported");
+
+  const auto svPath =
+    outPath / "external_cva6_output_function_call_dynamic_member_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module external_cva6_output_function_call_dynamic_member_supported(
+  input  logic       ptr_i,
+  input  logic       write_i,
+  input  logic       init_i,
+  input  logic [31:0] write_data_flat_i,
+  input  logic [3:0]  write_be_flat_i,
+  output logic [35:0] flat_o
+);
+  localparam int unsigned WBUF_DATA_NWORDS = 2;
+  typedef logic [15:0] wbuf_data_t;
+  typedef logic [1:0]  wbuf_be_t;
+  typedef wbuf_data_t [WBUF_DATA_NWORDS-1:0] wbuf_data_buf_t;
+  typedef wbuf_be_t   [WBUF_DATA_NWORDS-1:0] wbuf_be_buf_t;
+
+  typedef struct packed {
+    wbuf_data_buf_t data;
+    wbuf_be_buf_t   be;
+  } wbuf_data_entry_t;
+
+  wbuf_data_entry_t [1:0] entries_q;
+  wbuf_data_entry_t [1:0] entries_d;
+  wbuf_data_buf_t write_data;
+  wbuf_be_buf_t write_be;
+
+  assign write_data[0] = write_data_flat_i[15:0];
+  assign write_data[1] = write_data_flat_i[31:16];
+  assign write_be[0] = write_be_flat_i[1:0];
+  assign write_be[1] = write_be_flat_i[3:2];
+  assign flat_o = entries_d[0];
+
+  function automatic void wbuf_data_write(
+      output wbuf_data_buf_t wbuf_ret_data,
+      output wbuf_be_buf_t   wbuf_ret_be,
+      input  wbuf_data_buf_t wbuf_old_data,
+      input  wbuf_be_buf_t   wbuf_old_be,
+      input  wbuf_data_buf_t wbuf_new_data,
+      input  wbuf_be_buf_t   wbuf_new_be);
+    for (int unsigned w = 0; w < WBUF_DATA_NWORDS; w++) begin
+      wbuf_ret_data[w] = wbuf_new_be[w][0] ? wbuf_new_data[w] : wbuf_old_data[w];
+      wbuf_ret_be[w] = wbuf_old_be[w] | wbuf_new_be[w];
+    end
+  endfunction
+
+  always_comb begin
+    automatic wbuf_be_buf_t buf_be;
+
+    entries_d = entries_q;
+    buf_be = init_i ? '0 : entries_q[ptr_i].be;
+
+    if (write_i) begin
+      wbuf_data_write(
+          entries_d[ptr_i].data,
+          entries_d[ptr_i].be,
+          entries_q[ptr_i].data,
+          buf_be,
+          write_data,
+          write_be);
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("external_cva6_output_function_call_dynamic_member_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("flat_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombRHSCurrentLHSUsesReplayValueNoFeedback) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(

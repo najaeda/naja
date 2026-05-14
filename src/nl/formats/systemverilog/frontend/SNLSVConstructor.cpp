@@ -29,6 +29,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "NajaLog.h"
 #include "NajaPerf.h"
@@ -85,6 +86,7 @@
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/Diagnostics.h"
 #include "slang/driver/Driver.h"
+#include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
@@ -120,21 +122,23 @@ std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation
 std::optional<std::string> getCompilationFailureDetails(
   slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
-  bool hasError = false;
+  // Collect only error-level (and above) diagnostics so the failure message
+  // is actionable.  Warnings are reported separately via the diagnostics
+  // report dump and should not pollute the exception text.
+  slang::Diagnostics errors;
   for (const auto& diag : diags) {
     if (diag.isError()) {
-      hasError = true;
-      break;
+      errors.push_back(diag);
     }
   }
-  if (!hasError) {
+  if (errors.empty()) {
     return std::nullopt;
   }
 
   std::ostringstream reason;
   reason << "SystemVerilog compilation failed";
   if (const auto* sourceManager = compilation.getSourceManager()) {
-    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, diags);
+    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, errors);
     if (!details.empty()) {
       reason << ":\n" << details;
     }
@@ -465,9 +469,21 @@ class SNLSVConstructorImpl {
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     struct SVPerfReport {
+      struct ActiveTimer {
+        std::chrono::nanoseconds* bucket {nullptr};
+        std::chrono::steady_clock::time_point start {};
+      };
+
       bool enabled {false};
       std::filesystem::path reportPath {};
       std::chrono::steady_clock::time_point constructStart {};
+      std::chrono::steady_clock::time_point lastSnapshotWrite {};
+      std::chrono::milliseconds snapshotInterval {5000};
+      std::vector<ActiveTimer> activeTimers {};
+      size_t snapshotWriteCount {0};
+      size_t progressEventsSinceSnapshotCheck {0};
+      bool snapshotWriteInProgress {false};
+      bool writeWarningEmitted {false};
 
       std::chrono::nanoseconds constructDuration {0};
       std::chrono::nanoseconds parseDuration {0};
@@ -530,12 +546,21 @@ class SNLSVConstructorImpl {
           bucket_((report.enabled) ? &bucket : nullptr) {
           if (report_) {
             start_ = std::chrono::steady_clock::now();
+            report_->activeTimers.push_back({bucket_, start_});
           }
         }
 
         ~SVPerfScopedTimer() {
           if (report_) {
             *bucket_ += std::chrono::steady_clock::now() - start_;
+            auto& activeTimers = report_->activeTimers;
+            for (auto it = activeTimers.end(); it != activeTimers.begin();) {
+              --it;
+              if (it->bucket == bucket_ && it->start == start_) {
+                activeTimers.erase(it);
+                break;
+              }
+            }
           }
         }
 
@@ -544,6 +569,20 @@ class SNLSVConstructorImpl {
         std::chrono::nanoseconds* bucket_ {nullptr};
         std::chrono::steady_clock::time_point start_ {};
     };
+
+    std::chrono::milliseconds getSVPerfSnapshotInterval() const {
+      const char* intervalEnv = std::getenv("NAJA_SV_CONSTRUCTOR_REPORT_INTERVAL_MS");
+      if (!intervalEnv || !*intervalEnv) {
+        return std::chrono::milliseconds(5000);
+      }
+
+      char* end = nullptr;
+      const auto parsed = std::strtoll(intervalEnv, &end, 10);
+      if (end == intervalEnv || *end != '\0' || parsed < 0) {
+        return std::chrono::milliseconds(5000);
+      }
+      return std::chrono::milliseconds(parsed);
+    }
 
     void initializeSVPerfReport(const SNLSVConstructor::Paths& paths) {
       svPerfReport_ = SVPerfReport {};
@@ -560,16 +599,21 @@ class SNLSVConstructorImpl {
       svPerfReport_.enabled = true;
       svPerfReport_.reportPath = reportPath;
       svPerfReport_.constructStart = std::chrono::steady_clock::now();
+      svPerfReport_.snapshotInterval = getSVPerfSnapshotInterval();
       svPerfReport_.inputPathCount = paths.size();
     }
 
-    void finalizeSVPerfReport() {
-      if (!svPerfReport_.enabled) {
+    void warnSVPerfReportWriteFailure(const std::string& details) const {
+      if (svPerfReport_.writeWarningEmitted) {
         return;
       }
+      svPerfReport_.writeWarningEmitted = true;
+      NAJA_LOG_WARN("Unable to write SV constructor performance report: {}", details);
+    }
 
-      svPerfReport_.constructDuration =
-        std::chrono::steady_clock::now() - svPerfReport_.constructStart;
+    void refreshSVPerfReportSnapshotCounters(
+      std::chrono::steady_clock::time_point steadyNow) const {
+      svPerfReport_.constructDuration = steadyNow - svPerfReport_.constructStart;
       svPerfReport_.warningCount = warnings_.size();
       svPerfReport_.unsupportedCount = unsupportedElements_.size();
       if (svPerfReport_.firstWarning.empty() && !warnings_.empty()) {
@@ -578,14 +622,40 @@ class SNLSVConstructorImpl {
       if (svPerfReport_.firstUnsupported.empty() && !unsupportedElements_.empty()) {
         svPerfReport_.firstUnsupported = unsupportedElements_.front();
       }
+    }
 
-      std::ofstream output(
-        svPerfReport_.reportPath,
-        std::ios::out | std::ios::app);
+    void writeSVPerfReportSnapshot(
+      bool finalSnapshot,
+      std::chrono::steady_clock::time_point steadyNow) const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotWriteInProgress) {
+        return;
+      }
+
+      svPerfReport_.snapshotWriteInProgress = true;
+      const auto writeGuard = slang::ScopeGuard([&]() {
+        svPerfReport_.snapshotWriteInProgress = false;
+      });
+
+      refreshSVPerfReportSnapshotCounters(steadyNow);
+
+      const auto durationWithActiveTimers =
+        [&](const std::chrono::nanoseconds& bucket) {
+        auto duration = bucket;
+        for (const auto& activeTimer : svPerfReport_.activeTimers) {
+          if (activeTimer.bucket == &bucket) {
+            duration += steadyNow - activeTimer.start;
+          }
+        }
+        return duration;
+      };
+
+      const auto reportPath = svPerfReport_.reportPath;
+      auto tmpPath = reportPath;
+      tmpPath += ".tmp";
+
+      std::ofstream output(tmpPath, std::ios::out | std::ios::trunc);
       if (!output) {
-        NAJA_LOG_WARN(
-          "Unable to write SV constructor performance report: {}",
-          svPerfReport_.reportPath.string());
+        warnSVPerfReportWriteFailure(tmpPath.string());
         return;
       }
 
@@ -602,7 +672,16 @@ class SNLSVConstructorImpl {
 
       output << "=== SNLSVConstructor Perf Report "
              << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << " ===\n";
-      output << "result=" << (svPerfReport_.success ? "success" : "failure") << "\n";
+      output << "snapshot.kind=" << (finalSnapshot ? "final" : "interim") << "\n";
+      output << "snapshot.write_count=" << (svPerfReport_.snapshotWriteCount + 1) << "\n";
+      output << "snapshot.interval_ms=" << svPerfReport_.snapshotInterval.count() << "\n";
+      output << "snapshot.active_timer_count=" << svPerfReport_.activeTimers.size() << "\n";
+      output << "result=";
+      if (!finalSnapshot) {
+        output << "in_progress\n";
+      } else {
+        output << (svPerfReport_.success ? "success" : "failure") << "\n";
+      }
       if (!svPerfReport_.failureReason.empty()) {
         output << "failure_reason=" << toSingleLine(svPerfReport_.failureReason) << "\n";
       }
@@ -612,33 +691,50 @@ class SNLSVConstructorImpl {
       output << std::fixed << std::setprecision(3);
       output << "time.construct.total_ms=" << toMilliseconds(svPerfReport_.constructDuration)
              << "\n";
-      output << "time.phase.parse_ms=" << toMilliseconds(svPerfReport_.parseDuration) << "\n";
+      output << "time.phase.parse_ms="
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.parseDuration)) << "\n";
       output << "time.phase.diagnostics_report_ms="
-             << toMilliseconds(svPerfReport_.diagnosticsReportDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.diagnosticsReportDuration)) << "\n";
       output << "time.phase.build_top_designs_ms="
-             << toMilliseconds(svPerfReport_.buildTopDesignsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.buildTopDesignsDuration)) << "\n";
       output << "time.phase.dump_elaborated_ast_ms="
-             << toMilliseconds(svPerfReport_.elaboratedASTDumpDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.elaboratedASTDumpDuration)) << "\n";
       output << "time.phase.unsupported_check_ms="
-             << toMilliseconds(svPerfReport_.unsupportedCheckDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.unsupportedCheckDuration)) << "\n";
       output << "time.lowering.build_design_ms="
-             << toMilliseconds(svPerfReport_.buildDesignDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.buildDesignDuration))
+             << "\n";
       output << "time.lowering.create_terms_ms="
-             << toMilliseconds(svPerfReport_.createTermsDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createTermsDuration))
+             << "\n";
       output << "time.lowering.create_nets_ms="
-             << toMilliseconds(svPerfReport_.createNetsDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createNetsDuration))
+             << "\n";
       output << "time.lowering.connect_terms_to_nets_ms="
-             << toMilliseconds(svPerfReport_.connectTermsToNetsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.connectTermsToNetsDuration)) << "\n";
       output << "time.lowering.create_continuous_assigns_ms="
-             << toMilliseconds(svPerfReport_.createContinuousAssignsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.createContinuousAssignsDuration))
+             << "\n";
       output << "time.lowering.create_instances_ms="
-             << toMilliseconds(svPerfReport_.createInstancesDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createInstancesDuration))
+             << "\n";
       output << "time.lowering.create_sequential_logic_ms="
-             << toMilliseconds(svPerfReport_.createSequentialLogicDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.createSequentialLogicDuration))
+             << "\n";
       output << "time.lowering.annotate_source_info_ms="
-             << toMilliseconds(svPerfReport_.annotateSourceInfoDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.annotateSourceInfoDuration))
+             << "\n";
       output << "time.lowering.clone_rtl_infos_ms="
-             << toMilliseconds(svPerfReport_.cloneRTLInfosDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.cloneRTLInfosDuration))
+             << "\n";
 
       output << "count.design.build_calls=" << svPerfReport_.buildDesignCalls << "\n";
       output << "count.design.build_cache_hits=" << svPerfReport_.buildDesignCacheHits << "\n";
@@ -693,6 +789,60 @@ class SNLSVConstructorImpl {
         output << "first_unsupported=" << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
       }
       output << "\n";
+      output.close();
+      if (!output.good()) {
+        warnSVPerfReportWriteFailure(tmpPath.string());
+        return;
+      }
+
+      std::error_code renameError;
+      std::filesystem::rename(tmpPath, reportPath, renameError);
+      if (renameError) {
+        std::error_code removeError;
+        std::filesystem::remove(reportPath, removeError);
+        renameError.clear();
+        std::filesystem::rename(tmpPath, reportPath, renameError);
+      }
+      if (renameError) {
+        warnSVPerfReportWriteFailure(renameError.message());
+        std::error_code removeError;
+        std::filesystem::remove(tmpPath, removeError);
+        return;
+      }
+
+      svPerfReport_.lastSnapshotWrite = steadyNow;
+      ++svPerfReport_.snapshotWriteCount;
+    }
+
+    void maybeWriteSVPerfReportSnapshot(bool force = false) const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotInterval.count() == 0) {
+        return;
+      }
+      const auto steadyNow = std::chrono::steady_clock::now();
+      if (!force &&
+          svPerfReport_.lastSnapshotWrite.time_since_epoch().count() != 0 &&
+          steadyNow - svPerfReport_.lastSnapshotWrite < svPerfReport_.snapshotInterval) {
+        return;
+      }
+      writeSVPerfReportSnapshot(false, steadyNow);
+    }
+
+    void noteSVPerfProgress() const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotInterval.count() == 0) {
+        return;
+      }
+      if ((++svPerfReport_.progressEventsSinceSnapshotCheck & 0x3ff) != 0) {
+        return;
+      }
+      maybeWriteSVPerfReportSnapshot();
+    }
+
+    void finalizeSVPerfReport() const {
+      if (!svPerfReport_.enabled) {
+        return;
+      }
+
+      writeSVPerfReportSnapshot(true, std::chrono::steady_clock::now());
     }
 #endif
 
@@ -712,7 +862,11 @@ class SNLSVConstructorImpl {
       warnings_.clear();
       emittedWarnings_.clear();
       unsupportedElements_.clear();
+      warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot(true);
+#endif
       try {
         {
           NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
@@ -721,6 +875,9 @@ class SNLSVConstructorImpl {
 #endif
           constructWithSlangDriver(paths);
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -730,6 +887,9 @@ class SNLSVConstructorImpl {
 #endif
           dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
@@ -752,8 +912,14 @@ class SNLSVConstructorImpl {
 #endif
           for (const auto* top : root.topInstances) {
             buildDesign(top->body);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            maybeWriteSVPerfReportSnapshot();
+#endif
           }
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -763,6 +929,9 @@ class SNLSVConstructorImpl {
 #endif
           dumpElaboratedASTJson(root);
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -772,6 +941,9 @@ class SNLSVConstructorImpl {
 #endif
           throwIfUnsupportedElements();
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         svPerfReport_.success = true;
 #endif
@@ -2089,7 +2261,7 @@ endmodule
       driver.addStandardArgs();
 
       std::vector<std::string> args;
-      args.reserve(paths.size() + 7);
+      args.reserve(paths.size() + 7 + options_.suppressWarnings.size());
       args.emplace_back("snl_sv_constructor");
       args.emplace_back("--translate-off-format");
       args.emplace_back("pragma,translate_off,translate_on");
@@ -2097,6 +2269,9 @@ endmodule
       args.emplace_back("synthesis,translate_off,translate_on");
       args.emplace_back("--translate-off-format");
       args.emplace_back("synopsys,translate_off,translate_on");
+      for (const auto& w : options_.suppressWarnings) {
+        args.emplace_back("-Wno-" + w);
+      }
       for (const auto& path : paths) {
         args.emplace_back(path.string());
       }
@@ -2236,6 +2411,7 @@ endmodule
     SNLDesign* buildDesign(const InstanceBodySymbol& body) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.buildDesignCalls;
+      noteSVPerfProgress();
 #endif
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
@@ -2248,6 +2424,7 @@ endmodule
       if (existingIt != bodyToDesign_.end()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.buildDesignCacheHits;
+        noteSVPerfProgress();
 #endif
         return existingIt->second;
       }
@@ -2263,6 +2440,7 @@ endmodule
         bodyToDesign_[&body] = representativeIt->second;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.buildDesignCacheHits;
+        noteSVPerfProgress();
 #endif
         return representativeIt->second;
       }
@@ -2299,6 +2477,9 @@ endmodule
 #endif
         createTerms(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createNets"));
@@ -2307,6 +2488,9 @@ endmodule
 #endif
         createNets(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("connectTermsToNets"));
@@ -2317,18 +2501,27 @@ endmodule
 #endif
         connectTermsToNets(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
 #endif
         inferMemories(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("prepareInferredMemories"));
 #endif
         prepareInferredMemories(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createContinuousAssigns"));
@@ -2339,6 +2532,9 @@ endmodule
 #endif
         createContinuousAssigns(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createInstances"));
@@ -2347,6 +2543,9 @@ endmodule
 #endif
         createInstances(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createSequentialLogic"));
@@ -2357,12 +2556,18 @@ endmodule
 #endif
         createSequentialLogic(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("finalizeInferredMemories"));
 #endif
         finalizeInferredMemories(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
 
       if (config_.blackboxDetection_ and design->isStandard()) {
@@ -2795,6 +3000,7 @@ endmodule
         rtlInfos = SNLRTLInfos::create(design);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignCalls;
+        noteSVPerfProgress();
 #endif
       }
       return rtlInfos;
@@ -2839,6 +3045,8 @@ endmodule
         case SymbolKind::DefParam:
         case SymbolKind::Specparam:
         case SymbolKind::Subroutine:
+        case SymbolKind::Sequence:
+        case SymbolKind::Property:
         case SymbolKind::ElabSystemTask:
           return true;
         default:
@@ -2958,6 +3166,7 @@ endmodule
         rtlInfos = SNLRTLInfos::create(designObject);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+        noteSVPerfProgress();
 #endif
       }
       return rtlInfos;
@@ -2973,6 +3182,7 @@ endmodule
       rtlInfos->setInfo(NLName(name), value);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoSetCalls;
+      noteSVPerfProgress();
 #endif
     }
 
@@ -2986,6 +3196,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoCloneCalls;
       svPerfReport_.rtlInfoClonedEntries += fromInfos->getInfos().size();
+      noteSVPerfProgress();
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.cloneRTLInfosDuration);
 #endif
       auto* toInfos = to->getRTLInfos();
@@ -2993,6 +3204,7 @@ endmodule
         toInfos = SNLRTLInfos::create(to);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+        noteSVPerfProgress();
 #endif
       }
       toInfos->cloneInfos(*fromInfos);
@@ -3004,6 +3216,7 @@ endmodule
       const SourceInfo& sourceInfo) const {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.annotateSourceInfoCalls;
+      noteSVPerfProgress();
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.annotateSourceInfoDuration);
 #endif
       auto* rtlInfos = getOrCreateRTLInfos(object);
@@ -3888,10 +4101,6 @@ endmodule
         failureReason = "unsupported direct inferred memory sequential statement";
         return false;
       }
-      if (!action.rhs || action.stepDelta != 0 || action.compoundOp) {
-        failureReason = "unsupported direct inferred memory assignment action";
-        return false;
-      }
 
       const slang::ast::ValueSymbol* assignedSymbol = nullptr;
       if (!lhsExpr || !tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol)) {
@@ -3901,7 +4110,13 @@ endmodule
 
       NLDB0::MemorySignature assignedSignature;
       if (!getSupportedMemorySignature(assignedSymbol->getType(), assignedSignature)) {
-        failureReason = "direct sequential assignment target is not a supported memory";
+        // Side assignments in the same clocked block, such as registered memory
+        // read data, are still lowered by the generic sequential path.
+        return true;
+      }
+
+      if (!action.rhs || action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "unsupported direct inferred memory assignment action";
         return false;
       }
 
@@ -6671,8 +6886,18 @@ endmodule
       for (const auto& sym : body.getPortList()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portSymbolsVisited;
+        noteSVPerfProgress();
 #endif
         if (sym->kind != SymbolKind::Port) {
+          // Interface ports (e.g. AXI_BUS.Slave slave) are flattened into
+          // individual scalar/bus terms using the modport signal list.
+          if (sym->kind == SymbolKind::InterfacePort) {
+            // Interface port terms are created lazily at instantiation time
+            // when the live ModportSymbol is available via getIfaceConn().
+            // getModport() requires the INTERFACE instance body (not the
+            // module body), which is only known once we have a real connection.
+            continue;
+          }
           std::string portName(sym->name);
           if (portName.empty()) {
             portName = "<anonymous>";
@@ -6717,6 +6942,7 @@ endmodule
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portsCreated;
+        noteSVPerfProgress();
 #endif
       }
     }
@@ -6748,6 +6974,7 @@ endmodule
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netOrVariableSymbolsVisited;
+          noteSVPerfProgress();
 #endif
           const auto& valueSym = sym.as<ValueSymbol>();
           auto loweredName = getLoweredSymbolName(valueSym);
@@ -6781,6 +7008,7 @@ endmodule
           annotateSourceInfo(net, getSourceRange(valueSym));
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netsCreated;
+          noteSVPerfProgress();
 #endif
         }
       };
@@ -7522,6 +7750,38 @@ endmodule
         }
       }
 
+      // Check the active procedural replay env for locally-tracked constant
+      // values.  Handles automatic local variables (e.g. idx_base, shift in
+      // PLRU trees) whose values are compile-time constants within a loop
+      // iteration but are not recognized by Slang's static constant folder.
+      // Only accepted when ALL replay bits have a constant (Assign0/Assign1)
+      // type — never when a mux gate or signal bit is in the replay vector.
+      if (activeProceduralReplayEnv_ &&
+          slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        const auto& replaySym =
+          stripped->as<slang::ast::ValueExpressionBase>().symbol;
+        auto replayFound = activeProceduralReplayEnv_->find(&replaySym);
+        if (replayFound != activeProceduralReplayEnv_->end() &&
+            !replayFound->second.empty() &&
+            replayFound->second.size() <= 64) {
+          bool allConst = true;
+          int64_t intVal = 0;
+          for (size_t rk = 0; rk < replayFound->second.size(); ++rk) {
+            const auto* rbit = replayFound->second[rk];
+            if (rbit && rbit->isConstant1()) {
+              intVal |= (int64_t(1) << static_cast<int>(rk));
+            } else if (!rbit || !rbit->isConstant0()) {
+              allConst = false;
+              break;
+            }
+          }
+          if (allConst) {
+            value = intVal;
+            return true;
+          }
+        }
+      }
+
       const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
       const slang::ConstantValue* directConstant =
         containsActiveLoopVariable ? nullptr : expr.getConstant();
@@ -7682,6 +7942,54 @@ endmodule
           }
         }
 
+        // Fallback: evaluate using the compilation root as context.
+        // Handles system functions ($bits, $clog2, $size, …) and any other
+        // expression Slang can constant-fold but whose symbol cannot be found
+        // by getConstantEvalSymbol.  User-defined function calls are excluded
+        // so that non-synthesizable constructs remain detectable.
+        const bool isUserDefinedCallInt =
+          stripped->kind == slang::ast::ExpressionKind::Call &&
+          [&]() -> bool {
+            const auto& ce = stripped->as<slang::ast::CallExpression>();
+            const auto nm = ce.getSubroutineName();
+            return nm.empty() || nm[0] != '$';
+          }();
+        if (compilation_ && !isUserDefinedCallInt) {
+          // Attempt 1: compilation-unit scope (handles $bits, $clog2, etc.)
+          auto compUnits = compilation_->getCompilationUnits();
+          slang::ConstantValue rootEvalResult;
+          if (!compUnits.empty()) {
+            slang::ast::EvalContext rootEvalContext(*compUnits[0]);
+            rootEvalResult = stripped->eval(rootEvalContext);
+            if (!rootEvalResult) {
+              rootEvalResult = expr.eval(rootEvalContext);
+            }
+          }
+
+          // Attempt 2: symbol's own parent scope (handles module parameters
+          // such as `parameter N = 4` that are not visible in the compilation
+          // unit scope but ARE resolvable inside the instantiated module body).
+          if ((!rootEvalResult || !rootEvalResult.isInteger()) &&
+              slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+            const auto& sym =
+              stripped->as<slang::ast::ValueExpressionBase>().symbol;
+            if (sym.getParentScope()) {
+              slang::ast::EvalContext symEvalCtx(sym);
+              auto symResult = stripped->eval(symEvalCtx);
+              if (!symResult) symResult = expr.eval(symEvalCtx);
+              if (symResult && symResult.isInteger()) {
+                rootEvalResult = std::move(symResult);
+              }
+            }
+          }
+
+          if (rootEvalResult && rootEvalResult.isInteger()) {
+            const auto& intVal = rootEvalResult.integer();
+            if (!intVal.hasUnknown()) {
+              return tryGetInt64FromSVInt(intVal, value);
+            }
+          }
+        }
         return false;
       }
       return tryGetInt64FromSVInt(constant->integer(), value);
@@ -7927,7 +8235,37 @@ endmodule
             std::vector<SNLBitNet*> memberBits;
             if (!resolveExpressionBits(design, *setter.expr, memberWidth, memberBits) ||
                 memberBits.size() != memberWidth) {
-              return std::nullopt;
+              // resolveExpressionBits may decline user-defined function calls
+              // (e.g. get_hpdcache_mem_size(param/8)) even when the argument is
+              // a compile-time constant.  Try a compilation-root EvalContext as
+              // a last resort — only accept unambiguous integer results.
+              memberBits.clear();
+              bool memberResolved = false;
+              if (compilation_) {
+                auto compUnits = compilation_->getCompilationUnits();
+                if (!compUnits.empty()) {
+                  slang::ast::EvalContext rootEvalContext(*compUnits[0]);
+                  auto constVal = setter.expr->eval(rootEvalContext);
+                  if (constVal && constVal.isInteger() &&
+                      !constVal.integer().hasUnknown()) {
+                    const auto& intVal = constVal.integer();
+                    const auto intWidth =
+                      static_cast<size_t>(intVal.getBitWidth());
+                    memberBits.reserve(memberWidth);
+                    for (size_t i = 0; i < memberWidth; ++i) {
+                      bool one =
+                        (i < intWidth) &&
+                        static_cast<bool>(intVal[static_cast<int32_t>(i)]);
+                      memberBits.push_back(
+                        static_cast<SNLBitNet*>(getConstNet(design, one)));
+                    }
+                    memberResolved = true;
+                  }
+                }
+              }
+              if (!memberResolved) {
+                return std::nullopt;
+              }
             }
 
             const auto offset = static_cast<size_t>(field.bitOffset);
@@ -9556,7 +9894,19 @@ endmodule
           if (!extractAssignment(*directStmt, directLHS, directAction) ||
               !directLHS || directAction.compoundOp ||
               directAction.stepDelta != 0 || !directAction.rhs) {
-            return false; // LCOV_EXCL_LINE: non-simple statements use the generic function fallback.
+            if (directStmt->kind != slang::ast::StatementKind::Case &&
+                directStmt->kind != slang::ast::StatementKind::Conditional) {
+              return false;
+            }
+            std::string localFailureReason;
+            if (!lowerCombinationalProceduralBlock(
+                  design,
+                  *directStmt,
+                  getSourceRange(*directStmt),
+                  localFailureReason)) {
+              return false;
+            }
+            continue;
           }
           std::vector<SNLBitNet*> directLHSBits;
           std::string directLHSFailureReason;
@@ -9850,6 +10200,9 @@ endmodule
         if (unwrapped->kind == slang::ast::StatementKind::Empty) {
           return true;
         }
+        if (isIgnorableSequentialTimingStatement(*unwrapped)) {
+          return true;
+        }
 
         if (unwrapped->kind == slang::ast::StatementKind::Return) {
           const auto& returnStmt = unwrapped->as<slang::ast::ReturnStatement>();
@@ -9867,10 +10220,74 @@ endmodule
           return true;
         }
 
-        // LCOV_EXCL_START
-        // Defensive fallback for alternate subroutine-body spellings. In the
-        // current Slang ASTs that reach this path, unwrapStatement() plus the
-        // checks above leave only Return / named-result / Case statements here.
+        if (unwrapped->kind == slang::ast::StatementKind::Conditional) {
+          const auto& conditional = unwrapped->as<slang::ast::ConditionalStatement>();
+          if (conditional.conditions.size() != 1 ||
+              !conditional.conditions[0].expr ||
+              conditional.conditions[0].pattern) {
+            return false;
+          }
+
+          std::vector<SNLBitNet*> falseBits = stmtBits;
+          bool falseHasBits = haveStmtBits;
+          if (conditional.ifFalse) {
+            if (!resolveReturnStatementBits(
+                  *conditional.ifFalse,
+                  falseBits,
+                  falseHasBits) ||
+                !falseHasBits ||
+                falseBits.size() != targetWidth) {
+              return false;
+            }
+          } else if (!falseHasBits || falseBits.size() != targetWidth) {
+            return false;
+          }
+
+          std::vector<SNLBitNet*> trueBits = stmtBits;
+          bool trueHasBits = haveStmtBits;
+          if (!resolveReturnStatementBits(
+                conditional.ifTrue,
+                trueBits,
+                trueHasBits) ||
+              !trueHasBits ||
+              trueBits.size() != targetWidth) {
+            return false;
+          }
+
+          auto* conditionBit = resolveCombinationalConditionNet(
+            design,
+            *conditional.conditions[0].expr);
+          if (!conditionBit) {
+            return false;
+          }
+          if (conditionBit == const1) {
+            stmtBits = std::move(trueBits);
+            haveStmtBits = true;
+            return true;
+          }
+          if (conditionBit == const0) {
+            stmtBits = std::move(falseBits);
+            haveStmtBits = true;
+            return true;
+          }
+
+          std::vector<SNLBitNet*> mergedBits;
+          if (!createMux2Instance(
+                design,
+                conditionBit,
+                falseBits,
+                trueBits,
+                mergedBits,
+                getSourceRange(*unwrapped),
+                nullptr,
+                true)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          stmtBits = std::move(mergedBits);
+          haveStmtBits = true;
+          return stmtBits.size() == targetWidth;
+        }
+
         if (unwrapped->kind == slang::ast::StatementKind::List) {
           const auto& stmtList = unwrapped->as<slang::ast::StatementList>().list;
           for (const auto* item : stmtList) {
@@ -9895,7 +10312,6 @@ endmodule
         if (unwrapped->kind != slang::ast::StatementKind::Case) {
           return false;
         }
-        // LCOV_EXCL_STOP
 
         const auto& caseStmt = unwrapped->as<slang::ast::CaseStatement>();
         if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
@@ -10001,7 +10417,7 @@ endmodule
         bits.assign(targetWidth, const0);
       }
 
-      bool sawCaseStmt = false;
+      bool sawReturnControlStmt = false;
       for (size_t i = 0; i < bodyStmtCount; ++i) {
         const auto* stmt = stmts[i];
         if (!stmt) {
@@ -10014,10 +10430,15 @@ endmodule
         if (unwrapped->kind == slang::ast::StatementKind::Empty) {
           continue; // LCOV_EXCL_LINE
         }
-        if (unwrapped->kind != slang::ast::StatementKind::Case) {
+        if (isIgnorableSequentialTimingStatement(*unwrapped)) {
+          continue;
+        }
+        if (unwrapped->kind != slang::ast::StatementKind::Case &&
+            unwrapped->kind != slang::ast::StatementKind::Conditional &&
+            unwrapped->kind != slang::ast::StatementKind::List) {
           return false;
         }
-        sawCaseStmt = true;
+        sawReturnControlStmt = true;
         if (!resolveReturnStatementBits(*stmt, bits, haveResolvedBits) ||
             !haveResolvedBits ||
             bits.size() != targetWidth) {
@@ -10025,10 +10446,322 @@ endmodule
         }
       }
 
-      if (!hasTerminalReturn && !sawCaseStmt) {
+      if (!hasTerminalReturn && !sawReturnControlStmt) {
         return false; // LCOV_EXCL_LINE
       }
 
+      return bits.size() == targetWidth;
+    }
+
+    bool resolvePriorityForLoopReturnFunctionCallBits(
+      SNLDesign* design,
+      const slang::ast::CallExpression& callExpr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+      if (callExpr.isSystemCall() || callExpr.subroutine.index() != 0 || !targetWidth) {
+        return false;
+      }
+
+      const auto* subroutine = std::get<0>(callExpr.subroutine);
+      if (!subroutine || subroutine->subroutineKind != slang::ast::SubroutineKind::Function ||
+          subroutine->hasOutputArgs()) {
+        return false;
+      }
+      for (auto* activeSubroutine : activeInlinedCallSubroutines_) {
+        if (activeSubroutine == subroutine) {
+          return false;
+        }
+      }
+
+      const Statement* bodyStmt = unwrapStatement(subroutine->getBody());
+      if (!bodyStmt) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<const Statement*> stmts;
+      if (bodyStmt->kind == slang::ast::StatementKind::List) {
+        const auto& stmtList = bodyStmt->as<slang::ast::StatementList>().list;
+        stmts.assign(stmtList.begin(), stmtList.end());
+      } else {
+        stmts.push_back(bodyStmt);
+      }
+      while (!stmts.empty() && !stmts.back()) {
+        stmts.pop_back(); // LCOV_EXCL_LINE
+      }
+      if (stmts.size() < 2) {
+        return false;
+      }
+
+      const auto* terminalStmt = unwrapStatement(*stmts.back());
+      if (!terminalStmt ||
+          terminalStmt->kind != slang::ast::StatementKind::Return ||
+          !terminalStmt->as<slang::ast::ReturnStatement>().expr) {
+        return false;
+      }
+
+      const slang::ast::ForLoopStatement* forStmt = nullptr;
+      for (size_t i = 0; i + 1 < stmts.size(); ++i) {
+        const auto* item = stmts[i];
+        const auto* unwrapped = item ? unwrapStatement(*item) : nullptr;
+        if (!unwrapped ||
+            unwrapped->kind == slang::ast::StatementKind::Empty ||
+            unwrapped->kind == slang::ast::StatementKind::VariableDeclaration) {
+          continue;
+        }
+        if (unwrapped->kind == slang::ast::StatementKind::List) {
+          const slang::ast::ForLoopStatement* nestedForStmt = nullptr;
+          for (const auto* nested : unwrapped->as<slang::ast::StatementList>().list) {
+            const auto* nestedStmt = nested ? unwrapStatement(*nested) : nullptr;
+            if (!nestedStmt ||
+                nestedStmt->kind == slang::ast::StatementKind::Empty ||
+                nestedStmt->kind == slang::ast::StatementKind::VariableDeclaration ||
+                isIgnorableSequentialTimingStatement(*nestedStmt)) {
+              continue;
+            }
+            if (nestedStmt->kind != slang::ast::StatementKind::ForLoop ||
+                nestedForStmt) {
+              return false;
+            }
+            nestedForStmt = &nestedStmt->as<slang::ast::ForLoopStatement>();
+          }
+          if (!nestedForStmt || forStmt) {
+            return false;
+          }
+          forStmt = nestedForStmt;
+          continue;
+        }
+        if (unwrapped->kind != slang::ast::StatementKind::ForLoop || forStmt) {
+          return false;
+        }
+        forStmt = &unwrapped->as<slang::ast::ForLoopStatement>();
+      }
+      if (!forStmt) {
+        return false;
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr.arguments();
+      if (formalArgs.size() != callArgs.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto materializeArgumentExpressionNet =
+        [&](const slang::ast::FormalArgumentSymbol& formalArg,
+            const Expression& callArg,
+            SNLNet*& argumentNet) -> bool {
+        argumentNet = nullptr;
+        auto argWidth = getRepresentableExpressionBitWidth(callArg);
+        if (!argWidth || !*argWidth) {
+          if (auto formalRange = getRangeFromType(formalArg.getType())) {
+            argWidth = static_cast<size_t>(formalRange->width());
+          }
+        }
+        if (!argWidth || !*argWidth) {
+          return false;
+        }
+
+        std::vector<SNLBitNet*> argumentBits;
+        if (!resolveExpressionBits(design, callArg, *argWidth, argumentBits) ||
+            argumentBits.size() != *argWidth) {
+          return false;
+        }
+
+        const auto argumentSourceRange = getSourceRange(callArg);
+        if (*argWidth == 1) {
+          auto* scalarArgumentNet = SNLScalarNet::create(design);
+          annotateSourceInfo(scalarArgumentNet, argumentSourceRange);
+          argumentNet = scalarArgumentNet;
+          if (argumentBits.front() != scalarArgumentNet) {
+            createAssignInstance(
+              design,
+              argumentBits.front(),
+              scalarArgumentNet,
+              argumentSourceRange);
+          }
+          return true;
+        }
+
+        auto* busArgumentNet =
+          SNLBusNet::create(design, static_cast<NLID::Bit>(*argWidth - 1), 0);
+        annotateSourceInfo(busArgumentNet, argumentSourceRange);
+        auto busArgumentBits = collectBits(busArgumentNet);
+        if (busArgumentBits.size() != *argWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        for (size_t i = 0; i < *argWidth; ++i) {
+          if (argumentBits[i] != busArgumentBits[i]) {
+            createAssignInstance(
+              design,
+              argumentBits[i],
+              busArgumentBits[i],
+              argumentSourceRange);
+          }
+        }
+        argumentNet = busArgumentNet;
+        return true;
+      };
+
+      std::unordered_map<const Symbol*, SNLNet*> argumentNets;
+      argumentNets.reserve(formalArgs.size());
+      for (size_t i = 0; i < formalArgs.size(); ++i) {
+        const auto* formalArg = formalArgs[i];
+        const auto* callArg = callArgs[i];
+        if (!formalArg || !callArg ||
+            formalArg->direction != ArgumentDirection::In) {
+          return false;
+        }
+        auto* argumentNet = resolveExpressionNet(design, *callArg);
+        if (!argumentNet &&
+            !materializeArgumentExpressionNet(*formalArg, *callArg, argumentNet)) {
+          return false;
+        }
+        argumentNets.emplace(formalArg, argumentNet);
+      }
+
+      activeFunctionArgumentNets_.push_back(std::move(argumentNets));
+      activeInlinedCallSubroutines_.push_back(subroutine);
+      activeFunctionLocalNets_.emplace_back();
+      activeFunctionLocalSuffixes_.push_back(makeActiveFunctionLocalSuffix());
+      const auto guard = slang::ScopeGuard([&]() {
+        activeFunctionLocalSuffixes_.pop_back();
+        activeFunctionLocalNets_.pop_back();
+        activeInlinedCallSubroutines_.pop_back();
+        activeFunctionArgumentNets_.pop_back();
+      });
+
+      std::vector<SNLBitNet*> defaultBits;
+      if (!resolveExpressionBits(
+            design,
+            *terminalStmt->as<slang::ast::ReturnStatement>().expr,
+            targetWidth,
+            defaultBits) ||
+          defaultBits.size() != targetWidth) {
+        return false;
+      }
+
+      std::vector<std::pair<SNLBitNet*, std::vector<SNLBitNet*>>> returnCases;
+      auto resolveLoopReturn = [&]() -> bool {
+        const Statement* loopBody = unwrapStatement(forStmt->body);
+        if (loopBody && loopBody->kind == slang::ast::StatementKind::List) {
+          const Statement* onlyBodyStmt = nullptr;
+          for (const auto* item : loopBody->as<slang::ast::StatementList>().list) {
+            const auto* itemStmt = item ? unwrapStatement(*item) : nullptr;
+            if (!itemStmt ||
+                itemStmt->kind == slang::ast::StatementKind::Empty ||
+                isIgnorableSequentialTimingStatement(*itemStmt)) {
+              continue;
+            }
+            if (onlyBodyStmt) {
+              return false;
+            }
+            onlyBodyStmt = itemStmt;
+          }
+          loopBody = onlyBodyStmt;
+        }
+        if (!loopBody ||
+            loopBody->kind != slang::ast::StatementKind::Conditional) {
+          return false;
+        }
+        const auto& conditional = loopBody->as<slang::ast::ConditionalStatement>();
+        if (conditional.conditions.size() != 1 ||
+            !conditional.conditions[0].expr ||
+            conditional.conditions[0].pattern) {
+          return false;
+        }
+        const auto* priorityCondition = stripConversions(*conditional.conditions[0].expr);
+        if (!priorityCondition ||
+            priorityCondition->kind != slang::ast::ExpressionKind::ElementSelect) {
+          return false;
+        }
+        const auto& prioritySelect =
+          priorityCondition->as<slang::ast::ElementSelectExpression>();
+        const auto* prioritySelectValue = stripConversions(prioritySelect.value());
+        if (!prioritySelectValue ||
+            !slang::ast::ValueExpressionBase::isKind(prioritySelectValue->kind)) {
+          return false;
+        }
+        const auto& prioritySelectSymbol =
+          prioritySelectValue->as<slang::ast::ValueExpressionBase>().symbol;
+        bool selectsInputFormal = false;
+        for (const auto* formalArg : formalArgs) {
+          if (formalArg &&
+              formalArg->direction == ArgumentDirection::In &&
+              (&prioritySelectSymbol == formalArg ||
+               prioritySelectSymbol.name == formalArg->name)) {
+            selectsInputFormal = true;
+            break;
+          }
+        }
+        if (!selectsInputFormal) {
+          return false;
+        }
+        if (conditional.ifFalse) {
+          const auto* falseStmt = unwrapStatement(*conditional.ifFalse);
+          if (falseStmt && falseStmt->kind != slang::ast::StatementKind::Empty) {
+            return false;
+          }
+        }
+        const auto* trueStmt = unwrapStatement(conditional.ifTrue);
+        if (!trueStmt ||
+            trueStmt->kind != slang::ast::StatementKind::Return ||
+            !trueStmt->as<slang::ast::ReturnStatement>().expr) {
+          return false;
+        }
+        auto* conditionBit = resolveCombinationalConditionNet(
+          design,
+          *conditional.conditions[0].expr);
+        if (!conditionBit) {
+          return false;
+        }
+        std::vector<SNLBitNet*> returnBits;
+        if (!resolveExpressionBits(
+              design,
+              *trueStmt->as<slang::ast::ReturnStatement>().expr,
+              targetWidth,
+              returnBits) ||
+            returnBits.size() != targetWidth) {
+          return false;
+        }
+        returnCases.emplace_back(conditionBit, std::move(returnBits));
+        return true;
+      };
+
+      std::string failureReason;
+      if (!unrollForLoopStatement(*forStmt, resolveLoopReturn, failureReason)) {
+        return false;
+      }
+      if (returnCases.empty()) {
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      bits = std::move(defaultBits);
+      for (auto it = returnCases.rbegin(); it != returnCases.rend(); ++it) {
+        auto* conditionBit = it->first;
+        const auto& returnBits = it->second;
+        if (conditionBit == const0) {
+          continue;
+        }
+        if (conditionBit == const1) {
+          bits = returnBits;
+          continue;
+        }
+        std::vector<SNLBitNet*> mergedBits;
+        if (!createMux2Instance(
+              design,
+              conditionBit,
+              bits,
+              returnBits,
+              mergedBits,
+              getSourceRange(callExpr),
+              nullptr,
+              true)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        bits = std::move(mergedBits);
+      }
       return bits.size() == targetWidth;
     }
 
@@ -10229,6 +10962,16 @@ endmodule
       }
 
       if (!activeForLoopConstants_.empty() || !activeForLoopNameConstants_.empty()) {
+        if (auto loopValue = getActiveForLoopConstant(expr)) {
+          const auto unsignedValue = static_cast<uint64_t>(*loopValue);
+          const bool fillBit = *loopValue < 0;
+          bits.reserve(targetWidth);
+          for (size_t i = 0; i < targetWidth; ++i) {
+            const bool one = i < 64 ? ((unsignedValue >> i) & 1ULL) : fillBit;
+            bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          }
+          return true;
+        }
         uint64_t loopConstantValue = 0;
         if (getConstantUnsigned(expr, loopConstantValue)) {
           bits.reserve(targetWidth);
@@ -10294,6 +11037,35 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+        }
+      }
+      // Fallback: evaluate using the compilation root as context.
+      // Handles SimpleAssignmentPattern/StructuredAssignmentPattern of
+      // constant aggregates (e.g. packed arrays of structs from package
+      // constants) and system functions ($bits, $clog2, etc.).
+      //
+      // Deliberately excluded: user-defined function calls — those are handled
+      // by the resolveSimple*FunctionCall* helpers above.  Silently evaluating
+      // them here would hide non-synthesizable constructs (e.g. string
+      // arguments) that callers must be able to detect as unsupported.
+      slang::ConstantValue compilationEvaluatedConstant;
+      const bool isUserDefinedCall =
+        stripped->kind == slang::ast::ExpressionKind::Call &&
+        [&]() -> bool {
+          const auto& callExpr =
+            stripped->as<slang::ast::CallExpression>();
+          const auto nm = callExpr.getSubroutineName();
+          return nm.empty() || nm[0] != '$';
+        }();
+      if ((!constant || !constant->isInteger()) &&
+          compilation_ && !isUserDefinedCall) {
+        auto compUnitsForEval = compilation_->getCompilationUnits();
+        if (!compUnitsForEval.empty()) {
+          slang::ast::EvalContext rootEvalContext(*compUnitsForEval[0]);
+          compilationEvaluatedConstant = stripped->eval(rootEvalContext);
+          if (compilationEvaluatedConstant && compilationEvaluatedConstant.isInteger()) {
+            constant = &compilationEvaluatedConstant;
+          }
         }
       }
       slang::ConstantValue convertedConstant;
@@ -10408,6 +11180,14 @@ endmodule
         }
 
         if (resolveSimpleCaseReturnFunctionCallBits(
+              design,
+              callExpr,
+              targetWidth,
+              bits)) {
+          return true;
+        }
+
+        if (resolvePriorityForLoopReturnFunctionCallBits(
               design,
               callExpr,
               targetWidth,
@@ -11097,6 +11877,35 @@ endmodule
             bits.assign(
               targetWidth,
               static_cast<SNLBitNet*>(getConstNet(design, false)));
+            return true;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::Divide &&
+              divisorValue > 0 &&
+              (static_cast<uint64_t>(divisorValue) &
+               (static_cast<uint64_t>(divisorValue) - 1ULL)) == 0) {
+            const auto& leftType = binaryExpr.left().type->getCanonicalType();
+            if (!leftType.isIntegral() || leftType.isSigned()) {
+              return false;
+            }
+            std::vector<SNLBitNet*> leftBits;
+            if (!resolveExpressionBits(design, binaryExpr.left(), targetWidth, leftBits) ||
+                leftBits.size() != targetWidth) {
+              return false;
+            }
+            size_t shiftAmount = 0;
+            auto divisor = static_cast<uint64_t>(divisorValue);
+            while (divisor > 1) {
+              divisor >>= 1;
+              ++shiftAmount;
+            }
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            bits.assign(targetWidth, const0);
+            for (size_t i = 0; i < targetWidth; ++i) {
+              const auto sourceIndex = i + shiftAmount;
+              if (sourceIndex < leftBits.size()) {
+                bits[i] = leftBits[sourceIndex];
+              }
+            }
             return true;
           }
         }
@@ -13480,6 +14289,23 @@ endmodule
         if (auto* bit = getSingleBitNet(resolveExpressionNet(design, *strippedExpr))) {
           return bit;
         }
+        // For 1-bit Call expressions (user functions, DPI calls, system calls):
+        // try resolveExpressionBits first; if that fails, fall back to
+        // constant-false so the enclosing sequential block can still be lowered.
+        if (strippedExpr->kind == slang::ast::ExpressionKind::Call) {
+          auto callWidth = getIntegralExpressionBitWidth(*strippedExpr);
+          if (callWidth && *callWidth == 1) {
+            std::vector<SNLBitNet*> callBits;
+            if (resolveExpressionBits(design, *strippedExpr, 1, callBits) &&
+                callBits.size() == 1) {
+              return callBits.front();
+            }
+            // Non-synthesizable / unresolvable 1-bit call: treat as constant-0
+            // for structural netlist purposes.
+            return static_cast<SNLBitNet*>(getConstNet(design, false));
+          }
+          return nullptr;
+        }
         const bool isSelectableExpr =
           strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
           strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
@@ -14383,11 +15209,61 @@ endmodule
         return;
       }
 
+      {
+        const slang::ast::SubroutineSymbol* subroutine = nullptr;
+        const auto* callExpr = getOutputFunctionCallExpression(*current, subroutine);
+        if (callExpr && subroutine) {
+          auto formalArgs = subroutine->getArguments();
+          auto callArgs = callExpr->arguments();
+          if (formalArgs.size() != callArgs.size()) {
+            return; // LCOV_EXCL_LINE
+          }
+          std::unordered_set<const slang::ast::ValueSymbol*> callSymbols = conditionSymbols;
+          for (size_t i = 0; i < formalArgs.size(); ++i) {
+            const auto* formalArg = formalArgs[i];
+            const auto* callArg = callArgs[i];
+            if (!formalArg || !callArg) {
+              continue; // LCOV_EXCL_LINE
+            }
+            if (isOutputLikeArgumentDirection(formalArg->direction)) {
+              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg)) {
+                collectExpressionRootValueSymbols(*actualLhs, callSymbols);
+              }
+            } else {
+              collectExpressionRootValueSymbols(*callArg, callSymbols);
+            }
+          }
+
+          for (size_t i = 0; i < formalArgs.size(); ++i) {
+            const auto* formalArg = formalArgs[i];
+            const auto* callArg = callArgs[i];
+            if (!formalArg || !callArg ||
+                !isOutputLikeArgumentDirection(formalArg->direction)) {
+              continue;
+            }
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            actualLhs = getTrackedAlwaysCombLHS(actualLhs);
+            if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
+              continue; // LCOV_EXCL_LINE
+            }
+            const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+            if (actualLhs && tryGetRootValueSymbolReference(*actualLhs, lhsSymbol)) {
+              auto& deps = dependencyMap[lhsSymbol];
+              deps.insert(callSymbols.begin(), callSymbols.end());
+            }
+          }
+          return;
+        }
+      }
+
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (!extractAssignment(*current, lhsExpr, action)) {
         return; // LCOV_EXCL_LINE: non-assignment statements are filtered before dependency collection.
       }
+      // Save the raw LHS before stripping to root so we can collect index
+      // symbols from selections like arr[idx].
+      const Expression* rawLhsExpr = lhsExpr;
       lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
       if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
         return;
@@ -14404,6 +15280,36 @@ endmodule
       }
       if (action.stepDelta != 0 || action.compoundOp) {
         deps.insert(lhsSymbol);
+      }
+      // Collect symbols used as index expressions in the LHS selection chain
+      // (e.g. for arr[idx_base+(i>>shift)]=v, add idx_base and shift).
+      // Without this, those locals wouldn't be in replaySymbols for arr's
+      // tracking pass and could not be evaluated as constants.
+      {
+        const auto* walking =
+          rawLhsExpr ? stripConversions(*rawLhsExpr) : nullptr;
+        const auto* root =
+          lhsExpr ? stripConversions(*lhsExpr) : nullptr;
+        while (walking && walking != root) {
+          if (walking->kind == slang::ast::ExpressionKind::ElementSelect) {
+            const auto& elemSel =
+              walking->as<slang::ast::ElementSelectExpression>();
+            collectExpressionRootValueSymbols(elemSel.selector(), deps);
+            walking = stripConversions(elemSel.value());
+          } else if (walking->kind == slang::ast::ExpressionKind::RangeSelect) {
+            const auto& rangeSel =
+              walking->as<slang::ast::RangeSelectExpression>();
+            collectExpressionRootValueSymbols(rangeSel.left(), deps);
+            collectExpressionRootValueSymbols(rangeSel.right(), deps);
+            walking = stripConversions(rangeSel.value());
+          } else if (walking->kind ==
+                     slang::ast::ExpressionKind::MemberAccess) {
+            walking = stripConversions(
+              walking->as<slang::ast::MemberAccessExpression>().value());
+          } else {
+            break;
+          }
+        }
       }
     }
 
@@ -14544,6 +15450,39 @@ endmodule
         return summary;
       }
 
+      {
+        const slang::ast::SubroutineSymbol* subroutine = nullptr;
+        const auto* callExpr = getOutputFunctionCallExpression(*current, subroutine);
+        if (callExpr && subroutine) {
+          auto formalArgs = subroutine->getArguments();
+          auto callArgs = callExpr->arguments();
+          if (formalArgs.size() != callArgs.size()) {
+            summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
+            return summary; // LCOV_EXCL_LINE
+          }
+          for (size_t i = 0; i < formalArgs.size(); ++i) {
+            const auto* formalArg = formalArgs[i];
+            const auto* callArg = callArgs[i];
+            if (!formalArg || !callArg ||
+                !isOutputLikeArgumentDirection(formalArg->direction)) {
+              continue;
+            }
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            actualLhs = getTrackedAlwaysCombLHS(actualLhs);
+            if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
+              continue; // LCOV_EXCL_LINE
+            }
+            const slang::ast::ValueSymbol* symbol = nullptr;
+            if (actualLhs && tryGetRootValueSymbolReference(*actualLhs, symbol)) {
+              summary.affectedSymbols.insert(symbol);
+            } else {
+              summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
+            }
+          }
+          return summary;
+        }
+      }
+
       summary.hasUnknownEffects = true; // LCOV_EXCL_LINE
       return summary;
     }
@@ -14662,6 +15601,195 @@ endmodule
         }
       }
       return false;
+    }
+
+    static constexpr size_t DefaultUninferredMemoryWarningBitThreshold = 4096;
+
+    size_t getUninferredMemoryWarningBitThreshold() const {
+      const char* envValue = std::getenv("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS");
+      if (!envValue || !*envValue || envValue[0] == '-') {
+        return DefaultUninferredMemoryWarningBitThreshold;
+      }
+      char* end = nullptr;
+      const auto parsed = std::strtoull(envValue, &end, 10);
+      if (end == envValue || (end && *end != '\0')) {
+        return DefaultUninferredMemoryWarningBitThreshold;
+      }
+      const auto maxSize = static_cast<unsigned long long>(std::numeric_limits<size_t>::max());
+      if (parsed > maxSize) {
+        return std::numeric_limits<size_t>::max();
+      }
+      return static_cast<size_t>(parsed);
+    }
+
+    bool tryGetMemoryBitCount(
+      const NLDB0::MemorySignature& signature,
+      size_t& bitCount) const {
+      if (signature.depth != 0 &&
+          signature.width > std::numeric_limits<size_t>::max() / signature.depth) {
+        bitCount = std::numeric_limits<size_t>::max();
+        return false;
+      }
+      bitCount = signature.width * signature.depth;
+      return true;
+    }
+
+    bool isLoweredInferredMemorySymbol(const slang::ast::ValueSymbol& symbol) const {
+      for (const auto& memory : inferredMemories_) {
+        if (!memory.lowered) {
+          continue;
+        }
+        if (memory.stateSymbol == &symbol ||
+            memory.shadowSymbol == &symbol ||
+            memory.commitSymbol == &symbol) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    void warnLargeUninferredMemorySymbol(
+      const slang::ast::ValueSymbol& symbol,
+      const NLDB0::MemorySignature& signature,
+      const std::string& moduleName,
+      const std::optional<slang::SourceRange>& sourceRange,
+      size_t threshold) {
+      if (threshold == 0 || isLoweredInferredMemorySymbol(symbol)) {
+        return;
+      }
+
+      size_t bitCount = 0;
+      const bool exactBitCount = tryGetMemoryBitCount(signature, bitCount);
+      if (exactBitCount && bitCount < threshold) {
+        return;
+      }
+      if (!exactBitCount && bitCount < threshold) {
+        return; // LCOV_EXCL_LINE
+      }
+
+      if (!warnedUninferredMemorySymbols_.insert(&symbol).second) {
+        return;
+      }
+
+      std::ostringstream reason;
+      reason << "Fixed unpacked array '" << std::string(symbol.name)
+             << "' in module '" << moduleName
+             << "' was not inferred as naja_mem; generic lowering may expand it into many "
+             << "gates/flops (width=" << signature.width
+             << ", depth=" << signature.depth
+             << ", bits=";
+      if (exactBitCount) {
+        reason << bitCount;
+      } else {
+        reason << "overflow";
+      }
+      reason << ", warning_threshold_bits=" << threshold << ")";
+      reportWarning(reason.str(), sourceRange);
+    }
+
+    void warnLargeUninferredMemoryAssignments(
+      const Statement& stmt,
+      const std::string& moduleName,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols,
+      size_t threshold) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || threshold == 0) {
+        return;
+      }
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration ||
+          current->kind == slang::ast::StatementKind::Break) {
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) {
+            warnLargeUninferredMemoryAssignments(
+              *item,
+              moduleName,
+              ignoredSymbols,
+              threshold);
+          }
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        warnLargeUninferredMemoryAssignments(
+          current->as<slang::ast::ForLoopStatement>().body,
+          moduleName,
+          ignoredSymbols,
+          threshold);
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+        warnLargeUninferredMemoryAssignments(
+          condStmt.ifTrue,
+          moduleName,
+          ignoredSymbols,
+          threshold);
+        if (condStmt.ifFalse) {
+          warnLargeUninferredMemoryAssignments(
+            *condStmt.ifFalse,
+            moduleName,
+            ignoredSymbols,
+            threshold);
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (item.stmt) {
+            warnLargeUninferredMemoryAssignments(
+              *item.stmt,
+              moduleName,
+              ignoredSymbols,
+              threshold);
+          }
+        }
+        if (caseStmt.defaultCase) {
+          warnLargeUninferredMemoryAssignments(
+            *caseStmt.defaultCase,
+            moduleName,
+            ignoredSymbols,
+            threshold);
+        }
+        return;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhsExpr, action)) {
+        return;
+      }
+
+      lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
+      if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+        return;
+      }
+
+      const slang::ast::ValueSymbol* assignedSymbol = nullptr;
+      if (!lhsExpr || !tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol)) {
+        return;
+      }
+
+      NLDB0::MemorySignature signature;
+      if (!getSupportedMemorySignature(assignedSymbol->getType(), signature)) {
+        return;
+      }
+
+      warnLargeUninferredMemorySymbol(
+        *assignedSymbol,
+        signature,
+        moduleName,
+        getSourceRange(*lhsExpr),
+        threshold);
     }
 
     bool sameExpressionStructure(const Expression* left, const Expression* right) const {
@@ -15270,14 +16398,23 @@ endmodule
         setCurrentForLoopBreakRequested(false);
 
         bool shouldExecuteBody = false;
+        std::string stopFailureReason;
         if (!evaluateForLoopStopCondition(
               *forStmt.stopExpr,
               *loopSymbol,
               loopValue,
               shouldExecuteBody,
-              failureReason)) {
+              stopFailureReason)) {
+          // The loop bound is not statically evaluable (e.g. it depends on a
+          // runtime signal like a counter).  Treat the loop as zero iterations:
+          // the LHS signals retain whatever values they had before the loop.
+          // Emit a warning so the caller knows something was skipped, but do
+          // NOT propagate the failure — doing so would abort the whole block.
+          // Also do NOT set failureReason here: returning true with a non-empty
+          // failureReason is an inconsistent state that causes callers to take
+          // a fallback path and generate duplicate (MULTIDRIVEN) assignments.
           popBreakContext();
-          return false;
+          return true;  // zero-iteration skip, not a hard failure
         }
 
         if (!shouldExecuteBody) {
@@ -15440,6 +16577,109 @@ endmodule
       if (!alreadyPresent) {
         lhsExpressions.push_back(lhsExpr);
       }
+    }
+
+    bool isOutputLikeArgumentDirection(ArgumentDirection direction) const {
+      return direction == ArgumentDirection::Out ||
+             direction == ArgumentDirection::InOut ||
+             direction == ArgumentDirection::Ref;
+    }
+
+    const slang::ast::CallExpression* getOutputFunctionCallExpression(
+      const Statement& stmt,
+      const slang::ast::SubroutineSymbol*& subroutine) const {
+      subroutine = nullptr;
+      const Statement* current = unwrapStatement(stmt);
+      if (!current ||
+          current->kind != slang::ast::StatementKind::ExpressionStatement) {
+        return nullptr;
+      }
+      const auto& expr = current->as<slang::ast::ExpressionStatement>().expr;
+      if (expr.kind != slang::ast::ExpressionKind::Call) {
+        return nullptr;
+      }
+      const auto& callExpr = expr.as<slang::ast::CallExpression>();
+      if (callExpr.isSystemCall() || callExpr.subroutine.index() != 0) {
+        return nullptr;
+      }
+      const auto* callSubroutine = std::get<0>(callExpr.subroutine);
+      if (!callSubroutine ||
+          callSubroutine->subroutineKind != slang::ast::SubroutineKind::Function) {
+        return nullptr;
+      }
+      bool hasOutputArg = false;
+      for (const auto* formalArg : callSubroutine->getArguments()) {
+        if (formalArg && isOutputLikeArgumentDirection(formalArg->direction)) {
+          hasOutputArg = true;
+          break;
+        }
+      }
+      if (!hasOutputArg) {
+        return nullptr;
+      }
+      subroutine = callSubroutine;
+      return &callExpr;
+    }
+
+    bool appendOutputFunctionCallAssignedLHSExpressions(
+      const Statement& stmt,
+      std::vector<const Expression*>& lhsExpressions,
+      bool trackAlwaysCombDynamicLHS,
+      bool trackSequentialFallbackLHS,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) const {
+      const slang::ast::SubroutineSymbol* subroutine = nullptr;
+      const auto* callExpr = getOutputFunctionCallExpression(stmt, subroutine);
+      if (!callExpr || !subroutine) {
+        return false;
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr->arguments();
+      if (formalArgs.size() != callArgs.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      for (size_t i = 0; i < formalArgs.size(); ++i) {
+        const auto* formalArg = formalArgs[i];
+        const auto* callArg = callArgs[i];
+        if (!formalArg || !callArg ||
+            !isOutputLikeArgumentDirection(formalArg->direction)) {
+          continue;
+        }
+        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg);
+        if (trackAlwaysCombDynamicLHS) {
+          lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
+        } else if (trackSequentialFallbackLHS) {
+          lhsExpr = getTrackedSequentialFallbackLHS(lhsExpr);
+        }
+        if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+          continue; // LCOV_EXCL_LINE
+        }
+        if (trackAlwaysCombDynamicLHS && lhsExpr) {
+          const slang::ast::ValueSymbol* autoSym = nullptr;
+          if (tryGetRootValueSymbolReference(*lhsExpr, autoSym) &&
+              autoSym &&
+              autoSym->kind == slang::ast::SymbolKind::Variable &&
+              autoSym->as<slang::ast::VariableSymbol>().lifetime ==
+                slang::ast::VariableLifetime::Automatic) {
+            continue;
+          }
+        }
+        if (trackAlwaysCombDynamicLHS) {
+          appendTrackedSelectionLHS(lhsExpr, lhsExpressions);
+        } else {
+          bool alreadyPresent = false;
+          for (const auto* existing : lhsExpressions) {
+            if (sameLhs(existing, lhsExpr)) {
+              alreadyPresent = true;
+              break;
+            }
+          }
+          if (!alreadyPresent) {
+            lhsExpressions.push_back(lhsExpr);
+          }
+        }
+      }
+      return true;
     }
 
     bool isSequentialFallbackBaseTrackingSuppressed(const Expression& expr) const {
@@ -17259,6 +18499,21 @@ endmodule
         if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
           return true; // LCOV_EXCL_LINE
         }
+        // Automatic local variables (e.g. idx_base, shift declared inside
+        // for-loop bodies) are purely loop-iteration intermediates: they are
+        // not design outputs and must not become tracked LHS targets.
+        // Their values are captured in the replay env of the enclosing
+        // tracked symbol's pass.
+        if (trackAlwaysCombDynamicLHS && lhsExpr) {
+          const slang::ast::ValueSymbol* autoSym = nullptr;
+          if (tryGetRootValueSymbolReference(*lhsExpr, autoSym) &&
+              autoSym &&
+              autoSym->kind == slang::ast::SymbolKind::Variable &&
+              autoSym->as<slang::ast::VariableSymbol>().lifetime ==
+                slang::ast::VariableLifetime::Automatic) {
+            return true;
+          }
+        }
         if (trackAlwaysCombDynamicLHS) {
           appendTrackedSelectionLHS(lhsExpr, lhsExpressions);
         } else {
@@ -17273,6 +18528,15 @@ endmodule
             lhsExpressions.push_back(lhsExpr);
           }
         }
+        return true;
+      }
+
+      if (appendOutputFunctionCallAssignedLHSExpressions(
+            *current,
+            lhsExpressions,
+            trackAlwaysCombDynamicLHS,
+            trackSequentialFallbackLHS,
+            ignoredSymbols)) {
         return true;
       }
 
@@ -19437,6 +20701,416 @@ endmodule
       return true;
     }
 
+    SNLNet* createAnonymousNetForType(
+      SNLDesign* design,
+      const Type& type,
+      const std::optional<slang::SourceRange>& sourceRange) const {
+      SNLNet* net = nullptr;
+      if (auto range = getRangeFromType(type); range && range->width() > 1) {
+        net = SNLBusNet::create(
+          design,
+          static_cast<NLID::Bit>(range->left),
+          static_cast<NLID::Bit>(range->right));
+      } else {
+        net = SNLScalarNet::create(design);
+      }
+      annotateSourceInfo(net, sourceRange);
+      return net;
+    }
+
+    bool assignBitsToNet(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& sourceBits,
+      SNLNet* targetNet,
+      const std::optional<slang::SourceRange>& sourceRange) {
+      if (!targetNet) {
+        return false; // LCOV_EXCL_LINE
+      }
+      auto targetBits = collectBits(targetNet);
+      if (targetBits.size() != sourceBits.size()) {
+        return false;
+      }
+      for (size_t i = 0; i < sourceBits.size(); ++i) {
+        if (sourceBits[i] != targetBits[i]) {
+          createAssignInstance(design, sourceBits[i], targetBits[i], sourceRange);
+        }
+      }
+      return true;
+    }
+
+    bool materializeSubroutineArgumentNet(
+      SNLDesign* design,
+      const slang::ast::FormalArgumentSymbol& formalArg,
+      const Expression& callArg,
+      SNLNet*& argumentNet) {
+      argumentNet = nullptr;
+      auto argWidth = getRepresentableExpressionBitWidth(callArg);
+      if (!argWidth || !*argWidth) {
+        if (auto formalRange = getRangeFromType(formalArg.getType())) {
+          argWidth = static_cast<size_t>(formalRange->width());
+        }
+      }
+      if (!argWidth || !*argWidth) {
+        return false;
+      }
+      std::vector<SNLBitNet*> argumentBits;
+      if (!resolveExpressionBits(design, callArg, *argWidth, argumentBits) ||
+          argumentBits.size() != *argWidth) {
+        return false;
+      }
+      argumentNet = createAnonymousNetForType(
+        design,
+        formalArg.getType(),
+        getSourceRange(callArg));
+      return assignBitsToNet(design, argumentBits, argumentNet, getSourceRange(callArg));
+    }
+
+    bool tryApplyOutputActualBitsForLhs(
+      SNLDesign* design,
+      const Expression& actualLHS,
+      const Expression& trackedLhs,
+      const std::vector<SNLBitNet*>& assignedBits,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+      if (assignedBits.empty() || dataBits.size() != lhsBits.size()) {
+        failureReason = "width mismatch while applying output function actual";
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      const auto actualSourceRange = getSourceRange(actualLHS);
+
+      auto updateSlice =
+        [&](size_t offset, SNLBitNet* selectBit) -> bool {
+        if (offset + assignedBits.size() > dataBits.size()) {
+          failureReason = "output function actual slice out of range";
+          return false;
+        }
+        std::vector<SNLBitNet*> currentBits(
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset),
+          dataBits.begin() + static_cast<std::ptrdiff_t>(offset + assignedBits.size()));
+        if (assignedBits.size() > 1 && selectBit != const0 && selectBit != const1) {
+          std::vector<SNLBitNet*> updatedBits;
+          if (!createMux2Instance(
+                design,
+                selectBit,
+                currentBits,
+                assignedBits,
+                updatedBits,
+                actualSourceRange)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          std::copy(
+            updatedBits.begin(),
+            updatedBits.end(),
+            dataBits.begin() + static_cast<std::ptrdiff_t>(offset));
+          return true;
+        }
+        for (size_t bit = 0; bit < assignedBits.size(); ++bit) {
+          auto* candidateBit = assignedBits[bit];
+          if (selectBit == const1) {
+            dataBits[offset + bit] = candidateBit;
+            continue;
+          }
+          if (selectBit == const0 || dataBits[offset + bit] == candidateBit) {
+            continue;
+          }
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, actualSourceRange);
+          createMux2Instance(
+            design,
+            selectBit,
+            dataBits[offset + bit],
+            candidateBit,
+            outBit,
+            actualSourceRange);
+          dataBits[offset + bit] = outBit;
+        }
+        return true;
+      };
+
+      const auto* strippedActual = stripConnectionLValueArgConversions(actualLHS);
+      if (!strippedActual) {
+        return true; // LCOV_EXCL_LINE
+      }
+      if (sameLhs(strippedActual, &trackedLhs)) {
+        handled = true;
+        if (assignedBits.size() != dataBits.size()) {
+          failureReason = "output function whole-LHS width mismatch";
+          return false;
+        }
+        dataBits = assignedBits;
+        return true;
+      }
+
+      size_t memberOffset = 0;
+      const Expression* selectionExpr = strippedActual;
+      if (strippedActual->kind == slang::ast::ExpressionKind::MemberAccess) {
+        const auto& memberExpr = strippedActual->as<slang::ast::MemberAccessExpression>();
+        if (memberExpr.member.kind != SymbolKind::Field) {
+          return true;
+        }
+        const auto& field = memberExpr.member.as<slang::ast::FieldSymbol>();
+        memberOffset = static_cast<size_t>(field.bitOffset);
+        selectionExpr = stripConversions(memberExpr.value());
+        if (selectionExpr && sameLhs(selectionExpr, &trackedLhs)) {
+          handled = true;
+          return updateSlice(memberOffset, const1);
+        }
+      }
+
+      const auto* strippedSelection = selectionExpr ? stripConversions(*selectionExpr) : nullptr;
+      if (!strippedSelection ||
+          strippedSelection->kind != slang::ast::ExpressionKind::ElementSelect) {
+        return true;
+      }
+      const auto& elementExpr = strippedSelection->as<slang::ast::ElementSelectExpression>();
+      const auto* baseExpr = stripConversions(elementExpr.value());
+      if (!baseExpr || !sameLhs(baseExpr, &trackedLhs)) {
+        return true;
+      }
+      handled = true;
+
+      const auto& baseType = baseExpr->type->getCanonicalType();
+      if (!baseType.hasFixedRange()) {
+        failureReason = "output function actual element-select base has no fixed range";
+        return false;
+      }
+      const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
+      if (!arrayWidth || lhsBits.size() % arrayWidth != 0) {
+        failureReason = "output function actual element-select width mismatch";
+        return false;
+      }
+      const auto elementWidth = lhsBits.size() / arrayWidth;
+      if (memberOffset + assignedBits.size() > elementWidth) {
+        failureReason = "output function actual member slice out of element range";
+        return false;
+      }
+
+      int32_t selectedIndex = 0;
+      if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
+        const auto translated = baseType.getFixedRange().translateIndex(selectedIndex);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(baseType.getFixedRange().width())) {
+          failureReason = "output function actual constant element index out of range";
+          return false;
+        }
+        const auto offset =
+          static_cast<size_t>(translated) * elementWidth + memberOffset;
+        return updateSlice(offset, const1);
+      }
+
+      auto selectorWidth = getIntegralExpressionBitWidth(elementExpr.selector());
+      if (!selectorWidth || !*selectorWidth) {
+        failureReason = "unable to resolve output function actual selector width";
+        return false;
+      }
+      std::vector<SNLBitNet*> selectorBits;
+      if (!resolveExpressionBits(
+            design,
+            elementExpr.selector(),
+            static_cast<size_t>(*selectorWidth),
+            selectorBits) ||
+          selectorBits.size() != static_cast<size_t>(*selectorWidth)) {
+        failureReason = "unable to resolve output function actual selector bits";
+        return false;
+      }
+
+      int32_t index = baseType.getFixedRange().right;
+      const int32_t end = baseType.getFixedRange().left;
+      const int32_t step = index <= end ? 1 : -1;
+      while (index != end + step) {
+        const auto translated = baseType.getFixedRange().translateIndex(index);
+        if (translated >= 0 &&
+            translated < static_cast<int32_t>(baseType.getFixedRange().width())) {
+          auto* equalsIndexBit = buildSelectorEqualsIndexBit(
+            design,
+            selectorBits,
+            index,
+            actualSourceRange);
+          if (!equalsIndexBit) {
+            failureReason = "failed to build output function selector decode";
+            return false;
+          }
+          const auto offset =
+            static_cast<size_t>(translated) * elementWidth + memberOffset;
+          if (!updateSlice(offset, equalsIndexBit)) {
+            return false;
+          }
+        }
+        index += step;
+      }
+      return true;
+    }
+
+    bool tryApplyOutputFunctionCallForLhs(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+      const slang::ast::SubroutineSymbol* subroutine = nullptr;
+      const auto* callExpr = getOutputFunctionCallExpression(stmt, subroutine);
+      if (!callExpr || !subroutine) {
+        return true;
+      }
+
+      for (auto* activeSubroutine : activeInlinedCallSubroutines_) {
+        if (activeSubroutine == subroutine) {
+          return true;
+        }
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr->arguments();
+      if (formalArgs.size() != callArgs.size()) {
+        failureReason = "output function formal/actual count mismatch";
+        return false; // LCOV_EXCL_LINE
+      }
+
+      struct OutputActual {
+        const slang::ast::FormalArgumentSymbol* formal {nullptr};
+        const Expression* actual {nullptr};
+        SNLNet* formalNet {nullptr};
+      };
+      std::vector<OutputActual> outputActuals;
+      bool targetsTrackedLhs = false;
+      for (size_t i = 0; i < formalArgs.size(); ++i) {
+        const auto* formalArg = formalArgs[i];
+        const auto* callArg = callArgs[i];
+        if (!formalArg || !callArg ||
+            !isOutputLikeArgumentDirection(formalArg->direction)) {
+          continue;
+        }
+        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+        if (!actualLhs) {
+          continue; // LCOV_EXCL_LINE
+        }
+        outputActuals.push_back({formalArg, actualLhs, nullptr});
+        const auto* trackedActual = getTrackedAlwaysCombLHS(actualLhs);
+        if (sameLhs(trackedActual, &lhsExpr) ||
+            sameLhs(actualLhs, &lhsExpr) ||
+            isTrackedSelectionSubLhsOf(actualLhs, &lhsExpr)) {
+          targetsTrackedLhs = true;
+        }
+      }
+      if (!targetsTrackedLhs) {
+        return true;
+      }
+      handled = true;
+
+      std::unordered_map<const Symbol*, SNLNet*> argumentNets;
+      argumentNets.reserve(formalArgs.size());
+      size_t outputIndex = 0;
+      for (size_t i = 0; i < formalArgs.size(); ++i) {
+        const auto* formalArg = formalArgs[i];
+        const auto* callArg = callArgs[i];
+        if (!formalArg || !callArg) {
+          failureReason = "null output function argument";
+          return false; // LCOV_EXCL_LINE
+        }
+        SNLNet* argumentNet = nullptr;
+        if (formalArg->direction == ArgumentDirection::In) {
+          if (!materializeSubroutineArgumentNet(design, *formalArg, *callArg, argumentNet)) {
+            failureReason = "unable to materialize output function input argument";
+            return false;
+          }
+        } else if (isOutputLikeArgumentDirection(formalArg->direction)) {
+          argumentNet = createAnonymousNetForType(
+            design,
+            formalArg->getType(),
+            getSourceRange(*callArg));
+          if (formalArg->direction == ArgumentDirection::InOut ||
+              formalArg->direction == ArgumentDirection::Ref) {
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            auto width = actualLhs
+              ? getRepresentableExpressionBitWidth(*actualLhs)
+              : std::nullopt;
+            if (!width || !*width) {
+              failureReason = "unable to resolve output function inout argument width";
+              return false;
+            }
+            std::vector<SNLBitNet*> actualBits;
+            if (!resolveExpressionBits(design, *actualLhs, *width, actualBits) ||
+                actualBits.size() != *width ||
+                !assignBitsToNet(design, actualBits, argumentNet, getSourceRange(*callArg))) {
+              failureReason = "unable to initialize output function inout argument";
+              return false;
+            }
+          }
+          while (outputIndex < outputActuals.size() &&
+                 outputActuals[outputIndex].formal != formalArg) {
+            ++outputIndex; // LCOV_EXCL_LINE
+          }
+          if (outputIndex < outputActuals.size()) {
+            outputActuals[outputIndex].formalNet = argumentNet;
+            ++outputIndex;
+          }
+        } else {
+          return true; // LCOV_EXCL_LINE
+        }
+        argumentNets.emplace(formalArg, argumentNet);
+      }
+
+      activeFunctionArgumentNets_.push_back(std::move(argumentNets));
+      activeInlinedCallSubroutines_.push_back(subroutine);
+      activeFunctionLocalNets_.emplace_back();
+      activeFunctionLocalSuffixes_.push_back(makeActiveFunctionLocalSuffix());
+      const auto guard = slang::ScopeGuard([&]() {
+        activeFunctionLocalSuffixes_.pop_back();
+        activeFunctionLocalNets_.pop_back();
+        activeInlinedCallSubroutines_.pop_back();
+        activeFunctionArgumentNets_.pop_back();
+      });
+
+      std::string lowerFailureReason;
+      if (!lowerCombinationalProceduralBlock(
+            design,
+            subroutine->getBody(),
+            getSourceRange(stmt),
+            lowerFailureReason)) {
+        failureReason = lowerFailureReason;
+        return false;
+      }
+
+      for (const auto& outputActual : outputActuals) {
+        if (!outputActual.formalNet || !outputActual.actual) {
+          continue; // LCOV_EXCL_LINE
+        }
+        auto outputBits = collectBits(outputActual.formalNet);
+        if (outputBits.empty()) {
+          failureReason = "output function formal net has no bits";
+          return false;
+        }
+        bool applied = false;
+        if (!tryApplyOutputActualBitsForLhs(
+              design,
+              *outputActual.actual,
+              lhsExpr,
+              outputBits,
+              lhsBits,
+              dataBits,
+              failureReason,
+              applied)) {
+          return false;
+        }
+        const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+        if (applied &&
+            activeProceduralReplayEnv_ &&
+            tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+          (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+        }
+      }
+      return true;
+    }
+
     bool applyCombinationalStatementForLhs(
       SNLDesign* design,
       const Statement& stmt,
@@ -19996,6 +21670,23 @@ endmodule
         return true;
       }
 
+      {
+        bool outputCallHandled = false;
+        if (!tryApplyOutputFunctionCallForLhs(
+              design,
+              *current,
+              lhsExpr,
+              lhsBits,
+              dataBits,
+              failureReason,
+              outputCallHandled)) {
+          return false;
+        }
+        if (outputCallHandled) {
+          return true;
+        }
+      }
+
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
@@ -20325,6 +22016,9 @@ endmodule
       }
 
       for (const auto* rawLhsExpr : lhsExpressions) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
         if (!rawLhsExpr) {
           continue; // LCOV_EXCL_LINE
         }
@@ -21235,6 +22929,31 @@ endmodule
           }
         }
         if (!gateTypeFromBinary(bin.op)) {
+          if (bin.op == slang::ast::BinaryOperator::Multiply) {
+            const auto* strippedLeft = stripConversions(bin.left());
+            const auto* strippedRight = stripConversions(bin.right());
+            const bool leftIsDivide =
+              strippedLeft &&
+              strippedLeft->kind == slang::ast::ExpressionKind::BinaryOp &&
+              strippedLeft->as<slang::ast::BinaryExpression>().op ==
+                slang::ast::BinaryOperator::Divide;
+            const bool rightIsDivide =
+              strippedRight &&
+              strippedRight->kind == slang::ast::ExpressionKind::BinaryOp &&
+              strippedRight->as<slang::ast::BinaryExpression>().op ==
+                slang::ast::BinaryOperator::Divide;
+            if (leftIsDivide || rightIsDivide) {
+              std::vector<SNLBitNet*> multiplyBits;
+              if (resolveExpressionBits(
+                    design,
+                    *rhsExpr,
+                    lhsBits.size(),
+                    multiplyBits) &&
+                  multiplyBits.size() == lhsBits.size()) {
+                return multiplyBits;
+              }
+            }
+          }
           const bool supportedArithmeticOp =
             bin.op == slang::ast::BinaryOperator::Add ||
             bin.op == slang::ast::BinaryOperator::Subtract ||
@@ -21279,6 +22998,14 @@ endmodule
       }
 
       if (!rhsNet) {
+        // Call expressions (DPI imports, user functions that cannot be
+        // reduced to a net or constant) are non-synthesizable.  For
+        // structural netlist construction treat their result as constant-zero
+        // so that sequential blocks containing them can still be lowered.
+        if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::Call) {
+          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+          return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
+        }
         reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }
@@ -21733,6 +23460,8 @@ endmodule
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
+      const auto uninferredMemoryWarningThreshold =
+        getUninferredMemoryWarningBitThreshold();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const auto makeSequentialPerfScopeName = [&](const char* phase) {
         return std::string("SNLSVConstructorImpl::createSequentialLogic.") + phase + "(" +
@@ -21759,6 +23488,7 @@ endmodule
       for (const auto* blockPtr : proceduralBlocks) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.proceduralBlocksVisited;
+        maybeWriteSVPerfReportSnapshot();
 #endif
         const auto& block = *blockPtr;
         auto blockSourceRange = getSourceRange(block);
@@ -21779,6 +23509,11 @@ endmodule
           if (!ignoredSymbols.empty()) {
             ignoredSymbolsPtr = &ignoredSymbols;
           }
+          warnLargeUninferredMemoryAssignments(
+            combinationalStmt,
+            moduleName,
+            ignoredSymbolsPtr,
+            uninferredMemoryWarningThreshold);
           std::string combFailureReason;
           if (!lowerCombinationalProceduralBlock(
                 design,
@@ -21927,10 +23662,12 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysCombBlock", block));
             ++svPerfReport_.alwaysCombBlocksVisited;
+            noteSVPerfProgress();
 #endif
             if (lowerCombinationalBlock(block.getBody())) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
               ++svPerfReport_.alwaysCombBlocksLowered;
+              noteSVPerfProgress();
 #endif
             }
           }
@@ -21996,10 +23733,12 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysStarBlock", block));
           ++svPerfReport_.alwaysCombBlocksVisited;
+          noteSVPerfProgress();
 #endif
           if (lowerCombinationalBlock(*stmt)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             ++svPerfReport_.alwaysCombBlocksLowered;
+            noteSVPerfProgress();
 #endif
           }
           continue;
@@ -22007,11 +23746,19 @@ endmodule
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.sequentialBlocksVisited;
+        noteSVPerfProgress();
 #endif
 
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
         if (stmt && isIgnorableSequentialStatementTree(*stmt)) {
           continue;
+        }
+        if (stmt) {
+          warnLargeUninferredMemoryAssignments(
+            *stmt,
+            moduleName,
+            ignoredSequentialSymbolsPtr,
+            uninferredMemoryWarningThreshold);
         }
 
         SNLBitNet* clkNet = nullptr;
@@ -22488,6 +24235,7 @@ endmodule
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.sequentialBlocksLowered;
+        noteSVPerfProgress();
 #endif
       }
     }
@@ -22518,7 +24266,8 @@ endmodule
             continue;
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        ++svPerfReport_.continuousAssignsVisited;
+          ++svPerfReport_.continuousAssignsVisited;
+          noteSVPerfProgress();
 #endif
         const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
         const auto& assignment = continuousAssign.getAssignment();
@@ -22786,9 +24535,13 @@ endmodule
             const auto& binaryExpr = operandExpr->as<slang::ast::BinaryExpression>();
             switch (binaryExpr.op) {
               case slang::ast::BinaryOperator::BinaryAnd:
+              // ~(a && b) on 1-bit operands is equivalent to ~(a & b) = Nand
+              case slang::ast::BinaryOperator::LogicalAnd:
                 gateType = NLDB0::GateType(NLDB0::GateType::Nand);
                 break;
               case slang::ast::BinaryOperator::BinaryOr:
+              // ~(a || b) on 1-bit operands is equivalent to ~(a | b) = Nor
+              case slang::ast::BinaryOperator::LogicalOr:
                 gateType = NLDB0::GateType(NLDB0::GateType::Nor);
                 break;
               case slang::ast::BinaryOperator::BinaryXor:
@@ -23140,6 +24893,7 @@ endmodule
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.instanceSymbolsVisited;
+          noteSVPerfProgress();
 #endif
           const auto& instance = sym.as<InstanceSymbol>();
           const auto* canonicalBody = instance.getCanonicalBody();
@@ -23152,6 +24906,7 @@ endmodule
           connectInstance(inst, instance);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.instancesCreated;
+          noteSVPerfProgress();
 #endif
         }
       };
@@ -23170,6 +24925,82 @@ endmodule
         }
         auto term = model->getTerm(NLName(portName));
         if (!term) {
+          // If this is a flattened interface port, try to connect each
+          // individual signal term.  The model's terms are named
+          // <portName>__<signalName> (created in createTerms above).
+          if (conn->port.kind == SymbolKind::InterfacePort) {
+            const auto& ifacePort =
+              conn->port.as<slang::ast::InterfacePortSymbol>();
+            auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
+            if (modportSym) {
+              // Lazy term creation: create flattened terms on the model the
+              // first time this module is instantiated.  Terms are named
+              // <portName>__<signalName> (e.g. slave__aw_valid).
+              for (const auto& mpMember : modportSym->members()) {
+                if (mpMember.kind != SymbolKind::ModportPort) continue;
+                const auto& mpPort =
+                  mpMember.as<slang::ast::ModportPortSymbol>();
+                const std::string flatName =
+                  portName + "__" + std::string(mpPort.name);
+                if (!model->getTerm(NLName(flatName))) {
+                  auto direction = toSNLDirection(mpPort.direction);
+                  if (!direction) continue;
+                  auto range = getRangeFromType(mpPort.getType());
+                  if (range && range->width() > 1) {
+                    SNLBusTerm::create(
+                      model, *direction,
+                      static_cast<NLID::Bit>(range->left),
+                      static_cast<NLID::Bit>(range->right),
+                      NLName(flatName));
+                  } else {
+                    SNLScalarTerm::create(model, *direction, NLName(flatName));
+                  }
+                }
+              }
+              // Now connect each flattened term to its interface signal net.
+              if (ifaceSymbol && ifaceSymbol->kind == SymbolKind::Instance) {
+                const auto& ifaceBody =
+                  ifaceSymbol->as<slang::ast::InstanceSymbol>().body;
+                for (const auto& mpMember : modportSym->members()) {
+                  if (mpMember.kind != SymbolKind::ModportPort) continue;
+                  const auto& mpPort =
+                    mpMember.as<slang::ast::ModportPortSymbol>();
+                  const std::string flatTermName =
+                    portName + "__" + std::string(mpPort.name);
+                  auto* flatTerm = model->getTerm(NLName(flatTermName));
+                  if (!flatTerm) continue;
+                  const auto* signalSym = ifaceBody.find(mpPort.name);
+                  if (!signalSym ||
+                      (signalSym->kind != SymbolKind::Variable &&
+                       signalSym->kind != SymbolKind::Net)) {
+                    continue;
+                  }
+                  auto* signalNet = getLoweredValueSymbolNet(
+                    inst->getDesign(),
+                    signalSym->as<slang::ast::ValueSymbol>());
+                  if (!signalNet) continue;
+                  std::vector<SNLBitNet*> netBits = collectBits(signalNet);
+                  if (netBits.empty()) continue;
+                  if (auto* st = dynamic_cast<SNLScalarTerm*>(flatTerm)) {
+                    auto* si = inst->getInstTerm(st);
+                    if (si && netBits.front()) si->setNet(netBits.front());
+                  } else if (auto* bt = dynamic_cast<SNLBusTerm*>(flatTerm)) {
+                    auto msb = bt->getMSB(), lsb = bt->getLSB();
+                    auto step = lsb <= msb ? 1 : -1;
+                    size_t idx = 0;
+                    for (auto b = lsb;
+                         b != msb + step && idx < netBits.size();
+                         b += step, ++idx) {
+                      auto* bb = bt->getBit(b);
+                      auto* si = bb ? inst->getInstTerm(bb) : nullptr;
+                      if (si && netBits[idx]) si->setNet(netBits[idx]);
+                    }
+                  }
+                }
+              }
+            }
+            continue;
+          }
           std::ostringstream reason;
           reason << "Unsupported instance connection: missing term '" << portName
                  << "' on model '" << model->getName().getString() << "'";
@@ -23545,6 +25376,7 @@ endmodule
       inferredMemoryCombBlocks_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
       inferredMemorySequentialBlocks_ {};
+    std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};

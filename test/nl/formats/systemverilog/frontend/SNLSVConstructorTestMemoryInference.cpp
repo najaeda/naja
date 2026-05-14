@@ -5,11 +5,14 @@
 #include "gtest/gtest.h"
 
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 
 #include "DNL.h"
@@ -70,6 +73,54 @@ std::string readTextFile(const std::filesystem::path& path) {
   buffer << file.rdbuf();
   return buffer.str();
 }
+
+size_t countSubstring(const std::string& text, const std::string& pattern) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(pattern, pos)) != std::string::npos) {
+    ++count;
+    pos += pattern.size();
+  }
+  return count;
+}
+
+class ScopedEnvVar {
+  public:
+    ScopedEnvVar(const char* name, const char* value): name_(name) {
+      if (const char* existing = std::getenv(name)) {
+        oldValue_ = existing;
+      }
+      setValue(value);
+    }
+
+    ~ScopedEnvVar() {
+      if (oldValue_) {
+        setValue(oldValue_->c_str());
+      } else {
+        unsetValue();
+      }
+    }
+
+  private:
+    void setValue(const char* value) const {
+#if defined(_WIN32)
+      _putenv_s(name_.c_str(), value);
+#else
+      setenv(name_.c_str(), value, 1);
+#endif
+    }
+
+    void unsetValue() const {
+#if defined(_WIN32)
+      _putenv_s(name_.c_str(), "");
+#else
+      unsetenv(name_.c_str());
+#endif
+    }
+
+    std::string name_;
+    std::optional<std::string> oldValue_ {};
+};
 
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
                                                const std::string& outDirName,
@@ -3377,6 +3428,333 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseDirectSequentialByteEnableMemoryWithRegisteredReadInferenceSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "direct_sequential_byte_enable_memory_registered_read_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "direct_sequential_byte_enable_memory_registered_read_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module direct_sequential_byte_enable_memory_registered_read_supported #(
+  parameter int unsigned ADDR_SIZE = 2,
+  parameter int unsigned DATA_SIZE = 16,
+  parameter int unsigned DEPTH = 4,
+  parameter int unsigned NDATA = 2
+) (
+  input  logic                              clk_i,
+  input  logic                              cs_i,
+  input  logic                              we_i,
+  input  logic [ADDR_SIZE-1:0]              addr_i,
+  input  logic [NDATA-1:0][DATA_SIZE-1:0]   wdata_i,
+  input  logic [NDATA-1:0][DATA_SIZE/8-1:0] wbyteenable_i,
+  output logic [NDATA-1:0][DATA_SIZE-1:0]   rdata_o
+);
+  typedef logic [NDATA-1:0][DATA_SIZE-1:0] mem_t [DEPTH];
+  mem_t mem;
+
+  always_ff @(posedge clk_i) begin
+    if (cs_i == 1'b1) begin
+      if (we_i == 1'b1) begin
+        for (int j = 0; j < NDATA; j++) begin
+          for (int i = 0; i < DATA_SIZE/8; i++) begin
+            if (wbyteenable_i[j][i]) begin
+              mem[addr_i][j][i*8 +: 8] <= wdata_i[j][i*8 +: 8];
+            end
+          end
+        end
+      end else begin
+        rdata_o <= mem[addr_i];
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("direct_sequential_byte_enable_memory_registered_read_supported"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* widthParam = memoryInst->getInstParameter(NLName("WIDTH"));
+  auto* depthParam = memoryInst->getInstParameter(NLName("DEPTH"));
+  auto* wrPortsParam = memoryInst->getInstParameter(NLName("WR_PORTS"));
+  ASSERT_NE(nullptr, widthParam);
+  ASSERT_NE(nullptr, depthParam);
+  ASSERT_NE(nullptr, wrPortsParam);
+  EXPECT_EQ("32", widthParam->getValue());
+  EXPECT_EQ("4", depthParam->getValue());
+  EXPECT_EQ("4", wrPortsParam->getValue());
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredDirectSequentialMemoryFallback) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_direct_sequential_memory_warning";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "large_uninferred_direct_sequential_memory_warning.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_direct_sequential_memory_warning(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(
+    std::string::npos,
+    output.find("Fixed unpacked array 'mem_a'"))
+    << output;
+  EXPECT_NE(
+    std::string::npos,
+    output.find("Fixed unpacked array 'mem_b'"))
+    << output;
+  EXPECT_NE(
+    std::string::npos,
+    output.find("was not inferred as naja_mem"))
+    << output;
+
+  auto top = library_->getSNLDesign(
+    NLName("large_uninferred_direct_sequential_memory_warning"));
+  ASSERT_NE(top, nullptr);
+  for (auto inst : top->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryDisabledByZeroThreshold) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "0");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_disabled";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_disabled.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_disabled(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    std::string::npos,
+    output.find("was not inferred as naja_mem"))
+    << output;
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryInvalidThresholdUsesDefault) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "abc");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_invalid_threshold";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_invalid_threshold.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_invalid_threshold(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    std::string::npos,
+    output.find("was not inferred as naja_mem"))
+    << output;
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryDeduplicatesPerSymbol) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_dedup";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_dedup.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_dedup(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_a[addr_i] <= data_i ^ 8'hff;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    1,
+    countSubstring(output, "Fixed unpacked array 'mem_a'"))
+    << output;
+  EXPECT_EQ(
+    1,
+    countSubstring(output, "Fixed unpacked array 'mem_b'"))
+    << output;
 }
 
 TEST_F(
