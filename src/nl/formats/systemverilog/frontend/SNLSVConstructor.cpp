@@ -29,6 +29,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "NajaLog.h"
 #include "NajaPerf.h"
@@ -468,9 +469,21 @@ class SNLSVConstructorImpl {
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     struct SVPerfReport {
+      struct ActiveTimer {
+        std::chrono::nanoseconds* bucket {nullptr};
+        std::chrono::steady_clock::time_point start {};
+      };
+
       bool enabled {false};
       std::filesystem::path reportPath {};
       std::chrono::steady_clock::time_point constructStart {};
+      std::chrono::steady_clock::time_point lastSnapshotWrite {};
+      std::chrono::milliseconds snapshotInterval {5000};
+      std::vector<ActiveTimer> activeTimers {};
+      size_t snapshotWriteCount {0};
+      size_t progressEventsSinceSnapshotCheck {0};
+      bool snapshotWriteInProgress {false};
+      bool writeWarningEmitted {false};
 
       std::chrono::nanoseconds constructDuration {0};
       std::chrono::nanoseconds parseDuration {0};
@@ -533,12 +546,21 @@ class SNLSVConstructorImpl {
           bucket_((report.enabled) ? &bucket : nullptr) {
           if (report_) {
             start_ = std::chrono::steady_clock::now();
+            report_->activeTimers.push_back({bucket_, start_});
           }
         }
 
         ~SVPerfScopedTimer() {
           if (report_) {
             *bucket_ += std::chrono::steady_clock::now() - start_;
+            auto& activeTimers = report_->activeTimers;
+            for (auto it = activeTimers.end(); it != activeTimers.begin();) {
+              --it;
+              if (it->bucket == bucket_ && it->start == start_) {
+                activeTimers.erase(it);
+                break;
+              }
+            }
           }
         }
 
@@ -547,6 +569,20 @@ class SNLSVConstructorImpl {
         std::chrono::nanoseconds* bucket_ {nullptr};
         std::chrono::steady_clock::time_point start_ {};
     };
+
+    std::chrono::milliseconds getSVPerfSnapshotInterval() const {
+      const char* intervalEnv = std::getenv("NAJA_SV_CONSTRUCTOR_REPORT_INTERVAL_MS");
+      if (!intervalEnv || !*intervalEnv) {
+        return std::chrono::milliseconds(5000);
+      }
+
+      char* end = nullptr;
+      const auto parsed = std::strtoll(intervalEnv, &end, 10);
+      if (end == intervalEnv || *end != '\0' || parsed < 0) {
+        return std::chrono::milliseconds(5000);
+      }
+      return std::chrono::milliseconds(parsed);
+    }
 
     void initializeSVPerfReport(const SNLSVConstructor::Paths& paths) {
       svPerfReport_ = SVPerfReport {};
@@ -563,16 +599,21 @@ class SNLSVConstructorImpl {
       svPerfReport_.enabled = true;
       svPerfReport_.reportPath = reportPath;
       svPerfReport_.constructStart = std::chrono::steady_clock::now();
+      svPerfReport_.snapshotInterval = getSVPerfSnapshotInterval();
       svPerfReport_.inputPathCount = paths.size();
     }
 
-    void finalizeSVPerfReport() {
-      if (!svPerfReport_.enabled) {
+    void warnSVPerfReportWriteFailure(const std::string& details) const {
+      if (svPerfReport_.writeWarningEmitted) {
         return;
       }
+      svPerfReport_.writeWarningEmitted = true;
+      NAJA_LOG_WARN("Unable to write SV constructor performance report: {}", details);
+    }
 
-      svPerfReport_.constructDuration =
-        std::chrono::steady_clock::now() - svPerfReport_.constructStart;
+    void refreshSVPerfReportSnapshotCounters(
+      std::chrono::steady_clock::time_point steadyNow) const {
+      svPerfReport_.constructDuration = steadyNow - svPerfReport_.constructStart;
       svPerfReport_.warningCount = warnings_.size();
       svPerfReport_.unsupportedCount = unsupportedElements_.size();
       if (svPerfReport_.firstWarning.empty() && !warnings_.empty()) {
@@ -581,14 +622,40 @@ class SNLSVConstructorImpl {
       if (svPerfReport_.firstUnsupported.empty() && !unsupportedElements_.empty()) {
         svPerfReport_.firstUnsupported = unsupportedElements_.front();
       }
+    }
 
-      std::ofstream output(
-        svPerfReport_.reportPath,
-        std::ios::out | std::ios::app);
+    void writeSVPerfReportSnapshot(
+      bool finalSnapshot,
+      std::chrono::steady_clock::time_point steadyNow) const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotWriteInProgress) {
+        return;
+      }
+
+      svPerfReport_.snapshotWriteInProgress = true;
+      const auto writeGuard = slang::ScopeGuard([&]() {
+        svPerfReport_.snapshotWriteInProgress = false;
+      });
+
+      refreshSVPerfReportSnapshotCounters(steadyNow);
+
+      const auto durationWithActiveTimers =
+        [&](const std::chrono::nanoseconds& bucket) {
+        auto duration = bucket;
+        for (const auto& activeTimer : svPerfReport_.activeTimers) {
+          if (activeTimer.bucket == &bucket) {
+            duration += steadyNow - activeTimer.start;
+          }
+        }
+        return duration;
+      };
+
+      const auto reportPath = svPerfReport_.reportPath;
+      auto tmpPath = reportPath;
+      tmpPath += ".tmp";
+
+      std::ofstream output(tmpPath, std::ios::out | std::ios::trunc);
       if (!output) {
-        NAJA_LOG_WARN(
-          "Unable to write SV constructor performance report: {}",
-          svPerfReport_.reportPath.string());
+        warnSVPerfReportWriteFailure(tmpPath.string());
         return;
       }
 
@@ -605,7 +672,16 @@ class SNLSVConstructorImpl {
 
       output << "=== SNLSVConstructor Perf Report "
              << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << " ===\n";
-      output << "result=" << (svPerfReport_.success ? "success" : "failure") << "\n";
+      output << "snapshot.kind=" << (finalSnapshot ? "final" : "interim") << "\n";
+      output << "snapshot.write_count=" << (svPerfReport_.snapshotWriteCount + 1) << "\n";
+      output << "snapshot.interval_ms=" << svPerfReport_.snapshotInterval.count() << "\n";
+      output << "snapshot.active_timer_count=" << svPerfReport_.activeTimers.size() << "\n";
+      output << "result=";
+      if (!finalSnapshot) {
+        output << "in_progress\n";
+      } else {
+        output << (svPerfReport_.success ? "success" : "failure") << "\n";
+      }
       if (!svPerfReport_.failureReason.empty()) {
         output << "failure_reason=" << toSingleLine(svPerfReport_.failureReason) << "\n";
       }
@@ -615,33 +691,50 @@ class SNLSVConstructorImpl {
       output << std::fixed << std::setprecision(3);
       output << "time.construct.total_ms=" << toMilliseconds(svPerfReport_.constructDuration)
              << "\n";
-      output << "time.phase.parse_ms=" << toMilliseconds(svPerfReport_.parseDuration) << "\n";
+      output << "time.phase.parse_ms="
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.parseDuration)) << "\n";
       output << "time.phase.diagnostics_report_ms="
-             << toMilliseconds(svPerfReport_.diagnosticsReportDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.diagnosticsReportDuration)) << "\n";
       output << "time.phase.build_top_designs_ms="
-             << toMilliseconds(svPerfReport_.buildTopDesignsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.buildTopDesignsDuration)) << "\n";
       output << "time.phase.dump_elaborated_ast_ms="
-             << toMilliseconds(svPerfReport_.elaboratedASTDumpDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.elaboratedASTDumpDuration)) << "\n";
       output << "time.phase.unsupported_check_ms="
-             << toMilliseconds(svPerfReport_.unsupportedCheckDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.unsupportedCheckDuration)) << "\n";
       output << "time.lowering.build_design_ms="
-             << toMilliseconds(svPerfReport_.buildDesignDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.buildDesignDuration))
+             << "\n";
       output << "time.lowering.create_terms_ms="
-             << toMilliseconds(svPerfReport_.createTermsDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createTermsDuration))
+             << "\n";
       output << "time.lowering.create_nets_ms="
-             << toMilliseconds(svPerfReport_.createNetsDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createNetsDuration))
+             << "\n";
       output << "time.lowering.connect_terms_to_nets_ms="
-             << toMilliseconds(svPerfReport_.connectTermsToNetsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.connectTermsToNetsDuration)) << "\n";
       output << "time.lowering.create_continuous_assigns_ms="
-             << toMilliseconds(svPerfReport_.createContinuousAssignsDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.createContinuousAssignsDuration))
+             << "\n";
       output << "time.lowering.create_instances_ms="
-             << toMilliseconds(svPerfReport_.createInstancesDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.createInstancesDuration))
+             << "\n";
       output << "time.lowering.create_sequential_logic_ms="
-             << toMilliseconds(svPerfReport_.createSequentialLogicDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.createSequentialLogicDuration))
+             << "\n";
       output << "time.lowering.annotate_source_info_ms="
-             << toMilliseconds(svPerfReport_.annotateSourceInfoDuration) << "\n";
+             << toMilliseconds(
+                  durationWithActiveTimers(svPerfReport_.annotateSourceInfoDuration))
+             << "\n";
       output << "time.lowering.clone_rtl_infos_ms="
-             << toMilliseconds(svPerfReport_.cloneRTLInfosDuration) << "\n";
+             << toMilliseconds(durationWithActiveTimers(svPerfReport_.cloneRTLInfosDuration))
+             << "\n";
 
       output << "count.design.build_calls=" << svPerfReport_.buildDesignCalls << "\n";
       output << "count.design.build_cache_hits=" << svPerfReport_.buildDesignCacheHits << "\n";
@@ -696,6 +789,60 @@ class SNLSVConstructorImpl {
         output << "first_unsupported=" << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
       }
       output << "\n";
+      output.close();
+      if (!output.good()) {
+        warnSVPerfReportWriteFailure(tmpPath.string());
+        return;
+      }
+
+      std::error_code renameError;
+      std::filesystem::rename(tmpPath, reportPath, renameError);
+      if (renameError) {
+        std::error_code removeError;
+        std::filesystem::remove(reportPath, removeError);
+        renameError.clear();
+        std::filesystem::rename(tmpPath, reportPath, renameError);
+      }
+      if (renameError) {
+        warnSVPerfReportWriteFailure(renameError.message());
+        std::error_code removeError;
+        std::filesystem::remove(tmpPath, removeError);
+        return;
+      }
+
+      svPerfReport_.lastSnapshotWrite = steadyNow;
+      ++svPerfReport_.snapshotWriteCount;
+    }
+
+    void maybeWriteSVPerfReportSnapshot(bool force = false) const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotInterval.count() == 0) {
+        return;
+      }
+      const auto steadyNow = std::chrono::steady_clock::now();
+      if (!force &&
+          svPerfReport_.lastSnapshotWrite.time_since_epoch().count() != 0 &&
+          steadyNow - svPerfReport_.lastSnapshotWrite < svPerfReport_.snapshotInterval) {
+        return;
+      }
+      writeSVPerfReportSnapshot(false, steadyNow);
+    }
+
+    void noteSVPerfProgress() const {
+      if (!svPerfReport_.enabled || svPerfReport_.snapshotInterval.count() == 0) {
+        return;
+      }
+      if ((++svPerfReport_.progressEventsSinceSnapshotCheck & 0x3ff) != 0) {
+        return;
+      }
+      maybeWriteSVPerfReportSnapshot();
+    }
+
+    void finalizeSVPerfReport() const {
+      if (!svPerfReport_.enabled) {
+        return;
+      }
+
+      writeSVPerfReportSnapshot(true, std::chrono::steady_clock::now());
     }
 #endif
 
@@ -715,7 +862,11 @@ class SNLSVConstructorImpl {
       warnings_.clear();
       emittedWarnings_.clear();
       unsupportedElements_.clear();
+      warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot(true);
+#endif
       try {
         {
           NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
@@ -724,6 +875,9 @@ class SNLSVConstructorImpl {
 #endif
           constructWithSlangDriver(paths);
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -733,6 +887,9 @@ class SNLSVConstructorImpl {
 #endif
           dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
@@ -755,8 +912,14 @@ class SNLSVConstructorImpl {
 #endif
           for (const auto* top : root.topInstances) {
             buildDesign(top->body);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            maybeWriteSVPerfReportSnapshot();
+#endif
           }
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -766,6 +929,9 @@ class SNLSVConstructorImpl {
 #endif
           dumpElaboratedASTJson(root);
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -775,6 +941,9 @@ class SNLSVConstructorImpl {
 #endif
           throwIfUnsupportedElements();
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         svPerfReport_.success = true;
 #endif
@@ -2242,6 +2411,7 @@ endmodule
     SNLDesign* buildDesign(const InstanceBodySymbol& body) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.buildDesignCalls;
+      noteSVPerfProgress();
 #endif
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
@@ -2254,6 +2424,7 @@ endmodule
       if (existingIt != bodyToDesign_.end()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.buildDesignCacheHits;
+        noteSVPerfProgress();
 #endif
         return existingIt->second;
       }
@@ -2269,6 +2440,7 @@ endmodule
         bodyToDesign_[&body] = representativeIt->second;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.buildDesignCacheHits;
+        noteSVPerfProgress();
 #endif
         return representativeIt->second;
       }
@@ -2305,6 +2477,9 @@ endmodule
 #endif
         createTerms(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createNets"));
@@ -2313,6 +2488,9 @@ endmodule
 #endif
         createNets(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("connectTermsToNets"));
@@ -2323,18 +2501,27 @@ endmodule
 #endif
         connectTermsToNets(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
 #endif
         inferMemories(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("prepareInferredMemories"));
 #endif
         prepareInferredMemories(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createContinuousAssigns"));
@@ -2345,6 +2532,9 @@ endmodule
 #endif
         createContinuousAssigns(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createInstances"));
@@ -2353,6 +2543,9 @@ endmodule
 #endif
         createInstances(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createSequentialLogic"));
@@ -2363,12 +2556,18 @@ endmodule
 #endif
         createSequentialLogic(design, body);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("finalizeInferredMemories"));
 #endif
         finalizeInferredMemories(design);
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
       validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
 
       if (config_.blackboxDetection_ and design->isStandard()) {
@@ -2801,6 +3000,7 @@ endmodule
         rtlInfos = SNLRTLInfos::create(design);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignCalls;
+        noteSVPerfProgress();
 #endif
       }
       return rtlInfos;
@@ -2966,6 +3166,7 @@ endmodule
         rtlInfos = SNLRTLInfos::create(designObject);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+        noteSVPerfProgress();
 #endif
       }
       return rtlInfos;
@@ -2981,6 +3182,7 @@ endmodule
       rtlInfos->setInfo(NLName(name), value);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoSetCalls;
+      noteSVPerfProgress();
 #endif
     }
 
@@ -2994,6 +3196,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoCloneCalls;
       svPerfReport_.rtlInfoClonedEntries += fromInfos->getInfos().size();
+      noteSVPerfProgress();
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.cloneRTLInfosDuration);
 #endif
       auto* toInfos = to->getRTLInfos();
@@ -3001,6 +3204,7 @@ endmodule
         toInfos = SNLRTLInfos::create(to);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+        noteSVPerfProgress();
 #endif
       }
       toInfos->cloneInfos(*fromInfos);
@@ -3012,6 +3216,7 @@ endmodule
       const SourceInfo& sourceInfo) const {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.annotateSourceInfoCalls;
+      noteSVPerfProgress();
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.annotateSourceInfoDuration);
 #endif
       auto* rtlInfos = getOrCreateRTLInfos(object);
@@ -3896,10 +4101,6 @@ endmodule
         failureReason = "unsupported direct inferred memory sequential statement";
         return false;
       }
-      if (!action.rhs || action.stepDelta != 0 || action.compoundOp) {
-        failureReason = "unsupported direct inferred memory assignment action";
-        return false;
-      }
 
       const slang::ast::ValueSymbol* assignedSymbol = nullptr;
       if (!lhsExpr || !tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol)) {
@@ -3909,7 +4110,13 @@ endmodule
 
       NLDB0::MemorySignature assignedSignature;
       if (!getSupportedMemorySignature(assignedSymbol->getType(), assignedSignature)) {
-        failureReason = "direct sequential assignment target is not a supported memory";
+        // Side assignments in the same clocked block, such as registered memory
+        // read data, are still lowered by the generic sequential path.
+        return true;
+      }
+
+      if (!action.rhs || action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "unsupported direct inferred memory assignment action";
         return false;
       }
 
@@ -6679,6 +6886,7 @@ endmodule
       for (const auto& sym : body.getPortList()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portSymbolsVisited;
+        noteSVPerfProgress();
 #endif
         if (sym->kind != SymbolKind::Port) {
           // Interface ports (e.g. AXI_BUS.Slave slave) are flattened into
@@ -6734,6 +6942,7 @@ endmodule
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portsCreated;
+        noteSVPerfProgress();
 #endif
       }
     }
@@ -6765,6 +6974,7 @@ endmodule
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netOrVariableSymbolsVisited;
+          noteSVPerfProgress();
 #endif
           const auto& valueSym = sym.as<ValueSymbol>();
           auto loweredName = getLoweredSymbolName(valueSym);
@@ -6798,6 +7008,7 @@ endmodule
           annotateSourceInfo(net, getSourceRange(valueSym));
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netsCreated;
+          noteSVPerfProgress();
 #endif
         }
       };
@@ -15392,6 +15603,195 @@ endmodule
       return false;
     }
 
+    static constexpr size_t DefaultUninferredMemoryWarningBitThreshold = 4096;
+
+    size_t getUninferredMemoryWarningBitThreshold() const {
+      const char* envValue = std::getenv("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS");
+      if (!envValue || !*envValue || envValue[0] == '-') {
+        return DefaultUninferredMemoryWarningBitThreshold;
+      }
+      char* end = nullptr;
+      const auto parsed = std::strtoull(envValue, &end, 10);
+      if (end == envValue || (end && *end != '\0')) {
+        return DefaultUninferredMemoryWarningBitThreshold;
+      }
+      const auto maxSize = static_cast<unsigned long long>(std::numeric_limits<size_t>::max());
+      if (parsed > maxSize) {
+        return std::numeric_limits<size_t>::max();
+      }
+      return static_cast<size_t>(parsed);
+    }
+
+    bool tryGetMemoryBitCount(
+      const NLDB0::MemorySignature& signature,
+      size_t& bitCount) const {
+      if (signature.depth != 0 &&
+          signature.width > std::numeric_limits<size_t>::max() / signature.depth) {
+        bitCount = std::numeric_limits<size_t>::max();
+        return false;
+      }
+      bitCount = signature.width * signature.depth;
+      return true;
+    }
+
+    bool isLoweredInferredMemorySymbol(const slang::ast::ValueSymbol& symbol) const {
+      for (const auto& memory : inferredMemories_) {
+        if (!memory.lowered) {
+          continue;
+        }
+        if (memory.stateSymbol == &symbol ||
+            memory.shadowSymbol == &symbol ||
+            memory.commitSymbol == &symbol) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    void warnLargeUninferredMemorySymbol(
+      const slang::ast::ValueSymbol& symbol,
+      const NLDB0::MemorySignature& signature,
+      const std::string& moduleName,
+      const std::optional<slang::SourceRange>& sourceRange,
+      size_t threshold) {
+      if (threshold == 0 || isLoweredInferredMemorySymbol(symbol)) {
+        return;
+      }
+
+      size_t bitCount = 0;
+      const bool exactBitCount = tryGetMemoryBitCount(signature, bitCount);
+      if (exactBitCount && bitCount < threshold) {
+        return;
+      }
+      if (!exactBitCount && bitCount < threshold) {
+        return; // LCOV_EXCL_LINE
+      }
+
+      if (!warnedUninferredMemorySymbols_.insert(&symbol).second) {
+        return;
+      }
+
+      std::ostringstream reason;
+      reason << "Fixed unpacked array '" << std::string(symbol.name)
+             << "' in module '" << moduleName
+             << "' was not inferred as naja_mem; generic lowering may expand it into many "
+             << "gates/flops (width=" << signature.width
+             << ", depth=" << signature.depth
+             << ", bits=";
+      if (exactBitCount) {
+        reason << bitCount;
+      } else {
+        reason << "overflow";
+      }
+      reason << ", warning_threshold_bits=" << threshold << ")";
+      reportWarning(reason.str(), sourceRange);
+    }
+
+    void warnLargeUninferredMemoryAssignments(
+      const Statement& stmt,
+      const std::string& moduleName,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols,
+      size_t threshold) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || threshold == 0) {
+        return;
+      }
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration ||
+          current->kind == slang::ast::StatementKind::Break) {
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) {
+            warnLargeUninferredMemoryAssignments(
+              *item,
+              moduleName,
+              ignoredSymbols,
+              threshold);
+          }
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        warnLargeUninferredMemoryAssignments(
+          current->as<slang::ast::ForLoopStatement>().body,
+          moduleName,
+          ignoredSymbols,
+          threshold);
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+        warnLargeUninferredMemoryAssignments(
+          condStmt.ifTrue,
+          moduleName,
+          ignoredSymbols,
+          threshold);
+        if (condStmt.ifFalse) {
+          warnLargeUninferredMemoryAssignments(
+            *condStmt.ifFalse,
+            moduleName,
+            ignoredSymbols,
+            threshold);
+        }
+        return;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (item.stmt) {
+            warnLargeUninferredMemoryAssignments(
+              *item.stmt,
+              moduleName,
+              ignoredSymbols,
+              threshold);
+          }
+        }
+        if (caseStmt.defaultCase) {
+          warnLargeUninferredMemoryAssignments(
+            *caseStmt.defaultCase,
+            moduleName,
+            ignoredSymbols,
+            threshold);
+        }
+        return;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhsExpr, action)) {
+        return;
+      }
+
+      lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
+      if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+        return;
+      }
+
+      const slang::ast::ValueSymbol* assignedSymbol = nullptr;
+      if (!lhsExpr || !tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol)) {
+        return;
+      }
+
+      NLDB0::MemorySignature signature;
+      if (!getSupportedMemorySignature(assignedSymbol->getType(), signature)) {
+        return;
+      }
+
+      warnLargeUninferredMemorySymbol(
+        *assignedSymbol,
+        signature,
+        moduleName,
+        getSourceRange(*lhsExpr),
+        threshold);
+    }
+
     bool sameExpressionStructure(const Expression* left, const Expression* right) const {
       if (!left || !right) {
         return false; // LCOV_EXCL_LINE
@@ -21616,6 +22016,9 @@ endmodule
       }
 
       for (const auto* rawLhsExpr : lhsExpressions) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
         if (!rawLhsExpr) {
           continue; // LCOV_EXCL_LINE
         }
@@ -23057,6 +23460,8 @@ endmodule
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
+      const auto uninferredMemoryWarningThreshold =
+        getUninferredMemoryWarningBitThreshold();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const auto makeSequentialPerfScopeName = [&](const char* phase) {
         return std::string("SNLSVConstructorImpl::createSequentialLogic.") + phase + "(" +
@@ -23083,6 +23488,7 @@ endmodule
       for (const auto* blockPtr : proceduralBlocks) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.proceduralBlocksVisited;
+        maybeWriteSVPerfReportSnapshot();
 #endif
         const auto& block = *blockPtr;
         auto blockSourceRange = getSourceRange(block);
@@ -23103,6 +23509,11 @@ endmodule
           if (!ignoredSymbols.empty()) {
             ignoredSymbolsPtr = &ignoredSymbols;
           }
+          warnLargeUninferredMemoryAssignments(
+            combinationalStmt,
+            moduleName,
+            ignoredSymbolsPtr,
+            uninferredMemoryWarningThreshold);
           std::string combFailureReason;
           if (!lowerCombinationalProceduralBlock(
                 design,
@@ -23251,10 +23662,12 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysCombBlock", block));
             ++svPerfReport_.alwaysCombBlocksVisited;
+            noteSVPerfProgress();
 #endif
             if (lowerCombinationalBlock(block.getBody())) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
               ++svPerfReport_.alwaysCombBlocksLowered;
+              noteSVPerfProgress();
 #endif
             }
           }
@@ -23320,10 +23733,12 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeProceduralBlockPerfScopeName("lowerAlwaysStarBlock", block));
           ++svPerfReport_.alwaysCombBlocksVisited;
+          noteSVPerfProgress();
 #endif
           if (lowerCombinationalBlock(*stmt)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             ++svPerfReport_.alwaysCombBlocksLowered;
+            noteSVPerfProgress();
 #endif
           }
           continue;
@@ -23331,11 +23746,19 @@ endmodule
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.sequentialBlocksVisited;
+        noteSVPerfProgress();
 #endif
 
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
         if (stmt && isIgnorableSequentialStatementTree(*stmt)) {
           continue;
+        }
+        if (stmt) {
+          warnLargeUninferredMemoryAssignments(
+            *stmt,
+            moduleName,
+            ignoredSequentialSymbolsPtr,
+            uninferredMemoryWarningThreshold);
         }
 
         SNLBitNet* clkNet = nullptr;
@@ -23812,6 +24235,7 @@ endmodule
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.sequentialBlocksLowered;
+        noteSVPerfProgress();
 #endif
       }
     }
@@ -23842,7 +24266,8 @@ endmodule
             continue;
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        ++svPerfReport_.continuousAssignsVisited;
+          ++svPerfReport_.continuousAssignsVisited;
+          noteSVPerfProgress();
 #endif
         const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
         const auto& assignment = continuousAssign.getAssignment();
@@ -24468,6 +24893,7 @@ endmodule
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.instanceSymbolsVisited;
+          noteSVPerfProgress();
 #endif
           const auto& instance = sym.as<InstanceSymbol>();
           const auto* canonicalBody = instance.getCanonicalBody();
@@ -24480,6 +24906,7 @@ endmodule
           connectInstance(inst, instance);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.instancesCreated;
+          noteSVPerfProgress();
 #endif
         }
       };
@@ -24949,6 +25376,7 @@ endmodule
       inferredMemoryCombBlocks_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
       inferredMemorySequentialBlocks_ {};
+    std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};

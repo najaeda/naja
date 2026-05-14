@@ -6,12 +6,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
 #include <iterator>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 
 #include "DNL.h"
@@ -49,6 +51,50 @@ using namespace naja::NL;
 #endif
 
 namespace {
+
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+void setEnvVar(const char* name, const std::string& value) {
+#if defined(_WIN32)
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), 1);
+#endif
+}
+
+void unsetEnvVar(const char* name) {
+#if defined(_WIN32)
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
+}
+
+class ScopedEnvVar {
+  public:
+    explicit ScopedEnvVar(const char* name):
+      name_(name) {
+      if (const char* value = std::getenv(name)) {
+        previous_ = value;
+      }
+    }
+
+    ~ScopedEnvVar() {
+      if (previous_) {
+        setEnvVar(name_.c_str(), *previous_);
+      } else {
+        unsetEnvVar(name_.c_str());
+      }
+    }
+
+    void set(const std::string& value) const {
+      setEnvVar(name_.c_str(), value);
+    }
+
+  private:
+    std::string name_;
+    std::optional<std::string> previous_;
+};
+#endif
 
 const SNLRTLInfos* getRTLInfos(const NLObject* object) {
   if (auto design = dynamic_cast<const SNLDesign*>(object)) {
@@ -27160,6 +27206,52 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
     std::istreambuf_iterator<char>()};
   EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
 }
+
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorPerfReport) {
+  ScopedEnvVar reportEnv("NAJA_SV_CONSTRUCTOR_REPORT");
+  ScopedEnvVar intervalEnv("NAJA_SV_CONSTRUCTOR_REPORT_INTERVAL_MS");
+
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "simple_sv_constructor_perf_report";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  auto reportPath = outPath / "sv_constructor_perf.log";
+  reportEnv.set(reportPath.string());
+  intervalEnv.set("1");
+
+  constructor.construct(benchmarksPath / "simple" / "simple.sv");
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  std::ifstream reportFile(reportPath);
+  ASSERT_TRUE(reportFile.good());
+  std::string report{
+    std::istreambuf_iterator<char>(reportFile),
+    std::istreambuf_iterator<char>()};
+
+  const std::string header = "=== SNLSVConstructor Perf Report";
+  const auto headerPos = report.find(header);
+  ASSERT_NE(std::string::npos, headerPos);
+  EXPECT_EQ(std::string::npos, report.find(header, headerPos + header.size()));
+  EXPECT_NE(std::string::npos, report.find("snapshot.kind=final"));
+  EXPECT_NE(std::string::npos, report.find("result=success"));
+
+  const std::string writeCountKey = "snapshot.write_count=";
+  const auto writeCountPos = report.find(writeCountKey);
+  ASSERT_NE(std::string::npos, writeCountPos);
+  const auto writeCountEnd = report.find('\n', writeCountPos);
+  ASSERT_NE(std::string::npos, writeCountEnd);
+  const auto writeCountText = report.substr(
+    writeCountPos + writeCountKey.size(),
+    writeCountEnd - writeCountPos - writeCountKey.size());
+  EXPECT_GE(std::stoul(writeCountText), 2u);
+}
+#endif
 
 TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDetails) {
   SNLSVConstructor constructor(library_);
