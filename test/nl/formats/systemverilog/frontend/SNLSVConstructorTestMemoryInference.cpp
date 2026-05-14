@@ -74,6 +74,16 @@ std::string readTextFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
+size_t countSubstring(const std::string& text, const std::string& pattern) {
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(pattern, pos)) != std::string::npos) {
+    ++count;
+    pos += pattern.size();
+  }
+  return count;
+}
+
 class ScopedEnvVar {
   public:
     ScopedEnvVar(const char* name, const char* value): name_(name) {
@@ -3569,6 +3579,182 @@ endmodule
   for (auto inst : top->getInstances()) {
     EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
   }
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryDisabledByZeroThreshold) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "0");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_disabled";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_disabled.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_disabled(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    std::string::npos,
+    output.find("was not inferred as naja_mem"))
+    << output;
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryInvalidThresholdUsesDefault) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "abc");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_invalid_threshold";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_invalid_threshold.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_invalid_threshold(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    std::string::npos,
+    output.find("was not inferred as naja_mem"))
+    << output;
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  warnLargeUninferredMemoryDeduplicatesPerSymbol) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "large_uninferred_memory_warning_dedup";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_uninferred_memory_warning_dedup.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module large_uninferred_memory_warning_dedup(
+  input  logic       clk_i,
+  input  logic       we_i,
+  input  logic [1:0] addr_i,
+  input  logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      mem_a[addr_i] <= data_i;
+      mem_a[addr_i] <= data_i ^ 8'hff;
+      mem_b[addr_i] <= data_i;
+    end
+  end
+
+  assign data_o = mem_a[addr_i] ^ mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+
+  EXPECT_EQ(
+    1,
+    countSubstring(output, "Fixed unpacked array 'mem_a'"))
+    << output;
+  EXPECT_EQ(
+    1,
+    countSubstring(output, "Fixed unpacked array 'mem_b'"))
+    << output;
 }
 
 TEST_F(
