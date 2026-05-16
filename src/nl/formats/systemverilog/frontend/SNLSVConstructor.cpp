@@ -8582,6 +8582,14 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      if (auto inferredMemoryWidth = getRepresentableExpressionBitWidth(*stripped);
+          inferredMemoryWidth && *inferredMemoryWidth > 0 &&
+          tryResolveInferredMemoryReadBits(design, *stripped, *inferredMemoryWidth, bits) &&
+          bits.size() == *inferredMemoryWidth) {
+        return true;
+      }
+      bits.clear();
+
       const auto resolveBaseBits = [&](const Expression& baseExpr,
                                        std::vector<SNLBitNet*>& baseBits) {
         baseBits.clear();
@@ -12478,30 +12486,31 @@ endmodule
             }
             if (!valueBits.empty()) {
               size_t elementWidth = 0;
-              if (const auto* elementType = valueType.getArrayElementType()) {
-                const auto& canonicalElementType = elementType->getCanonicalType();
-                if (canonicalElementType.isBitstreamType()) {
-                  const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
-                  if (bitstreamWidth > 0 &&
-                      bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-                    elementWidth = static_cast<size_t>(bitstreamWidth);
-                  }
-                }
-                if (!elementWidth) {
-                  // LCOV_EXCL_START
-                  // Fallback for non-bitstream array element types. The packed
-                  // multidimensional cases fixed here use bitstream element
-                  // widths, so parser-backed regressions do not reach this.
-                  if (auto elementRange = getRangeFromType(*elementType)) {
-                    elementWidth = static_cast<size_t>(elementRange->width());
-                  }
-                }
-                // LCOV_EXCL_STOP
+              if (auto selectedWidth =
+                    getPackedElementSelectionWidth(*valueExpr->type, valueBits.size())) {
+                elementWidth = *selectedWidth;
               }
               if (!elementWidth) {
-                if (auto selectedWidth =
-                      getPackedElementSelectionWidth(*valueExpr->type, valueBits.size())) {
-                  elementWidth = *selectedWidth;
+                const auto* elementType = valueType.getArrayElementType();
+                if (elementType) {
+                  const auto& canonicalElementType = elementType->getCanonicalType();
+                  if (canonicalElementType.isBitstreamType()) {
+                    const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
+                    if (bitstreamWidth > 0 &&
+                        bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+                      elementWidth = static_cast<size_t>(bitstreamWidth);
+                    }
+                  }
+                  if (!elementWidth) {
+                    // LCOV_EXCL_START
+                    // Fallback for non-bitstream array element types. The packed
+                    // multidimensional cases fixed here use bitstream element
+                    // widths, so parser-backed regressions do not reach this.
+                    if (auto elementRange = getRangeFromType(*elementType)) {
+                      elementWidth = static_cast<size_t>(elementRange->width());
+                    }
+                  }
+                  // LCOV_EXCL_STOP
                 }
               }
               if (!elementWidth) {
@@ -18547,7 +18556,10 @@ endmodule
                 return false;
               } // LCOV_EXCL_STOP
 
-              auto elementWidth = getIntegralExpressionBitWidth(*assignedLHS);
+              auto elementWidth = getPackedElementSelectionWidth(*baseExpr->type, lhsBits.size());
+              if (!elementWidth || !*elementWidth) {
+                elementWidth = getIntegralExpressionBitWidth(*assignedLHS);
+              }
               if (!elementWidth || !*elementWidth) { // LCOV_EXCL_START
                 std::ostringstream reason;
                 reason << "unable to resolve sequential element-select assignment width for "
@@ -20865,6 +20877,47 @@ endmodule
               return false; // LCOV_EXCL_LINE
             }
 
+            if (candidateOffsets.size() > 1 && equalsIndexBit != const1) {
+              bool contiguousOffsets = true;
+              const auto firstOffset = candidateOffsets.front();
+              for (size_t bit = 0; bit < candidateOffsets.size(); ++bit) {
+                if (candidateOffsets[bit] != firstOffset + bit ||
+                    candidateOffsets[bit] >= dataBits.size()) {
+                  contiguousOffsets = false;
+                  break;
+                }
+              }
+              if (contiguousOffsets) {
+                std::vector<SNLBitNet*> currentSlice(
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(firstOffset),
+                  dataBits.begin() +
+                    static_cast<std::ptrdiff_t>(firstOffset + candidateOffsets.size()));
+                if (currentSlice == assignedBits) {
+                  index += stepDirection;
+                  continue;
+                }
+                std::vector<SNLBitNet*> updatedSlice;
+                if (!createMux2Instance(
+                      design,
+                      equalsIndexBit,
+                      currentSlice,
+                      assignedBits,
+                      updatedSlice,
+                      elementSourceRange)) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                if (updatedSlice.size() != candidateOffsets.size()) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                std::copy(
+                  updatedSlice.begin(),
+                  updatedSlice.end(),
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(firstOffset));
+                index += stepDirection;
+                continue;
+              }
+            }
+
             for (size_t bit = 0; bit < candidateOffsets.size(); ++bit) {
               const auto offset = candidateOffsets[bit];
               if (offset >= dataBits.size()) {
@@ -20951,7 +21004,10 @@ endmodule
         // LCOV_EXCL_STOP
       } // LCOV_EXCL_LINE
 
-      auto elementWidth = getIntegralExpressionBitWidth(assignedLHS);
+      auto elementWidth = getPackedElementSelectionWidth(*baseExpr->type, lhsBits.size());
+      if (!elementWidth || !*elementWidth) {
+        elementWidth = getIntegralExpressionBitWidth(assignedLHS);
+      }
       if (!elementWidth || !*elementWidth) {
         std::ostringstream reason;
         reason << "unable to resolve always_comb element-select assignment width for "

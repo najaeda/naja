@@ -2322,10 +2322,24 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("qd_memory_inference_reset_init_logical_and_condition_fallback"));
+  ASSERT_NE(top, nullptr);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+
+  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, initParam);
+  EXPECT_EQ("32'b00010001000100011010101010101010", initParam->getValue());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceConditionalSideLogicSupported) {
