@@ -1784,16 +1784,31 @@ endmodule
   output logic [4:0] y2,
   output logic [63:0] y3,
   output logic y4,
-  output logic [3:0] y5
+  output logic [3:0] y5,
+  output logic [4:0] y6,
+  output logic [4:0] y7,
+  output logic [4:0] y8,
+  output logic [1:0] y9,
+  output logic [31:0] y10,
+  output logic [4:0] y11
 );
   localparam int unsigned P = 9;
   localparam logic [3:0] PX = 4'bx;
+  function automatic logic [4:0] pass(input logic [4:0] value);
+    return value;
+  endfunction
   assign y0 = i;
   assign y1 = P;
   assign y2 = 5'(i);
   assign y3 = (i + 0) * 64'd9223372036854775808;
   assign y4 = (i == 5'd0);
   assign y5 = PX;
+  assign y6 = i ? 5'd1 : y0;
+  assign y7 = {y0[3:0], i[0]};
+  assign y8 = pass(i);
+  assign y9 = {P[0], 1'b0};
+  assign y10 = $bits(i);
+  assign y11 = pass(y0);
 endmodule
 module other_detail_test;
   function void i();
@@ -1823,7 +1838,7 @@ endmodule
         }
         rhsExprs.push_back(&assignment.as<slang::ast::AssignmentExpression>().right());
       }
-      if (rhsExprs.size() != 6) {
+      if (rhsExprs.size() != 12) {
         return std::nullopt;
       }
 
@@ -1917,6 +1932,19 @@ endmodule
       activeForLoopNameConstants_.clear();
 
       result.unknownParameterInt64Rejected = !getConstantInt64(*rhsExprs[5], intValue);
+
+      activeForLoopNameConstants_.push_back({"i", 12});
+      result.conditionalLoopConditionHit = isActiveForLoopVariableExpr(*rhsExprs[6]);
+      result.concatLoopOperandHit = isActiveForLoopVariableExpr(*rhsExprs[7]);
+      result.callLoopArgHit = isActiveForLoopVariableExpr(*rhsExprs[8]);
+      activeForLoopNameConstants_.clear();
+
+      result.constantConcatNoRuntimeSymbol =
+        !expressionReferencesRuntimeValueSymbol(*rhsExprs[9]);
+      result.systemQueryCallNoRuntimeSymbol =
+        !expressionReferencesRuntimeValueSymbol(*rhsExprs[10]);
+      result.callRuntimeArgHit =
+        expressionReferencesRuntimeValueSymbol(*rhsExprs[11]);
 
       return result;
     }
@@ -7212,6 +7240,9 @@ endmodule
         }
       }
       // LCOV_EXCL_STOP
+      if (auto sourceValue = getActiveForLoopConstantFromExactSourceIdentifier(*stripped)) {
+        return sourceValue;
+      }
       if (!slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
         return std::nullopt;
       }
@@ -7253,6 +7284,55 @@ endmodule
         ++pos;
       }
       return false;
+    }
+
+    static std::string trimASCIIWhitespace(std::string text) {
+      const auto first = text.find_first_not_of(" \t\r\n");
+      if (first == std::string::npos) {
+        // Current callers pass expression source ranges, so parser-backed
+        // excerpts are never whitespace-only. Keep the guard for synthetic
+        // ranges and future callers.
+        // LCOV_EXCL_START
+        return {};
+        // LCOV_EXCL_STOP
+      }
+      const auto last = text.find_last_not_of(" \t\r\n");
+      return text.substr(first, last - first + 1);
+    }
+
+    std::optional<int64_t> getActiveForLoopConstantFromExactSourceIdentifier(
+      const Expression& expr) const {
+      if (activeForLoopConstants_.empty() && activeForLoopNameConstants_.empty()) {
+        return std::nullopt;
+      }
+      const auto sourceExcerpt = getSourceExcerpt(getSourceRange(expr));
+      if (!sourceExcerpt) {
+        // Concrete elaborated expressions carry source ranges in current
+        // parser-backed flows; this is defensive for alternate expression
+        // wrappers.
+        // LCOV_EXCL_START
+        return std::nullopt;
+        // LCOV_EXCL_STOP
+      }
+      const auto trimmed = trimASCIIWhitespace(*sourceExcerpt);
+      if (trimmed.empty()) {
+        // LCOV_EXCL_START
+        return std::nullopt;
+        // LCOV_EXCL_STOP
+      }
+      for (auto it = activeForLoopConstants_.rbegin(); it != activeForLoopConstants_.rend(); ++it) {
+        if (it->first && trimmed == it->first->name) {
+          return it->second;
+        }
+      }
+      for (auto it = activeForLoopNameConstants_.rbegin();
+           it != activeForLoopNameConstants_.rend();
+           ++it) {
+        if (trimmed == it->first) {
+          return it->second;
+        }
+      }
+      return std::nullopt;
     }
 
     std::optional<int64_t> getActiveForLoopConstantFromSource(const Expression& expr) const {
@@ -7434,7 +7514,7 @@ endmodule
       }
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
-        if (auto loopValue = getActiveForLoopConstantFromSource(expr)) {
+        if (auto loopValue = getActiveForLoopConstantFromExactSourceIdentifier(expr)) {
           // Parser-backed conversion expressions expose the loop expression
           // structurally, so negative source-only loop constants are a
           // defensive fallback for lowered expressions.
@@ -7455,7 +7535,8 @@ endmodule
       if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
         const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
         if (symbol.kind == SymbolKind::Parameter) {
-          const auto& parameterValue = symbol.as<slang::ast::ParameterSymbol>().getValue();
+          const auto& parameterSymbol = symbol.as<slang::ast::ParameterSymbol>();
+          const auto& parameterValue = parameterSymbol.getValue();
           if (parameterValue && parameterValue.isInteger()) {
             const auto& intValue = parameterValue.integer();
             if (intValue.hasUnknown()) {
@@ -7468,13 +7549,24 @@ endmodule
             value = *maybeValue;
             return true;
           }
+          if (const auto* initializer = parameterSymbol.getInitializer()) {
+            return getConstantUnsigned(*initializer, value);
+          }
         }
       }
 
-      const slang::ConstantValue* directConstant = expr.getConstant();
+      const bool skipMixedLoopRuntimeEval =
+        shouldSkipRuntimeConstantEval(expr);
+      if (skipMixedLoopRuntimeEval) {
+        return false;
+      }
+      const slang::ConstantValue* directConstant =
+        skipMixedLoopRuntimeEval ? nullptr : expr.getConstant();
       slang::ConstantValue directEvaluatedConstant;
       const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
-      if ((!directConstant || !directConstant->isInteger()) && directEvalSymbol) {
+      if (!skipMixedLoopRuntimeEval &&
+          (!directConstant || !directConstant->isInteger()) &&
+          directEvalSymbol) {
         slang::ast::EvalContext evalContext(*directEvalSymbol);
         directEvaluatedConstant = expr.eval(evalContext);
         if (directEvaluatedConstant && directEvaluatedConstant.isInteger()) {
@@ -7495,10 +7587,13 @@ endmodule
         return true;
       }
 
-      const slang::ConstantValue* constant = stripped->getConstant();
+      const slang::ConstantValue* constant =
+        skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
-      if ((!constant || !constant->isInteger()) && evalSymbol) {
+      if (!skipMixedLoopRuntimeEval &&
+          (!constant || !constant->isInteger()) &&
+          evalSymbol) {
         slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
@@ -7722,7 +7817,7 @@ endmodule
       }
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
-        if (auto loopValue = getActiveForLoopConstantFromSource(expr)) {
+        if (auto loopValue = getActiveForLoopConstantFromExactSourceIdentifier(expr)) {
           value = *loopValue;
           return true;
         }
@@ -7736,7 +7831,8 @@ endmodule
       if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
         const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
         if (symbol.kind == SymbolKind::Parameter) {
-          const auto& parameterValue = symbol.as<slang::ast::ParameterSymbol>().getValue();
+          const auto& parameterSymbol = symbol.as<slang::ast::ParameterSymbol>();
+          const auto& parameterValue = parameterSymbol.getValue();
           if (parameterValue && parameterValue.isInteger()) {
             const auto& intValue = parameterValue.integer();
             if (intValue.hasUnknown()) {
@@ -7747,6 +7843,13 @@ endmodule
             }
             return true;
           }
+          // Slang-backed parameters expose their folded value above in current
+          // tests; retain initializer recursion for alternate parameter shapes.
+          // LCOV_EXCL_START
+          if (const auto* initializer = parameterSymbol.getInitializer()) {
+            return getConstantInt64(*initializer, value);
+          }
+          // LCOV_EXCL_STOP
         }
       }
 
@@ -7783,11 +7886,19 @@ endmodule
       }
 
       const bool containsActiveLoopVariable = isActiveForLoopVariableExpr(expr);
+      const bool skipMixedLoopRuntimeEval =
+        shouldSkipRuntimeConstantEval(expr);
+      if (skipMixedLoopRuntimeEval) {
+        return false;
+      }
       const slang::ConstantValue* directConstant =
-        containsActiveLoopVariable ? nullptr : expr.getConstant();
+        (containsActiveLoopVariable || skipMixedLoopRuntimeEval)
+          ? nullptr
+          : expr.getConstant();
       slang::ConstantValue directEvaluatedConstant;
       const Symbol* directEvalSymbol = getConstantEvalSymbol(expr);
       if (!containsActiveLoopVariable &&
+          !skipMixedLoopRuntimeEval &&
           (!directConstant || !directConstant->isInteger()) &&
           directEvalSymbol) {
         slang::ast::EvalContext evalContext(*directEvalSymbol);
@@ -7807,15 +7918,21 @@ endmodule
       }
 
       const slang::ConstantValue* constant =
-        containsActiveLoopVariable ? nullptr : stripped->getConstant();
+        (containsActiveLoopVariable || skipMixedLoopRuntimeEval)
+          ? nullptr
+          : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
       if (!containsActiveLoopVariable &&
+          !skipMixedLoopRuntimeEval &&
           (!constant || !constant->isInteger()) &&
           evalSymbol) {
         slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
-        constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
+        constant =
+          (evaluatedConstant && evaluatedConstant.isInteger())
+            ? &evaluatedConstant
+            : constant;
       }
       if (!constant || !constant->isInteger()) {
         if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
@@ -7954,7 +8071,7 @@ endmodule
             const auto nm = ce.getSubroutineName();
             return nm.empty() || nm[0] != '$';
           }();
-        if (compilation_ && !isUserDefinedCallInt) {
+        if (compilation_ && !isUserDefinedCallInt && !skipMixedLoopRuntimeEval) {
           // Attempt 1: compilation-unit scope (handles $bits, $clog2, etc.)
           auto compUnits = compilation_->getCompilationUnits();
           slang::ConstantValue rootEvalResult;
@@ -8333,6 +8450,108 @@ endmodule
       // LCOV_EXCL_STOP
     }
 
+    std::optional<size_t> getValueSymbolBitWidth(const slang::ast::ValueSymbol& symbol) const {
+      const auto& canonical = symbol.getType().getCanonicalType();
+      if (canonical.isIntegral()) {
+        const auto bitWidth = canonical.getBitWidth();
+        if (bitWidth > 0) {
+          return static_cast<size_t>(bitWidth);
+        }
+      } // LCOV_EXCL_LINE
+      // This helper is used for final procedural replay values of for-loop
+      // control symbols, which are integral in parser-backed SV. Keep the
+      // range fallback for alternate value-symbol type shapes.
+      // LCOV_EXCL_START
+      if (auto range = getRangeFromType(symbol.getType()); range && range->width() > 0) {
+        return static_cast<size_t>(range->width());
+      }
+      return std::nullopt;
+      // LCOV_EXCL_STOP
+    }
+
+    bool shouldMaterializeConstantSelectionBaseNet(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      if (symbol.kind != SymbolKind::Parameter) {
+        return false;
+      }
+      const auto* parentScope = symbol.getParentScope();
+      return parentScope &&
+             parentScope->asSymbol().kind != SymbolKind::InstanceBody;
+    }
+
+    std::optional<size_t> getPackedElementSelectionWidth(
+      const Type& valueType,
+      size_t valueBitWidth) const {
+      const auto& canonical = valueType.getCanonicalType();
+      if (!canonical.hasFixedRange()) {
+        // Callers that need packed element width first validate fixed ranges;
+        // this nullopt keeps scalar / malformed alternate ASTs harmless.
+        // LCOV_EXCL_START
+        return std::nullopt;
+        // LCOV_EXCL_STOP
+      }
+
+      if (const auto* elementType = canonical.getArrayElementType()) {
+        const auto& canonicalElementType = elementType->getCanonicalType();
+        if (canonicalElementType.isBitstreamType()) {
+          const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
+          if (bitstreamWidth > 0 &&
+              bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+            return static_cast<size_t>(bitstreamWidth);
+          }
+        } // LCOV_EXCL_LINE
+        // Parser-backed packed-array element types used by this helper are
+        // bitstream types. Retain this fallback for alternate type modeling.
+        // LCOV_EXCL_START
+        if (auto elementRange = getRangeFromType(*elementType)) {
+          return static_cast<size_t>(elementRange->width());
+        }
+        // LCOV_EXCL_STOP
+      } // LCOV_EXCL_LINE
+
+      // LCOV_EXCL_START
+      const auto arrayWidth = static_cast<size_t>(canonical.getFixedRange().width());
+      if (arrayWidth > 0 && valueBitWidth > 0 && valueBitWidth % arrayWidth == 0) {
+        return valueBitWidth / arrayWidth;
+      }
+      return std::nullopt;
+      // LCOV_EXCL_STOP
+    }
+
+    std::optional<size_t> getElementSelectAssignmentPackedWidth(
+      const Type& valueType,
+      size_t valueBitWidth) const {
+      const auto& canonical = valueType.getCanonicalType();
+      if (canonical.isUnpackedArray()) {
+        const auto* elementType = canonical.getArrayElementType();
+        const auto& elementCanonical =
+          elementType ? elementType->getCanonicalType() : canonical;
+        if (!elementType ||
+            elementCanonical.isUnpackedArray() ||
+            !elementCanonical.isBitstreamType()) {
+          return std::nullopt;
+        }
+      }
+      return getPackedElementSelectionWidth(valueType, valueBitWidth);
+    }
+
+    bool selectsNonBitstreamUnpackedElement(const Type& valueType) const {
+      const auto& canonical = valueType.getCanonicalType();
+      if (!canonical.isUnpackedArray()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto* elementType = canonical.getArrayElementType();
+      const auto& elementCanonical =
+        elementType ? elementType->getCanonicalType() : canonical;
+      return !elementType ||
+             elementCanonical.isUnpackedArray() ||
+             !elementCanonical.isBitstreamType(); // LCOV_EXCL_LINE
+    }
+
     bool getConstantInt32(const Expression& expr, int32_t& value) const {
       if (auto loopValue = getActiveForLoopConstant(expr)) {
         if (*loopValue < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) ||
@@ -8386,6 +8605,45 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      auto baseRange = slang::ConstantRange(0, 0);
+      if (auto valueBus = dynamic_cast<SNLBusNet*>(valueNet)) {
+        baseRange = slang::ConstantRange(
+          static_cast<int32_t>(valueBus->getMSB()),
+          static_cast<int32_t>(valueBus->getLSB()));
+      }
+
+      if (selectExpr.kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr =
+          selectExpr.as<slang::ast::ElementSelectExpression>();
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        int32_t selectedIndex = 0;
+        if (valueType.hasFixedRange() &&
+            getConstantInt32(elementExpr.selector(), selectedIndex)) {
+          size_t elementWidth = 0;
+          if (auto selectedWidth =
+                getPackedElementSelectionWidth(*valueExpr->type, valueBits.size())) {
+            elementWidth = *selectedWidth;
+          } else if (auto selectedWidth = getIntegralExpressionBitWidth(selectExpr)) {
+            elementWidth = *selectedWidth;
+          }
+          const auto arrayWidth =
+            static_cast<size_t>(valueType.getFixedRange().width());
+          const auto translated =
+            valueType.getFixedRange().translateIndex(selectedIndex);
+          if (elementWidth > 0 &&
+              translated >= 0 &&
+              translated < static_cast<int32_t>(arrayWidth)) {
+            const auto offset = static_cast<size_t>(translated) * elementWidth;
+            if (offset + elementWidth <= valueBits.size()) {
+              bits.assign(
+                valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+              return true;
+            }
+          }
+        }
+      }
+
       const auto* symbolRef = selectExpr.getSymbolReference();
       if (!symbolRef) {
         symbolRef = valueExpr->getSymbolReference();
@@ -8398,13 +8656,6 @@ endmodule
       auto selectedRange = selectExpr.evalSelector(evalContext, true);
       if (!selectedRange) {
         return false;
-      }
-
-      auto baseRange = slang::ConstantRange(0, 0);
-      if (auto valueBus = dynamic_cast<SNLBusNet*>(valueNet)) {
-        baseRange = slang::ConstantRange(
-          static_cast<int32_t>(valueBus->getMSB()),
-          static_cast<int32_t>(valueBus->getLSB()));
       }
 
       bits.clear();
@@ -8434,6 +8685,14 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      if (auto inferredMemoryWidth = getRepresentableExpressionBitWidth(*stripped);
+          inferredMemoryWidth && *inferredMemoryWidth > 0 &&
+          tryResolveInferredMemoryReadBits(design, *stripped, *inferredMemoryWidth, bits) &&
+          bits.size() == *inferredMemoryWidth) {
+        return true;
+      }
+      bits.clear();
+
       const auto resolveBaseBits = [&](const Expression& baseExpr,
                                        std::vector<SNLBitNet*>& baseBits) {
         baseBits.clear();
@@ -8445,6 +8704,20 @@ endmodule
         return !baseBits.empty();
       };
 
+      const auto resolveConstantBaseBits =
+        [&](const Expression& baseExpr, std::vector<SNLBitNet*>& baseBits) {
+        baseBits.clear();
+        std::optional<size_t> baseWidth = getRepresentableExpressionBitWidth(baseExpr);
+        if (!baseWidth || !*baseWidth) {
+          baseWidth = getIntegralExpressionBitWidth(baseExpr);
+        }
+        if (!baseWidth || !*baseWidth) {
+          return false;
+        }
+        return resolveConstantExpressionBits(design, baseExpr, *baseWidth, baseBits) &&
+               baseBits.size() == *baseWidth;
+      };
+
       if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
         const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
         const auto* valueExpr = stripConversions(elementExpr.value());
@@ -8454,6 +8727,7 @@ endmodule
 
         std::vector<SNLBitNet*> valueBits;
         if (!resolveStaticSelectableExpressionBits(design, *valueExpr, valueBits) &&
+            !resolveConstantBaseBits(*valueExpr, valueBits) &&
             !resolveBaseBits(*valueExpr, valueBits)) {
           return false;
         }
@@ -8468,20 +8742,12 @@ endmodule
         }
 
         size_t elementWidth = 0;
-        if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
+        if (auto selectedWidth =
+              getPackedElementSelectionWidth(*valueExpr->type, valueBits.size())) {
+          elementWidth = *selectedWidth;
+        } else if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
           elementWidth = *selectedWidth;
         }
-        if (!elementWidth) {
-          // LCOV_EXCL_START
-          // Static selectable integral elements normally provide a selected
-          // width. This fallback exists for unusual fixed-range array shapes
-          // that are not produced by the covered parser-backed regressions.
-          const auto arrayWidth = static_cast<size_t>(valueType.getFixedRange().width());
-          if (arrayWidth > 0 && valueBits.size() % arrayWidth == 0) {
-            elementWidth = valueBits.size() / arrayWidth;
-          }
-        }
-        // LCOV_EXCL_STOP
         if (!elementWidth) {
           return false; // LCOV_EXCL_LINE
         }
@@ -8512,12 +8778,15 @@ endmodule
         if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
             valueWidth && *valueWidth > 0 &&
             (valueExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
-             valueExpr->kind == slang::ast::ExpressionKind::RangeSelect) &&
+             valueExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
+             valueExpr->kind == slang::ast::ExpressionKind::MemberAccess) &&
             resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) &&
             valueBits.size() == *valueWidth) {
           // Use the richer bit-level lowering for nested selections such as
-          // inferred memory reads before falling back to a flattened base net.
+          // inferred memory reads and packed-struct members before falling
+          // back to a flattened base net.
         } else if (!resolveStaticSelectableExpressionBits(design, *valueExpr, valueBits) &&
+            !resolveConstantBaseBits(*valueExpr, valueBits) &&
             !resolveBaseBits(*valueExpr, valueBits)) {
           return false;
         }
@@ -8537,6 +8806,33 @@ endmodule
             if (!getConstantInt32(rangeExpr.left(), left) ||
                 !getConstantInt32(rangeExpr.right(), right)) {
               return false; // LCOV_EXCL_LINE
+            }
+            if (auto elementWidth =
+                  getPackedElementSelectionWidth(*valueExpr->type, valueBits.size());
+                elementWidth && *elementWidth > 0) {
+              bits.clear();
+              int32_t index = right;
+              const int32_t end = left;
+              const int32_t step = index <= end ? 1 : -1;
+              while (index != end + step) {
+                const auto translated = valueRange.translateIndex(index);
+                if (translated < 0 ||
+                    translated >= static_cast<int32_t>(valueType.getFixedRange().width())) {
+                  bits.clear();
+                  return false;
+                }
+                const auto offset = static_cast<size_t>(translated) * *elementWidth;
+                if (offset + *elementWidth > valueBits.size()) {
+                  bits.clear(); // LCOV_EXCL_LINE
+                  return false; // LCOV_EXCL_LINE
+                }
+                bits.insert(
+                  bits.end(),
+                  valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                  valueBits.begin() + static_cast<std::ptrdiff_t>(offset + *elementWidth));
+                index += step;
+              }
+              return !bits.empty();
             }
             int32_t index = right;
             const int32_t end = left;
@@ -8595,6 +8891,9 @@ endmodule
         }
       }
 
+      if (resolveConstantBaseBits(*stripped, bits)) {
+        return true;
+      }
       return resolveBaseBits(*stripped, bits);
     }
 
@@ -11029,10 +11328,15 @@ endmodule
         return true;
       }
 
-      const slang::ConstantValue* constant = stripped->getConstant();
+      const bool skipMixedLoopRuntimeEval =
+        shouldSkipRuntimeConstantEval(*stripped);
+      const slang::ConstantValue* constant =
+        skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
-      if ((!constant || !constant->isInteger()) && evalSymbol) {
+      if (!skipMixedLoopRuntimeEval &&
+          (!constant || !constant->isInteger()) &&
+          evalSymbol) {
         slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
@@ -11058,7 +11362,7 @@ endmodule
           return nm.empty() || nm[0] != '$';
         }();
       if ((!constant || !constant->isInteger()) &&
-          compilation_ && !isUserDefinedCall) {
+          compilation_ && !isUserDefinedCall && !skipMixedLoopRuntimeEval) {
         auto compUnitsForEval = compilation_->getCompilationUnits();
         if (!compUnitsForEval.empty()) {
           slang::ast::EvalContext rootEvalContext(*compUnitsForEval[0]);
@@ -12247,8 +12551,26 @@ endmodule
         if (valueExpr) {
           const auto& valueType = valueExpr->type->getCanonicalType();
           if (valueType.hasFixedRange()) {
-            auto valueNet = resolveExpressionNet(design, *valueExpr);
-            auto valueBits = collectBits(valueNet);
+            SNLNet* valueNet = nullptr;
+            std::vector<SNLBitNet*> valueBits;
+            const auto materializeConstantSelectionBaseNet = [&]() {
+              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
+                valueNet = resolveExpressionNet(design, *valueExpr);
+              }
+            };
+            if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
+                valueWidth && *valueWidth > 0) {
+              resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
+              if (valueBits.size() != *valueWidth) {
+                valueBits.clear();
+              } else {
+                materializeConstantSelectionBaseNet();
+              }
+            }
+            if (valueBits.empty()) {
+              valueNet = resolveExpressionNet(design, *valueExpr);
+              valueBits = collectBits(valueNet);
+            }
             if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
                 valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
               std::vector<SNLBitNet*> selectedValueBits;
@@ -12274,22 +12596,28 @@ endmodule
             }
             if (!valueBits.empty()) {
               size_t elementWidth = 0;
-              if (const auto* elementType = valueType.getArrayElementType()) {
-                const auto& canonicalElementType = elementType->getCanonicalType();
-                if (canonicalElementType.isBitstreamType()) {
-                  const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
-                  if (bitstreamWidth > 0 &&
-                      bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-                    elementWidth = static_cast<size_t>(bitstreamWidth);
+              if (auto selectedWidth =
+                    getPackedElementSelectionWidth(*valueExpr->type, valueBits.size())) {
+                elementWidth = *selectedWidth;
+              }
+              if (!elementWidth) { // LCOV_EXCL_START
+                const auto* elementType = valueType.getArrayElementType();
+                if (elementType) {
+                  const auto& canonicalElementType = elementType->getCanonicalType();
+                  if (canonicalElementType.isBitstreamType()) {
+                    const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
+                    if (bitstreamWidth > 0 &&
+                        bitstreamWidth <= static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+                      elementWidth = static_cast<size_t>(bitstreamWidth);
+                    }
                   }
-                }
-                if (!elementWidth) {
-                  // LCOV_EXCL_START
-                  // Fallback for non-bitstream array element types. The packed
-                  // multidimensional cases fixed here use bitstream element
-                  // widths, so parser-backed regressions do not reach this.
-                  if (auto elementRange = getRangeFromType(*elementType)) {
-                    elementWidth = static_cast<size_t>(elementRange->width());
+                  if (!elementWidth) {
+                    // Fallback for non-bitstream array element types. The packed
+                    // multidimensional cases fixed here use bitstream element
+                    // widths, so parser-backed regressions do not reach this.
+                    if (auto elementRange = getRangeFromType(*elementType)) {
+                      elementWidth = static_cast<size_t>(elementRange->width());
+                    }
                   }
                 }
                 // LCOV_EXCL_STOP
@@ -12470,8 +12798,26 @@ endmodule
             selectionKind == slang::ast::RangeSelectionKind::IndexedDown) {
           const auto* valueExpr = stripConversions(rangeExpr.value());
           if (valueExpr) {
-            auto valueNet = resolveExpressionNet(design, *valueExpr);
-            auto valueBits = collectBits(valueNet);
+            SNLNet* valueNet = nullptr;
+            std::vector<SNLBitNet*> valueBits;
+            const auto materializeConstantSelectionBaseNet = [&]() {
+              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
+                valueNet = resolveExpressionNet(design, *valueExpr);
+              }
+            };
+            if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
+                valueWidth && *valueWidth > 0) {
+              resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
+              if (valueBits.size() != *valueWidth) {
+                valueBits.clear();
+              } else {
+                materializeConstantSelectionBaseNet();
+              }
+            }
+            if (valueBits.empty()) {
+              valueNet = resolveExpressionNet(design, *valueExpr);
+              valueBits = collectBits(valueNet);
+            }
             if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
                 valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
               std::vector<SNLBitNet*> selectedValueBits;
@@ -13335,6 +13681,18 @@ endmodule
       std::vector<SNLBitNet*> leftBits;
       std::vector<SNLBitNet*> rightBits;
       const auto resolveEqualityOperand = [&](const Expression& expr, std::vector<SNLBitNet*>& bits) {
+        const auto resolveOperandBits = [&](size_t width) {
+          if (resolveActiveProceduralReplayBits(expr, width, bits) &&
+              bits.size() == width) {
+            return true;
+          }
+          if (resolveStaticSelectableExpressionBits(design, expr, bits) &&
+              bits.size() == width) {
+            return true;
+          }
+          return resolveExpressionBits(design, expr, width, bits) &&
+                 bits.size() == width;
+        };
         if (getActiveForLoopConstantFromSourceRange(sourceRange)) {
           if (auto loopValue = getActiveForLoopConstant(expr)) {
             if (*loopValue < 0) {
@@ -13350,7 +13708,18 @@ endmodule
             return true;
           }
         }
-        return resolveExpressionBits(design, expr, compareWidth, bits);
+        auto exprWidth = getIntegralExpressionBitWidth(expr);
+        if (exprWidth && *exprWidth > 0 && *exprWidth != compareWidth) {
+          if (resolveOperandBits(*exprWidth)) {
+            auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
+            if (expr.type && expr.type->getCanonicalType().isSigned() && !bits.empty()) {
+              fillBit = bits.back();
+            }
+            resizeBitsToWidth(bits, compareWidth, fillBit);
+            return bits.size() == compareWidth;
+          }
+        } // LCOV_EXCL_LINE
+        return resolveOperandBits(compareWidth);
       };
       if (!resolveEqualityOperand(leftExpr, leftBits) ||
           !resolveEqualityOperand(rightExpr, rightBits)) {
@@ -15389,6 +15758,17 @@ endmodule
 
       if (current->kind == slang::ast::StatementKind::ForLoop) {
         const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        const Symbol* loopSymbol = nullptr;
+        int64_t loopValue = 0;
+        std::string loopFailureReason;
+        if (extractForLoopControl(forStmt, loopSymbol, loopValue, loopFailureReason) &&
+            loopSymbol &&
+            loopSymbol->kind == SymbolKind::Variable) {
+          const auto& valueSymbol = loopSymbol->as<slang::ast::ValueSymbol>();
+          if (!ignoredSymbols || !ignoredSymbols->contains(&valueSymbol)) {
+            summary.affectedSymbols.insert(&valueSymbol);
+          }
+        }
         mergeSummary(
           getOrComputeCombinationalSubtreeSummary(forStmt.body, cache, ignoredSymbols));
         return summary;
@@ -15974,10 +16354,9 @@ endmodule
       if (getActiveForLoopConstant(*stripped).has_value()) {
         return true;
       }
-      // LCOV_EXCL_START
-      // Current parser-backed for-loop unrolling exposes active loop
-      // variables as direct value expressions before these recursive
-      // unary / binary fallbacks affect tracking.
+      if (getActiveForLoopConstantFromSource(*stripped).has_value()) {
+        return true;
+      }
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         return isActiveForLoopVariableExpr(
           stripped->as<slang::ast::UnaryExpression>().operand());
@@ -15987,8 +16366,170 @@ endmodule
         return isActiveForLoopVariableExpr(binaryExpr.left()) ||
                isActiveForLoopVariableExpr(binaryExpr.right());
       }
-      // LCOV_EXCL_STOP
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr =
+          stripped->as<slang::ast::ElementSelectExpression>();
+        return isActiveForLoopVariableExpr(elementExpr.value()) ||
+               isActiveForLoopVariableExpr(elementExpr.selector());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr =
+          stripped->as<slang::ast::RangeSelectExpression>();
+        return isActiveForLoopVariableExpr(rangeExpr.value()) ||
+               isActiveForLoopVariableExpr(rangeExpr.left()) ||
+               isActiveForLoopVariableExpr(rangeExpr.right());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
+        return isActiveForLoopVariableExpr(
+          stripped->as<slang::ast::MemberAccessExpression>().value());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
+        const auto& conditionalExpr =
+          stripped->as<slang::ast::ConditionalExpression>();
+        for (const auto& condition : conditionalExpr.conditions) {
+          if (condition.expr && isActiveForLoopVariableExpr(*condition.expr)) {
+            return true; // LCOV_EXCL_LINE
+          }
+        }
+        return isActiveForLoopVariableExpr(conditionalExpr.left()) ||
+               isActiveForLoopVariableExpr(conditionalExpr.right());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto& concatExpr =
+          stripped->as<slang::ast::ConcatenationExpression>();
+        for (const auto* operand : concatExpr.operands()) {
+          if (operand && isActiveForLoopVariableExpr(*operand)) {
+            return true; // LCOV_EXCL_LINE
+          }
+        }
+        return false;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Replication) {
+        const auto& replicationExpr =
+          stripped->as<slang::ast::ReplicationExpression>();
+        return isActiveForLoopVariableExpr(replicationExpr.count()) ||
+               isActiveForLoopVariableExpr(replicationExpr.concat());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Call) {
+        const auto& callExpr = stripped->as<slang::ast::CallExpression>();
+        for (const auto* arg : callExpr.arguments()) {
+          if (arg && isActiveForLoopVariableExpr(*arg)) {
+            return true; // LCOV_EXCL_LINE
+          }
+        }
+      }
       return false;
+    }
+
+    bool replaySymbolHasConstantBits(const slang::ast::ValueSymbol& symbol) const {
+      if (!activeProceduralReplayEnv_) {
+        return false;
+      }
+      auto found = activeProceduralReplayEnv_->find(&symbol);
+      if (found == activeProceduralReplayEnv_->end() || found->second.empty()) {
+        return false;
+      }
+      for (const auto* bit : found->second) {
+        if (!bit || (!bit->isConstant0() && !bit->isConstant1())) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    bool expressionReferencesRuntimeValueSymbol(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+      if (slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        const auto& symbol =
+          stripped->as<slang::ast::ValueExpressionBase>().symbol;
+        if (symbol.kind == SymbolKind::Parameter ||
+            getActiveForLoopConstant(*stripped).has_value() ||
+            replaySymbolHasConstantBits(symbol)) {
+          return false;
+        }
+        return true;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        return expressionReferencesRuntimeValueSymbol(
+          stripped->as<slang::ast::UnaryExpression>().operand());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        return expressionReferencesRuntimeValueSymbol(binaryExpr.left()) ||
+               expressionReferencesRuntimeValueSymbol(binaryExpr.right());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& elementExpr =
+          stripped->as<slang::ast::ElementSelectExpression>();
+        return expressionReferencesRuntimeValueSymbol(elementExpr.value()) ||
+               expressionReferencesRuntimeValueSymbol(elementExpr.selector());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr =
+          stripped->as<slang::ast::RangeSelectExpression>();
+        return expressionReferencesRuntimeValueSymbol(rangeExpr.value()) ||
+               expressionReferencesRuntimeValueSymbol(rangeExpr.left()) ||
+               expressionReferencesRuntimeValueSymbol(rangeExpr.right());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
+        return expressionReferencesRuntimeValueSymbol(
+          stripped->as<slang::ast::MemberAccessExpression>().value());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
+        const auto& conditionalExpr =
+          stripped->as<slang::ast::ConditionalExpression>();
+        for (const auto& condition : conditionalExpr.conditions) {
+          if (condition.expr &&
+              expressionReferencesRuntimeValueSymbol(*condition.expr)) {
+            return true;
+          }
+        }
+        return expressionReferencesRuntimeValueSymbol(conditionalExpr.left()) ||
+               expressionReferencesRuntimeValueSymbol(conditionalExpr.right());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto& concatExpr =
+          stripped->as<slang::ast::ConcatenationExpression>();
+        for (const auto* operand : concatExpr.operands()) {
+          if (operand && expressionReferencesRuntimeValueSymbol(*operand)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Replication) {
+        const auto& replicationExpr =
+          stripped->as<slang::ast::ReplicationExpression>();
+        return expressionReferencesRuntimeValueSymbol(replicationExpr.count()) ||
+               expressionReferencesRuntimeValueSymbol(replicationExpr.concat());
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Call) {
+        const auto& callExpr = stripped->as<slang::ast::CallExpression>();
+        const auto subroutineName = callExpr.getSubroutineName();
+        if (subroutineName == "$bits" ||
+            subroutineName == "$size" ||
+            subroutineName == "$left" ||
+            subroutineName == "$right" ||
+            subroutineName == "$high" ||
+            subroutineName == "$low" ||
+            subroutineName == "$dimensions") {
+          return false;
+        }
+        for (const auto* arg : callExpr.arguments()) {
+          if (arg && expressionReferencesRuntimeValueSymbol(*arg)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    bool shouldSkipRuntimeConstantEval(const Expression& expr) const {
+      return isActiveForLoopVariableExpr(expr) &&
+             expressionReferencesRuntimeValueSymbol(expr);
     }
 
     bool extractForLoopInitializerValue(
@@ -16369,7 +16910,8 @@ endmodule
     bool unrollForLoopStatement(
       const slang::ast::ForLoopStatement& forStmt,
       const std::function<bool()>& bodyCallback,
-      std::string& failureReason) const {
+      std::string& failureReason,
+      const std::function<void(const Symbol&, int64_t)>& normalExitCallback = {}) const {
       const Symbol* loopSymbol = nullptr;
       int64_t loopValue = 0;
       if (!extractForLoopControl(forStmt, loopSymbol, loopValue, failureReason)) {
@@ -16418,6 +16960,9 @@ endmodule
         }
 
         if (!shouldExecuteBody) {
+          if (normalExitCallback) {
+            normalExitCallback(*loopSymbol, loopValue);
+          }
           popBreakContext();
           return true;
         }
@@ -16452,6 +16997,33 @@ endmodule
           return false;
         }
       }
+    }
+
+    void updateProceduralReplayLoopSymbolFinalValue(
+      SNLDesign* design,
+      const Symbol& loopSymbol,
+      int64_t loopValue,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols) {
+      if (!design ||
+          !activeProceduralReplayEnv_ ||
+          !replaySymbols ||
+          loopSymbol.kind != SymbolKind::Variable) {
+        return; // LCOV_EXCL_LINE
+      }
+
+      const auto& valueSymbol = loopSymbol.as<slang::ast::ValueSymbol>();
+      if (!replaySymbols->contains(&valueSymbol)) {
+        return;
+      }
+
+      const auto width = getValueSymbolBitWidth(valueSymbol);
+      if (!width || !*width) {
+        return; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> finalBits;
+      appendSignedConstantBits(design, loopValue, *width, finalBits);
+      (*activeProceduralReplayEnv_)[&valueSymbol] = std::move(finalBits);
     }
 
     const Expression* getTrackedProceduralReplayLHS(const Expression* lhsExpr) const {
@@ -18100,7 +18672,12 @@ endmodule
                 return false;
               } // LCOV_EXCL_STOP
 
-              auto elementWidth = getIntegralExpressionBitWidth(*assignedLHS);
+              auto elementWidth =
+                getElementSelectAssignmentPackedWidth(*baseExpr->type, lhsBits.size());
+              if ((!elementWidth || !*elementWidth) && // LCOV_EXCL_LINE
+                  !selectsNonBitstreamUnpackedElement(*baseExpr->type)) { // LCOV_EXCL_LINE
+                elementWidth = getIntegralExpressionBitWidth(*assignedLHS); // LCOV_EXCL_LINE
+              } // LCOV_EXCL_LINE
               if (!elementWidth || !*elementWidth) { // LCOV_EXCL_START
                 std::ostringstream reason;
                 reason << "unable to resolve sequential element-select assignment width for "
@@ -18730,6 +19307,11 @@ endmodule
       }
 
       const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
+      if (resolveStaticSelectableExpressionBits(design, lhsExpr, lhsBits) &&
+          lhsBits.size() == lhsWidthBits &&
+          !lhsBits.empty()) {
+        return true;
+      }
       if (!resolveExpressionBits(design, lhsExpr, lhsWidthBits, lhsBits) ||
           lhsBits.size() != lhsWidthBits ||
           lhsBits.empty()) {
@@ -18882,6 +19464,40 @@ endmodule
               rhsBit,
               outBit,
               binarySourceRange));
+          }
+          if (isEqualityBinaryOp(binaryExpr.op) ||
+              isInequalityBinaryOp(binaryExpr.op) ||
+              isRelationalBinaryOp(binaryExpr.op)) {
+            auto binarySourceRange = getSourceRange(*stripped);
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, binarySourceRange);
+            if (isRelationalBinaryOp(binaryExpr.op)) {
+              if (!createRelationalAssign(
+                    design,
+                    outBit,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    binaryExpr.op,
+                    binarySourceRange)) {
+                return nullptr; // LCOV_EXCL_LINE
+              }
+              return outBit;
+            }
+            reportCaseComparison2StateWarning(binaryExpr.op, binarySourceRange);
+            const bool ok = isInequalityBinaryOp(binaryExpr.op)
+              ? createInequalityAssign(
+                  design,
+                  outBit,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  binarySourceRange)
+              : createEqualityAssign(
+                  design,
+                  outBit,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  binarySourceRange);
+            return ok ? outBit : nullptr;
           }
         }
       }
@@ -19870,6 +20486,14 @@ endmodule
       }
 
       bool usedUnknownLiteralFallback = false;
+      if (resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
+          assignedBits.size() == targetWidth) {
+        return true;
+      }
+      if (resolveStaticSelectableExpressionBits(design, *action.rhs, assignedBits) &&
+          assignedBits.size() == targetWidth) {
+        return true;
+      }
       if ((!resolveExpressionBits(design, *action.rhs, targetWidth, assignedBits) ||
            assignedBits.size() != targetWidth) &&
           (!resolveUnknownLiteralBitsAsZero(
@@ -19887,6 +20511,598 @@ endmodule
           "(X/Z distinction is not preserved)",
           getSourceRange(*action.rhs));
       }
+      return true;
+    }
+
+    struct CombinationalSelectionStep {
+      enum class Kind { Element, Range, Member };
+      Kind kind;
+      const slang::ast::ElementSelectExpression* element = nullptr;
+      const slang::ast::RangeSelectExpression* range = nullptr;
+      const slang::ast::MemberAccessExpression* member = nullptr;
+      const Expression* expression = nullptr;
+    };
+
+    bool collectCombinationalSelectionStepsFromTrackedLhs(
+      const Expression& assignedLHS,
+      const Expression& trackedLhs,
+      std::vector<CombinationalSelectionStep>& steps) const {
+      steps.clear();
+      const Expression* current = stripConversions(assignedLHS);
+      std::vector<CombinationalSelectionStep> reverseSteps;
+      while (current && !sameLhs(current, &trackedLhs)) {
+        switch (current->kind) {
+          case slang::ast::ExpressionKind::ElementSelect: {
+            const auto& element =
+              current->as<slang::ast::ElementSelectExpression>();
+            reverseSteps.push_back({
+              CombinationalSelectionStep::Kind::Element,
+              &element,
+              nullptr,
+              nullptr,
+              current});
+            current = stripConversions(element.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::RangeSelect: {
+            const auto& range =
+              current->as<slang::ast::RangeSelectExpression>();
+            reverseSteps.push_back({
+              CombinationalSelectionStep::Kind::Range,
+              nullptr,
+              &range,
+              nullptr,
+              current});
+            current = stripConversions(range.value());
+            break;
+          }
+          case slang::ast::ExpressionKind::MemberAccess: {
+            const auto& member =
+              current->as<slang::ast::MemberAccessExpression>();
+            reverseSteps.push_back({
+              CombinationalSelectionStep::Kind::Member,
+              nullptr,
+              nullptr,
+              &member,
+              current});
+            current = stripConversions(member.value());
+            break;
+          }
+          default:
+            return false;
+        }
+      }
+      if (!current || !sameLhs(current, &trackedLhs)) {
+        return false; // LCOV_EXCL_LINE
+      }
+      steps.assign(reverseSteps.rbegin(), reverseSteps.rend());
+      return !steps.empty();
+    }
+
+    std::optional<size_t> getElementSelectionWidth(
+      const slang::ast::ElementSelectExpression& elementExpr,
+      size_t valueBitWidth) const {
+      const auto* valueExpr = stripConversions(elementExpr.value());
+      if (!valueExpr) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+      const auto& valueType = valueExpr->type->getCanonicalType();
+      if (!valueType.hasFixedRange()) {
+        // Dynamic element sub-assignment only reaches this helper after
+        // fixed-range bases have been validated.
+        // LCOV_EXCL_START
+        return std::nullopt;
+        // LCOV_EXCL_STOP
+      }
+
+      size_t elementWidth = 0;
+      if (const auto* elementType = valueType.getArrayElementType()) {
+        const auto& canonicalElementType = elementType->getCanonicalType();
+        if (canonicalElementType.isBitstreamType()) {
+          const auto bitstreamWidth = canonicalElementType.getBitstreamWidth();
+          if (bitstreamWidth > 0 &&
+              bitstreamWidth <=
+                static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
+            elementWidth = static_cast<size_t>(bitstreamWidth);
+          }
+        }
+        if (!elementWidth) {
+          // LCOV_EXCL_START
+          if (auto elementRange = getRangeFromType(*elementType)) {
+            elementWidth = static_cast<size_t>(elementRange->width());
+          }
+          // LCOV_EXCL_STOP
+        } // LCOV_EXCL_LINE
+      }
+      if (!elementWidth) {
+        // LCOV_EXCL_START
+        if (auto selectedWidth =
+              getPackedElementSelectionWidth(*valueExpr->type, valueBitWidth)) {
+          elementWidth = *selectedWidth;
+        }
+        // LCOV_EXCL_STOP
+      } // LCOV_EXCL_LINE
+      if (!elementWidth) {
+        // LCOV_EXCL_START
+        if (auto selectedWidth = getIntegralExpressionBitWidth(*stripConversions(elementExpr))) {
+          elementWidth = *selectedWidth;
+        }
+        // LCOV_EXCL_STOP
+      } // LCOV_EXCL_LINE
+      if (!elementWidth) {
+        // LCOV_EXCL_START
+        const auto arrayWidth =
+          static_cast<size_t>(valueType.getFixedRange().width());
+        if (arrayWidth > 0 && valueBitWidth % arrayWidth == 0) {
+          elementWidth = valueBitWidth / arrayWidth;
+        }
+        // LCOV_EXCL_STOP
+      } // LCOV_EXCL_LINE
+      if (!elementWidth) {
+        // LCOV_EXCL_START
+        return std::nullopt;
+        // LCOV_EXCL_STOP
+      }
+      return elementWidth;
+    }
+
+    bool isElementSelectionBitOffsetAddressable(
+      const slang::ast::ElementSelectExpression& elementExpr) const {
+      const auto* valueExpr = stripConversions(elementExpr.value());
+      if (!valueExpr) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto& valueType = valueExpr->type->getCanonicalType();
+      if (!valueType.hasFixedRange()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto* elementType = valueType.getArrayElementType();
+      if (!elementType) {
+        return false; // LCOV_EXCL_LINE
+      }
+      return elementType->getCanonicalType().isBitstreamType();
+    }
+
+    bool applyStaticCombinationalSelectionStepOffsets(
+      const CombinationalSelectionStep& step,
+      const std::vector<size_t>& inputOffsets,
+      std::vector<size_t>& outputOffsets) {
+      outputOffsets.clear();
+      if (inputOffsets.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      if (step.kind == CombinationalSelectionStep::Kind::Member) {
+        if (!step.member || !step.expression ||
+            step.member->member.kind != SymbolKind::Field) {
+          return false; // LCOV_EXCL_LINE
+        }
+        auto memberWidth = getIntegralExpressionBitWidth(*step.expression);
+        if (!memberWidth || !*memberWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& field =
+          step.member->member.as<slang::ast::FieldSymbol>();
+        const auto offset = static_cast<size_t>(field.bitOffset);
+        if (offset + *memberWidth > inputOffsets.size()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        outputOffsets.reserve(*memberWidth);
+        for (size_t bit = 0; bit < *memberWidth; ++bit) {
+          outputOffsets.push_back(inputOffsets[offset + bit]);
+        }
+        return true;
+      }
+
+      if (step.kind == CombinationalSelectionStep::Kind::Range) {
+        if (!step.range) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto* valueExpr = stripConversions(step.range->value());
+        if (!valueExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        slang::ConstantRange valueRange(
+          static_cast<int32_t>(inputOffsets.size() - 1),
+          0);
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        if (valueType.hasFixedRange()) {
+          valueRange = valueType.getFixedRange();
+        }
+
+        int64_t lsbIndex = 0;
+        size_t selectedWidth = 0;
+        switch (step.range->getSelectionKind()) {
+          case slang::ast::RangeSelectionKind::Simple: {
+            int32_t left = 0;
+            int32_t right = 0;
+            if (!getConstantInt32(step.range->left(), left) ||
+                !getConstantInt32(step.range->right(), right)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            lsbIndex = std::min(left, right);
+            selectedWidth =
+              static_cast<size_t>(std::abs(left - right) + 1);
+            break;
+          }
+          case slang::ast::RangeSelectionKind::IndexedUp:
+          case slang::ast::RangeSelectionKind::IndexedDown: {
+            int32_t start = 0;
+            int32_t width = 0;
+            if (!getConstantInt32(step.range->left(), start) ||
+                !getConstantInt32(step.range->right(), width) ||
+                width <= 0) {
+              return false;
+            }
+            lsbIndex = static_cast<int64_t>(start);
+            selectedWidth = static_cast<size_t>(width);
+            if (step.range->getSelectionKind() ==
+                slang::ast::RangeSelectionKind::IndexedDown) {
+              lsbIndex -= static_cast<int64_t>(selectedWidth - 1);
+            }
+            break;
+          }
+        }
+
+        outputOffsets.reserve(selectedWidth);
+        for (size_t bit = 0; bit < selectedWidth; ++bit) {
+          const auto selectedIndex = lsbIndex + static_cast<int64_t>(bit);
+          if (selectedIndex < std::numeric_limits<int32_t>::min() ||
+              selectedIndex > std::numeric_limits<int32_t>::max()) {
+            outputOffsets.clear(); // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
+          }
+          const auto translated =
+            valueRange.translateIndex(static_cast<int32_t>(selectedIndex));
+          if (translated < 0 ||
+              translated >= static_cast<int32_t>(inputOffsets.size())) {
+            outputOffsets.clear();
+            return false;
+          }
+          outputOffsets.push_back(inputOffsets[static_cast<size_t>(translated)]);
+        }
+        return !outputOffsets.empty();
+      }
+
+      if (step.kind == CombinationalSelectionStep::Kind::Element) {
+        if (!step.element) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto* valueExpr = stripConversions(step.element->value());
+        if (!valueExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        if (!valueType.hasFixedRange()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        int32_t selectedIndex = 0;
+        if (!getConstantInt32(step.element->selector(), selectedIndex)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        auto elementWidth = getElementSelectionWidth(*step.element, inputOffsets.size());
+        if (!elementWidth || !*elementWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto translated =
+          valueType.getFixedRange().translateIndex(selectedIndex);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(valueType.getFixedRange().width())) {
+          return false;
+        }
+        const auto offset = static_cast<size_t>(translated) * *elementWidth;
+        if (offset + *elementWidth > inputOffsets.size()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        outputOffsets.reserve(*elementWidth);
+        for (size_t bit = 0; bit < *elementWidth; ++bit) {
+          outputOffsets.push_back(inputOffsets[offset + bit]);
+        }
+        return true;
+      }
+
+      return false; // LCOV_EXCL_LINE
+    }
+
+    bool tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+      SNLDesign* design,
+      const Expression& assignedLHS,
+      const Expression& trackedLhs,
+      const AssignAction& action,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::string& failureReason,
+      bool& handled) {
+      handled = false;
+      const auto activeLoopConstantsSize = activeForLoopConstants_.size();
+      const auto activeLoopNameConstantsSize = activeForLoopNameConstants_.size();
+      activeForLoopConstants_.insert(
+        activeForLoopConstants_.end(),
+        action.loopConstants.begin(),
+        action.loopConstants.end());
+      activeForLoopNameConstants_.insert(
+        activeForLoopNameConstants_.end(),
+        action.loopNameConstants.begin(),
+        action.loopNameConstants.end());
+      const auto loopConstantGuard = slang::ScopeGuard([&]() {
+        activeForLoopConstants_.resize(activeLoopConstantsSize);
+        activeForLoopNameConstants_.resize(activeLoopNameConstantsSize);
+      });
+
+      std::vector<CombinationalSelectionStep> steps;
+      if (!collectCombinationalSelectionStepsFromTrackedLhs(
+            assignedLHS,
+            trackedLhs,
+            steps)) {
+        return true;
+      }
+
+      std::vector<size_t> currentOffsets;
+      currentOffsets.reserve(lhsBits.size());
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        currentOffsets.push_back(bit);
+      }
+
+      for (size_t stepIndex = 0; stepIndex < steps.size(); ++stepIndex) {
+        const auto& step = steps[stepIndex];
+        if (step.kind != CombinationalSelectionStep::Kind::Element) {
+          std::vector<size_t> nextOffsets;
+          if (!applyStaticCombinationalSelectionStepOffsets(
+                step,
+                currentOffsets,
+                nextOffsets)) {
+            return true;
+          }
+          currentOffsets = std::move(nextOffsets);
+          continue;
+        }
+
+        int32_t constantIndex = 0;
+        if (getConstantInt32(step.element->selector(), constantIndex)) {
+          std::vector<size_t> nextOffsets;
+          if (!applyStaticCombinationalSelectionStepOffsets(
+                step,
+                currentOffsets,
+                nextOffsets)) {
+            return true;
+          }
+          currentOffsets = std::move(nextOffsets);
+          continue;
+        }
+
+        const auto* valueExpr = stripConversions(step.element->value());
+        if (!valueExpr) {
+          return true; // LCOV_EXCL_LINE
+        }
+        if (!isElementSelectionBitOffsetAddressable(*step.element)) {
+          return true; // LCOV_EXCL_LINE
+        }
+
+        handled = true;
+        const auto originalDataBits = dataBits;
+        const auto giveUpDynamicSubAssignment = [&]() {
+          dataBits = originalDataBits;
+          handled = false;
+          return true;
+        };
+        const auto& valueType = valueExpr->type->getCanonicalType();
+        if (!valueType.hasFixedRange()) {
+          // collectCombinationalSelectionStepsFromTrackedLhs and addressability
+          // checks keep concrete parser-backed cases fixed-range.
+          // LCOV_EXCL_START
+          failureReason = formatDescribedFailure(
+            "unsupported dynamic element-select assignment base without fixed range: ",
+            describeExpression(assignedLHS));
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        auto elementWidth = getElementSelectionWidth(*step.element, currentOffsets.size());
+        if (!elementWidth || !*elementWidth) {
+          // LCOV_EXCL_START
+          failureReason = formatDescribedFailure(
+            "unable to resolve dynamic element-select assignment element width for ",
+            describeExpression(assignedLHS));
+          return false;
+          // LCOV_EXCL_STOP
+        }
+
+        auto selectorWidth = getIntegralExpressionBitWidth(step.element->selector());
+        if (!selectorWidth || !*selectorWidth) {
+          // LCOV_EXCL_START
+          failureReason = formatDescribedFailure(
+            "unable to resolve dynamic index width in always_comb assignment LHS: ",
+            describeExpression(assignedLHS));
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        std::vector<SNLBitNet*> selectorBits;
+        if (!resolveExpressionBits(
+              design,
+              step.element->selector(),
+              static_cast<size_t>(*selectorWidth),
+              selectorBits) ||
+            selectorBits.size() != static_cast<size_t>(*selectorWidth)) {
+          failureReason = formatDescribedFailure(
+            "unable to resolve dynamic index bits in always_comb assignment LHS: ",
+            describeExpression(assignedLHS));
+          return false;
+        }
+
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        auto elementSourceRange = getSourceRange(assignedLHS);
+        std::optional<size_t> selectedWidth;
+
+        int32_t index = valueType.getFixedRange().right;
+        const int32_t end = valueType.getFixedRange().left;
+        const int32_t stepDirection = index <= end ? 1 : -1;
+        while (index != end + stepDirection) {
+          const auto translated = valueType.getFixedRange().translateIndex(index);
+          if (translated >= 0 &&
+              translated < static_cast<int32_t>(valueType.getFixedRange().width())) {
+            const auto elementOffset =
+              static_cast<size_t>(translated) * *elementWidth;
+            if (elementOffset + *elementWidth > currentOffsets.size()) {
+              // LCOV_EXCL_START
+              return giveUpDynamicSubAssignment();
+              // LCOV_EXCL_STOP
+            }
+
+            std::vector<size_t> candidateOffsets;
+            candidateOffsets.reserve(*elementWidth);
+            for (size_t bit = 0; bit < *elementWidth; ++bit) {
+              candidateOffsets.push_back(currentOffsets[elementOffset + bit]);
+            }
+            for (size_t remaining = stepIndex + 1; remaining < steps.size(); ++remaining) {
+              std::vector<size_t> nextOffsets;
+              if (!applyStaticCombinationalSelectionStepOffsets(
+                    steps[remaining],
+                    candidateOffsets,
+                    nextOffsets)) {
+                return giveUpDynamicSubAssignment();
+              }
+              candidateOffsets = std::move(nextOffsets);
+            }
+            if (candidateOffsets.empty()) {
+              // LCOV_EXCL_START
+              return giveUpDynamicSubAssignment();
+              // LCOV_EXCL_STOP
+            }
+            if (!selectedWidth) {
+              selectedWidth = candidateOffsets.size();
+            } else if (*selectedWidth != candidateOffsets.size()) {
+              // LCOV_EXCL_START
+              return giveUpDynamicSubAssignment();
+              // LCOV_EXCL_STOP
+            }
+
+            auto* equalsIndexBit = buildSelectorEqualsIndexBit(
+              design,
+              selectorBits,
+              index,
+              elementSourceRange);
+            if (!equalsIndexBit) {
+              failureReason = // LCOV_EXCL_LINE
+                "failed to build selector decode while lowering always_comb element-select assignment";
+              return false; // LCOV_EXCL_LINE
+            }
+            if (equalsIndexBit == const0) {
+              index += stepDirection;
+              continue;
+            }
+
+            std::vector<SNLBitNet*> currentBits;
+            if (action.compoundOp) {
+              currentBits.reserve(candidateOffsets.size());
+              for (const auto offset : candidateOffsets) {
+                if (offset >= dataBits.size()) {
+                  // LCOV_EXCL_START
+                  failureReason = formatDescribedFailure(
+                    "dynamic element-select compound assignment offset out of range for ",
+                    describeExpression(assignedLHS));
+                  return false; // LCOV_EXCL_LINE
+                  // LCOV_EXCL_STOP
+                }
+                currentBits.push_back(dataBits[offset]);
+              }
+            }
+
+            std::vector<SNLBitNet*> assignedBits;
+            if (!buildCombinationalAssignBits(
+                  design,
+                  action,
+                  candidateOffsets.size(),
+                  assignedBits,
+                  action.compoundOp ? &currentBits : nullptr,
+                  failureReason)) {
+              return false;
+            }
+            if (assignedBits.size() != candidateOffsets.size()) {
+              // LCOV_EXCL_START
+              failureReason = formatDescribedFailure(
+                "width mismatch while lowering always_comb element-select assignment for ",
+                describeExpression(assignedLHS));
+              return false; // LCOV_EXCL_LINE
+              // LCOV_EXCL_STOP
+            }
+
+            if (candidateOffsets.size() > 1 && equalsIndexBit != const1) {
+              bool contiguousOffsets = true;
+              const auto firstOffset = candidateOffsets.front();
+              for (size_t bit = 0; bit < candidateOffsets.size(); ++bit) {
+                if (candidateOffsets[bit] != firstOffset + bit ||
+                    candidateOffsets[bit] >= dataBits.size()) {
+                  contiguousOffsets = false; // LCOV_EXCL_LINE
+                  break; // LCOV_EXCL_LINE
+                }
+              }
+              if (contiguousOffsets) {
+                std::vector<SNLBitNet*> currentSlice(
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(firstOffset),
+                  dataBits.begin() +
+                    static_cast<std::ptrdiff_t>(firstOffset + candidateOffsets.size()));
+                if (currentSlice == assignedBits) {
+                  index += stepDirection; // LCOV_EXCL_LINE
+                  continue; // LCOV_EXCL_LINE
+                }
+                std::vector<SNLBitNet*> updatedSlice;
+                if (!createMux2Instance(
+                      design,
+                      equalsIndexBit,
+                      currentSlice,
+                      assignedBits,
+                      updatedSlice,
+                      elementSourceRange)) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                if (updatedSlice.size() != candidateOffsets.size()) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                std::copy(
+                  updatedSlice.begin(),
+                  updatedSlice.end(),
+                  dataBits.begin() + static_cast<std::ptrdiff_t>(firstOffset));
+                index += stepDirection;
+                continue;
+              }
+            } // LCOV_EXCL_LINE
+
+            for (size_t bit = 0; bit < candidateOffsets.size(); ++bit) {
+              const auto offset = candidateOffsets[bit];
+              if (offset >= dataBits.size()) {
+                // LCOV_EXCL_START
+                failureReason = formatDescribedFailure(
+                  "dynamic element-select assignment offset out of range for ",
+                  describeExpression(assignedLHS));
+                return false; // LCOV_EXCL_LINE
+                // LCOV_EXCL_STOP
+              }
+              auto* candidateBit = assignedBits[bit];
+              if (equalsIndexBit == const1) {
+                dataBits[offset] = candidateBit; // LCOV_EXCL_LINE
+                continue; // LCOV_EXCL_LINE
+              }
+              if (dataBits[offset] == candidateBit) {
+                continue; // LCOV_EXCL_LINE
+              }
+              auto* outBit = SNLScalarNet::create(design);
+              annotateSourceInfo(outBit, elementSourceRange);
+              createMux2Instance(
+                design,
+                equalsIndexBit,
+                dataBits[offset],
+                candidateBit,
+                outBit,
+                elementSourceRange);
+              dataBits[offset] = outBit;
+            }
+          }
+          index += stepDirection;
+        }
+        return true;
+      }
+
       return true;
     }
 
@@ -19940,7 +21156,12 @@ endmodule
         // LCOV_EXCL_STOP
       } // LCOV_EXCL_LINE
 
-      auto elementWidth = getIntegralExpressionBitWidth(assignedLHS);
+      auto elementWidth =
+        getElementSelectAssignmentPackedWidth(*baseExpr->type, lhsBits.size());
+      if ((!elementWidth || !*elementWidth) &&
+          !selectsNonBitstreamUnpackedElement(*baseExpr->type)) {
+        elementWidth = getIntegralExpressionBitWidth(assignedLHS); // LCOV_EXCL_LINE
+      } // LCOV_EXCL_LINE
       if (!elementWidth || !*elementWidth) {
         std::ostringstream reason;
         reason << "unable to resolve always_comb element-select assignment width for "
@@ -20594,7 +21815,19 @@ endmodule
       }
 
       bool subHandled = false;
-      if (!tryApplyCombinationalElementSelectAssignmentForLhs(
+      if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+            design,
+            assignedLHS,
+            *replayLhs,
+            action,
+            replayLhsBits,
+            replayBits,
+            failureReason,
+            subHandled)) {
+        return false; // LCOV_EXCL_LINE: sub-LHS was already resolved for replay.
+      }
+      if (!subHandled &&
+          !tryApplyCombinationalElementSelectAssignmentForLhs(
             design,
             assignedLHS,
             *replayLhs,
@@ -21198,7 +22431,14 @@ endmodule
               subtreeSummaryCache,
               replaySymbols);
           },
-          failureReason);
+          failureReason,
+          [&](const Symbol& loopSymbol, int64_t loopValue) {
+            updateProceduralReplayLoopSymbolFinalValue(
+              design,
+              loopSymbol,
+              loopValue,
+              replaySymbols);
+          });
       }
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
@@ -21711,6 +22951,26 @@ endmodule
         }
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           bool handled = false;
+          if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+                design,
+                *assignedLHS,
+                lhsExpr,
+                action,
+                lhsBits,
+                dataBits,
+                failureReason,
+                handled)) {
+            return false;
+          }
+          if (handled) {
+            const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+            if (activeProceduralReplayEnv_ &&
+                tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+              (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+            }
+            return true;
+          }
+
           if (!tryApplyCombinationalElementSelectAssignmentForLhs(
                 design,
                 *assignedLHS,
@@ -22727,10 +23987,15 @@ endmodule
         return false;
       }
 
-      const slang::ConstantValue* constant = stripped->getConstant();
+      const bool skipMixedLoopRuntimeEval =
+        shouldSkipRuntimeConstantEval(*stripped);
+      const slang::ConstantValue* constant =
+        skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
-      if ((!constant || !constant->isInteger()) && evalSymbol) {
+      if (!skipMixedLoopRuntimeEval &&
+          (!constant || !constant->isInteger()) &&
+          evalSymbol) {
         slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
@@ -22738,20 +24003,32 @@ endmodule
         }
       }
       slang::ConstantValue convertedConstant;
-      if (!convertConstantToIntegerIfNeeded(constant, convertedConstant)) {
+      if (convertConstantToIntegerIfNeeded(constant, convertedConstant)) {
+        auto maybeValue = constant->integer().as<uint64_t>();
+        if (!maybeValue) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (*maybeValue == 0) {
+          value = false;
+          return true;
+        }
+        if (*maybeValue == 1) {
+          value = true;
+          return true;
+        }
         return false;
       }
-      auto maybeValue = constant->integer().as<uint64_t>();
-      if (!maybeValue) {
-        return false;
-      }
-      if (*maybeValue == 0) {
-        value = false;
-        return true;
-      }
-      if (*maybeValue == 1) {
-        value = true;
-        return true;
+
+      int64_t signedValue = 0;
+      if (getConstantInt64(*stripped, signedValue)) {
+        if (signedValue == 0) {
+          value = false;
+          return true;
+        }
+        if (signedValue == 1) {
+          value = true;
+          return true;
+        }
       }
       return false;
     }
@@ -22814,9 +24091,14 @@ endmodule
         return true;
       }
 
-      const slang::ConstantValue* constant = stripped->getConstant();
+      const bool skipMixedLoopRuntimeEval =
+        shouldSkipRuntimeConstantEval(*stripped);
+      const slang::ConstantValue* constant =
+        skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
-      if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
+      if (!skipMixedLoopRuntimeEval &&
+          (!constant || !constant->isInteger()) &&
+          stripped->getSymbolReference()) {
         slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
@@ -22880,8 +24162,13 @@ endmodule
         throw SNLSVConstructorException("Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
       }
       const auto* rhsExpr = stripConversions(*action.rhs);
+      std::vector<SNLBitNet*> constantBits;
+      if (rhsExpr &&
+          resolveConstantExpressionBits(design, *rhsExpr, lhsBits.size(), constantBits)) {
+        return constantBits;
+      }
       bool constValue = false;
-      if (rhsExpr && getConstantBit(*rhsExpr, constValue)) {
+      if (rhsExpr && lhsBits.size() == 1 && getConstantBit(*rhsExpr, constValue)) {
         auto constantNet = getConstNet(design, constValue);
         return std::vector<SNLBitNet*>(lhsBits.size(), constantNet);
       }
@@ -22898,11 +24185,6 @@ endmodule
           return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
         }
       } // LCOV_EXCL_LINE
-      std::vector<SNLBitNet*> constantBits;
-      if (rhsExpr &&
-          resolveConstantExpressionBits(design, *rhsExpr, lhsBits.size(), constantBits)) {
-        return constantBits;
-      }
       if (rhsExpr &&
           rhsExpr->kind == slang::ast::ExpressionKind::SimpleAssignmentPattern) {
         const auto& pattern =

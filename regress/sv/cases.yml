@@ -60,7 +60,7 @@ cases:
   # cva6.sv defaults to build_config(cva6_config_pkg::cva6_cfg) which IS a
   # concrete 64-bit config that Slang can evaluate → top: cva6 is correct.
   #
-  # Simulation model (helloworld_sim, to be added later):
+  # Simulation model (helloworld_sim):
   #   ariane_testharness.sv (unchanged) + ariane.sv + SoC files + cva6_naja.v
   #   → replaces cva6.sv with the Naja netlist in the testbench hierarchy
   - name: cva6_testharness
@@ -82,6 +82,33 @@ cases:
         - PINMISSING
         - ASCRANGE
         - TIMESCALEMOD
+    helloworld_sim:
+      timeout_seconds: 14400
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git

@@ -64,6 +64,16 @@ the current architecture:
   the multiply-specific fallback.
 - `resolveExpressionBits`: brace-only LCOV artifacts in call / binary /
   element-select / member-access blocks.
+- Active for-loop constant helpers: whitespace-only or missing source excerpts
+  and parameter-initializer recursion retained for alternate AST shapes, while
+  current Slang elaboration provides source ranges and folded parameter values.
+- Element-selection width helpers: non-bitstream range fallbacks and missing
+  fixed-range diagnostics retained for alternate type modeling; parser-backed
+  dynamic element assignments reach these helpers with fixed-range bitstream
+  bases.
+- Dynamic element sub-assignment lowering: internal offset and width mismatch
+  guards retained for inconsistent selection-step data after prior fixed-range
+  and bit-width validation.
 - `getDriverFailureDetails`: parse-diagnostics aggregation from
   `driver.syntaxTrees` on driver failure. With current slang behavior, tested
   driver failure modes report via `sourceLoader` / argument parsing and keep

@@ -170,6 +170,18 @@ cases:
         self.assertIn("--require-firmware-sim-tools", workflow)
         self.assertNotIn("--allow-expected-failures", workflow)
 
+    def test_cva6_testharness_has_helloworld_sim_stage(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cva6 = sv_regress.select_cases(cases, "cva6_testharness")[0]
+
+        self.assertIn("helloworld_sim", cva6)
+        self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
+        self.assertNotIn("expected_failure", cva6["helloworld_sim"])
+        self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
+        command = cva6["helloworld_sim"]["commands"][0]
+        self.assertIn("cva6_testharness.py", command[1])
+        self.assertIn("{artifacts}/cva6_testharness_naja.v", command)
+
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
             "name": "fake",
