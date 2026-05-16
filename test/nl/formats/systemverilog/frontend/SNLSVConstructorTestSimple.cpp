@@ -18919,6 +18919,69 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parsePackageConstantIndexedRangeNetCacheIsPerDesignSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "package_constant_indexed_range_net_cache_is_per_design_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "package_constant_indexed_range_net_cache_is_per_design_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package range_pkg;
+  localparam logic [31:0] TABLE = 32'h76543210;
+endpackage
+
+module package_constant_indexed_range_net_cache_is_per_design_leaf(
+  input  logic [1:0] idx_i,
+  output logic [7:0] y_o
+);
+  import range_pkg::*;
+  always_comb begin
+    y_o = TABLE[idx_i * 8 +: 8];
+  end
+endmodule
+
+module package_constant_indexed_range_net_cache_is_per_design_supported(
+  input  logic [1:0] idx_i,
+  output logic [7:0] a_o,
+  output logic [7:0] b_o
+);
+  import range_pkg::*;
+  always_comb begin
+    a_o = TABLE[idx_i * 8 +: 8];
+  end
+  package_constant_indexed_range_net_cache_is_per_design_leaf u_leaf(
+    .idx_i(idx_i),
+    .y_o(b_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "package_constant_indexed_range_net_cache_is_per_design_supported"));
+  ASSERT_NE(top, nullptr);
+  auto leaf = library_->getSNLDesign(NLName(
+    "package_constant_indexed_range_net_cache_is_per_design_leaf"));
+  ASSERT_NE(leaf, nullptr);
+
+  auto* topPkgNet = top->getNet(NLName("range_pkg_TABLE"));
+  auto* leafPkgNet = leaf->getNet(NLName("range_pkg_TABLE"));
+  ASSERT_NE(topPkgNet, nullptr);
+  ASSERT_NE(leafPkgNet, nullptr);
+  EXPECT_NE(topPkgNet, leafPkgNet);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombUnpackedRangeAssignmentPatternSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -19769,6 +19832,51 @@ endmodule
     constructor,
     svPath,
     {"unable to resolve always_comb element-select assignment width"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSElementSelectUnpackedBitstreamSliceWidthSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_element_select_unpacked_bitstream_slice_width_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_element_select_unpacked_bitstream_slice_width_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_element_select_unpacked_bitstream_slice_width_supported(
+  input  logic [7:0] data_i,
+  output logic [7:0] q0_o,
+  output logic [7:0] q1_o
+);
+  logic [7:0] mem_q [0:1];
+  logic [7:0] mem_n [0:1];
+
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[1] = data_i;
+  end
+
+  assign q0_o = mem_n[0];
+  assign q1_o = mem_n[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_element_select_unpacked_bitstream_slice_width_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q0_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("q1_o")), nullptr);
 }
 
 TEST_F(
@@ -23989,6 +24097,39 @@ endmodule
   constructor.construct(svPath);
 
   auto top = library_->getSNLDesign(NLName("seq_lhs_scalar_bit_select_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialLHSDynamicBitSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_lhs_dynamic_bit_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_lhs_dynamic_bit_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_lhs_dynamic_bit_select_supported(
+  input  logic       clk_i,
+  input  logic       sel_i,
+  input  logic       d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(posedge clk_i) begin
+    q_o[sel_i] <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_lhs_dynamic_bit_select_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
