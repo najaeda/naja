@@ -8420,6 +8420,20 @@ endmodule
       return std::nullopt;
     }
 
+    bool shouldMaterializeConstantSelectionBaseNet(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        return false;
+      }
+      const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      if (symbol.kind != SymbolKind::Parameter) {
+        return false;
+      }
+      const auto* parentScope = symbol.getParentScope();
+      return parentScope &&
+             parentScope->asSymbol().kind != SymbolKind::InstanceBody;
+    }
+
     std::optional<size_t> getPackedElementSelectionWidth(
       const Type& valueType,
       size_t valueBitWidth) const {
@@ -8447,6 +8461,36 @@ endmodule
         return valueBitWidth / arrayWidth;
       }
       return std::nullopt;
+    }
+
+    std::optional<size_t> getElementSelectAssignmentPackedWidth(
+      const Type& valueType,
+      size_t valueBitWidth) const {
+      const auto& canonical = valueType.getCanonicalType();
+      if (canonical.isUnpackedArray()) {
+        const auto* elementType = canonical.getArrayElementType();
+        const auto& elementCanonical =
+          elementType ? elementType->getCanonicalType() : canonical;
+        if (!elementType ||
+            elementCanonical.isUnpackedArray() ||
+            !elementCanonical.isBitstreamType()) {
+          return std::nullopt;
+        }
+      }
+      return getPackedElementSelectionWidth(valueType, valueBitWidth);
+    }
+
+    bool selectsNonBitstreamUnpackedElement(const Type& valueType) const {
+      const auto& canonical = valueType.getCanonicalType();
+      if (!canonical.isUnpackedArray()) {
+        return false;
+      }
+      const auto* elementType = canonical.getArrayElementType();
+      const auto& elementCanonical =
+        elementType ? elementType->getCanonicalType() : canonical;
+      return !elementType ||
+             elementCanonical.isUnpackedArray() ||
+             !elementCanonical.isBitstreamType();
     }
 
     bool getConstantInt32(const Expression& expr, int32_t& value) const {
@@ -12450,11 +12494,18 @@ endmodule
           if (valueType.hasFixedRange()) {
             SNLNet* valueNet = nullptr;
             std::vector<SNLBitNet*> valueBits;
+            const auto materializeConstantSelectionBaseNet = [&]() {
+              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
+                valueNet = resolveExpressionNet(design, *valueExpr);
+              }
+            };
             if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
                 valueWidth && *valueWidth > 0) {
               resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
               if (valueBits.size() != *valueWidth) {
                 valueBits.clear();
+              } else {
+                materializeConstantSelectionBaseNet();
               }
             }
             if (valueBits.empty()) {
@@ -12691,11 +12742,18 @@ endmodule
           if (valueExpr) {
             SNLNet* valueNet = nullptr;
             std::vector<SNLBitNet*> valueBits;
+            const auto materializeConstantSelectionBaseNet = [&]() {
+              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
+                valueNet = resolveExpressionNet(design, *valueExpr);
+              }
+            };
             if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
                 valueWidth && *valueWidth > 0) {
               resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
               if (valueBits.size() != *valueWidth) {
                 valueBits.clear();
+              } else {
+                materializeConstantSelectionBaseNet();
               }
             }
             if (valueBits.empty()) {
@@ -18556,8 +18614,10 @@ endmodule
                 return false;
               } // LCOV_EXCL_STOP
 
-              auto elementWidth = getPackedElementSelectionWidth(*baseExpr->type, lhsBits.size());
-              if (!elementWidth || !*elementWidth) {
+              auto elementWidth =
+                getElementSelectAssignmentPackedWidth(*baseExpr->type, lhsBits.size());
+              if ((!elementWidth || !*elementWidth) &&
+                  !selectsNonBitstreamUnpackedElement(*baseExpr->type)) {
                 elementWidth = getIntegralExpressionBitWidth(*assignedLHS);
               }
               if (!elementWidth || !*elementWidth) { // LCOV_EXCL_START
@@ -21004,8 +21064,10 @@ endmodule
         // LCOV_EXCL_STOP
       } // LCOV_EXCL_LINE
 
-      auto elementWidth = getPackedElementSelectionWidth(*baseExpr->type, lhsBits.size());
-      if (!elementWidth || !*elementWidth) {
+      auto elementWidth =
+        getElementSelectAssignmentPackedWidth(*baseExpr->type, lhsBits.size());
+      if ((!elementWidth || !*elementWidth) &&
+          !selectsNonBitstreamUnpackedElement(*baseExpr->type)) {
         elementWidth = getIntegralExpressionBitWidth(assignedLHS);
       }
       if (!elementWidth || !*elementWidth) {
