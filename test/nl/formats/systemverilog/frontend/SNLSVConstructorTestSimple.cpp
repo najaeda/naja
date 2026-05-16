@@ -4150,6 +4150,112 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombOutputFunctionDynamicWideActualSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_output_function_dynamic_wide_actual_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_output_function_dynamic_wide_actual_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_output_function_dynamic_wide_actual_supported(
+  input  logic [1:0] sel_i,
+  input  logic [7:0] data_i,
+  output logic [3:0][7:0] out_o
+);
+  function automatic void write_byte(
+    input  logic [7:0] value_i,
+    output logic [7:0] slot_o
+  );
+    slot_o = value_i;
+  endfunction
+
+  always_comb begin
+    out_o = '0;
+    write_byte(data_i, out_o[sel_i]);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_output_function_dynamic_wide_actual_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto* out = top->getBusNet(NLName("out_o"));
+  auto* data = top->getBusNet(NLName("data_i"));
+  auto* sel = top->getBusNet(NLName("sel_i"));
+  ASSERT_NE(out, nullptr);
+  ASSERT_NE(data, nullptr);
+  ASSERT_NE(sel, nullptr);
+
+  auto* outBit0 = dynamic_cast<SNLBitNet*>(out->getBit(0));
+  auto* dataBit0 = dynamic_cast<SNLBitNet*>(data->getBit(0));
+  auto* selBit0 = dynamic_cast<SNLBitNet*>(sel->getBit(0));
+  ASSERT_NE(outBit0, nullptr);
+  ASSERT_NE(dataBit0, nullptr);
+  ASSERT_NE(selBit0, nullptr);
+  EXPECT_TRUE(netDependsOn(outBit0, dataBit0));
+  EXPECT_TRUE(netDependsOn(outBit0, selBit0));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLogicalAndOrExpressionBitsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_logical_and_or_expression_bits_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_logical_and_or_expression_bits_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_logical_and_or_expression_bits_supported(
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  output logic y_o
+);
+  always_comb begin
+    y_o = (a_i && b_i) || c_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_logical_and_or_expression_bits_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* y = top->getScalarNet(NLName("y_o"));
+  auto* a = top->getScalarNet(NLName("a_i"));
+  auto* b = top->getScalarNet(NLName("b_i"));
+  auto* c = top->getScalarNet(NLName("c_i"));
+  ASSERT_NE(y, nullptr);
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(c, nullptr);
+  EXPECT_TRUE(netDependsOn(y, a));
+  EXPECT_TRUE(netDependsOn(y, b));
+  EXPECT_TRUE(netDependsOn(y, c));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombWholeVectorCopyThenSliceOverrideDoesNotCreateTransparentMuxSelfReference) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
