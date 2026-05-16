@@ -12560,8 +12560,8 @@ endmodule
                     if (auto elementRange = getRangeFromType(*elementType)) {
                       elementWidth = static_cast<size_t>(elementRange->width());
                     }
+                    // LCOV_EXCL_STOP
                   }
-                  // LCOV_EXCL_STOP
                 }
               }
               if (!elementWidth) {
