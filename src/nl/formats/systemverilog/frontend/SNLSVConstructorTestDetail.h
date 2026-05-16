@@ -75,6 +75,12 @@ struct ActiveForLoopConstantHelpersTestResult {
     bool multiplySourceOverflowRejected {false};
     bool negativeEqualityOperandRejected {false};
     bool unknownParameterInt64Rejected {false};
+    bool conditionalLoopConditionHit {false};
+    bool concatLoopOperandHit {false};
+    bool callLoopArgHit {false};
+    bool constantConcatNoRuntimeSymbol {false};
+    bool systemQueryCallNoRuntimeSymbol {false};
+    bool callRuntimeArgHit {false};
 };
 
 struct SourceExcerptTestOptions {

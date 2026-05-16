@@ -4256,6 +4256,195 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombInequalityConditionBitSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_inequality_condition_bit_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_inequality_condition_bit_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_inequality_condition_bit_supported(
+  input  logic [1:0] a_i,
+  input  logic [1:0] b_i,
+  output logic       y_o
+);
+  always_comb begin
+    if (a_i != b_i)
+      y_o = 1'b1;
+    else
+      y_o = 1'b0;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_inequality_condition_bit_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* y = top->getScalarNet(NLName("y_o"));
+  auto* a = top->getBusNet(NLName("a_i"));
+  auto* b = top->getBusNet(NLName("b_i"));
+  ASSERT_NE(y, nullptr);
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  EXPECT_TRUE(netDependsOn(y, a->getBit(0)));
+  EXPECT_TRUE(netDependsOn(y, b->getBit(0)));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombOutputFunctionActualVariantsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_output_function_actual_variants_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_output_function_actual_variants_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package output_function_actual_variants_pkg;
+  typedef struct packed {
+    logic       flag;
+    logic [7:0] payload;
+  } rec_t;
+endpackage
+
+module always_comb_output_function_actual_variants_supported(
+  input  logic       sel_i,
+  input  logic       bit_i,
+  input  logic [7:0] byte_i,
+  output logic [1:0] bit_o,
+  output logic [1:0][7:0] lane_o,
+  output output_function_actual_variants_pkg::rec_t rec_o
+);
+  function automatic void write_bit(
+    input  logic value_i,
+    output logic slot_o
+  );
+    slot_o = value_i;
+  endfunction
+
+  function automatic void write_byte(
+    input  logic [7:0] value_i,
+    output logic [7:0] slot_o
+  );
+    slot_o = value_i;
+  endfunction
+
+  always_comb begin
+    bit_o = '0;
+    write_bit(bit_i, bit_o[sel_i]);
+  end
+
+  always_comb begin
+    lane_o = '0;
+    write_byte(byte_i, lane_o[1]);
+  end
+
+  always_comb begin
+    rec_o = '0;
+    write_byte(byte_i, rec_o.payload);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_output_function_actual_variants_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto* bitOut = top->getBusNet(NLName("bit_o"));
+  auto* laneOut = top->getBusNet(NLName("lane_o"));
+  auto* recOut = top->getBusNet(NLName("rec_o"));
+  auto* bitIn = dynamic_cast<SNLBitNet*>(top->getNet(NLName("bit_i")));
+  auto* sel = dynamic_cast<SNLBitNet*>(top->getNet(NLName("sel_i")));
+  auto* byteIn = top->getBusNet(NLName("byte_i"));
+  ASSERT_NE(bitOut, nullptr);
+  ASSERT_NE(laneOut, nullptr);
+  ASSERT_NE(recOut, nullptr);
+  ASSERT_NE(bitIn, nullptr);
+  ASSERT_NE(sel, nullptr);
+  ASSERT_NE(byteIn, nullptr);
+
+  auto* bit0 = bitOut->getBit(0);
+  auto* lane8 = laneOut->getBit(8);
+  auto* recPayload0 = recOut->getBit(0);
+  ASSERT_NE(bit0, nullptr);
+  ASSERT_NE(lane8, nullptr);
+  ASSERT_NE(recPayload0, nullptr);
+  EXPECT_TRUE(netDependsOn(bit0, bitIn));
+  EXPECT_TRUE(netDependsOn(bit0, sel));
+  EXPECT_TRUE(netDependsOn(lane8, byteIn->getBit(0)));
+  EXPECT_TRUE(netDependsOn(recPayload0, byteIn->getBit(0)));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombOutputFunctionInoutWholeActualSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_output_function_inout_whole_actual_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_output_function_inout_whole_actual_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_output_function_inout_whole_actual_supported(
+  input  logic       sel_i,
+  input  logic [1:0] seed_i,
+  output logic [1:0] out_o
+);
+  function automatic void touch_word(
+    input  logic value_i,
+    inout  logic [1:0] word_io
+  );
+    word_io[0] = value_i;
+  endfunction
+
+  always_comb begin
+    out_o = seed_i;
+    touch_word(sel_i, out_o);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_output_function_inout_whole_actual_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* out = top->getBusNet(NLName("out_o"));
+  auto* sel = dynamic_cast<SNLBitNet*>(top->getNet(NLName("sel_i")));
+  ASSERT_NE(out, nullptr);
+  ASSERT_NE(sel, nullptr);
+  auto* out0 = out->getBit(0);
+  ASSERT_NE(out0, nullptr);
+  EXPECT_TRUE(netDependsOn(out0, sel));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombWholeVectorCopyThenSliceOverrideDoesNotCreateTransparentMuxSelfReference) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -8020,6 +8209,58 @@ endmodule
   ASSERT_NE(nullptr, top);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInterfaceModportLazyFlattenedConnectionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "interface_modport_lazy_flattened_connection_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "interface_modport_lazy_flattened_connection_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(interface data_bus_if;
+  logic       sig;
+  logic [3:0] data;
+  modport child(input sig, output data);
+endinterface
+
+module interface_modport_lazy_flattened_connection_child(
+  data_bus_if.child bus
+);
+endmodule
+
+module interface_modport_lazy_flattened_connection_supported(
+  input  logic       sig_i,
+  output logic [3:0] data_o
+);
+  data_bus_if bus();
+  assign bus.sig = sig_i;
+  assign data_o = bus.data;
+
+  interface_modport_lazy_flattened_connection_child u_child(
+    .bus(bus)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("interface_modport_lazy_flattened_connection_supported"));
+  auto child = library_->getSNLDesign(
+    NLName("interface_modport_lazy_flattened_connection_child"));
+  ASSERT_NE(top, nullptr);
+  ASSERT_NE(child, nullptr);
+  EXPECT_NE(child->getTerm(NLName("bus__sig")), nullptr);
+  EXPECT_NE(child->getTerm(NLName("bus__data")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -8600,6 +8841,19 @@ endmodule
   ASSERT_TRUE(relationalBits.has_value());
   EXPECT_EQ("?", *relationalBits);
 
+  const auto signedEqualityBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(
+  input logic signed [1:0] a,
+  input logic signed [3:0] b,
+  output logic y
+);
+  assign y = (a == b);
+endmodule
+)",
+    1);
+  ASSERT_TRUE(signedEqualityBits.has_value());
+  EXPECT_EQ("?", *signedEqualityBits);
+
   const auto powerOneBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
     R"(module detail_test(input logic [1:0] sh, output logic [3:0] y);
   assign y = (1 ** sh);
@@ -8613,6 +8867,15 @@ endmodule
 TEST_F(
   SNLSVConstructorTestSimple,
   resolveExpressionBitsHandlesInequalityAndFixedUnpackedSelections) {
+  const auto normalInequalityBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
+    R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
+  assign y = (a != b);
+endmodule
+)",
+    1);
+  ASSERT_TRUE(normalInequalityBits.has_value());
+  EXPECT_EQ("?", *normalInequalityBits);
+
   const auto inequalityBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
     R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
   assign y = (a !== b);
@@ -9081,6 +9344,12 @@ TEST_F(
   EXPECT_TRUE(result->multiplySourceOverflowRejected);
   EXPECT_TRUE(result->negativeEqualityOperandRejected);
   EXPECT_TRUE(result->unknownParameterInt64Rejected);
+  EXPECT_TRUE(result->conditionalLoopConditionHit);
+  EXPECT_TRUE(result->concatLoopOperandHit);
+  EXPECT_TRUE(result->callLoopArgHit);
+  EXPECT_TRUE(result->constantConcatNoRuntimeSymbol);
+  EXPECT_TRUE(result->systemQueryCallNoRuntimeSymbol);
+  EXPECT_TRUE(result->callRuntimeArgHit);
 }
 
 TEST_F(
@@ -18775,6 +19044,168 @@ endmodule
   ASSERT_NE(entry0Valid, nullptr);
   EXPECT_TRUE(netDependsOn(entry0Valid, en0));
   EXPECT_TRUE(netDependsOn(entry0Valid, en1));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectDecodedConstantSelectorSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_dynamic_element_select_decoded_constant_selector_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_lhs_dynamic_element_select_decoded_constant_selector_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_decoded_constant_selector_supported(
+  input  logic       sel_i,
+  input  logic       data_i,
+  input  logic [5:0] mem_q_i,
+  output logic [5:0] mem_n_o
+);
+  typedef struct packed {
+    logic       valid;
+    logic [1:0] data;
+  } entry_t;
+
+  entry_t [1:0] mem_q;
+  entry_t [1:0] mem_n;
+
+  assign mem_q = mem_q_i;
+  assign mem_n_o = mem_n;
+
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[sel_i | 1'b1].valid = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_decoded_constant_selector_supported"));
+  ASSERT_NE(top, nullptr);
+  auto* memN = top->getBusNet(NLName("mem_n_o"));
+  auto* data = dynamic_cast<SNLBitNet*>(top->getNet(NLName("data_i")));
+  ASSERT_NE(memN, nullptr);
+  ASSERT_NE(data, nullptr);
+  auto* entry1Valid = memN->getBit(5);
+  ASSERT_NE(entry1Valid, nullptr);
+  EXPECT_TRUE(netDependsOn(entry1Valid, data));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectSelectorConstantBitSkipsImpossibleIndices) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "always_comb_lhs_dynamic_element_select_selector_constant_bit_skips_impossible_indices";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_lhs_dynamic_element_select_selector_constant_bit_skips_impossible_indices.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_selector_constant_bit_skips_impossible_indices(
+  input  logic        sel_i,
+  input  logic        data_i,
+  input  logic [11:0] mem_q_i,
+  output logic [11:0] mem_n_o
+);
+  typedef struct packed {
+    logic       valid;
+    logic [1:0] data;
+  } entry_t;
+
+  entry_t [3:0] mem_q;
+  entry_t [3:0] mem_n;
+
+  assign mem_q = mem_q_i;
+  assign mem_n_o = mem_n;
+
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[{1'b1, sel_i}].valid = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_selector_constant_bit_skips_impossible_indices"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("mem_n_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectSelfWriteFastPathsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_dynamic_element_select_self_write_fast_paths_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_dynamic_element_select_self_write_fast_paths_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_self_write_fast_paths_supported(
+  input  logic        sel_i,
+  input  logic [7:0]  lanes_q_i,
+  input  logic [1:0]  flags_q_i,
+  output logic [9:0]  out_o
+);
+  logic [1:0][3:0] lanes_q;
+  logic [1:0][3:0] lanes_n;
+  logic [1:0]      flags_q;
+  logic [1:0]      flags_n;
+
+  assign lanes_q = lanes_q_i;
+  assign flags_q = flags_q_i;
+  assign out_o = {lanes_n, flags_n};
+
+  always_comb begin
+    lanes_n = lanes_q;
+    lanes_n[sel_i] = lanes_q[sel_i];
+  end
+
+  always_comb begin
+    flags_n = flags_q;
+    flags_n[sel_i] = flags_q[sel_i];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_self_write_fast_paths_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("out_o")), nullptr);
 }
 
 TEST_F(
