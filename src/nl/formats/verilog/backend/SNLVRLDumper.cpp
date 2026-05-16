@@ -2306,10 +2306,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "        load_init();\n";
   o << "      else begin\n";
   o << "        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
-  o << "          allow_write = WE[wp];\n";
+  o << "          allow_write = WE[WR_PORTS-1-wp];\n";
   o << "          addr_value = WADDR[wp*ABITS +: ABITS];\n";
   o << "          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
-  o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
+  o << "            if (WE[WR_PORTS-1-later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
   o << "              allow_write = 1'b0;\n";
   o << "          end\n";
   o << "          addr_index = integer'(addr_value);\n";

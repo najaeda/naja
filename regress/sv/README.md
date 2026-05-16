@@ -161,6 +161,10 @@ testbench environments:
   with `-GCOREV_PULP=1`, patches the upstream `hwlp_test` hardware-loop
   mnemonics into raw instruction words for stock RISC-V GNU toolchains, and
   expects `CV32E40P_HWLP_SIM_PASS`.
+- CVA6 uses the upstream Verilator `ariane_testharness` and FESVR loader from
+  the CVA6 repository, wraps the generated elaborated `cva6` netlist with a
+  small `ariane` compatibility module, runs upstream `hello_world.c`, and
+  expects `CVA6_HELLOWORLD_SIM_PASS`.
 
 Case-specific stages must be launched per case:
 
@@ -181,6 +185,13 @@ python3 regress/sv/sv_regress.py run \
   --stage helloworld_sim \
   --stage interrupt_sim \
   --stage cv32e40p_hwlp_sim
+
+python3 regress/sv/sv_regress.py run \
+  --case cva6_testharness \
+  --stage lint \
+  --stage helloworld_sim \
+  --lint-runner local \
+  --require-firmware-sim-tools
 ```
 
 Run only helloworld simulation:
