@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/najaeda)](https://pypi.org/project/najaeda)
 [![Open Chapter 1](https://colab.research.google.com/assets/colab-badge.svg)](
-https://colab.research.google.com/github/najaeda/najaeda-tutorials/blob/main/notebooks/01_getting_started.ipynb)
+https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/01_getting_started.ipynb)
 [![Join Matrix Chat →](https://img.shields.io/badge/Matrix-Join%20Chat-success?logo=matrix)](https://matrix.to/#/#naja:fossi-chat.org)
 ![Ubuntu Build](https://github.com/najaeda/naja/actions/workflows/ubuntu-build.yml/badge.svg)
 ![MacOS Build](https://github.com/najaeda/naja/actions/workflows/macos-build.yml/badge.svg)
