@@ -35,7 +35,18 @@ pip install najaeda
 
 Full documentation: [najaeda.readthedocs.io](https://najaeda.readthedocs.io/en/latest/)
 
-Try it interactively in the browser with the Colab badge above — no install needed.
+### Tutorials
+
+Six hands-on notebooks — open any of them in Colab with no local install needed:
+
+| # | Topic | Colab |
+| --- | --- | --- |
+| 1 | Getting started — load Verilog, navigate hierarchy, visualize | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/01_getting_started.ipynb) |
+| 2 | Liberty primitives — load a synthesised design with standard cells | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/02_liberty_primitives_design.ipynb) |
+| 3 | Editing a netlist — rename, disconnect, reconnect, delete | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/03_editing_a_netlist.ipynb) |
+| 4 | SystemVerilog elaboration — load and browse an elaborated SV design | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/04_systemverilog_elaborated_netlist.ipynb) |
+| 5 | ibex RISC-V core — explore a real-world SV core, collect stats | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/05_ibex_riscv_core.ipynb) |
+| 6 | Fanout analysis — compute fanout for every net, trace drivers, export to pandas | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/06_fanout_analysis.ipynb) |
 
 ## `naja_edit` — Netlist CLI
 
