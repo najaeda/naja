@@ -1,0 +1,588 @@
+/*
+ * SPDX-FileCopyrightText: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Minimal tutorial cell library — structural interface only (no timing/power data).
+ * Cell names follow the NanGate 45nm Open Cell Library naming convention.
+ * Pin names and directions are derived from tinyrocket.v, which is a derivative
+ * of the RocketChip project (Apache 2.0, https://github.com/chipsalliance/rocket-chip).
+ */
+library (tutorial_cells) {
+  technology (cmos);
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit (1, ff);
+  leakage_power_unit : "1nW";
+  pulling_resistance_unit : "1kohm";
+  delay_model : table_lookup;
+  nom_process : 1;
+  nom_temperature : 25;
+  nom_voltage : 1.1;
+  cell (AND2_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND2_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND2_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND3_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND3_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND4_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND4_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AND4_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND2_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND2_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND2_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND3_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND3_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND3_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND4_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND4_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NAND4_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR2_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR2_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR2_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR3_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR3_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR3_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR4_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR4_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OR4_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR2_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR2_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR2_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR3_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR3_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR3_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR4_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR4_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (NOR4_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (A4) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (INV_X1) {
+    pin (A) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (INV_X2) {
+    pin (A) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (INV_X4) {
+    pin (A) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (BUF_X1) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (BUF_X2) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (BUF_X4) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (BUF_X8) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (BUF_X16) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (CLKBUF_X1) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (CLKBUF_X2) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (CLKBUF_X3) {
+    pin (A) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (XOR2_X1) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (XNOR2_X1) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (XOR2_X2) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (XNOR2_X2) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (MUX2_X1) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (S) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (MUX2_X2) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (S) { direction : input; }
+    pin (Z) { direction : output; }
+  }
+
+  cell (AOI21_X1) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI21_X2) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI21_X4) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI22_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI22_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI22_X4) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI211_X2) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI211_X4) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI221_X1) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI221_X2) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI221_X4) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI222_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (AOI222_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI21_X1) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI21_X2) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI21_X4) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI22_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI22_X2) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI211_X2) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI211_X4) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI221_X1) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI221_X2) {
+    pin (A) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI222_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (C1) { direction : input; }
+    pin (C2) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (OAI33_X1) {
+    pin (A1) { direction : input; }
+    pin (A2) { direction : input; }
+    pin (A3) { direction : input; }
+    pin (B1) { direction : input; }
+    pin (B2) { direction : input; }
+    pin (B3) { direction : input; }
+    pin (ZN) { direction : output; }
+  }
+
+  cell (FA_X1) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (CI) { direction : input; }
+    pin (CO) { direction : output; }
+    pin (S) { direction : output; }
+  }
+
+  cell (HA_X1) {
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (CO) { direction : output; }
+    pin (S) { direction : output; }
+  }
+
+  cell (DFF_X1) {
+    pin (CK) { direction : input; }
+    pin (D) { direction : input; }
+    pin (Q) { direction : output; }
+    pin (QN) { direction : output; }
+  }
+
+  cell (LOGIC0_X1) {
+    pin (Z) { direction : output; }
+  }
+
+  cell (LOGIC1_X1) {
+    pin (Z) { direction : output; }
+  }
+}

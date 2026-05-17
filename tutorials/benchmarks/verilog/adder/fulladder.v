@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+ * SPDX-License-Identifier: Apache-2.0
+ */
 module halfadder(
     input a,
     input b,
