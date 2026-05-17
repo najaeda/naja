@@ -35,7 +35,23 @@ jobs:
         python-version: '3.13'
 
     - name: Install Python dependencies
-      run: pip install nbmake nbstripout pandas matplotlib
+      run: pip install nbmake nbstripout pandas matplotlib 'fusesoc>=2.4'
+
+    - name: Clone and set up ibex
+      env:
+        XDG_CACHE_HOME: /tmp/fusesoc_cache
+      run: |
+        mkdir -p /tmp/ibex && cd /tmp/ibex
+        git init
+        git remote add origin https://github.com/lowRISC/ibex.git
+        git fetch --depth 1 origin eede2fbbef007d53cafbd85d937b897751c40a54
+        git checkout FETCH_HEAD
+        fusesoc --cores-root /tmp/ibex run \
+          --target=lint \
+          --setup \
+          --build-root /tmp/ibex/build/fusesoc \
+          --mapping=lowrisc:prim_generic:all:0.1 \
+          lowrisc:ibex:ibex_top
 
     - name: Strip notebook outputs before execution
       run: nbstripout tutorials/notebooks/*.ipynb
@@ -44,4 +60,5 @@ jobs:
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
         NAJAEDA_TUTORIALS_BENCHMARKS: ${{github.workspace}}/tutorials/benchmarks
+        IBEX_REPO: /tmp/ibex
       run: pytest --nbmake tutorials/notebooks/
