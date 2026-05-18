@@ -60,3 +60,13 @@ License: MIT
 FILES: thirdparty/lefdef/*
 Copyright: Cadence Design Systems and distributed by Si2.
 License: Apache-2.0
+
+Files: tutorials/README.md tutorials/images/*
+ tutorials/notebooks/01_getting_started.ipynb
+ tutorials/notebooks/02_liberty_primitives_design.ipynb
+ tutorials/notebooks/03_editing_a_netlist.ipynb
+ tutorials/notebooks/04_systemverilog_elaborated_netlist.ipynb
+ tutorials/notebooks/05_ibex_riscv_core.ipynb
+ tutorials/notebooks/06_fanout_analysis.ipynb
+Copyright: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+License: Apache-2.0
