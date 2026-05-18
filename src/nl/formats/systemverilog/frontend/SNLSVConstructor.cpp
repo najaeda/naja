@@ -3776,6 +3776,40 @@ endmodule
       }
 
       const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+      if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd ||
+          binaryExpr.op == slang::ast::BinaryOperator::LogicalOr) {
+        bool leftValue = false;
+        if (tryEvaluateConstantConditionBit(binaryExpr.left(), leftValue)) {
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && !leftValue) {
+            value = false;
+            return true;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && leftValue) {
+            value = true;
+            return true;
+          }
+        }
+
+        bool rightValue = false;
+        if (tryEvaluateConstantConditionBit(binaryExpr.right(), rightValue)) {
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && !rightValue) {
+            value = false;
+            return true;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && rightValue) {
+            value = true;
+            return true;
+          }
+          if (tryEvaluateConstantConditionBit(binaryExpr.left(), leftValue)) {
+            value = binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd
+              ? (leftValue && rightValue)
+              : (leftValue || rightValue);
+            return true;
+          }
+        }
+        return false;
+      }
+
       int64_t leftValue = 0;
       int64_t rightValue = 0;
       if (!getConstantInt64(binaryExpr.left(), leftValue) ||
@@ -15295,6 +15329,13 @@ endmodule
     const Statement* unwrapStatement(const Statement& stmt) const {
       const Statement* current = &stmt;
       while (current) {
+        if (current->kind == slang::ast::StatementKind::Invalid) {
+          const auto* child = current->as<slang::ast::InvalidStatement>().child;
+          if (child) {
+            current = child;
+            continue;
+          }
+        }
         if (current->kind == slang::ast::StatementKind::Block) {
           current = &current->as<slang::ast::BlockStatement>().body;
           continue;
@@ -18935,6 +18976,21 @@ endmodule
           *failureReason = std::move(reason);
         }
       };
+      auto appendFailureContext = [&](const Statement& context, const char* label) {
+        if (!failureReason || failureReason->empty()) {
+          return;
+        }
+        *failureReason += " while collecting ";
+        *failureReason += label;
+        if (auto sourceInfo = getSourceInfo(getSourceRange(context))) {
+          *failureReason += " at ";
+          *failureReason += sourceInfo->file;
+          *failureReason += ":";
+          *failureReason += std::to_string(sourceInfo->line);
+          *failureReason += ":";
+          *failureReason += std::to_string(sourceInfo->column);
+        }
+      };
 
       const Statement* current = unwrapStatement(stmt);
       if (isIgnorableSequentialTimingStatement(*current)) {
@@ -18957,6 +19013,7 @@ endmodule
                 trackAlwaysCombDynamicLHS,
                 trackSequentialFallbackLHS,
                 ignoredSymbols)) {
+            appendFailureContext(*item, "statement-list item");
             return false;
           }
           if (isCurrentForLoopBreakRequested()) {
@@ -18982,6 +19039,7 @@ endmodule
               },
               forLoopFailureReason)) {
           setFailureReason(forLoopFailureReason);
+          appendFailureContext(forStmt.body, "for-loop body");
           return false;
         }
         return true;
@@ -18989,6 +19047,37 @@ endmodule
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (conditional.conditions.size() == 1 &&
+            conditional.conditions[0].expr &&
+            !conditional.conditions[0].pattern) {
+          bool constantCondition = false;
+          if (tryEvaluateConstantConditionBit(*conditional.conditions[0].expr, constantCondition)) {
+            const bool hasLoopContext = hasActiveForLoopContext();
+            const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+            if (hasLoopContext) {
+              setCurrentForLoopBreakRequested(false);
+            }
+            const Statement* selectedStmt =
+              constantCondition ? &conditional.ifTrue : conditional.ifFalse;
+            if (selectedStmt &&
+                !collectAssignedLHSExpressions(
+                  *selectedStmt,
+                  lhsExpressions,
+                  failureReason,
+                  trackAlwaysCombDynamicLHS,
+                  trackSequentialFallbackLHS,
+                  ignoredSymbols)) {
+              appendFailureContext(*selectedStmt, "constant-selected branch");
+              return false;
+            }
+            const bool selectedBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+            if (hasLoopContext) {
+              setCurrentForLoopBreakRequested(incomingBreak || selectedBreak);
+            }
+            return true;
+          }
+        }
+
         const bool hasLoopContext = hasActiveForLoopContext();
         const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
         if (hasLoopContext) {
@@ -19001,6 +19090,7 @@ endmodule
               trackAlwaysCombDynamicLHS,
               trackSequentialFallbackLHS,
               ignoredSymbols)) {
+          appendFailureContext(conditional.ifTrue, "true branch");
           return false;
         }
         const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
@@ -19016,6 +19106,7 @@ endmodule
               trackAlwaysCombDynamicLHS,
               trackSequentialFallbackLHS,
               ignoredSymbols)) {
+          appendFailureContext(*conditional.ifFalse, "false branch");
           return false;
         }
         if (hasLoopContext) {
@@ -19037,6 +19128,7 @@ endmodule
                 trackAlwaysCombDynamicLHS,
                 trackSequentialFallbackLHS,
                 ignoredSymbols)) {
+            appendFailureContext(*item.stmt, "case item");
             return false;
           }
         }
@@ -19048,6 +19140,7 @@ endmodule
               trackAlwaysCombDynamicLHS,
               trackSequentialFallbackLHS,
               ignoredSymbols)) {
+          appendFailureContext(*caseStmt.defaultCase, "case default");
           return false;
         }
         return true;
@@ -19120,6 +19213,10 @@ endmodule
       std::ostringstream reason;
       reason << "unsupported statement kind while collecting assignments"
              << " (kind=" << current->kind << ")";
+      if (auto sourceInfo = getSourceInfo(getSourceRange(*current))) {
+        reason << " at " << sourceInfo->file << ":" << sourceInfo->line
+               << ":" << sourceInfo->column;
+      }
       setFailureReason(reason.str());
       return false;
     }
@@ -23260,6 +23357,7 @@ endmodule
               lhsExpressions,
               &failureReason,
               true,
+              false,
               ignoredSymbols)) {
           return false;
         }

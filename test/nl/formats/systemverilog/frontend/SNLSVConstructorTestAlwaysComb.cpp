@@ -161,6 +161,59 @@ class SNLSVConstructorTestAlwaysComb: public ::testing::Test {
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombConstantFalseShortCircuitSkipsUnsupportedBranch) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_constant_false_short_circuit_skips_unsupported_branch");
+
+  const auto svPath =
+    outPath / "always_comb_constant_false_short_circuit_skips_unsupported_branch.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_constant_false_short_circuit_skips_unsupported_branch(
+  input  logic a_i,
+  output logic y_o
+);
+  typedef struct packed {
+    bit RVH;
+  } cfg_t;
+  typedef struct packed {
+    logic [1:0] ppn;
+    logic       g;
+  } pte_t;
+  localparam cfg_t Cfg = '{RVH: 1'b0};
+  pte_t pte;
+  logic [2:0] content;
+
+  always_comb begin
+    y_o = a_i;
+    content = 3'b0;
+    if (a_i && Cfg.RVH) begin
+      content = (pte | (a_i << 1));
+      forever begin
+        y_o = 1'b1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_constant_false_short_circuit_skips_unsupported_branch"));
+  ASSERT_NE(top, nullptr);
+  auto* a = dynamic_cast<SNLBitNet*>(top->getNet(NLName("a_i")));
+  auto* y = dynamic_cast<SNLBitNet*>(top->getNet(NLName("y_o")));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(a, getSingleAssignInputDriving(y));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombConstantBitThenWholeVectorOverride) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
