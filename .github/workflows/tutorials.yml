@@ -1,0 +1,67 @@
+name: tutorials regression
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  run:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        submodules: true
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev graphviz
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(nproc)
+
+    - name: Run najaeda tests
+      run: ctest --test-dir ${{github.workspace}}/build -C ${{env.BUILD_TYPE}} -R najaeda --output-on-failure
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.13'
+
+    - name: Install Python dependencies
+      run: pip install nbmake nbstripout pandas matplotlib 'fusesoc>=2.4'
+
+    - name: Clone and set up ibex
+      env:
+        XDG_CACHE_HOME: /tmp/fusesoc_cache
+      run: |
+        mkdir -p /tmp/ibex && cd /tmp/ibex
+        git init
+        git remote add origin https://github.com/lowRISC/ibex.git
+        git fetch --depth 1 origin eede2fbbef007d53cafbd85d937b897751c40a54
+        git checkout FETCH_HEAD
+        fusesoc --cores-root /tmp/ibex run \
+          --target=lint \
+          --setup \
+          --build-root /tmp/ibex/build/fusesoc \
+          --mapping=lowrisc:prim_generic:all:0.1 \
+          lowrisc:ibex:ibex_top
+
+    - name: Strip notebook outputs before execution
+      run: nbstripout tutorials/notebooks/*.ipynb
+
+    - name: Run tutorials
+      env:
+        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
+        NAJAEDA_TUTORIALS_BENCHMARKS: ${{github.workspace}}/tutorials/benchmarks
+        IBEX_REPO: /tmp/ibex
+      run: pytest --nbmake tutorials/notebooks/

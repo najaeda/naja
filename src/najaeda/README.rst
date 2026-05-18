@@ -1,85 +1,121 @@
-najaeda Python Package
-=======================
+najaeda
+=======
 
-najaeda is a Python package that provides data structures and APIs for developing post-synthesis Electronic Design Automation (EDA) algorithms.
+.. image:: https://img.shields.io/pypi/v/najaeda
+   :target: https://pypi.org/project/najaeda/
+   :alt: PyPI version
 
-najaeda provides a powerful yet simple framework designed to help software
-and hardware developers efficiently navigate and manipulate electronic
-design automation (EDA) workflows.
-
-With najaeda, you can:
-
-* Explore Netlists with Ease:
-
-  * Navigate netlist hierarchy and connectivity effortlessly.
-  * Browse at multiple levels of detail:
-
-    * Bit-level or bus-level granularity.
-    * Instance-by-instance exploration or flattened views at the primitives level.
-    * Localized per-instance connections or comprehensive equipotential views.
-
-* Perform ECO (Engineering Change Order) Transformations:
-
-  * Seamlessly apply and manage changes to your designs.
-
-* Prototype EDA Ideas Quickly:
-
-  * Use an intuitive API to experiment with new EDA concepts and workflows.
-
-* Develop Custom EDA Tools:
-
-  * Build fast, tailored tools for solving specific challenges without relying on costly, proprietary EDA software.
-
-najaeda empowers developers to innovate, adapt, and accelerate their EDA
-processes with minimal overhead.
-
-najaeda is the Python counterpart of the `Naja C++ project <https://github.com/najaeda/naja>`_.
-
-If you find this project useful, please consider `starring it on GitHub <https://github.com/najaeda/naja>`_ to show your support.
-
-Feel free to reach out to us anytime at `contact@keplertech.io <mailto:contact@keplertech.io>`_.
-
-Installation
-------------
-
-Install Naja EDA using pip:
-
-.. code-block:: bash
-
-    pip install najaeda
-
-Quick Start
------------
-
-To quickly explore what **najaeda** can do, launch the interactive tutorial notebook on Google Colab:
-
-.. image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/najaeda/najaeda-tutorials/blob/main/notebooks/01_getting_started.ipynb
-   :alt: Open in Colab
-
-Documentation
--------------
-
-Naja EDA online documentation is available `here <https://najaeda.readthedocs.io/en/latest/index.html>`_.
-
-Examples
---------
-
-A list of examples can be found in this
-documentation `section <https://najaeda.readthedocs.io/en/latest/examples.html>`_.
-
-Support
--------
-If you encounter any issues or have questions, please report them on the
-`Naja issue tracker <https://github.com/najaeda/naja/issues>`_.
-
-You’re also welcome to join the discussion on Matrix:
+.. image:: https://img.shields.io/badge/License-Apache_2.0-blue.svg
+   :target: https://opensource.org/licenses/Apache-2.0
+   :alt: Apache 2.0 License
 
 .. image:: https://img.shields.io/badge/Matrix-Join%20Chat-success?logo=matrix
    :target: https://matrix.to/#/#naja:fossi-chat.org
    :alt: Join the Matrix chat
 
+----
+
+**najaeda** is a Python package for working with gate-level netlists —
+load, navigate, edit, and analyse designs from simple Verilog files to
+large SystemVerilog cores.
+
+.. code-block:: python
+
+    from najaeda import netlist
+
+    # Load a gate-level Verilog design with a Liberty standard-cell library
+    netlist.load_liberty(['NangateOpenCellLibrary.lib'])
+    top = netlist.load_verilog('my_design.v')
+
+    # Navigate the hierarchy
+    for inst in top.get_child_instances():
+        print(f'{inst.get_name()} → {inst.get_model_name()}')
+
+    # Flat connectivity across hierarchy boundaries
+    for iterm in top.get_term('clk').get_equipotential().get_inst_terms():
+        print(iterm)
+
+    # Edit: rename, reconnect, delete
+    top.get_net('old_name').set_name('new_name')
+
+
+What you can do
+---------------
+
+- **Load** structural Verilog and SystemVerilog designs, with or without
+  Liberty standard-cell libraries
+- **Navigate** hierarchy, nets, and ports at any level of detail —
+  instance-by-instance or flat via equipotentials
+- **Edit** netlists: rename instances and nets, disconnect and reconnect
+  signals, delete logic
+- **Analyse** designs with the visitor API and export results to pandas
+  for further processing or visualisation
+
+Installation
+------------
+
+.. code-block:: bash
+
+    pip install najaeda
+
+Requires Python 3.8+. Wheels are published for Linux, macOS, and Windows.
+
+Tutorials
+---------
+
+Six hands-on notebooks — open any of them in Google Colab with no local
+install needed:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 5 60 15
+
+   * - #
+     - Topic
+     - Colab
+   * - 1
+     - Getting started — load Verilog, navigate hierarchy, visualize
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/01_getting_started.ipynb
+          :alt: Open in Colab
+   * - 2
+     - Liberty primitives — load a synthesised design with standard cells
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/02_liberty_primitives_design.ipynb
+          :alt: Open in Colab
+   * - 3
+     - Editing a netlist — rename, disconnect, reconnect, delete
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/03_editing_a_netlist.ipynb
+          :alt: Open in Colab
+   * - 4
+     - SystemVerilog elaboration — load and browse an elaborated SV design
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/04_systemverilog_elaborated_netlist.ipynb
+          :alt: Open in Colab
+   * - 5
+     - ibex RISC-V core — explore a real-world SV core, collect module stats
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/05_ibex_riscv_core.ipynb
+          :alt: Open in Colab
+   * - 6
+     - Fanout analysis — compute fanout for every net, trace drivers, export
+       to pandas
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+          :target: https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/06_fanout_analysis.ipynb
+          :alt: Open in Colab
+
+Links
+-----
+
+- `API documentation <https://najaeda.readthedocs.io/en/latest/>`_
+- `GitHub repository <https://github.com/najaeda/naja>`_
+- `Issue tracker <https://github.com/najaeda/naja/issues>`_
+- `Matrix chat <https://matrix.to/#/#naja:fossi-chat.org>`_
+- `contact@keplertech.io <mailto:contact@keplertech.io>`_
+
 License
 -------
-This project is licensed under the Apache License 2.0. \
+
+Apache License 2.0.
 See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.
