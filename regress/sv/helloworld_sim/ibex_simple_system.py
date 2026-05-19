@@ -804,6 +804,7 @@ def main() -> int:
         "-LDFLAGS",
         ldflags,
         "-Wno-TIMESCALEMOD",
+        "-Wno-PINMISSING",
         "--unroll-count",
         "72",
         f'-GSRAMInitFile="{firmware}"',
