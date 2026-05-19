@@ -803,7 +803,6 @@ def main() -> int:
         cflags,
         "-LDFLAGS",
         ldflags,
-        "-Wno-PINMISSING",
         "-Wno-TIMESCALEMOD",
         "--unroll-count",
         "72",

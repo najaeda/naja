@@ -817,7 +817,6 @@ def main() -> int:
         "+incdir+" + str(tb_dir / "include"),
         "+incdir+" + str(rtl_include_dir),
         *core_include_dirs,
-        "-Wno-PINMISSING",
         "-Wno-TIMESCALEMOD",
         "-Wno-WIDTH",
         "-Wno-REALCVT",

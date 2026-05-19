@@ -21,7 +21,6 @@ cases:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
-        - PINMISSING
         - ASCRANGE
 
   - name: cva6
@@ -40,7 +39,6 @@ cases:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
-        - PINMISSING
         - ASCRANGE
 
   # CVA6 'ariane' synthesizable DUT — Path B simulation target.
@@ -79,7 +77,6 @@ cases:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
-        - PINMISSING
         - ASCRANGE
         - TIMESCALEMOD
     helloworld_sim:
@@ -138,8 +135,6 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 3600
-      suppressions:
-        - PINMISSING
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
@@ -384,8 +379,6 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 3600
-      suppressions:
-        - PINMISSING
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
@@ -504,8 +497,6 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 3600
-      suppressions:
-        - PINMISSING
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
