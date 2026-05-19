@@ -20699,7 +20699,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialAsyncResetConditionalConditionUnsupported) {
+  parseSequentialAsyncResetConditionalConditionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "sequential_async_reset_conditional_condition_unsupported";
@@ -20736,12 +20736,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'sequential_async_reset_conditional_condition_unsupported'",
-     "unable to resolve reset condition net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("sequential_async_reset_conditional_condition_unsupported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q0")), nullptr);
+  EXPECT_NE(top->getNet(NLName("q1")), nullptr);
+  EXPECT_GE(countMux2Instances(top), 1u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
@@ -24819,7 +24821,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySupported) {
   EXPECT_GE(xorGateCount, 1u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondConditionalUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondConditionalSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "seq_enable_cond_conditional_unsupported";
@@ -24852,17 +24854,13 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported ternary enable condition";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported sequential block in module "
-                  "'seq_enable_cond_conditional_unsupported': "
-                  "unable to resolve enable condition net"));
-  }
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_cond_conditional_unsupported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+  EXPECT_GE(countMux2Instances(top), 1u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondCaseEqualitySupported) {

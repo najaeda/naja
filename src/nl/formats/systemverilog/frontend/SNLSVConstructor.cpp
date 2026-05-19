@@ -14581,7 +14581,76 @@ endmodule
           return nullptr; // LCOV_EXCL_LINE
         }
         if (strippedExpr->kind == slang::ast::ExpressionKind::ConditionalOp) {
-          return nullptr;
+          const auto& conditionalExpr =
+            strippedExpr->as<slang::ast::ConditionalExpression>();
+          if (const auto* knownSide = conditionalExpr.knownSide()) {
+            return resolveConditionNet(
+              design,
+              *knownSide,
+              joinName("cond_known", condBaseName),
+              sourceRange);
+          }
+          if (conditionalExpr.conditions.size() != 1 ||
+              conditionalExpr.conditions.front().pattern ||
+              !conditionalExpr.conditions.front().expr) {
+            return nullptr;
+          }
+
+          auto conditionalSourceRange =
+            sourceRange ? sourceRange : getSourceRange(*strippedExpr);
+          auto* selectBit = resolveConditionNet(
+            design,
+            *conditionalExpr.conditions.front().expr,
+            joinName("cond_sel", condBaseName),
+            conditionalSourceRange);
+          if (!selectBit) {
+            return nullptr;
+          }
+
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          if (selectBit == const1) {
+            return resolveConditionNet(
+              design,
+              conditionalExpr.left(),
+              joinName("cond_true", condBaseName),
+              conditionalSourceRange);
+          }
+          if (selectBit == const0) {
+            return resolveConditionNet(
+              design,
+              conditionalExpr.right(),
+              joinName("cond_false", condBaseName),
+              conditionalSourceRange);
+          }
+
+          auto* trueBit = resolveConditionNet(
+            design,
+            conditionalExpr.left(),
+            joinName("cond_true", condBaseName),
+            conditionalSourceRange);
+          auto* falseBit = resolveConditionNet(
+            design,
+            conditionalExpr.right(),
+            joinName("cond_false", condBaseName),
+            conditionalSourceRange);
+          if (!trueBit || !falseBit) {
+            return nullptr;
+          }
+          if (trueBit == falseBit) {
+            return trueBit;
+          }
+
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, conditionalSourceRange);
+          createMux2Instance(
+            design,
+            selectBit,
+            falseBit,
+            trueBit,
+            outBit,
+            conditionalSourceRange);
+          return outBit;
         }
         if (strippedExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = strippedExpr->as<slang::ast::BinaryExpression>();
