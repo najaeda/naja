@@ -265,6 +265,28 @@ TEST_F(SNLVRLDumperTestParameters, testDefaultInstanceParametersAreOmitted) {
   EXPECT_EQ(std::string::npos, dumped.find(".SAME_STR("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testFullyUnconnectedInstancePortsAreDumped) {
+  ASSERT_TRUE(top_);
+  ASSERT_TRUE(model_);
+
+  auto* input = SNLScalarTerm::create(model_, SNLTerm::Direction::Input, NLName("data_i"));
+  SNLScalarTerm::create(model_, SNLTerm::Direction::Output, NLName("empty_o"));
+  SNLBusTerm::create(model_, SNLTerm::Direction::Output, 1, 0, NLName("empty_bus_o"));
+
+  auto* data = SNLScalarNet::create(top_, NLName("data"));
+  auto* ins = SNLInstance::create(top_, model_, NLName("ins"));
+  ins->setTermNet(input, data);
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".data_i(data)"));
+  EXPECT_NE(std::string::npos, dumped.find(".empty_o()"));
+  EXPECT_NE(std::string::npos, dumped.find(".empty_bus_o()"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 
@@ -323,11 +345,20 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("task automatic write_ports;"));
   EXPECT_NE(std::string::npos, primitiveDump.find("allow_write = WE[WR_PORTS-1-wp];"));
   EXPECT_NE(
     std::string::npos,
     primitiveDump.find("if (WE[WR_PORTS-1-later] && WADDR[later*ABITS +: ABITS] == addr_value)"));
   EXPECT_NE(std::string::npos, primitiveDump.find("if (allow_write && addr_index < DEPTH)"));
+  EXPECT_NE(
+    std::string::npos,
+    primitiveDump.find("if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW)"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("always @(posedge CLK or negedge RST)"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("always @(posedge CLK or posedge RST)"));
+  EXPECT_EQ(
+    std::string::npos,
+    primitiveDump.find("always @(posedge CLK or posedge RST or negedge RST)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testSequentialPrimitiveFileDump) {
