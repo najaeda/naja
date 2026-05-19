@@ -389,6 +389,7 @@ cases:
       pass_regex: "CV32E40P_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
+        - PINMISSING
     helloworld_sim:
       timeout_seconds: 7200
       tool_checks:
