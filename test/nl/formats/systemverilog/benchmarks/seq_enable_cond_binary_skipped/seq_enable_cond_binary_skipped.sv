@@ -10,7 +10,7 @@ module seq_enable_cond_binary_skipped(
   input logic [7:0] d,
   output logic [7:0] q
 );
-  // Unsupported condition shape for enable path: bitwise XOR is not lowered.
+  // Bitwise expressions in conditions are bit-resolved and reduced to truthiness.
   always_ff @(posedge clk) begin
     if (rst) q <= 8'h00;
     else if (en_a ^ en_b) q <= d;

@@ -12,14 +12,14 @@ module seq_enable_cond_unary_edge_cases_skipped(
   output logic [7:0] q0,
   output logic [7:0] q1
 );
-  // Unary bitwise-not with non-single-bit operand: condition net cannot be reduced to 1 bit.
+  // Unary bitwise-not is lowered as a bitwise expression, then reduced to truthiness.
   always_ff @(posedge clk) begin
     if (rst) q0 <= 8'h00;
     else if (~en_bus) q0 <= d0;
     else q0 <= q0;
   end
 
-  // Unary-plus is not lowered by resolveConditionNet and falls back to resolveExpressionNet.
+  // Unary-plus is lowered through the general condition truthiness path.
   always_ff @(posedge clk) begin
     if (rst) q1 <= 8'h00;
     else if (+en_scalar) q1 <= d1;

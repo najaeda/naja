@@ -14521,6 +14521,46 @@ endmodule
       return bus->getBit(bus->getMSB()); // LCOV_EXCL_LINE
     }
 
+    SNLBitNet* reduceBitsToTruthBit(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& bits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (bits.empty()) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      SNLBitNet* reducedBit = const0;
+      for (auto* bit : bits) {
+        if (bit == const1) {
+          return const1;
+        }
+        if (bit == const0) {
+          continue;
+        }
+        if (reducedBit == const0) {
+          reducedBit = bit;
+          continue;
+        }
+        if (reducedBit == bit) {
+          continue;
+        }
+        auto* nextBit = SNLScalarNet::create(design);
+        annotateSourceInfo(nextBit, sourceRange);
+        if (!createBinaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Or),
+              reducedBit,
+              bit,
+              nextBit,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        reducedBit = nextBit;
+      }
+      return reducedBit;
+    }
+
     SNLBitNet* resolveConditionNet(
       SNLDesign* design,
       const Expression& conditionExpr,
@@ -14548,9 +14588,13 @@ endmodule
           const auto logicalOp =
             (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) ||
             (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr);
+          const auto leftWidth = getIntegralExpressionBitWidth(binaryExpr.left());
+          const auto rightWidth = getIntegralExpressionBitWidth(binaryExpr.right());
           const auto bitwiseSingleBitOp =
-            (binaryExpr.op == slang::ast::BinaryOperator::BinaryAnd) ||
-            (binaryExpr.op == slang::ast::BinaryOperator::BinaryOr);
+            leftWidth && *leftWidth == 1 &&
+            rightWidth && *rightWidth == 1 &&
+            ((binaryExpr.op == slang::ast::BinaryOperator::BinaryAnd) ||
+             (binaryExpr.op == slang::ast::BinaryOperator::BinaryOr));
           if (logicalOp || bitwiseSingleBitOp) {
             auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
             auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
@@ -14626,45 +14670,44 @@ endmodule
           }
 
           if (!isEqualityBinaryOp(binaryExpr.op) && !isInequalityBinaryOp(binaryExpr.op)) {
-            if (!isRelationalBinaryOp(binaryExpr.op)) {
-              return nullptr;
+            if (isRelationalBinaryOp(binaryExpr.op)) {
+              auto* compareBit = SNLScalarNet::create(design);
+              auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
+              annotateSourceInfo(compareBit, compareSourceRange);
+              if (!createRelationalAssign(
+                    design,
+                    compareBit,
+                    binaryExpr.left(),
+                    binaryExpr.right(),
+                    binaryExpr.op,
+                    compareSourceRange)) {
+                return nullptr; // LCOV_EXCL_LINE
+              }
+              return compareBit;
             }
-
+          } else {
             auto* compareBit = SNLScalarNet::create(design);
             auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
             annotateSourceInfo(compareBit, compareSourceRange);
-            if (!createRelationalAssign(
+            reportCaseComparison2StateWarning(binaryExpr.op, compareSourceRange);
+            const bool ok = isInequalityBinaryOp(binaryExpr.op)
+              ? createInequalityAssign(
                   design,
                   compareBit,
                   binaryExpr.left(),
                   binaryExpr.right(),
-                  binaryExpr.op,
-                  compareSourceRange)) {
-              return nullptr; // LCOV_EXCL_LINE
+                  compareSourceRange)
+              : createEqualityAssign(
+                  design,
+                  compareBit,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  compareSourceRange);
+            if (!ok) {
+              return nullptr;
             }
             return compareBit;
           }
-          auto* compareBit = SNLScalarNet::create(design);
-          auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
-          annotateSourceInfo(compareBit, compareSourceRange);
-          reportCaseComparison2StateWarning(binaryExpr.op, compareSourceRange);
-          const bool ok = isInequalityBinaryOp(binaryExpr.op)
-            ? createInequalityAssign(
-                design,
-                compareBit,
-                binaryExpr.left(),
-                binaryExpr.right(),
-                compareSourceRange)
-            : createEqualityAssign(
-                design,
-                compareBit,
-                binaryExpr.left(),
-                binaryExpr.right(),
-                compareSourceRange);
-          if (!ok) {
-            return nullptr;
-          }
-          return compareBit;
         }
         if (strippedExpr->kind == slang::ast::ExpressionKind::UnaryOp) {
           const auto& unaryExpr = strippedExpr->as<slang::ast::UnaryExpression>();
@@ -14675,19 +14718,18 @@ endmodule
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseNand ||
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseNor ||
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseXnor;
-          if (!isReductionOp) {
-            return nullptr;
+          if (isReductionOp) {
+            auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
+            if (!exprWidth || *exprWidth != 1) {
+              return nullptr; // LCOV_EXCL_LINE
+            }
+            std::vector<SNLBitNet*> exprBits;
+            if (!resolveExpressionBits(design, *strippedExpr, 1, exprBits) ||
+                exprBits.size() != 1) {
+              return nullptr; // LCOV_EXCL_LINE
+            }
+            return exprBits.front();
           }
-          auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
-          if (!exprWidth || *exprWidth != 1) {
-            return nullptr; // LCOV_EXCL_LINE
-          }
-          std::vector<SNLBitNet*> exprBits;
-          if (!resolveExpressionBits(design, *strippedExpr, 1, exprBits) ||
-              exprBits.size() != 1) {
-            return nullptr; // LCOV_EXCL_LINE
-          }
-          return exprBits.front();
         }
         if (auto* bit = getSingleBitNet(resolveExpressionNet(design, *strippedExpr))) {
           return bit;
@@ -14709,29 +14751,30 @@ endmodule
           }
           return nullptr;
         }
-        const bool isSelectableExpr =
-          strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
-          strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
-          strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess;
-        if (!isSelectableExpr) {
-          return nullptr;
-        }
         auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
-        if (!exprWidth || *exprWidth != 1) {
+        if (!exprWidth || !*exprWidth) {
           return nullptr;
         }
         std::vector<SNLBitNet*> exprBits;
-        if (!resolveExpressionBits(design, *strippedExpr, 1, exprBits) || exprBits.size() != 1) {
+        if (!resolveExpressionBits(
+              design,
+              *strippedExpr,
+              static_cast<size_t>(*exprWidth),
+              exprBits) ||
+            exprBits.size() != static_cast<size_t>(*exprWidth)) {
           return nullptr;
         }
-        return exprBits.front();
+        return reduceBitsToTruthBit(design, exprBits, sourceRange);
       };
 
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
-        if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot ||
-            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
-          auto operandNet = resolveSingleBitExpression(unaryExpr.operand());
+        if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot) {
+          auto operandNet = resolveConditionNet(
+            design,
+            unaryExpr.operand(),
+            joinName("cond_not_in", condBaseName),
+            sourceRange);
           if (!operandNet) {
             return nullptr;
           }
@@ -15275,26 +15318,70 @@ endmodule
       return true;
     }
 
+    bool buildStepByOneBits(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& inBits,
+      int8_t stepDelta,
+      std::vector<SNLBitNet*>& stepBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const std::vector<SNLBitNet*>* sumOutBits = nullptr,
+      const std::vector<SNLBitNet*>* carryOutBits = nullptr) {
+      if (stepDelta != 1 && stepDelta != -1) {
+        return false; // LCOV_EXCL_LINE
+      }
+      if ((sumOutBits && sumOutBits->size() != inBits.size()) ||
+          (carryOutBits && carryOutBits->size() != inBits.size())) {
+        throw SNLSVConstructorException("Internal error: invalid step-by-one scratch nets"); // LCOV_EXCL_LINE
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto* addendBit = stepDelta > 0 ? const0 : const1;
+      auto* carry = stepDelta > 0 ? const1 : const0;
+
+      stepBits.clear();
+      stepBits.reserve(inBits.size());
+      for (size_t i = 0; i < inBits.size(); ++i) {
+        auto* sumNet = sumOutBits ? (*sumOutBits)[i] : SNLScalarNet::create(design);
+        auto* carryNet = carryOutBits ? (*carryOutBits)[i] : SNLScalarNet::create(design);
+        if (!sumOutBits) {
+          annotateSourceInfo(sumNet, sourceRange);
+        }
+        if (!carryOutBits) {
+          annotateSourceInfo(carryNet, sourceRange);
+        }
+        if (!createFAInstance(
+              design,
+              inBits[i],
+              addendBit,
+              carry,
+              sumNet,
+              carryNet,
+              sourceRange)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        stepBits.push_back(sumNet);
+        carry = carryNet;
+      }
+      return true;
+    }
+
     std::vector<SNLBitNet*> buildIncrementer(
       SNLDesign* design,
       const std::vector<SNLBitNet*>& inBits,
       const std::vector<SNLBitNet*>& sumOutBits,
       const std::vector<SNLBitNet*>& carryOutBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (sumOutBits.size() != inBits.size() || carryOutBits.size() != inBits.size()) {
-        throw SNLSVConstructorException("Internal error: invalid incrementer scratch nets"); // LCOV_EXCL_LINE
-      }
       std::vector<SNLBitNet*> sumBits;
-      sumBits.reserve(inBits.size());
-      // Incrementing by 1: FA(A=bit, B=0, CI=carry), CI_lsb=1
-      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-      auto* carry   = static_cast<SNLBitNet*>(getConstNet(design, true));
-      for (size_t i = 0; i < inBits.size(); ++i) {
-        auto* sumNet = sumOutBits[i];
-        auto* carryNet = carryOutBits[i];
-        createFAInstance(design, inBits[i], const0, carry, sumNet, carryNet, sourceRange);
-        sumBits.push_back(sumNet);
-        carry = carryNet;
+      if (!buildStepByOneBits(
+            design,
+            inBits,
+            1,
+            sumBits,
+            sourceRange,
+            &sumOutBits,
+            &carryOutBits)) {
+        throw SNLSVConstructorException("Internal error: failed to build incrementer"); // LCOV_EXCL_LINE
       }
       return sumBits;
     }
@@ -17924,36 +18011,62 @@ endmodule
       return true;
     }
 
-    bool needsIncrementerForAction(
+    bool isConstantOneExpression(const Expression& expr) const {
+      uint64_t unsignedValue = 0;
+      if (getConstantUnsigned(expr, unsignedValue)) {
+        return unsignedValue == 1;
+      }
+      bool constantBit = false;
+      return getConstantBit(expr, constantBit) && constantBit;
+    }
+
+    int8_t getSelfUpdateStepDeltaForAction(
       SNLDesign* design,
       SNLNet* lhsNet,
       const AssignAction& action) {
       if (action.stepDelta > 0) {
-        return true;
+        return 1;
+      }
+      if (action.stepDelta < 0) {
+        return -1;
       }
       if (!action.rhs) {
-        return false; // LCOV_EXCL_LINE
+        return 0; // LCOV_EXCL_LINE
+      }
+      if (!lhsNet) {
+        return 0;
       }
       const auto* rhsExpr = stripConversions(*action.rhs);
       if (!rhsExpr || rhsExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
-        return false;
+        return 0;
       }
       const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-      if (bin.op != slang::ast::BinaryOperator::Add) {
-        return false;
+      if (bin.op != slang::ast::BinaryOperator::Add &&
+          bin.op != slang::ast::BinaryOperator::Subtract) {
+        return 0;
       }
       auto leftNet = resolveExpressionNet(design, bin.left());
       auto rightNet = resolveExpressionNet(design, bin.right());
-      const auto* leftExpr = stripConversions(bin.left());
-      const auto* rightExpr = stripConversions(bin.right());
-      bool constOne = false;
-      if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
-        return true;
+      if (bin.op == slang::ast::BinaryOperator::Add) {
+        if (leftNet == lhsNet && isConstantOneExpression(bin.right())) {
+          return 1;
+        }
+        if (rightNet == lhsNet && isConstantOneExpression(bin.left())) {
+          return 1;
+        }
+        return 0;
       }
-      if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
-        return true;
+      if (leftNet == lhsNet && isConstantOneExpression(bin.right())) {
+        return -1;
       }
-      return false;
+      return 0;
+    }
+
+    bool needsIncrementerForAction(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const AssignAction& action) {
+      return getSelfUpdateStepDeltaForAction(design, lhsNet, action) > 0;
     }
 
     bool collectDirectAssignments(
@@ -20334,52 +20447,12 @@ endmodule
         }
 
         auto sourceRange = action.rhs ? getSourceRange(*action.rhs) : std::optional<slang::SourceRange> {};
-        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-        std::vector<SNLBitNet*> oneBits(targetWidth, const0);
-        oneBits.front() = const1;
-
-        if (action.stepDelta > 0) {
-          return addBitVectors(
-            design,
-            *currentBits,
-            oneBits,
-            assignedBits,
-            sourceRange);
-        }
-
-        std::vector<SNLBitNet*> invertedOneBits;
-        invertedOneBits.reserve(oneBits.size());
-        for (auto* oneBit : oneBits) {
-          if (oneBit == const0) {
-            invertedOneBits.push_back(const1);
-            continue;
-          }
-          invertedOneBits.push_back(const0);
-        }
-
-        assignedBits.clear();
-        assignedBits.reserve(targetWidth);
-        auto* carry = const1;
-        for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
-          auto* diffBit = SNLScalarNet::create(design);
-          auto* carryOut = SNLScalarNet::create(design);
-          annotateSourceInfo(diffBit, sourceRange);
-          annotateSourceInfo(carryOut, sourceRange);
-          if (!createFAInstance(
-                design,
-                (*currentBits)[bitIndex],
-                invertedOneBits[bitIndex],
-                carry,
-                diffBit,
-                carryOut,
-                sourceRange)) {
-            return false; // LCOV_EXCL_LINE
-          }
-          assignedBits.push_back(diffBit);
-          carry = carryOut;
-        }
-        return true;
+        return buildStepByOneBits(
+          design,
+          *currentBits,
+          action.stepDelta,
+          assignedBits,
+          sourceRange);
       }
       if (!action.rhs) { // LCOV_EXCL_START
         failureReason = "missing RHS expression in always_comb assignment";
@@ -24247,14 +24320,23 @@ endmodule
         }
         return *incrementerBits;
       }; // LCOV_EXCL_LINE
-      if (action.stepDelta > 0) {
+
+      const auto selfUpdateStepDelta =
+        getSelfUpdateStepDeltaForAction(design, lhsNet, action);
+      if (selfUpdateStepDelta > 0) {
         return getIncrementerBits();
       }
-      if (action.stepDelta < 0) {
-        reportUnsupportedElement(
-          "Unsupported decrement assignment in sequential block",
-          sourceRange);
-        return {};
+      if (selfUpdateStepDelta < 0) {
+        std::vector<SNLBitNet*> decrementBits;
+        if (!buildStepByOneBits(
+              design,
+              lhsBits,
+              selfUpdateStepDelta,
+              decrementBits,
+              sourceRange)) {
+          return {}; // LCOV_EXCL_LINE
+        }
+        return decrementBits;
       }
       if (!action.rhs) {
         throw SNLSVConstructorException("Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
@@ -24295,19 +24377,6 @@ endmodule
       } // LCOV_EXCL_LINE
       if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-        if (bin.op == slang::ast::BinaryOperator::Add) {
-          auto leftNet = resolveExpressionNet(design, bin.left());
-          auto rightNet = resolveExpressionNet(design, bin.right());
-          const auto* leftExpr = stripConversions(bin.left());
-          const auto* rightExpr = stripConversions(bin.right());
-          bool constOne = false;
-          if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
-            return getIncrementerBits();
-          }
-          if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
-            return getIncrementerBits();
-          }
-        }
         if (!gateTypeFromBinary(bin.op)) {
           if (bin.op == slang::ast::BinaryOperator::Multiply) {
             const auto* strippedLeft = stripConversions(bin.left());
@@ -25286,38 +25355,11 @@ endmodule
           ? getSourceRange(*chain.resetCond)
           : statementSourceRange; // LCOV_EXCL_LINE
 
-        auto needsIncrementer = [&](const AssignAction& action) -> bool {
-          if (action.stepDelta > 0) {
-            return true;
-          }
-          if (!action.rhs) {
-            return false;
-          }
-          const auto* rhsExpr = stripConversions(*action.rhs);
-          if (!rhsExpr || rhsExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
-            return false;
-          }
-          const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-          if (bin.op != slang::ast::BinaryOperator::Add) {
-            return false;
-          }
-          auto leftNet = resolveExpressionNet(design, bin.left());
-          auto rightNet = resolveExpressionNet(design, bin.right());
-          const auto* leftExpr = stripConversions(bin.left());
-          const auto* rightExpr = stripConversions(bin.right());
-          bool constOne = false;
-          if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
-            return true;
-          }
-          if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
-            return true;
-          }
-          return false;
-        };
-
         std::vector<SNLBitNet*> incrementerBits;
-        if (needsIncrementer(chain.resetAction) || needsIncrementer(chain.enableAction) ||
-            (chain.hasDefault && needsIncrementer(chain.defaultAction))) {
+        if (needsIncrementerForAction(design, lhsNet, chain.resetAction) ||
+            needsIncrementerForAction(design, lhsNet, chain.enableAction) ||
+            (chain.hasDefault &&
+             needsIncrementerForAction(design, lhsNet, chain.defaultAction))) {
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeSequentialPerfScopeName("buildIncrementer"));
