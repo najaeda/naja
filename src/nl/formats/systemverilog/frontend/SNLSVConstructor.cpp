@@ -15482,6 +15482,10 @@ endmodule
       bool hasDefault {false};
     };
 
+    bool assignmentActionRequiresCurrentBits(const AssignAction& action) const {
+      return action.stepDelta != 0 || action.compoundOp.has_value();
+    }
+
     const Statement* unwrapStatement(const Statement& stmt) const {
       const Statement* current = &stmt;
       while (current) {
@@ -21241,13 +21245,14 @@ endmodule
             }
 
             std::vector<SNLBitNet*> currentBits;
-            if (action.compoundOp) {
+            const bool needsCurrentBits = assignmentActionRequiresCurrentBits(action);
+            if (needsCurrentBits) {
               currentBits.reserve(candidateOffsets.size());
               for (const auto offset : candidateOffsets) {
                 if (offset >= dataBits.size()) {
                   // LCOV_EXCL_START
                   failureReason = formatDescribedFailure(
-                    "dynamic element-select compound assignment offset out of range for ",
+                    "dynamic element-select self-update offset out of range for ",
                     describeExpression(assignedLHS));
                   return false; // LCOV_EXCL_LINE
                   // LCOV_EXCL_STOP
@@ -21262,7 +21267,7 @@ endmodule
                   action,
                   candidateOffsets.size(),
                   assignedBits,
-                  action.compoundOp ? &currentBits : nullptr,
+                  needsCurrentBits ? &currentBits : nullptr,
                   failureReason)) {
               return false;
             }
@@ -21506,7 +21511,7 @@ endmodule
               action,
               selectedElementWidth,
               assignedBits,
-              action.compoundOp ? &currentBits : nullptr,
+              assignmentActionRequiresCurrentBits(action) ? &currentBits : nullptr,
               failureReason)) {
           return false;
         }
@@ -21572,7 +21577,7 @@ endmodule
                 action,
                 selectedElementWidth,
                 assignedBits,
-                action.compoundOp ? &currentBits : nullptr,
+                assignmentActionRequiresCurrentBits(action) ? &currentBits : nullptr,
                 failureReason)) {
             return false;
           }
@@ -21661,7 +21666,8 @@ endmodule
       }
 
       std::vector<SNLBitNet*> assignedBits;
-      if (!action.compoundOp) {
+      const bool needsCurrentBits = assignmentActionRequiresCurrentBits(action);
+      if (!needsCurrentBits) {
         if (!buildCombinationalAssignBits(
               design,
               action,
@@ -21707,7 +21713,7 @@ endmodule
           std::vector<SNLBitNet*> currentBits;
           std::vector<SNLBitNet*> sliceAssignedBits;
           const auto* candidateBits = &assignedBits;
-          if (action.compoundOp) {
+          if (needsCurrentBits) {
             currentBits.reserve(sliceOffsets.size());
             for (const auto offset : sliceOffsets) {
               currentBits.push_back(dataBits[offset]);
@@ -21962,7 +21968,7 @@ endmodule
       // Legal selected compound assignments are normally handled by the
       // element/range assignment helpers before reaching this fixed-subset
       // fallback; keep the path for more complex static sub-LHS shapes.
-      if (action.compoundOp) {
+      if (assignmentActionRequiresCurrentBits(action)) {
         currentSelectedBits.reserve(selectedOffsets.size());
         for (const auto offset : selectedOffsets) {
           currentSelectedBits.push_back(dataBits[offset]);
@@ -21976,7 +21982,7 @@ endmodule
             action,
             selectedLhsBits.size(),
             assignedBits,
-            action.compoundOp ? &currentSelectedBits : nullptr,
+            assignmentActionRequiresCurrentBits(action) ? &currentSelectedBits : nullptr,
             failureReason)) {
         return false;
       }
