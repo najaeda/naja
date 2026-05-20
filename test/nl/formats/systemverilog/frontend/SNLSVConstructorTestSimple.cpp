@@ -6544,11 +6544,11 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignConfigRangeCheckFunctionUnsupportedAddressExprUnsupported) {
+  parseContinuousAssignConfigRangeCheckFunctionUnknownShiftAddressExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "continuous_assign_config_range_check_function_unsupported_address_expr_unsupported";
+    outPath / "continuous_assign_config_range_check_function_unknown_shift_address_expr_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -6556,7 +6556,7 @@ TEST_F(
 
   const auto svPath =
     outPath /
-    "continuous_assign_config_range_check_function_unsupported_address_expr_unsupported.sv";
+    "continuous_assign_config_range_check_function_unknown_shift_address_expr_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
@@ -6583,7 +6583,7 @@ TEST_F(
   endfunction
 endpackage
 
-module continuous_assign_config_range_check_function_unsupported_address_expr_unsupported(
+module continuous_assign_config_range_check_function_unknown_shift_address_expr_supported(
   input logic [63:0] addr,
   output logic inside_o
 );
@@ -6598,11 +6598,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_config_range_check_function_unsupported_address_expr_unsupported'"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "continuous_assign_config_range_check_function_unknown_shift_address_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("addr")), nullptr);
+  EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
 }
 
 TEST_F(
@@ -11066,36 +11068,34 @@ endmodule
   EXPECT_TRUE(multiDrivers.empty()) << formatStringVector(multiDrivers);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_shift_left_unknown_amount_unsupported" /
-      "continuous_shift_left_unknown_amount_unsupported.sv");
-    FAIL() << "Expected unsupported unknown left-shift amount expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: <<<"));
-  }
+  constructor.construct(
+    benchmarksPath / "continuous_shift_left_unknown_amount_supported" /
+    "continuous_shift_left_unknown_amount_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_left_unknown_amount_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_shift_right_unknown_amount_unsupported" /
-      "continuous_shift_right_unknown_amount_unsupported.sv");
-    FAIL() << "Expected unsupported unknown right-shift amount expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>>"));
-  }
+  constructor.construct(
+    benchmarksPath / "continuous_shift_right_unknown_amount_supported" /
+    "continuous_shift_right_unknown_amount_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_right_unknown_amount_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueUnsupported) {
@@ -11168,20 +11168,19 @@ endmodule
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmountUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmountSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_logical_shift_right_unknown_amount_unsupported" /
-      "continuous_logical_shift_right_unknown_amount_unsupported.sv");
-    FAIL() << "Expected unsupported unknown logical right-shift amount expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>"));
-  }
+  constructor.construct(
+    benchmarksPath / "continuous_logical_shift_right_unknown_amount_supported" /
+    "continuous_logical_shift_right_unknown_amount_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_logical_shift_right_unknown_amount_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {

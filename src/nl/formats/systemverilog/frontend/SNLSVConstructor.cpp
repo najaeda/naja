@@ -14137,6 +14137,49 @@ endmodule
       return true;
     }
 
+    bool resolveShiftAmountBits(
+      SNLDesign* design,
+      const Expression& shiftAmountExpr,
+      size_t shiftWidth,
+      std::vector<SNLBitNet*>& shiftBits,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      shiftBits.clear();
+      if (resolveExpressionBits(design, shiftAmountExpr, shiftWidth, shiftBits) &&
+          !shiftBits.empty()) {
+        return true;
+      }
+
+      bool usedUnknownFallback = false;
+      shiftBits.clear();
+      if (resolveUnknownLiteralBitsAsZero(
+            design,
+            shiftAmountExpr,
+            shiftWidth,
+            shiftBits,
+            usedUnknownFallback) &&
+          !shiftBits.empty() &&
+          usedUnknownFallback) {
+        reportWarning(
+          "Unknown literal bits in shift amount lowered as 0 in SNL "
+          "(X/Z distinction is not preserved)",
+          getSourceRange(shiftAmountExpr));
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "failed to resolve shift amount bits ("
+             << describeExpression(shiftAmountExpr)
+             << ", target_width=" << shiftWidth << ")";
+      setFailureReason(reason.str());
+      return false;
+    }
+
     bool createLogicalRightShiftAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -14191,13 +14234,12 @@ endmodule
       // LCOV_EXCL_STOP
 
       std::vector<SNLBitNet*> shiftBits;
-      if (!resolveExpressionBits(design, shiftAmountExpr, *shiftWidth, shiftBits) ||
-          shiftBits.empty()) {
-        std::ostringstream reason;
-        reason << "failed to resolve shift amount bits ("
-               << describeExpression(shiftAmountExpr)
-               << ", target_width=" << *shiftWidth << ")";
-        setFailureReason(reason.str());
+      if (!resolveShiftAmountBits(
+            design,
+            shiftAmountExpr,
+            *shiftWidth,
+            shiftBits,
+            failureReason)) {
         return false;
       }
 
@@ -14302,13 +14344,12 @@ endmodule
       // LCOV_EXCL_STOP
 
       std::vector<SNLBitNet*> shiftBits;
-      if (!resolveExpressionBits(design, shiftAmountExpr, *shiftWidth, shiftBits) ||
-          shiftBits.empty()) {
-        std::ostringstream reason;
-        reason << "failed to resolve shift amount bits ("
-               << describeExpression(shiftAmountExpr)
-               << ", target_width=" << *shiftWidth << ")";
-        setFailureReason(reason.str());
+      if (!resolveShiftAmountBits(
+            design,
+            shiftAmountExpr,
+            *shiftWidth,
+            shiftBits,
+            failureReason)) {
         return false;
       }
 
@@ -14389,8 +14430,7 @@ endmodule
       }
 
       std::vector<SNLBitNet*> shiftBits;
-      if (!resolveExpressionBits(design, shiftAmountExpr, *shiftWidth, shiftBits) ||
-          shiftBits.empty()) {
+      if (!resolveShiftAmountBits(design, shiftAmountExpr, *shiftWidth, shiftBits)) {
         return false;
       }
 

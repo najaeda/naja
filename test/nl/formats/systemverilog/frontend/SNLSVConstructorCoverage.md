@@ -16,8 +16,13 @@ are still expected in real designs:
   failures for non-integral and unknown operands.
 - `continuous_shift_right_unresolved_skipped`: unresolved RHS net in logical
   right shift.
-- `continuous_shift_left_unknown_amount_unsupported`: unresolved dynamic shift
-  amount bits.
+- `continuous_shift_left_unknown_amount_supported`,
+  `continuous_shift_right_unknown_amount_supported`, and
+  `continuous_logical_shift_right_unknown_amount_supported`: unknown literal
+  shift amounts reaching the shared unknown-as-zero fallback.
+- `parseContinuousAssignConfigRangeCheckFunctionUnknownShiftAddressExprSupported`:
+  unknown literal shift amount fallback when lowering an address expression
+  inside a config range-check function call.
 - `seq_add_unbased_x_literal_supported`: unbased unsized unknown literal in
   sequential add, reaching the shared unknown-as-zero arithmetic fallback.
 - `continuous_sub_unknown_operand_supported`: sized unknown literal in
