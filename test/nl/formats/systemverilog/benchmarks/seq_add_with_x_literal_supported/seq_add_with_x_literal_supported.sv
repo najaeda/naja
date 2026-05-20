@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_add_with_x_literal_unsupported(
+module seq_add_with_x_literal_supported(
   input logic clk,
   input logic rst,
   output logic [7:0] q

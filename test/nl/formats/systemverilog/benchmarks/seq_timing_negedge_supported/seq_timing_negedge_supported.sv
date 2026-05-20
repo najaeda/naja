@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_timing_negedge_unsupported(
+module seq_timing_negedge_supported(
   input logic clk,
   input logic d,
   output logic q

@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_add_unbased_x_literal_unsupported(
+module seq_add_unbased_x_literal_supported(
   input logic clk,
   input logic rst,
   output logic [7:0] q
 );
-  // Use unbased-unsized unknown literal to exercise getConstantBit unknown handling.
+  // Use unbased-unsized unknown literal to exercise unknown-as-zero arithmetic fallback.
   always_ff @(posedge clk) begin
     if (rst) q <= 8'h00;
     else q <= q + 'x;

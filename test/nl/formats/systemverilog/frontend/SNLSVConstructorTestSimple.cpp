@@ -21232,21 +21232,20 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousUnbasedUnsizedLiteralPathsUnsupported) {
+  parseContinuousUnbasedUnsizedLiteralPathsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath /
-      "continuous_unbased_unsized_literals_unsupported" /
-      "continuous_unbased_unsized_literals_unsupported.sv");
-    FAIL() << "Expected unsupported unbased unsized literal in continuous assign";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(
+    benchmarksPath /
+    "continuous_unbased_unsized_literals_supported" /
+    "continuous_unbased_unsized_literals_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_unbased_unsized_literals_supported_top"));
+  ASSERT_NE(top, nullptr);
+  ASSERT_NE(top->getBusNet(NLName("y_known")), nullptr);
+  ASSERT_NE(top->getBusNet(NLName("y_unknown")), nullptr);
+  EXPECT_EQ(8u, countFAInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectPackedScalarUnderAdd) {
@@ -26929,18 +26928,32 @@ endmodule
   EXPECT_EQ(3u, flopCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_add_with_x_literal_unsupported" /
-      "seq_add_with_x_literal_unsupported.sv");
-    FAIL() << "Expected unsupported add with x-literal exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  constructor.construct(
+    benchmarksPath / "seq_add_with_x_literal_supported" /
+    "seq_add_with_x_literal_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_add_with_x_literal_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t faCount = 0;
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
   }
+  EXPECT_EQ(8u, flopCount);
+  EXPECT_GT(faCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownUnsupported) {
@@ -26992,18 +27005,33 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownUnsup
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_add_unbased_x_literal_unsupported" /
-      "seq_add_unbased_x_literal_unsupported.sv");
-    FAIL() << "Expected unsupported unbased unknown literal in sequential add";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  constructor.construct(
+    benchmarksPath / "seq_add_unbased_x_literal_supported" /
+    "seq_add_unbased_x_literal_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_add_unbased_x_literal_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t faCount = 0;
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
   }
+  EXPECT_EQ(8u, flopCount);
+  EXPECT_GT(faCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialUnbasedUnknownLiteralDirectRhsSupported) {

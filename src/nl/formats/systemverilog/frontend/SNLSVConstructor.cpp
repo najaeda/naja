@@ -13397,9 +13397,37 @@ endmodule
 
       std::vector<SNLBitNet*> leftBits;
       std::vector<SNLBitNet*> rightBits;
-      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits) ||
-          !resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+      const auto resolveAddOperandBits =
+        [&](const Expression& operandExpr,
+            std::vector<SNLBitNet*>& operandBits,
+            bool& operandUsedUnknownFallback) {
+        operandBits.clear();
+        operandUsedUnknownFallback = false;
+        if (resolveExpressionBits(design, operandExpr, lhsBits.size(), operandBits) &&
+            operandBits.size() == lhsBits.size()) {
+          return true;
+        }
+        operandBits.clear();
+        return resolveUnknownLiteralBitsAsZero(
+                 design,
+                 operandExpr,
+                 lhsBits.size(),
+                 operandBits,
+                 operandUsedUnknownFallback) &&
+               operandBits.size() == lhsBits.size();
+      };
+
+      bool leftUsedUnknownFallback = false;
+      bool rightUsedUnknownFallback = false;
+      if (!resolveAddOperandBits(leftExpr, leftBits, leftUsedUnknownFallback) ||
+          !resolveAddOperandBits(rightExpr, rightBits, rightUsedUnknownFallback)) {
         return false;
+      }
+      if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
+        reportWarning(
+          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
+          "(X/Z distinction is not preserved)",
+          sourceRange);
       }
 
       auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -20197,6 +20225,48 @@ endmodule
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
       auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
 
+      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        if (binaryExpr.op != slang::ast::BinaryOperator::Add) {
+          return false;
+        }
+
+        std::vector<SNLBitNet*> leftBits;
+        std::vector<SNLBitNet*> rightBits;
+        bool leftUsedUnknownFallback = false;
+        bool rightUsedUnknownFallback = false;
+        if (!resolveUnknownLiteralBitsAsZero(
+              design,
+              binaryExpr.left(),
+              targetWidth,
+              leftBits,
+              leftUsedUnknownFallback) ||
+            !resolveUnknownLiteralBitsAsZero(
+              design,
+              binaryExpr.right(),
+              targetWidth,
+              rightBits,
+              rightUsedUnknownFallback) ||
+            leftBits.size() != targetWidth ||
+            rightBits.size() != targetWidth ||
+            (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
+          return false;
+        }
+
+        if (!addBitVectors(
+              design,
+              leftBits,
+              rightBits,
+              bits,
+              getSourceRange(*stripped)) ||
+            bits.size() != targetWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        usedUnknownFallback =
+          leftUsedUnknownFallback || rightUsedUnknownFallback;
+        return true;
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
         const auto& conditionalExpr = stripped->as<slang::ast::ConditionalExpression>();
         if (const auto* knownSide = conditionalExpr.knownSide()) {
@@ -24535,6 +24605,23 @@ endmodule
       std::vector<SNLBitNet*> resolvedBits;
       if (resolveExpressionBits(design, *rhsExpr, lhsBits.size(), resolvedBits) &&
           resolvedBits.size() == lhsBits.size()) {
+        return resolvedBits;
+      }
+
+      resolvedBits.clear();
+      bool usedUnknownLiteralFallback = false;
+      if (resolveUnknownLiteralBitsAsZero(
+            design,
+            *rhsExpr,
+            lhsBits.size(),
+            resolvedBits,
+            usedUnknownLiteralFallback) &&
+          resolvedBits.size() == lhsBits.size() &&
+          usedUnknownLiteralFallback) {
+        reportWarning(
+          "Unknown literal bits in sequential assignment RHS lowered as 0 in SNL "
+          "(X/Z distinction is not preserved)",
+          sourceRange ? sourceRange : getSourceRange(*rhsExpr));
         return resolvedBits;
       }
 

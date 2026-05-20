@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module continuous_unbased_unsized_literals_unsupported_top(
+module continuous_unbased_unsized_literals_supported_top(
   input logic [3:0] a,
   input logic [3:0] b,
   output logic [3:0] y_known,
@@ -10,6 +10,6 @@ module continuous_unbased_unsized_literals_unsupported_top(
 );
   // Known unbased-unsized literal should expand to a constant vector.
   assign y_known = a + '1;
-  // Unknown unbased-unsized literal should fail constant expansion.
+  // Unknown unbased-unsized literal lowers to zero through the shared fallback.
   assign y_unknown = b + 'x;
 endmodule
