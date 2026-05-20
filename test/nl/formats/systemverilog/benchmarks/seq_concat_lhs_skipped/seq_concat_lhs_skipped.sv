@@ -8,7 +8,7 @@ module seq_concat_lhs_skipped(
   output logic [3:0] q,
   output logic [3:0] r
 );
-  // Unsupported extraction case: concatenation LHS cannot be resolved to a single net.
+  // Concatenation LHS is split into the individual sequential targets.
   always_ff @(posedge clk)
     if (rst) {q, r} <= 8'h00;
 endmodule

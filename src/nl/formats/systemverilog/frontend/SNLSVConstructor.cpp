@@ -16491,6 +16491,12 @@ endmodule
       return sameExpressionStructure(left, right);
     }
 
+    bool isConcatenationExpression(const Expression* expr) const {
+      const auto* stripped = expr ? stripConversions(*expr) : nullptr;
+      return stripped &&
+             stripped->kind == slang::ast::ExpressionKind::Concatenation;
+    }
+
     bool appendFlattenedConcatenationLHSExpressions(
       const Expression& lhsExpr,
       std::vector<const Expression*>& lhsExpressions) const {
@@ -17983,6 +17989,9 @@ endmodule
       const Expression* lhs = nullptr;
       AssignAction resetAction;
       if (!extractAssignment(condStmt.ifTrue, lhs, resetAction)) {
+        return false;
+      }
+      if (isConcatenationExpression(lhs)) {
         return false;
       }
       chain.lhs = lhs;
@@ -24082,6 +24091,20 @@ endmodule
         return false;
         // LCOV_EXCL_STOP
       }
+
+      std::vector<const Expression*> flattenedLHSExpressions;
+      for (const auto* lhsExpr : lhsExpressions) {
+        if (!lhsExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        if (!appendFlattenedConcatenationLHSExpressions(
+              *lhsExpr,
+              flattenedLHSExpressions)) {
+          failureReason = "failed to flatten direct sequential assignment LHS";
+          return false; // LCOV_EXCL_LINE
+        }
+      }
+      lhsExpressions = std::move(flattenedLHSExpressions);
 
       for (const auto* lhsExpr : lhsExpressions) {
         const auto* strippedLhs = stripConversions(*lhsExpr);

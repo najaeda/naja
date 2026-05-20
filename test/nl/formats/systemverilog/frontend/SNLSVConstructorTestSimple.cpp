@@ -23144,21 +23144,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialDirectMultiAssignmentConcatLHSTargetUnsupported) {
+  parseSequentialDirectMultiAssignmentConcatLHSTargetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_direct_multi_assignment_concat_lhs_target_unsupported";
+  outPath = outPath / "seq_direct_multi_assignment_concat_lhs_target_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_direct_multi_assignment_concat_lhs_target_unsupported.sv";
+    outPath / "seq_direct_multi_assignment_concat_lhs_target_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_direct_multi_assignment_concat_lhs_target_unsupported(
+    << R"(module seq_direct_multi_assignment_concat_lhs_target_supported(
   input  logic       clk_i,
   input  logic [7:0] a_i,
   input  logic [7:0] b_i,
@@ -23172,10 +23172,21 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"direct multi-assignment LHS is not a supported integral target"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_direct_multi_assignment_concat_lhs_target_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(16u, dffCount);
 }
 
 TEST_F(
@@ -24463,13 +24474,26 @@ endmodule
   EXPECT_EQ(0u, countMux2Instances(top, 1));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_concat_lhs_skipped" / "seq_concat_lhs_skipped.sv",
-    {"unable to resolve assignment LHS net"});
+  constructor.construct(
+    benchmarksPath / "seq_concat_lhs_skipped" / "seq_concat_lhs_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_concat_lhs_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 4));
 }
 
 TEST_F(
