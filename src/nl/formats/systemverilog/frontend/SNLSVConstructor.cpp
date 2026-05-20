@@ -12333,52 +12333,7 @@ endmodule
             return addBitVectors(design, leftBits, rightBits, bits, binarySourceRange);
           }
 
-          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-          std::vector<SNLBitNet*> invertedRightBits;
-          invertedRightBits.reserve(rightBits.size());
-          for (auto* rightBit : rightBits) {
-            if (rightBit == const0) {
-              invertedRightBits.push_back(const1);
-              continue;
-            }
-            if (rightBit == const1) {
-              invertedRightBits.push_back(const0);
-              continue;
-            }
-            auto* invertedBit = SNLScalarNet::create(design);
-            annotateSourceInfo(invertedBit, binarySourceRange);
-            if (!createUnaryGate(
-                  design,
-                  NLDB0::GateType(NLDB0::GateType::Not),
-                  rightBit,
-                  invertedBit,
-                  binarySourceRange)) {
-              return false; // LCOV_EXCL_LINE
-            }
-            invertedRightBits.push_back(invertedBit);
-          }
-
-          auto* carry = const1;
-          for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
-            auto* diffBit = SNLScalarNet::create(design);
-            auto* carryOut = SNLScalarNet::create(design);
-            annotateSourceInfo(diffBit, binarySourceRange);
-            annotateSourceInfo(carryOut, binarySourceRange);
-            if (!createFAInstance(
-                  design,
-                  leftBits[bitIndex],
-                  invertedRightBits[bitIndex],
-                  carry,
-                  diffBit,
-                  carryOut,
-                  binarySourceRange)) {
-              return false; // LCOV_EXCL_LINE
-            }
-            bits.push_back(diffBit);
-            carry = carryOut;
-          }
-          return true;
+          return subtractBitVectors(design, leftBits, rightBits, bits, binarySourceRange);
         }
 
         auto gateType = gateTypeFromBinary(binaryExpr.op);
@@ -13384,6 +13339,28 @@ endmodule
       return true;
     }
 
+    bool resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+      SNLDesign* design,
+      const Expression& expr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits,
+      bool& usedUnknownFallback) {
+      bits.clear();
+      usedUnknownFallback = false;
+      if (resolveExpressionBits(design, expr, targetWidth, bits) &&
+          bits.size() == targetWidth) {
+        return true;
+      }
+      bits.clear();
+      return resolveUnknownLiteralBitsAsZero(
+               design,
+               expr,
+               targetWidth,
+               bits,
+               usedUnknownFallback) &&
+             bits.size() == targetWidth;
+    }
+
     bool createAddAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -13397,30 +13374,20 @@ endmodule
 
       std::vector<SNLBitNet*> leftBits;
       std::vector<SNLBitNet*> rightBits;
-      const auto resolveAddOperandBits =
-        [&](const Expression& operandExpr,
-            std::vector<SNLBitNet*>& operandBits,
-            bool& operandUsedUnknownFallback) {
-        operandBits.clear();
-        operandUsedUnknownFallback = false;
-        if (resolveExpressionBits(design, operandExpr, lhsBits.size(), operandBits) &&
-            operandBits.size() == lhsBits.size()) {
-          return true;
-        }
-        operandBits.clear();
-        return resolveUnknownLiteralBitsAsZero(
-                 design,
-                 operandExpr,
-                 lhsBits.size(),
-                 operandBits,
-                 operandUsedUnknownFallback) &&
-               operandBits.size() == lhsBits.size();
-      };
-
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
-      if (!resolveAddOperandBits(leftExpr, leftBits, leftUsedUnknownFallback) ||
-          !resolveAddOperandBits(rightExpr, rightBits, rightUsedUnknownFallback)) {
+      if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            leftExpr,
+            lhsBits.size(),
+            leftBits,
+            leftUsedUnknownFallback) ||
+          !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            rightExpr,
+            lhsBits.size(),
+            rightBits,
+            rightUsedUnknownFallback)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
@@ -13478,6 +13445,66 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
         sumBits.push_back(sumBit);
+        carry = carryOut;
+      }
+      return true;
+    }
+
+    bool subtractBitVectors(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& leftBits,
+      const std::vector<SNLBitNet*>& rightBits,
+      std::vector<SNLBitNet*>& differenceBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (leftBits.size() != rightBits.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      std::vector<SNLBitNet*> invertedRightBits;
+      invertedRightBits.reserve(rightBits.size());
+      for (auto* rightBit : rightBits) {
+        if (rightBit == const0) {
+          invertedRightBits.push_back(const1);
+          continue;
+        }
+        if (rightBit == const1) {
+          invertedRightBits.push_back(const0);
+          continue;
+        }
+        auto* invertedBit = SNLScalarNet::create(design);
+        annotateSourceInfo(invertedBit, sourceRange);
+        if (!createUnaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Not),
+              rightBit,
+              invertedBit,
+              sourceRange)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        invertedRightBits.push_back(invertedBit);
+      }
+
+      differenceBits.clear();
+      differenceBits.reserve(leftBits.size());
+      auto* carry = const1;
+      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
+        auto* diffBit = SNLScalarNet::create(design);
+        auto* carryOut = SNLScalarNet::create(design);
+        annotateSourceInfo(diffBit, sourceRange);
+        annotateSourceInfo(carryOut, sourceRange);
+        if (!createFAInstance(
+              design,
+              leftBits[bitIndex],
+              invertedRightBits[bitIndex],
+              carry,
+              diffBit,
+              carryOut,
+              sourceRange)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        differenceBits.push_back(diffBit);
         carry = carryOut;
       }
       return true;
@@ -13678,9 +13705,27 @@ endmodule
 
       std::vector<SNLBitNet*> leftBits;
       std::vector<SNLBitNet*> rightBits;
-      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits) ||
-          !resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+      bool leftUsedUnknownFallback = false;
+      bool rightUsedUnknownFallback = false;
+      if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            leftExpr,
+            lhsBits.size(),
+            leftBits,
+            leftUsedUnknownFallback) ||
+          !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            rightExpr,
+            lhsBits.size(),
+            rightBits,
+            rightUsedUnknownFallback)) {
         return false;
+      }
+      if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
+        reportWarning(
+          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
+          "(X/Z distinction is not preserved)",
+          sourceRange);
       }
 
       std::vector<SNLBitNet*> invertedRightBits;
@@ -20227,7 +20272,8 @@ endmodule
 
       if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
-        if (binaryExpr.op != slang::ast::BinaryOperator::Add) {
+        if (binaryExpr.op != slang::ast::BinaryOperator::Add &&
+            binaryExpr.op != slang::ast::BinaryOperator::Subtract) {
           return false;
         }
 
@@ -20253,13 +20299,12 @@ endmodule
           return false;
         }
 
-        if (!addBitVectors(
-              design,
-              leftBits,
-              rightBits,
-              bits,
-              getSourceRange(*stripped)) ||
-            bits.size() != targetWidth) {
+        const auto binarySourceRange = getSourceRange(*stripped);
+        const bool resolvedArithmetic =
+          binaryExpr.op == slang::ast::BinaryOperator::Add
+            ? addBitVectors(design, leftBits, rightBits, bits, binarySourceRange)
+            : subtractBitVectors(design, leftBits, rightBits, bits, binarySourceRange);
+        if (!resolvedArithmetic || bits.size() != targetWidth) {
           return false; // LCOV_EXCL_LINE
         }
         usedUnknownFallback =
@@ -20698,54 +20743,12 @@ endmodule
             sourceRange);
         }
         if (*action.compoundOp == slang::ast::BinaryOperator::Subtract) {
-          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-          std::vector<SNLBitNet*> invertedRightBits;
-          invertedRightBits.reserve(rhsBits.size());
-          for (auto* rightBit : rhsBits) {
-            if (rightBit == const0) {
-              invertedRightBits.push_back(const1);
-              continue;
-            }
-            if (rightBit == const1) {
-              invertedRightBits.push_back(const0);
-              continue;
-            }
-            auto* invertedBit = SNLScalarNet::create(design);
-            annotateSourceInfo(invertedBit, sourceRange);
-            if (!createUnaryGate(
-                  design,
-                  NLDB0::GateType(NLDB0::GateType::Not),
-                  rightBit,
-                  invertedBit,
-                  sourceRange)) {
-              return false; // LCOV_EXCL_LINE
-            }
-            invertedRightBits.push_back(invertedBit);
-          }
-
-          assignedBits.clear();
-          assignedBits.reserve(targetWidth);
-          auto* carry = const1;
-          for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
-            auto* diffBit = SNLScalarNet::create(design);
-            auto* carryOut = SNLScalarNet::create(design);
-            annotateSourceInfo(diffBit, sourceRange);
-            annotateSourceInfo(carryOut, sourceRange);
-            if (!createFAInstance(
-                  design,
-                  (*currentBits)[bitIndex],
-                  invertedRightBits[bitIndex],
-                  carry,
-                  diffBit,
-                  carryOut,
-                  sourceRange)) {
-              return false; // LCOV_EXCL_LINE
-            }
-            assignedBits.push_back(diffBit);
-            carry = carryOut;
-          }
-          return true;
+          return subtractBitVectors(
+            design,
+            *currentBits,
+            rhsBits,
+            assignedBits,
+            sourceRange);
         }
 
         auto gateType = gateTypeFromBinary(*action.compoundOp);

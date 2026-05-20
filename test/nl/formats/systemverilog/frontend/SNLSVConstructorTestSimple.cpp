@@ -10160,20 +10160,37 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_sub_unknown_operand_unsupported" /
-      "continuous_sub_unknown_operand_unsupported.sv");
-    FAIL() << "Expected unsupported subtraction operand expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: -"));
+  constructor.construct(
+    benchmarksPath / "continuous_sub_unknown_operand_supported" /
+    "continuous_sub_unknown_operand_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_sub_unknown_operand_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+
+  size_t faCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
   }
+  EXPECT_EQ(4u, faCount);
+  EXPECT_EQ(4u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubBitSliceLHSSupported) {

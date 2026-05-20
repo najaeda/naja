@@ -20,6 +20,9 @@ are still expected in real designs:
   amount bits.
 - `seq_add_unbased_x_literal_supported`: unbased unsized unknown literal in
   sequential add, reaching the shared unknown-as-zero arithmetic fallback.
+- `continuous_sub_unknown_operand_supported`: sized unknown literal in
+  continuous subtraction, reaching the shared unknown-as-zero arithmetic
+  fallback.
 - `continuous_resolve_expression_bits_failure_paths_unsupported`: targeted
   `resolveExpressionBits` fallback failures in continuous assign for unknown
   integer constants, call-cast recursion, nested binary recursion,
