@@ -14238,6 +14238,60 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialEnableCondTernaryShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_ternary_shortcuts_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_enable_cond_ternary_shortcuts_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_ternary_shortcuts_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  input  logic d_i,
+  output logic known_o,
+  output logic true_o,
+  output logic false_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) known_o <= 1'b0;
+    else if (1'b1 ? a_i : b_i) known_o <= d_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) true_o <= 1'b0;
+    else if ((a_i | 1'b1) ? b_i : c_i) true_o <= d_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) false_o <= 1'b0;
+    else if ((a_i & 1'b0) ? b_i : c_i) false_o <= d_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_ternary_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("known_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("true_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("false_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombConditionalUnknownScalarMuxSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -24811,6 +24865,45 @@ endmodule
   auto top = library_->getSNLDesign(NLName("seq_lhs_dynamic_bit_select_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialUnknownIndexedLHSUnsupportedReportsChainLHSResolution) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "seq_unknown_indexed_lhs_unsupported_reports_chain_lhs_resolution";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_unknown_indexed_lhs_unsupported_reports_chain_lhs_resolution.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_unknown_indexed_lhs_unsupported_reports_chain_lhs_resolution(
+  input  logic       clk_i,
+  input  logic       rst_i,
+  input  logic       sel_i,
+  output logic [1:0] q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (rst_i) begin
+      q_o[sel_i ? 1'b0 : 1'bx] <= 1'b0;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve assignment LHS net",
+     "failed to resolve always_comb assignment LHS bits"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSkipped) {
