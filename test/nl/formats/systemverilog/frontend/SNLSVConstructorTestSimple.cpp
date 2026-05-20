@@ -11098,6 +11098,69 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountSupport
   EXPECT_EQ(4, y->getWidth());
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousShiftRightUnsupportedAmountExprReportsReason) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_right_unsupported_amount_expr";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_right_unsupported_amount_expr.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_shift_right_unsupported_amount_expr(
+  input logic [3:0] a,
+  input logic [2:0] shamt,
+  output logic [3:0] y
+);
+  assign y = a >> (shamt / 3'd3);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: >>",
+     "failed to resolve shift amount bits"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousShiftLeftUnsupportedAmountExprReportsGenericReason) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_left_unsupported_amount_expr";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_left_unsupported_amount_expr.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_shift_left_unsupported_amount_expr(
+  input logic [3:0] a,
+  input logic [2:0] shamt,
+  output logic [3:0] y
+);
+  assign y = a <<< (shamt / 3'd3);
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: <<<"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

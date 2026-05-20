@@ -20,6 +20,10 @@ are still expected in real designs:
   `continuous_shift_right_unknown_amount_supported`, and
   `continuous_logical_shift_right_unknown_amount_supported`: unknown literal
   shift amounts reaching the shared unknown-as-zero fallback.
+- `parseContinuousShiftRightUnsupportedAmountExprReportsReason` and
+  `parseContinuousShiftLeftUnsupportedAmountExprReportsGenericReason`:
+  unsupported shift amount expressions reaching the shared shift-amount
+  diagnostic fallback with and without a caller-provided reason string.
 - `parseContinuousAssignConfigRangeCheckFunctionUnknownShiftAddressExprSupported`:
   unknown literal shift amount fallback when lowering an address expression
   inside a config range-check function call.
