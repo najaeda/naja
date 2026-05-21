@@ -14261,7 +14261,8 @@ TEST_F(
   input  logic d_i,
   output logic known_o,
   output logic true_o,
-  output logic false_o
+  output logic false_o,
+  output logic same_o
 );
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) known_o <= 1'b0;
@@ -14277,6 +14278,11 @@ TEST_F(
     if (!rst_ni) false_o <= 1'b0;
     else if ((a_i & 1'b0) ? b_i : c_i) false_o <= d_i;
   end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) same_o <= 1'b0;
+    else if (a_i ? b_i : b_i) same_o <= d_i;
+  end
 endmodule
 )";
   svFile.close();
@@ -14288,6 +14294,201 @@ endmodule
   EXPECT_NE(top->getNet(NLName("known_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("true_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("false_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("same_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialEnableCondPatternTernaryUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_pattern_ternary_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_enable_cond_pattern_ternary_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_pattern_ternary_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [3:0] a_i,
+  input  logic       b_i,
+  input  logic       c_i,
+  input  logic       d_i,
+  output logic       q_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else if (a_i matches (4'b1???) ? b_i : c_i) begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_enable_cond_pattern_ternary_unsupported': "
+     "unable to resolve enable condition net"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialEnableCondTernarySelectorResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_ternary_selector_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_enable_cond_ternary_selector_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_ternary_selector_resolve_failure_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [3:0] a_i,
+  input  logic       b_i,
+  input  logic       c_i,
+  input  logic       d_i,
+  output logic       q_o
+);
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else if ((bad_cond(a_i) != 1'b0) ? b_i : c_i) begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_enable_cond_ternary_selector_resolve_failure_unsupported': "
+     "unable to resolve enable condition net"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialEnableCondTernaryBranchResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_ternary_branch_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_enable_cond_ternary_branch_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_ternary_branch_resolve_failure_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       sel_i,
+  input  logic [3:0] a_i,
+  input  logic       b_i,
+  input  logic       d_i,
+  output logic       q_o
+);
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else if (sel_i ? (bad_cond(a_i) != 1'b0) : b_i) begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_enable_cond_ternary_branch_resolve_failure_unsupported': "
+     "unable to resolve enable condition net"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialEnableCondWideCallConditionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_cond_wide_call_condition_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_enable_cond_wide_call_condition_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_cond_wide_call_condition_unsupported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [3:0] a_i,
+  input  logic       d_i,
+  output logic       q_o
+);
+  function automatic logic [1:0] wide_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: wide_cond = 2'b11;
+      default:          wide_cond = 2'b00;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      q_o <= 1'b0;
+    end else if (wide_cond(a_i)) begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_enable_cond_wide_call_condition_unsupported': "
+     "unable to resolve enable condition net"});
 }
 
 TEST_F(
@@ -20332,6 +20533,56 @@ endmodule
     constructor,
     svPath,
     {"unsupported compound assignment operator in always_comb: *"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSPackedMemberSubAssignmentBadRhsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_lhs_packed_member_subassignment_bad_rhs_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_packed_member_subassignment_bad_rhs_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_packed_member_subassignment_bad_rhs_unsupported(
+  input  logic [3:0] a_i,
+  input  logic [7:0] seed_i,
+  output logic [7:0] out_o
+);
+  typedef struct packed {
+    logic [3:0] high;
+    logic [3:0] low;
+  } pair_t;
+
+  pair_t state_n;
+
+  function automatic logic [3:0] bad_data(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_data = 4'hf;
+      default:          bad_data = 4'h0;
+    endcase
+  endfunction
+
+  always_comb begin
+    state_n = pair_t'(seed_i);
+    state_n.low = bad_data(a_i);
+    out_o = state_n;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb RHS bits for"});
 }
 
 TEST_F(
@@ -27333,6 +27584,95 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupporte
   }
   EXPECT_EQ(8u, flopCount);
   EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSubtractWithUnbasedXLiteralSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_subtract_unbased_x_literal_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_subtract_unbased_x_literal_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_subtract_unbased_x_literal_supported(
+  input  logic       clk,
+  input  logic       rst,
+  output logic [7:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      q <= 8'h00;
+    end else begin
+      q <= q - 'x;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_subtract_unbased_x_literal_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t faCount = 0;
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(8u, flopCount);
+  EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialAddNestedMultiplyUnknownFallbackUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_add_nested_multiply_unknown_fallback_unsupported(
+  input  logic       clk,
+  input  logic       rst,
+  output logic [7:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      q <= 8'h00;
+    end else begin
+      q <= (q * 'x) + 8'h01;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in sequential assignment"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialUnbasedUnknownLiteralDirectRhsSupported) {

@@ -24219,8 +24219,10 @@ endmodule
         if (!appendFlattenedConcatenationLHSExpressions(
               *lhsExpr,
               flattenedLHSExpressions)) {
+          // LCOV_EXCL_START
           failureReason = "failed to flatten direct sequential assignment LHS";
-          return false; // LCOV_EXCL_LINE
+          return false;
+          // LCOV_EXCL_STOP
         }
       }
       lhsExpressions = std::move(flattenedLHSExpressions);
