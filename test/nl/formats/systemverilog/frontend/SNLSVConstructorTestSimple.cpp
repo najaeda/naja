@@ -20037,6 +20037,88 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicIntElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_dynamic_int_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_dynamic_int_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_int_element_select_supported(
+  input  logic [4:0]  sel_i,
+  input  logic        data_i,
+  input  logic [31:0] seed_i,
+  output logic [31:0] out_o
+);
+  int word_q;
+  int word_n;
+  always_comb begin
+    word_q = seed_i;
+    word_n = word_q;
+    word_n[sel_i] = data_i;
+    out_o = word_n;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_int_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("out_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicIntElementSelectCompoundMultiplyUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported(
+  input  logic [4:0] sel_i,
+  input  logic       factor_i
+);
+  int word_q;
+  int word_n;
+  always_comb begin
+    word_n = word_q;
+    word_n[sel_i] *= factor_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported compound assignment operator in always_comb: *"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombNestedLoopDynamicWriteDecoderConditionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

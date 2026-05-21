@@ -21695,7 +21695,7 @@ endmodule
             return false;
           }
           if (!updateSlice(offset, equalsIndexBit, assignedBits)) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
         }
         index += step;
