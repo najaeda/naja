@@ -24619,6 +24619,7 @@ endmodule
           const bool supportedArithmeticOp =
             bin.op == slang::ast::BinaryOperator::Add ||
             bin.op == slang::ast::BinaryOperator::Subtract ||
+            bin.op == slang::ast::BinaryOperator::Multiply ||
             bin.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
             bin.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
             bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||

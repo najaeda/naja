@@ -29897,33 +29897,46 @@ endmodule
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDataMultiplyUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDataMultiplySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_data_multiply_unsupported";
+  outPath = outPath / "always_latch_data_multiply_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_data_multiply_unsupported.sv";
+  const auto svPath = outPath / "always_latch_data_multiply_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_data_multiply_unsupported(
+    << R"(module always_latch_data_multiply_supported(
   input  logic       en_i,
   output logic [3:0] q_o
 );
   always_latch begin
     if (en_i)
-      q_o <= q_o * 4'd2;
+      q_o <= q_o * 4'd3;
   end
 endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_data_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(4u, dlatchCount);
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDefaultMultiplyUnsupported) {
@@ -29955,7 +29968,10 @@ endmodule
   svFile.close();
 
   expectUnsupportedConstruct(
-    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_default_multiply_unsupported'",
+     "always_latch currently supports only implicit or explicit hold default branches"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialSystemTaskConditionalIgnoredSupported) {
