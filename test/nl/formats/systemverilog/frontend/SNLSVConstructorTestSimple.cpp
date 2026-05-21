@@ -26104,6 +26104,53 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetCondBus2Supported) {
   EXPECT_GE(orGateCount, 1u);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetCondInequalityResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_cond_inequality_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_reset_cond_inequality_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_cond_inequality_resolve_failure_unsupported(
+  input  logic       clk_i,
+  input  logic [3:0] a_i,
+  input  logic       d_i,
+  output logic       q_o
+);
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+  always_ff @(posedge clk_i) begin
+    if (bad_cond(a_i) != 1'b0) begin
+      q_o <= 1'b0;
+    end else begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_reset_cond_inequality_resolve_failure_unsupported': "
+     "unable to resolve reset condition net"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleWrapperSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
