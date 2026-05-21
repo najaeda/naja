@@ -1240,7 +1240,6 @@ def build_verilator_model(
         "256",
         "-Wall",
         "-Wno-fatal",
-        "-Wno-PINMISSING",
         "-Wno-PINCONNECTEMPTY",
         "-Wno-ASSIGNDLY",
         "-Wno-DECLFILENAME",
