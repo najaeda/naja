@@ -277,6 +277,24 @@ size_t countFAInstances(const SNLDesign* design) {
   return count;
 }
 
+size_t countDivModInstances(const SNLDesign* design, size_t width = 0, bool isSigned = false) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isDivMod(inst->getModel())) {
+      continue;
+    }
+    const auto signature = NLDB0::getDivModSignature(inst);
+    if (width != 0 && signature.width != width) {
+      continue;
+    }
+    if (signature.isSigned != isSigned) {
+      continue;
+    }
+    ++count;
+  }
+  return count;
+}
+
 size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
   size_t count = 0;
   auto assignOutput = NLDB0::getAssignOutput();
@@ -8165,16 +8183,16 @@ endmodule
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
+TEST_F(SNLSVConstructorTestSimple, parseInterfacePortWithoutModportSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "interface_port_reported_unsupported";
+  outPath = outPath / "interface_port_without_modport_skipped";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "interface_port_reported_unsupported.sv";
+  const auto svPath = outPath / "interface_port_without_modport_skipped.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
@@ -8190,7 +8208,7 @@ module interface_port_child(
   assign o = i;
 endmodule
 
-module interface_port_reported_unsupported_top(
+module interface_port_without_modport_skipped_top(
   input logic i,
   output logic o
 );
@@ -8205,7 +8223,7 @@ endmodule
   svFile.close();
 
   // Interface ports without a modport are now silently skipped via the lazy
-  // term-creation path — construction succeeds.
+  // term-creation path; construction succeeds.
   EXPECT_NO_THROW(constructor.construct(svPath));
   auto top = SNLUtils::findTop(library_);
   ASSERT_NE(nullptr, top);
@@ -11100,20 +11118,20 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountSupport
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousShiftRightUnsupportedAmountExprReportsReason) {
+  parseContinuousShiftRightDivmodAmountExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_right_unsupported_amount_expr";
+  outPath = outPath / "continuous_shift_right_divmod_amount_expr_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_right_unsupported_amount_expr.sv";
+  const auto svPath = outPath / "continuous_shift_right_divmod_amount_expr_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_right_unsupported_amount_expr(
+    << R"(module continuous_shift_right_divmod_amount_expr_supported(
   input logic [3:0] a,
   input logic [2:0] shamt,
   output logic [3:0] y
@@ -11123,29 +11141,33 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: >>",
-     "failed to resolve shift amount bits"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_right_divmod_amount_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousShiftLeftUnsupportedAmountExprReportsGenericReason) {
+  parseContinuousShiftLeftDivmodAmountExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_left_unsupported_amount_expr";
+  outPath = outPath / "continuous_shift_left_divmod_amount_expr_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_left_unsupported_amount_expr.sv";
+  const auto svPath = outPath / "continuous_shift_left_divmod_amount_expr_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_left_unsupported_amount_expr(
+    << R"(module continuous_shift_left_divmod_amount_expr_supported(
   input logic [3:0] a,
   input logic [2:0] shamt,
   output logic [3:0] y
@@ -11155,10 +11177,15 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: <<<"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_left_divmod_amount_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueUnsupported) {
@@ -12642,6 +12669,42 @@ endmodule
     "always_comb_rhs_divide_and_mod_by_one_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("cce_cord_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignVariableDivideAndModuloSupportedWithDivModPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_variable_divide_modulo_supported_with_divmod_primitive(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] q_o,
+  output logic [7:0] r_o
+);
+  assign q_o = a_i / b_i;
+  assign r_o = a_i % b_i;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(2u, countDivModInstances(top, 8));
 }
 
 TEST_F(
@@ -21779,20 +21842,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightOperandResolveFailureUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "multiply_right_operand_resolve_failure_unsupported";
+  outPath = outPath / "multiply_right_integral_cast_of_real_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "multiply_right_operand_resolve_failure_unsupported.sv";
+  const auto svPath = outPath / "multiply_right_integral_cast_of_real_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module multiply_right_operand_resolve_failure_unsupported_top(
+    << R"(module multiply_right_integral_cast_of_real_supported_top(
   input logic [3:0] a,
   output logic [3:0] y
 );
@@ -21803,7 +21866,7 @@ endmodule
 
   constructor.construct(svPath);
 
-  auto top = library_->getSNLDesign(NLName("multiply_right_operand_resolve_failure_unsupported_top"));
+  auto top = library_->getSNLDesign(NLName("multiply_right_integral_cast_of_real_supported_top"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
@@ -21836,20 +21899,20 @@ endmodule
     {"Unsupported binary expression in continuous assign: *"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "integral_cast_of_real_under_add_unsupported";
+  outPath = outPath / "integral_cast_of_real_under_add_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "integral_cast_of_real_under_add_unsupported.sv";
+  const auto svPath = outPath / "integral_cast_of_real_under_add_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module integral_cast_of_real_under_add_unsupported_top(
+    << R"(module integral_cast_of_real_under_add_supported_top(
   input logic [7:0] b,
   output logic [7:0] y
 );
@@ -21860,7 +21923,7 @@ endmodule
 
   constructor.construct(svPath);
 
-  auto top = library_->getSNLDesign(NLName("integral_cast_of_real_under_add_unsupported_top"));
+  auto top = library_->getSNLDesign(NLName("integral_cast_of_real_under_add_supported_top"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
@@ -23577,20 +23640,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialDirectMultiAssignmentUnsupportedRHSActionReported) {
+  parseSequentialDirectMultiAssignmentDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported";
+  outPath = outPath / "seq_direct_multi_assignment_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported.sv";
+  const auto svPath =
+    outPath / "seq_direct_multi_assignment_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_direct_multi_assignment_unsupported_rhs_action_reported(
+    << R"(module seq_direct_multi_assignment_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic [7:0] a_i,
   input  logic [7:0] b_i,
@@ -23606,10 +23670,22 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower assignment action for LHS 'q_o'"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_direct_multi_assignment_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top, 8));
+
+  size_t dffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(16u, dffCount);
 }
 
 TEST_F(
@@ -24008,21 +24084,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentElseConcatRHSResolveFailureUnsupported) {
+  parseSequentialMultiAssignmentElseConcatDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_multi_assignment_else_concat_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported.sv";
+    outPath / "seq_multi_assignment_else_concat_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported(
+    << R"(module seq_multi_assignment_else_concat_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [7:0] a_i,
@@ -24043,29 +24119,33 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower sequential concatenation assignment for"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_else_concat_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("q_o")), nullptr);
+  EXPECT_NE(top->getBusNet(NLName("r_o")), nullptr);
+  EXPECT_GT(countDivModInstances(top, 8), 0u);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialPartialAssignmentRHSResolveFailureUnsupported) {
+  parseSequentialPartialAssignmentDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_partial_assignment_rhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_partial_assignment_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_partial_assignment_rhs_resolve_failure_unsupported.sv";
+    outPath / "seq_partial_assignment_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_partial_assignment_rhs_resolve_failure_unsupported(
+    << R"(module seq_partial_assignment_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [7:0] a_i,
@@ -24083,10 +24163,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower concrete sequential partial assignment for LHS"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_partial_assignment_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("q_o")), nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
 TEST_F(
@@ -24674,20 +24757,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSupported) {
   EXPECT_GT(faCount, 0u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialModuloUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialModuloSupportedWithDivModPrimitive) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_modulo_unsupported";
+  outPath = outPath / "seq_modulo_supported_with_divmod_primitive";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_modulo_unsupported.sv";
+  const auto svPath = outPath / "seq_modulo_supported_with_divmod_primitive.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_modulo_unsupported(
+    << R"(module seq_modulo_supported_with_divmod_primitive(
   input  logic       clk,
   input  logic [7:0] d_i,
   output logic [7:0] q_o
@@ -24699,10 +24782,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary operator in sequential assignment: %"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_modulo_supported_with_divmod_primitive"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top, 8));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
@@ -30011,20 +30095,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockIgnored) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "final_procedural_block_unsupported";
+  outPath = outPath / "final_procedural_block_ignored";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "final_procedural_block_unsupported.sv";
+  const auto svPath = outPath / "final_procedural_block_ignored.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module final_procedural_block_unsupported(
+    << R"(module final_procedural_block_ignored(
   input  logic a,
   output logic y
 );
@@ -30036,11 +30120,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported procedural block in module 'final_procedural_block_unsupported'",
-     "unsupported procedure kind Final"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("final_procedural_block_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombTranslateOffStatementIgnored) {
@@ -30077,7 +30161,7 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSynthesisTranslateOffSequentialUnsupportedIgnored) {
+TEST_F(SNLSVConstructorTestSimple, parseSynthesisTranslateOffSequentialIgnored) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "synthesis_translate_off_sequential_ignored";

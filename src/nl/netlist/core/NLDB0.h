@@ -57,6 +57,15 @@ class NLDB0 {
       }
     };
 
+    struct DivModSignature {
+      size_t width {0};
+      bool   isSigned {false};
+
+      bool operator==(const DivModSignature& other) const {
+        return width == other.width && isSigned == other.isSigned;
+      }
+    };
+
     class GateType {
       public:
         enum GateTypeEnum {
@@ -96,6 +105,13 @@ class NLDB0 {
     static SNLBusTerm* getMemoryWriteAddress(const SNLDesign* design);
     static SNLBusTerm* getMemoryWriteData(const SNLDesign* design);
     static SNLBusTerm* getMemoryWriteEnable(const SNLDesign* design);
+    static bool isDivMod(const SNLDesign* design);
+    static DivModSignature getDivModSignature(const SNLDesign* design);
+    static DivModSignature getDivModSignature(const SNLInstance* instance);
+    static SNLBusTerm* getDivModDividend(const SNLDesign* design);
+    static SNLBusTerm* getDivModDivisor(const SNLDesign* design);
+    static SNLBusTerm* getDivModQuotient(const SNLDesign* design);
+    static SNLBusTerm* getDivModRemainder(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -192,6 +208,8 @@ class NLDB0 {
     static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
     ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
     static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
+    /// \brief Create or reuse a DB0 divider/remainder primitive.
+    static SNLDesign* getOrCreateDivMod(const DivModSignature& signature);
     /// \brief Create or reuse a fully managed DB0 memory primitive.
     static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
   private:

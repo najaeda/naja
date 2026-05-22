@@ -12207,7 +12207,11 @@ endmodule
         if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
             binaryExpr.op == slang::ast::BinaryOperator::Mod) {
           int64_t divisorValue = 0;
-          if (getConstantInt64(binaryExpr.right(), divisorValue) && divisorValue == 1) {
+          const bool divisorIsConst = getConstantInt64(binaryExpr.right(), divisorValue);
+          if (divisorIsConst && divisorValue == 0) {
+            return false;
+          }
+          if (divisorIsConst && divisorValue == 1) {
             if (binaryExpr.op == slang::ast::BinaryOperator::Divide) {
               return resolveExpressionBits(design, binaryExpr.left(), targetWidth, bits);
             }
@@ -12246,6 +12250,13 @@ endmodule
             }
             return true;
           }
+          return createDivModResultBits(
+            design,
+            binaryExpr,
+            targetWidth,
+            binaryExpr.op == slang::ast::BinaryOperator::Mod,
+            bits,
+            getSourceRange(*stripped));
         }
         if (binaryExpr.op == slang::ast::BinaryOperator::Power) {
           uint64_t leftConst = 0;
@@ -13689,6 +13700,79 @@ endmodule
       for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
         createAssignInstance(design, accumulatedBits[bitIndex], lhsBits[bitIndex], sourceRange);
       }
+      return true;
+    }
+
+    bool createDivModResultBits(
+      SNLDesign* design,
+      const slang::ast::BinaryExpression& binaryExpr,
+      size_t targetWidth,
+      bool useRemainder,
+      std::vector<SNLBitNet*>& bits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      NLDB0::DivModSignature signature;
+      signature.width = targetWidth;
+      signature.isSigned = binaryExpr.type &&
+        binaryExpr.type->getCanonicalType().isIntegral() &&
+        binaryExpr.type->getCanonicalType().isSigned();
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, binaryExpr.left(), targetWidth, leftBits) ||
+          !resolveExpressionBits(design, binaryExpr.right(), targetWidth, rightBits) ||
+          leftBits.size() != targetWidth ||
+          rightBits.size() != targetWidth) {
+        return false;
+      }
+
+      auto* divmod = NLDB0::getOrCreateDivMod(signature);
+      if (!divmod) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      SNLNet* resultNet = nullptr;
+      if (targetWidth == 1) {
+        resultNet = SNLScalarNet::create(design);
+      } else {
+        resultNet = SNLBusNet::create(
+          design,
+          static_cast<NLID::Bit>(targetWidth - 1),
+          0);
+      }
+      annotateSourceInfo(resultNet, sourceRange);
+
+      auto* inst = SNLInstance::create(design, divmod);
+      annotateSourceInfo(inst, sourceRange);
+
+      const auto connectTermBits =
+        [&](SNLBusTerm* term, const std::vector<SNLBitNet*>& termBits) {
+        if (!term || termBits.size() != targetWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        for (size_t bit = 0; bit < targetWidth; ++bit) {
+          auto* termBit = term->getBit(static_cast<NLID::Bit>(bit));
+          auto* instTerm = termBit ? inst->getInstTerm(termBit) : nullptr;
+          if (!instTerm) {
+            return false; // LCOV_EXCL_LINE
+          }
+          instTerm->setNet(termBits[bit]);
+        }
+        return true;
+      };
+
+      bits = collectBits(resultNet);
+      if (bits.size() != targetWidth ||
+          !connectTermBits(NLDB0::getDivModDividend(divmod), leftBits) ||
+          !connectTermBits(NLDB0::getDivModDivisor(divmod), rightBits) ||
+          !connectTermBits(
+            useRemainder
+              ? NLDB0::getDivModRemainder(divmod)
+              : NLDB0::getDivModQuotient(divmod),
+            bits)) {
+        bits.clear();
+        return false; // LCOV_EXCL_LINE
+      }
+
       return true;
     }
 
@@ -24620,6 +24704,8 @@ endmodule
             bin.op == slang::ast::BinaryOperator::Add ||
             bin.op == slang::ast::BinaryOperator::Subtract ||
             bin.op == slang::ast::BinaryOperator::Multiply ||
+            bin.op == slang::ast::BinaryOperator::Divide ||
+            bin.op == slang::ast::BinaryOperator::Mod ||
             bin.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
             bin.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
             bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||
@@ -25359,6 +25445,10 @@ endmodule
           continue;
         }
 
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Final) {
+          continue;
+        }
+
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysLatch) {
           const Statement* latchStmt = unwrapStatement(block.getBody());
           auto latchSourceRange = latchStmt ? getSourceRange(*latchStmt) : blockSourceRange;
@@ -26081,6 +26171,8 @@ endmodule
             (binaryExpr.op == slang::ast::BinaryOperator::Add ||
              binaryExpr.op == slang::ast::BinaryOperator::Subtract ||
              binaryExpr.op == slang::ast::BinaryOperator::Multiply ||
+             binaryExpr.op == slang::ast::BinaryOperator::Divide ||
+             binaryExpr.op == slang::ast::BinaryOperator::Mod ||
              binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
              binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
@@ -26122,6 +26214,25 @@ endmodule
                 reportUnsupportedElement(
                   "Unsupported binary expression in continuous assign: -",
                   assignSourceRange);
+              }
+              continue;
+            }
+            if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
+                binaryExpr.op == slang::ast::BinaryOperator::Mod) {
+              std::vector<SNLBitNet*> lhsAssignBits = lhsNet ? collectBits(lhsNet)
+                                                             : std::vector<SNLBitNet*> {};
+              std::vector<SNLBitNet*> rhsBits;
+              if (!lhsAssignBits.empty() &&
+                  resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
+                  rhsBits.size() == lhsAssignBits.size()) {
+                for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
+                  createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
+                }
+              } else {
+                std::ostringstream reason;
+                reason << "Unsupported binary expression in continuous assign: "
+                       << slang::ast::OpInfo::getText(binaryExpr.op);
+                reportUnsupportedElement(reason.str(), assignSourceRange);
               }
               continue;
             }
