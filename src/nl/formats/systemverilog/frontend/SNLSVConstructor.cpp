@@ -13604,24 +13604,14 @@ endmodule
       return true;
     }
 
-    bool createMultiplyAssign(
+    bool multiplyBitVectors(
       SNLDesign* design,
-      SNLNet* lhsNet,
-      const Expression& leftExpr,
-      const Expression& rightExpr,
+      const std::vector<SNLBitNet*>& leftBits,
+      const std::vector<SNLBitNet*>& rightBits,
+      std::vector<SNLBitNet*>& productBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      auto lhsBits = collectBits(lhsNet);
-      if (lhsBits.empty()) {
+      if (leftBits.size() != rightBits.size()) {
         return false; // LCOV_EXCL_LINE
-      }
-
-      std::vector<SNLBitNet*> leftBits;
-      std::vector<SNLBitNet*> rightBits;
-      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits)) {
-        return false;
-      }
-      if (!resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
-        return false;
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -13629,14 +13619,14 @@ endmodule
 
       std::vector<SNLBitNet*> accumulatedBits;
       bool hasAccumulated = false;
-      for (size_t row = 0; row < lhsBits.size(); ++row) {
+      for (size_t row = 0; row < leftBits.size(); ++row) {
         auto* rowEnableBit = rightBits[row];
         if (rowEnableBit == const0) {
           continue;
         }
 
-        std::vector<SNLBitNet*> partialBits(lhsBits.size(), const0);
-        for (size_t col = 0; col + row < lhsBits.size(); ++col) {
+        std::vector<SNLBitNet*> partialBits(leftBits.size(), const0);
+        for (size_t col = 0; col + row < leftBits.size(); ++col) {
           auto* multiplicandBit = leftBits[col];
           const auto outIndex = col + row;
           if (rowEnableBit == const1) {
@@ -13691,14 +13681,42 @@ endmodule
       }
 
       if (!hasAccumulated) {
-        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          createAssignInstance(design, const0, lhsBits[bitIndex], sourceRange);
-        }
+        productBits.assign(leftBits.size(), const0);
         return true;
       }
 
+      productBits = std::move(accumulatedBits);
+      return productBits.size() == leftBits.size();
+    }
+
+    bool createMultiplyAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits)) {
+        return false;
+      }
+      if (!resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+        return false;
+      }
+
+      std::vector<SNLBitNet*> productBits;
+      if (!multiplyBitVectors(design, leftBits, rightBits, productBits, sourceRange) ||
+          productBits.size() != lhsBits.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
       for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-        createAssignInstance(design, accumulatedBits[bitIndex], lhsBits[bitIndex], sourceRange);
+        createAssignInstance(design, productBits[bitIndex], lhsBits[bitIndex], sourceRange);
       }
       return true;
     }
@@ -20868,6 +20886,14 @@ endmodule
         }
         if (*action.compoundOp == slang::ast::BinaryOperator::Subtract) {
           return subtractBitVectors(
+            design,
+            *currentBits,
+            rhsBits,
+            assignedBits,
+            sourceRange);
+        }
+        if (*action.compoundOp == slang::ast::BinaryOperator::Multiply) {
+          return multiplyBitVectors(
             design,
             *currentBits,
             rhsBits,

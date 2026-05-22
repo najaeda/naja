@@ -13854,21 +13854,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSRangeSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSRangeSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_lhs_range_select_compound_multiply_assignment_unsupported";
+  outPath = outPath / "always_comb_lhs_range_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_range_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_range_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_range_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_range_select_compound_multiply_assignment_supported(
   input  logic [7:0] seed_i,
   input  logic [3:0] factor_i,
   output logic [7:0] y_o
@@ -13883,10 +13883,12 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_range_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("tmp")), nullptr);
 }
 
 TEST_F(
@@ -14009,20 +14011,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_compound_multiply_assignment_unsupported";
+  outPath = outPath / "always_comb_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_comb_compound_multiply_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_comb_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_compound_multiply_assignment_supported(
   input  logic [3:0] seed_i,
   input  logic [3:0] factor_i,
   output logic [3:0] prod_o
@@ -14035,10 +14037,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("prod_o")), nullptr);
 }
 
 TEST_F(
@@ -20074,12 +20077,12 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSIndexedRangeSelectDynamicBaseCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSIndexedRangeSelectDynamicBaseCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
     outPath /
-    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported";
+    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -20087,11 +20090,11 @@ TEST_F(
 
   const auto svPath =
     outPath /
-    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported.sv";
+    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported(
   input  logic [2:0] idx_i,
   input  logic [3:0] factor_i,
   input  logic [7:0] seed_i,
@@ -20108,10 +20111,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName(
+      "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("out_o")), nullptr);
 }
 
 TEST_F(
@@ -20344,12 +20350,12 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicIntElementSelectCompoundMultiplyUnsupported) {
+  parseAlwaysCombLHSDynamicIntElementSelectCompoundMultiplySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
     outPath /
-    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported";
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -20357,11 +20363,11 @@ TEST_F(
 
   const auto svPath =
     outPath /
-    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported.sv";
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported(
+    << R"(module always_comb_lhs_dynamic_int_element_select_compound_multiply_supported(
   input  logic [4:0] sel_i,
   input  logic       factor_i
 );
@@ -20375,10 +20381,12 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_int_element_select_compound_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("word_n")), nullptr);
 }
 
 TEST_F(
@@ -20564,22 +20572,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSConstantElementSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSConstantElementSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported";
+    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_constant_element_select_compound_multiply_assignment_supported(
   input logic [3:0] factor_i
 );
   logic [3:0] mem_q [0:1];
@@ -20592,10 +20600,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_constant_element_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
 }
 
 TEST_F(
@@ -20726,22 +20735,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicElementSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSDynamicElementSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported";
+    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported(
   input logic       sel_i,
   input logic [3:0] factor_i
 );
@@ -20755,10 +20764,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
 }
 
 TEST_F(
