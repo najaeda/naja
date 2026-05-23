@@ -15701,6 +15701,51 @@ endmodule
       return action.stepDelta != 0 || action.compoundOp.has_value();
     }
 
+    bool isIntegralNamedLHS(const Expression* expr) const {
+      const auto* stripped = expr ? stripConversions(*expr) : nullptr;
+      return stripped &&
+             stripped->kind == slang::ast::ExpressionKind::NamedValue &&
+             getIntegralExpressionBitWidth(*stripped);
+    }
+
+    bool actionReferencesLHSRoot(
+      const AssignAction& action,
+      const Expression& lhsExpr) const {
+      if (action.stepDelta != 0 || action.compoundOp.has_value() || !action.rhs) {
+        return true;
+      }
+      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+      if (!tryGetRootValueSymbolReference(lhsExpr, lhsSymbol)) {
+        return true;
+      }
+      std::unordered_set<const slang::ast::ValueSymbol*> rhsSymbols;
+      collectExpressionRootValueSymbols(*action.rhs, rhsSymbols);
+      return rhsSymbols.contains(lhsSymbol);
+    }
+
+    bool canLowerAlwaysLatchAsCombinational(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const Expression* directLhs = nullptr;
+      AssignAction directAction;
+      if (extractAssignment(*current, directLhs, directAction)) {
+        return isIntegralNamedLHS(directLhs) &&
+               !actionReferencesLHSRoot(directAction, *directLhs);
+      }
+
+      AlwaysLatchPattern pattern;
+      if (!extractAlwaysLatchPattern(stmt, pattern) || !pattern.hasDefault ||
+          !isIntegralNamedLHS(pattern.lhs)) {
+        return false;
+      }
+
+      return !actionReferencesLHSRoot(pattern.dataAction, *pattern.lhs) &&
+             !actionReferencesLHSRoot(pattern.defaultAction, *pattern.lhs);
+    }
+
     const Statement* unwrapStatement(const Statement& stmt) const {
       const Statement* current = &stmt;
       while (current) {
@@ -15730,6 +15775,7 @@ endmodule
 
     bool isIgnorableSequentialTimingStatement(const Statement& stmt) const {
       switch (stmt.kind) {
+        case slang::ast::StatementKind::Empty:
         case slang::ast::StatementKind::ConcurrentAssertion:
         case slang::ast::StatementKind::ImmediateAssertion:
           return true;
@@ -25475,10 +25521,15 @@ endmodule
           continue;
         }
 
+        if (isIgnorableSequentialStatementTree(block.getBody())) {
+          continue;
+        }
+
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysLatch) {
           const Statement* latchStmt = unwrapStatement(block.getBody());
           auto latchSourceRange = latchStmt ? getSourceRange(*latchStmt) : blockSourceRange;
-          if (latchStmt && isIgnorableSequentialStatementTree(*latchStmt)) {
+          if (latchStmt && canLowerAlwaysLatchAsCombinational(*latchStmt)) {
+            lowerCombinationalBlock(*latchStmt);
             continue;
           }
           std::string latchFailureReason;

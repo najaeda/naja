@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_list_single_empty_stmt_unsupported(
+module seq_list_single_empty_stmt_supported(
   input logic clk,
   output logic q
 );
