@@ -29830,20 +29830,20 @@ endmodule
      "unsupported statement pattern for always_latch lowering"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfTrueNonAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfTrueNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_if_true_non_assignment_unsupported";
+  outPath = outPath / "always_latch_if_true_non_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_if_true_non_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_if_true_non_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_if_true_non_assignment_unsupported(
+    << R"(module always_latch_if_true_non_assignment_supported(
   input logic en,
   output logic y
 );
@@ -29857,27 +29857,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_if_true_non_assignment_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_if_true_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(0u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfFalseNonAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfFalseNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_if_false_non_assignment_unsupported";
+  outPath = outPath / "always_latch_if_false_non_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_if_false_non_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_if_false_non_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_if_false_non_assignment_unsupported(
+    << R"(module always_latch_if_false_non_assignment_supported(
   input logic a,
   input logic en,
   output logic y
@@ -29892,27 +29901,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_if_false_non_assignment_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_if_false_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(1u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseDifferentLHSUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseDifferentLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_else_different_lhs_unsupported";
+  outPath = outPath / "always_latch_else_different_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_else_different_lhs_unsupported.sv";
+  const auto svPath = outPath / "always_latch_else_different_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_else_different_lhs_unsupported(
+    << R"(module always_latch_else_different_lhs_supported(
   input logic a,
   input logic b,
   input logic en,
@@ -29929,27 +29947,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_else_different_lhs_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_else_different_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(2u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchConcatLHSErrorUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchConcatLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_concat_lhs_error_unsupported";
+  outPath = outPath / "always_latch_concat_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_concat_lhs_error_unsupported.sv";
+  const auto svPath = outPath / "always_latch_concat_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_concat_lhs_error_unsupported(
+    << R"(module always_latch_concat_lhs_supported(
   input logic a,
   input logic b,
   input logic en,
@@ -29964,11 +29991,20 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_concat_lhs_error_unsupported'",
-     "unable to resolve latch assignment LHS net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_concat_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(2u, dlatchCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDisplayOnlyIgnoredSupported) {

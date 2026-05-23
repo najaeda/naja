@@ -15693,6 +15693,7 @@ endmodule
       const Expression* lhs {nullptr};
       const Expression* enableCond {nullptr};
       AssignAction dataAction {};
+      const Expression* defaultLhs {nullptr};
       AssignAction defaultAction {};
       bool hasDefault {false};
     };
@@ -15738,7 +15739,9 @@ endmodule
 
       AlwaysLatchPattern pattern;
       if (!extractAlwaysLatchPattern(stmt, pattern) || !pattern.hasDefault ||
-          !isIntegralNamedLHS(pattern.lhs)) {
+          !isIntegralNamedLHS(pattern.lhs) ||
+          !pattern.defaultLhs ||
+          !sameLhs(pattern.defaultLhs, pattern.lhs)) {
         return false;
       }
 
@@ -15819,6 +15822,10 @@ endmodule
         }
         return !conditional.ifFalse ||
                isIgnorableSequentialStatementTree(*conditional.ifFalse);
+      }
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        return declStmt.symbol.getInitializer() == nullptr;
       }
       if (current->kind == slang::ast::StatementKind::Case) {
         const auto& caseStmt = current->as<slang::ast::CaseStatement>();
@@ -18344,11 +18351,9 @@ endmodule
       const Expression* defaultLhs = nullptr;
       AssignAction defaultAction;
       if (!extractAssignment(*condStmt.ifFalse, defaultLhs, defaultAction)) {
-        return false;
+        return isIgnorableSequentialStatementTree(*condStmt.ifFalse);
       }
-      if (!sameLhs(defaultLhs, pattern.lhs)) {
-        return false;
-      }
+      pattern.defaultLhs = defaultLhs;
       pattern.defaultAction = defaultAction;
       pattern.hasDefault = true;
       return true;
@@ -25380,23 +25385,24 @@ endmodule
           }
 
           auto* lhsNet = resolveExpressionNet(design, *pattern.lhs);
-          if (!lhsNet) {
-            latchFailureReason = "unable to resolve latch assignment LHS net";
+          std::vector<SNLBitNet*> lhsBits;
+          std::string lhsFailureReason;
+          if (!resolveAssignmentLHSBits(
+                design,
+                *pattern.lhs,
+                lhsBits,
+                &lhsFailureReason,
+                true) ||
+              lhsBits.empty()) {
+            latchFailureReason = "unable to resolve latch assignment LHS bits";
+            if (!lhsFailureReason.empty()) {
+              latchFailureReason += " (" + lhsFailureReason + ")";
+            }
             return false;
-          }
-          auto lhsBits = collectBits(lhsNet);
-          if (lhsBits.empty()) {
-            // LCOV_EXCL_START
-            // A resolved latch LHS net is always a scalar or bus net with at least one bit in
-            // current parser-backed flows. Keep the guard as a defensive check in case future
-            // net-resolution changes return an unexpected empty collection.
-            latchFailureReason = "unable to collect latch assignment LHS bits";
-            return false;
-            // LCOV_EXCL_STOP
           }
 
           auto baseName = getExpressionBaseName(*pattern.lhs);
-          if (baseName.empty() && !lhsNet->isUnnamed()) {
+          if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
             // LCOV_EXCL_START
             // The current always_latch lowering path only reaches here for plain named nets.
             // Keep the fallback for future latch LHS support that might route selected named
@@ -25412,6 +25418,76 @@ endmodule
             return latchSourceRange; // LCOV_EXCL_LINE
           };
 
+          auto lowerLatchAssignment =
+            [&](const Expression& lhsExpr,
+                const AssignAction& action,
+                SNLBitNet* actionEnableNet) -> bool {
+            auto* actionLhsNet = resolveExpressionNet(design, lhsExpr);
+            std::vector<SNLBitNet*> actionLhsBits;
+            std::string actionLhsFailureReason;
+            if (!resolveAssignmentLHSBits(
+                  design,
+                  lhsExpr,
+                  actionLhsBits,
+                  &actionLhsFailureReason,
+                  true) ||
+                actionLhsBits.empty()) {
+              latchFailureReason = "unable to resolve latch assignment LHS bits";
+              if (!actionLhsFailureReason.empty()) {
+                latchFailureReason += " (" + actionLhsFailureReason + ")";
+              }
+              return false;
+            }
+
+            auto actionBaseName = getExpressionBaseName(lhsExpr);
+            if (actionBaseName.empty() && actionLhsNet && !actionLhsNet->isUnnamed()) {
+              actionBaseName = actionLhsNet->getName().getString(); // LCOV_EXCL_LINE
+            }
+
+            std::vector<SNLBitNet*> actionIncrementerBits;
+            if (needsIncrementerForAction(design, actionLhsNet, action)) {
+              auto* incNet = getOrCreateNamedNet(
+                design,
+                joinName("inc", actionBaseName),
+                actionLhsNet,
+                latchSourceRange);
+              auto incBits = collectBits(incNet);
+              auto* incCarryNet = getOrCreateNamedNet(
+                design,
+                joinName("inc_carry", actionBaseName),
+                actionLhsNet,
+                latchSourceRange);
+              auto carryBits = collectBits(incCarryNet);
+              actionIncrementerBits = buildIncrementer(
+                design,
+                actionLhsBits,
+                incBits,
+                carryBits,
+                latchSourceRange);
+            }
+
+            auto dataBits = buildAssignBits(
+              design,
+              action,
+              actionLhsNet,
+              actionLhsBits,
+              &actionIncrementerBits,
+              getActionSourceRange(action));
+            if (dataBits.empty()) {
+              return false;
+            }
+
+            for (size_t i = 0; i < actionLhsBits.size(); ++i) {
+              createDLatchInstance(
+                design,
+                actionEnableNet,
+                dataBits[i],
+                actionLhsBits[i],
+                latchSourceRange);
+            }
+            return true;
+          };
+
           auto* enableNet = resolveConditionNet(
             design,
             *pattern.enableCond,
@@ -25420,6 +25496,34 @@ endmodule
           if (!enableNet) {
             latchFailureReason = "unable to resolve latch enable condition net";
             return false;
+          }
+
+          if (pattern.hasDefault &&
+              pattern.defaultLhs &&
+              !sameLhs(pattern.defaultLhs, pattern.lhs)) {
+            if (!lowerLatchAssignment(*pattern.lhs, pattern.dataAction, enableNet)) {
+              return false;
+            }
+
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+            SNLBitNet* falseEnableNet = nullptr;
+            if (enableNet == const0) {
+              falseEnableNet = const1;
+            } else if (enableNet == const1) {
+              falseEnableNet = const0;
+            } else {
+              falseEnableNet =
+                createNotBitGate(design, enableNet, getSourceRange(*pattern.enableCond));
+            }
+            if (!falseEnableNet) {
+              latchFailureReason = "unable to build latch else enable condition net";
+              return false; // LCOV_EXCL_LINE
+            }
+            return lowerLatchAssignment(
+              *pattern.defaultLhs,
+              pattern.defaultAction,
+              falseEnableNet);
           }
 
           std::vector<SNLBitNet*> incrementerBits;
