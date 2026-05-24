@@ -18230,6 +18230,62 @@ endmodule
       return equalsBit;
     }
 
+    bool extractSameLHSFinalAssignment(
+      const Statement& stmt,
+      const Expression*& lhs,
+      AssignAction& action) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const Expression* directLhs = nullptr;
+      AssignAction directAction;
+      if (extractAssignment(*current, directLhs, directAction)) {
+        lhs = directLhs;
+        action = directAction;
+        return true;
+      }
+
+      if (current->kind != slang::ast::StatementKind::List) {
+        return false;
+      }
+
+      const Expression* branchLhs = nullptr;
+      AssignAction finalAction;
+      bool sawAssignment = false;
+      for (const auto* item : current->as<slang::ast::StatementList>().list) {
+        if (!item) {
+          continue; // LCOV_EXCL_LINE
+        }
+
+        const Expression* itemLhs = nullptr;
+        AssignAction itemAction;
+        if (extractSameLHSFinalAssignment(*item, itemLhs, itemAction)) {
+          if (!branchLhs) {
+            branchLhs = itemLhs;
+          } else if (!sameLhs(itemLhs, branchLhs)) {
+            return false;
+          }
+          finalAction = itemAction;
+          sawAssignment = true;
+          continue;
+        }
+
+        if (isIgnorableSequentialStatementTree(*item)) {
+          continue;
+        }
+        return false;
+      }
+
+      if (!sawAssignment) {
+        return false;
+      }
+      lhs = branchLhs;
+      action = finalAction;
+      return true;
+    }
+
     bool extractAlwaysFFChain(const Statement& stmt, AlwaysFFChain& chain) const {
       auto current = unwrapStatement(stmt);
       if (!current) {
@@ -18238,7 +18294,7 @@ endmodule
       if (current->kind != slang::ast::StatementKind::Conditional) {
         const Expression* lhs = nullptr;
         AssignAction action;
-        if (!extractAssignment(*current, lhs, action)) {
+        if (!extractSameLHSFinalAssignment(*current, lhs, action)) {
           return false;
         }
         const auto* strippedLHS = lhs ? stripConversions(*lhs) : nullptr;
@@ -18260,7 +18316,7 @@ endmodule
       }
       const Expression* lhs = nullptr;
       AssignAction resetAction;
-      if (!extractAssignment(condStmt.ifTrue, lhs, resetAction)) {
+      if (!extractSameLHSFinalAssignment(condStmt.ifTrue, lhs, resetAction)) {
         return false;
       }
       if (isConcatenationExpression(lhs)) {
@@ -18286,7 +18342,7 @@ endmodule
         }
         const Expression* enableLhs = nullptr;
         AssignAction enableAction;
-        if (!extractAssignment(enableStmt.ifTrue, enableLhs, enableAction)) {
+        if (!extractSameLHSFinalAssignment(enableStmt.ifTrue, enableLhs, enableAction)) {
           return false;
         }
         if (!sameLhs(enableLhs, chain.lhs)) {
@@ -18298,7 +18354,10 @@ endmodule
         if (enableStmt.ifFalse) {
           const Expression* defaultLhs = nullptr;
           AssignAction defaultAction;
-          if (!extractAssignment(*enableStmt.ifFalse, defaultLhs, defaultAction)) {
+          if (!extractSameLHSFinalAssignment(
+                *enableStmt.ifFalse,
+                defaultLhs,
+                defaultAction)) {
             return false;
           }
           if (!sameLhs(defaultLhs, chain.lhs)) {
@@ -18312,7 +18371,7 @@ endmodule
 
       const Expression* defaultLhs = nullptr;
       AssignAction defaultAction;
-      if (!extractAssignment(*falseStmt, defaultLhs, defaultAction)) {
+      if (!extractSameLHSFinalAssignment(*falseStmt, defaultLhs, defaultAction)) {
         return false;
       }
       if (!sameLhs(defaultLhs, chain.lhs)) {

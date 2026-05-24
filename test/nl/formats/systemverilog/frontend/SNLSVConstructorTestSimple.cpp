@@ -23784,22 +23784,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialSingleLHSFallbackMultipleDirectAssignmentsUnsupported) {
+  parseSequentialSingleLHSFallbackMultipleDirectAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported";
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported.sv";
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_single_lhs_fallback_multiple_direct_assignments_unsupported(
+    << R"(module seq_single_lhs_fallback_multiple_direct_assignments_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic       a_i,
@@ -23818,10 +23818,12 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"single-LHS fallback path contains multiple direct assignments"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_lhs_fallback_multiple_direct_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(
@@ -24424,14 +24426,17 @@ endmodule
     {"unable to resolve dynamic index bits in sequential assignment LHS"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_else_default_non_assignment" /
-      "seq_enable_else_default_non_assignment.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_non_assignment_supported" /
+      "seq_enable_else_default_non_assignment_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_else_default_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSkipped) {
@@ -25329,24 +25334,28 @@ endmodule
      "failed to resolve always_comb assignment LHS bits"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_reset_non_assignment_skipped" /
-      "seq_reset_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_reset_non_assignment_supported" /
+      "seq_reset_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_iftrue_non_assignment_skipped" /
-      "seq_enable_iftrue_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_iftrue_non_assignment_supported" /
+      "seq_enable_iftrue_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_iftrue_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueExpressionStatementUnsupported) {
@@ -25408,14 +25417,16 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSkipped) {
     {"unsupported statement pattern for sequential lowering"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_default_non_assignment_skipped" /
-      "seq_default_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_default_non_assignment_supported" /
+      "seq_default_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySupported) {
