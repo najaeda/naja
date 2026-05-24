@@ -15776,6 +15776,35 @@ endmodule
       return current;
     }
 
+    bool isDiscardedInputOnlyFunctionCall(const Expression& expr) const {
+      if (expr.kind != slang::ast::ExpressionKind::Call) {
+        return false;
+      }
+      const auto& callExpr = expr.as<slang::ast::CallExpression>();
+      if (callExpr.isSystemCall()) {
+        return true;
+      }
+      if (callExpr.subroutine.index() != 0) {
+        return false;
+      }
+      const auto* subroutine = std::get<0>(callExpr.subroutine);
+      if (!subroutine ||
+          subroutine->subroutineKind != slang::ast::SubroutineKind::Function) {
+        return false;
+      }
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr.arguments();
+      if (formalArgs.size() != callArgs.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      for (const auto* formalArg : formalArgs) {
+        if (!formalArg || formalArg->direction != ArgumentDirection::In) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     bool isIgnorableSequentialTimingStatement(const Statement& stmt) const {
       switch (stmt.kind) {
         case slang::ast::StatementKind::Empty:
@@ -15784,10 +15813,7 @@ endmodule
           return true;
         case slang::ast::StatementKind::ExpressionStatement: {
           const auto& expr = stmt.as<slang::ast::ExpressionStatement>().expr;
-          if (expr.kind != slang::ast::ExpressionKind::Call) {
-            return false;
-          }
-          return expr.as<slang::ast::CallExpression>().isSystemCall();
+          return isDiscardedInputOnlyFunctionCall(expr);
         }
         default:
           return false;

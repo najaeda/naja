@@ -25365,20 +25365,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSuppo
   EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueExpressionStatementUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueExpressionStatementSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_iftrue_expression_statement_unsupported";
+  outPath = outPath / "seq_enable_iftrue_expression_statement_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_enable_iftrue_expression_statement_unsupported.sv";
+  const auto svPath = outPath / "seq_enable_iftrue_expression_statement_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_iftrue_expression_statement_unsupported(
+    << R"(module seq_enable_iftrue_expression_statement_supported(
   input logic       clk,
   input logic       rst,
   input logic       en,
@@ -25398,10 +25398,12 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_iftrue_expression_statement_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSupported) {
