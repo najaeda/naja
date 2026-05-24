@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_enable_else_default_lhs_mismatch(
+module seq_enable_lhs_mismatch_no_default_supported(
   input logic clk,
   input logic rst,
   input logic en,
@@ -10,10 +10,9 @@ module seq_enable_else_default_lhs_mismatch(
   output logic [7:0] q,
   output logic [7:0] r
 );
-  // Unsupported in chain extraction: default branch assigns a different LHS.
+  // Supported fallback: enable branch assigns a different LHS.
   always_ff @(posedge clk) begin
-    if (rst) q <= 0;
-    else if (en) q <= q + 1;
-    else r <= d;
+    if (rst) q <= 8'h00;
+    else if (en) r <= d;
   end
 endmodule

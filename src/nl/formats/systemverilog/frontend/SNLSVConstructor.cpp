@@ -18745,46 +18745,6 @@ endmodule
       });
     }
 
-    bool hasTopLevelDirectAssignmentToLHS(
-      const Statement& stmt,
-      const Expression& trackedLhs) const {
-      const Statement* current = unwrapStatement(stmt);
-      if (!current) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (isIgnorableSequentialTimingStatement(*current) ||
-          current->kind == slang::ast::StatementKind::Empty ||
-          current->kind == slang::ast::StatementKind::VariableDeclaration) {
-        return false;
-      }
-      if (current->kind == slang::ast::StatementKind::Block) {
-        // LCOV_EXCL_START
-        // unwrapStatement() above already strips nested Block statements in the
-        // parser-backed flows that reach this helper. Keep the recursion for
-        // robustness if the call pattern changes.
-        return hasTopLevelDirectAssignmentToLHS(
-          current->as<slang::ast::BlockStatement>().body,
-          trackedLhs);
-        // LCOV_EXCL_STOP
-      }
-      if (current->kind == slang::ast::StatementKind::List) {
-        const auto& list = current->as<slang::ast::StatementList>().list;
-        for (const auto* item : list) {
-          if (!item) {
-            continue; // LCOV_EXCL_LINE
-          }
-          if (hasTopLevelDirectAssignmentToLHS(*item, trackedLhs)) {
-            return true;
-          }
-        }
-        return false;
-      }
-
-      const Expression* lhs = nullptr;
-      AssignAction action;
-      return extractAssignment(*current, lhs, action) && sameLhs(lhs, &trackedLhs);
-    }
-
     bool applySequentialStatementForLhs(
       SNLDesign* design,
       const Statement& stmt,
@@ -24064,16 +24024,13 @@ endmodule
             }
           } // LCOV_EXCL_LINE
           const Expression* resetLhsExpr = resetLHSExpressions.front();
-          bool resetLhsAppearsInElse = false;
           bool hasOtherElseLhs = false;
           bool allOtherElseLhsSupported = true;
-          bool allOtherElseLhsAliasResetBase = true;
           for (const auto* lhsExpr : elseLHSExpressions) {
             if (!lhsExpr) {
               continue; // LCOV_EXCL_LINE
             }
             if (sameLhs(lhsExpr, resetLhsExpr)) {
-              resetLhsAppearsInElse = true;
               continue;
             }
             hasOtherElseLhs = true;
@@ -24127,21 +24084,11 @@ endmodule
             if (!supportedElseLhs) {
               allOtherElseLhsSupported = false;
             }
-            if (!aliasesResetBase) {
-              allOtherElseLhsAliasResetBase = false;
-            }
           }
 
-          if (hasOtherElseLhs) {
-            const bool canExtendSingleResetLhs =
-              allOtherElseLhsSupported &&
-              (allOtherElseLhsAliasResetBase ||
-               (resetLhsAppearsInElse &&
-                hasTopLevelDirectAssignmentToLHS(*topCond.ifFalse, *resetLhsExpr)));
-            if (!canExtendSingleResetLhs) {
-              failureReason = "fallback currently supports only multi-LHS reset branches";
-              return false;
-            }
+          if (hasOtherElseLhs && !allOtherElseLhsSupported) {
+            failureReason = "fallback currently supports only multi-LHS reset branches";
+            return false;
           }
 
           for (const auto* lhsExpr : elseLHSExpressions) {

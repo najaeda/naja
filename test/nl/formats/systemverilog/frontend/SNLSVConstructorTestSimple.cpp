@@ -23828,21 +23828,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialSingleLHSFallbackMismatchedResetTargetUnsupported) {
+  parseSequentialSingleLHSFallbackMismatchedResetTargetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported";
+  outPath = outPath / "seq_single_lhs_fallback_mismatched_reset_target_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported.sv";
+    outPath / "seq_single_lhs_fallback_mismatched_reset_target_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_single_lhs_fallback_mismatched_reset_target_unsupported(
+    << R"(module seq_single_lhs_fallback_mismatched_reset_target_supported(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic d_i,
@@ -23860,10 +23860,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"fallback currently supports only multi-LHS reset branches"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_lhs_fallback_mismatched_reset_target_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r_o")), nullptr);
 }
 
 TEST_F(
@@ -24439,14 +24442,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignment
   EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_else_default_lhs_mismatch" /
-      "seq_enable_else_default_lhs_mismatch.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_lhs_mismatch_supported" /
+      "seq_enable_else_default_lhs_mismatch_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_else_default_lhs_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
@@ -25397,24 +25404,31 @@ endmodule
     {"unsupported statement pattern for sequential lowering"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_lhs_mismatch_no_default" /
-      "seq_enable_lhs_mismatch_no_default.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_lhs_mismatch_no_default_supported" /
+      "seq_enable_lhs_mismatch_no_default_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_lhs_mismatch_no_default_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_default_lhs_mismatch_skipped" /
-      "seq_default_lhs_mismatch_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_default_lhs_mismatch_supported" /
+      "seq_default_lhs_mismatch_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_lhs_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSupported) {
