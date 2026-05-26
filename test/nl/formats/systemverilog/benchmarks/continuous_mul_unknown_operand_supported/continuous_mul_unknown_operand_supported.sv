@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module continuous_mul_unknown_operand_unsupported_top(
+module continuous_mul_unknown_operand_supported_top(
   input logic [3:0] a,
   output logic [3:0] y
 );

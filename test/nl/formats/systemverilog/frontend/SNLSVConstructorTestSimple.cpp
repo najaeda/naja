@@ -10118,20 +10118,18 @@ endmodule
   EXPECT_EQ(8, y->getWidth());
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_mul_unknown_operand_unsupported" /
-      "continuous_mul_unknown_operand_unsupported.sv");
-    FAIL() << "Expected unsupported multiply operand expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: *"));
-  }
+  constructor.construct(
+    benchmarksPath / "continuous_mul_unknown_operand_supported" /
+    "continuous_mul_unknown_operand_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_unknown_operand_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
@@ -21698,20 +21696,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("le")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalBusLHSUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalBusLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_relational_bus_lhs_unsupported";
+  outPath = outPath / "continuous_relational_bus_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_relational_bus_lhs_unsupported.sv";
+  const auto svPath = outPath / "continuous_relational_bus_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_relational_bus_lhs_unsupported(
+    << R"(module continuous_relational_bus_lhs_supported(
   input  logic [3:0] a,
   input  logic [3:0] b,
   output logic [3:0] y
@@ -21721,15 +21719,13 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported relational expression with bus LHS";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: <"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_relational_bus_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalNonIntegralOperandUnsupported) {
@@ -21896,20 +21892,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseMultiplyLeftOperandResolveFailureUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseMultiplyLeftUnknownOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "multiply_left_operand_resolve_failure_unsupported";
+  outPath = outPath / "multiply_left_unknown_operand_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "multiply_left_operand_resolve_failure_unsupported.sv";
+  const auto svPath = outPath / "multiply_left_unknown_operand_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module multiply_left_operand_resolve_failure_unsupported_top(
+    << R"(module multiply_left_unknown_operand_supported_top(
   input logic [3:0] a,
   output logic [3:0] y
 );
@@ -21918,10 +21914,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("multiply_left_unknown_operand_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddSupported) {

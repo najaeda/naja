@@ -13805,11 +13805,27 @@ endmodule
 
       std::vector<SNLBitNet*> leftBits;
       std::vector<SNLBitNet*> rightBits;
-      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits)) {
+      bool leftUsedUnknownFallback = false;
+      bool rightUsedUnknownFallback = false;
+      if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            leftExpr,
+            lhsBits.size(),
+            leftBits,
+            leftUsedUnknownFallback) ||
+          !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
+            design,
+            rightExpr,
+            lhsBits.size(),
+            rightBits,
+            rightUsedUnknownFallback)) {
         return false;
       }
-      if (!resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
-        return false;
+      if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
+        reportWarning(
+          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
+          "(X/Z distinction is not preserved)",
+          sourceRange);
       }
 
       std::vector<SNLBitNet*> productBits;
@@ -26606,6 +26622,22 @@ endmodule
 
         std::optional<NLDB0::GateType> gateType;
         std::vector<const Expression*> operands;
+        auto tryAssignResolvedRhsBits = [&](const Expression& rhsExpr) -> bool {
+          std::vector<SNLBitNet*> lhsAssignBits =
+            lhsResolvedAsBitSlice
+              ? lhsBits
+              : (lhsNet ? collectBits(lhsNet) : std::vector<SNLBitNet*> {});
+          std::vector<SNLBitNet*> rhsBits;
+          if (lhsAssignBits.empty() ||
+              !resolveExpressionBits(design, rhsExpr, lhsAssignBits.size(), rhsBits) ||
+              rhsBits.size() != lhsAssignBits.size()) {
+            return false;
+          }
+          for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
+            createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
+          }
+          return true;
+        };
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
           const bool useBitSliceFallbackForBinary =
@@ -26685,7 +26717,8 @@ endmodule
                     lhsNet,
                     binaryExpr.left(),
                     binaryExpr.right(),
-                    assignSourceRange)) {
+                    assignSourceRange) &&
+                  !tryAssignResolvedRhsBits(*rhs)) {
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
@@ -26700,7 +26733,8 @@ endmodule
                     lhsNet,
                     binaryExpr.left(),
                     binaryExpr.right(),
-                    assignSourceRange)) {
+                    assignSourceRange) &&
+                  !tryAssignResolvedRhsBits(*rhs)) {
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
@@ -26715,7 +26749,8 @@ endmodule
                     binaryExpr.left(),
                     binaryExpr.right(),
                     binaryExpr.op,
-                    assignSourceRange)) {
+                    assignSourceRange) &&
+                  !tryAssignResolvedRhsBits(*rhs)) {
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
