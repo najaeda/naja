@@ -1,0 +1,11 @@
+library (example) {
+  cell ("cell_def") {
+    bundle (D) {
+      direction : input;
+      members (D0);
+      pin (D0) {
+        direction : output;
+      }
+    }
+  }
+}
