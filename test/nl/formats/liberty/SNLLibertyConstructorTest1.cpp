@@ -168,6 +168,60 @@ TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120) {
     ElementsAre(ck, se, si, d0, d1, qn0, qn1));
 }
 
+TEST_F(SNLLibertyConstructorTest1, testBundleDirectionInheritedByMembers) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bundle_direction_inherited.lib"));
+  constructor.construct(testPath);
+
+  auto design = library_->getSNLDesign(NLName("cell_def"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(1, design->getTerms().size());
+  EXPECT_EQ(1, design->getBundleTerms().size());
+
+  auto d = design->getBundleTerm(NLName("D"));
+  ASSERT_NE(nullptr, d);
+  EXPECT_EQ(SNLTerm::Direction::Input, d->getDirection());
+
+  auto d0 = design->getScalarTerm(NLName("D0"));
+  auto d1 = design->getScalarTerm(NLName("D1"));
+  ASSERT_NE(nullptr, d0);
+  ASSERT_NE(nullptr, d1);
+  EXPECT_EQ(SNLTerm::Direction::Input, d0->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, d1->getDirection());
+  EXPECT_EQ(d, d0->getBundleOwner());
+  EXPECT_EQ(d, d1->getBundleOwner());
+}
+
+TEST_F(SNLLibertyConstructorTest1, testBundleBusDirectionInheritedByMember) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bundle_bus_direction_inherited.lib"));
+  constructor.construct(testPath);
+
+  auto design = library_->getSNLDesign(NLName("cell_def"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(1, design->getTerms().size());
+  EXPECT_EQ(1, design->getBundleTerms().size());
+
+  auto d = design->getBundleTerm(NLName("D"));
+  auto d0 = design->getBusTerm(NLName("D0"));
+  ASSERT_NE(nullptr, d);
+  ASSERT_NE(nullptr, d0);
+  EXPECT_EQ(SNLTerm::Direction::Input, d->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, d0->getDirection());
+  EXPECT_EQ(1, d0->getMSB());
+  EXPECT_EQ(0, d0->getLSB());
+  EXPECT_EQ(d, d0->getBundleOwner());
+  EXPECT_EQ(d0, d->getMember(0));
+}
+
 TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120VerilogIntegration) {
   SNLLibertyConstructor libertyConstructor(library_);
   std::filesystem::path libertyPath(

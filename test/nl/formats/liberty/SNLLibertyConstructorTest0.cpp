@@ -449,6 +449,21 @@ TEST_F(SNLLibertyConstructorTest0, testBundleMembersMismatch) {
   }
 }
 
+TEST_F(SNLLibertyConstructorTest0, testBundleDirectionMembersMismatch) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("bundle_direction_members_mismatch_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Bundle D lists missing member D1"));
+  }
+}
+
 TEST_F(SNLLibertyConstructorTest0, testBundleExtraMember) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
@@ -555,6 +570,21 @@ TEST_F(SNLLibertyConstructorTest0, testDuplicateBundleMemberDefinition) {
     FAIL() << "Expected SNLLibertyConstructorException";
   } catch (const SNLLibertyConstructorException& e) {
     EXPECT_NE(std::string::npos, e.getReason().find("Duplicate Liberty bundle member definition D0 in bundle D"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest0, testInconsistentBundleDirectionWithChild) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("inconsistent_bundle_parent_direction_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Inconsistent child directions for bundle D"));
   }
 }
 

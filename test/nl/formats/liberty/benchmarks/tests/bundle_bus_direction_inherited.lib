@@ -1,0 +1,19 @@
+library (example) {
+  type (data_bus) {
+    base_type : array;
+    data_type : bit;
+    bit_width : 2;
+    bit_from : 1;
+    bit_to : 0;
+    downto : true;
+  }
+  cell ("cell_def") {
+    bundle (D) {
+      direction : input;
+      members (D0);
+      bus (D0) {
+        bus_type : data_bus;
+      }
+    }
+  }
+}
