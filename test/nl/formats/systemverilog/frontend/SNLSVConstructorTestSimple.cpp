@@ -21528,37 +21528,56 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnBinaryOperatorsSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnUnsupportedBinaryOperatorFails) {
+TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "unary_not_binary_unsupported" / "unary_not_binary_unsupported.sv");
-    FAIL() << "Expected unsupported unary-not binary operator exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary operator under bitwise not in continuous assign: +"));
+  constructor.construct(
+    benchmarksPath / "unary_not_arithmetic_binary_supported" /
+    "unary_not_arithmetic_binary_supported.sv");
 
-    auto top = library_->getSNLDesign(NLName("unary_not_binary_unsupported_top"));
-    ASSERT_NE(top, nullptr);
-    auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "unary_not_binary_unsupported");
-    EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
-  }
+  auto top = library_->getSNLDesign(NLName("unary_not_arithmetic_binary_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto yNet = top->getNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  auto yBit = dynamic_cast<SNLBitNet*>(yNet);
+  ASSERT_NE(yBit, nullptr);
+  EXPECT_FALSE(yBit->getInstTerms().empty());
+  EXPECT_GT(countFAInstances(top), 0u);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "unary_not_arithmetic_binary_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
+TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "binary_ops_unsupported" / "binary_ops_unsupported.sv");
-    FAIL() << "Expected unsupported binary operator exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign"));
+  constructor.construct(
+    benchmarksPath / "binary_ops_extended_supported" /
+    "binary_ops_extended_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("binary_ops_extended_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  const std::array<const char*, 24> outputs{
+    "y_add", "y_sub", "y_mul", "y_div", "y_mod", "y_eq", "y_ne", "y_case_eq",
+    "y_case_ne", "y_ge", "y_gt", "y_le", "y_lt", "y_wild_eq", "y_wild_ne",
+    "y_land", "y_lor", "y_impl", "y_leqv", "y_lshl", "y_lshr", "y_ashl",
+    "y_ashr", "y_pow"};
+  for (const auto* output : outputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty()) << output;
   }
+
+  EXPECT_GE(countFAInstances(top), 1u);
+  EXPECT_GE(countDivModInstances(top, 1), 2u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_extended_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalOpsSupported) {

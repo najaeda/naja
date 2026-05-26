@@ -4,7 +4,7 @@
 
 BENCHMARKS := simple up_counter param_inst binary_ops_supported byte_ports \
 	implicit_width_ports port_directions non_ansi_ports model_reuse \
-	unary_not unary_not_binary_supported unary_not_binary_unsupported \
+	unary_not unary_not_binary_supported unary_not_arithmetic_binary_supported \
 	seq_add_out_plus_one seq_add_one_plus_out seq_enable_else_default \
 	seq_enable_bus1_supported seq_preincrement_supported \
 	seq_reset_only_supported seq_list_single_wrapper_supported \
