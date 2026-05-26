@@ -202,29 +202,33 @@ ConstructedTerm constructTerm(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
   const Yosys::LibertyAst* child,
-  SNLBundleTerm* bundleTerm = nullptr) {
+  SNLBundleTerm* bundleTerm = nullptr,
+  std::optional<SNLTerm::Direction> inheritedDirection = std::nullopt) {
   auto pinName = child->args[0];
   auto busType = findChildBusType(top, child, primitive);
   auto directionNode = findDirectionNode(child);
-  if (not directionNode) {
+  auto snlDirection = inheritedDirection;
+  if (directionNode) {
+    auto direction = directionNode->value;
+    if (direction == "internal") {
+      return {};
+    }
+    snlDirection = getSNLDirection(direction);
+  }
+  if (not snlDirection) {
     std::ostringstream reason;
     reason << "Direction not found for " << child->id << " " << pinName;
     throw SNLLibertyConstructorException(reason.str());
   }
-  auto direction = directionNode->value;
-  if (direction == "internal") {
-    return {};
-  }
-  auto snlDirection = getSNLDirection(direction);
   ConstructedTerm term;
   if (busType.name.empty()) {
     term.scalar = bundleTerm
-      ? SNLScalarTerm::create(bundleTerm, snlDirection, NLName(pinName))
-      : SNLScalarTerm::create(primitive, snlDirection, NLName(pinName));
+      ? SNLScalarTerm::create(bundleTerm, *snlDirection, NLName(pinName))
+      : SNLScalarTerm::create(primitive, *snlDirection, NLName(pinName));
   } else {
     term.bus = bundleTerm
-      ? SNLBusTerm::create(bundleTerm, snlDirection, busType.msb, busType.lsb, NLName(pinName))
-      : SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
+      ? SNLBusTerm::create(bundleTerm, *snlDirection, busType.msb, busType.lsb, NLName(pinName))
+      : SNLBusTerm::create(primitive, *snlDirection, busType.msb, busType.lsb, NLName(pinName));
   }
   return term;
 }
@@ -442,6 +446,25 @@ SNLTerm::Direction inferBundleDirection(
   const Yosys::LibertyAst* bundleNode,
   const std::vector<std::string>& orderedMembers,
   const std::map<std::string, const Yosys::LibertyAst*>& memberDefinitions) {
+  auto bundleDirectionNode = findDirectChild(bundleNode, "direction");
+  if (bundleDirectionNode != nullptr) {
+    for (const auto& memberName: orderedMembers) {
+      auto it = memberDefinitions.find(memberName);
+      if (it == memberDefinitions.end()) {
+        std::ostringstream reason;
+        reason << "Bundle " << bundleNode->args[0] << " lists missing member " << memberName;
+        throw SNLLibertyConstructorException(reason.str());
+      }
+      auto directionNode = findDirectionNode(it->second);
+      if (directionNode != nullptr and directionNode->value != bundleDirectionNode->value) {
+        std::ostringstream reason;
+        reason << "Inconsistent child directions for bundle " << bundleNode->args[0];
+        throw SNLLibertyConstructorException(reason.str());
+      }
+    }
+    return getSNLDirection(bundleDirectionNode->value);
+  }
+
   const Yosys::LibertyAst* inferredDirectionNode = nullptr;
   for (const auto& memberName: orderedMembers) {
     auto it = memberDefinitions.find(memberName);
@@ -513,7 +536,7 @@ void parseTerms(
       for (const auto& memberName: orderedMembers) {
         auto memberIt = memberDefinitions.find(memberName);
         auto memberNode = memberIt->second;
-        auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm);
+        auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm, bundleDirection);
         registerConstructedTermModeling(
           memberNode,
           memberName,
