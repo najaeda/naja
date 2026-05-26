@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module continuous_binary_expression_fallbacks_unsupported_top(
+module continuous_binary_expression_fallbacks_supported_top(
   input logic [1:0][3:0] a,
   input logic idx,
   input logic [3:0] b,
@@ -13,7 +13,7 @@ module continuous_binary_expression_fallbacks_unsupported_top(
   output logic [1:0] y_eq_bus,
   output logic [1:0] y_ne_bus
 );
-  // Exercise fallback unsupported-reporting paths for specialized continuous-assign handlers.
+  // Exercise fallback lowering paths for specialized continuous-assign handlers.
   assign y_shift = a[idx] <<< shamt;
   assign y_mul = a[idx] * b;
   assign y_sub = a[idx] - b;

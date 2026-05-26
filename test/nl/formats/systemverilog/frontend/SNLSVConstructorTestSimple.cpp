@@ -3291,20 +3291,20 @@ endmodule
   EXPECT_EQ(top->getNet(NLName("unconnected_val_p")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_assign_bit_slice_width_mismatch_unsupported";
+  outPath = outPath / "continuous_assign_bit_slice_width_mismatch_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_assign_bit_slice_width_mismatch_unsupported.sv";
+  const auto svPath = outPath / "continuous_assign_bit_slice_width_mismatch_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_assign_bit_slice_width_mismatch_unsupported(
+    << R"(module continuous_assign_bit_slice_width_mismatch_supported(
   input  logic [2:0] a,
   output logic [7:0] y
 );
@@ -3313,10 +3313,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported net compatibility in continuous assign"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_bit_slice_width_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceTruncateSupported) {
@@ -11186,20 +11190,20 @@ endmodule
   EXPECT_EQ(1u, countDivModInstances(top));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_right_unknown_value_unsupported";
+  outPath = outPath / "continuous_shift_right_unknown_value_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_right_unknown_value_unsupported.sv";
+  const auto svPath = outPath / "continuous_shift_right_unknown_value_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_right_unknown_value_unsupported(
+    << R"(module continuous_shift_right_unknown_value_supported(
   input logic [3:0] a,
   output logic [7:0] y
 );
@@ -11209,32 +11213,29 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported arithmetic right-shift value expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>>"));
-    EXPECT_NE(std::string::npos, reason.find("failed to resolve value bits"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_unknown_value_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownValueUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownValueSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_logical_shift_right_unknown_value_unsupported";
+  outPath = outPath / "continuous_logical_shift_right_unknown_value_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_logical_shift_right_unknown_value_unsupported.sv";
+  const auto svPath = outPath / "continuous_logical_shift_right_unknown_value_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_logical_shift_right_unknown_value_unsupported(
+    << R"(module continuous_logical_shift_right_unknown_value_supported(
   input logic [3:0] a,
   output logic [7:0] y
 );
@@ -11244,16 +11245,14 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported logical right-shift value expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>"));
-    EXPECT_NE(std::string::npos, reason.find("failed to resolve value bits"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_logical_shift_right_unknown_value_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmountSupported) {
@@ -21756,15 +21755,34 @@ endmodule
     {"Unsupported binary expression in continuous assign: <"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  EXPECT_THROW(
-    constructor.construct(
-      benchmarksPath /
-      "continuous_binary_expression_fallbacks_unsupported" /
-      "continuous_binary_expression_fallbacks_unsupported.sv"),
-    SNLSVConstructorException);
+  constructor.construct(
+    benchmarksPath /
+    "continuous_binary_expression_fallbacks_supported" /
+    "continuous_binary_expression_fallbacks_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_binary_expression_fallbacks_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto yShift = top->getBusNet(NLName("y_shift"));
+  auto yMul = top->getBusNet(NLName("y_mul"));
+  auto ySub = top->getBusNet(NLName("y_sub"));
+  auto yEqBus = top->getBusNet(NLName("y_eq_bus"));
+  auto yNeBus = top->getBusNet(NLName("y_ne_bus"));
+  ASSERT_NE(yShift, nullptr);
+  ASSERT_NE(yMul, nullptr);
+  ASSERT_NE(ySub, nullptr);
+  ASSERT_NE(yEqBus, nullptr);
+  ASSERT_NE(yNeBus, nullptr);
+  EXPECT_EQ(4, yShift->getWidth());
+  EXPECT_EQ(4, yMul->getWidth());
+  EXPECT_EQ(4, ySub->getWidth());
+  EXPECT_EQ(2, yEqBus->getWidth());
+  EXPECT_EQ(2, yNeBus->getWidth());
+  EXPECT_GT(countMux2Instances(top), 0u);
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(
@@ -27776,20 +27794,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialAddNestedMultiplyUnknownFallbackUnsupported) {
+  parseSequentialAddNestedMultiplyUnknownFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported";
+  outPath = outPath / "seq_add_nested_multiply_unknown_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported.sv";
+  const auto svPath = outPath / "seq_add_nested_multiply_unknown_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_add_nested_multiply_unknown_fallback_unsupported(
+    << R"(module seq_add_nested_multiply_unknown_fallback_supported(
   input  logic       clk,
   input  logic       rst,
   output logic [7:0] q
@@ -27805,10 +27823,26 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in sequential assignment"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_add_nested_multiply_unknown_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  auto q = top->getBusNet(NLName("q"));
+  ASSERT_NE(q, nullptr);
+  EXPECT_EQ(8, q->getWidth());
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+  }
+  EXPECT_EQ(8u, flopCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialUnbasedUnknownLiteralDirectRhsSupported) {
