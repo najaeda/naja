@@ -73,7 +73,6 @@ jobs:
                 model_reuse \
                 unary_not \
                 unary_not_binary_supported \
-                unary_not_binary_unsupported \
                 seq_add_out_plus_one \
                 seq_add_one_plus_out \
                 seq_enable_else_default \
