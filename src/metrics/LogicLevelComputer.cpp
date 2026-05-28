@@ -6,7 +6,6 @@
 #include "LogicLevelComputer.h"
 #include <queue>
 #include <set>
-#include <unordered_map>
 
 #include <tbb/combinable.h>
 #include <tbb/concurrent_map.h>
@@ -56,24 +55,6 @@ void LogicLevelComputer::process() {
     std::vector<std::vector<std::pair<naja::DNL::DNLID, naja::DNL::DNLID>>>>> localMaxLogicLevel;
 
   tbb::concurrent_map<size_t, size_t> dnlID2ll;
-  // SNL modeling/property queries are not safe to run from the TBB traversal.
-  // Materialize the needed term relations once before entering the parallel BFS.
-  std::vector<bool> isSequentialTerm(dnl_->getNBterms(), false);
-  std::unordered_map<SNLBitTerm*, std::set<SNLBitTerm*>> combinatorialInputsByTerm;
-  for (DNLID termID = 0; termID < dnl_->getNBterms(); ++termID) {
-    const auto& term = dnl_->getDNLTerminalFromID(termID);
-    isSequentialTerm[termID] = term.isSequential();
-    auto* bitTerm = term.getSnlBitTerm();
-    if (bitTerm->getDirection() == SNLTerm::Direction::Input ||
-        combinatorialInputsByTerm.find(bitTerm) != combinatorialInputsByTerm.end()) {
-      continue;
-    }
-    auto inputs = SNLDesignModeling::getCombinatorialInputs(bitTerm);
-    combinatorialInputsByTerm.emplace(
-        bitTerm, std::set<SNLBitTerm*>(inputs.begin(), inputs.end()));
-  }
-  const auto& sequentialTerms = isSequentialTerm;
-  const auto& combinatorialInputs = combinatorialInputsByTerm;
   // 3) Parallel BFS starting from each term, updating only thread-local max
   tbb::parallel_for_each(
       termsToTrace.begin(), termsToTrace.end(), [&](DNLID term) {
@@ -115,7 +96,7 @@ void LogicLevelComputer::process() {
           for (const auto& driver : iso.getDrivers()) {
             const DNLInstanceFull& driverInstance =
                 dnl_->getDNLTerminalFromID(driver).getDNLInstance();
-            if (sequentialTerms[driver] ||
+            if (dnl_->getDNLTerminalFromID(driver).isSequential() ||
                 dnl_->getDNLTerminalFromID(driver).isTopPort()) {
               continue;
             }
@@ -126,12 +107,12 @@ void LogicLevelComputer::process() {
               // LCOV_EXCL_STOP
             }
             dnlID2ll[driver] = path.size();
-            auto combinatorialInputsIt = combinatorialInputs.find(
-                dnl_->getDNLTerminalFromID(driver).getSnlBitTerm());
-            if (combinatorialInputsIt == combinatorialInputs.end()) {
-              continue;
-            }
-            const auto& CombinatorialInputs = combinatorialInputsIt->second;
+            auto CombinatorialInputsCollection =
+                SNLDesignModeling::getCombinatorialInputs(
+                    dnl_->getDNLTerminalFromID(driver).getSnlBitTerm());
+            std::set<SNLBitTerm*> CombinatorialInputs(
+                CombinatorialInputsCollection.begin(),
+                CombinatorialInputsCollection.end());
             for (DNLID termId = driverInstance.getTermIndexes().first;
                  termId != DNLID_MAX &&
                  termId <= driverInstance.getTermIndexes().second;
