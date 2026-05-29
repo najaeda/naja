@@ -6,12 +6,16 @@
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
 
+#include <functional>
+
 #include "DNL.h"
 #include "FanoutComputer.h"
 #include "LogicLevelComputer.h"
+#include "NLDB0.h"
 #include "NLException.h"
 #include "NLUniverse.h"
 #include "NetlistGraph.h"
+#include "SNLBusTerm.h"
 #include "SNLOccurrence.h"
 #include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
@@ -178,4 +182,118 @@ TEST_F(MetricsTests, simpleTest) {
   FanoutComputer fc;
   fc.process();
   EXPECT_EQ(fc.getMaxFanout(), 8);
+}
+
+TEST_F(MetricsTests, logicLevelDB0OrGateTraversalStress) {
+  constexpr size_t gateCount = 128;
+
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
+  univ->setTopDesign(top);
+
+  SNLDesign* or2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 2);
+  ASSERT_NE(nullptr, or2);
+  auto orOut = NLDB0::getGateSingleTerm(or2);
+  ASSERT_NE(nullptr, orOut);
+  auto orInputs = NLDB0::getGateNTerms(or2);
+  ASSERT_NE(nullptr, orInputs);
+
+  std::vector<SNLBitTerm*> inputBits;
+  for (auto bit: orInputs->getBits()) {
+    inputBits.push_back(bit);
+  }
+  ASSERT_EQ(2, inputBits.size());
+
+  for (size_t index = 0; index < gateCount; ++index) {
+    auto inputNet0 =
+        SNLScalarNet::create(top, NLName("input_net0_" + std::to_string(index)));
+    auto inputNet1 =
+        SNLScalarNet::create(top, NLName("input_net1_" + std::to_string(index)));
+    auto outputNet =
+        SNLScalarNet::create(top, NLName("output_net_" + std::to_string(index)));
+
+    auto topIn0 = SNLScalarTerm::create(
+        top, SNLTerm::Direction::Input,
+        NLName("input0_" + std::to_string(index)));
+    auto topIn1 = SNLScalarTerm::create(
+        top, SNLTerm::Direction::Input,
+        NLName("input1_" + std::to_string(index)));
+    auto topOut = SNLScalarTerm::create(
+        top, SNLTerm::Direction::Output,
+        NLName("output_" + std::to_string(index)));
+
+    topIn0->setNet(inputNet0);
+    topIn1->setNet(inputNet1);
+    topOut->setNet(outputNet);
+
+    auto instance = SNLInstance::create(
+        top, or2, NLName("or2_" + std::to_string(index)));
+    instance->getInstTerm(inputBits[0])->setNet(inputNet0);
+    instance->getInstTerm(inputBits[1])->setNet(inputNet1);
+    instance->getInstTerm(orOut)->setNet(outputNet);
+  }
+
+  LogicLevelComputer llc;
+  llc.process();
+  EXPECT_EQ(1, llc.getMaxLogicLevel());
+  EXPECT_GE(llc.getMaxLogicLevelPaths().size(), 1);
+}
+
+TEST_F(MetricsTests, logicLevelPathCountIsBoundedForBranchingTree) {
+  constexpr size_t depth = 9;
+  constexpr size_t maxStoredPaths = 256;
+
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  NLLibrary* primitives = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
+  univ->setTopDesign(top);
+
+  SNLDesign* gate2 =
+      SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("gate2"));
+  auto in0 = SNLScalarTerm::create(gate2, SNLTerm::Direction::Input, NLName("in0"));
+  auto in1 = SNLScalarTerm::create(gate2, SNLTerm::Direction::Input, NLName("in1"));
+  auto out = SNLScalarTerm::create(gate2, SNLTerm::Direction::Output, NLName("out"));
+  SNLDesignModeling::addCombinatorialArcs({in0, in1}, {out});
+
+  size_t inputIndex = 0;
+  size_t instanceIndex = 0;
+  size_t netIndex = 0;
+  auto createNet = [&](const std::string& prefix) {
+    return SNLScalarNet::create(top, NLName(prefix + std::to_string(netIndex++)));
+  };
+
+  std::function<SNLNet*(size_t)> buildTree = [&](size_t level) -> SNLNet* {
+    if (level == 0) {
+      auto net = createNet("input_net_");
+      auto input = SNLScalarTerm::create(
+          top, SNLTerm::Direction::Input,
+          NLName("input_" + std::to_string(inputIndex++)));
+      input->setNet(net);
+      return net;
+    }
+
+    auto left = buildTree(level - 1);
+    auto right = buildTree(level - 1);
+    auto outputNet = createNet("gate_output_net_");
+    auto instance = SNLInstance::create(
+        top, gate2, NLName("gate_" + std::to_string(instanceIndex++)));
+    instance->getInstTerm(in0)->setNet(left);
+    instance->getInstTerm(in1)->setNet(right);
+    instance->getInstTerm(out)->setNet(outputNet);
+    return outputNet;
+  };
+
+  auto rootNet = buildTree(depth);
+  auto topOut =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("topOut"));
+  topOut->setNet(rootNet);
+
+  LogicLevelComputer llc;
+  llc.process();
+  EXPECT_EQ(depth, llc.getMaxLogicLevel());
+  EXPECT_LE(llc.getMaxLogicLevelPaths().size(), maxStoredPaths);
 }
