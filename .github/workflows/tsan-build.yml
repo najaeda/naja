@@ -39,5 +39,7 @@ jobs:
     - name: Test
       working-directory: ${{ github.workspace }}/build
       env:
+        # Keep TSan focused on Naja code paths and avoid TBB scheduler reports.
+        NON_MT: 1
         TSAN_OPTIONS: halt_on_error=1 ignore_noninstrumented_modules=1
       run: ctest --parallel 1 -VV -E ".*[p|P]ython.*" -C ${{ env.BUILD_TYPE }}
