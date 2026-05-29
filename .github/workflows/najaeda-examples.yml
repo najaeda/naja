@@ -1,8 +1,8 @@
-name: run najaeda examples 
+name: run najaeda examples
 
 on:
   push:
-    branches: 
+    branches:
       - main
   pull_request:
 
@@ -26,16 +26,16 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -VV -C ${{env.BUILD_TYPE}}
-    - name: Set up Python 
+      run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
+    - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: 3.13
     - name: launch najaeda examples
-      env: 
+      env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
       working-directory: ${{github.workspace}}/src/najaeda/examples
-      run: python3 run_regress.py 
+      run: python3 run_regress.py

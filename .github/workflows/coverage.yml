@@ -49,12 +49,12 @@ jobs:
     - name: Build
       run: |
         cmake --build ${{ github.workspace }}/build \
-          -j $(nproc) \
+          --parallel $(nproc) \
           --config ${{ env.BUILD_TYPE }}
 
     - name: Test
       working-directory: ${{ github.workspace }}/build
-      run: ctest -VV -C ${{ env.BUILD_TYPE }}
+      run: ctest --parallel $(nproc) -VV -C ${{ env.BUILD_TYPE }}
 
     - name: Generate coverage
       working-directory: ${{ github.workspace }}/build

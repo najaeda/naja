@@ -30,7 +30,9 @@ jobs:
       run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_INSTALL_PREFIX=${{ env.NAJA_INSTALL }} -DENABLE_SANITIZERS=OFF
 
     - name: Build and install
-      run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} -j$(nproc) && cmake --install ${{ github.workspace }}/build
+      run: |
+        cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
+        cmake --install ${{ github.workspace }}/build
 
     - name: Run megaboom regress
       run: make -C ${{ github.workspace }}/regress/designs/verilog/megaboom

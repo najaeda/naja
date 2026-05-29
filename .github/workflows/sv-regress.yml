@@ -48,7 +48,7 @@ jobs:
             -DPython3_EXECUTABLE=$(which python3)
 
       - name: Build naja Python module
-        run: cmake --build ${{ github.workspace }}/build --target naja --config Release -j$(nproc)
+        run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
 
       - name: Prepare najaeda Python package for script execution
         run: |
