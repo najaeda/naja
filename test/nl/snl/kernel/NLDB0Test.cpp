@@ -456,6 +456,25 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   EXPECT_THROW(
       NLDB0::getDivModSignature(static_cast<const SNLInstance*>(nullptr)),
       NLException);
+
+  auto* notDivMod = SNLDesign::create(
+      topLibrary,
+      SNLDesign::Type::Standard,
+      NLName("not_divmod"));
+  ASSERT_NE(nullptr, notDivMod);
+  EXPECT_FALSE(NLDB0::isDivMod(notDivMod));
+  EXPECT_THROW(NLDB0::getDivModSignature(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModDividend(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModDivisor(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModQuotient(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModRemainder(notDivMod), NLException);
+
+  auto* malformed = SNLDesign::create(
+      divmod0->getLibrary(),
+      SNLDesign::Type::Primitive,
+      NLName("naja_divmod__missing_width"));
+  ASSERT_TRUE(NLDB0::isDivMod(malformed));
+  EXPECT_THROW(NLDB0::getDivModSignature(malformed), NLException);
 }
 
 TEST_F(NLDB0Test, testMemoryPrimitive) {
@@ -1101,6 +1120,9 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   signature.readPorts = 1;
   signature.writePorts = 1;
   EXPECT_EQ(nullptr, NLDB0::getOrCreateMemory(signature));
+  NLDB0::DivModSignature divModSignature;
+  divModSignature.width = 4;
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateDivMod(divModSignature));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 
@@ -1132,6 +1154,8 @@ TEST_F(NLDB0Test, testErrors) {
   invalidMemorySignature.readPorts = 1;
   invalidMemorySignature.writePorts = 1;
   EXPECT_THROW(NLDB0::getOrCreateMemory(invalidMemorySignature), NLException);
+  NLDB0::DivModSignature invalidDivModSignature;
+  EXPECT_THROW(NLDB0::getOrCreateDivMod(invalidDivModSignature), NLException);
   EXPECT_THROW(NLDB0::getOrCreateMux2(0), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Unknown, 2), NLException);
