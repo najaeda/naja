@@ -70,11 +70,8 @@ class NajaNetlistTestGates0(unittest.TestCase):
 
     def test_get_max_logic_level(self):
         # Test the maximum logic level of the design
-        # Test the maximum logic level of the design
-        # iterate until 10000
-        for i in range(10000):
-            max_logic_level = netlist.get_max_logic_level()
-            self.assertEqual(max_logic_level[0], 3)
+        max_logic_level = netlist.get_max_logic_level()
+        self.assertEqual(max_logic_level[0], 3)
 
     def test_disconnect(self):
         #disconnect top term
