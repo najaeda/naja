@@ -18,8 +18,6 @@
 #include "PNLTechnology.h"
 
 #include <limits>
-#include <mutex>
-#include <shared_mutex>
 #include <string>
 
 namespace naja::NL {
@@ -293,7 +291,6 @@ void NLUniverse::mergeAssigns() {
 }
 
 NLName::ID NLUniverse::getOrCreateNameID(const std::string& name) {
-  std::unique_lock lock(nameTableMutex_);
   // Redundant guard: callers (NLName) already filter empty names.
   //LCOV_EXCL_START
   if (name.empty()) {
@@ -315,7 +312,6 @@ NLName::ID NLUniverse::getOrCreateNameID(const std::string& name) {
 }
 
 const std::string& NLUniverse::getNameString(NLName::ID id) const {
-  std::shared_lock lock(nameTableMutex_);
   if (id < nameTable_.names.size()) {
     return *nameTable_.names[id];
   }

@@ -18,14 +18,12 @@
 
 #include <cstdint>
 #include <limits>
-#include <mutex>
 #include <sstream>
 #include <vector>
 #if defined(_MSC_VER)
   #include <intrin.h>
 #endif
 namespace {
-  constexpr const char* DB0RootLibraryNameLiteral = "PRIMITIVES";
   constexpr const char* MemoryPrefix = "naja_mem__";
   constexpr const char* MemoryLibraryName = "MEMORY";
   constexpr const char* ArithmeticLibraryName = "ARITH";
@@ -36,8 +34,6 @@ namespace {
   constexpr const char* DFFEName = "naja_dffe";
   constexpr const char* DFFREName = "naja_dffre";
   constexpr const char* DFFSEName = "naja_dffse";
-
-  std::recursive_mutex DB0CreationMutex;
 
   naja::NL::SNLTruthTable getMux2TruthTable() {
     uint64_t bits = 0;
@@ -70,7 +66,6 @@ namespace {
 
   template<typename CreatePrimitive>
   naja::NL::SNLDesign* getOrCreateRootPrimitive(const char* name, CreatePrimitive createPrimitive) {
-    std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
     auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
     if (!rootLibrary) {
       return nullptr;
@@ -85,18 +80,7 @@ namespace {
 
   bool isNamedRootPrimitive(const naja::NL::SNLDesign* design, const char* name) {
     return design && naja::NL::NLDB0::isDB0Primitive(design) && !design->isUnnamed() &&
-           design->getName().getString() == name;
-  }
-
-  bool isNamedDB0ChildLibrary(const naja::NL::NLLibrary* library, const char* name) {
-    if (!library || library->isRoot() || library->isUnnamed()) {
-      return false;
-    }
-    auto* parent = library->getParentLibrary();
-    return parent && parent->isRoot() && parent->getDB() == naja::NL::NLDB0::getDB0() &&
-           !parent->isUnnamed() &&
-           parent->getName().getString() == DB0RootLibraryNameLiteral &&
-           library->getName().getString() == name;
+           design->getName() == naja::NL::NLName(name);
   }
 
   naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm& busTerm) {
@@ -495,7 +479,6 @@ namespace {
   }
 
   naja::NL::NLLibrary* getOrCreateMemoryLibrary() {
-    std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
     if (auto* existing = getMemoryLibrary()) {
       return existing;
     }
@@ -518,7 +501,6 @@ namespace {
   }
 
   naja::NL::NLLibrary* getOrCreateArithmeticLibrary() {
-    std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
     if (auto* existing = getArithmeticLibrary()) {
       return existing;
     }
@@ -631,12 +613,12 @@ NLLibrary* NLDB0::getDB0RootLibrary() {
 }
 
 bool NLDB0::isDB0Library(const NLLibrary* library) {
-  if (!library) {
-    return false;
+  auto topLibrary = getDB0RootLibrary();
+  if (library == topLibrary) {
+    return true;
   }
   if (library->isRoot()) {
-    return library->getDB() == getDB0() && !library->isUnnamed() &&
-           library->getName().getString() == RootLibraryName;
+    return false;
   }
   return isDB0Library(library->getParentLibrary());
 }
@@ -646,8 +628,7 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 }
 
 bool NLDB0::isMemory(const SNLDesign* design) {
-  return design && design->isPrimitive() &&
-         isNamedDB0ChildLibrary(design->getLibrary(), MemoryLibraryName);
+  return design && design->isPrimitive() && design->getLibrary() == getMemoryLibrary();
 }
 
 NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLDesign* design) {
@@ -734,8 +715,7 @@ SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
 }
 
 bool NLDB0::isDivMod(const SNLDesign* design) {
-  return design && design->isPrimitive() &&
-         isNamedDB0ChildLibrary(design->getLibrary(), ArithmeticLibraryName) &&
+  return design && design->isPrimitive() && design->getLibrary() == getArithmeticLibrary() &&
          !design->isUnnamed() && design->getName().getString().rfind(DivModPrefix, 0) == 0;
 }
 
@@ -864,7 +844,6 @@ std::string designName = design->getLibrary()->getName().getString() + "." + des
 }
 
 SNLDesign* NLDB0::getOrCreateDivMod(const DivModSignature& signature) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   auto* arithmeticLibrary = getOrCreateArithmeticLibrary();
   if (!arithmeticLibrary) {
     return nullptr;
@@ -881,7 +860,6 @@ SNLDesign* NLDB0::getOrCreateDivMod(const DivModSignature& signature) {
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   auto* memoryLibrary = getOrCreateMemoryLibrary();
   if (!memoryLibrary) {
     return nullptr;
@@ -1003,7 +981,6 @@ SNLDesign* NLDB0::getMux2() {
 }
 
 SNLDesign* NLDB0::getOrCreateMux2(size_t width) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   auto* primitives = getDB0RootLibrary();
   if (!primitives) {
     return nullptr;
@@ -1350,7 +1327,6 @@ SNLScalarTerm* NLDB0::getDFFSEOutput() {
 }
 
 NLLibrary* NLDB0::getOrCreateGateLibrary(const GateType& type) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   auto gateLib = getGateLibrary(type);
   if (gateLib) {
     return gateLib;
@@ -1387,7 +1363,6 @@ bool NLDB0::isGateLibrary(const NLLibrary* library) {
 }
 
 SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   if (not type.isNOutput()) {
     throw NLException(
       "NLDB0::getOrCreateNOutputGate: type " + type.getString() + " is not an NOutput gate" 
@@ -1411,7 +1386,6 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
 }
 
 SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
-  std::lock_guard<std::recursive_mutex> lock(DB0CreationMutex);
   if (not type.isNInput()) {
     throw NLException("NLDB0::getOrCreateNInputGate: type is not an NInput gate");
   }

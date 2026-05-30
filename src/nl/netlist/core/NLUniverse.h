@@ -5,7 +5,6 @@
 
 #pragma once
 #include <memory>
-#include <shared_mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -138,7 +137,6 @@ class NLUniverse final: public NLObject {
     };
 
     static NLUniverse*  universe_;
-    mutable std::shared_mutex nameTableMutex_ {};
     NameTable           nameTable_    {};
     NLUniverseDBs       dbs_          {};
     NLDB*               db0_          {nullptr};
