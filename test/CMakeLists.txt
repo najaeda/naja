@@ -4,6 +4,20 @@
 
 include(GoogleTest)
 
+option(ENABLE_TEST_DOT
+  "Enable Graphviz dot rendering in unit tests"
+  OFF)
+
+if(ENABLE_TEST_DOT)
+  find_program(TEST_DOT_EXECUTABLE dot)
+  if(NOT TEST_DOT_EXECUTABLE)
+    message(WARNING
+      "ENABLE_TEST_DOT is ON but Graphviz 'dot' was not found; "
+      "dot rendering in unit tests is disabled.")
+    set(ENABLE_TEST_DOT OFF)
+  endif()
+endif()
+
 add_subdirectory(core)
 add_subdirectory(nl)
 if (NOT BUILD_EMSCRIPTEN)

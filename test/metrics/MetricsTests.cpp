@@ -30,10 +30,14 @@ using namespace naja::NL;
 using namespace naja::NAJA_METRICS;
 
 void executeCommand(const std::string& command) {
+#ifdef NAJA_ENABLE_TEST_DOT
   int result = system(command.c_str());
   if (result != 0) {
     std::cerr << "Command execution failed." << std::endl;
   }
+#else
+  (void) command;
+#endif
 }
 
 class MetricsTests : public ::testing::Test {
