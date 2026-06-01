@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module binary_ops_unsupported_top(
+module binary_ops_extended_supported_top(
   input logic a,
   input logic b,
   output logic y_add,

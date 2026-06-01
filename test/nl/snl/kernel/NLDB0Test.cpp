@@ -379,6 +379,104 @@ TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
   EXPECT_TRUE(NLDB0::isMux2(clonedMuxInstance->getModel()));
 }
 
+TEST_F(NLDB0Test, testDivModPrimitive) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::DivModSignature signature;
+  signature.width = 8;
+  signature.isSigned = false;
+
+  auto* divmod0 = NLDB0::getOrCreateDivMod(signature);
+  ASSERT_NE(nullptr, divmod0);
+  EXPECT_TRUE(divmod0->isPrimitive());
+  EXPECT_TRUE(NLDB0::isDB0Primitive(divmod0));
+  EXPECT_TRUE(NLDB0::isDivMod(divmod0));
+  ASSERT_NE(nullptr, divmod0->getLibrary());
+  EXPECT_EQ(NLName("ARITH"), divmod0->getLibrary()->getName());
+  EXPECT_EQ(NLName("naja_divmod__u_w8"), divmod0->getName());
+  EXPECT_EQ(signature, NLDB0::getDivModSignature(divmod0));
+  EXPECT_EQ("8", divmod0->getParameter(NLName("WIDTH"))->getValue());
+  EXPECT_EQ("0", divmod0->getParameter(NLName("SIGNED"))->getValue());
+
+  auto* divmod1 = NLDB0::getOrCreateDivMod(signature);
+  EXPECT_EQ(divmod0, divmod1);
+
+  NLDB0::DivModSignature signedSignature;
+  signedSignature.width = 8;
+  signedSignature.isSigned = true;
+  auto* signedDivMod = NLDB0::getOrCreateDivMod(signedSignature);
+  ASSERT_NE(nullptr, signedDivMod);
+  EXPECT_NE(divmod0, signedDivMod);
+  EXPECT_EQ(NLName("naja_divmod__s_w8"), signedDivMod->getName());
+  EXPECT_EQ(signedSignature, NLDB0::getDivModSignature(signedDivMod));
+  EXPECT_EQ("1", signedDivMod->getParameter(NLName("SIGNED"))->getValue());
+
+  auto* dividend = NLDB0::getDivModDividend(divmod0);
+  auto* divisor = NLDB0::getDivModDivisor(divmod0);
+  auto* quotient = NLDB0::getDivModQuotient(divmod0);
+  auto* remainder = NLDB0::getDivModRemainder(divmod0);
+  ASSERT_NE(nullptr, dividend);
+  ASSERT_NE(nullptr, divisor);
+  ASSERT_NE(nullptr, quotient);
+  ASSERT_NE(nullptr, remainder);
+  EXPECT_EQ(SNLTerm::Direction::Input, dividend->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, divisor->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, quotient->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, remainder->getDirection());
+  EXPECT_EQ(8, dividend->getWidth());
+  EXPECT_EQ(8, divisor->getWidth());
+  EXPECT_EQ(8, quotient->getWidth());
+  EXPECT_EQ(8, remainder->getWidth());
+
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(divmod0), NLException);
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(divmod0));
+  auto q0Inputs = std::vector(
+    SNLDesignModeling::getCombinatorialInputs(
+      static_cast<SNLBitTerm*>(quotient->getBit(0))).begin(),
+    SNLDesignModeling::getCombinatorialInputs(
+      static_cast<SNLBitTerm*>(quotient->getBit(0))).end());
+  EXPECT_EQ(16u, q0Inputs.size());
+  EXPECT_NE(q0Inputs.end(), std::find(q0Inputs.begin(), q0Inputs.end(), dividend->getBit(0)));
+  EXPECT_NE(q0Inputs.end(), std::find(q0Inputs.begin(), q0Inputs.end(), divisor->getBit(0)));
+
+  auto* db = NLDB0::getDB0();
+  ASSERT_NE(nullptr, db);
+  auto* topLibrary = NLLibrary::create(db, NLName("WORK"));
+  auto* top = SNLDesign::create(topLibrary, SNLDesign::Type::Standard, NLName("top"));
+  auto* inst = SNLInstance::create(top, divmod0, NLName("div0"));
+  ASSERT_NE(nullptr, inst);
+  EXPECT_EQ(signature, NLDB0::getDivModSignature(inst));
+  SNLInstParameter::create(inst, divmod0->getParameter(NLName("WIDTH")), "4");
+  SNLInstParameter::create(inst, divmod0->getParameter(NLName("SIGNED")), "1");
+  const auto overridden = NLDB0::getDivModSignature(inst);
+  EXPECT_EQ(4u, overridden.width);
+  EXPECT_TRUE(overridden.isSigned);
+
+  EXPECT_THROW(
+      NLDB0::getDivModSignature(static_cast<const SNLInstance*>(nullptr)),
+      NLException);
+
+  auto* notDivMod = SNLDesign::create(
+      topLibrary,
+      SNLDesign::Type::Standard,
+      NLName("not_divmod"));
+  ASSERT_NE(nullptr, notDivMod);
+  EXPECT_FALSE(NLDB0::isDivMod(notDivMod));
+  EXPECT_THROW(NLDB0::getDivModSignature(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModDividend(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModDivisor(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModQuotient(notDivMod), NLException);
+  EXPECT_THROW(NLDB0::getDivModRemainder(notDivMod), NLException);
+
+  auto* malformed = SNLDesign::create(
+      divmod0->getLibrary(),
+      SNLDesign::Type::Primitive,
+      NLName("naja_divmod__missing_width"));
+  ASSERT_TRUE(NLDB0::isDivMod(malformed));
+  EXPECT_THROW(NLDB0::getDivModSignature(malformed), NLException);
+}
+
 TEST_F(NLDB0Test, testMemoryPrimitive) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -1022,6 +1120,9 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   signature.readPorts = 1;
   signature.writePorts = 1;
   EXPECT_EQ(nullptr, NLDB0::getOrCreateMemory(signature));
+  NLDB0::DivModSignature divModSignature;
+  divModSignature.width = 4;
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateDivMod(divModSignature));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 
@@ -1053,6 +1154,8 @@ TEST_F(NLDB0Test, testErrors) {
   invalidMemorySignature.readPorts = 1;
   invalidMemorySignature.writePorts = 1;
   EXPECT_THROW(NLDB0::getOrCreateMemory(invalidMemorySignature), NLException);
+  NLDB0::DivModSignature invalidDivModSignature;
+  EXPECT_THROW(NLDB0::getOrCreateDivMod(invalidDivModSignature), NLException);
   EXPECT_THROW(NLDB0::getOrCreateMux2(0), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Unknown, 2), NLException);

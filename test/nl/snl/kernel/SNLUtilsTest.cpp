@@ -15,6 +15,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLDesignModeling.h"
 #include "SNLUtils.h"
 using namespace naja::NL;
 
@@ -77,4 +78,22 @@ TEST_F(SNLUtilsTest, testDoubleHierarchy) {
     SNLUtils::DesignLevel(level20, 2), //sorted by SNLID
     SNLUtils::DesignLevel(top, 3)
   ));
+}
+
+TEST_F(SNLUtilsTest, testPrepareForConcurrentAccess) {
+  auto library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
+
+  auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("buf"));
+  SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("i"));
+  SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("o"));
+  SNLDesignModeling::setTruthTable(primitive, SNLTruthTable::Buf());
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto child = SNLDesign::create(library, NLName("child"));
+  SNLInstance::create(child, primitive, NLName("primitive"));
+  SNLInstance::create(top, child, NLName("child"));
+
+  EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
 }

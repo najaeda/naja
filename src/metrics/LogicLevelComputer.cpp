@@ -10,7 +10,9 @@
 #include <tbb/combinable.h>
 #include <tbb/concurrent_map.h>
 #include <tbb/parallel_for_each.h>
+
 #include "SNLDesignModeling.h"
+#include "SNLUtils.h"
 
 // Debug prints
 // #define DEBUG_PRINTS
@@ -19,10 +21,12 @@ using namespace naja::NAJA_METRICS;
 using namespace naja::DNL;
 
 void LogicLevelComputer::process() {
+  auto topDesign = dnl_->getTopDesign();
+  SNLUtils::prepareForConcurrentAccess(topDesign);
+  
   // 1) Build the set of starting terms exactly as before
   std::set<DNLID> termsToTrace;
   // add top output terms
-  auto topDesign = dnl_->getTopDesign();
   for (const auto& term : topDesign->getBitTerms()) {
     if (term->getDirection() != SNLTerm::Direction::Input) {
       termsToTrace.insert(term->getID());
@@ -50,6 +54,7 @@ void LogicLevelComputer::process() {
 #ifdef DEBUG_PRINTS
   printf("Logic Level Computer: %zu terms to trace\n", termsToTrace.size());
 #endif
+  std::vector<DNLID> termsToTraceVec(termsToTrace.begin(), termsToTrace.end());
   // 2) Prepare a combinable to hold each thread's local max
   tbb::enumerable_thread_specific<std::pair<size_t,
     std::vector<std::vector<std::pair<naja::DNL::DNLID, naja::DNL::DNLID>>>>> localMaxLogicLevel;
@@ -57,7 +62,7 @@ void LogicLevelComputer::process() {
   tbb::concurrent_map<size_t, size_t> dnlID2ll;
   // 3) Parallel BFS starting from each term, updating only thread-local max
   tbb::parallel_for_each(
-      termsToTrace.begin(), termsToTrace.end(), [&](DNLID term) {
+      termsToTraceVec.begin(), termsToTraceVec.end(), [&](DNLID term) {
         // for (DNLID term : termsToTrace) {
         //  Reference to this thread's local maximum
         size_t& localMax = localMaxLogicLevel.local().first;

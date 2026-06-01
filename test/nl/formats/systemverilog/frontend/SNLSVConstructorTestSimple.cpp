@@ -118,6 +118,22 @@ std::string readTextFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
+std::filesystem::path writeSVTestFile(const std::string& testName, const std::string& text) {
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= testName;
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / (testName + ".sv");
+  std::ofstream svFile(svPath);
+  EXPECT_TRUE(svFile.good());
+  svFile << text;
+  svFile.close();
+  return svPath;
+}
+
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
                                                const std::string& outDirName,
                                                bool dumpRTLInfosAsAttributes = false) {
@@ -273,6 +289,24 @@ size_t countFAInstances(const SNLDesign* design) {
     if (NLDB0::isFA(inst->getModel())) {
       ++count;
     }
+  }
+  return count;
+}
+
+size_t countDivModInstances(const SNLDesign* design, size_t width = 0, bool isSigned = false) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isDivMod(inst->getModel())) {
+      continue;
+    }
+    const auto signature = NLDB0::getDivModSignature(inst);
+    if (width != 0 && signature.width != width) {
+      continue;
+    }
+    if (signature.isSigned != isSigned) {
+      continue;
+    }
+    ++count;
   }
   return count;
 }
@@ -3273,20 +3307,20 @@ endmodule
   EXPECT_EQ(top->getNet(NLName("unconnected_val_p")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceWidthMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_assign_bit_slice_width_mismatch_unsupported";
+  outPath = outPath / "continuous_assign_bit_slice_width_mismatch_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_assign_bit_slice_width_mismatch_unsupported.sv";
+  const auto svPath = outPath / "continuous_assign_bit_slice_width_mismatch_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_assign_bit_slice_width_mismatch_unsupported(
+    << R"(module continuous_assign_bit_slice_width_mismatch_supported(
   input  logic [2:0] a,
   output logic [7:0] y
 );
@@ -3295,10 +3329,14 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported net compatibility in continuous assign"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_bit_slice_width_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignBitSliceTruncateSupported) {
@@ -8165,16 +8203,16 @@ endmodule
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
+TEST_F(SNLSVConstructorTestSimple, parseInterfacePortWithoutModportSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "interface_port_reported_unsupported";
+  outPath = outPath / "interface_port_without_modport_skipped";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "interface_port_reported_unsupported.sv";
+  const auto svPath = outPath / "interface_port_without_modport_skipped.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
@@ -8190,7 +8228,7 @@ module interface_port_child(
   assign o = i;
 endmodule
 
-module interface_port_reported_unsupported_top(
+module interface_port_without_modport_skipped_top(
   input logic i,
   output logic o
 );
@@ -8205,7 +8243,7 @@ endmodule
   svFile.close();
 
   // Interface ports without a modport are now silently skipped via the lazy
-  // term-creation path — construction succeeds.
+  // term-creation path; construction succeeds.
   EXPECT_NO_THROW(constructor.construct(svPath));
   auto top = SNLUtils::findTop(library_);
   ASSERT_NE(nullptr, top);
@@ -8820,6 +8858,45 @@ endmodule
     3);
   ASSERT_TRUE(bits.has_value());
   EXPECT_EQ("001", *bits);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage2UnknownLiteralCastAndPatternFallbackFailures) {
+  const auto signedCastFailure =
+    detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+      R"(module detail_test(input logic [1:0] a, output logic [3:0] y);
+  function automatic logic [1:0] bad_fn(input logic [1:0] op);
+    case (op) inside
+      [2'bxx : 2'd2]: bad_fn = 2'b11;
+      default:        bad_fn = 2'b00;
+    endcase
+  endfunction
+
+  assign y = $signed(bad_fn(a));
+endmodule
+)",
+      4);
+  EXPECT_EQ(std::nullopt, signedCastFailure);
+
+  const auto patternFailure =
+    detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+      R"(module detail_test(input logic [1:0] sel, output logic [3:0] y);
+  typedef struct packed {
+    logic [3:0] bits;
+  } packed_t;
+  function automatic logic [3:0] bad_rhs(input logic [1:0] op);
+    case (op) inside
+      [2'bxx : 2'd2]: bad_rhs = 4'hf;
+      default:        bad_rhs = 4'h0;
+    endcase
+  endfunction
+
+  assign y = packed_t'{default: bad_rhs(sel)};
+endmodule
+)",
+      4);
+  EXPECT_EQ(std::nullopt, patternFailure);
 }
 
 TEST_F(
@@ -10100,20 +10177,18 @@ endmodule
   EXPECT_EQ(8, y->getWidth());
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyUnknownOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "continuous_mul_unknown_operand_unsupported" /
-      "continuous_mul_unknown_operand_unsupported.sv");
-    FAIL() << "Expected unsupported multiply operand expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: *"));
-  }
+  constructor.construct(
+    benchmarksPath / "continuous_mul_unknown_operand_supported" /
+    "continuous_mul_unknown_operand_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_unknown_operand_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
@@ -11100,20 +11175,20 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownAmountSupport
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousShiftRightUnsupportedAmountExprReportsReason) {
+  parseContinuousShiftRightDivmodAmountExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_right_unsupported_amount_expr";
+  outPath = outPath / "continuous_shift_right_divmod_amount_expr_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_right_unsupported_amount_expr.sv";
+  const auto svPath = outPath / "continuous_shift_right_divmod_amount_expr_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_right_unsupported_amount_expr(
+    << R"(module continuous_shift_right_divmod_amount_expr_supported(
   input logic [3:0] a,
   input logic [2:0] shamt,
   output logic [3:0] y
@@ -11123,29 +11198,33 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: >>",
-     "failed to resolve shift amount bits"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_right_divmod_amount_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousShiftLeftUnsupportedAmountExprReportsGenericReason) {
+  parseContinuousShiftLeftDivmodAmountExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_left_unsupported_amount_expr";
+  outPath = outPath / "continuous_shift_left_divmod_amount_expr_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_left_unsupported_amount_expr.sv";
+  const auto svPath = outPath / "continuous_shift_left_divmod_amount_expr_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_left_unsupported_amount_expr(
+    << R"(module continuous_shift_left_divmod_amount_expr_supported(
   input logic [3:0] a,
   input logic [2:0] shamt,
   output logic [3:0] y
@@ -11155,26 +11234,31 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: <<<"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_shift_left_divmod_amount_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnknownValueSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_shift_right_unknown_value_unsupported";
+  outPath = outPath / "continuous_shift_right_unknown_value_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_shift_right_unknown_value_unsupported.sv";
+  const auto svPath = outPath / "continuous_shift_right_unknown_value_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_shift_right_unknown_value_unsupported(
+    << R"(module continuous_shift_right_unknown_value_supported(
   input logic [3:0] a,
   output logic [7:0] y
 );
@@ -11184,32 +11268,29 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported arithmetic right-shift value expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>>"));
-    EXPECT_NE(std::string::npos, reason.find("failed to resolve value bits"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_unknown_value_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownValueUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownValueSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_logical_shift_right_unknown_value_unsupported";
+  outPath = outPath / "continuous_logical_shift_right_unknown_value_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_logical_shift_right_unknown_value_unsupported.sv";
+  const auto svPath = outPath / "continuous_logical_shift_right_unknown_value_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_logical_shift_right_unknown_value_unsupported(
+    << R"(module continuous_logical_shift_right_unknown_value_supported(
   input logic [3:0] a,
   output logic [7:0] y
 );
@@ -11219,16 +11300,14 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported logical right-shift value expression";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: >>"));
-    EXPECT_NE(std::string::npos, reason.find("failed to resolve value bits"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_logical_shift_right_unknown_value_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(8, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmountSupported) {
@@ -11244,6 +11323,137 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmount
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2ContinuousShiftResolveFailuresUnsupported) {
+  const std::array<std::pair<const char*, const char*>, 3> cases {{
+    {"coverage2_continuous_logical_shift_right_failure_unsupported", ">>"},
+    {"coverage2_continuous_arithmetic_shift_right_failure_unsupported", ">>>"},
+    {"coverage2_continuous_shift_left_failure_unsupported", "<<"}
+  }};
+
+  for (const auto& [testName, opText] : cases) {
+    SNLSVConstructor constructor(library_);
+    const auto svPath = writeSVTestFile(
+      testName,
+      std::string(R"(module )") + testName + R"((
+  input  logic [3:0] a_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [1:0] bad_amount(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_amount = 2'd1;
+      default:        bad_amount = 2'd0;
+    endcase
+  endfunction
+
+  assign y_o = a_i )" + opText + R"( bad_amount(sel_i);
+endmodule
+)");
+
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"Unsupported binary expression in continuous assign"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2ContinuousSubResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_continuous_sub_resolve_failure_unsupported",
+    R"(module coverage2_continuous_sub_resolve_failure_unsupported(
+  input  logic [3:0] a_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [3:0] bad_rhs(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_rhs = 4'hf;
+      default:        bad_rhs = 4'h0;
+    endcase
+  endfunction
+
+  assign y_o = a_i - bad_rhs(sel_i);
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: -"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3ContinuousMultiplyResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_continuous_multiply_resolve_failure_unsupported",
+    R"(module coverage3_continuous_multiply_resolve_failure_unsupported(
+  input  logic [3:0] a_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [3:0] bad_rhs(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_rhs = 4'hf;
+      default:        bad_rhs = 4'h0;
+    endcase
+  endfunction
+
+  assign y_o = a_i * bad_rhs(sel_i);
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: *"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3ContinuousConcatDivSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_continuous_concat_div_supported",
+    R"(module coverage3_continuous_concat_div_supported(
+  input  logic [1:0] a_i,
+  input  logic [1:0] b_i,
+  output logic       y0_o,
+  output logic       y1_o
+);
+  assign {y1_o, y0_o} = a_i / b_i;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("coverage3_continuous_concat_div_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y0_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y1_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3ContinuousBitSliceFallbacksSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_continuous_bit_slice_fallbacks_supported",
+    R"(module coverage3_continuous_bit_slice_fallbacks_supported(
+  input  logic [1:0] a_i,
+  input  logic [1:0] b_i,
+  output logic [5:0] y_o
+);
+  assign y_o[1:0] = (a_i == b_i);
+  assign y_o[2] = ~(a_i + b_i);
+  assign y_o[5:3] = 3'b000;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage3_continuous_bit_slice_fallbacks_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
@@ -12646,6 +12856,42 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignVariableDivideAndModuloSupportedWithDivModPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_variable_divide_modulo_supported_with_divmod_primitive(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] q_o,
+  output logic [7:0] r_o
+);
+  assign q_o = a_i / b_i;
+  assign r_o = a_i % b_i;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "continuous_assign_variable_divide_modulo_supported_with_divmod_primitive"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(2u, countDivModInstances(top, 8));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableDeclarationsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -13791,21 +14037,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSRangeSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSRangeSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_lhs_range_select_compound_multiply_assignment_unsupported";
+  outPath = outPath / "always_comb_lhs_range_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_range_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_range_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_range_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_range_select_compound_multiply_assignment_supported(
   input  logic [7:0] seed_i,
   input  logic [3:0] factor_i,
   output logic [7:0] y_o
@@ -13820,29 +14066,31 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_range_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("tmp")), nullptr);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombCompoundAddAssignmentUnknownRHSUnsupported) {
+  parseAlwaysCombCompoundAddAssignmentUnknownRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_compound_add_assignment_unknown_rhs_unsupported";
+  outPath = outPath / "always_comb_compound_add_assignment_unknown_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_compound_add_assignment_unknown_rhs_unsupported.sv";
+    outPath / "always_comb_compound_add_assignment_unknown_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_compound_add_assignment_unknown_rhs_unsupported(
+    << R"(module always_comb_compound_add_assignment_unknown_rhs_supported(
   input  logic [3:0] seed_i,
   output logic [3:0] sum_o
 );
@@ -13854,10 +14102,68 @@ endmodule
 )";
   svFile.close();
 
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_compound_add_assignment_unknown_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage3AlwaysCombCompoundRecoveredOperandSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_always_comb_compound_recovered_operand_supported",
+    R"(module coverage3_always_comb_compound_recovered_operand_supported(
+  input  logic [2:0] idx_i,
+  input  logic [3:0] delta_i,
+  input  logic [3:0] seed_i,
+  output logic [7:0] sum_o
+);
+  logic [7:0] tmp;
+
+  always_comb begin
+    tmp = {4'b0000, seed_i};
+    tmp[idx_i+:4] += tmp[idx_i+:4] + delta_i;
+    sum_o = tmp;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage3_always_comb_compound_recovered_operand_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage3AlwaysCombCompoundRecoveredModuloOperandUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_always_comb_compound_recovered_modulo_operand_unsupported",
+    R"(module coverage3_always_comb_compound_recovered_modulo_operand_unsupported(
+  input  logic [3:0] seed_i,
+  input  logic [3:0] div_i,
+  output logic [3:0] rem_o
+);
+  always_comb begin
+    rem_o = seed_i;
+    rem_o %= rem_o % div_i;
+  end
+endmodule
+)");
+
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unable to resolve always_comb compound assignment RHS bits"});
+    {"unsupported compound assignment operator in always_comb: %"});
 }
 
 TEST_F(
@@ -13946,20 +14252,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_compound_multiply_assignment_unsupported";
+  outPath = outPath / "always_comb_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_comb_compound_multiply_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_comb_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_compound_multiply_assignment_supported(
   input  logic [3:0] seed_i,
   input  logic [3:0] factor_i,
   output logic [3:0] prod_o
@@ -13972,10 +14278,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("prod_o")), nullptr);
 }
 
 TEST_F(
@@ -14159,6 +14466,71 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseCoverage2AlwaysCombImplicationEquivalenceConditionsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_comb_implication_equivalence_conditions_supported",
+    R"(module coverage2_always_comb_implication_equivalence_conditions_supported(
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  input  logic d_i,
+  output logic y_o
+);
+  always_comb begin
+    if ((a_i -> b_i) && (c_i <-> d_i)) begin
+      y_o = a_i;
+    end else begin
+      y_o = b_i;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_always_comb_implication_equivalence_conditions_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage2AlwaysCombImplicationConditionResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_comb_implication_condition_resolve_failure_unsupported",
+    R"(module coverage2_always_comb_implication_condition_resolve_failure_unsupported(
+  input  logic [1:0] a_i,
+  input  logic       b_i,
+  output logic       y_o
+);
+  function automatic logic bad_cond(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_cond = 1'b1;
+      default:        bad_cond = 1'b0;
+    endcase
+  endfunction
+
+  always_comb begin
+    if (bad_cond(a_i) -> b_i) begin
+      y_o = b_i;
+    end else begin
+      y_o = 1'b0;
+    end
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb condition bit"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombConditionalLogicalShortcutsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -14299,21 +14671,51 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialEnableCondPatternTernaryUnsupported) {
+  parseCoverage2SequentialIgnorableBranchNoAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_sequential_ignorable_branch_no_assignment_unsupported",
+    R"(module coverage2_sequential_ignorable_branch_no_assignment_unsupported(
+  input  logic clk_i,
+  input  logic en_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (en_i) begin
+      $display("ignored");
+      $info("also ignored");
+    end else begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'coverage2_sequential_ignorable_branch_no_assignment_unsupported'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialEnableCondPatternTernarySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_cond_pattern_ternary_unsupported";
+  outPath = outPath / "seq_enable_cond_pattern_ternary_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_enable_cond_pattern_ternary_unsupported.sv";
+    outPath / "seq_enable_cond_pattern_ternary_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_cond_pattern_ternary_unsupported(
+    << R"(module seq_enable_cond_pattern_ternary_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [3:0] a_i,
@@ -14333,12 +14735,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'seq_enable_cond_pattern_ternary_unsupported': "
-     "unable to resolve enable condition net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_enable_cond_pattern_ternary_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+  EXPECT_GT(countMux2Instances(top), 0u);
 }
 
 TEST_F(
@@ -14445,20 +14848,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialEnableCondWideCallConditionUnsupported) {
+  parseSequentialEnableCondWideCallConditionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_cond_wide_call_condition_unsupported";
+  outPath = outPath / "seq_enable_cond_wide_call_condition_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_enable_cond_wide_call_condition_unsupported.sv";
+  const auto svPath = outPath / "seq_enable_cond_wide_call_condition_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_cond_wide_call_condition_unsupported(
+    << R"(module seq_enable_cond_wide_call_condition_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [3:0] a_i,
@@ -14483,12 +14886,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'seq_enable_cond_wide_call_condition_unsupported': "
-     "unable to resolve enable condition net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_wide_call_condition_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(
@@ -20011,12 +20413,12 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSIndexedRangeSelectDynamicBaseCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSIndexedRangeSelectDynamicBaseCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
     outPath /
-    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported";
+    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -20024,11 +20426,11 @@ TEST_F(
 
   const auto svPath =
     outPath /
-    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported.sv";
+    "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported(
   input  logic [2:0] idx_i,
   input  logic [3:0] factor_i,
   input  logic [7:0] seed_i,
@@ -20045,10 +20447,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName(
+      "always_comb_lhs_indexed_range_select_dynamic_base_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("out_o")), nullptr);
 }
 
 TEST_F(
@@ -20281,12 +20686,12 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicIntElementSelectCompoundMultiplyUnsupported) {
+  parseAlwaysCombLHSDynamicIntElementSelectCompoundMultiplySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
     outPath /
-    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported";
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -20294,11 +20699,11 @@ TEST_F(
 
   const auto svPath =
     outPath /
-    "always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported.sv";
+    "always_comb_lhs_dynamic_int_element_select_compound_multiply_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_dynamic_int_element_select_compound_multiply_unsupported(
+    << R"(module always_comb_lhs_dynamic_int_element_select_compound_multiply_supported(
   input  logic [4:0] sel_i,
   input  logic       factor_i
 );
@@ -20312,10 +20717,12 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_int_element_select_compound_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("word_n")), nullptr);
 }
 
 TEST_F(
@@ -20501,22 +20908,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSConstantElementSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSConstantElementSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported";
+    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_constant_element_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_constant_element_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_constant_element_select_compound_multiply_assignment_supported(
   input logic [3:0] factor_i
 );
   logic [3:0] mem_q [0:1];
@@ -20529,10 +20936,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_constant_element_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
 }
 
 TEST_F(
@@ -20663,22 +21071,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicElementSelectCompoundMultiplyAssignmentUnsupported) {
+  parseAlwaysCombLHSDynamicElementSelectCompoundMultiplyAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported";
+    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported.sv";
+    outPath / "always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_lhs_dynamic_element_select_compound_multiply_assignment_unsupported(
+    << R"(module always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported(
   input logic       sel_i,
   input logic [3:0] factor_i
 );
@@ -20692,10 +21100,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported compound assignment operator in always_comb: *"});
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_lhs_dynamic_element_select_compound_multiply_assignment_supported"));
+  ASSERT_NE(top, nullptr);
 }
 
 TEST_F(
@@ -21232,20 +21641,16 @@ TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleEmptyStatementUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleEmptyStatementSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_list_single_empty_stmt_unsupported" /
-      "seq_list_single_empty_stmt_unsupported.sv");
-    FAIL() << "Expected unsupported single-list empty statement exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported statement while extracting sequential timing control"));
-  }
+  constructor.construct(
+    benchmarksPath / "seq_list_single_empty_stmt_supported" /
+    "seq_list_single_empty_stmt_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_list_single_empty_stmt_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialMultiAssignmentResetEmptyStatementSupported) {
@@ -21459,37 +21864,254 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnBinaryOperatorsSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnUnsupportedBinaryOperatorFails) {
+TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "unary_not_binary_unsupported" / "unary_not_binary_unsupported.sv");
-    FAIL() << "Expected unsupported unary-not binary operator exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary operator under bitwise not in continuous assign: +"));
+  constructor.construct(
+    benchmarksPath / "unary_not_arithmetic_binary_supported" /
+    "unary_not_arithmetic_binary_supported.sv");
 
-    auto top = library_->getSNLDesign(NLName("unary_not_binary_unsupported_top"));
-    ASSERT_NE(top, nullptr);
-    auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "unary_not_binary_unsupported");
-    EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+  auto top = library_->getSNLDesign(NLName("unary_not_arithmetic_binary_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto yNet = top->getNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  auto yBit = dynamic_cast<SNLBitNet*>(yNet);
+  ASSERT_NE(yBit, nullptr);
+  EXPECT_FALSE(yBit->getInstTerms().empty());
+  EXPECT_GT(countFAInstances(top), 0u);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "unary_not_arithmetic_binary_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "binary_ops_extended_supported" /
+    "binary_ops_extended_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("binary_ops_extended_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  const std::array<const char*, 24> outputs{
+    "y_add", "y_sub", "y_mul", "y_div", "y_mod", "y_eq", "y_ne", "y_case_eq",
+    "y_case_ne", "y_ge", "y_gt", "y_le", "y_lt", "y_wild_eq", "y_wild_ne",
+    "y_land", "y_lor", "y_impl", "y_leqv", "y_lshl", "y_lshr", "y_ashl",
+    "y_ashr", "y_pow"};
+  for (const auto* output : outputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty()) << output;
+  }
+
+  EXPECT_GE(countFAInstances(top), 1u);
+  EXPECT_GE(countDivModInstances(top, 1), 2u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_extended_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalImplicationEquivalenceShortcutsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_logical_implication_equivalence_shortcuts_supported",
+    R"(module continuous_logical_implication_equivalence_shortcuts_supported(
+  input  logic a,
+  input  logic b,
+  output logic [10:0] y
+);
+  assign y[0] = 1'b0 -> a;
+  assign y[1] = 1'b1 -> a;
+  assign y[2] = a -> 1'b0;
+  assign y[3] = a -> b;
+  assign y[4] = a <-> a;
+  assign y[5] = 1'b1 <-> a;
+  assign y[6] = a <-> 1'b1;
+  assign y[7] = 1'b0 <-> a;
+  assign y[8] = a <-> 1'b0;
+  assign y[9] = a <-> b;
+  assign y[10] = a -> a;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_logical_implication_equivalence_shortcuts_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousScalarPowerDynamicCasesSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_scalar_power_dynamic_cases_supported",
+    R"(module continuous_scalar_power_dynamic_cases_supported(
+  input  logic       a,
+  input  logic [1:0] exp_i,
+  output logic [4:0] y
+);
+  assign y[0] = a ** 2'b00;
+  assign y[1] = a ** 2'b01;
+  assign y[2] = a ** exp_i;
+  assign y[3] = 1'b0 ** exp_i;
+  assign y[4] = 2 ** exp_i;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_scalar_power_dynamic_cases_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+  EXPECT_GE(countMux2Instances(top), 1u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftUnknownValueSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_shift_unknown_value_supported",
+    R"(module continuous_shift_unknown_value_supported(
+  input  logic [1:0] sh_i,
+  output logic [3:0] y
+);
+  assign y = 4'b10xz << sh_i;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_unknown_value_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalImplicationResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_logical_implication_resolve_failure_unsupported",
+    R"(module continuous_logical_implication_resolve_failure_unsupported(
+  input  logic       a,
+  input  logic [3:0] sel_i,
+  output logic y
+);
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+  assign y = bad_cond(sel_i) -> a;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in continuous assign: ->"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousPowerResolveFailurePathsUnsupported) {
+  {
+    SNLSVConstructor constructor(library_);
+    const auto svPath = writeSVTestFile(
+      "continuous_power_base_resolve_failure_unsupported",
+      R"(module continuous_power_base_resolve_failure_unsupported(
+  input  logic [1:0] exp_i,
+  input  logic [3:0] sel_i,
+  output logic       y
+);
+  function automatic logic bad_base(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_base = 1'b1;
+      default:          bad_base = 1'b0;
+    endcase
+  endfunction
+  assign y = bad_base(sel_i) ** exp_i;
+endmodule
+)");
+
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"Unsupported binary operator in continuous assign: **"});
+  }
+
+  {
+    SNLSVConstructor constructor(library_);
+    const auto svPath = writeSVTestFile(
+      "continuous_power_exponent_width_failure_unsupported",
+      R"(module continuous_power_exponent_width_failure_unsupported(
+  input  logic a,
+  output logic y
+);
+  function automatic real real_exp();
+    real_exp = 1.0;
+  endfunction
+  assign y = a ** real_exp();
+endmodule
+)");
+
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"Unsupported binary operator in continuous assign: **"});
+  }
+
+  {
+    SNLSVConstructor constructor(library_);
+    const auto svPath = writeSVTestFile(
+      "continuous_power_exponent_resolve_failure_unsupported",
+      R"(module continuous_power_exponent_resolve_failure_unsupported(
+  input  logic       a,
+  input  logic [3:0] sel_i,
+  output logic       y
+);
+  function automatic logic [1:0] bad_exp(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_exp = 2'b01;
+      default:          bad_exp = 2'b00;
+    endcase
+  endfunction
+  assign y = a ** bad_exp(sel_i);
+endmodule
+)");
+
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"Unsupported binary operator in continuous assign: **"});
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousDivModResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
-  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "binary_ops_unsupported" / "binary_ops_unsupported.sv");
-    FAIL() << "Expected unsupported binary operator exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign"));
-  }
+  const auto svPath = writeSVTestFile(
+    "continuous_divmod_resolve_failure_unsupported",
+    R"(module continuous_divmod_resolve_failure_unsupported(
+  input  logic [7:0] a,
+  input  logic [3:0] sel_i,
+  output logic [7:0] y
+);
+  function automatic logic [7:0] bad_divisor(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_divisor = 8'd3;
+      default:          bad_divisor = 8'd1;
+    endcase
+  endfunction
+  assign y = a / bad_divisor(sel_i);
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: /"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalOpsSupported) {
@@ -21610,20 +22232,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("le")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalBusLHSUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalBusLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "continuous_relational_bus_lhs_unsupported";
+  outPath = outPath / "continuous_relational_bus_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "continuous_relational_bus_lhs_unsupported.sv";
+  const auto svPath = outPath / "continuous_relational_bus_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module continuous_relational_bus_lhs_unsupported(
+    << R"(module continuous_relational_bus_lhs_supported(
   input  logic [3:0] a,
   input  logic [3:0] b,
   output logic [3:0] y
@@ -21633,15 +22255,13 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported relational expression with bus LHS";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: <"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_relational_bus_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalNonIntegralOperandUnsupported) {
@@ -21672,15 +22292,34 @@ endmodule
     {"Unsupported binary expression in continuous assign: <"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  EXPECT_THROW(
-    constructor.construct(
-      benchmarksPath /
-      "continuous_binary_expression_fallbacks_unsupported" /
-      "continuous_binary_expression_fallbacks_unsupported.sv"),
-    SNLSVConstructorException);
+  constructor.construct(
+    benchmarksPath /
+    "continuous_binary_expression_fallbacks_supported" /
+    "continuous_binary_expression_fallbacks_supported.sv");
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_binary_expression_fallbacks_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto yShift = top->getBusNet(NLName("y_shift"));
+  auto yMul = top->getBusNet(NLName("y_mul"));
+  auto ySub = top->getBusNet(NLName("y_sub"));
+  auto yEqBus = top->getBusNet(NLName("y_eq_bus"));
+  auto yNeBus = top->getBusNet(NLName("y_ne_bus"));
+  ASSERT_NE(yShift, nullptr);
+  ASSERT_NE(yMul, nullptr);
+  ASSERT_NE(ySub, nullptr);
+  ASSERT_NE(yEqBus, nullptr);
+  ASSERT_NE(yNeBus, nullptr);
+  EXPECT_EQ(4, yShift->getWidth());
+  EXPECT_EQ(4, yMul->getWidth());
+  EXPECT_EQ(4, ySub->getWidth());
+  EXPECT_EQ(2, yEqBus->getWidth());
+  EXPECT_EQ(2, yNeBus->getWidth());
+  EXPECT_GT(countMux2Instances(top), 0u);
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(
@@ -21779,20 +22418,20 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightOperandResolveFailureUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "multiply_right_operand_resolve_failure_unsupported";
+  outPath = outPath / "multiply_right_integral_cast_of_real_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "multiply_right_operand_resolve_failure_unsupported.sv";
+  const auto svPath = outPath / "multiply_right_integral_cast_of_real_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module multiply_right_operand_resolve_failure_unsupported_top(
+    << R"(module multiply_right_integral_cast_of_real_supported_top(
   input logic [3:0] a,
   output logic [3:0] y
 );
@@ -21803,25 +22442,25 @@ endmodule
 
   constructor.construct(svPath);
 
-  auto top = library_->getSNLDesign(NLName("multiply_right_operand_resolve_failure_unsupported_top"));
+  auto top = library_->getSNLDesign(NLName("multiply_right_integral_cast_of_real_supported_top"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseMultiplyLeftOperandResolveFailureUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseMultiplyLeftUnknownOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "multiply_left_operand_resolve_failure_unsupported";
+  outPath = outPath / "multiply_left_unknown_operand_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "multiply_left_operand_resolve_failure_unsupported.sv";
+  const auto svPath = outPath / "multiply_left_unknown_operand_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module multiply_left_operand_resolve_failure_unsupported_top(
+    << R"(module multiply_left_unknown_operand_supported_top(
   input logic [3:0] a,
   output logic [3:0] y
 );
@@ -21830,26 +22469,30 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary expression in continuous assign: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("multiply_left_unknown_operand_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "integral_cast_of_real_under_add_unsupported";
+  outPath = outPath / "integral_cast_of_real_under_add_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "integral_cast_of_real_under_add_unsupported.sv";
+  const auto svPath = outPath / "integral_cast_of_real_under_add_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module integral_cast_of_real_under_add_unsupported_top(
+    << R"(module integral_cast_of_real_under_add_supported_top(
   input logic [7:0] b,
   output logic [7:0] y
 );
@@ -21860,7 +22503,7 @@ endmodule
 
   constructor.construct(svPath);
 
-  auto top = library_->getSNLDesign(NLName("integral_cast_of_real_under_add_unsupported_top"));
+  auto top = library_->getSNLDesign(NLName("integral_cast_of_real_under_add_supported_top"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
@@ -22520,21 +23163,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentElseBlockConditionResolveFailureUnsupported) {
+  parseSequentialMultiAssignmentElseBlockConditionCallFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_multi_assignment_else_block_condition_resolve_failure_unsupported";
+  outPath = outPath / "seq_multi_assignment_else_block_condition_call_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_multi_assignment_else_block_condition_resolve_failure_unsupported.sv";
+    outPath / "seq_multi_assignment_else_block_condition_call_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_else_block_condition_resolve_failure_unsupported(
+    << R"(module seq_multi_assignment_else_block_condition_call_fallback_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [3:0] a_i,
@@ -23577,20 +24220,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialDirectMultiAssignmentUnsupportedRHSActionReported) {
+  parseSequentialDirectMultiAssignmentDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported";
+  outPath = outPath / "seq_direct_multi_assignment_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_direct_multi_assignment_unsupported_rhs_action_reported.sv";
+  const auto svPath =
+    outPath / "seq_direct_multi_assignment_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_direct_multi_assignment_unsupported_rhs_action_reported(
+    << R"(module seq_direct_multi_assignment_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic [7:0] a_i,
   input  logic [7:0] b_i,
@@ -23606,10 +24250,22 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower assignment action for LHS 'q_o'"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_direct_multi_assignment_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top, 8));
+
+  size_t dffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(16u, dffCount);
 }
 
 TEST_F(
@@ -23702,22 +24358,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialSingleLHSFallbackMultipleDirectAssignmentsUnsupported) {
+  parseSequentialSingleLHSFallbackMultipleDirectAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported";
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_unsupported.sv";
+    outPath / "seq_single_lhs_fallback_multiple_direct_assignments_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_single_lhs_fallback_multiple_direct_assignments_unsupported(
+    << R"(module seq_single_lhs_fallback_multiple_direct_assignments_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic       a_i,
@@ -23736,29 +24392,31 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"single-LHS fallback path contains multiple direct assignments"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_lhs_fallback_multiple_direct_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialSingleLHSFallbackMismatchedResetTargetUnsupported) {
+  parseSequentialSingleLHSFallbackMismatchedResetTargetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported";
+  outPath = outPath / "seq_single_lhs_fallback_mismatched_reset_target_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_single_lhs_fallback_mismatched_reset_target_unsupported.sv";
+    outPath / "seq_single_lhs_fallback_mismatched_reset_target_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_single_lhs_fallback_mismatched_reset_target_unsupported(
+    << R"(module seq_single_lhs_fallback_mismatched_reset_target_supported(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic d_i,
@@ -23776,10 +24434,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"fallback currently supports only multi-LHS reset branches"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_single_lhs_fallback_mismatched_reset_target_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r_o")), nullptr);
 }
 
 TEST_F(
@@ -24008,21 +24669,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentElseConcatRHSResolveFailureUnsupported) {
+  parseSequentialMultiAssignmentElseConcatDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_multi_assignment_else_concat_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported.sv";
+    outPath / "seq_multi_assignment_else_concat_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_else_concat_rhs_resolve_failure_unsupported(
+    << R"(module seq_multi_assignment_else_concat_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [7:0] a_i,
@@ -24043,29 +24704,33 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower sequential concatenation assignment for"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_else_concat_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("q_o")), nullptr);
+  EXPECT_NE(top->getBusNet(NLName("r_o")), nullptr);
+  EXPECT_GT(countDivModInstances(top, 8), 0u);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialPartialAssignmentRHSResolveFailureUnsupported) {
+  parseSequentialPartialAssignmentDivmodRHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_partial_assignment_rhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_partial_assignment_divmod_rhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_partial_assignment_rhs_resolve_failure_unsupported.sv";
+    outPath / "seq_partial_assignment_divmod_rhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_partial_assignment_rhs_resolve_failure_unsupported(
+    << R"(module seq_partial_assignment_divmod_rhs_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [7:0] a_i,
@@ -24083,10 +24748,13 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"failed to lower concrete sequential partial assignment for LHS"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_partial_assignment_divmod_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("q_o")), nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top));
 }
 
 TEST_F(
@@ -24335,24 +25003,31 @@ endmodule
     {"unable to resolve dynamic index bits in sequential assignment LHS"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_else_default_non_assignment" /
-      "seq_enable_else_default_non_assignment.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_non_assignment_supported" /
+      "seq_enable_else_default_non_assignment_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_else_default_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_else_default_lhs_mismatch" /
-      "seq_enable_else_default_lhs_mismatch.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_lhs_mismatch_supported" /
+      "seq_enable_else_default_lhs_mismatch_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_else_default_lhs_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
@@ -24674,20 +25349,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSupported) {
   EXPECT_GT(faCount, 0u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialModuloUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialModuloSupportedWithDivModPrimitive) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_modulo_unsupported";
+  outPath = outPath / "seq_modulo_supported_with_divmod_primitive";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_modulo_unsupported.sv";
+  const auto svPath = outPath / "seq_modulo_supported_with_divmod_primitive.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_modulo_unsupported(
+    << R"(module seq_modulo_supported_with_divmod_primitive(
   input  logic       clk,
   input  logic [7:0] d_i,
   output logic [7:0] q_o
@@ -24699,10 +25374,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported binary operator in sequential assignment: %"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_modulo_supported_with_divmod_primitive"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countDivModInstances(top, 8));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
@@ -25239,40 +25915,44 @@ endmodule
      "failed to resolve always_comb assignment LHS bits"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_reset_non_assignment_skipped" /
-      "seq_reset_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_reset_non_assignment_supported" /
+      "seq_reset_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_iftrue_non_assignment_skipped" /
-      "seq_enable_iftrue_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_iftrue_non_assignment_supported" /
+      "seq_enable_iftrue_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_iftrue_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueExpressionStatementUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueExpressionStatementSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_iftrue_expression_statement_unsupported";
+  outPath = outPath / "seq_enable_iftrue_expression_statement_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_enable_iftrue_expression_statement_unsupported.sv";
+  const auto svPath = outPath / "seq_enable_iftrue_expression_statement_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_iftrue_expression_statement_unsupported(
+    << R"(module seq_enable_iftrue_expression_statement_supported(
   input logic       clk,
   input logic       rst,
   input logic       en,
@@ -25292,40 +25972,51 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_iftrue_expression_statement_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_enable_lhs_mismatch_no_default" /
-      "seq_enable_lhs_mismatch_no_default.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_enable_lhs_mismatch_no_default_supported" /
+      "seq_enable_lhs_mismatch_no_default_supported.sv");
+
+  auto top =
+    library_->getSNLDesign(NLName("seq_enable_lhs_mismatch_no_default_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_default_lhs_mismatch_skipped" /
-      "seq_default_lhs_mismatch_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_default_lhs_mismatch_supported" /
+      "seq_default_lhs_mismatch_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_lhs_mismatch_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("r")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "seq_default_non_assignment_skipped" /
-      "seq_default_non_assignment_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+  constructor.construct(
+    benchmarksPath / "seq_default_non_assignment_supported" /
+      "seq_default_non_assignment_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySupported) {
@@ -25931,21 +26622,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialEnableCondLogicalAndLHSResolveFailureUnsupported) {
+  parseSequentialEnableCondLogicalAndLHSCallFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_cond_logical_and_lhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_enable_cond_logical_and_lhs_call_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_enable_cond_logical_and_lhs_resolve_failure_unsupported.sv";
+    outPath / "seq_enable_cond_logical_and_lhs_call_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_cond_logical_and_lhs_resolve_failure_unsupported(
+    << R"(module seq_enable_cond_logical_and_lhs_call_fallback_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic [3:0] a_i,
@@ -25981,21 +26672,21 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialEnableCondLogicalAndRHSResolveFailureUnsupported) {
+  parseSequentialEnableCondLogicalAndRHSCallFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_enable_cond_logical_and_rhs_resolve_failure_unsupported";
+  outPath = outPath / "seq_enable_cond_logical_and_rhs_call_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_enable_cond_logical_and_rhs_resolve_failure_unsupported.sv";
+    outPath / "seq_enable_cond_logical_and_rhs_call_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_enable_cond_logical_and_rhs_resolve_failure_unsupported(
+    << R"(module seq_enable_cond_logical_and_rhs_call_fallback_supported(
   input  logic       clk_i,
   input  logic       rst_ni,
   input  logic       en_i,
@@ -26108,6 +26799,112 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q0_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("q9_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondImplicationEquivalenceSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_enable_cond_implication_equivalence_supported",
+    R"(module seq_enable_cond_implication_equivalence_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic a_i,
+  input  logic b_i,
+  input  logic d_i,
+  output logic q_impl_o,
+  output logic q_equiv_o
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) q_impl_o <= 1'b0;
+    else if (a_i -> b_i) q_impl_o <= d_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) q_equiv_o <= 1'b0;
+    else if (a_i <-> b_i) q_equiv_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_implication_equivalence_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_impl_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("q_equiv_o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondImplicationResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_enable_cond_implication_resolve_failure_unsupported",
+    R"(module seq_enable_cond_implication_resolve_failure_unsupported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic [3:0] a_i,
+  input  logic [3:0] sel_i,
+  input  logic d_i,
+  output logic q_o
+);
+  function automatic logic [2:0] bad_idx(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_idx = 3'd0;
+      default:          bad_idx = 3'd1;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) q_o <= 1'b0;
+    else if (a_i[bad_idx(sel_i)] -> d_i) q_o <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'seq_enable_cond_implication_resolve_failure_unsupported'"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondCallBitsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_enable_cond_call_bits_supported",
+    R"(module seq_enable_cond_call_bits_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       d_i,
+  input  logic [1:0] bus_i,
+  output logic       q_scalar_o,
+  output logic       q_bus_o
+);
+  function automatic logic id(input logic x);
+    id = x;
+  endfunction
+
+  function automatic logic [1:0] pass2(input logic [1:0] x);
+    pass2 = x;
+  endfunction
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) q_scalar_o <= 1'b0;
+    else if (id(d_i)) q_scalar_o <= d_i;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (rst_ni === 1'b0) q_bus_o <= 1'b0;
+    else if (pass2(bus_i)) q_bus_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_call_bits_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_scalar_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("q_bus_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAssignStructMemberRhsSupported) {
@@ -27508,20 +28305,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   EXPECT_GT(faCount, 0u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_reset_struct_default_unknown_unsupported";
+  outPath = outPath / "seq_reset_struct_default_unknown_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_reset_struct_default_unknown_unsupported.sv";
+  const auto svPath = outPath / "seq_reset_struct_default_unknown_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << "module seq_reset_struct_default_unknown_unsupported (\n"
+    << "module seq_reset_struct_default_unknown_supported (\n"
     << "  input  logic        clk,\n"
     << "  input  logic        rst_ni,\n"
     << "  input  logic [11:0] d,\n"
@@ -27548,13 +28345,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownUnsup
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported struct default unknown reset assignment";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_struct_default_unknown_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    }
   }
+  EXPECT_EQ(12u, dffrnCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupported) {
@@ -27640,20 +28444,20 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialAddNestedMultiplyUnknownFallbackUnsupported) {
+  parseSequentialAddNestedMultiplyUnknownFallbackSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported";
+  outPath = outPath / "seq_add_nested_multiply_unknown_fallback_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "seq_add_nested_multiply_unknown_fallback_unsupported.sv";
+  const auto svPath = outPath / "seq_add_nested_multiply_unknown_fallback_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_add_nested_multiply_unknown_fallback_unsupported(
+    << R"(module seq_add_nested_multiply_unknown_fallback_supported(
   input  logic       clk,
   input  logic       rst,
   output logic [7:0] q
@@ -27669,10 +28473,26 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in sequential assignment"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_add_nested_multiply_unknown_fallback_supported"));
+  ASSERT_NE(top, nullptr);
+  auto q = top->getBusNet(NLName("q"));
+  ASSERT_NE(q, nullptr);
+  EXPECT_EQ(8, q->getWidth());
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  size_t flopCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+      ++flopCount;
+    }
+  }
+  EXPECT_EQ(8u, flopCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialUnbasedUnknownLiteralDirectRhsSupported) {
@@ -29569,20 +30389,20 @@ endmodule
   EXPECT_GT(countFAInstances(top), 0u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_else_assignment_unsupported";
+  outPath = outPath / "always_latch_else_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_else_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_else_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_else_assignment_unsupported(
+    << R"(module always_latch_else_assignment_supported(
   input logic a,
   input logic b,
   input logic en,
@@ -29598,11 +30418,22 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_else_assignment_unsupported'",
-     "always_latch currently supports only implicit or explicit hold default branches"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_else_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countMux2Instances(top, 1));
+  EXPECT_EQ(0u, countMux2Instances(top, 2));
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(0u, dlatchCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchEnableConditionBinarySupported) {
@@ -29656,20 +30487,20 @@ endmodule
   EXPECT_GE(xorGateCount, 1u);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDirectAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDirectAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_direct_assignment_unsupported";
+  outPath = outPath / "always_latch_direct_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_direct_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_direct_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_direct_assignment_unsupported(
+    << R"(module always_latch_direct_assignment_supported(
   input logic a,
   output logic y
 );
@@ -29680,27 +30511,57 @@ endmodule
 )";
   svFile.close();
 
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_direct_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, countMux2Instances(top));
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(0u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchDirectStepUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_direct_step_unsupported",
+    R"(module coverage2_always_latch_direct_step_unsupported(
+  output logic [1:0] q_o
+);
+  always_latch begin
+    q_o++;
+  end
+endmodule
+)");
+
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"Unsupported latch block in module 'always_latch_direct_assignment_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+    {"Unsupported latch block in module "
+     "'coverage2_always_latch_direct_step_unsupported'"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPatternConditionUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPatternConditionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_pattern_condition_unsupported";
+  outPath = outPath / "always_latch_pattern_condition_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_pattern_condition_unsupported.sv";
+  const auto svPath = outPath / "always_latch_pattern_condition_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_pattern_condition_unsupported(
+    << R"(module always_latch_pattern_condition_supported(
   input logic a,
   output logic y
 );
@@ -29712,27 +30573,111 @@ endmodule
 )";
   svFile.close();
 
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_pattern_condition_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(1u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchWildcardPatternConditionSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_wildcard_pattern_condition_supported",
+    R"(module always_latch_wildcard_pattern_condition_supported(
+  input logic a,
+  output logic y
+);
+  always_latch begin
+    if (a matches (.*))
+      y <= a;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_wildcard_pattern_condition_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(1u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchVariablePatternConditionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_variable_pattern_condition_unsupported",
+    R"(module always_latch_variable_pattern_condition_unsupported(
+  input logic a,
+  output logic y
+);
+  always_latch begin
+    if (a matches (.captured))
+      y <= a;
+  end
+endmodule
+)");
+
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"Unsupported latch block in module 'always_latch_pattern_condition_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+    {"Unsupported latch block in module "
+     "'always_latch_variable_pattern_condition_unsupported'"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfTrueNonAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPatternConditionMatchFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_pattern_condition_match_failure_unsupported",
+    R"(module always_latch_pattern_condition_match_failure_unsupported(
+  input logic a,
+  output logic y
+);
+  always_latch begin
+    if (a matches (1.0))
+      y <= a;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_pattern_condition_match_failure_unsupported'"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfTrueNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_if_true_non_assignment_unsupported";
+  outPath = outPath / "always_latch_if_true_non_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_if_true_non_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_if_true_non_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_if_true_non_assignment_unsupported(
+    << R"(module always_latch_if_true_non_assignment_supported(
   input logic en,
   output logic y
 );
@@ -29746,27 +30691,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_if_true_non_assignment_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_if_true_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(0u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfFalseNonAssignmentUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIfFalseNonAssignmentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_if_false_non_assignment_unsupported";
+  outPath = outPath / "always_latch_if_false_non_assignment_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_if_false_non_assignment_unsupported.sv";
+  const auto svPath = outPath / "always_latch_if_false_non_assignment_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_if_false_non_assignment_unsupported(
+    << R"(module always_latch_if_false_non_assignment_supported(
   input logic a,
   input logic en,
   output logic y
@@ -29781,27 +30735,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_if_false_non_assignment_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_if_false_non_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(1u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseDifferentLHSUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchElseDifferentLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_else_different_lhs_unsupported";
+  outPath = outPath / "always_latch_else_different_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_else_different_lhs_unsupported.sv";
+  const auto svPath = outPath / "always_latch_else_different_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_else_different_lhs_unsupported(
+    << R"(module always_latch_else_different_lhs_supported(
   input logic a,
   input logic b,
   input logic en,
@@ -29818,27 +30781,36 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_else_different_lhs_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_else_different_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(2u, dlatchCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchConcatLHSErrorUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchConcatLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_concat_lhs_error_unsupported";
+  outPath = outPath / "always_latch_concat_lhs_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_concat_lhs_error_unsupported.sv";
+  const auto svPath = outPath / "always_latch_concat_lhs_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_concat_lhs_error_unsupported(
+    << R"(module always_latch_concat_lhs_supported(
   input logic a,
   input logic b,
   input logic en,
@@ -29853,11 +30825,20 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module 'always_latch_concat_lhs_error_unsupported'",
-     "unable to resolve latch assignment LHS net"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_concat_lhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(2u, dlatchCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDisplayOnlyIgnoredSupported) {
@@ -29897,33 +30878,46 @@ endmodule
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDataMultiplyUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDataMultiplySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_latch_data_multiply_unsupported";
+  outPath = outPath / "always_latch_data_multiply_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "always_latch_data_multiply_unsupported.sv";
+  const auto svPath = outPath / "always_latch_data_multiply_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_latch_data_multiply_unsupported(
+    << R"(module always_latch_data_multiply_supported(
   input  logic       en_i,
   output logic [3:0] q_o
 );
   always_latch begin
     if (en_i)
-      q_o <= q_o * 4'd2;
+      q_o <= q_o * 4'd3;
   end
 endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_latch_data_multiply_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(4u, dlatchCount);
+  EXPECT_GT(countFAInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDefaultMultiplyUnsupported) {
@@ -29955,7 +30949,207 @@ endmodule
   svFile.close();
 
   expectUnsupportedConstruct(
-    constructor, svPath, {"Unsupported binary operator in sequential assignment: *"});
+    constructor,
+    svPath,
+    {"Unsupported latch block in module 'always_latch_default_multiply_unsupported'",
+     "always_latch currently supports only implicit or explicit hold default branches"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchUnknownLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_unknown_lhs_unsupported",
+    R"(module coverage2_always_latch_unknown_lhs_unsupported(
+  input  logic       en_i,
+  input  logic       d_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] q_o
+);
+  function automatic logic [1:0] bad_idx(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_idx = 2'd1;
+      default:        bad_idx = 2'd0;
+    endcase
+  endfunction
+
+  always_latch begin
+    if (en_i)
+      q_o[bad_idx(sel_i)] <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'coverage2_always_latch_unknown_lhs_unsupported'",
+     "unable to resolve latch assignment LHS bits"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchElseIncrementerSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_else_incrementer_supported",
+    R"(module coverage2_always_latch_else_incrementer_supported(
+  input  logic       en_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      r_o <= r_o + 4'd1;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_always_latch_else_incrementer_supported"));
+  ASSERT_NE(top, nullptr);
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(8u, dlatchCount);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchElseDataFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_else_data_failure_unsupported",
+    R"(module coverage2_always_latch_else_data_failure_unsupported(
+  input  logic       en_i,
+  input  logic [1:0] sel_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      r_o <= d_i -> q_o;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in sequential assignment: ->"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3AlwaysLatchElseActionLHSFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_always_latch_else_action_lhs_failure_unsupported",
+    R"(module coverage3_always_latch_else_action_lhs_failure_unsupported(
+  input  logic       en_i,
+  input  logic       d_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  function automatic logic [1:0] bad_idx(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_idx = 2'd1;
+      default:        bad_idx = 2'd0;
+    endcase
+  endfunction
+
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      r_o[bad_idx(sel_i)] <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'coverage3_always_latch_else_action_lhs_failure_unsupported'",
+     "unable to resolve latch assignment LHS bits"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3AlwaysLatchDataFailureShortCircuitsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_always_latch_data_failure_short_circuits_unsupported",
+    R"(module coverage3_always_latch_data_failure_short_circuits_unsupported(
+  input  logic       en_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i -> r_o;
+    else
+      r_o <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in sequential assignment: ->"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage3AlwaysLatchConstElseEnableSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage3_always_latch_const_else_enable_supported",
+    R"(module coverage3_always_latch_const_else_enable_supported(
+  input  logic d_i,
+  output logic q0_o,
+  output logic q1_o,
+  output logic r0_o,
+  output logic r1_o
+);
+  always_latch begin
+    if (1'b0)
+      q0_o <= d_i;
+    else
+      r0_o <= d_i;
+  end
+
+  always_latch begin
+    if (1'b1)
+      q1_o <= d_i;
+    else
+      r1_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage3_always_latch_const_else_enable_supported"));
+  ASSERT_NE(top, nullptr);
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(4u, dlatchCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialSystemTaskConditionalIgnoredSupported) {
@@ -29995,20 +31189,46 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2InitialUserTaskCallUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_initial_user_task_call_unsupported",
+    R"(module coverage2_initial_user_task_call_unsupported(
+  input  logic a_i,
+  output logic y_o
+);
+  task do_check(input logic value);
+  endtask
+
+  initial begin
+    do_check(a_i);
+  end
+
+  assign y_o = a_i;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported procedural block in module "
+     "'coverage2_initial_user_task_call_unsupported'"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockIgnored) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "final_procedural_block_unsupported";
+  outPath = outPath / "final_procedural_block_ignored";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "final_procedural_block_unsupported.sv";
+  const auto svPath = outPath / "final_procedural_block_ignored.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module final_procedural_block_unsupported(
+    << R"(module final_procedural_block_ignored(
   input  logic a,
   output logic y
 );
@@ -30020,11 +31240,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported procedural block in module 'final_procedural_block_unsupported'",
-     "unsupported procedure kind Final"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("final_procedural_block_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombTranslateOffStatementIgnored) {
@@ -30061,7 +31281,7 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSynthesisTranslateOffSequentialUnsupportedIgnored) {
+TEST_F(SNLSVConstructorTestSimple, parseSynthesisTranslateOffSequentialIgnored) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "synthesis_translate_off_sequential_ignored";

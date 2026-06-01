@@ -1,0 +1,4 @@
+# oneTBB scheduler/partitioner reports from parallel_for_each.
+race:tbb::detail::d1::dynamic_grainsize_mode
+race:tbb::detail::d1::adaptive_mode
+race:tbb::detail::d1::start_for

@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module seq_reset_non_assignment_skipped(
+module seq_default_lhs_mismatch_supported(
   input logic clk,
   input logic rst,
   input logic [7:0] d,
-  output logic [7:0] q
+  output logic [7:0] q,
+  output logic [7:0] r
 );
-  // Unsupported extraction case: reset branch is not a single assignment.
+  // Supported fallback: default branch assigns a different LHS.
   always_ff @(posedge clk) begin
-    if (rst) begin
-      q <= d;
-      q <= d;
-    end else q <= d;
+    if (rst) q <= 8'h00;
+    else r <= d;
   end
 endmodule

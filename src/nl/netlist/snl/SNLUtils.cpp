@@ -6,12 +6,47 @@
 
 #include <algorithm>
 #include <list>
+#include <set>
 
 #include "NLLibrary.h"
+#include "NLDB0.h"
 
+#include "SNLDesignModeling.h"
 #include "SNLDesign.h"
 
 namespace naja::NL {
+
+namespace {
+
+using VisitedDesigns = std::set<const SNLDesign*, SNLDesign::PointerLess>;
+
+void prepareDesignForConcurrentAccess(
+    const SNLDesign* design,
+    VisitedDesigns& visitedDesigns) {
+  if (design == nullptr or visitedDesigns.find(design) != visitedDesigns.end()) {
+    return;
+  }
+  visitedDesigns.insert(design);
+
+  if (design->isPrimitive()) {
+    if (NLDB0::isDivMod(design) or NLDB0::isMemory(design)) {
+      return;
+    }
+    for (auto term: design->getBitTerms()) {
+      if (term->getDirection() != SNLTerm::Direction::Input) {
+        static_cast<void>(
+            SNLDesignModeling::getTruthTable(design, term->getOrderID()));
+      }
+    }
+    return;
+  }
+
+  for (auto instance: design->getInstances()) {
+    prepareDesignForConcurrentAccess(instance->getModel(), visitedDesigns);
+  }
+}
+
+}  // namespace
 
 unsigned SNLUtils::levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
   if (design->getInstances().empty()) {
@@ -78,6 +113,11 @@ SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
     return tops.front();
   }
   return nullptr;
+}
+
+void SNLUtils::prepareForConcurrentAccess(const SNLDesign* design) {
+  VisitedDesigns visitedDesigns;
+  prepareDesignForConcurrentAccess(design, visitedDesigns);
 }
 
 std::string SNLUtils::getUnnamedIDString(const char* tag, std::uint64_t id) {

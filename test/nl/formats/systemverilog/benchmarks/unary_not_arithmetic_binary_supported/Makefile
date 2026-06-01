@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-TOP := unary_not_binary_unsupported_top
-SV  := unary_not_binary_unsupported.sv
-TB  := tb_unary_not_binary_unsupported.cpp
+TOP := unary_not_arithmetic_binary_supported_top
+SV  := unary_not_arithmetic_binary_supported.sv
+TB  := tb_unary_not_arithmetic_binary_supported.cpp
 
 include ../Makefile.verilator

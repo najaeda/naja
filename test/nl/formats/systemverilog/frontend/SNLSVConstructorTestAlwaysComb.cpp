@@ -751,7 +751,7 @@ TEST_F(
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_case_assignment_function_call_unsupported(
+    << R"(module always_comb_case_assignment_function_call_supported(
   input  logic [3:0] op_i,
   output logic [1:0] data_size_o
 );
@@ -773,7 +773,7 @@ endmodule
   constructor.construct(svPath);
 
   auto top = library_->getSNLDesign(
-    NLName("always_comb_case_assignment_function_call_unsupported"));
+    NLName("always_comb_case_assignment_function_call_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
 }
