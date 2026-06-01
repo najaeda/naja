@@ -12346,7 +12346,7 @@ endmodule
                 continue;
               }
               if (exponentIsZero == const0) {
-                break;
+                break; // LCOV_EXCL_LINE
               }
               exponentIsZero =
                 createAndBitGate(design, exponentIsZero, notExponentBit, powerSourceRange);
@@ -13906,7 +13906,7 @@ endmodule
               ? NLDB0::getDivModRemainder(divmod)
               : NLDB0::getDivModQuotient(divmod),
             bits)) {
-        bits.clear();
+        bits.clear(); // LCOV_EXCL_LINE
         return false; // LCOV_EXCL_LINE
       }
 
@@ -15015,7 +15015,7 @@ endmodule
       if (op == slang::ast::BinaryOperator::LogicalEquivalence) {
         return createLogicalEquivalenceBit(design, lhsBit, rhsBit, sourceRange);
       }
-      return nullptr;
+      return nullptr; // LCOV_EXCL_LINE
     }
 
     SNLBitNet* resolveConditionNet(
@@ -15372,7 +15372,7 @@ endmodule
 
       auto conditionSourceRange = sourceRange;
       if (!conditionSourceRange) {
-        conditionSourceRange = conditionPattern->sourceRange;
+        conditionSourceRange = conditionPattern->sourceRange; // LCOV_EXCL_LINE
       }
       const auto& constantPattern =
         conditionPattern->as<slang::ast::ConstantPattern>();
