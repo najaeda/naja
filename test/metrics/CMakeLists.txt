@@ -10,6 +10,11 @@ SET(sources
 
 ADD_EXECUTABLE(najaMetricsTests ${sources})
 
+if(ENABLE_TEST_DOT)
+  target_compile_definitions(najaMetricsTests PRIVATE
+    NAJA_ENABLE_TEST_DOT)
+endif()
+
 TARGET_LINK_LIBRARIES(najaMetricsTests naja_dnl naja_opt gmock gtest_main naja_snl_visual naja_metrics)
 
 GTEST_DISCOVER_TESTS(najaMetricsTests)

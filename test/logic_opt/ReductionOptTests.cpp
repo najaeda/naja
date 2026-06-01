@@ -29,7 +29,7 @@ using ::testing::ElementsAre;
 namespace {
 
 void executeCommand(const std::string& command) {
-#ifdef NAJA_ENABLE_LOGIC_OPT_DOT
+#ifdef NAJA_ENABLE_TEST_DOT
   int result = system(command.c_str());
   if (result != 0) {
     std::cerr << "Command execution failed." << std::endl;

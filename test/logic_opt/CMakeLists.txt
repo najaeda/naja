@@ -4,19 +4,15 @@
 
 INCLUDE(GoogleTest)
 
-option(ENABLE_LOGIC_OPT_DOT
-  "Enable Graphviz dot rendering in logic optimization tests"
-  OFF)
-
 SET(sources
   LoadlessLogicRemoverTests.cpp
 )
 
 ADD_EXECUTABLE(loadlessLogicRemoverTests ${sources})
 
-if(ENABLE_LOGIC_OPT_DOT)
+if(ENABLE_TEST_DOT)
   target_compile_definitions(loadlessLogicRemoverTests PRIVATE
-    NAJA_ENABLE_LOGIC_OPT_DOT)
+    NAJA_ENABLE_TEST_DOT)
 endif()
 
 TARGET_LINK_LIBRARIES(loadlessLogicRemoverTests naja_dnl naja_opt gmock gtest_main naja_snl_visual)
@@ -29,9 +25,9 @@ SET(constantPropagationSources
 
 ADD_EXECUTABLE(constantPropagationTests ${constantPropagationSources})
 
-if(ENABLE_LOGIC_OPT_DOT)
+if(ENABLE_TEST_DOT)
   target_compile_definitions(constantPropagationTests PRIVATE
-    NAJA_ENABLE_LOGIC_OPT_DOT)
+    NAJA_ENABLE_TEST_DOT)
 endif()
 
 TARGET_LINK_LIBRARIES(constantPropagationTests naja_opt naja_snl_visual gmock gtest_main)
@@ -47,9 +43,9 @@ ADD_EXECUTABLE(reductionOptTests ${reductionOptSources})
 target_compile_definitions(reductionOptTests PRIVATE
   SNL_PRIMITIVES_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
-if(ENABLE_LOGIC_OPT_DOT)
+if(ENABLE_TEST_DOT)
   target_compile_definitions(reductionOptTests PRIVATE
-    NAJA_ENABLE_LOGIC_OPT_DOT)
+    NAJA_ENABLE_TEST_DOT)
 endif()
 
 TARGET_LINK_LIBRARIES(reductionOptTests naja_opt naja_snl_pyloader gmock gtest_main)
