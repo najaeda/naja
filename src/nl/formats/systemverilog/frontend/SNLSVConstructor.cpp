@@ -16022,7 +16022,7 @@ endmodule
       }
       const slang::ast::ValueSymbol* lhsSymbol = nullptr;
       if (!tryGetRootValueSymbolReference(lhsExpr, lhsSymbol)) {
-        return true;
+        return true; // LCOV_EXCL_LINE
       }
       std::unordered_set<const slang::ast::ValueSymbol*> rhsSymbols;
       collectExpressionRootValueSymbols(*action.rhs, rhsSymbols);
@@ -16090,7 +16090,7 @@ endmodule
         return true;
       }
       if (callExpr.subroutine.index() != 0) {
-        return false;
+        return false; // LCOV_EXCL_LINE
       }
       const auto* subroutine = std::get<0>(callExpr.subroutine);
       if (!subroutine ||

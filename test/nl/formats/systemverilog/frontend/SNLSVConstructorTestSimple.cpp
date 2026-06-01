@@ -8862,6 +8862,45 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseCoverage2UnknownLiteralCastAndPatternFallbackFailures) {
+  const auto signedCastFailure =
+    detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+      R"(module detail_test(input logic [1:0] a, output logic [3:0] y);
+  function automatic logic [1:0] bad_fn(input logic [1:0] op);
+    case (op) inside
+      [2'bxx : 2'd2]: bad_fn = 2'b11;
+      default:        bad_fn = 2'b00;
+    endcase
+  endfunction
+
+  assign y = $signed(bad_fn(a));
+endmodule
+)",
+      4);
+  EXPECT_EQ(std::nullopt, signedCastFailure);
+
+  const auto patternFailure =
+    detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
+      R"(module detail_test(input logic [1:0] sel, output logic [3:0] y);
+  typedef struct packed {
+    logic [3:0] bits;
+  } packed_t;
+  function automatic logic [3:0] bad_rhs(input logic [1:0] op);
+    case (op) inside
+      [2'bxx : 2'd2]: bad_rhs = 4'hf;
+      default:        bad_rhs = 4'h0;
+    endcase
+  endfunction
+
+  assign y = packed_t'{default: bad_rhs(sel)};
+endmodule
+)",
+      4);
+  EXPECT_EQ(std::nullopt, patternFailure);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   resolveExpressionBitsHandlesCompareAndPowerShortcuts) {
   const auto caseCompareBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
     R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
@@ -11284,6 +11323,66 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousLogicalShiftRightUnknownAmount
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2ContinuousShiftResolveFailuresUnsupported) {
+  const std::array<std::pair<const char*, const char*>, 3> cases {{
+    {"coverage2_continuous_logical_shift_right_failure_unsupported", ">>"},
+    {"coverage2_continuous_arithmetic_shift_right_failure_unsupported", ">>>"},
+    {"coverage2_continuous_shift_left_failure_unsupported", "<<"}
+  }};
+
+  for (const auto& [testName, opText] : cases) {
+    SNLSVConstructor constructor(library_);
+    const auto svPath = writeSVTestFile(
+      testName,
+      std::string(R"(module )") + testName + R"((
+  input  logic [3:0] a_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [1:0] bad_amount(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_amount = 2'd1;
+      default:        bad_amount = 2'd0;
+    endcase
+  endfunction
+
+  assign y_o = a_i )" + opText + R"( bad_amount(sel_i);
+endmodule
+)");
+
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"Unsupported binary expression in continuous assign"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2ContinuousSubResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_continuous_sub_resolve_failure_unsupported",
+    R"(module coverage2_continuous_sub_resolve_failure_unsupported(
+  input  logic [3:0] a_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [3:0] bad_rhs(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_rhs = 4'hf;
+      default:        bad_rhs = 4'h0;
+    endcase
+  endfunction
+
+  assign y_o = a_i - bad_rhs(sel_i);
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary expression in continuous assign: -"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
@@ -14241,6 +14340,71 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseCoverage2AlwaysCombImplicationEquivalenceConditionsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_comb_implication_equivalence_conditions_supported",
+    R"(module coverage2_always_comb_implication_equivalence_conditions_supported(
+  input  logic a_i,
+  input  logic b_i,
+  input  logic c_i,
+  input  logic d_i,
+  output logic y_o
+);
+  always_comb begin
+    if ((a_i -> b_i) && (c_i <-> d_i)) begin
+      y_o = a_i;
+    end else begin
+      y_o = b_i;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_always_comb_implication_equivalence_conditions_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage2AlwaysCombImplicationConditionResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_comb_implication_condition_resolve_failure_unsupported",
+    R"(module coverage2_always_comb_implication_condition_resolve_failure_unsupported(
+  input  logic [1:0] a_i,
+  input  logic       b_i,
+  output logic       y_o
+);
+  function automatic logic bad_cond(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_cond = 1'b1;
+      default:        bad_cond = 1'b0;
+    endcase
+  endfunction
+
+  always_comb begin
+    if (bad_cond(a_i) -> b_i) begin
+      y_o = b_i;
+    end else begin
+      y_o = 1'b0;
+    end
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unable to resolve always_comb condition bit"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombConditionalLogicalShortcutsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -14377,6 +14541,36 @@ endmodule
   EXPECT_NE(top->getNet(NLName("true_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("false_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("same_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCoverage2SequentialIgnorableBranchNoAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_sequential_ignorable_branch_no_assignment_unsupported",
+    R"(module coverage2_sequential_ignorable_branch_no_assignment_unsupported(
+  input  logic clk_i,
+  input  logic en_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i) begin
+    if (en_i) begin
+      $display("ignored");
+      $info("also ignored");
+    end else begin
+      q_o <= d_i;
+    end
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported sequential block in module "
+     "'coverage2_sequential_ignorable_branch_no_assignment_unsupported'"});
 }
 
 TEST_F(
@@ -30208,6 +30402,26 @@ endmodule
   EXPECT_EQ(0u, dlatchCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchDirectStepUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_direct_step_unsupported",
+    R"(module coverage2_always_latch_direct_step_unsupported(
+  output logic [1:0] q_o
+);
+  always_latch begin
+    q_o++;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'coverage2_always_latch_direct_step_unsupported'"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPatternConditionSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -30615,6 +30829,100 @@ endmodule
      "always_latch currently supports only implicit or explicit hold default branches"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchUnknownLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_unknown_lhs_unsupported",
+    R"(module coverage2_always_latch_unknown_lhs_unsupported(
+  input  logic       en_i,
+  input  logic       d_i,
+  input  logic [1:0] sel_i,
+  output logic [3:0] q_o
+);
+  function automatic logic [1:0] bad_idx(input logic [1:0] op_i);
+    case (op_i) inside
+      [2'bxx : 2'd2]: bad_idx = 2'd1;
+      default:        bad_idx = 2'd0;
+    endcase
+  endfunction
+
+  always_latch begin
+    if (en_i)
+      q_o[bad_idx(sel_i)] <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'coverage2_always_latch_unknown_lhs_unsupported'",
+     "unable to resolve latch assignment LHS bits"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchElseIncrementerSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_else_incrementer_supported",
+    R"(module coverage2_always_latch_else_incrementer_supported(
+  input  logic       en_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      r_o <= r_o + 4'd1;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_always_latch_else_incrementer_supported"));
+  ASSERT_NE(top, nullptr);
+  auto dlatchModel = NLDB0::getDLatch();
+  ASSERT_NE(dlatchModel, nullptr);
+  size_t dlatchCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dlatchModel) {
+      ++dlatchCount;
+    }
+  }
+  EXPECT_EQ(8u, dlatchCount);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2AlwaysLatchElseDataFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_always_latch_else_data_failure_unsupported",
+    R"(module coverage2_always_latch_else_data_failure_unsupported(
+  input  logic       en_i,
+  input  logic [1:0] sel_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o,
+  output logic [3:0] r_o
+);
+  always_latch begin
+    if (en_i)
+      q_o <= d_i;
+    else
+      r_o <= d_i -> q_o;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in sequential assignment: ->"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInitialSystemTaskConditionalIgnoredSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -30650,6 +30958,32 @@ endmodule
   auto top = library_->getSNLDesign(NLName("initial_system_task_conditional_ignored_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCoverage2InitialUserTaskCallUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "coverage2_initial_user_task_call_unsupported",
+    R"(module coverage2_initial_user_task_call_unsupported(
+  input  logic a_i,
+  output logic y_o
+);
+  task do_check(input logic value);
+  endtask
+
+  initial begin
+    do_check(a_i);
+  end
+
+  assign y_o = a_i;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported procedural block in module "
+     "'coverage2_initial_user_task_call_unsupported'"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockIgnored) {
