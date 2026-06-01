@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779807296964,
+  "lastUpdate": 1780344287816,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -5814,6 +5814,108 @@ window.BENCHMARK_DATA = {
             "value": 223112.72733033373,
             "unit": "ns/iter",
             "extra": "iterations: 3154\ncpu: 222894.1122384599 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4bab5e687cedb120217261e42209ee53abd03f2",
+          "message": "B0.6.7 (#377)\n\n* Towards 0.6.7 and more SV support\n\n* divmod prim\n\n* more SV support\n\n* support more latch cases\n\n* new latch support\n\n* new support\n\n* next row of support\n\n* next support\n\n* Trigger CI\n\n* Trigger CI\n\n* new row of support\n\n* next row\n\n* more support\n\n* new set of support\n\n* update workflow\n\n* update tutorial\n\n* clean dot output\n\n* parallel tests\n\n* precompute timing modeling as it is not thread safe\n\n* Revert \"precompute timing modeling as it is not thread safe\"\n\nThis reverts commit 8bc5be5e2ff72e62cbe455ab680369fc319f2221.\n\n* cleaning workflows and adding //\n\n* test with tsan\n\n* test cleaning\n\n* edit tsan options\n\n* coverage\n\n* tsan avoiding TBB noise\n\n* mt safety fix for NLName\n\n* revert test change\n\n* Revert \"mt safety fix for NLName\"\n\n* clean dot usage through option in tests\n\n* set -> unique vector for ll\n\n* preprocess design before multi-threading operation\n\n* clean tsan\n\n* cleaning\n\n* rerun wheels\n\n* run wheels\n\n* coverage\n\n* coverage\n\n* coverage\n\n---------\n\nCo-authored-by: Noam Cohen <noam.chn1@gmail.com>",
+          "timestamp": "2026-06-01T22:02:34+02:00",
+          "tree_id": "edebf00c874a20531b0e5d90ab6b5e6e7f9b2b6f",
+          "url": "https://github.com/najaeda/naja/commit/d4bab5e687cedb120217261e42209ee53abd03f2"
+        },
+        "date": 1780344287275,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 64654.09025669152,
+            "unit": "ns/iter",
+            "extra": "iterations: 10869\ncpu: 64644.5771460116 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 166232.24613555634,
+            "unit": "ns/iter",
+            "extra": "iterations: 4205\ncpu: 166224.21569560052 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1577295.9225513358,
+            "unit": "ns/iter",
+            "extra": "iterations: 439\ncpu: 1577200.0842824602 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17987414.73684261,
+            "unit": "ns/iter",
+            "extra": "iterations: 38\ncpu: 17986966.789473683 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1611.8903845226664,
+            "unit": "ns/iter",
+            "extra": "iterations: 435787\ncpu: 1611.7881602709574 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 15875.0420071066,
+            "unit": "ns/iter",
+            "extra": "iterations: 44183\ncpu: 15874.004707692991 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 171539.0678997409,
+            "unit": "ns/iter",
+            "extra": "iterations: 4109\ncpu: 171528.07544414702 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 243494.7500881203,
+            "unit": "ns/iter",
+            "extra": "iterations: 2837\ncpu: 243477.86640817756 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 198730.4209631658,
+            "unit": "ns/iter",
+            "extra": "iterations: 3530\ncpu: 198718.30623229465 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 140394.7392354052,
+            "unit": "ns/iter",
+            "extra": "iterations: 4970\ncpu: 140380.36458752514 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 74395187.62500086,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 74396279.87499997 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 26045.12090457713,
+            "unit": "ns/iter",
+            "extra": "iterations: 27195\ncpu: 26043.985364956763 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 224637.9570808623,
+            "unit": "ns/iter",
+            "extra": "iterations: 3099\ncpu: 224580.17554049642 ns\nthreads: 1"
           }
         ]
       }
