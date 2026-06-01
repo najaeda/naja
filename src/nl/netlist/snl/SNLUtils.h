@@ -23,6 +23,7 @@ class SNLUtils {
     static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
     static NLID::Bit getWidth(int msb, int lsb);
     static SNLDesign* findTop(const NLLibrary* library);
+    static void prepareForConcurrentAccess(const SNLDesign* design);
     static std::string getUnnamedIDString(const char* tag, std::uint64_t id);
     static std::string getNamedString(const NLName& name, const char* tag, std::uint64_t id);
     static std::string getBusNamedString(
