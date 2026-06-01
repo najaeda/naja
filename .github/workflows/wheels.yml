@@ -10,15 +10,17 @@ on:
   # Also allow running this action on PRs if requested by applying the
   # "Run cibuildwheel" label.
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   # Manual run
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   generate-parser:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'Run cibuildwheel')
     concurrency:
       group: "parser-generation-${{ github.run_id }}"
       cancel-in-progress: false
