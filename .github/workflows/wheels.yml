@@ -10,7 +10,6 @@ on:
   # Also allow running this action on PRs if requested by applying the
   # "Run cibuildwheel" label.
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
   # Manual run
   workflow_dispatch:
 
