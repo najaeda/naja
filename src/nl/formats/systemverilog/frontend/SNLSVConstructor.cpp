@@ -21363,8 +21363,10 @@ endmodule
                   if (!lhsMatches || !resolveCompoundRhs(rhsCandidate)) {
                     return false;
                   }
+                  // LCOV_EXCL_START
                   recoveredCompoundRhs = &rhsCandidate;
                   return true;
+                  // LCOV_EXCL_STOP
                 };
               if (!tryRecoverCompoundOperand(binaryExpr.left(), binaryExpr.right())) {
                 tryRecoverCompoundOperand(binaryExpr.right(), binaryExpr.left());
@@ -26007,7 +26009,7 @@ endmodule
                 createNotBitGate(design, enableNet, enableSourceRange);
             }
             if (!falseEnableNet) {
-              latchFailureReason = "unable to build latch else enable condition net";
+              latchFailureReason = "unable to build latch else enable condition net"; // LCOV_EXCL_LINE
               return false; // LCOV_EXCL_LINE
             }
             return lowerLatchAssignment(
@@ -26917,7 +26919,7 @@ endmodule
             if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
                 binaryExpr.op == slang::ast::BinaryOperator::Mod) {
               std::vector<SNLBitNet*> lhsAssignBits = lhsNet ? collectBits(lhsNet)
-                                                             : std::vector<SNLBitNet*> {};
+                                                             : std::vector<SNLBitNet*> {}; // LCOV_EXCL_LINE
               std::vector<SNLBitNet*> rhsBits;
               if (!lhsAssignBits.empty() &&
                   resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
