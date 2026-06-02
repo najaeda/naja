@@ -187,6 +187,12 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
 
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadSystemVerilog([sv_file], suppress_warnings=["width-trunc"])
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
@@ -263,6 +269,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")

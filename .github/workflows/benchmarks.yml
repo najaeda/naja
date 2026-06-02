@@ -26,7 +26,7 @@ jobs:
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
 
       - name: Build benchmarks
-        run: cmake --build ${{github.workspace}}/build --target snl_bench
+        run: cmake --build ${{github.workspace}}/build --target snl_bench --parallel $(nproc)
 
       - name: Run benchmarks
         run: ${{github.workspace}}/build/bench/snl_bench --benchmark_format=json --benchmark_out=${{github.workspace}}/benchmark.json

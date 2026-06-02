@@ -84,17 +84,28 @@ endif(CODE_COVERAGE)
 
 add_library(sanitizers_config INTERFACE)
 option(ENABLE_SANITIZERS "Enable sanitizers in compilation" OFF)
+option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer in compilation" OFF)
+if(ENABLE_SANITIZERS AND ENABLE_THREAD_SANITIZER)
+  message(FATAL_ERROR "ENABLE_SANITIZERS and ENABLE_THREAD_SANITIZER cannot both be enabled")
+endif()
 if(ENABLE_SANITIZERS)
   target_compile_options(sanitizers_config INTERFACE
     -fsanitize=address
     -fno-omit-frame-pointer
-    #-fsanitize=thread
   )
   target_link_options(sanitizers_config INTERFACE
     -fsanitize=address
-    #-fsanitize=thread
   )
 endif(ENABLE_SANITIZERS)
+if(ENABLE_THREAD_SANITIZER)
+  target_compile_options(sanitizers_config INTERFACE
+    -fsanitize=thread
+    -fno-omit-frame-pointer
+  )
+  target_link_options(sanitizers_config INTERFACE
+    -fsanitize=thread
+  )
+endif(ENABLE_THREAD_SANITIZER)
 
 if(NOT BUILD_ONLY_DOC)
   # Do not call find_package(Boost) here because thirdparty/slang can

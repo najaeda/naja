@@ -314,6 +314,7 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--diagnostics", required=True)
 parser.add_argument("--rtl-infos-as-attributes", action="store_true")
 parser.add_argument("--assigns-as-instances", action="store_true")
+parser.add_argument("--sv-suppress-warning", action="append", dest="sv_suppress_warnings", default=[])
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True)
@@ -322,6 +323,7 @@ svconfig = netlist.SystemVerilogConfig(
     top=args.top,
     flist=args.flist,
     diagnostics_report_path=args.diagnostics,
+    suppress_warnings=args.sv_suppress_warnings or None,
 )
 top = netlist.load_system_verilog([], config=svconfig)
 dump_config = netlist.VerilogDumpConfig()
@@ -380,6 +382,8 @@ def generate_verilog(
         args.append("--rtl-infos-as-attributes")
     if dump.get("assigns_as_instances", False):
         args.append("--assigns-as-instances")
+    for warning in case.get("sv_suppress_warnings", []):
+        args.extend(["--sv-suppress-warning", str(warning)])
 
     timeout = int(case.get("generate_timeout_seconds", 7200))
     run_command(args, cwd=repo_dir, env=env, timeout=timeout, log_path=log_dir / "generate.log")

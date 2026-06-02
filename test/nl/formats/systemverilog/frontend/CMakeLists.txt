@@ -13,6 +13,11 @@ add_executable(snlSVConstructorTests ${snl_sv_constructor_tests})
 target_compile_definitions(snlSVConstructorTests PRIVATE
   SNL_SV_BENCHMARKS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks"
   SNL_SV_DUMPER_TEST_PATH="${CMAKE_CURRENT_BINARY_DIR}")
+if(ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
+  target_compile_definitions(
+    snlSVConstructorTests
+    PRIVATE NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
+endif()
 target_link_libraries(snlSVConstructorTests
   naja_snl_systemverilog_test
   naja_snl_verilog

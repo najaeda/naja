@@ -26,6 +26,8 @@
 namespace {
   constexpr const char* MemoryPrefix = "naja_mem__";
   constexpr const char* MemoryLibraryName = "MEMORY";
+  constexpr const char* ArithmeticLibraryName = "ARITH";
+  constexpr const char* DivModPrefix = "naja_divmod__";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
   constexpr const char* DLatchName = "naja_dlatch";
   constexpr const char* DFFNName = "naja_dffn";
@@ -51,6 +53,14 @@ namespace {
   std::string getMux2InternalName(size_t width) {
     std::ostringstream name;
     name << Mux2Prefix << width;
+    return name.str();
+  }
+
+  std::string getDivModInternalName(const naja::NL::NLDB0::DivModSignature& signature) {
+    std::ostringstream name;
+    name << DivModPrefix
+         << (signature.isSigned ? "s" : "u")
+         << "_w" << signature.width;
     return name.str();
   }
 
@@ -196,6 +206,63 @@ namespace {
       }
       SNLDesignModeling::addCombinatorialArcs(readAddrBits, readDataBits);
     }
+  }
+
+  void createDivModPrimitive(
+    naja::NL::NLLibrary* arithmeticLibrary,
+    const naja::NL::NLDB0::DivModSignature& signature) {
+    using namespace naja::NL;
+    auto divmod = SNLDesign::create(
+      arithmeticLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getDivModInternalName(signature)));
+
+    SNLParameter::create(
+      divmod, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(signature.width));
+    SNLParameter::create(
+      divmod,
+      NLName("SIGNED"),
+      SNLParameter::Type::Decimal,
+      signature.isSigned ? "1" : "0");
+
+    auto dividend = SNLBusTerm::create(
+      divmod,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.width - 1),
+      0,
+      NLName("A"));
+    auto divisor = SNLBusTerm::create(
+      divmod,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.width - 1),
+      0,
+      NLName("B"));
+    auto quotient = SNLBusTerm::create(
+      divmod,
+      SNLTerm::Direction::Output,
+      static_cast<NLID::Bit>(signature.width - 1),
+      0,
+      NLName("Q"));
+    auto remainder = SNLBusTerm::create(
+      divmod,
+      SNLTerm::Direction::Output,
+      static_cast<NLID::Bit>(signature.width - 1),
+      0,
+      NLName("R"));
+
+    SNLDesignModeling::BitTerms inputs;
+    auto dividendBits = collectBitTerms(*dividend);
+    auto divisorBits = collectBitTerms(*divisor);
+    inputs.insert(inputs.end(), dividendBits.begin(), dividendBits.end());
+    inputs.insert(inputs.end(), divisorBits.begin(), divisorBits.end());
+
+    SNLDesignModeling::BitTerms outputs;
+    auto quotientBits = collectBitTerms(*quotient);
+    auto remainderBits = collectBitTerms(*remainder);
+    outputs.insert(outputs.end(), quotientBits.begin(), quotientBits.end());
+    outputs.insert(outputs.end(), remainderBits.begin(), remainderBits.end());
+
+    SNLDesignModeling::addCombinatorialArcs(inputs, outputs);
   }
 
   inline bool parity64(uint64_t x) {
@@ -370,6 +437,25 @@ namespace {
     return getMemoryDecimalParameter(instance->getModel(), name);
   }
 
+  size_t getDivModDecimalParameter(const naja::NL::SNLDesign* design, const char* name) {
+    auto* parameter = design ? design->getParameter(naja::NL::NLName(name)) : nullptr;
+    if (!parameter) {
+      throw naja::NL::NLException(
+          std::string("NLDB0 divmod primitive is missing parameter ") + name);
+    }
+    return static_cast<size_t>(std::stoull(parameter->getValue()));
+  }
+
+  size_t getDivModDecimalParameter(const naja::NL::SNLInstance* instance, const char* name) {
+    if (!instance) {
+      throw naja::NL::NLException("NLDB0::getDivModSignature: null instance"); // LCOV_EXCL_LINE
+    }
+    if (auto* instParameter = instance->getInstParameter(naja::NL::NLName(name))) {
+      return static_cast<size_t>(std::stoull(instParameter->getValue()));
+    }
+    return getDivModDecimalParameter(instance->getModel(), name);
+  }
+
   naja::NL::NLDB0::MemoryResetMode getMemoryResetMode(size_t resetEnable,
                                                       size_t resetAsync,
                                                       size_t resetActiveLow) {
@@ -404,6 +490,28 @@ namespace {
         rootLibrary,
         naja::NL::NLLibrary::Type::Primitives,
         naja::NL::NLName(MemoryLibraryName));
+  }
+
+  naja::NL::NLLibrary* getArithmeticLibrary() {
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return rootLibrary->getLibrary(naja::NL::NLName(ArithmeticLibraryName));
+  }
+
+  naja::NL::NLLibrary* getOrCreateArithmeticLibrary() {
+    if (auto* existing = getArithmeticLibrary()) {
+      return existing;
+    }
+    auto* rootLibrary = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!rootLibrary) {
+      return nullptr;
+    }
+    return naja::NL::NLLibrary::create(
+        rootLibrary,
+        naja::NL::NLLibrary::Type::Primitives,
+        naja::NL::NLName(ArithmeticLibraryName));
   }
 }
 
@@ -606,9 +714,65 @@ SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
   return design->getBusTerm(NLName("WE"));
 }
 
+bool NLDB0::isDivMod(const SNLDesign* design) {
+  return design && design->isPrimitive() && design->getLibrary() == getArithmeticLibrary() &&
+         !design->isUnnamed() && design->getName().getString().rfind(DivModPrefix, 0) == 0;
+}
+
+NLDB0::DivModSignature NLDB0::getDivModSignature(const SNLDesign* design) {
+  if (!isDivMod(design)) {
+    throw NLException("NLDB0::getDivModSignature: design is not a divmod primitive");
+  }
+  DivModSignature signature;
+  signature.width = getDivModDecimalParameter(design, "WIDTH");
+  signature.isSigned = getDivModDecimalParameter(design, "SIGNED") != 0;
+  return signature;
+}
+
+NLDB0::DivModSignature NLDB0::getDivModSignature(const SNLInstance* instance) {
+  if (!instance || !isDivMod(instance->getModel())) {
+    throw NLException("NLDB0::getDivModSignature: instance is not a divmod primitive");
+  }
+  DivModSignature signature;
+  signature.width = getDivModDecimalParameter(instance, "WIDTH");
+  signature.isSigned = getDivModDecimalParameter(instance, "SIGNED") != 0;
+  return signature;
+}
+
+SNLBusTerm* NLDB0::getDivModDividend(const SNLDesign* design) {
+  if (!isDivMod(design)) {
+    throw NLException("NLDB0::getDivModDividend: design is not a divmod primitive");
+  }
+  return design->getBusTerm(NLName("A"));
+}
+
+SNLBusTerm* NLDB0::getDivModDivisor(const SNLDesign* design) {
+  if (!isDivMod(design)) {
+    throw NLException("NLDB0::getDivModDivisor: design is not a divmod primitive");
+  }
+  return design->getBusTerm(NLName("B"));
+}
+
+SNLBusTerm* NLDB0::getDivModQuotient(const SNLDesign* design) {
+  if (!isDivMod(design)) {
+    throw NLException("NLDB0::getDivModQuotient: design is not a divmod primitive");
+  }
+  return design->getBusTerm(NLName("Q"));
+}
+
+SNLBusTerm* NLDB0::getDivModRemainder(const SNLDesign* design) {
+  if (!isDivMod(design)) {
+    throw NLException("NLDB0::getDivModRemainder: design is not a divmod primitive");
+  }
+  return design->getBusTerm(NLName("R"));
+}
+
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isMemory(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
+  }
+  if (isDivMod(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: divmod primitive has no truth table");
   }
   if (isAssign(design)) {
     return SNLTruthTable(1, 0b10, getInputFlatTermDependencies(design));
@@ -677,6 +841,22 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 
 std::string designName = design->getLibrary()->getName().getString() + "." + design->getName().getString();
   throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type: " + designName);
+}
+
+SNLDesign* NLDB0::getOrCreateDivMod(const DivModSignature& signature) {
+  auto* arithmeticLibrary = getOrCreateArithmeticLibrary();
+  if (!arithmeticLibrary) {
+    return nullptr;
+  }
+  if (signature.width == 0) {
+    throw NLException("NLDB0::getOrCreateDivMod: invalid divmod signature");
+  }
+  const auto name = NLName(getDivModInternalName(signature));
+  if (auto* existing = arithmeticLibrary->getSNLDesign(name)) {
+    return existing;
+  }
+  createDivModPrimitive(arithmeticLibrary, signature);
+  return arithmeticLibrary->getSNLDesign(name);
 }
 
 SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {

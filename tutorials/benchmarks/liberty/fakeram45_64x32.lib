@@ -1,0 +1,36 @@
+/*
+ * SPDX-FileCopyrightText: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Synthetic SRAM model for tutorial purposes — structural interface only.
+ * Models a 64-word × 32-bit single-port SRAM with a 32-bit write mask.
+ */
+library (fakeram45_64x32) {
+  technology (cmos);
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit (1, ff);
+  delay_model : table_lookup;
+  nom_process : 1;
+  nom_temperature : 25;
+  nom_voltage : 1.1;
+
+  cell (fakeram45_64x32) {
+    memory() {
+      type          : ram;
+      address_width : 6;
+      word_width    : 32;
+    }
+    pin (clk)    { direction : input; clock : true; }
+    pin (ce_in)  { direction : input; }
+    pin (we_in)  { direction : input; }
+    bus (addr_in)   { bus_type : bus6;  direction : input; }
+    bus (wd_in)     { bus_type : bus32; direction : input; }
+    bus (w_mask_in) { bus_type : bus32; direction : input; }
+    bus (rd_out)    { bus_type : bus32; direction : output; }
+  }
+
+  type (bus6)  { base_type : array; data_type : bit; bit_width : 6;  bit_from : 5;  bit_to : 0; }
+  type (bus32) { base_type : array; data_type : bit; bit_width : 32; bit_from : 31; bit_to : 0; }
+}

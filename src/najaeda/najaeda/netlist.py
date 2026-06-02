@@ -1887,6 +1887,7 @@ class SystemVerilogConfig:
     include_source_info_in_elaborated_ast_json: bool = True
     flist: str = None
     top: str = None
+    suppress_warnings: list = None  # Slang warning names to suppress (e.g. ["sign-conversion"])
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1979,6 +1980,7 @@ def load_system_verilog(
             include_source_info_in_elaborated_ast_json=(
                 config.include_source_info_in_elaborated_ast_json),
             flist=effective_flist,
+            suppress_warnings=config.suppress_warnings,
         )
     finally:
         if temp_flist_path and os.path.exists(temp_flist_path):

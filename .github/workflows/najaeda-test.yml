@@ -2,7 +2,7 @@ name: najaeda test, coverage and lint
 
 on:
   push:
-    branches: 
+    branches:
       - main
   pull_request:
 
@@ -26,12 +26,12 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -VV -C ${{env.BUILD_TYPE}}
-    - name: Set up Python 
+      run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
+    - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: 3.13
@@ -48,7 +48,7 @@ jobs:
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
         LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/liberty/benchmarks
-        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/verilog/benchmarks        
+        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/verilog/benchmarks
         NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
         NAJAEDA_SOURCE_TEST_PATH: ${{github.workspace}}/test/najaeda
       run: |

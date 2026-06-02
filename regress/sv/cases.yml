@@ -21,7 +21,6 @@ cases:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
-        - PINMISSING
         - ASCRANGE
 
   - name: cva6
@@ -40,8 +39,73 @@ cases:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
       suppressions:
-        - PINMISSING
         - ASCRANGE
+
+  # CVA6 'ariane' synthesizable DUT — Path B simulation target.
+  #
+  # ariane is the correct Naja top: it is the synthesizable processor that
+  # ariane_testharness wraps.  The testbench (ariane_testharness + SimDTM +
+  # SimJTAG + rvfi_tracer + peripherals) is the VERIFICATION ENVIRONMENT — it
+  # stays unmodified and wraps the Naja-generated ariane netlist at sim time.
+  # Loading ariane_testharness in Naja would bring in simulation-only constructs
+  # (DPI calls, string variables) that are not representable in SNL.
+  #
+  # Pattern: identical to ibex (top: ibex_top, tb: ariane_testharness wraps DUT).
+  # CVA6 'cva6' DUT for Path B simulation.
+  #
+  # ariane.sv defaults to config_pkg::cva6_cfg_empty (all-zeros) — using it
+  # as the top would give CVA6Cfg.XLEN=0 and cause Slang elaboration errors.
+  # cva6.sv defaults to build_config(cva6_config_pkg::cva6_cfg) which IS a
+  # concrete 64-bit config that Slang can evaluate → top: cva6 is correct.
+  #
+  # Simulation model (helloworld_sim):
+  #   ariane_testharness.sv (unchanged) + ariane.sv + SoC files + cva6_naja.v
+  #   → replaces cva6.sv with the Naja netlist in the testbench hierarchy
+  - name: cva6_testharness
+    repo: https://github.com/xtofalex/cva6.git
+    commit: bead12b083b4457a1ae87b8b9c8812a9d64bfc54
+    top: cva6
+    flist: core/Flist.cva6
+    output: cva6_testharness_naja.v
+    env:
+      CVA6_REPO_DIR: "{repo}"
+      HPDCACHE_DIR: "{repo}/core/cache_subsystem/hpdcache"
+      TARGET_CFG: cv64a6_imafdc_sv39
+    dump:
+      rtl_infos_as_attributes: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - ASCRANGE
+        - TIMESCALEMOD
+    helloworld_sim:
+      timeout_seconds: 14400
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
@@ -71,8 +135,6 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 3600
-      suppressions:
-        - PINMISSING
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
@@ -82,6 +144,7 @@ cases:
       pass_regex: "IBEX_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
+        - PINMISSING
     helloworld_sim:
       timeout_seconds: 7200
       tool_checks:
@@ -317,8 +380,6 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 3600
-      suppressions:
-        - PINMISSING
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
@@ -328,6 +389,7 @@ cases:
       pass_regex: "CV32E40P_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
+        - PINMISSING
     helloworld_sim:
       timeout_seconds: 7200
       tool_checks:
@@ -416,3 +478,37 @@ cases:
           - "--max-cycles"
           - "2000000"
       pass_regex: "CV32E40P_HWLP_SIM_PASS"
+
+  - name: axi
+    repo: https://github.com/pulp-platform/axi.git
+    commit: e286bb1a4aba6fc145f3cb41bd78665c5868e2a9
+    top: axi_cut_top
+    flist: "{artifacts}/axi.flist"
+    setup_timeout_seconds: 1800
+    setup_commands:
+      - - python3
+        - "{naja}/regress/sv/axi_flist.py"
+        - "--repo"
+        - "{repo}"
+        - "--output"
+        - "{artifacts}/axi.flist"
+    output: axi_naja.v
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_axi_cut_smoke
+      sources:
+        - "{repo}/src/axi_pkg.sv"
+        - "{naja}/regress/sv/smoke/tb_axi_cut_smoke.sv"
+      extra_args:
+        - "+incdir+repo/include"
+      pass_regex: "AXI_CUT_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
+        - WIDTHEXPAND

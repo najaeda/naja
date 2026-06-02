@@ -16,10 +16,22 @@ are still expected in real designs:
   failures for non-integral and unknown operands.
 - `continuous_shift_right_unresolved_skipped`: unresolved RHS net in logical
   right shift.
-- `continuous_shift_left_unknown_amount_unsupported`: unresolved dynamic shift
-  amount bits.
-- `seq_add_unbased_x_literal_unsupported`: unbased unsized unknown literal in
-  sequential add, reaching `getConstantBit` unknown handling.
+- `continuous_shift_left_unknown_amount_supported`,
+  `continuous_shift_right_unknown_amount_supported`, and
+  `continuous_logical_shift_right_unknown_amount_supported`: unknown literal
+  shift amounts reaching the shared unknown-as-zero fallback.
+- `parseContinuousShiftRightUnsupportedAmountExprReportsReason` and
+  `parseContinuousShiftLeftUnsupportedAmountExprReportsGenericReason`:
+  unsupported shift amount expressions reaching the shared shift-amount
+  diagnostic fallback with and without a caller-provided reason string.
+- `parseContinuousAssignConfigRangeCheckFunctionUnknownShiftAddressExprSupported`:
+  unknown literal shift amount fallback when lowering an address expression
+  inside a config range-check function call.
+- `seq_add_unbased_x_literal_supported`: unbased unsized unknown literal in
+  sequential add, reaching the shared unknown-as-zero arithmetic fallback.
+- `continuous_sub_unknown_operand_supported`: sized unknown literal in
+  continuous subtraction, reaching the shared unknown-as-zero arithmetic
+  fallback.
 - `continuous_resolve_expression_bits_failure_paths_unsupported`: targeted
   `resolveExpressionBits` fallback failures in continuous assign for unknown
   integer constants, call-cast recursion, nested binary recursion,
@@ -64,6 +76,16 @@ the current architecture:
   the multiply-specific fallback.
 - `resolveExpressionBits`: brace-only LCOV artifacts in call / binary /
   element-select / member-access blocks.
+- Active for-loop constant helpers: whitespace-only or missing source excerpts
+  and parameter-initializer recursion retained for alternate AST shapes, while
+  current Slang elaboration provides source ranges and folded parameter values.
+- Element-selection width helpers: non-bitstream range fallbacks and missing
+  fixed-range diagnostics retained for alternate type modeling; parser-backed
+  dynamic element assignments reach these helpers with fixed-range bitstream
+  bases.
+- Dynamic element sub-assignment lowering: internal offset and width mismatch
+  guards retained for inconsistent selection-step data after prior fixed-range
+  and bit-width validation.
 - `getDriverFailureDetails`: parse-diagnostics aggregation from
   `driver.syntaxTrees` on driver failure. With current slang behavior, tested
   driver failure modes report via `sourceLoader` / argument parsing and keep

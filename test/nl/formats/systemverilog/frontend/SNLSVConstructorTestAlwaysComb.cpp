@@ -161,6 +161,187 @@ class SNLSVConstructorTestAlwaysComb: public ::testing::Test {
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombConstantFalseShortCircuitSkipsUnsupportedBranch) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_constant_false_short_circuit_skips_unsupported_branch");
+
+  const auto svPath =
+    outPath / "always_comb_constant_false_short_circuit_skips_unsupported_branch.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_constant_false_short_circuit_skips_unsupported_branch(
+  input  logic a_i,
+  output logic y_o
+);
+  typedef struct packed {
+    bit RVH;
+  } cfg_t;
+  typedef struct packed {
+    logic [1:0] ppn;
+    logic       g;
+  } pte_t;
+  localparam cfg_t Cfg = '{RVH: 1'b0};
+  pte_t pte;
+  logic [2:0] content;
+
+  always_comb begin
+    y_o = a_i;
+    content = 3'b0;
+    if (a_i && Cfg.RVH) begin
+      content = (pte | (a_i << 1));
+      forever begin
+        y_o = 1'b1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_constant_false_short_circuit_skips_unsupported_branch"));
+  ASSERT_NE(top, nullptr);
+  auto* a = dynamic_cast<SNLBitNet*>(top->getNet(NLName("a_i")));
+  auto* y = dynamic_cast<SNLBitNet*>(top->getNet(NLName("y_o")));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(a, getSingleAssignInputDriving(y));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombConstantLogicalOperandsSelectExpectedBranches) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_constant_logical_operands_select_expected_branches");
+
+  const auto svPath =
+    outPath / "always_comb_constant_logical_operands_select_expected_branches.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_constant_logical_operands_select_expected_branches(
+  input  logic a_i,
+  input  logic b_i,
+  output logic and_o,
+  output logic or_o
+);
+  always_comb begin
+    and_o = b_i;
+    or_o = b_i;
+    for (int i = 0; i < 2; i++) begin
+      if ((i == 1) && (a_i || 1'b1)) begin
+        and_o = a_i;
+      end
+      if ((i == 0) || (a_i && 1'b0)) begin
+        or_o = a_i;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_constant_logical_operands_select_expected_branches"));
+  ASSERT_NE(top, nullptr);
+  auto* a = dynamic_cast<SNLBitNet*>(top->getNet(NLName("a_i")));
+  auto* andOutput = dynamic_cast<SNLBitNet*>(top->getNet(NLName("and_o")));
+  auto* orOutput = dynamic_cast<SNLBitNet*>(top->getNet(NLName("or_o")));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(andOutput, nullptr);
+  ASSERT_NE(orOutput, nullptr);
+  EXPECT_EQ(a, getSingleAssignInputDriving(andOutput));
+  EXPECT_EQ(a, getSingleAssignInputDriving(orOutput));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombInvalidDeadBranchStatementUnwrappedAndSkipped) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_invalid_dead_branch_statement_unwrapped_and_skipped");
+
+  const auto svPath =
+    outPath / "always_comb_invalid_dead_branch_statement_unwrapped_and_skipped.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_invalid_dead_branch_statement_unwrapped_and_skipped(
+  input  logic a_i,
+  output logic y_o
+);
+  localparam bit ENABLE_BAD_BRANCH = 1'b0;
+  logic [3:0] data;
+
+  always_comb begin
+    y_o = a_i;
+    if (ENABLE_BAD_BRANCH) begin
+      y_o = data[0:1];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_invalid_dead_branch_statement_unwrapped_and_skipped"));
+  ASSERT_NE(top, nullptr);
+  auto* a = dynamic_cast<SNLBitNet*>(top->getNet(NLName("a_i")));
+  auto* y = dynamic_cast<SNLBitNet*>(top->getNet(NLName("y_o")));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(a, getSingleAssignInputDriving(y));
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseAlwaysCombConstantSelectedBranchCollectionFailureReportsContext) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_constant_selected_branch_collection_failure_reports_context");
+
+  const auto svPath =
+    outPath / "always_comb_constant_selected_branch_collection_failure_reports_context.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_constant_selected_branch_collection_failure_reports_context(
+  input  logic hold_i,
+  input  logic d_i,
+  output logic y_o
+);
+  localparam bit USE_UNSUPPORTED_BRANCH = 1'b1;
+
+  always_comb begin
+    y_o = 1'b0;
+    if (USE_UNSUPPORTED_BRANCH) begin
+      while (hold_i) begin
+        y_o = d_i;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement kind while collecting assignments",
+     "constant-selected branch"});
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombConstantBitThenWholeVectorOverride) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
@@ -570,7 +751,7 @@ TEST_F(
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_case_assignment_function_call_unsupported(
+    << R"(module always_comb_case_assignment_function_call_supported(
   input  logic [3:0] op_i,
   output logic [1:0] data_size_o
 );
@@ -592,9 +773,197 @@ endmodule
   constructor.construct(svPath);
 
   auto top = library_->getSNLDesign(
-    NLName("always_comb_case_assignment_function_call_unsupported"));
+    NLName("always_comb_case_assignment_function_call_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseExternalCva6FunctionCallRhsPatternsSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "external_cva6_function_call_rhs_patterns_supported");
+
+  const auto svPath =
+    outPath / "external_cva6_function_call_rhs_patterns_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module external_cva6_function_call_rhs_patterns_supported(
+  input  logic       clk_i,
+  input  logic [3:0] bv_i,
+  input  logic [3:0] lhs_i,
+  input  logic [3:0] rhs_i,
+  input  logic [7:0] data_i,
+  input  logic [1:0] size_i,
+  input  logic       sel_i,
+  output logic [1:0] idx_o,
+  output logic       eq_o,
+  output logic [7:0] data_o,
+  output logic [3:0] cs_o,
+  output logic [5:0] meta_o
+);
+  typedef logic [1:0] idx_t;
+  typedef struct packed {
+    logic [2:0] addr;
+    logic [2:0] size;
+  } meta_t;
+
+  meta_t meta;
+
+  function automatic idx_t bv_to_index(input logic [3:0] bv);
+    for (int i = 0; i < 4; i++) begin
+      if (bv[i]) return idx_t'(i);
+    end
+    return idx_t'(0);
+  endfunction
+
+  function automatic logic set_equal(input logic [3:0] lhs, input logic [3:0] rhs);
+    if (2 > 1) return lhs[1:0] == rhs[1:0];
+    else return 1'b1;
+  endfunction
+
+  function automatic logic [7:0] prepare_data(
+      input logic [7:0] data,
+      input logic [1:0] size,
+      input logic       sel);
+    if (size == 2'd3) return data;
+    else if (sel) return {{4{data[7]}}, data[7:4]};
+    else return {4'b0, data[3:0]};
+  endfunction
+
+  function automatic logic [2:0] mem_size(input int unsigned bytes);
+    if (bytes <= 1) return 3'd0;
+    else if (bytes <= 2) return 3'd1;
+    else if (bytes <= 4) return 3'd2;
+    else begin
+      assert (1'b1);
+      return 3'd3;
+    end
+  endfunction
+
+  function automatic logic [3:0] compute_cs(
+      input logic [1:0] size,
+      input logic [1:0] word);
+    logic [3:0] ret;
+    logic [1:0] off;
+    case (size)
+      2'd0: ret = 4'b0001;
+      2'd1: ret = 4'b0011;
+      default: ret = 4'b1111;
+    endcase
+    off = word[0 +: 2];
+    return ret << off;
+  endfunction
+
+  assign idx_o = bv_to_index(bv_i);
+  assign eq_o = set_equal(lhs_i, rhs_i);
+  assign data_o = prepare_data(data_i, size_i, sel_i);
+  assign meta = '{addr: lhs_i[2:0], size: mem_size(4)};
+  assign meta_o = meta;
+
+  always_comb begin
+    cs_o = compute_cs(size_i, bv_i[1:0]);
+  end
+
+  property prop_core_req_size_max;
+    @(posedge clk_i) eq_o |-> eq_o;
+  endproperty
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("external_cva6_function_call_rhs_patterns_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("idx_o")), nullptr);
+  EXPECT_NE(top->getNet(NLName("meta_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestAlwaysComb,
+  parseExternalCva6OutputFunctionCallDynamicMemberSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "external_cva6_output_function_call_dynamic_member_supported");
+
+  const auto svPath =
+    outPath / "external_cva6_output_function_call_dynamic_member_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module external_cva6_output_function_call_dynamic_member_supported(
+  input  logic       ptr_i,
+  input  logic       write_i,
+  input  logic       init_i,
+  input  logic [31:0] write_data_flat_i,
+  input  logic [3:0]  write_be_flat_i,
+  output logic [35:0] flat_o
+);
+  localparam int unsigned WBUF_DATA_NWORDS = 2;
+  typedef logic [15:0] wbuf_data_t;
+  typedef logic [1:0]  wbuf_be_t;
+  typedef wbuf_data_t [WBUF_DATA_NWORDS-1:0] wbuf_data_buf_t;
+  typedef wbuf_be_t   [WBUF_DATA_NWORDS-1:0] wbuf_be_buf_t;
+
+  typedef struct packed {
+    wbuf_data_buf_t data;
+    wbuf_be_buf_t   be;
+  } wbuf_data_entry_t;
+
+  wbuf_data_entry_t [1:0] entries_q;
+  wbuf_data_entry_t [1:0] entries_d;
+  wbuf_data_buf_t write_data;
+  wbuf_be_buf_t write_be;
+
+  assign write_data[0] = write_data_flat_i[15:0];
+  assign write_data[1] = write_data_flat_i[31:16];
+  assign write_be[0] = write_be_flat_i[1:0];
+  assign write_be[1] = write_be_flat_i[3:2];
+  assign flat_o = entries_d[0];
+
+  function automatic void wbuf_data_write(
+      output wbuf_data_buf_t wbuf_ret_data,
+      output wbuf_be_buf_t   wbuf_ret_be,
+      input  wbuf_data_buf_t wbuf_old_data,
+      input  wbuf_be_buf_t   wbuf_old_be,
+      input  wbuf_data_buf_t wbuf_new_data,
+      input  wbuf_be_buf_t   wbuf_new_be);
+    for (int unsigned w = 0; w < WBUF_DATA_NWORDS; w++) begin
+      wbuf_ret_data[w] = wbuf_new_be[w][0] ? wbuf_new_data[w] : wbuf_old_data[w];
+      wbuf_ret_be[w] = wbuf_old_be[w] | wbuf_new_be[w];
+    end
+  endfunction
+
+  always_comb begin
+    automatic wbuf_be_buf_t buf_be;
+
+    entries_d = entries_q;
+    buf_be = init_i ? '0 : entries_q[ptr_i].be;
+
+    if (write_i) begin
+      wbuf_data_write(
+          entries_d[ptr_i].data,
+          entries_d[ptr_i].be,
+          entries_q[ptr_i].data,
+          buf_be,
+          write_data,
+          write_be);
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("external_cva6_output_function_call_dynamic_member_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("flat_o")), nullptr);
 }
 
 TEST_F(

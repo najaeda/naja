@@ -35,7 +35,7 @@ cases:
     verilator:
       image: verilator/verilator:v5.046
       suppressions:
-        - PINMISSING
+        - MULTIDRIVEN
 """,
                 encoding="utf-8",
             )
@@ -170,6 +170,18 @@ cases:
         self.assertIn("--require-firmware-sim-tools", workflow)
         self.assertNotIn("--allow-expected-failures", workflow)
 
+    def test_cva6_testharness_has_helloworld_sim_stage(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cva6 = sv_regress.select_cases(cases, "cva6_testharness")[0]
+
+        self.assertIn("helloworld_sim", cva6)
+        self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
+        self.assertNotIn("expected_failure", cva6["helloworld_sim"])
+        self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
+        command = cva6["helloworld_sim"]["commands"][0]
+        self.assertIn("cva6_testharness.py", command[1])
+        self.assertIn("{artifacts}/cva6_testharness_naja.v", command)
+
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
             "name": "fake",
@@ -177,7 +189,7 @@ cases:
             "verilator": {
                 "image": "verilator/verilator:v5.046",
                 "timeout_seconds": 12,
-                "suppressions": ["PINMISSING", "MULTIDRIVEN"],
+                "suppressions": ["MULTIDRIVEN", "WIDTH"],
                 "extra_args": ["--timing"],
             },
         }
@@ -209,8 +221,8 @@ cases:
 
         self.assertEqual(1, len(commands))
         command, kwargs = commands[0]
-        self.assertIn("-Wno-PINMISSING", command)
         self.assertIn("-Wno-MULTIDRIVEN", command)
+        self.assertIn("-Wno-WIDTH", command)
         self.assertIn("--timing", command)
         self.assertIn("/work/artifacts/fake_naja.v", command)
         self.assertIn("/work/artifacts/najaeda_primitives.v", command)
@@ -224,7 +236,7 @@ cases:
             "verilator": {
                 "image": "verilator/verilator:v5.046",
                 "timeout_seconds": 12,
-                "suppressions": ["PINMISSING"],
+                "suppressions": ["MULTIDRIVEN"],
                 "extra_args": ["--timing"],
             },
         }
@@ -260,6 +272,7 @@ cases:
         self.assertEqual("verilator", command[0])
         self.assertNotIn("docker", command)
         self.assertIn("--lint-only", command)
+        self.assertIn("-Wno-MULTIDRIVEN", command)
         self.assertIn(str(generated), command)
         self.assertIn(str(artifacts_dir / "najaeda_primitives.v"), command)
         self.assertEqual(12, kwargs["timeout"])
@@ -271,7 +284,7 @@ cases:
             "verilator": {
                 "image": "verilator/verilator:v5.046",
                 "timeout_seconds": 12,
-                "suppressions": ["PINMISSING"],
+                "suppressions": ["MULTIDRIVEN"],
             },
             "github_sim": {
                 "image": "verilator/verilator:v5.046",
@@ -318,7 +331,7 @@ cases:
         self.assertIn("--binary", build_command)
         self.assertIn("--top-module", build_command)
         self.assertIn("tb_fake", build_command)
-        self.assertIn("-Wno-PINMISSING", build_command)
+        self.assertIn("-Wno-MULTIDRIVEN", build_command)
         self.assertIn("-Wno-PINCONNECTEMPTY", build_command)
         self.assertIn("/work/artifacts/fake_naja.v", build_command)
         self.assertTrue(any(arg.endswith("/tb_fake.sv") for arg in build_command))
@@ -333,7 +346,7 @@ cases:
             "top": "fake_top",
             "output": "fake_naja.v",
             "verilator": {
-                "suppressions": ["PINMISSING"],
+                "suppressions": ["MULTIDRIVEN"],
             },
             "helloworld_sim": {
                 "runner": "local",
@@ -383,7 +396,7 @@ cases:
         run_command, run_kwargs = commands[1]
         self.assertEqual("verilator", build_command[0])
         self.assertIn("--binary", build_command)
-        self.assertIn("-Wno-PINMISSING", build_command)
+        self.assertIn("-Wno-MULTIDRIVEN", build_command)
         self.assertIn("-Wno-PINCONNECTEMPTY", build_command)
         self.assertIn(str(generated), build_command)
         self.assertIn(str(artifacts_dir / "helloworld_sim-obj" / "Vtb_fake"), run_command)
@@ -627,7 +640,6 @@ src/rtl/top.sv
         self.assertEqual("cv32e40p_top", cv32e40p["top"])
         self.assertEqual("cv32e40p_manifest.flist", cv32e40p["flist"])
         self.assertEqual("{repo}/rtl", cv32e40p["env"]["DESIGN_RTL_DIR"])
-        self.assertIn("PINMISSING", cv32e40p["verilator"]["suppressions"])
 
     def test_smoke_cases_have_github_and_helloworld_sim_stages(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)

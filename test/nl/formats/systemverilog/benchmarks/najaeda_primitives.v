@@ -129,10 +129,7 @@ module naja_mem #(
 
   reg [WIDTH-1:0] mem [0:DEPTH-1];
   integer rp;
-  integer wp;
-  integer later;
   integer addr_index;
-  reg allow_write;
   reg [ABITS-1:0] addr_value;
 
   task automatic load_init;
@@ -140,6 +137,27 @@ module naja_mem #(
     begin
       for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)
         mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
+    end
+  endtask
+
+  task automatic write_ports;
+    integer wp;
+    integer later;
+    integer addr_index;
+    reg allow_write;
+    reg [ABITS-1:0] addr_value;
+    begin
+      for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin
+        allow_write = WE[WR_PORTS-1-wp];
+        addr_value = WADDR[wp*ABITS +: ABITS];
+        for (later = wp + 1; later < WR_PORTS; later = later + 1) begin
+          if (WE[WR_PORTS-1-later] && WADDR[later*ABITS +: ABITS] == addr_value)
+            allow_write = 1'b0;
+        end
+        addr_index = integer'(addr_value);
+        if (allow_write && addr_index < DEPTH)
+          mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];
+      end
     end
   endtask
 
@@ -156,25 +174,32 @@ module naja_mem #(
     end
   end
 
-  always @(posedge CLK or posedge RST or negedge RST) begin
-    if (RST_ASYNC && reset_active) begin
-      load_init();
-    end else begin
-      if (!RST_ASYNC && reset_active)
-        load_init();
-      else begin
-        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin
-          allow_write = WE[wp];
-          addr_value = WADDR[wp*ABITS +: ABITS];
-          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin
-            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)
-              allow_write = 1'b0;
-          end
-          addr_index = integer'(addr_value);
-          if (allow_write && addr_index < DEPTH)
-            mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];
-        end
+  generate
+    if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset
+      always @(posedge CLK or negedge RST) begin
+        if (!RST)
+          load_init();
+        else
+          write_ports();
+      end
+    end else if (RST_ENABLE && RST_ASYNC) begin : async_high_reset
+      always @(posedge CLK or posedge RST) begin
+        if (RST)
+          load_init();
+        else
+          write_ports();
+      end
+    end else if (RST_ENABLE) begin : sync_reset
+      always @(posedge CLK) begin
+        if (reset_active)
+          load_init();
+        else
+          write_ports();
+      end
+    end else begin : no_reset
+      always @(posedge CLK) begin
+        write_ports();
       end
     end
-  end
+  endgenerate
 endmodule

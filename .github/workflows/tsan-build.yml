@@ -1,0 +1,45 @@
+name: tsan-build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ninja-build clang
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{ github.workspace }}/build
+        -GNinja
+        -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        -DCMAKE_C_COMPILER=clang
+        -DCMAKE_CXX_COMPILER=clang++
+        -DENABLE_SANITIZERS=OFF
+        -DENABLE_THREAD_SANITIZER=ON
+        -DLONG_TESTS=OFF
+
+    - name: Build
+      run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
+
+    - name: Test
+      working-directory: ${{ github.workspace }}/build
+      env:
+        # Keep TSan focused on Naja code paths and avoid TBB scheduler reports.
+        NON_MT: 1
+        TSAN_OPTIONS: halt_on_error=1 ignore_noninstrumented_modules=1 suppressions=${{ github.workspace }}/.github/tsan.supp
+      run: ctest --parallel 1 -VV -E ".*[p|P]ython.*" -C ${{ env.BUILD_TYPE }}

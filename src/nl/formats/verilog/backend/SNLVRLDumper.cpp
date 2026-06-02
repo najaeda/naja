@@ -1525,7 +1525,6 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     }
     o << ")";
   } else {
-    //should we not dump anything for non connected inst terms ?
     o << "  ." << dumpName(term->getName().getString()) << "()"; 
   }
 }
@@ -1552,17 +1551,13 @@ void SNLVRLDumper::dumpInstanceInterface(
       termNets.push_back(instTerm->getNet());
     } else {
       if (previousTerm) {
-        //dump previous term connectivity if at least one net is != nullptr
-        if (std::any_of(termNets.begin(), termNets.end(),
-          [](const SNLBitNet* n){ return n != nullptr; })) {
-          if (first) {
-            first = false;
-          } else {
-            o << ",";
-          }
-          o << '\n';
-          dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
+        if (first) {
+          first = false;
+        } else {
+          o << ",";
         }
+        o << '\n';
+        dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
       }
       termNets = { instTerm->getNet() };
       instTerms = { instTerm };
@@ -1573,16 +1568,13 @@ void SNLVRLDumper::dumpInstanceInterface(
     previousTerm = currentTerm;
   }
   if (previousTerm) {
-    if (std::any_of(termNets.begin(), termNets.end(),
-      [](const SNLBitNet* n){ return n != nullptr; })) {
-      if (first) {
-        first = false;
-      } else {
-        o << ",";
-      }
-      o << '\n';
-      dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
+    if (first) {
+      first = false;
+    } else {
+      o << ",";
     }
+    o << '\n';
+    dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
   }
   o << '\n' << ")";
 }
@@ -2270,16 +2262,33 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
   o << "  integer i;\n";
   o << "  integer rp;\n";
-  o << "  integer wp;\n";
-  o << "  integer later;\n";
   o << "  integer addr_index;\n";
-  o << "  reg allow_write;\n";
   o << "  reg [ABITS-1:0] addr_value;\n\n";
   o << "  task automatic load_init;\n";
   o << "    integer init_idx;\n";
   o << "    begin\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
   o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "    end\n";
+  o << "  endtask\n\n";
+  o << "  task automatic write_ports;\n";
+  o << "    integer wp;\n";
+  o << "    integer later;\n";
+  o << "    integer addr_index;\n";
+  o << "    reg allow_write;\n";
+  o << "    reg [ABITS-1:0] addr_value;\n";
+  o << "    begin\n";
+  o << "      for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
+  o << "        allow_write = WE[WR_PORTS-1-wp];\n";
+  o << "        addr_value = WADDR[wp*ABITS +: ABITS];\n";
+  o << "        for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
+  o << "          if (WE[WR_PORTS-1-later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
+  o << "            allow_write = 1'b0;\n";
+  o << "        end\n";
+  o << "        addr_index = integer'(addr_value);\n";
+  o << "        if (allow_write && addr_index < DEPTH)\n";
+  o << "          mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];\n";
+  o << "      end\n";
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
@@ -2293,32 +2302,34 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
   o << "    end\n";
   o << "  end\n\n";
-  o << "  always @(posedge CLK";
-  o << " or ";
-  o << "posedge RST";
-  o << " or ";
-  o << "negedge RST";
-  o << ") begin\n";
-  o << "    if (RST_ASYNC && reset_active) begin\n";
-  o << "      load_init();\n";
-  o << "    end else begin\n";
-  o << "      if (!RST_ASYNC && reset_active)\n";
-  o << "        load_init();\n";
-  o << "      else begin\n";
-  o << "        for (wp = 0; wp < WR_PORTS; wp = wp + 1) begin\n";
-  o << "          allow_write = WE[wp];\n";
-  o << "          addr_value = WADDR[wp*ABITS +: ABITS];\n";
-  o << "          for (later = wp + 1; later < WR_PORTS; later = later + 1) begin\n";
-  o << "            if (WE[later] && WADDR[later*ABITS +: ABITS] == addr_value)\n";
-  o << "              allow_write = 1'b0;\n";
-  o << "          end\n";
-  o << "          addr_index = integer'(addr_value);\n";
-  o << "          if (allow_write && addr_index < DEPTH)\n";
-  o << "            mem[addr_index] <= WDATA[wp*WIDTH +: WIDTH];\n";
-  o << "        end\n";
+  o << "  generate\n";
+  o << "    if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset\n";
+  o << "      always @(posedge CLK or negedge RST) begin\n";
+  o << "        if (!RST)\n";
+  o << "          load_init();\n";
+  o << "        else\n";
+  o << "          write_ports();\n";
+  o << "      end\n";
+  o << "    end else if (RST_ENABLE && RST_ASYNC) begin : async_high_reset\n";
+  o << "      always @(posedge CLK or posedge RST) begin\n";
+  o << "        if (RST)\n";
+  o << "          load_init();\n";
+  o << "        else\n";
+  o << "          write_ports();\n";
+  o << "      end\n";
+  o << "    end else if (RST_ENABLE) begin : sync_reset\n";
+  o << "      always @(posedge CLK) begin\n";
+  o << "        if (reset_active)\n";
+  o << "          load_init();\n";
+  o << "        else\n";
+  o << "          write_ports();\n";
+  o << "      end\n";
+  o << "    end else begin : no_reset\n";
+  o << "      always @(posedge CLK) begin\n";
+  o << "        write_ports();\n";
   o << "      end\n";
   o << "    end\n";
-  o << "  end\n";
+  o << "  endgenerate\n";
   o << "endmodule //naja_mem\n";
 }
 

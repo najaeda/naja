@@ -24,10 +24,14 @@ using namespace naja::NL;
 namespace {
 
 void executeCommand(const std::string& command) {
+#ifdef NAJA_ENABLE_TEST_DOT
   int result = system(command.c_str());
   if (result != 0) {
     std::cerr << "Command execution failed." << std::endl;
   }
+#else
+  (void) command;
+#endif
 }
 
 struct TestInstData : InstData {

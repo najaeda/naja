@@ -33,11 +33,15 @@ model #(
   .PARAM3(152)
 ) instance1 (
   .i0(5'h00),
-  .o0({bus0[0:-1], _naja_unused_0_12, _naja_unused_0_13, net_0})
+  .i1(),
+  .o0({bus0[0:-1], _naja_unused_0_12, _naja_unused_0_13, net_0}),
+  .o1()
 );
 
 model instance2 (
   .i0(5'h13),
-  .i1({2'b01, n2, n3, n4})
+  .i1({2'b01, n2, n3, n4}),
+  .o0(),
+  .o1()
 );
 endmodule //top

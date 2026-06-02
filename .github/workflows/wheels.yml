@@ -7,15 +7,14 @@ on:
       - main
     tags:
       - v*
-  # Also allow running this action on PRs if requested by applying the
-  # "Run cibuildwheel" label.
+  # Also run this action on PRs.
   pull_request:
   # Manual run
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   generate-parser:
@@ -38,7 +37,7 @@ jobs:
         run: |
           cd thirdparty/naja-verilog
           cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          cmake --build build --config Release --parallel $(nproc)
           mkdir -p ../../generated
           cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
           cp -v build/src/*.hh ../../generated
@@ -172,7 +171,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11" 
+          python-version: "3.11"
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
         uses: actions/download-artifact@v8
@@ -184,7 +183,7 @@ jobs:
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
-          
+
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
@@ -285,7 +284,7 @@ jobs:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
 
-  
+
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
     needs: [build_wheels]
