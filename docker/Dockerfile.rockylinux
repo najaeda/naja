@@ -60,6 +60,7 @@ COPY thirdparty /naja/thirdparty
 WORKDIR /naja/build
 RUN if [ "${ROCKY_VERSION}" = "8" ]; then \
         ROCKY8_ARGS="-DPython3_EXECUTABLE=/usr/bin/python3.9 -DCMAKE_MODULE_PATH=/naja/cmake"; \
+        sed -i 's/%define api.parser.class/%define parser_class_name/' /naja/thirdparty/naja-verilog/src/VerilogParser.yy; \
     else \
         ROCKY8_ARGS=""; \
     fi \
