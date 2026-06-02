@@ -13,7 +13,7 @@ ARG GCC_TOOLSET_VERSION
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-${GCC_TOOLSET_VERSION}/root
 ENV PATH=${GCC_TOOLSET_ROOT}/usr/bin:${PATH}
-ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64
 
 # Install required packages
 RUN dnf -y update \
@@ -59,11 +59,11 @@ COPY thirdparty /naja/thirdparty
 
 WORKDIR /naja/build
 RUN if [ "${ROCKY_VERSION}" = "8" ]; then \
-        PYTHON_ARGS="-DPython3_EXECUTABLE=/usr/bin/python3.9"; \
+        ROCKY8_ARGS="-DPython3_EXECUTABLE=/usr/bin/python3.9 -DCMAKE_MODULE_PATH=/naja/cmake"; \
     else \
-        PYTHON_ARGS=""; \
+        ROCKY8_ARGS=""; \
     fi \
-    && cmake ${PYTHON_ARGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" -DCMAKE_INSTALL_LIBDIR=lib .. \
+    && cmake ${ROCKY8_ARGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" -DCMAKE_INSTALL_LIBDIR=lib .. \
     && cmake --build . --parallel 8 \
     && cmake --install . --prefix /naja/install
 RUN ctest -j8 --output-on-failure
