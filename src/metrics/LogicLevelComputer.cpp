@@ -8,7 +8,7 @@
 #include <set>
 
 #include <tbb/combinable.h>
-#include <tbb/concurrent_map.h>
+#include <tbb/concurrent_hash_map.h>
 #include <tbb/parallel_for_each.h>
 
 #include "SNLDesignModeling.h"
@@ -59,7 +59,7 @@ void LogicLevelComputer::process() {
   tbb::enumerable_thread_specific<std::pair<size_t,
     std::vector<std::vector<std::pair<naja::DNL::DNLID, naja::DNL::DNLID>>>>> localMaxLogicLevel;
 
-  tbb::concurrent_map<size_t, size_t> dnlID2ll;
+  tbb::concurrent_hash_map<size_t, size_t> dnlID2ll;
   // 3) Parallel BFS starting from each term, updating only thread-local max
   tbb::parallel_for_each(
       termsToTraceVec.begin(), termsToTraceVec.end(), [&](DNLID term) {
@@ -105,13 +105,16 @@ void LogicLevelComputer::process() {
                 dnl_->getDNLTerminalFromID(driver).isTopPort()) {
               continue;
             }
-            if (dnlID2ll.find(driver) != dnlID2ll.end() &&
-                dnlID2ll[driver] > path.size()) {
-              // LCOV_EXCL_START
-              continue;
-              // LCOV_EXCL_STOP
+            {
+              tbb::concurrent_hash_map<size_t, size_t>::accessor levelAccessor;
+              bool inserted = dnlID2ll.insert(levelAccessor, driver);
+              if (!inserted && levelAccessor->second > path.size()) {
+                // LCOV_EXCL_START
+                continue;
+                // LCOV_EXCL_STOP
+              }
+              levelAccessor->second = path.size();
             }
-            dnlID2ll[driver] = path.size();
             auto CombinatorialInputsCollection =
                 SNLDesignModeling::getCombinatorialInputs(
                     dnl_->getDNLTerminalFromID(driver).getSnlBitTerm());
