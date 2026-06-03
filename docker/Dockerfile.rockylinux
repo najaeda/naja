@@ -13,7 +13,7 @@ ARG GCC_TOOLSET_VERSION
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-${GCC_TOOLSET_VERSION}/root
 ENV PATH=${GCC_TOOLSET_ROOT}/usr/bin:${PATH}
-ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64
+ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64:/usr/local/lib
 
 # Install required packages
 RUN dnf -y update \
@@ -25,28 +25,48 @@ RUN dnf -y update \
     fi \
     && dnf -y install \
         ca-certificates \
+        curl \
         git \
         make \
         capnproto \
         capnproto-devel \
-        bison \
         flex \
         boost-devel \
-        tbb-devel \
         zlib-devel \
     && if [ "${ROCKY_VERSION}" = "8" ]; then \
         dnf -y install \
             gcc-toolset-${GCC_TOOLSET_VERSION}-gcc-c++ \
+            m4 \
             python39-devel \
             python39-pip; \
         python3.9 -m pip install --no-cache-dir "cmake>=3.21,<4"; \
+        curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz -o /tmp/bison-3.8.2.tar.gz; \
+        tar -C /tmp -xzf /tmp/bison-3.8.2.tar.gz; \
+        cd /tmp/bison-3.8.2; \
+        ./configure --prefix=/usr/local; \
+        make -j8; \
+        make install; \
+        cd /; \
+        rm -rf /tmp/bison-3.8.2 /tmp/bison-3.8.2.tar.gz; \
     else \
         dnf -y install \
+            bison \
             cmake \
             gcc-c++ \
             python3-devel; \
     fi \
     && dnf clean all
+
+RUN curl -fsSLo /tmp/oneTBB-v2022.1.0.tar.gz https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz \
+    && tar -C /tmp -xzf /tmp/oneTBB-v2022.1.0.tar.gz \
+    && cmake -S /tmp/oneTBB-2022.1.0 -B /tmp/TBB_build \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DTBB_TEST=OFF \
+    && cmake --build /tmp/TBB_build --parallel 8 \
+    && cmake --install /tmp/TBB_build \
+    && rm -rf /tmp/oneTBB-2022.1.0 /tmp/TBB_build /tmp/oneTBB-v2022.1.0.tar.gz
 
 # Set the working directory
 WORKDIR /naja
@@ -59,12 +79,11 @@ COPY thirdparty /naja/thirdparty
 
 WORKDIR /naja/build
 RUN if [ "${ROCKY_VERSION}" = "8" ]; then \
-        ROCKY8_ARGS="-DPython3_EXECUTABLE=/usr/bin/python3.9 -DCMAKE_MODULE_PATH=/naja/cmake"; \
-        sed -i 's/%define api.parser.class/%define parser_class_name/' /naja/thirdparty/naja-verilog/src/VerilogParser.yy; \
+        ROCKY8_ARGS="-DPython3_EXECUTABLE=/usr/bin/python3.9 -DBISON_EXECUTABLE=/usr/local/bin/bison"; \
     else \
         ROCKY8_ARGS=""; \
     fi \
-    && cmake ${ROCKY8_ARGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" -DCMAKE_INSTALL_LIBDIR=lib .. \
+    && cmake ${ROCKY8_ARGS} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" -DCMAKE_INSTALL_LIBDIR=lib .. \
     && cmake --build . --parallel 8 \
     && cmake --install . --prefix /naja/install
 RUN ctest -j8 --output-on-failure
@@ -75,7 +94,7 @@ ARG GCC_TOOLSET_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-${GCC_TOOLSET_VERSION}/root
-ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64:/naja/lib
+ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64:/usr/local/lib:/naja/lib
 ENV PYTHONPATH=/naja/lib/python
 
 RUN dnf -y update \
@@ -88,7 +107,6 @@ RUN dnf -y update \
     && dnf -y install \
         ca-certificates \
         capnproto-libs \
-        tbb \
         zlib \
     && if [ "${ROCKY_VERSION}" = "8" ]; then \
         dnf -y install \
@@ -111,6 +129,9 @@ COPY --chown=10001:root --from=builder \
 COPY --chown=10001:root --from=builder \
     /naja/install/lib \
     /naja/lib
+COPY --chown=10001:root --from=builder \
+    /usr/local/lib/libtbb* \
+    /usr/local/lib/
 RUN chmod -R g=u /naja /work
 WORKDIR /work
 USER 10001
