@@ -15,9 +15,17 @@ jobs:
           - distro: alpine
             dockerfile: docker/Dockerfile.alpine
             tag: latest
+            build_args: ""
+          - distro: rockylinux8
+            dockerfile: docker/Dockerfile.rockylinux
+            tag: rockylinux-8
+            build_args: |
+              ROCKY_VERSION=8
           - distro: rockylinux9
             dockerfile: docker/Dockerfile.rockylinux
             tag: rockylinux-9
+            build_args: |
+              ROCKY_VERSION=9
     steps:
       -
         name: Set up QEMU
@@ -39,9 +47,13 @@ jobs:
           load: true
           file: ${{ matrix.dockerfile }}
           tags: christophealex/naja_edit:${{ matrix.tag }}
+          build-args: ${{ matrix.build_args }}
       -
         name: Run naja_edit smoke test
-        run: docker run --rm christophealex/naja_edit:${{ matrix.tag }} --help
+        run: |
+          docker run --rm christophealex/naja_edit:${{ matrix.tag }} --help
+          docker run --rm --entrypoint /bin/sh christophealex/naja_edit:${{ matrix.tag }} -c 'test "$(id -u)" != "0" && test -w /work'
+          docker run --rm --user 12345:0 --entrypoint /bin/sh christophealex/naja_edit:${{ matrix.tag }} -c 'test "$(id -u)" = "12345" && test -w /work && /naja/naja_edit --help >/dev/null'
       -
         name: Build and push
         uses: docker/build-push-action@v7
@@ -50,3 +62,4 @@ jobs:
           push: true
           file: ${{ matrix.dockerfile }}
           tags: christophealex/naja_edit:${{ matrix.tag }}
+          build-args: ${{ matrix.build_args }}
