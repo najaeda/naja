@@ -20,12 +20,14 @@ RUN dnf -y update \
     && dnf -y install dnf-plugins-core epel-release \
     && if [ "${ROCKY_VERSION}" = "8" ]; then \
         dnf -y config-manager --set-enabled powertools; \
+        CURL_PACKAGE=curl; \
     else \
         dnf -y config-manager --set-enabled crb; \
+        CURL_PACKAGE=curl-minimal; \
     fi \
     && dnf -y install \
         ca-certificates \
-        curl \
+        "${CURL_PACKAGE}" \
         git \
         make \
         capnproto \
