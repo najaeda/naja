@@ -335,13 +335,13 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_fa("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffrn("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffrn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
@@ -378,14 +378,14 @@ TEST_F(SNLVRLDumperTestParameters, testSequentialPrimitiveFileDump) {
 
   const auto topDump = readTextFile(outPath / "top.v");
   EXPECT_NE(std::string::npos, topDump.find("naja_dff dff0 ("));
-  EXPECT_EQ(std::string::npos, topDump.find("module naja_dff("));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_dff #("));
 
   const auto primitivePath = outPath / "naja_primitives.v";
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
 }
 
@@ -485,11 +485,11 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mux2 #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mem #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_fa("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dff("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dlatch("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffn("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffrn("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dff #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dlatch #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffrn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse #("));
 }

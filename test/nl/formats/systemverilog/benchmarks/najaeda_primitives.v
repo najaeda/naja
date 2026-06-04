@@ -26,10 +26,12 @@ module naja_mux2 #(
   assign Y = S ? B : A;
 endmodule
 
-module naja_dff(
+module naja_dff #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C) begin
     Q <= D;
@@ -37,10 +39,12 @@ module naja_dff(
 endmodule
 
 /* verilator lint_off LATCH */
-module naja_dlatch(
+module naja_dlatch #(
+  parameter WIDTH = 1
+) (
   input wire E,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @* begin
     if (E) Q = D;
@@ -48,61 +52,71 @@ module naja_dlatch(
 endmodule
 /* verilator lint_on LATCH */
 
-module naja_dffn(
+module naja_dffn #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @(negedge C) begin
     Q <= D;
   end
 endmodule
 
-module naja_dffrn(
+module naja_dffrn #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire RN,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or negedge RN) begin
-    if (!RN) Q <= 1'b0;
+    if (!RN) Q <= {WIDTH{1'b0}};
     else Q <= D;
   end
 endmodule
 
-module naja_dffe(
+module naja_dffe #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire E,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C) begin
     if (E) Q <= D;
   end
 endmodule
 
-module naja_dffre(
+module naja_dffre #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire E,
   input wire R,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or posedge R) begin
-    if (R) Q <= 1'b0;
+    if (R) Q <= {WIDTH{1'b0}};
     else if (E) Q <= D;
   end
 endmodule
 
-module naja_dffse(
+module naja_dffse #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire E,
   input wire S,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or posedge S) begin
-    if (S) Q <= 1'b1;
+    if (S) Q <= {WIDTH{1'b1}};
     else if (E) Q <= D;
   end
 endmodule
