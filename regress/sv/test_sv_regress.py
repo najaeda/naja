@@ -164,6 +164,8 @@ cases:
         self.assertIn("riscv-isa-sim", workflow)
         self.assertIn("ccache", workflow)
         self.assertIn('--user "$(id -u):$(id -g)"', workflow)
+        self.assertIn("CCACHE_DIR", workflow)
+        self.assertIn(".docker-home", workflow)
         self.assertIn("libboost-system-dev", workflow)
         self.assertIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertIn("SPIKE_INSTALL_DIR", workflow)

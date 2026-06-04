@@ -67,11 +67,15 @@ jobs:
       - name: Set up Verilator 5.046 wrapper
         run: |
           mkdir -p "${HOME}/.local/bin"
+          mkdir -p "${GITHUB_WORKSPACE}/.docker-home" "${GITHUB_WORKSPACE}/.ccache"
           cat > "${HOME}/.local/bin/verilator" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
+          mkdir -p "${GITHUB_WORKSPACE}/.docker-home" "${GITHUB_WORKSPACE}/.ccache"
           docker run --rm \
             --user "$(id -u):$(id -g)" \
+            -e "HOME=${GITHUB_WORKSPACE}/.docker-home" \
+            -e "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" \
             -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             -w "${PWD}" \
             verilator/verilator:v5.046 \
