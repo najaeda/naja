@@ -35,11 +35,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -yq \
+            autoconf \
+            automake \
             libboost-dev \
+            libboost-regex-dev \
             libcapnp-dev \
             libfl-dev \
+            libtool \
             libtbb-dev \
-            capnproto
+            capnproto \
+            device-tree-compiler \
+            pkg-config \
+            zlib1g-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
 
@@ -69,6 +76,27 @@ jobs:
           EOF
           chmod +x "${HOME}/.local/bin/verilator"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Prepare Verilator 5.046 headers
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/.verilator/share"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/.verilator/share:/out" \
+            --entrypoint bash \
+            verilator/verilator:v5.046 \
+            -lc 'cp -R /usr/local/share/verilator /out/'
+          echo "VERILATOR_INSTALL_DIR=${GITHUB_WORKSPACE}/.verilator" >> "${GITHUB_ENV}"
+
+      - name: Build Spike/FESVR for CVA6 simulation
+        run: |
+          git clone --depth 1 https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/riscv-isa-sim
+          cmake -E make_directory /tmp/riscv-isa-sim/build
+          cd /tmp/riscv-isa-sim/build
+          ../configure --prefix="${GITHUB_WORKSPACE}/.spike"
+          make -j"$(nproc)"
+          make install
+          echo "${GITHUB_WORKSPACE}/.spike/bin" >> "${GITHUB_PATH}"
+          echo "SPIKE_INSTALL_DIR=${GITHUB_WORKSPACE}/.spike" >> "${GITHUB_ENV}"
 
       - name: Configure CMake
         run: |
@@ -122,6 +150,13 @@ jobs:
             --case cv32e40p \
             --stage interrupt_sim \
             --stage cv32e40p_hwlp_sim \
+            --require-firmware-sim-tools
+
+      - name: Run CVA6 testharness simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cva6_testharness \
+            --stage cva6_extended_sim \
             --require-firmware-sim-tools
 
       - name: Upload external SV simulation artifacts
