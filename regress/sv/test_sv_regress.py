@@ -163,6 +163,7 @@ cases:
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertIn("riscv-isa-sim", workflow)
         self.assertIn("ccache", workflow)
+        self.assertIn('--user "$(id -u):$(id -g)"', workflow)
         self.assertIn("libboost-system-dev", workflow)
         self.assertIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertIn("SPIKE_INSTALL_DIR", workflow)
