@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 
 
 PASS_MARKER = "CVA6_HELLOWORLD_SIM_PASS"
@@ -23,7 +24,12 @@ MABI = "lp64d"
 
 def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     print("$ " + (" ".join(args) if cwd is None else f"(cd {cwd} && {' '.join(args)})"), flush=True)
-    subprocess.run(args, cwd=str(cwd) if cwd else None, env=env, check=True)
+    started = time.monotonic()
+    try:
+        subprocess.run(args, cwd=str(cwd) if cwd else None, env=env, check=True)
+    finally:
+        elapsed = time.monotonic() - started
+        print(f"[cva6-sim] command elapsed_seconds={elapsed:.3f}", flush=True)
 
 
 def capture(args: list[str], *, cwd: Path | None = None) -> str:

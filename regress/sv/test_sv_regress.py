@@ -63,6 +63,7 @@ cases:
             [
                 "load_dump",
                 "lint",
+                "cva6_extended_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -75,6 +76,7 @@ cases:
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
+                "cva6_extended_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -175,12 +177,21 @@ cases:
         cva6 = sv_regress.select_cases(cases, "cva6_testharness")[0]
 
         self.assertIn("helloworld_sim", cva6)
+        self.assertIn("cva6_extended_sim", cva6)
         self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
         self.assertNotIn("expected_failure", cva6["helloworld_sim"])
         self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
         command = cva6["helloworld_sim"]["commands"][0]
         self.assertIn("cva6_testharness.py", command[1])
         self.assertIn("{artifacts}/cva6_testharness_naja.v", command)
+        extended_command = cva6["cva6_extended_sim"]["commands"][0]
+        self.assertIn("cva6_testharness.py", extended_command[1])
+        self.assertIn("--max-cycles", extended_command)
+        self.assertIn("10000000", extended_command)
+        self.assertEqual(
+            cva6["helloworld_sim"]["pass_regex"],
+            cva6["cva6_extended_sim"]["pass_regex"],
+        )
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
