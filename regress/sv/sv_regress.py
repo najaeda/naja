@@ -40,6 +40,7 @@ PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
 DEFAULT_STAGES = ["lint", "github_sim"]
 CONFIGURED_COMMAND_SIM_STAGES = {
     "cva6_extended_sim",
+    "cva6_local_verif_sim",
     "cv32e40p_hwlp_sim",
     "helloworld_sim",
     "interrupt_sim",

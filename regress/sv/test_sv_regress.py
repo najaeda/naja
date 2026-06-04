@@ -64,6 +64,7 @@ cases:
                 "load_dump",
                 "lint",
                 "cva6_extended_sim",
+                "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -77,6 +78,7 @@ cases:
                 "load_dump",
                 "lint",
                 "cva6_extended_sim",
+                "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -160,6 +162,7 @@ cases:
         self.assertIn("Run CVA6 testharness simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertIn("riscv-isa-sim", workflow)
+        self.assertIn("ccache", workflow)
         self.assertIn("libboost-system-dev", workflow)
         self.assertIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertIn("SPIKE_INSTALL_DIR", workflow)
@@ -169,6 +172,7 @@ cases:
         self.assertIn("--case cva6_testharness", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
         self.assertIn("--stage cva6_extended_sim", workflow)
+        self.assertNotIn("--stage cva6_local_verif_sim", workflow)
         self.assertIn("--stage ibex_pmp_sim", workflow)
         self.assertIn("--stage ibex_dit_sim", workflow)
         self.assertIn("--stage ibex_dummy_instr_sim", workflow)
@@ -185,6 +189,7 @@ cases:
 
         self.assertIn("helloworld_sim", cva6)
         self.assertIn("cva6_extended_sim", cva6)
+        self.assertIn("cva6_local_verif_sim", cva6)
         self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
         self.assertNotIn("expected_failure", cva6["helloworld_sim"])
         self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
@@ -198,6 +203,16 @@ cases:
         self.assertIn("corev_dhrystone", extended_command)
         self.assertIn("--max-cycles", extended_command)
         self.assertIn("10000000", extended_command)
+        local_command = cva6["cva6_local_verif_sim"]["commands"][0]
+        self.assertIn("corev_return0", local_command)
+        self.assertIn("corev_custom_template", local_command)
+        self.assertIn("corev_isacov_branch_to_zero", local_command)
+        self.assertIn("corev_isacov_jump", local_command)
+        self.assertIn("corev_isacov_isa", local_command)
+        self.assertIn("corev_isacov_seq_hazard", local_command)
+        self.assertIn("corev_pmp_exact_csrr", local_command)
+        self.assertIn("corev_pmp_granularity", local_command)
+        self.assertIn("corev_pmp_lsu_tor", local_command)
         self.assertEqual(
             cva6["helloworld_sim"]["pass_regex"],
             cva6["cva6_extended_sim"]["pass_regex"],

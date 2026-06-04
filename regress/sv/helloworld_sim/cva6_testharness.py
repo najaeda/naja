@@ -20,7 +20,27 @@ PASS_MARKER = "CVA6_HELLOWORLD_SIM_PASS"
 TARGET = "cv64a6_imafdc_sv39"
 ISA = "rv64gc_zba_zbb_zbs_zbc_zbkb_zbkx_zkne_zknd_zknh"
 MABI = "lp64d"
-PROGRAMS = ("hello_world", "corev_dhrystone")
+PROGRAM_SOURCES = {
+    "hello_world": ["hello_world/hello_world.c"],
+    "corev_dhrystone": ["dhrystone/dhrystone_main.c", "dhrystone/dhrystone.c"],
+    "corev_return0": ["return0/return0.c"],
+    "corev_custom_template": ["hello_world/custom_test_template.S"],
+    "corev_isacov_branch_to_zero": ["isacov/branch_to_zero.S"],
+    "corev_isacov_jump": ["isacov/jump_test.S"],
+    "corev_isacov_isa": ["isacov/isa_test.S"],
+    "corev_isacov_seq_hazard": ["isacov/seq_hazard.S"],
+    "corev_pmp_exact_csrr": ["pmp/exact_csrr_test.S"],
+    "corev_pmp_granularity": ["pmp/granularity_test.S"],
+    "corev_pmp_lsu_tor": ["pmp/lsu_tor_test.S"],
+}
+PROGRAM_CFLAGS = {
+    "corev_dhrystone": [
+        "-std=gnu99",
+        "-Wno-error=implicit-function-declaration",
+        "-Wno-error=implicit-int",
+    ],
+}
+PROGRAMS = tuple(PROGRAM_SOURCES)
 
 
 def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
@@ -113,37 +133,22 @@ def find_verilator_install_dir() -> Path:
 def compile_program(repo: Path, artifacts: Path, prefix: str, program: str) -> Path:
     elf = artifacts / f"cva6_{program}.o"
     common = repo / "verif" / "tests" / "custom" / "common"
+    custom = repo / "verif" / "tests" / "custom"
     env_dir = repo / "verif" / "tests" / "custom" / "env"
     linker = repo / "config" / "gen_from_riscv_config" / "linker" / "link.ld"
-    program_sources = {
-        "hello_world": [
-            repo / "verif" / "tests" / "custom" / "hello_world" / "hello_world.c",
-        ],
-        "corev_dhrystone": [
-            repo / "verif" / "tests" / "custom" / "dhrystone" / "dhrystone_main.c",
-            repo / "verif" / "tests" / "custom" / "dhrystone" / "dhrystone.c",
-        ],
-    }
-    program_cflags = {
-        "corev_dhrystone": [
-            "-std=gnu99",
-            "-Wno-error=implicit-function-declaration",
-            "-Wno-error=implicit-int",
-        ],
-    }
-    if program not in program_sources:
+    if program not in PROGRAM_SOURCES:
         valid = ", ".join(PROGRAMS)
         raise SystemExit(f"unknown CVA6 program '{program}', valid programs: {valid}")
 
     command = [
         prefix + "gcc",
-        *(str(source) for source in program_sources[program]),
+        *(str(custom / source) for source in PROGRAM_SOURCES[program]),
         str(common / "syscalls.c"),
         str(common / "crt.S"),
         f"-I{env_dir}",
         f"-I{common}",
-        f"-I{repo / 'verif' / 'tests' / 'custom' / 'dhrystone'}",
-        *program_cflags.get(program, []),
+        f"-I{custom / 'dhrystone'}",
+        *PROGRAM_CFLAGS.get(program, []),
         "-DNOPRINT=1",
         "-static",
         "-mcmodel=medany",
