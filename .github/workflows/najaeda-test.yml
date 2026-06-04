@@ -55,6 +55,7 @@ jobs:
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v6
+      if: github.repository == 'najaeda/naja' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       with:
         directory: ${{github.workspace}}/test/najaeda/
         env_vars: OS,PYTHON
