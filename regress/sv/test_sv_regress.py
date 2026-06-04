@@ -160,6 +160,7 @@ cases:
         self.assertIn("Run CVA6 testharness simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertIn("riscv-isa-sim", workflow)
+        self.assertIn("libboost-system-dev", workflow)
         self.assertIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertIn("SPIKE_INSTALL_DIR", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
@@ -192,6 +193,9 @@ cases:
         self.assertIn("{artifacts}/cva6_testharness_naja.v", command)
         extended_command = cva6["cva6_extended_sim"]["commands"][0]
         self.assertIn("cva6_testharness.py", extended_command[1])
+        self.assertIn("--program", extended_command)
+        self.assertIn("hello_world", extended_command)
+        self.assertIn("corev_dhrystone", extended_command)
         self.assertIn("--max-cycles", extended_command)
         self.assertIn("10000000", extended_command)
         self.assertEqual(

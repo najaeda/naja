@@ -20,6 +20,7 @@ PASS_MARKER = "CVA6_HELLOWORLD_SIM_PASS"
 TARGET = "cv64a6_imafdc_sv39"
 ISA = "rv64gc_zba_zbb_zbs_zbc_zbkb_zbkx_zkne_zknd_zknh"
 MABI = "lp64d"
+PROGRAMS = ("hello_world", "corev_dhrystone")
 
 
 def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
@@ -109,18 +110,40 @@ def find_verilator_install_dir() -> Path:
     )
 
 
-def compile_hello_world(repo: Path, artifacts: Path, prefix: str) -> Path:
-    elf = artifacts / "cva6_hello_world.o"
+def compile_program(repo: Path, artifacts: Path, prefix: str, program: str) -> Path:
+    elf = artifacts / f"cva6_{program}.o"
     common = repo / "verif" / "tests" / "custom" / "common"
     env_dir = repo / "verif" / "tests" / "custom" / "env"
     linker = repo / "config" / "gen_from_riscv_config" / "linker" / "link.ld"
+    program_sources = {
+        "hello_world": [
+            repo / "verif" / "tests" / "custom" / "hello_world" / "hello_world.c",
+        ],
+        "corev_dhrystone": [
+            repo / "verif" / "tests" / "custom" / "dhrystone" / "dhrystone_main.c",
+            repo / "verif" / "tests" / "custom" / "dhrystone" / "dhrystone.c",
+        ],
+    }
+    program_cflags = {
+        "corev_dhrystone": [
+            "-std=gnu99",
+            "-Wno-error=implicit-function-declaration",
+            "-Wno-error=implicit-int",
+        ],
+    }
+    if program not in program_sources:
+        valid = ", ".join(PROGRAMS)
+        raise SystemExit(f"unknown CVA6 program '{program}', valid programs: {valid}")
+
     command = [
         prefix + "gcc",
-        str(repo / "verif" / "tests" / "custom" / "hello_world" / "hello_world.c"),
+        *(str(source) for source in program_sources[program]),
         str(common / "syscalls.c"),
         str(common / "crt.S"),
         f"-I{env_dir}",
         f"-I{common}",
+        f"-I{repo / 'verif' / 'tests' / 'custom' / 'dhrystone'}",
+        *program_cflags.get(program, []),
         "-DNOPRINT=1",
         "-static",
         "-mcmodel=medany",
@@ -136,6 +159,7 @@ def compile_hello_world(repo: Path, artifacts: Path, prefix: str) -> Path:
         str(elf),
         "-lgcc",
     ]
+    print(f"[cva6-sim] compiling program={program} elf={elf}", flush=True)
     run(command, cwd=repo)
     return elf
 
@@ -1321,6 +1345,13 @@ def main() -> int:
     parser.add_argument("--generated", type=Path, required=True)
     parser.add_argument("--primitives", type=Path, required=True)
     parser.add_argument("--max-cycles", type=int, default=2_000_000)
+    parser.add_argument(
+        "--program",
+        action="append",
+        choices=PROGRAMS,
+        default=[],
+        help="Firmware program to compile and simulate. Repeat to run several programs.",
+    )
     parser.add_argument("--sim-plusarg", action="append", default=[])
     parser.add_argument("--jobs", default=os.environ.get("NUM_JOBS", "1"))
     args = parser.parse_args()
@@ -1337,8 +1368,6 @@ def main() -> int:
     prefix = find_riscv_tool_prefix()
     spike_dir = find_spike_install_dir().resolve()
     verilator_dir = find_verilator_install_dir().resolve()
-    elf = compile_hello_world(repo, artifacts, prefix)
-    tohost = tohost_address(elf, prefix)
     executable = build_verilator_model(
         repo,
         artifacts,
@@ -1348,7 +1377,13 @@ def main() -> int:
         verilator_dir,
         args.jobs,
     )
-    run_sim(executable, elf, tohost, spike_dir, args.max_cycles, args.sim_plusarg)
+    programs = args.program or ["hello_world"]
+    for program in programs:
+        elf = compile_program(repo, artifacts, prefix, program)
+        tohost = tohost_address(elf, prefix)
+        print(f"[cva6-sim] running program={program}", flush=True)
+        run_sim(executable, elf, tohost, spike_dir, args.max_cycles, args.sim_plusarg)
+        print(f"[cva6-sim] program {program} passed", flush=True)
     print(PASS_MARKER)
     return 0
 

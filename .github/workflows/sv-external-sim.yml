@@ -39,6 +39,7 @@ jobs:
             automake \
             libboost-dev \
             libboost-regex-dev \
+            libboost-system-dev \
             libcapnp-dev \
             libfl-dev \
             libtool \
