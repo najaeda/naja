@@ -37,6 +37,7 @@ jobs:
           sudo apt-get install -yq \
             autoconf \
             automake \
+            ccache \
             libboost-dev \
             libboost-regex-dev \
             libboost-system-dev \
