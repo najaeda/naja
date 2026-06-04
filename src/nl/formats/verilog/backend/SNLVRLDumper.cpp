@@ -1710,11 +1710,53 @@ bool SNLVRLDumper::dumpInstance(
     return true;
   }
   if (auto* model = instance->getModel();
-      NLDB0::isFA(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
+      NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
       NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
-      NLDB0::isDFFSE(model) ||
-      (model && NLDB0::isDB0Primitive(model) && !model->isUnnamed() &&
-       model->getName() == NLName("naja_dff"))) {
+      NLDB0::isDFFSE(model)) {
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    std::string modelName;
+    if (NLDB0::isDLatch(model)) {
+      modelName = "naja_dlatch";
+    } else if (NLDB0::isDFFN(model)) {
+      modelName = "naja_dffn";
+    } else if (NLDB0::isDFFRN(model)) {
+      modelName = "naja_dffrn";
+    } else if (NLDB0::isDFFE(model)) {
+      modelName = "naja_dffe";
+    } else if (NLDB0::isDFFRE(model)) {
+      modelName = "naja_dffre";
+    } else if (NLDB0::isDFFSE(model)) {
+      modelName = "naja_dffse";
+    } else {
+      modelName = "naja_dff";
+    }
+    std::string widthValue = "1";
+    if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
+      widthValue = widthParam->getValue();
+    }
+    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+      widthValue = widthInstParam->getValue();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << modelName << " ";
+    if (widthValue != "1") {
+      o << "#(" << '\n';
+      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << ") ";
+    }
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (auto* model = instance->getModel();
+      NLDB0::isFA(model)) {
     emitNajaPrimitiveModels_ = true;
   }
   if (NLDB0::isGate(instance->getModel())) {
@@ -2147,10 +2189,12 @@ void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
-  o << "module naja_dff(\n";
+  o << "module naja_dff #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C) begin\n";
   o << "    Q <= D;\n";
@@ -2159,10 +2203,12 @@ void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
-  o << "module naja_dlatch(\n";
+  o << "module naja_dlatch #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input E,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @* begin\n";
   o << "    if (E) Q = D;\n";
@@ -2171,10 +2217,12 @@ void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
-  o << "module naja_dffn(\n";
+  o << "module naja_dffn #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(negedge C) begin\n";
   o << "    Q <= D;\n";
@@ -2183,25 +2231,29 @@ void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFRNModel(std::ostream& o) {
-  o << "module naja_dffrn(\n";
+  o << "module naja_dffrn #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input RN,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or negedge RN) begin\n";
-  o << "    if (!RN) Q <= 1'b0;\n";
+  o << "    if (!RN) Q <= {WIDTH{1'b0}};\n";
   o << "    else Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffrn\n";
 }
 
 void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
-  o << "module naja_dffe(\n";
+  o << "module naja_dffe #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C) begin\n";
   o << "    if (E) Q <= D;\n";
@@ -2210,30 +2262,34 @@ void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFREModel(std::ostream& o) {
-  o << "module naja_dffre(\n";
+  o << "module naja_dffre #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
   o << "  input R,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or posedge R) begin\n";
-  o << "    if (R) Q <= 1'b0;\n";
+  o << "    if (R) Q <= {WIDTH{1'b0}};\n";
   o << "    else if (E) Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffre\n";
 }
 
 void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
-  o << "module naja_dffse(\n";
+  o << "module naja_dffse #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
   o << "  input S,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or posedge S) begin\n";
-  o << "    if (S) Q <= 1'b1;\n";
+  o << "    if (S) Q <= {WIDTH{1'b1}};\n";
   o << "    else if (E) Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffse\n";

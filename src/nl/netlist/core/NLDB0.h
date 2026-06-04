@@ -15,6 +15,7 @@ class NLDB;
 class NLLibrary;
 class SNLDesign;
 class SNLInstance;
+class SNLTerm;
 class SNLScalarTerm;
 class SNLBusTerm;
 
@@ -142,6 +143,8 @@ class NLDB0 {
     static SNLBusTerm* getMux2Output(const SNLDesign* mux2);
     static SNLBusTerm* getMux2Output();
     static SNLDesign* getDFF();
+    static SNLDesign* getOrCreateDFF(size_t width);
+    static bool isDFF(const SNLDesign* design);
     /// \brief Plain edge-triggered D flip-flop.
     /// Pins: C (clock), D (data), Q (output).
     static SNLScalarTerm* getDFFClock();
@@ -150,6 +153,7 @@ class NLDB0 {
     /// \brief Plain transparent-high D latch.
     /// Pins: E (enable), D (data), Q (output).
     static SNLDesign* getDLatch();
+    static SNLDesign* getOrCreateDLatch(size_t width);
     static bool isDLatch(const SNLDesign* design);
     static SNLScalarTerm* getDLatchEnable();
     static SNLScalarTerm* getDLatchData();
@@ -157,6 +161,7 @@ class NLDB0 {
     /// \brief Plain negative-edge-triggered D flip-flop.
     /// Pins: C (clock), D (data), Q (output).
     static SNLDesign* getDFFN();
+    static SNLDesign* getOrCreateDFFN(size_t width);
     static bool isDFFN(const SNLDesign* design);
     static SNLScalarTerm* getDFFNClock();
     static SNLScalarTerm* getDFFNData();
@@ -164,6 +169,7 @@ class NLDB0 {
     /// \brief Edge-triggered D flip-flop with active-low asynchronous reset.
     /// Pins: C (clock), D (data), RN (reset low active), Q (output).
     static SNLDesign* getDFFRN();
+    static SNLDesign* getOrCreateDFFRN(size_t width);
     static bool isDFFRN(const SNLDesign* design);
     static SNLScalarTerm* getDFFRNClock();
     static SNLScalarTerm* getDFFRNData();
@@ -172,6 +178,7 @@ class NLDB0 {
     /// \brief Edge-triggered D flip-flop with clock enable.
     /// Pins: C (clock), D (data), E (enable), Q (output).
     static SNLDesign* getDFFE();
+    static SNLDesign* getOrCreateDFFE(size_t width);
     static bool isDFFE(const SNLDesign* design);
     static SNLScalarTerm* getDFFEClock();
     static SNLScalarTerm* getDFFEData();
@@ -180,6 +187,7 @@ class NLDB0 {
     /// \brief Edge-triggered D flip-flop with clock enable and asynchronous reset.
     /// Pins: C (clock), D (data), E (enable), R (reset), Q (output).
     static SNLDesign* getDFFRE();
+    static SNLDesign* getOrCreateDFFRE(size_t width);
     static bool isDFFRE(const SNLDesign* design);
     static SNLScalarTerm* getDFFREClock();
     static SNLScalarTerm* getDFFREData();
@@ -189,6 +197,7 @@ class NLDB0 {
     /// \brief Edge-triggered D flip-flop with clock enable and asynchronous set.
     /// Pins: C (clock), D (data), E (enable), S (set), Q (output).
     static SNLDesign* getDFFSE();
+    static SNLDesign* getOrCreateDFFSE(size_t width);
     static bool isDFFSE(const SNLDesign* design);
     static SNLScalarTerm* getDFFSEClock();
     static SNLScalarTerm* getDFFSEData();

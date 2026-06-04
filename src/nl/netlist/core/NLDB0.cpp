@@ -29,11 +29,18 @@ namespace {
   constexpr const char* ArithmeticLibraryName = "ARITH";
   constexpr const char* DivModPrefix = "naja_divmod__";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
+  constexpr const char* DFFPrefix = "naja_dff__w";
   constexpr const char* DLatchName = "naja_dlatch";
+  constexpr const char* DLatchPrefix = "naja_dlatch__w";
   constexpr const char* DFFNName = "naja_dffn";
+  constexpr const char* DFFNPrefix = "naja_dffn__w";
+  constexpr const char* DFFRNPrefix = "naja_dffrn__w";
   constexpr const char* DFFEName = "naja_dffe";
+  constexpr const char* DFFEPrefix = "naja_dffe__w";
   constexpr const char* DFFREName = "naja_dffre";
+  constexpr const char* DFFREPrefix = "naja_dffre__w";
   constexpr const char* DFFSEName = "naja_dffse";
+  constexpr const char* DFFSEPrefix = "naja_dffse__w";
 
   naja::NL::SNLTruthTable getMux2TruthTable() {
     uint64_t bits = 0;
@@ -53,6 +60,12 @@ namespace {
   std::string getMux2InternalName(size_t width) {
     std::ostringstream name;
     name << Mux2Prefix << width;
+    return name.str();
+  }
+
+  std::string getWidthInternalName(const char* prefix, size_t width) {
+    std::ostringstream name;
+    name << prefix << width;
     return name.str();
   }
 
@@ -81,6 +94,41 @@ namespace {
   bool isNamedRootPrimitive(const naja::NL::SNLDesign* design, const char* name) {
     return design && naja::NL::NLDB0::isDB0Primitive(design) && !design->isUnnamed() &&
            design->getName() == naja::NL::NLName(name);
+  }
+
+  bool isWidthPrimitive(const naja::NL::SNLDesign* design, const char* scalarName, const char* prefix) {
+    if (isNamedRootPrimitive(design, scalarName)) {
+      return true;
+    }
+    if (!design || !naja::NL::NLDB0::isDB0Primitive(design) || design->isUnnamed()) {
+      return false;
+    }
+    const auto& name = design->getName().getString();
+    return name.rfind(prefix, 0) == 0;
+  }
+
+  template<typename CreatePrimitive>
+  naja::NL::SNLDesign* getOrCreateWidthPrimitive(
+    const char* scalarName,
+    const char* prefix,
+    size_t width,
+    CreatePrimitive createPrimitive) {
+    auto* primitives = naja::NL::NLDB0::getDB0RootLibrary();
+    if (!primitives) {
+      return nullptr;
+    }
+    if (width == 0) {
+      throw naja::NL::NLException("NLDB0 width primitive: invalid width");
+    }
+    if (width == 1) {
+      return primitives->getSNLDesign(naja::NL::NLName(scalarName));
+    }
+    const auto name = naja::NL::NLName(getWidthInternalName(prefix, width));
+    if (auto* existing = primitives->getSNLDesign(name)) {
+      return existing;
+    }
+    createPrimitive(primitives, width);
+    return primitives->getSNLDesign(name);
   }
 
   naja::NL::SNLDesignModeling::BitTerms collectBitTerms(naja::NL::SNLBusTerm& busTerm) {
@@ -312,6 +360,7 @@ namespace {
   void createDFFPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dff = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_dff"));
+    SNLParameter::create(dff, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffClock = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("C"));
     auto dffData = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("D"));
     auto dffOutput = SNLScalarTerm::create(dff, SNLTerm::Direction::Output, NLName("Q"));
@@ -322,6 +371,7 @@ namespace {
   void createDLatchPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dlatch = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DLatchName));
+    SNLParameter::create(dlatch, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dlatchEnable = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Input, NLName("E"));
     auto dlatchData = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Input, NLName("D"));
     auto dlatchOutput = SNLScalarTerm::create(dlatch, SNLTerm::Direction::Output, NLName("Q"));
@@ -332,6 +382,7 @@ namespace {
   void createDFFNPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffn = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFNName));
+    SNLParameter::create(dffn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffnClock = SNLScalarTerm::create(dffn, SNLTerm::Direction::Input, NLName("C"));
     auto dffnData = SNLScalarTerm::create(dffn, SNLTerm::Direction::Input, NLName("D"));
     auto dffnOutput = SNLScalarTerm::create(dffn, SNLTerm::Direction::Output, NLName("Q"));
@@ -342,6 +393,7 @@ namespace {
   void createDFFRNPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffrn = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("naja_dffrn"));
+    SNLParameter::create(dffrn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffrnClock = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("C"));
     auto dffrnData = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("D"));
     auto dffrnResetN = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("RN"));
@@ -353,6 +405,7 @@ namespace {
   void createDFFEPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffe = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFEName));
+    SNLParameter::create(dffe, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffeClock = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("C"));
     auto dffeData = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("D"));
     auto dffeEnable = SNLScalarTerm::create(dffe, SNLTerm::Direction::Input, NLName("E"));
@@ -364,6 +417,7 @@ namespace {
   void createDFFREPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffre = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFREName));
+    SNLParameter::create(dffre, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffreClock = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("C"));
     auto dffreData = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("D"));
     auto dffreEnable = SNLScalarTerm::create(dffre, SNLTerm::Direction::Input, NLName("E"));
@@ -376,6 +430,7 @@ namespace {
   void createDFFSEPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffse = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName(DFFSEName));
+    SNLParameter::create(dffse, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
     auto dffseClock = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("C"));
     auto dffseData = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("D"));
     auto dffseEnable = SNLScalarTerm::create(dffse, SNLTerm::Direction::Input, NLName("E"));
@@ -383,6 +438,69 @@ namespace {
     auto dffseOutput = SNLScalarTerm::create(dffse, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffseClock, {dffseOutput});
     SNLDesignModeling::addInputsToClockArcs({dffseData, dffseEnable, dffseSet}, dffseClock);
+  }
+
+  void createSequentialWidthPrimitive(
+    naja::NL::NLLibrary* rootLibrary,
+    const char* prefix,
+    size_t width,
+    const char* asyncControlName,
+    bool enableControl) {
+    using namespace naja::NL;
+    auto seq = SNLDesign::create(
+      rootLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getWidthInternalName(prefix, width)));
+    SNLParameter::create(
+      seq, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
+    auto clock = SNLScalarTerm::create(seq, SNLTerm::Direction::Input, NLName("C"));
+    auto data = SNLBusTerm::create(
+      seq, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("D"));
+    SNLScalarTerm* enable = nullptr;
+    if (enableControl) {
+      enable = SNLScalarTerm::create(seq, SNLTerm::Direction::Input, NLName("E"));
+    }
+    SNLScalarTerm* asyncControl = nullptr;
+    if (asyncControlName) {
+      asyncControl = SNLScalarTerm::create(seq, SNLTerm::Direction::Input, NLName(asyncControlName));
+    }
+    auto output = SNLBusTerm::create(
+      seq, SNLTerm::Direction::Output, static_cast<NLID::Bit>(width - 1), 0, NLName("Q"));
+
+    auto dataBits = collectBitTerms(*data);
+    auto outputBits = collectBitTerms(*output);
+    SNLDesignModeling::BitTerms clockInputs = dataBits;
+    if (enable) {
+      clockInputs.push_back(enable);
+    }
+    if (asyncControl) {
+      clockInputs.push_back(asyncControl);
+    }
+    SNLDesignModeling::addClockToOutputsArcs(clock, outputBits);
+    SNLDesignModeling::addInputsToClockArcs(clockInputs, clock);
+  }
+
+  void createSequentialWidthPrimitive(
+    naja::NL::NLLibrary* rootLibrary,
+    const char* prefix,
+    size_t width,
+    const char* latchEnableName) {
+    using namespace naja::NL;
+    auto seq = SNLDesign::create(
+      rootLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getWidthInternalName(prefix, width)));
+    SNLParameter::create(
+      seq, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
+    auto enable = SNLScalarTerm::create(seq, SNLTerm::Direction::Input, NLName(latchEnableName));
+    auto data = SNLBusTerm::create(
+      seq, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("D"));
+    auto output = SNLBusTerm::create(
+      seq, SNLTerm::Direction::Output, static_cast<NLID::Bit>(width - 1), 0, NLName("Q"));
+    auto dataBits = collectBitTerms(*data);
+    auto outputBits = collectBitTerms(*output);
+    SNLDesignModeling::addClockToOutputsArcs(enable, outputBits);
+    SNLDesignModeling::addInputsToClockArcs(dataBits, enable);
   }
 
   void createMux2Primitive(naja::NL::NLLibrary* rootLibrary, size_t width) {
@@ -1057,6 +1175,20 @@ SNLDesign* NLDB0::getDFF() {
   return nullptr;
 }
 
+SNLDesign* NLDB0::getOrCreateDFF(size_t width) {
+  return getOrCreateWidthPrimitive(
+    "naja_dff",
+    DFFPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFPrefix, width, nullptr, false);
+    });
+}
+
+bool NLDB0::isDFF(const SNLDesign* design) {
+  return isWidthPrimitive(design, "naja_dff", DFFPrefix);
+}
+
 SNLScalarTerm* NLDB0::getDFFClock() {
   auto dff = getDFF();
   if (dff) {
@@ -1085,8 +1217,21 @@ SNLDesign* NLDB0::getDLatch() {
   return getOrCreateRootPrimitive(DLatchName, createDLatchPrimitive);
 }
 
+SNLDesign* NLDB0::getOrCreateDLatch(size_t width) {
+  if (width == 1) {
+    return getDLatch();
+  }
+  return getOrCreateWidthPrimitive(
+    DLatchName,
+    DLatchPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DLatchPrefix, width, "E");
+    });
+}
+
 bool NLDB0::isDLatch(const SNLDesign* design) {
-  return isNamedRootPrimitive(design, DLatchName);
+  return isWidthPrimitive(design, DLatchName, DLatchPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDLatchEnable() {
@@ -1117,8 +1262,21 @@ SNLDesign* NLDB0::getDFFN() {
   return getOrCreateRootPrimitive(DFFNName, createDFFNPrimitive);
 }
 
+SNLDesign* NLDB0::getOrCreateDFFN(size_t width) {
+  if (width == 1) {
+    return getDFFN();
+  }
+  return getOrCreateWidthPrimitive(
+    DFFNName,
+    DFFNPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFNPrefix, width, nullptr, false);
+    });
+}
+
 bool NLDB0::isDFFN(const SNLDesign* design) {
-  return isNamedRootPrimitive(design, DFFNName);
+  return isWidthPrimitive(design, DFFNName, DFFNPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDFFNClock() {
@@ -1154,8 +1312,18 @@ SNLDesign* NLDB0::getDFFRN() {
   return nullptr;
 }
 
+SNLDesign* NLDB0::getOrCreateDFFRN(size_t width) {
+  return getOrCreateWidthPrimitive(
+    "naja_dffrn",
+    DFFRNPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFRNPrefix, width, "RN", false);
+    });
+}
+
 bool NLDB0::isDFFRN(const SNLDesign* design) {
-  return design and design == getDFFRN();
+  return isWidthPrimitive(design, "naja_dffrn", DFFRNPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDFFRNClock() {
@@ -1194,8 +1362,21 @@ SNLDesign* NLDB0::getDFFE() {
   return getOrCreateRootPrimitive(DFFEName, createDFFEPrimitive);
 }
 
+SNLDesign* NLDB0::getOrCreateDFFE(size_t width) {
+  if (width == 1) {
+    return getDFFE();
+  }
+  return getOrCreateWidthPrimitive(
+    DFFEName,
+    DFFEPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFEPrefix, width, nullptr, true);
+    });
+}
+
 bool NLDB0::isDFFE(const SNLDesign* design) {
-  return isNamedRootPrimitive(design, DFFEName);
+  return isWidthPrimitive(design, DFFEName, DFFEPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDFFEClock() {
@@ -1234,8 +1415,21 @@ SNLDesign* NLDB0::getDFFRE() {
   return getOrCreateRootPrimitive(DFFREName, createDFFREPrimitive);
 }
 
+SNLDesign* NLDB0::getOrCreateDFFRE(size_t width) {
+  if (width == 1) {
+    return getDFFRE();
+  }
+  return getOrCreateWidthPrimitive(
+    DFFREName,
+    DFFREPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFREPrefix, width, "R", true);
+    });
+}
+
 bool NLDB0::isDFFRE(const SNLDesign* design) {
-  return isNamedRootPrimitive(design, DFFREName);
+  return isWidthPrimitive(design, DFFREName, DFFREPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDFFREClock() {
@@ -1282,8 +1476,21 @@ SNLDesign* NLDB0::getDFFSE() {
   return getOrCreateRootPrimitive(DFFSEName, createDFFSEPrimitive);
 }
 
+SNLDesign* NLDB0::getOrCreateDFFSE(size_t width) {
+  if (width == 1) {
+    return getDFFSE();
+  }
+  return getOrCreateWidthPrimitive(
+    DFFSEName,
+    DFFSEPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFSEPrefix, width, "S", true);
+    });
+}
+
 bool NLDB0::isDFFSE(const SNLDesign* design) {
-  return isNamedRootPrimitive(design, DFFSEName);
+  return isWidthPrimitive(design, DFFSEName, DFFSEPrefix);
 }
 
 SNLScalarTerm* NLDB0::getDFFSEClock() {

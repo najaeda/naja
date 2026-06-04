@@ -25791,6 +25791,55 @@ endmodule
       }
     }
 
+    bool createVectorSequentialInstance(
+      SNLDesign* design,
+      SNLDesign* model,
+      SNLNet* clockOrEnableNet,
+      const char* clockOrEnableTermName,
+      const std::vector<SNLBitNet*>& dataBits,
+      const std::vector<SNLBitNet*>& outputBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      SNLNet* extraControl0 = nullptr,
+      const char* extraControl0TermName = nullptr,
+      SNLNet* extraControl1 = nullptr,
+      const char* extraControl1TermName = nullptr) {
+      if (!design || !model || !clockOrEnableNet || dataBits.empty() ||
+          dataBits.size() != outputBits.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      PackedNetRef outputRef;
+      if (!tryGetPackedNetRef(outputBits, outputRef)) {
+        return false;
+      }
+      auto dataRef = getOrMaterializePackedNetRef(design, dataBits, sourceRange);
+      if (getPackedNetRefWidth(dataRef) != getPackedNetRefWidth(outputRef)) {
+        return false; // LCOV_EXCL_LINE
+      }
+      auto* inst = SNLInstance::create(design, model);
+      annotateSourceInfo(inst, sourceRange);
+      if (auto* term = model->getScalarTerm(NLName(clockOrEnableTermName))) {
+        inst->setTermNet(term, clockOrEnableNet);
+      }
+      if (extraControl0 && extraControl0TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl0TermName))) {
+          inst->setTermNet(term, extraControl0);
+        }
+      }
+      if (extraControl1 && extraControl1TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl1TermName))) {
+          inst->setTermNet(term, extraControl1);
+        }
+      }
+      auto* dTerm = model->getBusTerm(NLName("D"));
+      auto* qTerm = model->getBusTerm(NLName("Q"));
+      if (!dTerm || !qTerm) {
+        return false; // LCOV_EXCL_LINE
+      }
+      inst->setTermNet(dTerm, dataRef.net, dataRef.msb, dataRef.lsb);
+      inst->setTermNet(qTerm, outputRef.net, outputRef.msb, outputRef.lsb);
+      return true;
+    }
+
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
       const auto uninferredMemoryWarningThreshold =
@@ -25967,13 +26016,26 @@ endmodule
               return false;
             }
 
-            for (size_t i = 0; i < actionLhsBits.size(); ++i) {
-              createDLatchInstance(
+            bool emittedVectorLatch = false;
+            if (actionLhsBits.size() > 1) {
+              emittedVectorLatch = createVectorSequentialInstance(
                 design,
+                NLDB0::getOrCreateDLatch(actionLhsBits.size()),
                 actionEnableNet,
-                dataBits[i],
-                actionLhsBits[i],
+                "E",
+                dataBits,
+                actionLhsBits,
                 latchSourceRange);
+            }
+            if (!emittedVectorLatch) {
+              for (size_t i = 0; i < actionLhsBits.size(); ++i) {
+                createDLatchInstance(
+                  design,
+                  actionEnableNet,
+                  dataBits[i],
+                  actionLhsBits[i],
+                  latchSourceRange);
+              }
             }
             return true;
           };
@@ -26081,13 +26143,26 @@ endmodule
             return false;
           }
 
-          for (size_t i = 0; i < lhsBits.size(); ++i) {
-            createDLatchInstance(
+          bool emittedVectorLatch = false;
+          if (lhsBits.size() > 1) {
+            emittedVectorLatch = createVectorSequentialInstance(
               design,
+              NLDB0::getOrCreateDLatch(lhsBits.size()),
               enableNet,
-              dataBits[i],
-              lhsBits[i],
+              "E",
+              dataBits,
+              lhsBits,
               latchSourceRange);
+          }
+          if (!emittedVectorLatch) {
+            for (size_t i = 0; i < lhsBits.size(); ++i) {
+              createDLatchInstance(
+                design,
+                enableNet,
+                dataBits[i],
+                lhsBits[i],
+                latchSourceRange);
+            }
           }
           return true;
         };
@@ -26595,56 +26670,129 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeSequentialPerfScopeName("emitSequentialPrimitives"));
 #endif
-          for (size_t i = 0; i < lhsBits.size(); ++i) {
+          bool emittedVectorSequential = false;
+          if (lhsBits.size() > 1) {
+            const auto width = lhsBits.size();
             if (useAsyncResetDFFRN) {
-              createDFFRNInstance(
+              emittedVectorSequential = createVectorSequentialInstance(
                 design,
+                NLDB0::getOrCreateDFFRN(width),
                 clkNet,
-                dataBits[i],
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
                 asyncResetControlNet,
-                lhsBits[i],
-                statementSourceRange);
+                "RN");
             } else if (useAsyncResetDFFRE) {
-              createDFFREInstance(
+              emittedVectorSequential = createVectorSequentialInstance(
                 design,
+                NLDB0::getOrCreateDFFRE(width),
                 clkNet,
-                dataBits[i],
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
                 useClockEnablePrimitive ? enableNet : constEnableOne,
+                "E",
                 asyncResetControlNet,
-                lhsBits[i],
-                statementSourceRange);
+                "R");
             } else if (useAsyncResetDFFSE) {
-              createDFFSEInstance(
+              emittedVectorSequential = createVectorSequentialInstance(
                 design,
+                NLDB0::getOrCreateDFFSE(width),
                 clkNet,
-                dataBits[i],
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
                 useClockEnablePrimitive ? enableNet : constEnableOne,
+                "E",
                 asyncResetControlNet,
-                lhsBits[i],
-                statementSourceRange);
+                "S");
             } else if (useClockEnablePrimitive) {
-              createDFFEInstance(
+              emittedVectorSequential = createVectorSequentialInstance(
                 design,
+                NLDB0::getOrCreateDFFE(width),
                 clkNet,
-                dataBits[i],
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
                 enableNet,
-                lhsBits[i],
+                "E");
+            } else if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design,
+                NLDB0::getOrCreateDFFN(width),
+                clkNet,
+                "C",
+                dataBits,
+                lhsBits,
                 statementSourceRange);
             } else {
-              if (clockEdge == slang::ast::EdgeKind::NegEdge) {
-                createDFFNInstance(
+              emittedVectorSequential = createVectorSequentialInstance(
+                design,
+                NLDB0::getOrCreateDFF(width),
+                clkNet,
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange);
+            }
+          }
+          if (!emittedVectorSequential) {
+            for (size_t i = 0; i < lhsBits.size(); ++i) {
+              if (useAsyncResetDFFRN) {
+                createDFFRNInstance(
                   design,
                   clkNet,
                   dataBits[i],
+                  asyncResetControlNet,
+                  lhsBits[i],
+                  statementSourceRange);
+              } else if (useAsyncResetDFFRE) {
+                createDFFREInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  useClockEnablePrimitive ? enableNet : constEnableOne,
+                  asyncResetControlNet,
+                  lhsBits[i],
+                  statementSourceRange);
+              } else if (useAsyncResetDFFSE) {
+                createDFFSEInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  useClockEnablePrimitive ? enableNet : constEnableOne,
+                  asyncResetControlNet,
+                  lhsBits[i],
+                  statementSourceRange);
+              } else if (useClockEnablePrimitive) {
+                createDFFEInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  enableNet,
                   lhsBits[i],
                   statementSourceRange);
               } else {
-                createDFFInstance(
-                  design,
-                  clkNet,
-                  dataBits[i],
-                  lhsBits[i],
-                  statementSourceRange);
+                if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+                  createDFFNInstance(
+                    design,
+                    clkNet,
+                    dataBits[i],
+                    lhsBits[i],
+                    statementSourceRange);
+                } else {
+                  createDFFInstance(
+                    design,
+                    clkNet,
+                    dataBits[i],
+                    lhsBits[i],
+                    statementSourceRange);
+                }
               }
             }
           }
