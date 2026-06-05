@@ -120,6 +120,14 @@ bool isUnsignedDecimal(const std::string& value) {
     [](unsigned char c) { return std::isdigit(c) != 0; });
 }
 
+std::string getNajaPrimitiveModelName(const naja::NL::SNLDesign* model) {
+  auto* library = model->getLibrary();
+  if (naja::NL::NLDB0::isDivMod(model)) {
+    library = library->getParentLibrary();
+  }
+  return library->getName().getString();
+}
+
 std::string normalizeParameterValue(
   naja::NL::SNLParameter::Type type,
   const std::string& value) {
@@ -155,6 +163,14 @@ std::string getEmittedDefaultParameterValue(
     }
     if (parameterName == NLName("INIT")) {
       return "1'b0";
+    }
+  }
+  if (NLDB0::isDivMod(instance->getModel())) {
+    if (parameterName == NLName("WIDTH")) {
+      return "1";
+    }
+    if (parameterName == NLName("SIGNED")) {
+      return "0";
     }
   }
   return parameter->getValue();
@@ -1681,7 +1697,7 @@ bool SNLVRLDumper::dumpInstance(
       widthValue = widthInstParam->getValue();
     }
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
-    o << "naja_mux2 ";
+    o << getNajaPrimitiveModelName(instance->getModel()) << " ";
     if (widthValue != "1") {
       o << "#(" << '\n';
       o << "  .WIDTH(" << widthValue << ")" << '\n';
@@ -1709,6 +1725,22 @@ bool SNLVRLDumper::dumpInstance(
     o << ";" << '\n';
     return true;
   }
+  if (NLDB0::isDivMod(instance->getModel())) {
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << getNajaPrimitiveModelName(instance->getModel()) << " ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
   if (auto* model = instance->getModel();
       NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
       NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
@@ -1720,22 +1752,7 @@ bool SNLVRLDumper::dumpInstance(
     } else {
       instanceName = instance->getName().getString();
     }
-    std::string modelName;
-    if (NLDB0::isDLatch(model)) {
-      modelName = "naja_dlatch";
-    } else if (NLDB0::isDFFN(model)) {
-      modelName = "naja_dffn";
-    } else if (NLDB0::isDFFRN(model)) {
-      modelName = "naja_dffrn";
-    } else if (NLDB0::isDFFE(model)) {
-      modelName = "naja_dffe";
-    } else if (NLDB0::isDFFRE(model)) {
-      modelName = "naja_dffre";
-    } else if (NLDB0::isDFFSE(model)) {
-      modelName = "naja_dffse";
-    } else {
-      modelName = "naja_dff";
-    }
+    std::string modelName = getNajaPrimitiveModelName(model);
     std::string widthValue = "1";
     if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
       widthValue = widthParam->getValue();
@@ -2295,6 +2312,21 @@ void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
   o << "endmodule //naja_dffse\n";
 }
 
+void SNLVRLDumper::dumpNajaDivModModel(std::ostream& o) {
+  o << "module naja_divmod #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter SIGNED = 0\n";
+  o << ") (\n";
+  o << "  input [WIDTH-1:0] A,\n";
+  o << "  input [WIDTH-1:0] B,\n";
+  o << "  output [WIDTH-1:0] Q,\n";
+  o << "  output [WIDTH-1:0] R\n";
+  o << ");\n";
+  o << "  assign Q = SIGNED ? $signed(A) / $signed(B) : A / B;\n";
+  o << "  assign R = SIGNED ? $signed(A) % $signed(B) : A % B;\n";
+  o << "endmodule //naja_divmod\n";
+}
+
 void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "module naja_mem #(\n";
   o << "  parameter WIDTH = 1,\n";
@@ -2492,6 +2524,8 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   dumpNajaDFFREModel(outFile);
   outFile << '\n';
   dumpNajaDFFSEModel(outFile);
+  outFile << '\n';
+  dumpNajaDivModModel(outFile);
   outFile << '\n';
   dumpNajaMemModel(outFile);
 }

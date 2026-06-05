@@ -118,6 +118,31 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       return ins;
     }
 
+    SNLInstance* createDivModInstance() {
+      NLDB0::DivModSignature signature;
+      signature.width = 8;
+      signature.isSigned = true;
+
+      auto* divmod = NLDB0::getOrCreateDivMod(signature);
+      if (nullptr == divmod) {
+        return nullptr;
+      }
+
+      auto* a = SNLBusNet::create(top_, 7, 0, NLName("div_a"));
+      auto* b = SNLBusNet::create(top_, 7, 0, NLName("div_b"));
+      auto* q = SNLBusNet::create(top_, 7, 0, NLName("div_q"));
+      auto* r = SNLBusNet::create(top_, 7, 0, NLName("div_r"));
+
+      auto* ins = SNLInstance::create(top_, divmod, NLName("div0"));
+      ins->setTermNet(NLDB0::getDivModDividend(divmod), a);
+      ins->setTermNet(NLDB0::getDivModDivisor(divmod), b);
+      ins->setTermNet(NLDB0::getDivModQuotient(divmod), q);
+      ins->setTermNet(NLDB0::getDivModRemainder(divmod), r);
+      SNLInstParameter::create(ins, divmod->getParameter(NLName("WIDTH")), "8");
+      SNLInstParameter::create(ins, divmod->getParameter(NLName("SIGNED")), "1");
+      return ins;
+    }
+
     SNLInstance* createMixedConstBusMux2Instance() {
       auto* mux2 = NLDB0::getOrCreateMux2(4);
       if (nullptr == mux2) {
@@ -403,6 +428,36 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxInstanceDump) {
   EXPECT_EQ(std::string::npos, dumped.find("module naja_mux2 #("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testDivModInstanceAndPrimitiveFileDump) {
+  ASSERT_NE(nullptr, createDivModInstance());
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testDivModInstanceAndPrimitiveFileDump";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.dumpDesign(top_, outPath);
+
+  const auto topDump = readTextFile(outPath / "top.v");
+  EXPECT_NE(std::string::npos, topDump.find("naja_divmod #("));
+  EXPECT_NE(std::string::npos, topDump.find(".SIGNED(1)"));
+  EXPECT_NE(std::string::npos, topDump.find(".WIDTH(8)"));
+  EXPECT_EQ(std::string::npos, topDump.find("naja_divmod__s_w8"));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_divmod #("));
+
+  const auto primitivePath = outPath / "naja_primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitivePath));
+  const auto primitiveDump = readTextFile(primitivePath);
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_divmod #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Q = SIGNED ?"));
+  EXPECT_EQ(std::string::npos, primitiveDump.find("naja_divmod__s_w8"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
   ASSERT_NE(nullptr, createMixedConstBusMux2Instance());
 
@@ -492,4 +547,5 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_divmod #("));
 }
