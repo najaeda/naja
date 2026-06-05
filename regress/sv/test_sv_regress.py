@@ -166,6 +166,7 @@ cases:
         self.assertIn('--user "$(id -u):$(id -g)"', workflow)
         self.assertIn("CCACHE_DIR", workflow)
         self.assertIn(".docker-home", workflow)
+        self.assertIn("libboost-dev", workflow)
         self.assertNotIn("libboost-system-dev", workflow)
         self.assertNotIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertNotIn("SPIKE_INSTALL_DIR", workflow)

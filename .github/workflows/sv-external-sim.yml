@@ -38,6 +38,7 @@ jobs:
             autoconf \
             automake \
             ccache \
+            libboost-dev \
             libcapnp-dev \
             libfl-dev \
             libtool \
