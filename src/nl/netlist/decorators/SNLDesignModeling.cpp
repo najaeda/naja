@@ -10,6 +10,7 @@
 
 #include "NLBitDependencies.h"
 #include "NLException.h"
+#include "NLName.h"
 #include "NajaDumpableProperty.h"
 #include "NajaPrivateProperty.h"
 
@@ -44,7 +45,7 @@ namespace {
 bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
   return design &&
          (naja::NL::NLDB0::isDLatch(design) ||
-          design == naja::NL::NLDB0::getDFF() ||
+          naja::NL::NLDB0::isDFF(design) ||
           naja::NL::NLDB0::isDFFN(design) ||
           naja::NL::NLDB0::isDFFRN(design) ||
           naja::NL::NLDB0::isDFFE(design) ||
@@ -54,25 +55,15 @@ bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
 
 naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* design) {
   if (naja::NL::NLDB0::isDLatch(design)) {
-    return naja::NL::NLDB0::getDLatchEnable();
+    return design->getScalarTerm(naja::NL::NLName("E"));
   }
-  if (design == naja::NL::NLDB0::getDFF()) {
-    return naja::NL::NLDB0::getDFFClock();
-  }
-  if (naja::NL::NLDB0::isDFFN(design)) {
-    return naja::NL::NLDB0::getDFFNClock();
-  }
-  if (naja::NL::NLDB0::isDFFRN(design)) {
-    return naja::NL::NLDB0::getDFFRNClock();
-  }
-  if (naja::NL::NLDB0::isDFFE(design)) {
-    return naja::NL::NLDB0::getDFFEClock();
-  }
-  if (naja::NL::NLDB0::isDFFRE(design)) {
-    return naja::NL::NLDB0::getDFFREClock();
-  }
-  if (naja::NL::NLDB0::isDFFSE(design)) {
-    return naja::NL::NLDB0::getDFFSEClock();
+  if (naja::NL::NLDB0::isDFF(design) ||
+      naja::NL::NLDB0::isDFFN(design) ||
+      naja::NL::NLDB0::isDFFRN(design) ||
+      naja::NL::NLDB0::isDFFE(design) ||
+      naja::NL::NLDB0::isDFFRE(design) ||
+      naja::NL::NLDB0::isDFFSE(design)) {
+    return design->getScalarTerm(naja::NL::NLName("C"));
   }
   return nullptr;  // LCOV_EXCL_LINE
 }

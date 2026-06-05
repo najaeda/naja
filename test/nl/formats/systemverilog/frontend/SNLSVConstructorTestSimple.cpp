@@ -183,27 +183,122 @@ SNLNet* getSingleAssignInputDriving(SNLBitNet* drivenNet) {
   return inputTerm->getNet();
 }
 
+size_t getPrimitiveWidth(const SNLInstance* instance) {
+  if (!instance) {
+    return 0;
+  }
+  if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthInstParam->getValue()));
+  }
+  auto* model = instance->getModel();
+  if (!model) {
+    return 0;
+  }
+  if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthParam->getValue()));
+  }
+  return 1;
+}
+
+using PrimitivePredicate = bool (*)(const SNLDesign*);
+
+size_t countPrimitiveBits(
+    const SNLDesign* design,
+    std::initializer_list<PrimitivePredicate> predicates) {
+  size_t count = 0;
+  if (!design) {
+    return count;
+  }
+  for (auto* inst : design->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model) {
+      continue;
+    }
+    for (auto predicate : predicates) {
+      if (predicate && predicate(model)) {
+        count += getPrimitiveWidth(inst);
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+size_t countPrimitiveBits(
+    const SNLDesign* design,
+    PrimitivePredicate predicate) {
+  return countPrimitiveBits(design, {predicate});
+}
+
+size_t countDFFBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFF);
+}
+
+size_t countDFFNBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFN);
+}
+
+size_t countDFFRNBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFRN);
+}
+
+size_t countDFFEBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFE);
+}
+
+size_t countDFFREBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFRE);
+}
+
+size_t countDFFSEBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSE);
+}
+
+size_t countDLatchBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDLatch);
+}
+
 SNLNet* getDFFDataForOutputBit(SNLDesign* design, SNLBitNet* outputBit) {
   if (!design || !outputBit) {
     ADD_FAILURE() << "Missing design or DFF output bit";
     return nullptr;
   }
 
-  auto* dffModel = NLDB0::getDFF();
-  if (!dffModel) {
-    ADD_FAILURE() << "Missing DFF model";
-    return nullptr;
-  }
-
   for (auto* instance : design->getInstances()) {
-    if (!instance || instance->getModel() != dffModel) {
+    auto* model = instance ? instance->getModel() : nullptr;
+    if (!model || !NLDB0::isDFF(model)) {
       continue;
     }
-    auto* qTerm = instance->getInstTerm(NLDB0::getDFFOutput());
+
+    if (auto* qBus = model->getBusTerm(NLName("Q"))) {
+      auto* dBus = model->getBusTerm(NLName("D"));
+      if (!dBus) {
+        ADD_FAILURE() << "DFF instance has no data bus term";
+        return nullptr;
+      }
+      for (auto* qBitTerm : qBus->getBusBits()) {
+        auto* qTerm = instance->getInstTerm(qBitTerm);
+        if (!qTerm || qTerm->getNet() != outputBit) {
+          continue;
+        }
+        auto* dBitTerm = dBus->getBit(qBitTerm->getBit());
+        auto* dTerm = instance->getInstTerm(dBitTerm);
+        if (!dTerm) {
+          ADD_FAILURE() << "DFF instance has no data bit term";
+          return nullptr;
+        }
+        return dTerm->getNet();
+      }
+      continue;
+    }
+
+    auto* qBitTerm = model->getScalarTerm(NLName("Q"));
+    auto* qTerm = instance->getInstTerm(qBitTerm);
     if (!qTerm || qTerm->getNet() != outputBit) {
       continue;
     }
-    auto* dTerm = instance->getInstTerm(NLDB0::getDFFData());
+    auto* dBitTerm = model->getScalarTerm(NLName("D"));
+    auto* dTerm = instance->getInstTerm(dBitTerm);
     if (!dTerm) {
       ADD_FAILURE() << "DFF instance has no data term";
       return nullptr;
@@ -21703,10 +21798,10 @@ endmodule
   size_t dffreCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffreModel) {
-      ++dffreCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -22587,8 +22682,8 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   bool dffHasSource = false;
   for (auto inst : top->getInstances()) {
     auto model = inst->getModel();
-    if (model == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(model)) {
+      dffCount += getPrimitiveWidth(inst);
       if (hasRTLInfo(inst, "sv_src_line")) {
         dffHasSource = true;
       }
@@ -22632,8 +22727,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddOutPlusOne) {
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
     }
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_GT(faCount, 0u);
@@ -22708,8 +22803,8 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -22767,8 +22862,8 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -22829,7 +22924,7 @@ endmodule
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       ++flopCount;
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -22888,7 +22983,7 @@ endmodule
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       ++flopCount;
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -22945,8 +23040,8 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -22970,8 +23065,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -23039,9 +23134,9 @@ endmodule
   auto dffrnModel = NLDB0::getDFFRN();
   size_t ffCount = 0;
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
-      ++ffCount;
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(17u, ffCount);
@@ -23154,8 +23249,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRN(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(17u, dffCount);
@@ -23369,10 +23464,10 @@ endmodule
   size_t dffrnCount = 0;
   size_t muxCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++muxCount;
     }
@@ -23748,8 +23843,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -23815,8 +23910,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -23891,8 +23986,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -23962,8 +24057,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
         ++ffCount;
     }
   }
@@ -24024,8 +24119,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -24090,8 +24185,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -24167,8 +24262,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
-    if ((dffModel && inst->getModel() == dffModel) ||
-        (dffrnModel && inst->getModel() == dffrnModel)) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ++ffCount;
     }
   }
@@ -24261,8 +24356,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffCount);
@@ -24308,8 +24403,8 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffCount);
@@ -25043,8 +25138,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -25096,16 +25191,16 @@ endmodule
   size_t dffeCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffeModel) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFE(inst->getModel())) {
       ++dffeCount;
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(8u, dffeCount);
+  EXPECT_EQ(1u, dffeCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -25150,15 +25245,15 @@ endmodule
   size_t dffeCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffnModel) {
+    if (NLDB0::isDFFN(inst->getModel())) {
       ++dffnCount;
-    } else if (inst->getModel() == dffeModel) {
+    } else if (NLDB0::isDFFE(inst->getModel())) {
       ++dffeCount;
     } else if (NLDB0::isMux2(inst->getModel())) {
       ++mux2Count;
     }
   }
-  EXPECT_EQ(8u, dffnCount);
+  EXPECT_EQ(1u, dffnCount);
   EXPECT_EQ(0u, dffeCount);
   EXPECT_EQ(1u, mux2Count);
 }
@@ -25202,13 +25297,13 @@ endmodule
   size_t dffnCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffnModel) {
+    if (NLDB0::isDFFN(inst->getModel())) {
       ++dffnCount;
     } else if (NLDB0::isMux2(inst->getModel())) {
       ++mux2Count;
     }
   }
-  EXPECT_EQ(8u, dffnCount);
+  EXPECT_EQ(1u, dffnCount);
   EXPECT_EQ(1u, mux2Count);
 }
 
@@ -25260,8 +25355,8 @@ endmodule
   size_t dffnCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffnModel) {
-      ++dffnCount;
+    if (NLDB0::isDFFN(inst->getModel())) {
+      dffnCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isMux2(inst->getModel())) {
       ++mux2Count;
     }
@@ -25284,8 +25379,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Supported) {
   size_t dffCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) &&
         NLDB0::getGateName(inst->getModel()) == "or") {
@@ -25310,8 +25405,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialPreincrementSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -25338,8 +25433,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -25394,8 +25489,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -25418,8 +25513,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetAllZeroLiteralWideSupport
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(128u, dffCount);
@@ -25446,8 +25541,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideConstantSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(128u, dffCount);
@@ -25500,8 +25595,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffCount);
@@ -25524,8 +25619,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalpar
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(128u, dffCount);
@@ -25548,8 +25643,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultZeroSupporte
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(13u, dffrnCount);
@@ -25610,8 +25705,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t ffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
-      ++ffCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRN(inst->getModel())) {
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(7u, ffCount);
@@ -25633,8 +25728,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSupported) {
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -25786,10 +25881,10 @@ endmodule
   size_t dffrnCount = 0;
   size_t muxCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++muxCount;
     }
@@ -26033,8 +26128,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySupported) {
   size_t dffCount = 0;
   size_t xorGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) &&
         NLDB0::getGateName(inst->getModel()) == "xor") {
@@ -26444,8 +26539,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dffrnCount);
@@ -26501,8 +26596,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dffrnCount);
@@ -26551,8 +26646,8 @@ endmodule
   size_t dffCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) && NLDB0::getGateName(inst->getModel()) == "or") {
       ++orGateCount;
@@ -26966,8 +27061,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryNotSupported) {
   size_t dffCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isGate(inst->getModel()) &&
                NLDB0::getGateName(inst->getModel()) == "not") {
       ++notGateCount;
@@ -27140,8 +27235,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetCondBus2Supported) {
   size_t dffCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) &&
         NLDB0::getGateName(inst->getModel()) == "or") {
@@ -27213,8 +27308,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleWrapperSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -27236,8 +27331,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialNestedBeginWrapperSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -27260,8 +27355,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryAndSupported) {
 
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -27311,8 +27406,8 @@ endmodule
   size_t dffCount = 0;
   size_t otherInstCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     } else {
       ++otherInstCount;
     }
@@ -27361,10 +27456,10 @@ endmodule
   size_t dffCount = 0;
   size_t dffnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffnModel) {
-      ++dffnCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFN(inst->getModel())) {
+      dffnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dffCount);
@@ -27418,9 +27513,9 @@ endmodule
     if (NLDB0::isAssign(inst->getModel())) {
       ++assignCount;
     } else if (inst->getModel() == NLDB0::getDFF()) {
-      ++dffCount;
+      dffCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == NLDB0::getDFFN()) {
-      ++dffnCount;
+      dffnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, assignCount);
@@ -27476,9 +27571,9 @@ endmodule
   size_t dffnCount = 0;
   for (auto inst : top->getInstances()) {
     if (inst->getModel() == NLDB0::getDFF()) {
-      ++dffCount;
+      dffCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == NLDB0::getDFFN()) {
-      ++dffnCount;
+      dffnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dffCount);
@@ -27516,8 +27611,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListTimedAssertionSuppor
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dffCount);
@@ -27576,8 +27671,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialConcurrentAssertionIgnoredSupp
 
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dffCount);
@@ -27603,10 +27698,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetSup
   size_t dffrnCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -27677,10 +27772,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListPosedgeResetSup
   size_t dffreCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffreModel) {
-      ++dffreCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -27733,10 +27828,10 @@ endmodule
   size_t dffseCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffseModel) {
-      ++dffseCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFSE(inst->getModel())) {
+      dffseCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -27800,10 +27895,10 @@ endmodule
   size_t dffreCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffreModel) {
-      ++dffreCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -27867,16 +27962,142 @@ endmodule
   size_t dffseCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffseModel) {
-      ++dffseCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFSE(inst->getModel())) {
+      dffseCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
   EXPECT_EQ(2u, dffseCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeResetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_posedge_reset_primitive_supported",
+    R"(module seq_scalar_posedge_reset_primitive_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+    end else begin
+      q <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_posedge_reset_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffreCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffreCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeSetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_posedge_set_primitive_supported",
+    R"(module seq_scalar_posedge_set_primitive_supported(
+  input  logic clk,
+  input  logic set,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk or posedge set) begin
+    if (set) begin
+      q <= 1'b1;
+    end else begin
+      q <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_posedge_set_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffseCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFSE(inst->getModel())) {
+      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffseCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarClockEnablePrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_clock_enable_primitive_supported",
+    R"(module seq_scalar_clock_enable_primitive_supported(
+  input  logic clk,
+  input  logic en,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (en) begin
+      q <= d;
+    end else begin
+      q <= q;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_clock_enable_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffeCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFE(inst->getModel())) {
+      dffeCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffeCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28162,8 +28383,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableActionSupported) {
   size_t faCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28187,8 +28408,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionSupported) {
   size_t faCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28214,8 +28435,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
-      ++flopCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28270,8 +28491,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffreModel || inst->getModel() == dffrnModel) {
-      ++flopCount;
+    if (NLDB0::isDFFRE(inst->getModel()) || NLDB0::isDFFRN(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(3u, flopCount);
@@ -28294,8 +28515,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
-      ++flopCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28354,8 +28575,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSuppo
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(12u, dffrnCount);
@@ -28379,8 +28600,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupporte
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
-      ++flopCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28431,8 +28652,8 @@ endmodule
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
-      ++flopCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28488,8 +28709,8 @@ endmodule
   ASSERT_NE(dffreModel, nullptr);
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffreModel) {
-      ++flopCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+      flopCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, flopCount);
@@ -28533,8 +28754,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, dffCount);
@@ -28555,8 +28776,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
   size_t faCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28579,8 +28800,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnaryNotSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -28599,8 +28820,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWidthMismatchSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -28620,8 +28841,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28709,8 +28930,8 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -28752,8 +28973,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -28800,8 +29021,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(18u, dffCount);
@@ -28849,8 +29070,8 @@ endmodule
   ASSERT_NE(dffnModel, nullptr);
   size_t dffnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffnModel) {
-      ++dffnCount;
+    if (NLDB0::isDFFN(inst->getModel())) {
+      dffnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(18u, dffnCount);
@@ -28900,8 +29121,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(32u, dffCount);
@@ -28959,8 +29180,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffrnCount);
@@ -29024,8 +29245,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(20u, dffrnCount);
@@ -29174,10 +29395,8 @@ endmodule
     return count;
   };
 
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[0])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[7])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[8])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[15])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[7:0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[15:8])"));
 }
 
 TEST_F(
@@ -29303,8 +29522,7 @@ endmodule
   };
 
   EXPECT_EQ(0u, countOccurrences(dumpedText, ".Q(q_o[0])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(q_o[4])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(q_o[5])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(q_o[5:4])"));
   EXPECT_EQ(0u, countOccurrences(dumpedText, ".Q(q_o[6])"));
   EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[4] = 1'b0"));
   EXPECT_EQ(std::string::npos, dumpedText.find("assign q_o[5] = 1'b0"));
@@ -29411,8 +29629,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
@@ -29468,8 +29686,8 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -29528,8 +29746,8 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, dffCount);
@@ -29595,8 +29813,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffrnCount);
@@ -29775,8 +29993,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(32u, dffrnCount);
@@ -29830,8 +30048,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t dffrnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(16u, dffrnCount);
@@ -29878,8 +30096,8 @@ endmodule
   ASSERT_NE(dffrnModel, nullptr);
   size_t ffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
-      ++ffCount;
+    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRN(inst->getModel())) {
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, ffCount);
@@ -30241,10 +30459,10 @@ endmodule
   size_t dffrnCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dffModel) {
-      ++dffCount;
-    } else if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
@@ -30335,11 +30553,11 @@ endmodule
 
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
-  EXPECT_EQ(8u, dlatchCount);
+  EXPECT_EQ(1u, dlatchCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIncrementerSupported) {
@@ -30381,11 +30599,11 @@ endmodule
 
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
-  EXPECT_EQ(4u, dlatchCount);
+  EXPECT_EQ(1u, dlatchCount);
   EXPECT_GT(countFAInstances(top), 0u);
 }
 
@@ -30429,7 +30647,7 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
@@ -30475,7 +30693,7 @@ endmodule
   size_t dlatchCount = 0;
   size_t xorGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
     if (NLDB0::isGate(inst->getModel()) &&
@@ -30521,7 +30739,7 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
@@ -30582,7 +30800,7 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
@@ -30613,8 +30831,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dlatchCount);
@@ -30700,8 +30918,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dlatchCount);
@@ -30744,8 +30962,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(1u, dlatchCount);
@@ -30790,8 +31008,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, dlatchCount);
@@ -30834,8 +31052,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, dlatchCount);
@@ -30912,11 +31130,11 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
-  EXPECT_EQ(4u, dlatchCount);
+  EXPECT_EQ(1u, dlatchCount);
   EXPECT_GT(countFAInstances(top), 0u);
 }
 
@@ -31015,11 +31233,11 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
+    if (NLDB0::isDLatch(inst->getModel())) {
       ++dlatchCount;
     }
   }
-  EXPECT_EQ(8u, dlatchCount);
+  EXPECT_EQ(2u, dlatchCount);
   EXPECT_GT(countFAInstances(top), 0u);
 }
 
@@ -31145,8 +31363,8 @@ endmodule
   ASSERT_NE(dlatchModel, nullptr);
   size_t dlatchCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == dlatchModel) {
-      ++dlatchCount;
+    if (NLDB0::isDLatch(inst->getModel())) {
+      dlatchCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(4u, dlatchCount);

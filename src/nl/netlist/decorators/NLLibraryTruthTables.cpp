@@ -8,6 +8,7 @@
 
 #include "NajaPrivateProperty.h"
 
+#include "NLDB0.h"
 #include "NLLibrary.h"
 #include "NLException.h"
 
@@ -102,6 +103,37 @@ naja::NL::SNLTruthTable getCommonTruthTable(const naja::NL::SNLDesign* design) {
   return commonTruthTable;
 }
 
+void addDesignTruthTable(
+    naja::NL::SNLDesign* design,
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
+  if (naja::NL::NLDB0::isMemory(design) || naja::NL::NLDB0::isDivMod(design)) {
+    return;
+  }
+  naja::NL::SNLTruthTable tt = getCommonTruthTable(design);
+  if (tt.isInitialized()) {
+    auto canonicalTT = canonicalizeTruthTableForLookup(tt);
+    auto it = truthTables.find(canonicalTT);
+    if (it != truthTables.end()) {
+      it->second.push_back(design);
+    } else {
+      truthTables[canonicalTT] = {design};
+    }
+  }
+}
+
+void addLibraryTruthTables(
+    naja::NL::NLLibrary* library,
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
+  for (auto design: library->getSNLDesigns()) {
+    addDesignTruthTable(design, truthTables);
+  }
+  for (auto childLibrary: library->getLibraries()) {
+    if (childLibrary->getType() == naja::NL::NLLibrary::Type::Primitives) {
+      addLibraryTruthTables(childLibrary, truthTables);
+    }
+  }
+}
+
 } // namespace
 
 namespace naja::NL {
@@ -111,18 +143,7 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
     return {};
   }
   LibraryTruthTables truthTables;
-  for (auto design : library->getSNLDesigns()) {
-    SNLTruthTable tt = getCommonTruthTable(design);
-    if (tt.isInitialized()) {
-      auto canonicalTT = canonicalizeTruthTableForLookup(tt);
-      auto it = truthTables.find(canonicalTT);
-      if (it != truthTables.end()) {
-        it->second.push_back(design);
-      } else {
-        truthTables[canonicalTT] = {design};
-      }
-    }
-  }
+  addLibraryTruthTables(library, truthTables);
   NLLibraryModelingProperty::create(library, truthTables);
   return truthTables;
 }

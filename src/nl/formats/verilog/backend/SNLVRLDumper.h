@@ -245,6 +245,7 @@ class SNLVRLDumper {
     void dumpNajaDFFEModel(std::ostream& o);
     void dumpNajaDFFREModel(std::ostream& o);
     void dumpNajaDFFSEModel(std::ostream& o);
+    void dumpNajaDivModModel(std::ostream& o);
     void dumpNajaMemModel(std::ostream& o);
     void dumpNajaPrimitiveFile(const std::filesystem::path& path);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);

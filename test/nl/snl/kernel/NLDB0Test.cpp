@@ -16,6 +16,7 @@
 #include "SNLParameter.h"
 #include "NLException.h"
 #include <algorithm>
+#include <limits>
 using namespace naja::NL;
 
 namespace {
@@ -39,6 +40,31 @@ struct SequentialPrimitiveData {
   std::vector<SNLBitTerm*> inputs;
   std::vector<SNLBitTerm*> outputs;
 };
+
+NLID::LibraryID expectedSequentialLibraryID(const NLName& name) {
+  if (name == NLName("naja_dff")) {
+    return NLID::LibraryID(3);
+  }
+  if (name == NLName("naja_dlatch")) {
+    return NLID::LibraryID(4);
+  }
+  if (name == NLName("naja_dffn")) {
+    return NLID::LibraryID(5);
+  }
+  if (name == NLName("naja_dffrn")) {
+    return NLID::LibraryID(6);
+  }
+  if (name == NLName("naja_dffe")) {
+    return NLID::LibraryID(7);
+  }
+  if (name == NLName("naja_dffre")) {
+    return NLID::LibraryID(8);
+  }
+  if (name == NLName("naja_dffse")) {
+    return NLID::LibraryID(9);
+  }
+  return NLID::LibraryID(0);
+}
 
 }  // namespace
 
@@ -64,7 +90,12 @@ TEST_F(NLDB0Test, testAssign) {
   auto assign = NLDB0::getAssign();
   ASSERT_NE(nullptr, assign);
   EXPECT_TRUE(NLDB0::isDB0Primitive(assign));
-  EXPECT_EQ(0, assign->getID());
+  EXPECT_EQ(1, assign->getID());
+  ASSERT_NE(nullptr, assign->getLibrary());
+  EXPECT_EQ(1, assign->getLibrary()->getID());
+  EXPECT_EQ(NLName("assign"), assign->getLibrary()->getName());
+  EXPECT_EQ(NLDB0::getDB0RootLibrary(), assign->getLibrary()->getParentLibrary());
+  EXPECT_EQ(assign, assign->getLibrary()->getSNLDesign(NLID::DesignID(1)));
   auto assignInput = NLDB0::getAssignInput();
   ASSERT_NE(nullptr, assignInput);
   EXPECT_EQ(0, assignInput->getID());
@@ -212,6 +243,12 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   ASSERT_NE(nullptr, mux2);
   EXPECT_TRUE(NLDB0::isMux2(mux2));
   EXPECT_EQ(NLName("naja_mux2__w1"), mux2->getName());
+  EXPECT_EQ(1, mux2->getID());
+  ASSERT_NE(nullptr, mux2->getLibrary());
+  EXPECT_EQ(2, mux2->getLibrary()->getID());
+  EXPECT_EQ(NLName("naja_mux2"), mux2->getLibrary()->getName());
+  EXPECT_EQ(NLDB0::getDB0RootLibrary(), mux2->getLibrary()->getParentLibrary());
+  EXPECT_EQ(mux2, mux2->getLibrary()->getSNLDesign(NLID::DesignID(1)));
   auto* inA = NLDB0::getMux2InputA(mux2);
   auto* inB = NLDB0::getMux2InputB(mux2);
   auto* sel = NLDB0::getMux2Select(mux2);
@@ -220,6 +257,10 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   ASSERT_NE(nullptr, inB);
   ASSERT_NE(nullptr, sel);
   ASSERT_NE(nullptr, out);
+  EXPECT_EQ(0, inA->getID());
+  EXPECT_EQ(1, inB->getID());
+  EXPECT_EQ(2, sel->getID());
+  EXPECT_EQ(3, out->getID());
   EXPECT_EQ(1, inA->getWidth());
   EXPECT_EQ(1, inB->getWidth());
   EXPECT_EQ(1, out->getWidth());
@@ -259,6 +300,9 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   ASSERT_NE(nullptr, mux232);
   EXPECT_TRUE(NLDB0::isMux2(mux232));
   EXPECT_EQ(NLName("naja_mux2__w32"), mux232->getName());
+  EXPECT_EQ(32, mux232->getID());
+  EXPECT_EQ(mux2->getLibrary(), mux232->getLibrary());
+  EXPECT_EQ(mux232, mux232->getLibrary()->getSNLDesign(NLID::DesignID(32)));
   EXPECT_EQ(tt, NLDB0::getPrimitiveTruthTable(mux232));
   EXPECT_EQ(32u, SNLDesignModeling::getTruthTableCount(mux232));
   EXPECT_EQ(tt, SNLDesignModeling::getTruthTable(mux232));
@@ -270,6 +314,10 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   ASSERT_NE(nullptr, mux232B);
   ASSERT_NE(nullptr, mux232S);
   ASSERT_NE(nullptr, mux232Y);
+  EXPECT_EQ(0, mux232A->getID());
+  EXPECT_EQ(1, mux232B->getID());
+  EXPECT_EQ(2, mux232S->getID());
+  EXPECT_EQ(3, mux232Y->getID());
   EXPECT_EQ(32, mux232A->getWidth());
   EXPECT_EQ(32, mux232B->getWidth());
   EXPECT_EQ(32, mux232Y->getWidth());
@@ -393,8 +441,14 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   EXPECT_TRUE(NLDB0::isDB0Primitive(divmod0));
   EXPECT_TRUE(NLDB0::isDivMod(divmod0));
   ASSERT_NE(nullptr, divmod0->getLibrary());
-  EXPECT_EQ(NLName("ARITH"), divmod0->getLibrary()->getName());
+  EXPECT_EQ(8, divmod0->getID());
+  EXPECT_EQ(NLName("unsigned"), divmod0->getLibrary()->getName());
+  EXPECT_EQ(11, divmod0->getLibrary()->getID());
+  ASSERT_NE(nullptr, divmod0->getLibrary()->getParentLibrary());
+  EXPECT_EQ(NLName("naja_divmod"), divmod0->getLibrary()->getParentLibrary()->getName());
+  EXPECT_EQ(10, divmod0->getLibrary()->getParentLibrary()->getID());
   EXPECT_EQ(NLName("naja_divmod__u_w8"), divmod0->getName());
+  EXPECT_EQ(divmod0, divmod0->getLibrary()->getSNLDesign(NLID::DesignID(8)));
   EXPECT_EQ(signature, NLDB0::getDivModSignature(divmod0));
   EXPECT_EQ("8", divmod0->getParameter(NLName("WIDTH"))->getValue());
   EXPECT_EQ("0", divmod0->getParameter(NLName("SIGNED"))->getValue());
@@ -408,6 +462,12 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   auto* signedDivMod = NLDB0::getOrCreateDivMod(signedSignature);
   ASSERT_NE(nullptr, signedDivMod);
   EXPECT_NE(divmod0, signedDivMod);
+  EXPECT_EQ(8, signedDivMod->getID());
+  ASSERT_NE(nullptr, signedDivMod->getLibrary());
+  EXPECT_EQ(NLName("signed"), signedDivMod->getLibrary()->getName());
+  EXPECT_EQ(12, signedDivMod->getLibrary()->getID());
+  EXPECT_EQ(divmod0->getLibrary()->getParentLibrary(), signedDivMod->getLibrary()->getParentLibrary());
+  EXPECT_EQ(signedDivMod, signedDivMod->getLibrary()->getSNLDesign(NLID::DesignID(8)));
   EXPECT_EQ(NLName("naja_divmod__s_w8"), signedDivMod->getName());
   EXPECT_EQ(signedSignature, NLDB0::getDivModSignature(signedDivMod));
   EXPECT_EQ("1", signedDivMod->getParameter(NLName("SIGNED"))->getValue());
@@ -420,6 +480,10 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   ASSERT_NE(nullptr, divisor);
   ASSERT_NE(nullptr, quotient);
   ASSERT_NE(nullptr, remainder);
+  EXPECT_EQ(0, dividend->getID());
+  EXPECT_EQ(1, divisor->getID());
+  EXPECT_EQ(2, quotient->getID());
+  EXPECT_EQ(3, remainder->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, dividend->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, divisor->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output, quotient->getDirection());
@@ -660,6 +724,50 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     SNLDesignModeling::MemoryResetMode::SyncHigh);
 }
 
+TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* rootLibrary = NLDB0::getDB0RootLibrary();
+  ASSERT_NE(nullptr, rootLibrary);
+
+  auto* dffLibrary = rootLibrary->getLibrary(expectedSequentialLibraryID(NLName("naja_dff")));
+  ASSERT_NE(nullptr, dffLibrary);
+  dffLibrary->destroy();
+  EXPECT_EQ(
+      nullptr,
+      rootLibrary->getLibrary(expectedSequentialLibraryID(NLName("naja_dff"))));
+
+  auto* dff2 = NLDB0::getOrCreateDFF(2);
+  ASSERT_NE(nullptr, dff2);
+  EXPECT_TRUE(NLDB0::isDFF(dff2));
+  ASSERT_NE(nullptr, dff2->getLibrary());
+  EXPECT_EQ(expectedSequentialLibraryID(NLName("naja_dff")), dff2->getLibrary()->getID());
+  EXPECT_EQ(NLName("naja_dff"), dff2->getLibrary()->getName());
+
+  auto* divModLibrary = rootLibrary->getLibrary(NLID::LibraryID(10));
+  ASSERT_NE(nullptr, divModLibrary);
+  auto* unsignedDivModLibrary = divModLibrary->getLibrary(NLID::LibraryID(11));
+  ASSERT_NE(nullptr, unsignedDivModLibrary);
+  unsignedDivModLibrary->destroy();
+  EXPECT_EQ(nullptr, divModLibrary->getLibrary(NLID::LibraryID(11)));
+
+  NLDB0::DivModSignature divModSignature;
+  divModSignature.width = 4;
+  auto* divMod = NLDB0::getOrCreateDivMod(divModSignature);
+  ASSERT_NE(nullptr, divMod);
+  ASSERT_NE(nullptr, divMod->getLibrary());
+  EXPECT_TRUE(NLDB0::isDivMod(divMod));
+  EXPECT_EQ(NLID::LibraryID(11), divMod->getLibrary()->getID());
+  EXPECT_EQ(NLName("unsigned"), divMod->getLibrary()->getName());
+  EXPECT_EQ(divModLibrary, divMod->getLibrary()->getParentLibrary());
+
+  EXPECT_THROW(NLDB0::getOrCreateDFF(0), NLException);
+  const auto tooWide =
+      static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max()) + 1;
+  EXPECT_THROW(NLDB0::getOrCreateDFF(tooWide), NLException);
+}
+
 TEST_F(NLDB0Test, testMalformedDB0MemorySignatureThrows) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -832,6 +940,21 @@ TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
     ASSERT_NE(nullptr, primitive.design);
     ASSERT_NE(nullptr, primitive.clock);
     EXPECT_TRUE(NLDB0::isDB0Primitive(primitive.design));
+    EXPECT_EQ(1, primitive.design->getID());
+    ASSERT_NE(nullptr, primitive.design->getLibrary());
+    EXPECT_EQ(expectedSequentialLibraryID(primitive.design->getName()), primitive.design->getLibrary()->getID());
+    EXPECT_EQ(primitive.design->getName(), primitive.design->getLibrary()->getName());
+    EXPECT_EQ(NLDB0::getDB0RootLibrary(), primitive.design->getLibrary()->getParentLibrary());
+    EXPECT_EQ(
+      primitive.design,
+      primitive.design->getLibrary()->getSNLDesign(NLID::DesignID(1)));
+    EXPECT_EQ(0, primitive.clock->getID());
+    for (size_t i = 0; i < primitive.inputs.size(); ++i) {
+      EXPECT_EQ(i + 1, primitive.inputs[i]->getID());
+    }
+    for (size_t i = 0; i < primitive.outputs.size(); ++i) {
+      EXPECT_EQ(primitive.inputs.size() + 1 + i, primitive.outputs[i]->getID());
+    }
     EXPECT_TRUE(SNLDesignModeling::isSequential(primitive.design));
     EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(primitive.design));
     EXPECT_FALSE(SNLDesignModeling::getTruthTable(primitive.design).isInitialized());
