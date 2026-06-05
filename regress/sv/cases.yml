@@ -106,6 +106,86 @@ cases:
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
       pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
+    cva6_extended_sim:
+      timeout_seconds: 21600
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "hello_world"
+          - "--program"
+          - "corev_dhrystone"
+          - "--max-cycles"
+          - "10000000"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
+    cva6_local_verif_sim:
+      timeout_seconds: 21600
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "corev_return0"
+          - "--program"
+          - "corev_custom_template"
+          - "--program"
+          - "corev_isacov_branch_to_zero"
+          - "--program"
+          - "corev_isacov_jump"
+          - "--program"
+          - "corev_isacov_isa"
+          - "--program"
+          - "corev_isacov_seq_hazard"
+          - "--program"
+          - "corev_pmp_exact_csrr"
+          - "--program"
+          - "corev_pmp_granularity"
+          - "--program"
+          - "corev_pmp_lsu_tor"
+          - "--max-cycles"
+          - "10000000"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
 
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
