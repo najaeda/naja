@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import os
 import sys
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ sys.path.insert(0, str(HELLOWORLD_SIM_ROOT))
 
 import cv32e40p_example_tb
 import cv32e40p_variant_netlist
+import cva6_testharness
 import ibex_secure_netlist
 import ibex_simple_system
 import sv_regress
@@ -64,6 +66,7 @@ cases:
                 "load_dump",
                 "lint",
                 "cva6_extended_sim",
+                "cva6_full_sim",
                 "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
@@ -78,6 +81,7 @@ cases:
                 "load_dump",
                 "lint",
                 "cva6_extended_sim",
+                "cva6_full_sim",
                 "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
@@ -155,11 +159,16 @@ cases:
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"
         ).read_text(encoding="utf-8")
 
+        self.assertIn("packages: read", workflow)
         self.assertIn("Run Ibex helloworld simulation", workflow)
         self.assertIn("Run Ibex extended simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
         self.assertIn("Run CV32E40P extended example TB simulations", workflow)
-        self.assertNotIn("Run CVA6 testharness simulation", workflow)
+        self.assertIn("cva6-pr-sim:", workflow)
+        self.assertIn("cva6-full-sim:", workflow)
+        self.assertIn("ghcr.io/najaeda/naja/sv-sim:latest", workflow)
+        self.assertIn("Run CVA6 extended testharness simulation", workflow)
+        self.assertIn("Run CVA6 full testharness simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertNotIn("riscv-isa-sim", workflow)
         self.assertIn("ccache", workflow)
@@ -170,12 +179,15 @@ cases:
         self.assertNotIn("libboost-system-dev", workflow)
         self.assertNotIn("VERILATOR_INSTALL_DIR", workflow)
         self.assertNotIn("SPIKE_INSTALL_DIR", workflow)
+        self.assertIn("SV_REGRESS_SEED_ROOT", workflow)
+        self.assertIn("NUM_JOBS: \"2\"", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
         self.assertIn("--case ibex", workflow)
         self.assertIn("--case cv32e40p", workflow)
-        self.assertNotIn("--case cva6_testharness", workflow)
+        self.assertIn("--case cva6_testharness", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
-        self.assertNotIn("--stage cva6_extended_sim", workflow)
+        self.assertIn("--stage cva6_extended_sim", workflow)
+        self.assertIn("--stage cva6_full_sim", workflow)
         self.assertNotIn("--stage cva6_local_verif_sim", workflow)
         self.assertIn("--stage ibex_pmp_sim", workflow)
         self.assertIn("--stage ibex_dit_sim", workflow)
@@ -194,6 +206,8 @@ cases:
         self.assertIn("helloworld_sim", cva6)
         self.assertIn("cva6_extended_sim", cva6)
         self.assertIn("cva6_local_verif_sim", cva6)
+        self.assertIn("cva6_full_sim", cva6)
+        self.assertIn("cva6_full_sim", sv_regress.VALID_STAGES)
         self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
         self.assertNotIn("expected_failure", cva6["helloworld_sim"])
         self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
@@ -217,9 +231,28 @@ cases:
         self.assertIn("corev_pmp_exact_csrr", local_command)
         self.assertIn("corev_pmp_granularity", local_command)
         self.assertIn("corev_pmp_lsu_tor", local_command)
+        full_command = cva6["cva6_full_sim"]["commands"][0]
+        for program in (
+            "hello_world",
+            "corev_dhrystone",
+            "corev_return0",
+            "corev_custom_template",
+            "corev_isacov_branch_to_zero",
+            "corev_isacov_jump",
+            "corev_isacov_isa",
+            "corev_isacov_seq_hazard",
+            "corev_pmp_exact_csrr",
+            "corev_pmp_granularity",
+            "corev_pmp_lsu_tor",
+        ):
+            self.assertIn(program, full_command)
         self.assertEqual(
             cva6["helloworld_sim"]["pass_regex"],
             cva6["cva6_extended_sim"]["pass_regex"],
+        )
+        self.assertEqual(
+            cva6["helloworld_sim"]["pass_regex"],
+            cva6["cva6_full_sim"]["pass_regex"],
         )
 
     def test_run_verilator_uses_manifest_suppressions(self):
@@ -665,6 +698,37 @@ src/rtl/top.sv
         self.assertEqual(17, kwargs["timeout"])
         self.assertEqual(str(repo_dir), kwargs["env"]["FAKE_ROOT"])
 
+    def test_seed_checkout_uses_sv_regress_seed_root_case_directory(self):
+        original_seed_root = os.environ.get("SV_REGRESS_SEED_ROOT")
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                seed_root = tmpdir_path / "seeds"
+                seed_dir = seed_root / "fake"
+                repo_dir = tmpdir_path / "work" / "fake" / "repo"
+                log_dir = tmpdir_path / "work" / "fake" / "artifacts" / "logs"
+                (seed_dir / ".git").mkdir(parents=True)
+                (seed_dir / "rtl.sv").write_text("module fake; endmodule\n", encoding="utf-8")
+                os.environ["SV_REGRESS_SEED_ROOT"] = str(seed_root)
+
+                seeded = sv_regress.seed_checkout({"name": "fake"}, repo_dir, log_dir)
+
+                self.assertTrue(seeded)
+                self.assertTrue((repo_dir / ".git").exists())
+                self.assertEqual(
+                    "module fake; endmodule\n",
+                    (repo_dir / "rtl.sv").read_text(encoding="utf-8"),
+                )
+                self.assertIn(
+                    f"Seeded checkout for fake from {seed_dir}",
+                    (log_dir / "seed-checkout.log").read_text(encoding="utf-8"),
+                )
+        finally:
+            if original_seed_root is None:
+                os.environ.pop("SV_REGRESS_SEED_ROOT", None)
+            else:
+                os.environ["SV_REGRESS_SEED_ROOT"] = original_seed_root
+
     def test_ibex_setup_uses_generic_prim_mapping(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
         ibex = sv_regress.select_cases(cases, "ibex")[0]
@@ -904,6 +968,134 @@ rtl/ibex_top.sv
 
         self.assertTrue(content.startswith("-GPMPEnable=1\n"))
         self.assertIn(str(tmpdir_path / "rtl" / "ibex_top.sv"), content)
+
+
+class CVA6TestharnessTest(unittest.TestCase):
+    def test_default_jobs_uses_num_jobs_or_bounded_cpu_count(self):
+        original_num_jobs = os.environ.get("NUM_JOBS")
+        original_cpu_count = cva6_testharness.os.cpu_count
+        try:
+            os.environ["NUM_JOBS"] = "7"
+            self.assertEqual("7", cva6_testharness.default_jobs())
+
+            os.environ.pop("NUM_JOBS", None)
+            cva6_testharness.os.cpu_count = lambda: 8
+            self.assertEqual("2", cva6_testharness.default_jobs())
+
+            cva6_testharness.os.cpu_count = lambda: None
+            self.assertEqual("1", cva6_testharness.default_jobs())
+        finally:
+            cva6_testharness.os.cpu_count = original_cpu_count
+            if original_num_jobs is None:
+                os.environ.pop("NUM_JOBS", None)
+            else:
+                os.environ["NUM_JOBS"] = original_num_jobs
+
+    def test_build_verilator_model_uses_ccache_when_available(self):
+        commands = []
+        original_run = cva6_testharness.run
+        original_which = cva6_testharness.shutil.which
+        original_namespace = cva6_testharness.namespace_generated_netlist
+        original_write_fesvr = cva6_testharness.write_fesvr_dpi_bridge
+        original_write_stub = cva6_testharness.write_remote_bitbang_stub
+        original_write_tb = cva6_testharness.write_patched_ariane_tb
+        original_build_source_lists = cva6_testharness.build_source_lists
+        try:
+            cva6_testharness.run = lambda command, **kwargs: commands.append((command, kwargs))
+            cva6_testharness.shutil.which = lambda tool: "/usr/bin/ccache" if tool == "ccache" else None
+            cva6_testharness.namespace_generated_netlist = (
+                lambda generated, stage_dir: generated
+            )
+            cva6_testharness.write_fesvr_dpi_bridge = (
+                lambda repo, stage_dir: stage_dir / "naja_fesvr_dpi.cc"
+            )
+            cva6_testharness.write_remote_bitbang_stub = (
+                lambda stage_dir: stage_dir / "naja_remote_bitbang_stub.cc"
+            )
+            cva6_testharness.write_patched_ariane_tb = (
+                lambda repo, stage_dir: stage_dir / "ariane_tb_naja.cpp"
+            )
+            cva6_testharness.build_source_lists = (
+                lambda repo, stage_dir, generated, primitives: ([], [generated, primitives])
+            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                repo = tmpdir_path / "repo"
+                artifacts = tmpdir_path / "artifacts"
+                spike_dir = tmpdir_path / "spike"
+                verilator_dir = tmpdir_path / "verilator"
+                generated = artifacts / "cva6.v"
+                primitives = artifacts / "najaeda_primitives.v"
+                (verilator_dir / "share" / "verilator" / "include").mkdir(parents=True)
+                repo.mkdir()
+                artifacts.mkdir()
+                generated.write_text("module cva6; endmodule\n", encoding="utf-8")
+                primitives.write_text("module primitive; endmodule\n", encoding="utf-8")
+
+                executable = cva6_testharness.build_verilator_model(
+                    repo,
+                    artifacts,
+                    generated,
+                    primitives,
+                    spike_dir,
+                    verilator_dir,
+                    "2",
+                )
+
+            self.assertTrue(str(executable).endswith("work-ver/Variane_testharness"))
+            self.assertEqual(2, len(commands))
+            make_command = commands[1][0]
+            self.assertIn("-j2", make_command)
+            self.assertIn("CXX=ccache c++", make_command)
+        finally:
+            cva6_testharness.run = original_run
+            cva6_testharness.shutil.which = original_which
+            cva6_testharness.namespace_generated_netlist = original_namespace
+            cva6_testharness.write_fesvr_dpi_bridge = original_write_fesvr
+            cva6_testharness.write_remote_bitbang_stub = original_write_stub
+            cva6_testharness.write_patched_ariane_tb = original_write_tb
+            cva6_testharness.build_source_lists = original_build_source_lists
+
+    def test_run_sim_sets_linux_and_macos_spike_library_paths(self):
+        calls = []
+        original_run = cva6_testharness.run
+        original_ld = os.environ.get("LD_LIBRARY_PATH")
+        original_dyld = os.environ.get("DYLD_LIBRARY_PATH")
+        try:
+            cva6_testharness.run = lambda command, **kwargs: calls.append((command, kwargs))
+            os.environ["LD_LIBRARY_PATH"] = "/existing/linux"
+            os.environ["DYLD_LIBRARY_PATH"] = "/existing/macos"
+
+            cva6_testharness.run_sim(
+                Path("/tmp/cva6_helloworld_sim/work-ver/Variane_testharness"),
+                Path("/tmp/fw.o"),
+                "0000000080001000",
+                Path("/opt/spike"),
+                1234,
+                ["+extra"],
+            )
+
+            self.assertEqual(1, len(calls))
+            env = calls[0][1]["env"]
+            self.assertEqual(
+                f"/opt/spike/lib{os.pathsep}/existing/linux",
+                env["LD_LIBRARY_PATH"],
+            )
+            self.assertEqual(
+                f"/opt/spike/lib{os.pathsep}/existing/macos",
+                env["DYLD_LIBRARY_PATH"],
+            )
+            self.assertIn("+extra", calls[0][0])
+        finally:
+            cva6_testharness.run = original_run
+            if original_ld is None:
+                os.environ.pop("LD_LIBRARY_PATH", None)
+            else:
+                os.environ["LD_LIBRARY_PATH"] = original_ld
+            if original_dyld is None:
+                os.environ.pop("DYLD_LIBRARY_PATH", None)
+            else:
+                os.environ["DYLD_LIBRARY_PATH"] = original_dyld
 
 
 class CV32E40PExampleTbTest(unittest.TestCase):

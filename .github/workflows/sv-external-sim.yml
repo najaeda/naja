@@ -2,6 +2,8 @@ name: External SV Simulation
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
   push:
     branches: [ main ]
   pull_request:
@@ -9,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -16,6 +19,7 @@ concurrency:
 
 jobs:
   sv-external-sim:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -139,4 +143,159 @@ jobs:
         if: always()
         with:
           name: sv-external-sim-artifacts
+          path: ${{ github.workspace }}/build/sv-regress
+
+  cva6-pr-sim:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: ghcr.io/najaeda/naja/sv-sim:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 3G
+      NUM_JOBS: "2"
+      SV_REGRESS_SEED_ROOT: /opt/sv-regress-seeds
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Mark checkout as safe
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: cva6-pr-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cva6-pr-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: |
+          mkdir -p "${CCACHE_DIR}"
+          ccache --max-size="${CCACHE_MAXSIZE}"
+          ccache --set-config=compression=true
+          ccache --zero-stats
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SANITIZERS=OFF \
+            -DLONG_TESTS=OFF \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DPython3_EXECUTABLE=$(which python3)
+
+      - name: Build naja Python module
+        run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
+
+      - name: Prepare najaeda Python package for script execution
+        run: |
+          mkdir -p ${{ github.workspace }}/build/test/najaeda
+          cp -R \
+            ${{ github.workspace }}/src/najaeda/najaeda \
+            ${{ github.workspace }}/build/test/najaeda/
+          ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
+            ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
+
+      - name: Run CVA6 extended testharness simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cva6_testharness \
+            --stage cva6_extended_sim \
+            --require-firmware-sim-tools
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats
+
+      - name: Upload CVA6 PR simulation artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cva6-pr-sim-artifacts
+          path: ${{ github.workspace }}/build/sv-regress
+
+  cva6-full-sim:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    container:
+      image: ghcr.io/najaeda/naja/sv-sim:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 3G
+      NUM_JOBS: "2"
+      SV_REGRESS_SEED_ROOT: /opt/sv-regress-seeds
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Mark checkout as safe
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: cva6-full-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cva6-full-${{ runner.os }}-
+            cva6-pr-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: |
+          mkdir -p "${CCACHE_DIR}"
+          ccache --max-size="${CCACHE_MAXSIZE}"
+          ccache --set-config=compression=true
+          ccache --zero-stats
+
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SANITIZERS=OFF \
+            -DLONG_TESTS=OFF \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DPython3_EXECUTABLE=$(which python3)
+
+      - name: Build naja Python module
+        run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
+
+      - name: Prepare najaeda Python package for script execution
+        run: |
+          mkdir -p ${{ github.workspace }}/build/test/najaeda
+          cp -R \
+            ${{ github.workspace }}/src/najaeda/najaeda \
+            ${{ github.workspace }}/build/test/najaeda/
+          ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
+            ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
+
+      - name: Run CVA6 full testharness simulation
+        run: |
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run \
+            --case cva6_testharness \
+            --stage cva6_full_sim \
+            --require-firmware-sim-tools
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats
+
+      - name: Upload CVA6 full simulation artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cva6-full-sim-artifacts
           path: ${{ github.workspace }}/build/sv-regress

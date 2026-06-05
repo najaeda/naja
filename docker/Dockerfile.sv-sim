@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM ubuntu:24.04
+
+ARG VERILATOR_VERSION=5.048
+ARG RISCV_ISA_SIM_COMMIT=3e7bf30da0f35037c90e11d919154ca7ecc28d65
+ARG XPACK_RISCV_VERSION=14.2.0-3
+ARG CVA6_REPO=https://github.com/xtofalex/cva6.git
+ARG CVA6_COMMIT=bead12b083b4457a1ae87b8b9c8812a9d64bfc54
+
+LABEL org.opencontainers.image.source="https://github.com/najaeda/naja"
+LABEL org.opencontainers.image.description="Naja external SystemVerilog simulation environment"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV VERILATOR_INSTALL_DIR=/opt/verilator
+ENV SPIKE_INSTALL_DIR=/opt/riscv-isa-sim
+ENV XPACK_RISCV_ROOT=/opt/xpack-riscv-none-elf-gcc
+ENV SV_REGRESS_SEED_ROOT=/opt/sv-regress-seeds
+ENV CCACHE_DIR=/work/.ccache
+ENV PATH="${XPACK_RISCV_ROOT}/bin:${VERILATOR_INSTALL_DIR}/bin:${SPIKE_INSTALL_DIR}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${SPIKE_INSTALL_DIR}/lib"
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        autoconf \
+        automake \
+        bc \
+        bison \
+        ca-certificates \
+        capnproto \
+        ccache \
+        cmake \
+        curl \
+        device-tree-compiler \
+        flex \
+        g++ \
+        gawk \
+        git \
+        gperf \
+        help2man \
+        libboost-dev \
+        libboost-regex-dev \
+        libcapnp-dev \
+        libexpat1-dev \
+        libfl-dev \
+        libgmp-dev \
+        libmpc-dev \
+        libmpfr-dev \
+        libtbb-dev \
+        libtool \
+        make \
+        ninja-build \
+        patchutils \
+        perl \
+        pkg-config \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        rsync \
+        tar \
+        texinfo \
+        xz-utils \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --break-system-packages --no-cache-dir \
+        fusesoc \
+        pyyaml
+
+RUN curl -fsSLo /tmp/verilator.tar.gz \
+        "https://github.com/verilator/verilator/archive/refs/tags/v${VERILATOR_VERSION}.tar.gz" \
+    && tar -C /tmp -xzf /tmp/verilator.tar.gz \
+    && cd "/tmp/verilator-${VERILATOR_VERSION}" \
+    && autoconf \
+    && ./configure --prefix="${VERILATOR_INSTALL_DIR}" \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/verilator.tar.gz "/tmp/verilator-${VERILATOR_VERSION}"
+
+RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/riscv-isa-sim \
+    && cd /tmp/riscv-isa-sim \
+    && git checkout --detach "${RISCV_ISA_SIM_COMMIT}" \
+    && mkdir build \
+    && cd build \
+    && ../configure --prefix="${SPIKE_INSTALL_DIR}" \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/riscv-isa-sim
+
+RUN archive="xpack-riscv-none-elf-gcc-${XPACK_RISCV_VERSION}-linux-x64.tar.gz" \
+    && url="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_RISCV_VERSION}/${archive}" \
+    && mkdir -p "${XPACK_RISCV_ROOT}" \
+    && curl -L --fail --retry 3 --output "/tmp/${archive}" "${url}" \
+    && tar -xzf "/tmp/${archive}" -C "${XPACK_RISCV_ROOT}" --strip-components=1 \
+    && rm -f "/tmp/${archive}"
+
+RUN mkdir -p "${SV_REGRESS_SEED_ROOT}" \
+    && git clone "${CVA6_REPO}" "${SV_REGRESS_SEED_ROOT}/cva6_testharness" \
+    && cd "${SV_REGRESS_SEED_ROOT}/cva6_testharness" \
+    && git checkout --detach "${CVA6_COMMIT}" \
+    && git submodule sync --recursive \
+    && git submodule update --init --recursive
+
+WORKDIR /work
+
+CMD ["bash"]

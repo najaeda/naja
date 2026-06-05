@@ -76,6 +76,23 @@ def find_riscv_tool_prefix() -> str:
     )
 
 
+def default_jobs() -> str:
+    env_value = os.environ.get("NUM_JOBS")
+    if env_value:
+        return env_value
+    return str(min(2, os.cpu_count() or 1))
+
+
+def normalize_jobs(value: str) -> str:
+    try:
+        jobs = int(value)
+    except ValueError as exc:
+        raise SystemExit(f"--jobs must be a positive integer, got {value!r}") from exc
+    if jobs < 1:
+        raise SystemExit(f"--jobs must be a positive integer, got {value!r}")
+    return str(jobs)
+
+
 def tool_root(tool: str) -> Path | None:
     path = shutil.which(tool)
     if not path:
@@ -1314,8 +1331,16 @@ def build_verilator_model(
         ldflags,
     ]
     run(command, cwd=repo)
-    run(["make", f"-j{jobs}", "-f", "Variane_testharness.mk"], cwd=obj_dir)
+    make_command = ["make", f"-j{jobs}", "-f", "Variane_testharness.mk"]
+    if shutil.which("ccache"):
+        make_command.append("CXX=ccache c++")
+    run(make_command, cwd=obj_dir)
     return obj_dir / "Variane_testharness"
+
+
+def prepend_library_path(env: dict[str, str], variable: str, path: Path) -> None:
+    existing = env.get(variable, "")
+    env[variable] = str(path) + (os.pathsep + existing if existing else "")
 
 
 def run_sim(
@@ -1327,8 +1352,8 @@ def run_sim(
     sim_plusargs: list[str],
 ) -> None:
     env = os.environ.copy()
-    existing = env.get("DYLD_LIBRARY_PATH", "")
-    env["DYLD_LIBRARY_PATH"] = str(spike_dir / "lib") + (os.pathsep + existing if existing else "")
+    prepend_library_path(env, "LD_LIBRARY_PATH", spike_dir / "lib")
+    prepend_library_path(env, "DYLD_LIBRARY_PATH", spike_dir / "lib")
     command = [
         str(executable),
         "--max-cycles",
@@ -1358,7 +1383,7 @@ def main() -> int:
         help="Firmware program to compile and simulate. Repeat to run several programs.",
     )
     parser.add_argument("--sim-plusarg", action="append", default=[])
-    parser.add_argument("--jobs", default=os.environ.get("NUM_JOBS", "1"))
+    parser.add_argument("--jobs", default=default_jobs())
     args = parser.parse_args()
 
     repo = args.repo.resolve()
@@ -1380,7 +1405,7 @@ def main() -> int:
         primitives,
         spike_dir,
         verilator_dir,
-        args.jobs,
+        normalize_jobs(args.jobs),
     )
     programs = args.program or ["hello_world"]
     for program in programs:
