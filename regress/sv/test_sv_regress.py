@@ -63,6 +63,8 @@ cases:
             [
                 "load_dump",
                 "lint",
+                "cva6_extended_sim",
+                "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -75,6 +77,8 @@ cases:
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
+                "cva6_extended_sim",
+                "cva6_local_verif_sim",
                 "cv32e40p_hwlp_sim",
                 "helloworld_sim",
                 "ibex_dit_sim",
@@ -155,11 +159,24 @@ cases:
         self.assertIn("Run Ibex extended simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
         self.assertIn("Run CV32E40P extended example TB simulations", workflow)
+        self.assertNotIn("Run CVA6 testharness simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
+        self.assertNotIn("riscv-isa-sim", workflow)
+        self.assertIn("ccache", workflow)
+        self.assertIn('--user "$(id -u):$(id -g)"', workflow)
+        self.assertIn("CCACHE_DIR", workflow)
+        self.assertIn(".docker-home", workflow)
+        self.assertIn("libboost-dev", workflow)
+        self.assertNotIn("libboost-system-dev", workflow)
+        self.assertNotIn("VERILATOR_INSTALL_DIR", workflow)
+        self.assertNotIn("SPIKE_INSTALL_DIR", workflow)
         self.assertNotIn("picolibc-riscv64-unknown-elf", workflow)
         self.assertIn("--case ibex", workflow)
         self.assertIn("--case cv32e40p", workflow)
+        self.assertNotIn("--case cva6_testharness", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
+        self.assertNotIn("--stage cva6_extended_sim", workflow)
+        self.assertNotIn("--stage cva6_local_verif_sim", workflow)
         self.assertIn("--stage ibex_pmp_sim", workflow)
         self.assertIn("--stage ibex_dit_sim", workflow)
         self.assertIn("--stage ibex_dummy_instr_sim", workflow)
@@ -175,12 +192,35 @@ cases:
         cva6 = sv_regress.select_cases(cases, "cva6_testharness")[0]
 
         self.assertIn("helloworld_sim", cva6)
+        self.assertIn("cva6_extended_sim", cva6)
+        self.assertIn("cva6_local_verif_sim", cva6)
         self.assertIn("CVA6_HELLOWORLD_SIM_PASS", cva6["helloworld_sim"]["pass_regex"])
         self.assertNotIn("expected_failure", cva6["helloworld_sim"])
         self.assertNotIn("expected_failure_reason", cva6["helloworld_sim"])
         command = cva6["helloworld_sim"]["commands"][0]
         self.assertIn("cva6_testharness.py", command[1])
         self.assertIn("{artifacts}/cva6_testharness_naja.v", command)
+        extended_command = cva6["cva6_extended_sim"]["commands"][0]
+        self.assertIn("cva6_testharness.py", extended_command[1])
+        self.assertIn("--program", extended_command)
+        self.assertIn("hello_world", extended_command)
+        self.assertIn("corev_dhrystone", extended_command)
+        self.assertIn("--max-cycles", extended_command)
+        self.assertIn("10000000", extended_command)
+        local_command = cva6["cva6_local_verif_sim"]["commands"][0]
+        self.assertIn("corev_return0", local_command)
+        self.assertIn("corev_custom_template", local_command)
+        self.assertIn("corev_isacov_branch_to_zero", local_command)
+        self.assertIn("corev_isacov_jump", local_command)
+        self.assertIn("corev_isacov_isa", local_command)
+        self.assertIn("corev_isacov_seq_hazard", local_command)
+        self.assertIn("corev_pmp_exact_csrr", local_command)
+        self.assertIn("corev_pmp_granularity", local_command)
+        self.assertIn("corev_pmp_lsu_tor", local_command)
+        self.assertEqual(
+            cva6["helloworld_sim"]["pass_regex"],
+            cva6["cva6_extended_sim"]["pass_regex"],
+        )
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {
