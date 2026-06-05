@@ -16,6 +16,7 @@
 #include "SNLParameter.h"
 #include "NLException.h"
 #include <algorithm>
+#include <limits>
 using namespace naja::NL;
 
 namespace {
@@ -721,6 +722,50 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     "0",
     "0",
     SNLDesignModeling::MemoryResetMode::SyncHigh);
+}
+
+TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* rootLibrary = NLDB0::getDB0RootLibrary();
+  ASSERT_NE(nullptr, rootLibrary);
+
+  auto* dffLibrary = rootLibrary->getLibrary(expectedSequentialLibraryID(NLName("naja_dff")));
+  ASSERT_NE(nullptr, dffLibrary);
+  dffLibrary->destroy();
+  EXPECT_EQ(
+      nullptr,
+      rootLibrary->getLibrary(expectedSequentialLibraryID(NLName("naja_dff"))));
+
+  auto* dff2 = NLDB0::getOrCreateDFF(2);
+  ASSERT_NE(nullptr, dff2);
+  EXPECT_TRUE(NLDB0::isDFF(dff2));
+  ASSERT_NE(nullptr, dff2->getLibrary());
+  EXPECT_EQ(expectedSequentialLibraryID(NLName("naja_dff")), dff2->getLibrary()->getID());
+  EXPECT_EQ(NLName("naja_dff"), dff2->getLibrary()->getName());
+
+  auto* divModLibrary = rootLibrary->getLibrary(NLID::LibraryID(10));
+  ASSERT_NE(nullptr, divModLibrary);
+  auto* unsignedDivModLibrary = divModLibrary->getLibrary(NLID::LibraryID(11));
+  ASSERT_NE(nullptr, unsignedDivModLibrary);
+  unsignedDivModLibrary->destroy();
+  EXPECT_EQ(nullptr, divModLibrary->getLibrary(NLID::LibraryID(11)));
+
+  NLDB0::DivModSignature divModSignature;
+  divModSignature.width = 4;
+  auto* divMod = NLDB0::getOrCreateDivMod(divModSignature);
+  ASSERT_NE(nullptr, divMod);
+  ASSERT_NE(nullptr, divMod->getLibrary());
+  EXPECT_TRUE(NLDB0::isDivMod(divMod));
+  EXPECT_EQ(NLID::LibraryID(11), divMod->getLibrary()->getID());
+  EXPECT_EQ(NLName("unsigned"), divMod->getLibrary()->getName());
+  EXPECT_EQ(divModLibrary, divMod->getLibrary()->getParentLibrary());
+
+  EXPECT_THROW(NLDB0::getOrCreateDFF(0), NLException);
+  const auto tooWide =
+      static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max()) + 1;
+  EXPECT_THROW(NLDB0::getOrCreateDFF(tooWide), NLException);
 }
 
 TEST_F(NLDB0Test, testMalformedDB0MemorySignatureThrows) {

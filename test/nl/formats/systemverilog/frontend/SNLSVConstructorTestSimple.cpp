@@ -27975,6 +27975,132 @@ endmodule
   EXPECT_EQ(0u, mux2Count);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeResetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_posedge_reset_primitive_supported",
+    R"(module seq_scalar_posedge_reset_primitive_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+    end else begin
+      q <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_posedge_reset_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffreCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffreCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeSetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_posedge_set_primitive_supported",
+    R"(module seq_scalar_posedge_set_primitive_supported(
+  input  logic clk,
+  input  logic set,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk or posedge set) begin
+    if (set) begin
+      q <= 1'b1;
+    end else begin
+      q <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_posedge_set_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffseCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFSE(inst->getModel())) {
+      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffseCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarClockEnablePrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_scalar_clock_enable_primitive_supported",
+    R"(module seq_scalar_clock_enable_primitive_supported(
+  input  logic clk,
+  input  logic en,
+  input  logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (en) begin
+      q <= d;
+    end else begin
+      q <= q;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_scalar_clock_enable_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffeCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFE(inst->getModel())) {
+      dffeCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isMux2(inst->getModel())) {
+      mux2Count += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(1u, dffeCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListMissingPosedgeUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
