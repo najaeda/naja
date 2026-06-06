@@ -182,11 +182,14 @@ cases:
         self.assertIn("Pull or build SV simulation image", workflow)
         self.assertIn("Log in to GHCR", workflow)
         self.assertIn("continue-on-error: true", workflow)
+        self.assertIn("Set up Docker Buildx", workflow)
         self.assertIn('docker pull "${SV_SIM_IMAGE}"', workflow)
-        self.assertIn(
-            'docker build -f docker/Dockerfile.sv-sim -t "${SV_SIM_IMAGE}" .',
-            workflow,
-        )
+        self.assertIn("docker buildx build", workflow)
+        self.assertIn("--load", workflow)
+        self.assertIn("--cache-from type=gha,scope=sv-sim", workflow)
+        self.assertIn("--cache-to type=gha,mode=max,scope=sv-sim", workflow)
+        self.assertIn("-f docker/Dockerfile.sv-sim", workflow)
+        self.assertIn('-t "${SV_SIM_IMAGE}"', workflow)
         self.assertIn("docker run --rm", workflow)
         self.assertIn("Run CVA6 full testharness simulation", workflow)
         self.assertNotIn("Run CVA6 extended testharness simulation", workflow)
