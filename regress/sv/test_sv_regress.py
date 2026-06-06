@@ -1020,6 +1020,35 @@ class CVA6TestharnessTest(unittest.TestCase):
             else:
                 os.environ["NUM_JOBS"] = original_num_jobs
 
+    def test_compile_program_links_baremetal_allocator_for_libgcc_emutls(self):
+        calls = []
+        original_run = cva6_testharness.run
+        try:
+            cva6_testharness.run = lambda command, **kwargs: calls.append((command, kwargs))
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                artifacts = tmpdir_path / "artifacts"
+                elf = cva6_testharness.compile_program(
+                    tmpdir_path / "repo",
+                    artifacts,
+                    "riscv-none-elf-",
+                    "hello_world",
+                )
+                alloc_shim = artifacts / "cva6_baremetal_alloc.c"
+                alloc_shim_content = alloc_shim.read_text(encoding="utf-8")
+
+            self.assertEqual(1, len(calls))
+            command = calls[0][0]
+            self.assertEqual("riscv-none-elf-gcc", command[0])
+            self.assertIn(str(alloc_shim), command)
+            self.assertIn("void *malloc(size_t size)", alloc_shim_content)
+            self.assertIn("void free(void *ptr)", alloc_shim_content)
+            self.assertIn("-nostdlib", command)
+            self.assertIn("-lgcc", command)
+            self.assertTrue(str(elf).endswith("cva6_hello_world.o"))
+        finally:
+            cva6_testharness.run = original_run
+
     def test_build_verilator_model_uses_ccache_when_available(self):
         commands = []
         original_run = cva6_testharness.run

@@ -156,10 +156,12 @@ def compile_program(repo: Path, artifacts: Path, prefix: str, program: str) -> P
     if program not in PROGRAM_SOURCES:
         valid = ", ".join(PROGRAMS)
         raise SystemExit(f"unknown CVA6 program '{program}', valid programs: {valid}")
+    alloc_shim = write_baremetal_alloc_shim(artifacts)
 
     command = [
         prefix + "gcc",
         *(str(custom / source) for source in PROGRAM_SOURCES[program]),
+        str(alloc_shim),
         str(common / "syscalls.c"),
         str(common / "crt.S"),
         f"-I{env_dir}",
@@ -184,6 +186,43 @@ def compile_program(repo: Path, artifacts: Path, prefix: str, program: str) -> P
     print(f"[cva6-sim] compiling program={program} elf={elf}", flush=True)
     run(command, cwd=repo)
     return elf
+
+
+def write_baremetal_alloc_shim(artifacts: Path) -> Path:
+    path = artifacts / "cva6_baremetal_alloc.c"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        r'''#include <stddef.h>
+#include <stdint.h>
+
+#define NAJA_CVA6_HEAP_SIZE (64u * 1024u)
+
+static unsigned char naja_cva6_heap[NAJA_CVA6_HEAP_SIZE] __attribute__((aligned(16)));
+static uintptr_t naja_cva6_heap_offset;
+
+void *malloc(size_t size)
+{
+  if (size == 0)
+    size = 1;
+
+  size = (size + 15u) & ~(size_t)15u;
+  if (naja_cva6_heap_offset > NAJA_CVA6_HEAP_SIZE ||
+      size > NAJA_CVA6_HEAP_SIZE - naja_cva6_heap_offset)
+    return 0;
+
+  void *ptr = &naja_cva6_heap[naja_cva6_heap_offset];
+  naja_cva6_heap_offset += size;
+  return ptr;
+}
+
+void free(void *ptr)
+{
+  (void)ptr;
+}
+''',
+        encoding="utf-8",
+    )
+    return path
 
 
 def tohost_address(elf: Path, prefix: str) -> str:
