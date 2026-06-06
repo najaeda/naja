@@ -199,6 +199,14 @@ cases:
         self.assertIn("--require-firmware-sim-tools", workflow)
         self.assertNotIn("--allow-expected-failures", workflow)
 
+    def test_sv_sim_image_installs_spike_boost_asio_dependencies(self):
+        dockerfile = (
+            sv_regress.REPO_ROOT / "docker" / "Dockerfile.sv-sim"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("libboost-dev", dockerfile)
+        self.assertIn("libboost-system-dev", dockerfile)
+
     def test_cva6_testharness_has_helloworld_sim_stage(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
         cva6 = sv_regress.select_cases(cases, "cva6_testharness")[0]
