@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
+import yaml
 
 REGRESS_SV_ROOT = Path(__file__).resolve().parent
 HELLOWORLD_SIM_ROOT = REGRESS_SV_ROOT / "helloworld_sim"
@@ -158,17 +159,37 @@ cases:
         workflow = (
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"
         ).read_text(encoding="utf-8")
+        workflow_config = yaml.safe_load(workflow)
 
+        self.assertNotIn("schedule:", workflow)
+        self.assertNotIn("cron:", workflow)
         self.assertIn("packages: read", workflow)
         self.assertIn("Run Ibex helloworld simulation", workflow)
         self.assertIn("Run Ibex extended simple-system diagnostics", workflow)
         self.assertIn("Run CV32E40P helloworld simulation", workflow)
         self.assertIn("Run CV32E40P extended example TB simulations", workflow)
         self.assertIn("cva6-pr-sim:", workflow)
-        self.assertIn("cva6-full-sim:", workflow)
+        self.assertNotIn("cva6-full-sim:", workflow)
         self.assertIn("ghcr.io/najaeda/naja/sv-sim:latest", workflow)
-        self.assertIn("Run CVA6 extended testharness simulation", workflow)
+        job = workflow_config["jobs"]["cva6-pr-sim"]
+        self.assertIn("pull_request", job["if"])
+        self.assertIn("workflow_dispatch", job["if"])
+        self.assertNotIn("container", job)
+        self.assertEqual(
+            "ghcr.io/najaeda/naja/sv-sim:latest",
+            job["env"]["SV_SIM_IMAGE"],
+        )
+        self.assertIn("Pull or build SV simulation image", workflow)
+        self.assertIn("Log in to GHCR", workflow)
+        self.assertIn("continue-on-error: true", workflow)
+        self.assertIn('docker pull "${SV_SIM_IMAGE}"', workflow)
+        self.assertIn(
+            'docker build -f docker/Dockerfile.sv-sim -t "${SV_SIM_IMAGE}" .',
+            workflow,
+        )
+        self.assertIn("docker run --rm", workflow)
         self.assertIn("Run CVA6 full testharness simulation", workflow)
+        self.assertNotIn("Run CVA6 extended testharness simulation", workflow)
         self.assertIn("xpack-riscv-none-elf-gcc", workflow)
         self.assertNotIn("riscv-isa-sim", workflow)
         self.assertIn("ccache", workflow)
@@ -186,8 +207,8 @@ cases:
         self.assertIn("--case cv32e40p", workflow)
         self.assertIn("--case cva6_testharness", workflow)
         self.assertIn("--stage helloworld_sim", workflow)
-        self.assertIn("--stage cva6_extended_sim", workflow)
         self.assertIn("--stage cva6_full_sim", workflow)
+        self.assertNotIn("--stage cva6_extended_sim", workflow)
         self.assertNotIn("--stage cva6_local_verif_sim", workflow)
         self.assertIn("--stage ibex_pmp_sim", workflow)
         self.assertIn("--stage ibex_dit_sim", workflow)
