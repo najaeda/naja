@@ -40,6 +40,7 @@ PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
 DEFAULT_STAGES = ["lint", "github_sim"]
 CONFIGURED_COMMAND_SIM_STAGES = {
     "cva6_extended_sim",
+    "cva6_full_sim",
     "cva6_local_verif_sim",
     "cv32e40p_hwlp_sim",
     "helloworld_sim",
@@ -323,6 +324,38 @@ def run_setup_commands(
         )
 
 
+def seed_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> bool:
+    seed_root_value = os.environ.get("SV_REGRESS_SEED_ROOT")
+    if not seed_root_value:
+        return False
+
+    seed_dir = Path(seed_root_value) / case["name"]
+    if not seed_dir.exists():
+        return False
+    if not (seed_dir / ".git").exists():
+        raise RegressError(f"SV_REGRESS_SEED_ROOT seed is not a git repository: {seed_dir}")
+
+    repo_dir.parent.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(seed_dir, repo_dir, symlinks=True)
+    (log_dir / "seed-checkout.log").write_text(
+        f"Seeded checkout for {case['name']} from {seed_dir}\n",
+        encoding="utf-8",
+    )
+    return True
+
+
+def repo_has_commit(repo_dir: Path, commit: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=str(repo_dir),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
 def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
     repo_url = case["repo"]
     commit = case["commit"]
@@ -330,15 +363,17 @@ def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
         if not (repo_dir / ".git").exists():
             raise RegressError(f"Existing checkout is not a git repository: {repo_dir}")
     else:
-        repo_dir.parent.mkdir(parents=True, exist_ok=True)
-        run_command(["git", "clone", repo_url, str(repo_dir)], log_path=log_dir / "git-clone.log")
+        if not seed_checkout(case, repo_dir, log_dir):
+            repo_dir.parent.mkdir(parents=True, exist_ok=True)
+            run_command(["git", "clone", repo_url, str(repo_dir)], log_path=log_dir / "git-clone.log")
 
     run_command(["git", "remote", "set-url", "origin", repo_url], cwd=repo_dir)
-    run_command(
-        ["git", "fetch", "origin", commit],
-        cwd=repo_dir,
-        log_path=log_dir / "git-fetch.log",
-    )
+    if not repo_has_commit(repo_dir, commit):
+        run_command(
+            ["git", "fetch", "origin", commit],
+            cwd=repo_dir,
+            log_path=log_dir / "git-fetch.log",
+        )
     run_command(
         ["git", "checkout", "--detach", commit],
         cwd=repo_dir,

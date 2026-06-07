@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -139,4 +140,111 @@ jobs:
         if: always()
         with:
           name: sv-external-sim-artifacts
+          path: ${{ github.workspace }}/build/sv-regress
+
+  cva6-pr-sim:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 3G
+      NUM_JOBS: "2"
+      SV_SIM_IMAGE: ghcr.io/najaeda/naja/sv-sim:latest
+      SV_REGRESS_SEED_ROOT: /opt/sv-regress-seeds
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: cva6-pr-full-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cva6-pr-full-${{ runner.os }}-
+            cva6-pr-${{ runner.os }}-
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        continue-on-error: true
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Pull or build SV simulation image
+        run: |
+          if ! docker pull "${SV_SIM_IMAGE}"; then
+            docker buildx build \
+              --load \
+              --cache-from type=gha,scope=sv-sim \
+              --cache-to type=gha,mode=max,scope=sv-sim \
+              -f docker/Dockerfile.sv-sim \
+              -t "${SV_SIM_IMAGE}" \
+              .
+          fi
+
+      - name: Run CVA6 full testharness simulation
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/.docker-home" "${CCACHE_DIR}"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e "HOME=${GITHUB_WORKSPACE}/.docker-home" \
+            -e "GITHUB_WORKSPACE=${GITHUB_WORKSPACE}" \
+            -e "CCACHE_DIR=${CCACHE_DIR}" \
+            -e "CCACHE_MAXSIZE=${CCACHE_MAXSIZE}" \
+            -e "NUM_JOBS=${NUM_JOBS}" \
+            -e "SV_REGRESS_SEED_ROOT=${SV_REGRESS_SEED_ROOT}" \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${GITHUB_WORKSPACE}" \
+            "${SV_SIM_IMAGE}" \
+            bash -lc '
+              set -euo pipefail
+              git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+              mkdir -p "${CCACHE_DIR}"
+              ccache --max-size="${CCACHE_MAXSIZE}"
+              ccache --set-config=compression=true
+              ccache --zero-stats
+              cmake -B "${GITHUB_WORKSPACE}/build" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DENABLE_SANITIZERS=OFF \
+                -DLONG_TESTS=OFF \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                -DPython3_EXECUTABLE="$(which python3)"
+              cmake --build "${GITHUB_WORKSPACE}/build" --target naja --config Release --parallel "$(nproc)"
+              mkdir -p "${GITHUB_WORKSPACE}/build/test/najaeda"
+              cp -R \
+                "${GITHUB_WORKSPACE}/src/najaeda/najaeda" \
+                "${GITHUB_WORKSPACE}/build/test/najaeda/"
+              ln -sf "${GITHUB_WORKSPACE}/build/src/nl/python/naja_wrapping/naja.so" \
+                "${GITHUB_WORKSPACE}/build/test/najaeda/najaeda/naja.so"
+              python3 "${GITHUB_WORKSPACE}/regress/sv/sv_regress.py" run \
+                --case cva6_testharness \
+                --stage cva6_full_sim \
+                --require-firmware-sim-tools
+            '
+
+      - name: Show ccache stats
+        if: always()
+        run: |
+          docker image inspect "${SV_SIM_IMAGE}" >/dev/null 2>&1 || exit 0
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e "CCACHE_DIR=${CCACHE_DIR}" \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${GITHUB_WORKSPACE}" \
+            "${SV_SIM_IMAGE}" \
+            ccache --show-stats
+
+      - name: Upload CVA6 PR simulation artifacts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cva6-pr-sim-artifacts
           path: ${{ github.workspace }}/build/sv-regress
