@@ -15,6 +15,13 @@ if(TARGET boost_unordered)
   # Boost.Regex can otherwise include system Boost.Exception and collide with
   # the Boost.Exception copy embedded in boost_unordered.hpp.
   target_compile_definitions(boost_unordered INTERFACE BOOST_REGEX_STANDALONE)
+  # Slang's FlatMap/ConcurrentMap headers use __has_include to decide whether
+  # to include boost/unordered headers. Old system Boost installs can satisfy
+  # that check but still miss APIs used by current slang, so make those include
+  # paths resolve to slang's vendored Boost.Unordered snapshot in fallback mode.
+  target_include_directories(
+    boost_unordered BEFORE
+    INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/slang-boost-shims/include>")
 endif()
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 if (NOT BUILD_EMSCRIPTEN AND NOT BUILD_NAJA_PYTHON)
