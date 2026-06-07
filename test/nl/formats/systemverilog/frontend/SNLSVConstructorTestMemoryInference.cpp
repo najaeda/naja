@@ -155,6 +155,23 @@ size_t getMux2Width(const SNLInstance* instance) {
   return static_cast<size_t>(std::stoull(widthParam->getValue()));
 }
 
+size_t getPrimitiveWidth(const SNLInstance* instance) {
+  if (!instance) {
+    return 0;
+  }
+  if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthInstParam->getValue()));
+  }
+  auto* model = instance->getModel();
+  if (!model) {
+    return 0;
+  }
+  if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthParam->getValue()));
+  }
+  return 1;
+}
+
 size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
   size_t count = 0;
   for (auto inst : design->getInstances()) {
@@ -745,7 +762,9 @@ endmodule
   EXPECT_EQ(std::string::npos, dumpedText.find("naja_mux2"));
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSharedSequentialKeepsScalarFlops) {
+TEST_F(
+    SNLSVConstructorTestMemoryInference,
+    parseQDMemoryInferenceSharedSequentialKeepsVectorizedSideRegisterFlops) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "qd_memory_inference_shared_sequential_keeps_scalar_flops";
@@ -812,20 +831,21 @@ endmodule
     NLName("qd_memory_inference_shared_sequential_keeps_scalar_flops"));
   ASSERT_NE(top, nullptr);
 
-  auto dffrnModel = NLDB0::getDFFRN();
-  ASSERT_NE(dffrnModel, nullptr);
   size_t memoryCount = 0;
-  size_t dffrnCount = 0;
+  size_t dffrnBitCount = 0;
+  size_t dffrnInstanceCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isMemory(inst->getModel())) {
       ++memoryCount;
     }
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnBitCount += getPrimitiveWidth(inst);
+      ++dffrnInstanceCount;
     }
   }
   EXPECT_EQ(1u, memoryCount);
-  EXPECT_EQ(5u, dffrnCount);
+  EXPECT_EQ(5u, dffrnBitCount);
+  EXPECT_EQ(2u, dffrnInstanceCount);
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceWriteOnlySupported) {

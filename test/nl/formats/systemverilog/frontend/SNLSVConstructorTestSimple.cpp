@@ -230,6 +230,22 @@ size_t countPrimitiveBits(
   return countPrimitiveBits(design, {predicate});
 }
 
+size_t countPrimitiveInstances(
+    const SNLDesign* design,
+    PrimitivePredicate predicate) {
+  size_t count = 0;
+  if (!design) {
+    return count;
+  }
+  for (auto* inst : design->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (predicate && predicate(model)) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 size_t countDFFBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFF);
 }
@@ -22925,7 +22941,7 @@ endmodule
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
-      ++flopCount;
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -22984,7 +23000,7 @@ endmodule
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
-      ++flopCount;
+      flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
@@ -23845,7 +23861,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(9u, ffCount);
@@ -23912,7 +23928,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(9u, ffCount);
@@ -23988,7 +24004,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(32u, ffCount);
@@ -24059,7 +24075,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-        ++ffCount;
+        ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, ffCount);
@@ -24121,7 +24137,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(2u, ffCount);
@@ -24187,7 +24203,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(32u, ffCount);
@@ -24264,7 +24280,7 @@ endmodule
   for (auto inst : top->getInstances()) {
     if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
-      ++ffCount;
+      ffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(64u, ffCount);
@@ -24610,10 +24626,8 @@ endmodule
     return count;
   };
 
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[0])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[63])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[64])"));
-  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[127])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[63:0])"));
+  EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(counter_q[127:64])"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSignedLocalparamConstantSupported) {
@@ -27713,6 +27727,65 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetSup
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,
     "seq_timing_event_list_negedge_reset_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialCVA6UnalignedStateSnippetSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_cva6_unaligned_state_snippet_supported",
+    R"(module seq_cva6_unaligned_state_snippet_supported(
+  input  logic        clk_i,
+  input  logic        rst_ni,
+  input  logic        valid_i,
+  input  logic        flush_i,
+  input  logic        unaligned_d,
+  input  logic [63:0] unaligned_address_d,
+  input  logic [15:0] unaligned_instr_d,
+  output logic        unaligned_q,
+  output logic [63:0] unaligned_address_q,
+  output logic [15:0] unaligned_instr_q
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      unaligned_q         <= 1'b0;
+      unaligned_address_q <= '0;
+      unaligned_instr_q   <= '0;
+    end else begin
+      if (valid_i) begin
+        unaligned_address_q <= unaligned_address_d;
+        unaligned_instr_q   <= unaligned_instr_d;
+      end
+
+      if (flush_i) begin
+        unaligned_q <= 1'b0;
+      end else if (valid_i) begin
+        unaligned_q <= unaligned_d;
+      end
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_cva6_unaligned_state_snippet_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(81u, countDFFRNBits(top));
+  EXPECT_EQ(3u, countPrimitiveInstances(top, NLDB0::isDFFRN));
+  EXPECT_EQ(0u, countDFFEBits(top));
+  EXPECT_EQ(0u, countDFFREBits(top));
+  EXPECT_EQ(9u, countMux2Instances(top));
+  EXPECT_EQ(3u, countMux2Instances(top, 1));
+  EXPECT_EQ(3u, countMux2Instances(top, 16));
+  EXPECT_EQ(3u, countMux2Instances(top, 64));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_cva6_unaligned_state_snippet_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
