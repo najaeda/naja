@@ -28048,6 +28048,120 @@ endmodule
   EXPECT_EQ(0u, mux2Count);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialConditionalVectorPosedgeResetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_conditional_vector_posedge_reset_primitive_supported",
+    R"(module seq_conditional_vector_posedge_reset_primitive_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic [3:0] d,
+  input  logic       en,
+  output logic [3:0] q,
+  output logic       valid
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q     <= '0;
+      valid <= 1'b0;
+    end else begin
+      q     <= d;
+      valid <= en;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_conditional_vector_posedge_reset_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(5u, countDFFREBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRE));
+  EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialConditionalVectorPosedgeSetPrimitiveSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_conditional_vector_posedge_set_primitive_supported",
+    R"(module seq_conditional_vector_posedge_set_primitive_supported(
+  input  logic       clk,
+  input  logic       set,
+  input  logic [3:0] d,
+  input  logic       en,
+  output logic [3:0] q,
+  output logic       valid
+);
+  always_ff @(posedge clk or posedge set) begin
+    if (set) begin
+      q     <= '1;
+      valid <= 1'b1;
+    end else begin
+      q     <= d;
+      valid <= en;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_conditional_vector_posedge_set_primitive_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(5u, countDFFSEBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFSE));
+  EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialConditionalMultiScalarNegedgeDFFNSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_conditional_multi_scalar_negedge_dffn_supported",
+    R"(module seq_conditional_multi_scalar_negedge_dffn_supported(
+  input  logic clk,
+  input  logic sel,
+  input  logic d0,
+  input  logic d1,
+  input  logic e0,
+  input  logic e1,
+  output logic q,
+  output logic r
+);
+  always_ff @(negedge clk) begin
+    if (sel) begin
+      q <= d0;
+      r <= e0;
+    end else begin
+      q <= d1;
+      r <= e1;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_conditional_multi_scalar_negedge_dffn_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(2u, countDFFNBits(top));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeResetPrimitiveSupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
