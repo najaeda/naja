@@ -16,6 +16,8 @@
 #include "SNLBitNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
@@ -72,34 +74,76 @@ SNLNet* getSingleDFFInputDriving(SNLBitNet* drivenNet) {
   return inputTerm->getNet();
 }
 
+SNLNet* resolveSingleAssignInput(SNLNet* net) {
+  auto* bitNet = dynamic_cast<SNLBitNet*>(net);
+  if (!bitNet) {
+    return net;
+  }
+
+  std::vector<SNLInstance*> assignDrivers;
+  for (auto* instTerm : bitNet->getInstTerms()) {
+    if (!instTerm || instTerm->getBitTerm() != NLDB0::getAssignOutput()) {
+      continue;
+    }
+    auto* instance = instTerm->getInstance();
+    if (instance && NLDB0::isAssign(instance->getModel())) {
+      assignDrivers.push_back(instance);
+    }
+  }
+
+  if (assignDrivers.size() != 1) {
+    return net;
+  }
+  auto* inputTerm = assignDrivers.front()->getInstTerm(NLDB0::getAssignInput());
+  return inputTerm ? inputTerm->getNet() : net;
+}
+
 SNLNet* getSingleDFFRNInputDriving(SNLBitNet* drivenNet) {
   if (!drivenNet) {
     ADD_FAILURE() << "Missing driven net";
     return nullptr;
   }
 
-  std::vector<SNLInstance*> dffrnDrivers;
+  std::vector<SNLNet*> dffrnDriverInputs;
   for (auto* instTerm : drivenNet->getInstTerms()) {
-    if (!instTerm || instTerm->getBitTerm() != NLDB0::getDFFRNOutput()) {
+    if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
       continue;
     }
     auto* instance = instTerm->getInstance();
-    if (instance && NLDB0::isDFFRN(instance->getModel())) {
-      dffrnDrivers.push_back(instance);
+    if (!instance || !NLDB0::isDFFRN(instance->getModel())) {
+      continue;
     }
+
+    SNLBitTerm* dataTerm = nullptr;
+    if (instTerm->getBitTerm() == NLDB0::getDFFRNOutput()) {
+      dataTerm = NLDB0::getDFFRNData();
+    } else if (auto* qBusBit =
+                 dynamic_cast<SNLBusTermBit*>(instTerm->getBitTerm())) {
+      auto* qBus = qBusBit->getBus();
+      if (qBus && qBus->getName() == NLName("Q")) {
+        if (auto* dBus = instance->getModel()->getBusTerm(NLName("D"))) {
+          dataTerm = dBus->getBit(qBusBit->getBit());
+        }
+      }
+    }
+
+    if (!dataTerm) {
+      ADD_FAILURE() << "DFFRN driver has no matching data term";
+      return nullptr;
+    }
+    auto* inputTerm = instance->getInstTerm(dataTerm);
+    if (!inputTerm) {
+      ADD_FAILURE() << "DFFRN driver has no data inst term";
+      return nullptr;
+    }
+    dffrnDriverInputs.push_back(resolveSingleAssignInput(inputTerm->getNet()));
   }
 
-  EXPECT_EQ(1u, dffrnDrivers.size()) << drivenNet->getString();
-  if (dffrnDrivers.size() != 1) {
+  EXPECT_EQ(1u, dffrnDriverInputs.size()) << drivenNet->getString();
+  if (dffrnDriverInputs.size() != 1) {
     return nullptr;
   }
-
-  auto* inputTerm = dffrnDrivers.front()->getInstTerm(NLDB0::getDFFRNData());
-  if (!inputTerm) {
-    ADD_FAILURE() << "DFFRN driver has no data term";
-    return nullptr;
-  }
-  return inputTerm->getNet();
+  return dffrnDriverInputs.front();
 }
 
 } // namespace

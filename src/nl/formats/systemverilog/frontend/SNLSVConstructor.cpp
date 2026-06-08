@@ -24771,48 +24771,110 @@ endmodule
         }
 
         auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-        for (size_t i = 0; i < lhsBits.size(); ++i) {
+        bool emittedVectorSequential = false;
+        if (lhsBits.size() > 1) {
+          const auto width = lhsBits.size();
           if (useAsyncResetDFFRN) {
-            createDFFRNInstance(
+            emittedVectorSequential = createVectorSequentialInstance(
               design,
+              NLDB0::getOrCreateDFFRN(width),
               clkNet,
-              dataBits[i],
+              "C",
+              dataBits,
+              lhsBits,
+              blockSourceRange,
               asyncResetControlNet,
-              lhsBits[i],
-              blockSourceRange);
+              "RN");
           } else if (useAsyncResetDFFRE) {
-            createDFFREInstance(
+            emittedVectorSequential = createVectorSequentialInstance(
               design,
+              NLDB0::getOrCreateDFFRE(width),
               clkNet,
-              dataBits[i],
+              "C",
+              dataBits,
+              lhsBits,
+              blockSourceRange,
               constEnableOne,
+              "E",
               asyncResetControlNet,
-              lhsBits[i],
-              blockSourceRange);
+              "R");
           } else if (useAsyncResetDFFSE) {
-            createDFFSEInstance(
+            emittedVectorSequential = createVectorSequentialInstance(
               design,
+              NLDB0::getOrCreateDFFSE(width),
               clkNet,
-              dataBits[i],
+              "C",
+              dataBits,
+              lhsBits,
+              blockSourceRange,
               constEnableOne,
+              "E",
               asyncResetControlNet,
-              lhsBits[i],
+              "S");
+          } else if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+            emittedVectorSequential = createVectorSequentialInstance(
+              design,
+              NLDB0::getOrCreateDFFN(width),
+              clkNet,
+              "C",
+              dataBits,
+              lhsBits,
               blockSourceRange);
           } else {
-            if (clockEdge == slang::ast::EdgeKind::NegEdge) {
-              createDFFNInstance(
+            emittedVectorSequential = createVectorSequentialInstance(
+              design,
+              NLDB0::getOrCreateDFF(width),
+              clkNet,
+              "C",
+              dataBits,
+              lhsBits,
+              blockSourceRange);
+          }
+        }
+        if (!emittedVectorSequential) {
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            if (useAsyncResetDFFRN) {
+              createDFFRNInstance(
                 design,
                 clkNet,
                 dataBits[i],
+                asyncResetControlNet,
+                lhsBits[i],
+                blockSourceRange);
+            } else if (useAsyncResetDFFRE) {
+              createDFFREInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                constEnableOne,
+                asyncResetControlNet,
+                lhsBits[i],
+                blockSourceRange);
+            } else if (useAsyncResetDFFSE) {
+              createDFFSEInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                constEnableOne,
+                asyncResetControlNet,
                 lhsBits[i],
                 blockSourceRange);
             } else {
-              createDFFInstance(
-                design,
-                clkNet,
-                dataBits[i],
-                lhsBits[i],
-                blockSourceRange);
+              if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+                createDFFNInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  lhsBits[i],
+                  blockSourceRange);
+              } else {
+                createDFFInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  lhsBits[i],
+                  blockSourceRange);
+              }
             }
           }
         }
