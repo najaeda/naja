@@ -865,6 +865,7 @@ class SNLSVConstructorImpl {
       syntaxTrees_.clear();
       warnings_.clear();
       emittedWarnings_.clear();
+      loggedWarningReasons_.clear();
       unsupportedElements_.clear();
       warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
@@ -883,18 +884,15 @@ class SNLSVConstructorImpl {
         maybeWriteSVPerfReportSnapshot();
 #endif
 
-        {
+        const auto compilationDiagnosticsReport =
+          getCompilationDiagnosticsReport(*compilation_);
+        if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
-        }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        maybeWriteSVPerfReportSnapshot();
-#endif
-        if (auto failure = getCompilationFailureDetails(*compilation_)) {
+          dumpDiagnosticsReport(buildDiagnosticsReport(compilationDiagnosticsReport));
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
             svPerfReport_.failureReason = *failure;
@@ -932,6 +930,18 @@ class SNLSVConstructorImpl {
             svPerfReport_.elaboratedASTDumpDuration);
 #endif
           dumpElaboratedASTJson(root);
+        }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
+
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(
+            svPerfReport_,
+            svPerfReport_.diagnosticsReportDuration);
+#endif
+          dumpDiagnosticsReport(buildDiagnosticsReport(compilationDiagnosticsReport));
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
@@ -2333,6 +2343,43 @@ endmodule
       compilation_ = driver.createCompilation();
     }
 
+    std::string buildDiagnosticsReport(const std::string& slangReport) const {
+      std::ostringstream report;
+      bool hasDiagnostics = false;
+
+      if (!slangReport.empty()) {
+        report << "=== Slang Diagnostics ===\n" << slangReport;
+        if (slangReport.back() != '\n') {
+          report << '\n';
+        }
+        hasDiagnostics = true;
+      }
+
+      if (!warnings_.empty()) {
+        if (hasDiagnostics) {
+          report << '\n';
+        }
+        report << "=== Naja Elaboration Warnings ===\n";
+        for (const auto& warning : warnings_) {
+          report << warning << '\n';
+        }
+        hasDiagnostics = true;
+      }
+
+      if (!unsupportedElements_.empty()) {
+        if (hasDiagnostics) {
+          report << '\n';
+        }
+        report << "=== Naja Unsupported SystemVerilog Elements ===\n";
+        for (const auto& unsupported : unsupportedElements_) {
+          report << unsupported << '\n';
+        }
+        hasDiagnostics = true;
+      }
+
+      return hasDiagnostics ? report.str() : std::string {};
+    }
+
     void dumpDiagnosticsReport(const std::string& report) const {
       if (!options_.diagnosticsReportPath) {
         return;
@@ -2980,7 +3027,9 @@ endmodule
         svPerfReport_.firstWarning = warning;
       }
 #endif
-      NAJA_LOG_WARN("{}", warning);
+      if (loggedWarningReasons_.insert(reason).second) {
+        NAJA_LOG_WARN("{}", warning);
+      }
     }
 
     void reportCaseComparison2StateWarning(
@@ -28116,6 +28165,7 @@ endmodule
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;
     std::vector<std::string> warnings_;
     std::unordered_set<std::string> emittedWarnings_;
+    std::unordered_set<std::string> loggedWarningReasons_;
     std::vector<std::string> unsupportedElements_;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     mutable SVPerfReport svPerfReport_ {};
