@@ -16,16 +16,19 @@ jobs:
             dockerfile: docker/Dockerfile.alpine
             tag: latest
             build_args: ""
+            naja_edit_path: /naja/naja_edit
           - distro: rockylinux8
             dockerfile: docker/Dockerfile.rockylinux
             tag: rockylinux-8
             build_args: |
               ROCKY_VERSION=8
+            naja_edit_path: /naja/bin/naja_edit
           - distro: rockylinux9
             dockerfile: docker/Dockerfile.rockylinux
             tag: rockylinux-9
             build_args: |
               ROCKY_VERSION=9
+            naja_edit_path: /naja/bin/naja_edit
     steps:
       -
         name: Checkout
@@ -61,13 +64,13 @@ jobs:
         run: |
           docker run --rm christophealex/naja_edit:${{ matrix.tag }} --help
           docker run --rm --entrypoint /bin/sh christophealex/naja_edit:${{ matrix.tag }} -c 'test "$(id -u)" != "0" && test -w /work'
-          docker run --rm --user 12345:0 --entrypoint /bin/sh christophealex/naja_edit:${{ matrix.tag }} -c 'test "$(id -u)" = "12345" && test -w /work && /naja/naja_edit --help >/dev/null'
+          docker run --rm --user 12345:0 --entrypoint /bin/sh christophealex/naja_edit:${{ matrix.tag }} -c 'test "$(id -u)" = "12345" && test -w /work && ${{ matrix.naja_edit_path }} --help >/dev/null'
       -
         name: Run megaboom regress
         run: |
           make -C ${{ github.workspace }}/regress/designs/verilog/megaboom clean
           make -C ${{ github.workspace }}/regress/designs/verilog/megaboom \
-            NAJA_EDIT="docker run --rm --user $(id -u):$(id -g) -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/regress/designs/verilog/megaboom --entrypoint /naja/naja_edit christophealex/naja_edit:${{ matrix.tag }}"
+            NAJA_EDIT="docker run --rm --user $(id -u):$(id -g) -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/regress/designs/verilog/megaboom --entrypoint ${{ matrix.naja_edit_path }} christophealex/naja_edit:${{ matrix.tag }}"
       -
         name: Build and push
         uses: docker/build-push-action@v7
