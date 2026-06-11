@@ -90,51 +90,43 @@ RUN if [ "${ROCKY_VERSION}" = "8" ]; then \
     && cmake --install . --prefix /naja/install
 RUN ctest -j8 --output-on-failure
 
+RUN mkdir -p /naja/runtime-lib \
+    && shopt -s nullglob \
+    && for lib in \
+        /usr/lib64/libcapnp*.so* \
+        /usr/lib64/libkj*.so* \
+        /usr/lib64/libpython3*.so* \
+        /usr/lib64/libz.so* \
+        /usr/lib64/libstdc++.so* \
+        /usr/lib64/libgcc_s.so* \
+        /usr/lib64/libatomic.so* \
+        /usr/local/lib/libtbb*.so* \
+        "${GCC_TOOLSET_ROOT}"/usr/lib64/libstdc++.so* \
+        "${GCC_TOOLSET_ROOT}"/usr/lib64/libgcc_s.so* \
+        "${GCC_TOOLSET_ROOT}"/usr/lib64/libatomic.so*; \
+      do \
+        cp -P -f "${lib}" /naja/runtime-lib/; \
+      done
+
 FROM rockylinux:${ROCKY_VERSION} AS release
-ARG ROCKY_VERSION
-ARG GCC_TOOLSET_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ENV GCC_TOOLSET_ROOT=/opt/rh/gcc-toolset-${GCC_TOOLSET_VERSION}/root
-ENV LD_LIBRARY_PATH=${GCC_TOOLSET_ROOT}/usr/lib64:/usr/local/lib:/naja/lib
 ENV PYTHONPATH=/naja/lib/python
 
-RUN dnf -y update \
-    && dnf -y install dnf-plugins-core epel-release \
-    && if [ "${ROCKY_VERSION}" = "8" ]; then \
-        dnf -y config-manager --set-enabled powertools; \
-    else \
-        dnf -y config-manager --set-enabled crb; \
-    fi \
-    && dnf -y install \
-        ca-certificates \
-        capnproto-libs \
-        zlib \
-    && if [ "${ROCKY_VERSION}" = "8" ]; then \
-        dnf -y install \
-            gcc-toolset-${GCC_TOOLSET_VERSION}-libstdc++-devel \
-            python39; \
-    else \
-        dnf -y install \
-            libstdc++ \
-            python3; \
-    fi \
-    && dnf clean all
-
-RUN mkdir -p /naja /work \
+RUN mkdir -p /naja/bin /naja/lib /work \
     && useradd -r -u 10001 -g root -d /work naja \
     && chown -R 10001:root /naja /work \
     && chmod -R g=u /naja /work
 COPY --chown=10001:root --from=builder \
     /naja/install/bin/naja_edit \
-    /naja/
+    /naja/bin/
 COPY --chown=10001:root --from=builder \
     /naja/install/lib \
     /naja/lib
 COPY --chown=10001:root --from=builder \
-    /usr/local/lib/libtbb* \
-    /usr/local/lib/
+    /naja/runtime-lib/ \
+    /naja/lib/
 RUN chmod -R g=u /naja /work
 WORKDIR /work
 USER 10001
-ENTRYPOINT [ "/naja/naja_edit" ]
+ENTRYPOINT [ "/naja/bin/naja_edit" ]
