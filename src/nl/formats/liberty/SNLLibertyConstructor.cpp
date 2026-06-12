@@ -863,8 +863,10 @@ bool hasZipSignature(const std::vector<unsigned char>& header) {
 std::vector<unsigned char> readBinaryFile(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (not input.is_open()) {
+    // LCOV_EXCL_START
     std::string reason("Liberty parser: failed to open zip file: " + path.string());
     throw SNLLibertyConstructorException(reason);
+    // LCOV_EXCL_STOP
   }
   std::string contents(
     (std::istreambuf_iterator<char>(input)),
@@ -874,7 +876,7 @@ std::vector<unsigned char> readBinaryFile(const std::filesystem::path& path) {
 
 uint16_t readLE16(const std::vector<unsigned char>& bytes, size_t offset) {
   if (offset + 2 > bytes.size()) {
-    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive"); // LCOV_EXCL_LINE
   }
   return static_cast<uint16_t>(bytes[offset])
     | (static_cast<uint16_t>(bytes[offset + 1]) << 8);
@@ -882,7 +884,7 @@ uint16_t readLE16(const std::vector<unsigned char>& bytes, size_t offset) {
 
 uint32_t readLE32(const std::vector<unsigned char>& bytes, size_t offset) {
   if (offset + 4 > bytes.size()) {
-    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive"); // LCOV_EXCL_LINE
   }
   return static_cast<uint32_t>(bytes[offset])
     | (static_cast<uint32_t>(bytes[offset + 1]) << 8)
@@ -1017,7 +1019,7 @@ std::string inflateZipEntry(
   z_stream stream {};
   int initStatus = inflateInit2(&stream, -MAX_WBITS);
   if (initStatus != Z_OK) {
-    throw SNLLibertyConstructorException("Liberty parser: failed to initialize zip inflater");
+    throw SNLLibertyConstructorException("Liberty parser: failed to initialize zip inflater"); // LCOV_EXCL_LINE
   }
 
   stream.next_in = const_cast<Bytef*>(
