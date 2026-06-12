@@ -72,7 +72,7 @@ jobs:
         run: |
           docker run --rm ${{ env.IMAGE_NAME }}:${{ matrix.tag }} --help
           docker run --rm --entrypoint /bin/sh ${{ env.IMAGE_NAME }}:${{ matrix.tag }} -c 'test "$(id -u)" != "0" && test -w /work'
-          docker run --rm --user 12345:0 --entrypoint /bin/sh ${{ env.IMAGE_NAME }}:${{ matrix.tag }} -c 'test "$(id -u)" = "12345" && test -w /work && ${{ matrix.naja_edit_path }} --help >/dev/null'
+          docker run --rm --user 12345:0 --entrypoint /bin/sh ${{ env.IMAGE_NAME }}:${{ matrix.tag }} -c 'test "$(id -u)" = "12345" && test -w /work && ${{ matrix.naja_edit_path }} --help >/dev/null 2>&1'
       -
         name: Verify portable Rocky bundle
         if: startsWith(matrix.distro, 'rockylinux')
@@ -81,22 +81,41 @@ jobs:
             set -eu
             test -x /naja/bin/naja_edit
             test ! -e /naja/naja_edit
-            for pattern in \
-              /naja/lib/libcapnp*.so* \
-              /naja/lib/libkj*.so* \
-              /naja/lib/libpython3*.so* \
-              /naja/lib/libtbb*.so* \
-              /naja/lib/libstdc++.so* \
-              /naja/lib/libgcc_s.so*; do
-              ls ${pattern} >/dev/null
+            require_lib() {
+              found=0
+              for lib in "$@"; do
+                if [ -e "${lib}" ]; then
+                  found=1
+                fi
+              done
+              if [ "${found}" = 0 ]; then
+                echo "Missing bundled library matching: $*"
+                ls -la /naja/lib
+                exit 1
+              fi
+            }
+            require_lib /naja/lib/libcapnp*.so*
+            require_lib /naja/lib/libkj*.so*
+            require_lib /naja/lib/libpython3*.so*
+            require_lib /naja/lib/libtbb*.so*
+            require_lib /naja/lib/libstdc++.so*
+            require_lib /naja/lib/libgcc_s.so*
+            LD_LIBRARY_PATH= /naja/bin/naja_edit --help >/dev/null 2>&1
+            : > /tmp/naja_bundle.ldd
+            for elf in /naja/bin/naja_edit /naja/lib/*.so* /naja/lib/python/*/*.so*; do
+              if [ -e "${elf}" ] && ldd "${elf}" >/tmp/naja_one.ldd 2>/dev/null; then
+                {
+                  echo "## ${elf}"
+                  cat /tmp/naja_one.ldd
+                } >> /tmp/naja_bundle.ldd
+              fi
             done
-            LD_LIBRARY_PATH= /naja/bin/naja_edit --help >/dev/null
-            ldd /naja/bin/naja_edit > /tmp/naja_edit.ldd
-            ! grep -q "not found" /tmp/naja_edit.ldd
-            grep -E "libcapnp.* => /naja/lib/" /tmp/naja_edit.ldd
-            grep -E "libkj.* => /naja/lib/" /tmp/naja_edit.ldd
-            grep -E "libpython3.* => /naja/lib/" /tmp/naja_edit.ldd
-            grep -E "libtbb.* => /naja/lib/" /tmp/naja_edit.ldd
+            cat /tmp/naja_bundle.ldd
+            ! grep -q "not found" /tmp/naja_bundle.ldd
+            grep -E "libcapnp.* => /naja/lib/" /tmp/naja_bundle.ldd
+            grep -E "libkj.* => /naja/lib/" /tmp/naja_bundle.ldd
+            grep -E "libpython3.* => /naja/lib/" /tmp/naja_bundle.ldd
+            grep -E "libtbb.* => /naja/lib/" /tmp/naja_bundle.ldd
           '
       -
         name: Run megaboom regress
