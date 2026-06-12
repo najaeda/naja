@@ -100,12 +100,15 @@ RUN mkdir -p /naja/runtime-lib \
         /usr/lib64/libstdc++.so* \
         /usr/lib64/libgcc_s.so* \
         /usr/lib64/libatomic.so* \
+        /lib64/libstdc++.so* \
+        /lib64/libgcc_s.so* \
+        /lib64/libatomic.so* \
         /usr/local/lib/libtbb*.so* \
         "${GCC_TOOLSET_ROOT}"/usr/lib64/libstdc++.so* \
         "${GCC_TOOLSET_ROOT}"/usr/lib64/libgcc_s.so* \
         "${GCC_TOOLSET_ROOT}"/usr/lib64/libatomic.so*; \
       do \
-        cp -P -f "${lib}" /naja/runtime-lib/; \
+        cp -L -f "${lib}" /naja/runtime-lib/; \
       done
 
 FROM rockylinux:${ROCKY_VERSION} AS release
