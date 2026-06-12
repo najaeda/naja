@@ -98,15 +98,9 @@ RUN mkdir -p /naja/runtime-lib \
         /usr/lib64/libpython3*.so* \
         /usr/lib64/libz.so* \
         /usr/lib64/libstdc++.so* \
-        /usr/lib64/libgcc_s.so* \
-        /usr/lib64/libatomic.so* \
         /lib64/libstdc++.so* \
-        /lib64/libgcc_s.so* \
-        /lib64/libatomic.so* \
         /usr/local/lib/libtbb*.so* \
-        "${GCC_TOOLSET_ROOT}"/usr/lib64/libstdc++.so* \
-        "${GCC_TOOLSET_ROOT}"/usr/lib64/libgcc_s.so* \
-        "${GCC_TOOLSET_ROOT}"/usr/lib64/libatomic.so*; \
+        "${GCC_TOOLSET_ROOT}"/usr/lib64/libstdc++.so*; \
       do \
         cp -L -f "${lib}" /naja/runtime-lib/; \
       done

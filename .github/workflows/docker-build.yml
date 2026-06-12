@@ -99,7 +99,6 @@ jobs:
             require_lib /naja/lib/libpython3*.so*
             require_lib /naja/lib/libtbb*.so*
             require_lib /naja/lib/libstdc++.so*
-            require_lib /naja/lib/libgcc_s.so*
             LD_LIBRARY_PATH= /naja/bin/naja_edit --help >/dev/null 2>&1
             : > /tmp/naja_bundle.ldd
             for elf in /naja/bin/naja_edit /naja/lib/*.so* /naja/lib/python/*/*.so*; do
