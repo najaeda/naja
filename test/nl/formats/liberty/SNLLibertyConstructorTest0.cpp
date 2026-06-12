@@ -334,12 +334,13 @@ TEST_F(SNLLibertyConstructorTest0, testMixedOutputKindsCreatePlaceholderTables) 
   std::filesystem::remove(tempPath, ec);
 }
 
-TEST_F(SNLLibertyConstructorTest0, testZipNotSupported) {
+TEST_F(SNLLibertyConstructorTest0, testMalformedZip) {
   auto tempPath = std::filesystem::temp_directory_path()
     / std::filesystem::path("naja_liberty_test.lib.zip");
   {
     std::ofstream output(tempPath, std::ios::binary);
-    output << "PK";
+    const unsigned char badZipHeader[] = {'P', 'K', 0x03, 0x04};
+    output.write(reinterpret_cast<const char*>(badZipHeader), sizeof(badZipHeader));
   }
   SNLLibertyConstructor constructor(library_);
   EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
