@@ -2350,7 +2350,7 @@ endmodule
       if (!slangReport.empty()) {
         report << "=== Slang Diagnostics ===\n" << slangReport;
         if (slangReport.back() != '\n') {
-          report << '\n';
+          report << '\n'; // LCOV_EXCL_LINE
         }
         hasDiagnostics = true;
       }

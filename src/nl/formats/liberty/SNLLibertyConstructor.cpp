@@ -24,6 +24,7 @@
 #include "NajaPerf.h"
 
 #include "NLLibrary.h"
+#include "NLLibraryTruthTables.h"
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -1175,6 +1176,7 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     library_->setName(NLName(libraryName));
     parseCells(library_, ast, path);
   }
+  NLLibraryTruthTables::construct(library_);
 }
 
 }  // namespace naja::NL
