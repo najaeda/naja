@@ -1161,7 +1161,9 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     auto inStream = openLibertyStream(path);
     std::unique_ptr<Yosys::LibertyParser> parser;
     try {
-      parser = std::make_unique<Yosys::LibertyParser>(*inStream);
+      NajaPerf::Scope parseScope("Liberty parse AST");
+      parser = std::make_unique<Yosys::LibertyParser>(
+        *inStream, Yosys::LibertyParser::ParseMode::Structural);
     } catch (const naja::liberty::YosysLibertyException& e) {
       auto reason = buildParserFileErrorReason(path, e.getReason());
       throw SNLLibertyConstructorException(reason);
@@ -1174,9 +1176,12 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     }
     //LCOV_EXCL_STOP
     auto libraryName = ast->args[0];
-    //find a policy for multiple libs
-    library_->setName(NLName(libraryName));
-    parseCells(library_, ast, path);
+    {
+      NajaPerf::Scope constructScope("Liberty build SNL primitives");
+      //find a policy for multiple libs
+      library_->setName(NLName(libraryName));
+      parseCells(library_, ast, path);
+    }
   }
   NLLibraryTruthTables::construct(library_);
 }

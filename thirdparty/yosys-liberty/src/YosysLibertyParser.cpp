@@ -25,6 +25,15 @@
 
 namespace Yosys {
 
+namespace {
+
+bool contains(const std::set<std::string> &names, const std::string &name)
+{
+	return names.find(name) != names.end();
+}
+
+}
+
 LibertyAst::~LibertyAst()
 {
   for (auto child : children)
@@ -149,6 +158,122 @@ int LibertyParser::lexer(std::string &str)
 	// else
 	// 	fprintf(stderr, "LEX: char %d\n", c);
 	return c;
+}
+
+bool LibertyParser::shouldSkipStructuralChildren(const LibertyAst *ast) const
+{
+	if (parseMode != ParseMode::Structural)
+		return false;
+
+	/*
+	 * Structural Liberty mode is used by Naja primitive loading: keep the
+	 * hierarchy needed to build terms and lightweight modeling, but do not
+	 * materialize timing/power/LUT payloads. Groups not listed here are skipped
+	 * as soon as their opening '{' is read. If Naja later needs one of these
+	 * payloads, uncomment or add that group here, then whitelist its useful
+	 * children in shouldKeepStructuralChild().
+	 */
+	static const std::set<std::string> groupsWithUsefulBodies = {
+		"library",
+		"type",
+		"cell",
+		"pin",
+		"bus",
+		"bundle",
+		"ff",
+		"latch",
+		"memory",
+		"memory_read",
+		"memory_write",
+		"timing",
+
+		// "lu_table_template",
+		// "power_lut_template",
+		// "cell_rise",
+		// "cell_fall",
+		// "rise_transition",
+		// "fall_transition",
+		// "rise_power",
+		// "fall_power",
+		// "internal_power",
+		// "leakage_power",
+	};
+
+	return !contains(groupsWithUsefulBodies, ast->id);
+}
+
+bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const LibertyAst *child) const
+{
+	if (parseMode != ParseMode::Structural)
+		return true;
+	if (parent == nullptr || child == nullptr)
+		return true;
+
+	const std::string &parentId = parent->id;
+	const std::string &childId = child->id;
+
+	if (parentId == "library")
+		return childId == "type" || childId == "cell";
+
+	if (parentId == "type")
+		return childId == "bit_from" || childId == "bit_to" || childId == "downto";
+
+	if (parentId == "cell")
+		return childId == "pin" || childId == "bus" || childId == "bundle" ||
+				childId == "ff" || childId == "latch" || childId == "memory";
+
+	if (parentId == "pin")
+		return childId == "direction" || childId == "function" ||
+				childId == "memory_read" || childId == "memory_write" ||
+				childId == "timing";
+
+	if (parentId == "bus")
+		return childId == "direction" || childId == "bus_type" ||
+				childId == "function" || childId == "pin" ||
+				childId == "memory_read" || childId == "memory_write" ||
+				childId == "timing";
+
+	if (parentId == "bundle")
+		return childId == "direction" || childId == "members" ||
+				childId == "pin" || childId == "bus" || childId == "bundle";
+
+	if (parentId == "timing")
+		return childId == "related_pin" || childId == "timing_type";
+
+	if (parentId == "memory")
+		return childId == "address_width" || childId == "word_width";
+
+	if (parentId == "memory_read")
+		return childId == "address";
+
+	if (parentId == "memory_write")
+		return childId == "address" || childId == "clocked_on";
+
+	if (parentId == "ff")
+		return childId == "clocked_on" || childId == "next_state" ||
+				childId == "clear" || childId == "preset";
+
+	if (parentId == "latch")
+		return childId == "enable" || childId == "data_in" ||
+				childId == "clear" || childId == "preset";
+
+	return false;
+}
+
+void LibertyParser::skipGroupBody()
+{
+	std::string str;
+	int depth = 1;
+
+	while (depth > 0) {
+		int tok = lexer(str);
+		if (tok < 0)
+			error("Unexpected end of file while skipping Liberty group.");
+		if (tok == '{')
+			depth++;
+		else if (tok == '}')
+			depth--;
+	}
 }
 
 LibertyAst *LibertyParser::parse()
@@ -323,10 +448,18 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '{') {
+			if (shouldSkipStructuralChildren(ast)) {
+				skipGroupBody();
+				break;
+			}
 			while (1) {
 				LibertyAst *child = parse();
 				if (child == NULL)
 					break;
+				if (!shouldKeepStructuralChild(ast, child)) {
+					delete child;
+					continue;
+				}
 				ast->children.push_back(child);
 			}
 			break;
