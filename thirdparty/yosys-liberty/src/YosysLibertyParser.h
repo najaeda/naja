@@ -20,6 +20,7 @@
 #ifndef LIBPARSE_H
 #define LIBPARSE_H
 
+#include <istream>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -41,10 +42,17 @@ namespace Yosys
 
 	struct LibertyParser
 	{
+		enum class ParseMode {
+			Full,
+			Structural
+		};
+
 		std::istream &f;
 		int line;
 		LibertyAst *ast;
-		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
+		ParseMode parseMode;
+		LibertyParser(std::istream &f, ParseMode parseMode = ParseMode::Full)
+				: f(f), line(1), ast(nullptr), parseMode(parseMode) { ast = parse(); }
 		~LibertyParser() { if (ast) delete ast; }
         
         /* lexer return values:
@@ -55,10 +63,12 @@ namespace Yosys
 		int lexer(std::string &str);
 		
         LibertyAst *parse();
+		bool shouldKeepStructuralChild(const LibertyAst *parent, const LibertyAst *child) const;
+		bool shouldSkipStructuralChildren(const LibertyAst *ast) const;
+		void skipGroupBody();
 		void error();
         void error(const std::string &str);
 	};
 }
 
 #endif
-
