@@ -134,6 +134,20 @@ std::filesystem::path writeSVTestFile(const std::string& testName, const std::st
   return svPath;
 }
 
+size_t countSubstring(const std::string& text, const std::string& needle) {
+  if (needle.empty()) {
+    return 0;
+  }
+
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
                                                const std::string& outDirName,
                                                bool dumpRTLInfosAsAttributes = false) {
@@ -30444,6 +30458,41 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
     std::istreambuf_iterator<char>(reportFile),
     std::istreambuf_iterator<char>()};
   EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElaborationWarningsDedupStdoutAndDumpDiagnosticsReport) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "elaboration_warning_diagnostics_report",
+    R"(module elaboration_warning_diagnostics_report(
+  input logic a,
+  input logic b,
+  input logic c,
+  input logic d,
+  output logic y0,
+  output logic y1
+);
+  assign y0 = a === b;
+  assign y1 = c === d;
+endmodule
+)");
+
+  const auto reportPath = svPath.parent_path() / "reports" / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
+  testing::internal::CaptureStdout();
+  constructor.construct(svPath, options);
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+
+  const std::string warning =
+    "Case comparison operator '===' lowered as 2-state comparison in SNL";
+  EXPECT_EQ(1u, countSubstring(stdoutOutput, warning));
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(std::string::npos, report.find("=== Naja Elaboration Warnings ==="));
+  EXPECT_EQ(2u, countSubstring(report, warning));
 }
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT

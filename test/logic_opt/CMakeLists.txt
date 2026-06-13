@@ -21,6 +21,7 @@ GTEST_DISCOVER_TESTS(loadlessLogicRemoverTests)
 
 SET(constantPropagationSources
   ConstantPropagationTests.cpp
+  ConstantPropagationLibertyTests.cpp
 )
 
 ADD_EXECUTABLE(constantPropagationTests ${constantPropagationSources})
@@ -30,7 +31,7 @@ if(ENABLE_TEST_DOT)
     NAJA_ENABLE_TEST_DOT)
 endif()
 
-TARGET_LINK_LIBRARIES(constantPropagationTests naja_opt naja_snl_visual gmock gtest_main)
+TARGET_LINK_LIBRARIES(constantPropagationTests naja_opt naja_snl_visual naja_snl_liberty gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(constantPropagationTests)
 

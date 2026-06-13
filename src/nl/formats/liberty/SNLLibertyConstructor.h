@@ -19,6 +19,10 @@ class SNLLibertyConstructor {
     SNLLibertyConstructor(NLLibrary* library);
 
     using Paths = std::vector<std::filesystem::path>;
+    static bool hasLibertyExtension(const std::filesystem::path& path);
+    static bool hasCompressedLibertySignature(const std::filesystem::path& path);
+    static bool isLibertyPath(const std::filesystem::path& path);
+
     void construct(const Paths& paths);
     void construct(const std::filesystem::path& path);
   private:
