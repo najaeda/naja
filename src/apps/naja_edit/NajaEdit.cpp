@@ -324,16 +324,14 @@ int main(int argc, char* argv[]) {
       for (const auto& path : primitivesPaths) {
         NAJA_LOG_INFO("Parsing primitives file: {}", path.string());
         auto extension = path.extension();
-        if (extension.empty()) {
-          NAJA_LOG_CRITICAL("Primitives path should end with an extension");
-          std::exit(EXIT_FAILURE);
-        } else if (extension == ".py") {
+        if (extension == ".py") {
           constructLibertyPrimitives();
           SNLPyLoader::loadPrimitives(currentPrimitivesLibrary, path);
-        } else if (extension == ".lib" || extension == ".gz") {
+        } else if (SNLLibertyConstructor::isLibertyPath(path)) {
           libertyPrimitivesPaths.push_back(path);
         } else {
-          NAJA_LOG_CRITICAL("Unknow extension in Primitives path");
+          NAJA_LOG_CRITICAL(
+            "Unknown primitives path extension; expected .py, .lib*, or a gzip/zip Liberty file");
           std::exit(EXIT_FAILURE);
         }
       }

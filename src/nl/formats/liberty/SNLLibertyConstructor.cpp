@@ -5,12 +5,16 @@
 
 #include "SNLLibertyConstructor.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -20,6 +24,7 @@
 #include "NajaPerf.h"
 
 #include "NLLibrary.h"
+#include "NLLibraryTruthTables.h"
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -827,14 +832,275 @@ class GzipIStream final : public std::istream {
     GzipStreamBuf buffer_;
 };
 
+std::vector<unsigned char> readFileHeader(
+  const std::filesystem::path& path,
+  size_t size) {
+  std::ifstream input(path, std::ios::binary);
+  if (not input.is_open()) {
+    std::string reason("Liberty parser: failed to open file: " + path.string());
+    throw SNLLibertyConstructorException(reason);
+  }
+  std::vector<unsigned char> header(size);
+  input.read(reinterpret_cast<char*>(header.data()), header.size());
+  header.resize(input.gcount());
+  return header;
+}
+
+bool hasGzipSignature(const std::vector<unsigned char>& header) {
+  return header.size() >= 2
+    and header[0] == 0x1F
+    and header[1] == 0x8B;
+}
+
+bool hasZipSignature(const std::vector<unsigned char>& header) {
+  return header.size() >= 4
+    and header[0] == 'P'
+    and header[1] == 'K'
+    and header[2] == 0x03
+    and header[3] == 0x04;
+}
+
+std::vector<unsigned char> readBinaryFile(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (not input.is_open()) {
+    // LCOV_EXCL_START
+    std::string reason("Liberty parser: failed to open zip file: " + path.string());
+    throw SNLLibertyConstructorException(reason);
+    // LCOV_EXCL_STOP
+  }
+  std::string contents(
+    (std::istreambuf_iterator<char>(input)),
+    std::istreambuf_iterator<char>());
+  return std::vector<unsigned char>(contents.begin(), contents.end());
+}
+
+uint16_t readLE16(const std::vector<unsigned char>& bytes, size_t offset) {
+  if (offset + 2 > bytes.size()) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive"); // LCOV_EXCL_LINE
+  }
+  return static_cast<uint16_t>(bytes[offset])
+    | (static_cast<uint16_t>(bytes[offset + 1]) << 8);
+}
+
+uint32_t readLE32(const std::vector<unsigned char>& bytes, size_t offset) {
+  if (offset + 4 > bytes.size()) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive"); // LCOV_EXCL_LINE
+  }
+  return static_cast<uint32_t>(bytes[offset])
+    | (static_cast<uint32_t>(bytes[offset + 1]) << 8)
+    | (static_cast<uint32_t>(bytes[offset + 2]) << 16)
+    | (static_cast<uint32_t>(bytes[offset + 3]) << 24);
+}
+
+struct ZipEntry {
+  std::string name {};
+  uint16_t flags {0};
+  uint16_t method {0};
+  uint32_t compressedSize {0};
+  uint32_t uncompressedSize {0};
+  uint32_t localHeaderOffset {0};
+
+  bool isDirectory() const {
+    return not name.empty() and name.back() == '/';
+  }
+};
+
+size_t findEndOfCentralDirectory(const std::vector<unsigned char>& bytes) {
+  constexpr uint32_t eocdSignature = 0x06054B50;
+  constexpr size_t minEocdSize = 22;
+  constexpr size_t maxCommentSize = 0xFFFF;
+  if (bytes.size() < minEocdSize) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+  }
+  auto minPos = bytes.size() > minEocdSize + maxCommentSize
+    ? bytes.size() - (minEocdSize + maxCommentSize)
+    : 0;
+  for (size_t pos = bytes.size() - minEocdSize; pos + 1 > minPos; --pos) {
+    if (readLE32(bytes, pos) == eocdSignature) {
+      auto commentSize = readLE16(bytes, pos + 20);
+      if (pos + minEocdSize + commentSize == bytes.size()) {
+        return pos;
+      }
+    }
+    if (pos == minPos) {
+      break;
+    }
+  }
+  throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+}
+
+std::vector<ZipEntry> readZipEntries(const std::vector<unsigned char>& bytes) {
+  constexpr uint32_t centralDirectorySignature = 0x02014B50;
+  constexpr uint32_t zip64Marker = 0xFFFFFFFF;
+  constexpr uint16_t zip64EntryMarker = 0xFFFF;
+
+  auto eocdOffset = findEndOfCentralDirectory(bytes);
+  auto entriesCount = readLE16(bytes, eocdOffset + 10);
+  auto centralDirectorySize = readLE32(bytes, eocdOffset + 12);
+  auto centralDirectoryOffset = readLE32(bytes, eocdOffset + 16);
+  if (entriesCount == zip64EntryMarker
+      or centralDirectorySize == zip64Marker
+      or centralDirectoryOffset == zip64Marker) {
+    throw SNLLibertyConstructorException("Liberty parser: zip64 archives are not supported");
+  }
+  auto centralDirectoryOffsetSize = static_cast<size_t>(centralDirectoryOffset);
+  auto centralDirectorySizeSize = static_cast<size_t>(centralDirectorySize);
+  if (centralDirectoryOffsetSize > bytes.size()
+      or centralDirectorySizeSize > bytes.size() - centralDirectoryOffsetSize) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+  }
+
+  std::vector<ZipEntry> entries;
+  auto offset = centralDirectoryOffsetSize;
+  auto centralDirectoryEnd = offset + centralDirectorySizeSize;
+  for (uint16_t entryIndex = 0; entryIndex < entriesCount; ++entryIndex) {
+    if (offset + 46 > centralDirectoryEnd
+        or readLE32(bytes, offset) != centralDirectorySignature) {
+      throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+    }
+
+    auto fileNameSize = readLE16(bytes, offset + 28);
+    auto extraSize = readLE16(bytes, offset + 30);
+    auto commentSize = readLE16(bytes, offset + 32);
+    auto nextOffset = offset + 46 + fileNameSize + extraSize + commentSize;
+    if (nextOffset > centralDirectoryEnd) {
+      throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+    }
+
+    ZipEntry entry;
+    entry.flags = readLE16(bytes, offset + 8);
+    entry.method = readLE16(bytes, offset + 10);
+    entry.compressedSize = readLE32(bytes, offset + 20);
+    entry.uncompressedSize = readLE32(bytes, offset + 24);
+    entry.localHeaderOffset = readLE32(bytes, offset + 42);
+    entry.name = std::string(
+      bytes.begin() + static_cast<std::ptrdiff_t>(offset + 46),
+      bytes.begin() + static_cast<std::ptrdiff_t>(offset + 46 + fileNameSize));
+    entries.push_back(std::move(entry));
+    offset = nextOffset;
+  }
+
+  return entries;
+}
+
+bool hasLibertyName(const std::string& name) {
+  return name.find(".lib") != std::string::npos;
+}
+
+const ZipEntry* selectZipEntry(const std::vector<ZipEntry>& entries) {
+  const ZipEntry* firstRegularEntry = nullptr;
+  size_t regularEntries = 0;
+  for (const auto& entry: entries) {
+    if (entry.isDirectory()) {
+      continue;
+    }
+    ++regularEntries;
+    if (firstRegularEntry == nullptr) {
+      firstRegularEntry = &entry;
+    }
+    if (hasLibertyName(entry.name)) {
+      return &entry;
+    }
+  }
+  if (regularEntries == 1) {
+    return firstRegularEntry;
+  }
+  return nullptr;
+}
+
+std::string inflateZipEntry(
+  const std::vector<unsigned char>& compressedBytes,
+  uint32_t uncompressedSize) {
+  std::string output(uncompressedSize, '\0');
+  if (uncompressedSize == 0) {
+    return output;
+  }
+
+  z_stream stream {};
+  int initStatus = inflateInit2(&stream, -MAX_WBITS);
+  if (initStatus != Z_OK) {
+    throw SNLLibertyConstructorException("Liberty parser: failed to initialize zip inflater"); // LCOV_EXCL_LINE
+  }
+
+  stream.next_in = const_cast<Bytef*>(
+    reinterpret_cast<const Bytef*>(compressedBytes.data()));
+  stream.avail_in = static_cast<uInt>(compressedBytes.size());
+  stream.next_out = reinterpret_cast<Bytef*>(output.data());
+  stream.avail_out = static_cast<uInt>(output.size());
+
+  int inflateStatus = inflate(&stream, Z_FINISH);
+  auto producedBytes = stream.total_out;
+  inflateEnd(&stream);
+  if (inflateStatus != Z_STREAM_END or producedBytes != uncompressedSize) {
+    throw SNLLibertyConstructorException("Liberty parser: failed to inflate zip entry");
+  }
+  return output;
+}
+
+std::string extractZipEntry(
+  const std::vector<unsigned char>& bytes,
+  const ZipEntry& entry) {
+  constexpr uint32_t localFileHeaderSignature = 0x04034B50;
+  constexpr uint16_t storedMethod = 0;
+  constexpr uint16_t deflateMethod = 8;
+  constexpr uint16_t encryptedFlag = 1;
+
+  if ((entry.flags & encryptedFlag) != 0) {
+    throw SNLLibertyConstructorException("Liberty parser: encrypted zip entries are not supported");
+  }
+  auto localHeaderOffset = static_cast<size_t>(entry.localHeaderOffset);
+  if (localHeaderOffset + 30 > bytes.size()
+      or readLE32(bytes, localHeaderOffset) != localFileHeaderSignature) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+  }
+  auto fileNameSize = readLE16(bytes, localHeaderOffset + 26);
+  auto extraSize = readLE16(bytes, localHeaderOffset + 28);
+  auto dataOffset = localHeaderOffset + 30 + fileNameSize + extraSize;
+  auto compressedSize = static_cast<size_t>(entry.compressedSize);
+  if (dataOffset + compressedSize > bytes.size()) {
+    throw SNLLibertyConstructorException("Liberty parser: malformed zip archive");
+  }
+  auto dataBegin = bytes.begin() + static_cast<std::ptrdiff_t>(dataOffset);
+  auto dataEnd = dataBegin + static_cast<std::ptrdiff_t>(compressedSize);
+  std::vector<unsigned char> compressedBytes(dataBegin, dataEnd);
+
+  if (entry.method == storedMethod) {
+    if (entry.compressedSize != entry.uncompressedSize) {
+      throw SNLLibertyConstructorException("Liberty parser: malformed stored zip entry");
+    }
+    return std::string(compressedBytes.begin(), compressedBytes.end());
+  }
+  if (entry.method == deflateMethod) {
+    return inflateZipEntry(compressedBytes, entry.uncompressedSize);
+  }
+
+  std::ostringstream reason;
+  reason << "Liberty parser: unsupported zip compression method "
+         << entry.method << " for " << entry.name;
+  throw SNLLibertyConstructorException(reason.str());
+}
+
+std::string extractLibertyFromZip(const std::filesystem::path& path) {
+  auto bytes = readBinaryFile(path);
+  auto entries = readZipEntries(bytes);
+  auto selectedEntry = selectZipEntry(entries);
+  if (selectedEntry == nullptr) {
+    std::string reason("Liberty parser: no unambiguous Liberty file in zip archive: " + path.string());
+    throw SNLLibertyConstructorException(reason);
+  }
+  return extractZipEntry(bytes, *selectedEntry);
+}
+
 std::unique_ptr<std::istream> openLibertyStream(const std::filesystem::path& path) {
-  auto extension = path.extension().string();
-  if (extension == ".gz") {
+  auto header = readFileHeader(path, 4);
+  if (hasGzipSignature(header)) {
     return std::make_unique<GzipIStream>(path);
   }
-  if (extension == ".zip") {
-    std::string reason("Liberty parser: zip archives are not supported: " + path.string());
-    throw SNLLibertyConstructorException(reason);
+  if (hasZipSignature(header)) {
+    auto zipContents = extractLibertyFromZip(path);
+    auto zipStream = std::make_unique<std::istringstream>();
+    zipStream->str(std::move(zipContents));
+    return zipStream;
   }
   auto inFile = std::make_unique<std::ifstream>(path);
   if (not inFile->is_open()) {
@@ -851,6 +1117,35 @@ namespace naja::NL {
 SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
   library_(library)
 {}
+
+bool SNLLibertyConstructor::hasLibertyExtension(const std::filesystem::path& path) {
+  auto remaining = path.filename();
+  while (not remaining.empty() and not remaining.extension().empty()) {
+    if (remaining.extension().string().starts_with(".lib")) {
+      return true;
+    }
+    remaining = remaining.stem();
+  }
+  return false;
+}
+
+bool SNLLibertyConstructor::hasCompressedLibertySignature(
+  const std::filesystem::path& path) {
+  try {
+    auto header = readFileHeader(path, 4);
+    return hasGzipSignature(header) or hasZipSignature(header);
+  } catch (const SNLLibertyConstructorException&) {
+    return false;
+  }
+}
+
+bool SNLLibertyConstructor::isLibertyPath(const std::filesystem::path& path) {
+  auto extension = path.extension();
+  return hasLibertyExtension(path)
+    or extension == ".gz"
+    or extension == ".zip"
+    or hasCompressedLibertySignature(path);
+}
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   construct(Paths{path});
@@ -883,6 +1178,7 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     library_->setName(NLName(libraryName));
     parseCells(library_, ast, path);
   }
+  NLLibraryTruthTables::construct(library_);
 }
 
 }  // namespace naja::NL

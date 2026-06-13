@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import gzip
+import shutil
 import tempfile
 import unittest
+import zipfile
 import naja
 import faulthandler 
 
@@ -41,6 +44,38 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog()
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
+
+  def testLoadLibertyPrimitivesRenamedFiles(self):
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    source = os.path.join(
+      formats_path,
+      "liberty",
+      "benchmarks",
+      "tests",
+      "small.lib")
+    self.assertTrue(os.path.exists(source))
+
+    with tempfile.TemporaryDirectory() as tempdir:
+      lib_suffix_path = os.path.join(tempdir, "small.lib_tt")
+      gzip_path = os.path.join(tempdir, "small.memory")
+      zip_path = os.path.join(tempdir, "small.bundle")
+
+      shutil.copyfile(source, lib_suffix_path)
+      with open(source, "rb") as input_file:
+        with gzip.open(gzip_path, "wb") as gzip_file:
+          shutil.copyfileobj(input_file, gzip_file)
+      with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(source, "memories/small.lib_tt")
+
+      for path in (lib_suffix_path, gzip_path, zip_path):
+        with self.subTest(path=path):
+          db = naja.NLDB.create(naja.NLUniverse.get())
+          db.loadLibertyPrimitives([path])
+          primitives = db.getLibrary("small_lib")
+          self.assertIsNotNone(primitives)
+          self.assertIsNotNone(primitives.getSNLDesign("and2"))
+          db.destroy()
 
   def testVerilogLoadingOptions(self):
     u = naja.NLUniverse.get()

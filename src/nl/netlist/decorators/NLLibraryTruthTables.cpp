@@ -40,6 +40,10 @@ class NLLibraryModelingProperty: public naja::NajaPrivateProperty {
     naja::NL::NLLibraryTruthTables::LibraryTruthTables getTruthTables() const {
       return truthTables_;
     }
+    void setTruthTables(
+      const naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
+      truthTables_ = truthTables;
+    }
   private:
     naja::NL::NLLibraryTruthTables::LibraryTruthTables  truthTables_ {};
 };
@@ -144,7 +148,11 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
   }
   LibraryTruthTables truthTables;
   addLibraryTruthTables(library, truthTables);
-  NLLibraryModelingProperty::create(library, truthTables);
+  if (auto property = getProperty(library)) {
+    property->setTruthTables(truthTables);
+  } else {
+    NLLibraryModelingProperty::create(library, truthTables);
+  }
   return truthTables;
 }
 
