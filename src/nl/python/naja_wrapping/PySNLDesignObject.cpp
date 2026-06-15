@@ -5,6 +5,7 @@
 #include "PySNLDesignObject.h"
 
 #include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
 
 #include "PyInterface.h"
 
@@ -30,6 +31,29 @@ GetBoolAttribute(SNLDesignObject, isUnnamed)
 
 GetContainerMethod(SNLDesignObject, SNLAttribute, SNLAttributes, Attributes)
 
+static PyObject* PySNLDesignObject_hasSourceLoc(PySNLDesignObject* self) {
+  METHOD_HEAD("SNLDesignObject.hasSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (rtlInfos and rtlInfos->hasSourceLoc()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
+static PyObject* PySNLDesignObject_getSourceLoc(PySNLDesignObject* self) {
+  METHOD_HEAD("SNLDesignObject.getSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (not rtlInfos or not rtlInfos->hasSourceLoc()) {
+    Py_RETURN_NONE;
+  }
+  const auto& loc = *rtlInfos->getSourceLoc();
+  return Py_BuildValue(
+    "(sIIII)",
+    loc.file.getString().c_str(),
+    static_cast<unsigned int>(loc.line),
+    static_cast<unsigned int>(loc.column),
+    static_cast<unsigned int>(loc.endLine),
+    static_cast<unsigned int>(loc.endColumn));
+}
+
 static PyObject* PySNLDesignObject_addAttribute(PySNLDesignObject* self, PyObject* args) {
   METHOD_HEAD("SNLDesignObject.addAttribute()")
   PySNLAttribute* pyAttribute = nullptr;
@@ -50,6 +74,10 @@ PyMethodDef PySNLDesignObject_Methods[] = {
     "add an attribute to this design object."},
   {"getAttributes", (PyCFunction)PySNLDesignObject_getAttributes, METH_NOARGS,
     "get a container of SNLAttributes."},
+  {"hasSourceLoc", (PyCFunction)PySNLDesignObject_hasSourceLoc, METH_NOARGS,
+    "Returns whether the SNLDesignObject has source location information."},
+  {"getSourceLoc", (PyCFunction)PySNLDesignObject_getSourceLoc, METH_NOARGS,
+    "Returns source location as (file, line, column, end_line, end_column), or None."},
   {"isUnnamed", (PyCFunction)PySNLDesignObject_isUnnamed, METH_NOARGS,
     "Returns whether the SNLDesignObject is unnamed."},
   {"setName", (PyCFunction)PySNLDesignObject_setName, METH_O,

@@ -43,6 +43,11 @@ class SNLAttributesTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.SNLAttribute("pragma0", self.ins0)
 
   def test(self):
+    self.assertFalse(self.top.hasSourceLoc())
+    self.assertIsNone(self.top.getSourceLoc())
+    self.assertFalse(self.ins0.hasSourceLoc())
+    self.assertIsNone(self.ins0.getSourceLoc())
+
     self.assertEqual(0, sum(1 for a in self.ins0.getAttributes()))
     self.ins0.addAttribute(naja.SNLAttribute("attr0", "value0"))
     self.assertEqual(1, sum(1 for a in self.ins0.getAttributes()))
