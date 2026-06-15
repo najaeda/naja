@@ -57,6 +57,13 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         self.assertIsNotNone(top)
         self.assertEqual("top", top.get_model_name())
 
+    def test_source_range_absent(self):
+        top = netlist.create_top("top")
+        self.assertIsNone(top.get_source_range())
+
+        concat_net = netlist.Net([], net_concat=[])
+        self.assertIsNone(concat_net.get_source_range())
+
     def test_load_system_verilog_with_ast_json_dump(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         json_path = os.path.join(najaeda_test_path, "simple_elaborated_ast_najaeda.json")
