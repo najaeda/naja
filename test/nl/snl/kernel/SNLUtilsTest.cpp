@@ -80,6 +80,15 @@ TEST_F(SNLUtilsTest, testDoubleHierarchy) {
   ));
 }
 
+TEST_F(SNLUtilsTest, testReachableInstanceCountNullTop) {
+  auto count = SNLUtils::countReachableInstances(nullptr);
+  EXPECT_EQ(0u, count.totalInstances);
+  EXPECT_EQ(0u, count.leafInstances);
+  EXPECT_EQ(0u, count.foldedTotalInstances);
+  EXPECT_EQ(0u, count.foldedLeafInstances);
+  EXPECT_EQ(0u, count.reachableModels);
+}
+
 TEST_F(SNLUtilsTest, testReachableInstanceCountSharedModel) {
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
