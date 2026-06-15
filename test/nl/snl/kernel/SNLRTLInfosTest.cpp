@@ -4,6 +4,8 @@
 
 #include "gtest/gtest.h"
 
+#include <cstdint>
+#include <limits>
 #include <type_traits>
 
 #include "NLException.h"
@@ -72,10 +74,15 @@ TEST_F(SNLRTLInfosTest, getInfoMissingKeyReturnsEmptyValue) {
 
   auto* infos = SNLRTLInfos::create(design);
   ASSERT_NE(nullptr, infos);
+  EXPECT_FALSE(infos->hasInfo(NLName("missing")));
+  EXPECT_TRUE(infos->getInfo(NLName("missing")).empty());
+
   infos->setInfo(NLName("known"), "value");
 
   const auto missing = infos->getInfo(NLName("missing"));
   EXPECT_TRUE(missing.empty());
+  EXPECT_FALSE(infos->hasInfo(NLName("missing")));
+  EXPECT_TRUE(infos->hasInfo(NLName("known")));
   EXPECT_EQ("value", infos->getInfo(NLName("known")));
 
   infos->destroy();
@@ -141,6 +148,70 @@ TEST_F(SNLRTLInfosTest, legacySourceInfoSettersUseTypedStorage) {
   EXPECT_EQ("4", infos->getInfo(NLName("sv_src_column")));
   EXPECT_EQ("23", infos->getInfo(NLName("sv_src_end_line")));
   EXPECT_EQ("8", infos->getInfo(NLName("sv_src_end_column")));
+
+  infos->destroy();
+}
+
+TEST_F(SNLRTLInfosTest, legacySourceInfoIndividualFirstSettersCreateSourceLoc) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  ASSERT_NE(nullptr, design);
+  auto* lineTerm =
+    SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("line"));
+  auto* columnTerm =
+    SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("column"));
+  auto* endLineTerm =
+    SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("end_line"));
+  auto* endColumnTerm =
+    SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("end_column"));
+  ASSERT_NE(nullptr, lineTerm);
+  ASSERT_NE(nullptr, columnTerm);
+  ASSERT_NE(nullptr, endLineTerm);
+  ASSERT_NE(nullptr, endColumnTerm);
+
+  auto* lineInfos = SNLRTLInfos::create(lineTerm);
+  auto* columnInfos = SNLRTLInfos::create(columnTerm);
+  auto* endLineInfos = SNLRTLInfos::create(endLineTerm);
+  auto* endColumnInfos = SNLRTLInfos::create(endColumnTerm);
+  ASSERT_NE(nullptr, lineInfos);
+  ASSERT_NE(nullptr, columnInfos);
+  ASSERT_NE(nullptr, endLineInfos);
+  ASSERT_NE(nullptr, endColumnInfos);
+
+  lineInfos->setInfo(NLName("sv_src_line"), "2");
+  columnInfos->setInfo(NLName("sv_src_column"), "3");
+  endLineInfos->setInfo(NLName("sv_src_end_line"), "5");
+  endColumnInfos->setInfo(NLName("sv_src_end_column"), "7");
+
+  ASSERT_TRUE(lineInfos->hasSourceLoc());
+  ASSERT_TRUE(columnInfos->hasSourceLoc());
+  ASSERT_TRUE(endLineInfos->hasSourceLoc());
+  ASSERT_TRUE(endColumnInfos->hasSourceLoc());
+  EXPECT_EQ("2", lineInfos->getInfo(NLName("sv_src_line")));
+  EXPECT_EQ("3", columnInfos->getInfo(NLName("sv_src_column")));
+  EXPECT_EQ("5", endLineInfos->getInfo(NLName("sv_src_end_line")));
+  EXPECT_EQ("7", endColumnInfos->getInfo(NLName("sv_src_end_column")));
+
+  lineInfos->destroy();
+  columnInfos->destroy();
+  endLineInfos->destroy();
+  endColumnInfos->destroy();
+}
+
+TEST_F(SNLRTLInfosTest, legacySourceInfoNumericParsingHandlesInvalidAndOverflow) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  ASSERT_NE(nullptr, design);
+
+  auto* infos = SNLRTLInfos::create(design);
+  ASSERT_NE(nullptr, infos);
+  infos->setInfo(NLName("sv_src_line"), "not-a-number");
+  EXPECT_EQ("0", infos->getInfo(NLName("sv_src_line")));
+
+  const auto tooLargeColumn =
+    std::to_string(static_cast<unsigned>(std::numeric_limits<std::uint16_t>::max()) + 1U);
+  infos->setInfo(NLName("sv_src_column"), tooLargeColumn);
+  EXPECT_EQ(
+    std::to_string(std::numeric_limits<std::uint16_t>::max()),
+    infos->getInfo(NLName("sv_src_column")));
 
   infos->destroy();
 }

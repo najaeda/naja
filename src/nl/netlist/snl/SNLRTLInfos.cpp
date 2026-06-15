@@ -209,7 +209,7 @@ SNLRTLInfos::InfoValue SNLRTLInfos::getInfo(const InfoName& name) const {
     case SourceInfoField::EndColumn:
       return sourceLoc_ ? std::to_string(sourceLoc_->endColumn) : InfoValue {};
   }
-  return {};
+  return {}; // LCOV_EXCL_LINE
 }
 
 const SNLRTLInfos::Infos& SNLRTLInfos::getInfos() const {
