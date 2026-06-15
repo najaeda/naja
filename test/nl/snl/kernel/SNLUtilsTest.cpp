@@ -80,6 +80,26 @@ TEST_F(SNLUtilsTest, testDoubleHierarchy) {
   ));
 }
 
+TEST_F(SNLUtilsTest, testReachableInstanceCountSharedModel) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
+
+  auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("leaf"));
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto child = SNLDesign::create(library, NLName("child"));
+  SNLInstance::create(child, primitive, NLName("leaf"));
+  SNLInstance::create(top, child, NLName("child0"));
+  SNLInstance::create(top, child, NLName("child1"));
+
+  auto count = SNLUtils::countReachableInstances(top);
+  EXPECT_EQ(4u, count.totalInstances);
+  EXPECT_EQ(2u, count.leafInstances);
+  EXPECT_EQ(3u, count.foldedTotalInstances);
+  EXPECT_EQ(1u, count.foldedLeafInstances);
+  EXPECT_EQ(3u, count.reachableModels);
+}
+
 TEST_F(SNLUtilsTest, testPrepareForConcurrentAccess) {
   auto library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);

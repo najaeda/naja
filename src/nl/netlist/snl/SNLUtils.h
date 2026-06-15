@@ -20,8 +20,14 @@ class SNLDesign;
 class SNLUtils {
   public:
     struct InstanceCount {
+      // User-visible hierarchy count: shared models are counted once per
+      // occurrence path from the top design.
       size_t totalInstances {0};
       size_t leafInstances {0};
+      // Folded count: shared models are traversed once, matching the in-memory
+      // model graph.
+      size_t foldedTotalInstances {0};
+      size_t foldedLeafInstances {0};
       size_t reachableModels {0};
     };
 

@@ -42,8 +42,10 @@ void logInstanceCountDelta(
     const SNLUtils::InstanceCount& before,
     const SNLUtils::InstanceCount& after) {
   NAJA_LOG_INFO(
-      "{} instance count: total {} -> {} (delta {}), leaf {} -> {} "
-      "(delta {}), reachable models {} -> {}",
+      "{} instance count:\n"
+      "  unfolded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  folded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  reachable models: {} -> {}",
       label,
       before.totalInstances,
       after.totalInstances,
@@ -51,6 +53,12 @@ void logInstanceCountDelta(
       before.leafInstances,
       after.leafInstances,
       getCountDelta(before.leafInstances, after.leafInstances),
+      before.foldedTotalInstances,
+      after.foldedTotalInstances,
+      getCountDelta(before.foldedTotalInstances, after.foldedTotalInstances),
+      before.foldedLeafInstances,
+      after.foldedLeafInstances,
+      getCountDelta(before.foldedLeafInstances, after.foldedLeafInstances),
       before.reachableModels,
       after.reachableModels);
 }

@@ -49,18 +49,29 @@ void prepareDesignForConcurrentAccess(
 void collectReachableInstanceCount(
     const SNLDesign* design,
     VisitedDesigns& visitedDesigns,
+    VisitedDesigns& activeDesigns,
     SNLUtils::InstanceCount& count) {
-  if (design == nullptr or not visitedDesigns.insert(design).second) {
+  if (design == nullptr or not activeDesigns.insert(design).second) {
     return;
   }
-  ++count.reachableModels;
+  const bool firstVisit = visitedDesigns.insert(design).second;
+  if (firstVisit) {
+    ++count.reachableModels;
+  }
   for (auto instance: design->getInstances()) {
     ++count.totalInstances;
     if (instance->isLeaf()) {
       ++count.leafInstances;
     }
-    collectReachableInstanceCount(instance->getModel(), visitedDesigns, count);
+    if (firstVisit) {
+      ++count.foldedTotalInstances;
+      if (instance->isLeaf()) {
+        ++count.foldedLeafInstances;
+      }
+    }
+    collectReachableInstanceCount(instance->getModel(), visitedDesigns, activeDesigns, count);
   }
+  activeDesigns.erase(design);
 }
 
 }  // namespace
@@ -107,7 +118,8 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
 SNLUtils::InstanceCount SNLUtils::countReachableInstances(const SNLDesign* top) {
   InstanceCount count;
   VisitedDesigns visitedDesigns;
-  collectReachableInstanceCount(top, visitedDesigns, count);
+  VisitedDesigns activeDesigns;
+  collectReachableInstanceCount(top, visitedDesigns, activeDesigns, count);
   return count;
 }
 
