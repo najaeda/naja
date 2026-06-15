@@ -11,7 +11,7 @@ import sys
 import os
 import tempfile
 from enum import Enum
-from typing import Union, List, Iterator
+from typing import Union, List, Iterator, Optional
 from dataclasses import dataclass
 
 from najaeda import naja
@@ -548,7 +548,7 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
-    def get_source_range(self) -> SourceRange | None:
+    def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Net, if available."""
         if hasattr(self, "net"):
             return _source_range_from_snl_source_loc(self.net.getSourceLoc())
@@ -832,7 +832,7 @@ class Term:
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
 
-    def get_source_range(self) -> SourceRange | None:
+    def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Term, if available."""
         return _source_range_from_snl_source_loc(self.get_snl_term().getSourceLoc())
 
@@ -1543,7 +1543,7 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
-    def get_source_range(self) -> SourceRange | None:
+    def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Instance, if available."""
         return _source_range_from_snl_source_loc(
             self.__get_leaf_snl_object().getSourceLoc()
