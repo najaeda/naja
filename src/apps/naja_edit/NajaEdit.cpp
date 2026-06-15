@@ -689,6 +689,8 @@ int main(int argc, char* argv[]) {
     }
     NAJA_LOG_INFO(oss.str());
   }
+  NAJA_LOG_INFO(" naja version: %s", naja::NAJA_VERSION);
+  NAJA_LOG_INFO(" Git hash: %s", naja::NAJA_GIT_HASH);
   NAJA_LOG_INFO("########################################################");
   std::exit(EXIT_SUCCESS);
 }
