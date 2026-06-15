@@ -63,6 +63,7 @@ jobs:
         name: Build (load for test)
         uses: docker/build-push-action@v7
         with:
+          context: .
           load: true
           file: ${{ matrix.dockerfile }}
           tags: ${{ env.IMAGE_NAME }}:${{ matrix.tag }}
@@ -127,6 +128,7 @@ jobs:
         uses: docker/build-push-action@v7
         if: github.repository == 'najaeda/naja' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
+          context: .
           push: true
           file: ${{ matrix.dockerfile }}
           tags: ${{ env.IMAGE_NAME }}:${{ matrix.tag }}

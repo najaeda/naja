@@ -70,6 +70,36 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
 
 using Paths = std::vector<std::filesystem::path>;
 
+long long getCountDelta(size_t before, size_t after) {
+  return static_cast<long long>(after) - static_cast<long long>(before);
+}
+
+void logInstanceCountDelta(
+    const std::string& label,
+    const SNLUtils::InstanceCount& before,
+    const SNLUtils::InstanceCount& after) {
+  NAJA_LOG_INFO(
+      "{} instance count:\n"
+      "  unfolded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  folded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  reachable models: {} -> {}",
+      label,
+      before.totalInstances,
+      after.totalInstances,
+      getCountDelta(before.totalInstances, after.totalInstances),
+      before.leafInstances,
+      after.leafInstances,
+      getCountDelta(before.leafInstances, after.leafInstances),
+      before.foldedTotalInstances,
+      after.foldedTotalInstances,
+      getCountDelta(before.foldedTotalInstances, after.foldedTotalInstances),
+      before.foldedLeafInstances,
+      after.foldedLeafInstances,
+      getCountDelta(before.foldedLeafInstances, after.foldedLeafInstances),
+      before.reachableModels,
+      after.reachableModels);
+}
+
 }
 
 int main(int argc, char* argv[]) {
@@ -524,11 +554,15 @@ int main(int argc, char* argv[]) {
     }
     if (optimizationType == OptimizationType::DLE) {
       naja::NajaPerf::Scope scope("Optimization_DLE");
+      const auto beforeInstanceCount =
+          SNLUtils::countReachableInstances(NLUniverse::get()->getTopDesign());
       const auto start{std::chrono::steady_clock::now()};
       NAJA_LOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
       remover.setNormalizedUniquification(useBNE);
       remover.process();
+      const auto afterInstanceCount =
+          SNLUtils::countReachableInstances(NLUniverse::get()->getTopDesign());
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
@@ -536,11 +570,15 @@ int main(int argc, char* argv[]) {
         oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
         NAJA_LOG_INFO(oss.str());
       } 
+      logInstanceCountDelta(
+          "DLE optimization", beforeInstanceCount, afterInstanceCount);
       //NetlistStatistics stats(*get());
       //stats.process();
       //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
       naja::NajaPerf::Scope scope("Optimization_ALL");
+      const auto beforeInstanceCount =
+          SNLUtils::countReachableInstances(NLUniverse::get()->getTopDesign());
       const auto start{std::chrono::steady_clock::now()};
       NAJA_LOG_INFO("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
@@ -553,14 +591,18 @@ int main(int argc, char* argv[]) {
       LoadlessLogicRemover remover;
       remover.setNormalizedUniquification(useBNE);
       remover.process();
+      const auto afterInstanceCount =
+          SNLUtils::countReachableInstances(NLUniverse::get()->getTopDesign());
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
         std::ostringstream oss;
-        oss << "Removal of loadless logic done in: " << elapsed_seconds.count()
+        oss << "Full optimization done in: " << elapsed_seconds.count()
             << "s";
         NAJA_LOG_INFO(oss.str());
       }
+      logInstanceCountDelta(
+          "Full optimization", beforeInstanceCount, afterInstanceCount);
       //NetlistStatistics stats(*get());
       //stats.process();
       //spdlog::info(stats.getReport());
@@ -655,6 +697,8 @@ int main(int argc, char* argv[]) {
     }
     NAJA_LOG_INFO(oss.str());
   }
+  NAJA_LOG_INFO("naja version: {}", naja::NAJA_VERSION);
+  NAJA_LOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
   NAJA_LOG_INFO("########################################################");
   std::exit(EXIT_SUCCESS);
 }
