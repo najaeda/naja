@@ -36,6 +36,7 @@ RUN apk add cmake \
     python3-dev \
     boost-dev onetbb-dev
 COPY / /naja
+COPY .git /naja/.git
 RUN rm -rf /naja/build
 RUN rm -rf /naja-install
 WORKDIR /naja/build

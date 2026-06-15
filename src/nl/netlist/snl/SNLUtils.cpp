@@ -46,6 +46,23 @@ void prepareDesignForConcurrentAccess(
   }
 }
 
+void collectReachableInstanceCount(
+    const SNLDesign* design,
+    VisitedDesigns& visitedDesigns,
+    SNLUtils::InstanceCount& count) {
+  if (design == nullptr or not visitedDesigns.insert(design).second) {
+    return;
+  }
+  ++count.reachableModels;
+  for (auto instance: design->getInstances()) {
+    ++count.totalInstances;
+    if (instance->isLeaf()) {
+      ++count.leafInstances;
+    }
+    collectReachableInstanceCount(instance->getModel(), visitedDesigns, count);
+  }
+}
+
 }  // namespace
 
 unsigned SNLUtils::levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
@@ -85,6 +102,13 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
       return ldl.second < rdl.second;
     }
   );
+}
+
+SNLUtils::InstanceCount SNLUtils::countReachableInstances(const SNLDesign* top) {
+  InstanceCount count;
+  VisitedDesigns visitedDesigns;
+  collectReachableInstanceCount(top, visitedDesigns, count);
+  return count;
 }
 
 NLID::Bit SNLUtils::getWidth(NLID::Bit msb, NLID::Bit lsb) {

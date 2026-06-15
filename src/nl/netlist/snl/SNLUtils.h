@@ -4,8 +4,11 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
+#include <vector>
 
 #include "SNLDesign.h"
 
@@ -16,11 +19,18 @@ class SNLDesign;
 
 class SNLUtils {
   public:
+    struct InstanceCount {
+      size_t totalInstances {0};
+      size_t leafInstances {0};
+      size_t reachableModels {0};
+    };
+
     using DesignsLevel = std::map<const SNLDesign*, unsigned, SNLDesign::PointerLess>;
     static unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel);
     using DesignLevel = std::pair<const SNLDesign*, unsigned>;
     using SortedDesigns = std::vector<DesignLevel>;
     static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
+    static InstanceCount countReachableInstances(const SNLDesign* top);
     static NLID::Bit getWidth(int msb, int lsb);
     static SNLDesign* findTop(const NLLibrary* library);
     static void prepareForConcurrentAccess(const SNLDesign* design);

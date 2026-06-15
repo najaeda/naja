@@ -83,6 +83,7 @@ megaboom_out.v: | $(LIBERTY_DIR)/.fetched $(SOURCES_DIR)/.fetched
 	    -f verilog -t verilog \
 	    $(PARSE_LIBERTY) \
 	    $(PARSE_INPUTS) \
+		-a all \
 	    -o megaboom_out.v
 
 # -----------------------------------------------------------------------

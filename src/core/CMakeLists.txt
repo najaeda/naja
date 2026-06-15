@@ -4,17 +4,24 @@
 
 ##generate Version.h
 #in case Git is not available, we default to "unknown"
-set(NAJA_GIT_HASH "unknown")
+if(NOT DEFINED NAJA_GIT_HASH OR NAJA_GIT_HASH STREQUAL "")
+  set(NAJA_GIT_HASH "unknown")
+endif()
 
 # find Git and if available set GIT_HASH variable
 find_package(Git QUIET)
 if(GIT_FOUND)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} log -1 --pretty=format:%h
-    OUTPUT_VARIABLE NAJA_GIT_HASH
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    RESULT_VARIABLE NAJA_GIT_HASH_RESULT
+    OUTPUT_VARIABLE NAJA_GIT_HASH_FROM_GIT
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
     )
+  if(NAJA_GIT_HASH_RESULT EQUAL 0 AND NOT NAJA_GIT_HASH_FROM_GIT STREQUAL "")
+    set(NAJA_GIT_HASH "${NAJA_GIT_HASH_FROM_GIT}")
+  endif()
 endif(GIT_FOUND)
 
 message(STATUS "Git hash is ${NAJA_GIT_HASH}")

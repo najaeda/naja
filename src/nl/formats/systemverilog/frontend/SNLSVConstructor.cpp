@@ -3276,7 +3276,8 @@ endmodule
       auto* fromInfos = from->getRTLInfos();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.rtlInfoCloneCalls;
-      svPerfReport_.rtlInfoClonedEntries += fromInfos->getInfos().size();
+      svPerfReport_.rtlInfoClonedEntries +=
+        (fromInfos->hasSourceLoc() ? 5 : 0) + fromInfos->getInfos().size();
       noteSVPerfProgress();
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.cloneRTLInfosDuration);
 #endif
@@ -3301,15 +3302,19 @@ endmodule
       const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.annotateSourceInfoDuration);
 #endif
       auto* rtlInfos = getOrCreateRTLInfos(object);
-      addRTLInfo(rtlInfos, "sv_src_file", sourceInfo.file);
-      const auto line = std::to_string(sourceInfo.line);
-      addRTLInfo(rtlInfos, "sv_src_line", line);
-      const auto column = std::to_string(sourceInfo.column);
-      addRTLInfo(rtlInfos, "sv_src_column", column);
-      const auto endLine = std::to_string(sourceInfo.endLine);
-      addRTLInfo(rtlInfos, "sv_src_end_line", endLine);
-      const auto endColumn = std::to_string(sourceInfo.endColumn);
-      addRTLInfo(rtlInfos, "sv_src_end_column", endColumn);
+      if (!rtlInfos) {
+        return; // LCOV_EXCL_LINE
+      }
+      rtlInfos->setSourceLoc({
+        NLName(sourceInfo.file),
+        static_cast<std::uint32_t>(sourceInfo.line),
+        static_cast<std::uint32_t>(sourceInfo.endLine),
+        static_cast<std::uint16_t>(sourceInfo.column),
+        static_cast<std::uint16_t>(sourceInfo.endColumn)});
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      svPerfReport_.rtlInfoSetCalls += 5;
+      noteSVPerfProgress();
+#endif
     }
 
     void annotateSourceInfo(

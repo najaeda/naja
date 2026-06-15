@@ -1194,10 +1194,10 @@ void SNLVRLDumper::dumpAttributes(
       rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
     if (rtlInfos) {
-      for (const auto& info : rtlInfos->getInfos()) {
+      for (const auto& info : rtlInfos->getDumpAttributes()) {
         ++dumpedRTLInfos;
         o << "(* ";
-        o << info.first.getString();
+        o << info.first;
         if (!info.second.empty()) {
           o << "=";
           const bool valueIsNumber = isUnsignedDecimal(info.second);
