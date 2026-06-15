@@ -9,7 +9,9 @@
 #include "PyNLDBs.h"
 #include "PySNLDesign.h"
 
+#include "NajaLog.h"
 #include "NLUniverse.h"
+#include "SNLUtils.h"
 #include "RemoveLoadlessLogic.h"
 #include "ConstantPropagation.h"
 #include "FanoutComputer.h"
@@ -23,6 +25,37 @@ using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 using namespace naja::NAJA_METRICS;
 
+namespace {
+
+long long getCountDelta(size_t before, size_t after) {
+  return static_cast<long long>(after) - static_cast<long long>(before);
+}
+
+SNLUtils::InstanceCount countTopDesignInstances() {
+  auto universe = NLUniverse::get();
+  return SNLUtils::countReachableInstances(
+      universe == nullptr ? nullptr : universe->getTopDesign());
+}
+
+void logInstanceCountDelta(
+    const char* label,
+    const SNLUtils::InstanceCount& before,
+    const SNLUtils::InstanceCount& after) {
+  NAJA_LOG_INFO(
+      "{} instance count: total {} -> {} (delta {}), leaf {} -> {} "
+      "(delta {}), reachable models {} -> {}",
+      label,
+      before.totalInstances,
+      after.totalInstances,
+      getCountDelta(before.totalInstances, after.totalInstances),
+      before.leafInstances,
+      after.leafInstances,
+      getCountDelta(before.leafInstances, after.leafInstances),
+      before.reachableModels,
+      after.reachableModels);
+}
+
+}  // namespace
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLUniverse, function)
 
@@ -40,9 +73,12 @@ static PyObject* PyNLUniverse_get() {
 }
 
 static PyObject* PyNLUniverse_applyDLE() {
+  const auto beforeInstanceCount = countTopDesignInstances();
   LoadlessLogicRemover remover;
   remover.setNormalizedUniquification(true);
   remover.process();
+  const auto afterInstanceCount = countTopDesignInstances();
+  logInstanceCountDelta("DLE optimization", beforeInstanceCount, afterInstanceCount);
   Py_RETURN_NONE;
 }
 
@@ -116,9 +152,13 @@ static PyObject* PyNLUniverse_getMaxLogicLevel() {
 }
 
 static PyObject* PyNLUniverse_applyConstantPropagation() {
+  const auto beforeInstanceCount = countTopDesignInstances();
   ConstantPropagation cp;
   cp.setTruthTableEngine(true);
   cp.run();
+  const auto afterInstanceCount = countTopDesignInstances();
+  logInstanceCountDelta(
+      "Constant propagation", beforeInstanceCount, afterInstanceCount);
   Py_RETURN_NONE;
 }
 

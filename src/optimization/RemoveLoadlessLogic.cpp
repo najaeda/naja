@@ -339,8 +339,8 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   }
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
-  NAJA_LOG_INFO("Deleted {} leaf instances out of {}", loadlessInstances.size(),
-                dnl_->getLeaves().size());
+  NAJA_LOG_DEBUG("Removed {} loadless DNL leaf candidates",
+                 loadlessInstances.size());
   // LCOV_EXCL_STOP
   // #endif
 }
