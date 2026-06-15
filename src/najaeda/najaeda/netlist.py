@@ -92,6 +92,22 @@ class Attribute:
         return self.snlAttribute.getValue()
 
 
+@dataclass(frozen=True)
+class SourceRange:
+    file: str
+    line: int
+    end_line: int
+    column: int
+    end_column: int
+
+
+def _source_range_from_snl_source_loc(source_loc):
+    if source_loc is None:
+        return None
+    file, line, column, end_line, end_column = source_loc
+    return SourceRange(file, line, end_line, column, end_column)
+
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -532,6 +548,12 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def get_source_range(self) -> SourceRange | None:
+        """Return the source range of this Net, if available."""
+        if hasattr(self, "net"):
+            return _source_range_from_snl_source_loc(self.net.getSourceLoc())
+        return None
+
     def count_attributes(self) -> int:
         """Count the attributes of this Net.
 
@@ -809,6 +831,10 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def get_source_range(self) -> SourceRange | None:
+        """Return the source range of this Term, if available."""
+        return _source_range_from_snl_source_loc(self.get_snl_term().getSourceLoc())
 
     def count_attributes(self) -> int:
         """Count the attributes of this Term.
@@ -1516,6 +1542,12 @@ class Instance:
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
+
+    def get_source_range(self) -> SourceRange | None:
+        """Return the source range of this Instance, if available."""
+        return _source_range_from_snl_source_loc(
+            self.__get_leaf_snl_object().getSourceLoc()
+        )
 
     def count_attributes(self) -> int:
         """Count the attributes of this Instance.

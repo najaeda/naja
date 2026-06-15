@@ -33,6 +33,7 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "SNLRTLInfos.h"
 #include "NLBitDependencies.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
@@ -491,6 +492,29 @@ static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_hasSourceLoc(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.hasSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (rtlInfos and rtlInfos->hasSourceLoc()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
+static PyObject* PySNLDesign_getSourceLoc(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.getSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (not rtlInfos or not rtlInfos->hasSourceLoc()) {
+    Py_RETURN_NONE;
+  }
+  const auto& loc = *rtlInfos->getSourceLoc();
+  return Py_BuildValue(
+    "(sIIII)",
+    loc.file.getString().c_str(),
+    static_cast<unsigned int>(loc.line),
+    static_cast<unsigned int>(loc.column),
+    static_cast<unsigned int>(loc.endLine),
+    static_cast<unsigned int>(loc.endColumn));
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -699,6 +723,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "add an attribute to the design."},
   {"getAttributes", (PyCFunction)PySNLDesign_getAttributes, METH_NOARGS,
     "get a container of SNLAttributes."},
+  {"hasSourceLoc", (PyCFunction)PySNLDesign_hasSourceLoc, METH_NOARGS,
+    "Returns whether the SNLDesign has source location information."},
+  {"getSourceLoc", (PyCFunction)PySNLDesign_getSourceLoc, METH_NOARGS,
+    "Returns source location as (file, line, column, end_line, end_column), or None."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

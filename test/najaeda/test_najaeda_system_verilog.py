@@ -32,6 +32,24 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         self.assertEqual(3, top.count_terms())
         self.assertEqual(2, top.count_input_terms())
         self.assertEqual(1, top.count_output_terms())
+        source_range = top.get_source_range()
+        self.assertIsInstance(source_range, netlist.SourceRange)
+        self.assertTrue(source_range.file.endswith(
+            "systemverilog/benchmarks/simple/simple.sv"))
+        self.assertGreaterEqual(source_range.line, 1)
+        self.assertGreaterEqual(source_range.column, 1)
+        self.assertGreaterEqual(source_range.end_line, source_range.line)
+        self.assertGreaterEqual(source_range.end_column, 1)
+
+        term_range = top.get_term("a").get_source_range()
+        self.assertIsInstance(term_range, netlist.SourceRange)
+        self.assertTrue(term_range.file.endswith(
+            "systemverilog/benchmarks/simple/simple.sv"))
+
+        net_range = top.get_net("y").get_source_range()
+        self.assertIsInstance(net_range, netlist.SourceRange)
+        self.assertTrue(net_range.file.endswith(
+            "systemverilog/benchmarks/simple/simple.sv"))
 
     def test_load_system_verilog_single_arg(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
