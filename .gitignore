@@ -32,3 +32,4 @@ src/apps/naja_edit/examples/adder/verilator.done
 # regress: fetched external content
 regress/liberty/
 regress/designs/verilog/megaboom/sources/
+graphify-out
