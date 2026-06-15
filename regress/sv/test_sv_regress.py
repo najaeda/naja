@@ -173,6 +173,7 @@ cases:
         self.assertIn("ghcr.io/najaeda/naja/sv-sim:latest", workflow)
         job = workflow_config["jobs"]["cva6-pr-sim"]
         self.assertIn("pull_request", job["if"])
+        self.assertIn("push", job["if"])
         self.assertIn("workflow_dispatch", job["if"])
         self.assertNotIn("container", job)
         self.assertEqual(
