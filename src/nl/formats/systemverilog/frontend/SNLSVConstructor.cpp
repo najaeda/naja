@@ -16309,6 +16309,45 @@ endmodule
       std::unordered_map<const slang::ast::ValueSymbol*, size_t> bySymbol {};
     };
 
+    struct GuardedSequentialCondition {
+      const Expression* expr {nullptr};
+      bool expectedValue {true};
+    };
+
+    struct GuardedSequentialConditionNetCacheKey {
+      const Expression* expr {nullptr};
+      bool expectedValue {true};
+
+      bool operator==(const GuardedSequentialConditionNetCacheKey& other) const {
+        return expr == other.expr && expectedValue == other.expectedValue;
+      }
+    };
+
+    struct GuardedSequentialConditionNetCacheKeyHash {
+      size_t operator()(const GuardedSequentialConditionNetCacheKey& key) const {
+        const auto exprHash = std::hash<const Expression*>{}(key.expr);
+        const auto valueHash = std::hash<bool>{}(key.expectedValue);
+        return exprHash ^ (valueHash + 0x9e3779b9 + (exprHash << 6) + (exprHash >> 2));
+      }
+    };
+
+    using GuardedSequentialConditionNetCache = std::unordered_map<
+      GuardedSequentialConditionNetCacheKey,
+      SNLBitNet*,
+      GuardedSequentialConditionNetCacheKeyHash>;
+
+    struct GuardedDirectSequentialAssignment {
+      const Expression* lhs {nullptr};
+      AssignAction action {};
+      std::vector<GuardedSequentialCondition> guards {};
+    };
+
+    struct GuardedDirectSequentialAssignmentTable {
+      std::vector<GuardedDirectSequentialAssignment> assignments {};
+      std::unordered_map<const slang::ast::ValueSymbol*, std::vector<size_t>>
+        bySymbol {};
+    };
+
     // Per-register index of the top-level statements that drive a sequential
     // branch. Unlike DirectSequentialAssignmentTable this tolerates guarded
     // conditional assignments (if/case) as long as every top-level statement
@@ -19279,6 +19318,176 @@ endmodule
         table.assignments.push_back(DirectSequentialAssignment{lhsExpr, action});
       }
       return true;
+    }
+
+    bool appendGuardedDirectSequentialAssignment(
+      const Expression& lhsExpr,
+      const AssignAction& action,
+      const std::vector<GuardedSequentialCondition>& guards,
+      GuardedDirectSequentialAssignmentTable& table,
+      std::string* failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+      if (shouldIgnoreTrackedLHS(&lhsExpr, ignoredSymbols)) {
+        return true;
+      }
+      if (action.stepDelta != 0 || action.compoundOp || !action.rhs) {
+        setFailureReason(
+          "guarded direct sequential fast path supports only simple assignment actions");
+        return false;
+      }
+
+      const slang::ast::ValueSymbol* symbol = nullptr;
+      if (!tryGetDirectSequentialAssignmentSymbol(lhsExpr, symbol) || !symbol) {
+        setFailureReason(formatDescribedFailure(
+          "guarded direct sequential fast path supports only integral named LHS targets: ",
+          describeExpression(lhsExpr)));
+        return false;
+      }
+
+      const auto assignmentIndex = table.assignments.size();
+      table.assignments.push_back(
+        GuardedDirectSequentialAssignment{&lhsExpr, action, guards});
+      table.bySymbol[symbol].push_back(assignmentIndex);
+      return true;
+    }
+
+    bool collectGuardedDirectSequentialAssignments(
+      const Statement& stmt,
+      GuardedDirectSequentialAssignmentTable& table,
+      std::vector<GuardedSequentialCondition>& guards,
+      std::string* failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true; // LCOV_EXCL_LINE
+      }
+      if (isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!collectGuardedDirectSequentialAssignments(
+                *item,
+                table,
+                guards,
+                failureReason,
+                ignoredSymbols)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, lhsExpr, action)) {
+        if (!lhsExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+        return appendGuardedDirectSequentialAssignment(
+          *lhsExpr,
+          action,
+          guards,
+          table,
+          failureReason,
+          ignoredSymbols);
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (conditional.conditions.size() != 1 ||
+            !conditional.conditions[0].expr ||
+            conditional.conditions[0].pattern) {
+          setFailureReason("guarded direct sequential fast path supports only simple if conditions");
+          return false;
+        }
+
+        bool constantCondition = false;
+        if (tryEvaluateConstantConditionBit(
+              *conditional.conditions[0].expr,
+              constantCondition)) {
+          const Statement* selectedStmt =
+            constantCondition ? &conditional.ifTrue : conditional.ifFalse;
+          return !selectedStmt ||
+                 collectGuardedDirectSequentialAssignments(
+                   *selectedStmt,
+                   table,
+                   guards,
+                   failureReason,
+                   ignoredSymbols);
+        }
+
+        guards.push_back(GuardedSequentialCondition{
+          conditional.conditions[0].expr,
+          true});
+        if (!collectGuardedDirectSequentialAssignments(
+              conditional.ifTrue,
+              table,
+              guards,
+              failureReason,
+              ignoredSymbols)) {
+          guards.pop_back();
+          return false;
+        }
+        guards.pop_back();
+
+        if (conditional.ifFalse) {
+          guards.push_back(GuardedSequentialCondition{
+            conditional.conditions[0].expr,
+            false});
+          if (!collectGuardedDirectSequentialAssignments(
+                *conditional.ifFalse,
+                table,
+                guards,
+                failureReason,
+                ignoredSymbols)) {
+            guards.pop_back();
+            return false;
+          }
+          guards.pop_back();
+        }
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "guarded direct sequential fast path does not support statement kind "
+             << current->kind;
+      setFailureReason(reason.str());
+      return false;
+    }
+
+    bool collectGuardedDirectSequentialAssignmentTable(
+      const Statement& stmt,
+      GuardedDirectSequentialAssignmentTable& table,
+      std::string* failureReason = nullptr,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) const {
+      table.assignments.clear();
+      table.bySymbol.clear();
+      std::vector<GuardedSequentialCondition> guards;
+      return collectGuardedDirectSequentialAssignments(
+        stmt,
+        table,
+        guards,
+        failureReason,
+        ignoredSymbols);
     }
 
     // Record a top-level branch statement under each integral named register it
@@ -25034,6 +25243,67 @@ endmodule
       return !incrementerBits.empty();
     }
 
+    bool emitSequentialDataAssignment(
+      SNLDesign* design,
+      const Expression& lhsExpr,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::vector<SNLBitNet*>& dataBits,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason) {
+      if (lhsBits.empty() || dataBits.size() != lhsBits.size()) {
+        failureReason = formatQuotedDescriptionFailure(
+          "sequential data assignment width mismatch for ",
+          describeLHSForDiagnostics(lhsExpr));
+        return false;
+      }
+
+      bool emittedVectorSequential = false;
+      if (lhsBits.size() > 1) {
+        const auto width = lhsBits.size();
+        if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFFN(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange);
+        } else {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFF(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange);
+        }
+      }
+      if (!emittedVectorSequential) {
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+            createDFFNInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              lhsBits[i],
+              blockSourceRange);
+          } else {
+            createDFFInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              lhsBits[i],
+              blockSourceRange);
+          }
+        }
+      }
+      return true;
+    }
+
     bool emitSequentialConditionalAssignment(
       SNLDesign* design,
       const Expression& lhsExpr,
@@ -25250,6 +25520,377 @@ endmodule
       return true;
     }
 
+    SNLBitNet* resolveGuardedSequentialConditionNet(
+      SNLDesign* design,
+      const GuardedSequentialCondition& guard,
+      const std::string& condBaseName,
+      const std::optional<slang::SourceRange>& fallbackSourceRange,
+      GuardedSequentialConditionNetCache& conditionNetCache,
+      std::string& failureReason) {
+      if (!guard.expr) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      const GuardedSequentialConditionNetCacheKey cacheKey{
+        guard.expr,
+        guard.expectedValue
+      };
+      if (auto found = conditionNetCache.find(cacheKey);
+          found != conditionNetCache.end()) {
+        return found->second;
+      }
+      auto sourceRange = getSourceRange(*guard.expr);
+      if (!sourceRange) {
+        sourceRange = fallbackSourceRange;
+      }
+      auto* conditionNet = resolveConditionNet(
+        design,
+        *guard.expr,
+        condBaseName,
+        sourceRange);
+      if (!conditionNet) {
+        failureReason = formatDescribedFailure(
+          "unable to resolve guarded sequential assignment condition: ",
+          describeExpression(*guard.expr));
+        return nullptr;
+      }
+      if (guard.expectedValue) {
+        conditionNetCache.emplace(cacheKey, conditionNet);
+        return conditionNet;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      if (conditionNet == const0) {
+        conditionNetCache.emplace(cacheKey, const1);
+        return const1;
+      }
+      if (conditionNet == const1) {
+        conditionNetCache.emplace(cacheKey, const0);
+        return const0;
+      }
+      auto* invertedConditionNet = createNotBitGate(design, conditionNet, sourceRange);
+      if (!invertedConditionNet) {
+        failureReason = "unable to build inverted guarded sequential assignment condition"; // LCOV_EXCL_LINE
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      conditionNetCache.emplace(cacheKey, invertedConditionNet);
+      return invertedConditionNet;
+    }
+
+    bool applyGuardedDirectSequentialAssignment(
+      SNLDesign* design,
+      const GuardedDirectSequentialAssignment& assignment,
+      size_t assignmentIndex,
+      const Expression& lhsExpr,
+      SNLNet* lhsNet,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::string& baseName,
+      std::vector<SNLBitNet*>& dataBits,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      GuardedSequentialConditionNetCache& conditionNetCache,
+      std::string& failureReason) {
+      if (!assignment.lhs || !sameLhs(assignment.lhs, &lhsExpr)) {
+        return true; // LCOV_EXCL_LINE
+      }
+
+      auto actionSourceRange = assignment.action.rhs
+        ? getSourceRange(*assignment.action.rhs)
+        : blockSourceRange; // LCOV_EXCL_LINE
+      auto assignedBits = buildAssignBits(
+        design,
+        assignment.action,
+        lhsNet,
+        lhsBits,
+        nullptr,
+        actionSourceRange);
+      if (assignedBits.size() != lhsBits.size()) {
+        failureReason = formatQuotedDescriptionFailure(
+          "failed to lower guarded direct sequential assignment for ",
+          describeLHSForDiagnostics(lhsExpr));
+        return false;
+      }
+
+      if (assignment.guards.empty()) {
+        dataBits = std::move(assignedBits);
+        return true;
+      }
+
+      const auto priorBits = dataBits;
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      SNLBitNet* enableNet = const1;
+      for (size_t guardIndex = 0; guardIndex < assignment.guards.size(); ++guardIndex) {
+        const auto& guard = assignment.guards[guardIndex];
+        auto* guardNet = resolveGuardedSequentialConditionNet(
+          design,
+          guard,
+          joinName(
+            "guard" + std::to_string(assignmentIndex) + "_" +
+              std::to_string(guardIndex),
+            baseName),
+          blockSourceRange,
+          conditionNetCache,
+          failureReason);
+        if (!guardNet) {
+          return false;
+        }
+        if (guardNet == const1) {
+          continue;
+        }
+        if (guardNet == const0) {
+          return true;
+        }
+        if (enableNet == const1) {
+          enableNet = guardNet;
+          continue;
+        }
+        auto guardSourceRange = guard.expr ? getSourceRange(*guard.expr) : blockSourceRange;
+        enableNet = createAndBitGate(
+          design,
+          enableNet,
+          guardNet,
+          guardSourceRange);
+        if (!enableNet) {
+          failureReason =
+            "unable to build combined guarded sequential assignment condition"; // LCOV_EXCL_LINE
+          return false; // LCOV_EXCL_LINE
+        }
+      }
+
+      if (enableNet == const1) {
+        dataBits = std::move(assignedBits);
+        return true;
+      }
+      if (assignedBits == priorBits) {
+        return true;
+      }
+
+      std::vector<SNLBitNet*> mergedBits;
+      if (!createMux2Instance(
+            design,
+            enableNet,
+            priorBits,
+            assignedBits,
+            mergedBits,
+            actionSourceRange,
+            nullptr,
+            true)) {
+        failureReason = formatQuotedDescriptionFailure(
+          "unable to build guarded sequential assignment mux for ",
+          describeLHSForDiagnostics(lhsExpr));
+        return false; // LCOV_EXCL_LINE
+      }
+
+      dataBits = std::move(mergedBits);
+      return true;
+    }
+
+    DirectSequentialConditionalLowering lowerSequentialGuardedDirectAssignmentConditionalFastPath(
+      SNLDesign* design,
+      const slang::ast::ConditionalStatement& topCond,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      if (topCond.conditions.size() != 1 ||
+          !topCond.conditions[0].expr ||
+          topCond.conditions[0].pattern ||
+          !topCond.ifFalse) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      DirectSequentialAssignmentTable resetAssignments;
+      GuardedDirectSequentialAssignmentTable updateAssignments;
+      std::string collectionFailureReason;
+      if (!collectDirectSequentialAssignmentTable(
+            topCond.ifTrue,
+            resetAssignments,
+            &collectionFailureReason,
+            ignoredSymbols) ||
+          !collectGuardedDirectSequentialAssignmentTable(
+            *topCond.ifFalse,
+            updateAssignments,
+            &collectionFailureReason,
+            ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      if (updateAssignments.assignments.empty()) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      const auto& resetConditionExpr = *topCond.conditions[0].expr;
+      std::unordered_set<const slang::ast::ValueSymbol*> loweredSymbols;
+      GuardedSequentialConditionNetCache conditionNetCache;
+      for (const auto& resetAssignment : resetAssignments.assignments) {
+        const auto* lhsExpr = resetAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        loweredSymbols.insert(symbol);
+
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        auto resetActionSourceRange = resetAssignment.action.rhs
+          ? getSourceRange(*resetAssignment.action.rhs)
+          : blockSourceRange; // LCOV_EXCL_LINE
+        auto resetBits = buildAssignBits(
+          design,
+          resetAssignment.action,
+          lhsNet,
+          lhsBits,
+          nullptr,
+          resetActionSourceRange);
+        if (resetBits.size() != lhsBits.size()) {
+          failureReason = formatQuotedDescriptionFailure(
+            "failed to lower guarded direct sequential reset assignment for ",
+            describeLHSForDiagnostics(*lhsExpr));
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        if (auto updateIt = updateAssignments.bySymbol.find(symbol);
+            updateIt != updateAssignments.bySymbol.end()) {
+          for (const auto assignmentIndex : updateIt->second) {
+            if (assignmentIndex >= updateAssignments.assignments.size()) {
+              return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+            }
+            if (!applyGuardedDirectSequentialAssignment(
+                  design,
+                  updateAssignments.assignments[assignmentIndex],
+                  assignmentIndex,
+                  *lhsExpr,
+                  lhsNet,
+                  lhsBits,
+                  baseName,
+                  dataBits,
+                  blockSourceRange,
+                  conditionNetCache,
+                  failureReason)) {
+              return DirectSequentialConditionalLowering::Failed;
+            }
+          }
+        }
+
+        if (!emitSequentialConditionalAssignment(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              std::move(dataBits),
+              resetBits,
+              resetConditionExpr,
+              clkNet,
+              clockEdge,
+              asyncResetEventExpr,
+              asyncResetEventEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      for (const auto& updateEntry : updateAssignments.bySymbol) {
+        if (loweredSymbols.contains(updateEntry.first)) {
+          continue;
+        }
+        if (updateEntry.second.empty()) {
+          continue; // LCOV_EXCL_LINE
+        }
+
+        const auto firstAssignmentIndex = updateEntry.second.front();
+        if (firstAssignmentIndex >= updateAssignments.assignments.size()) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        const auto& firstAssignment =
+          updateAssignments.assignments[firstAssignmentIndex];
+        const auto* lhsExpr = firstAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        for (const auto assignmentIndex : updateEntry.second) {
+          if (assignmentIndex >= updateAssignments.assignments.size()) {
+            return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+          }
+          if (!applyGuardedDirectSequentialAssignment(
+                design,
+                updateAssignments.assignments[assignmentIndex],
+                assignmentIndex,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                blockSourceRange,
+                conditionNetCache,
+                failureReason)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialConditionalAssignment(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              std::move(dataBits),
+              lhsBits,
+              resetConditionExpr,
+              clkNet,
+              clockEdge,
+              asyncResetEventExpr,
+              asyncResetEventEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      return DirectSequentialConditionalLowering::Lowered;
+    }
+
     DirectSequentialConditionalLowering lowerSequentialDirectAssignmentConditionalFastPath(
       SNLDesign* design,
       const slang::ast::ConditionalStatement& topCond,
@@ -25401,6 +26042,280 @@ endmodule
               clockEdge,
               asyncResetEventExpr,
               asyncResetEventEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      return DirectSequentialConditionalLowering::Lowered;
+    }
+
+    DirectSequentialConditionalLowering lowerSequentialResetThenGuardedDirectAssignmentListFastPath(
+      SNLDesign* design,
+      const Statement& stmt,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind != slang::ast::StatementKind::List) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      DirectSequentialAssignmentTable resetAssignments;
+      GuardedDirectSequentialAssignmentTable updateAssignments;
+      const Expression* resetConditionExpr = nullptr;
+      std::string collectionFailureReason;
+      bool sawResetStatement = false;
+      std::vector<GuardedSequentialCondition> noGuards;
+      for (const auto* item : current->as<slang::ast::StatementList>().list) {
+        const Statement* itemStmt = item ? unwrapStatement(*item) : nullptr;
+        if (!itemStmt ||
+            isIgnorableSequentialTimingStatement(*itemStmt) ||
+            itemStmt->kind == slang::ast::StatementKind::Empty) {
+          continue;
+        }
+        if (itemStmt->kind == slang::ast::StatementKind::VariableDeclaration) {
+          const auto& declStmt = itemStmt->as<slang::ast::VariableDeclStatement>();
+          if (declStmt.symbol.getInitializer() == nullptr) {
+            continue;
+          }
+        }
+
+        if (!sawResetStatement) {
+          if (itemStmt->kind != slang::ast::StatementKind::Conditional) {
+            return DirectSequentialConditionalLowering::NotApplicable;
+          }
+          const auto& resetCond =
+            itemStmt->as<slang::ast::ConditionalStatement>();
+          if (resetCond.conditions.size() != 1 ||
+              !resetCond.conditions[0].expr ||
+              resetCond.conditions[0].pattern ||
+              resetCond.ifFalse) {
+            return DirectSequentialConditionalLowering::NotApplicable;
+          }
+          if (!collectDirectSequentialAssignmentTable(
+                resetCond.ifTrue,
+                resetAssignments,
+                &collectionFailureReason,
+                ignoredSymbols)) {
+            return DirectSequentialConditionalLowering::NotApplicable;
+          }
+          resetConditionExpr = resetCond.conditions[0].expr;
+          sawResetStatement = true;
+          continue;
+        }
+
+        if (!collectGuardedDirectSequentialAssignments(
+              *itemStmt,
+              updateAssignments,
+              noGuards,
+              &collectionFailureReason,
+              ignoredSymbols)) {
+          return DirectSequentialConditionalLowering::NotApplicable;
+        }
+      }
+
+      if (!sawResetStatement ||
+          !resetConditionExpr ||
+          resetAssignments.assignments.empty()) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      std::unordered_set<const slang::ast::ValueSymbol*> loweredSymbols;
+      GuardedSequentialConditionNetCache conditionNetCache;
+      size_t resetAssignmentIndex = 0;
+      for (const auto& resetAssignment : resetAssignments.assignments) {
+        const auto* lhsExpr = resetAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        loweredSymbols.insert(symbol);
+
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        auto updateIt = updateAssignments.bySymbol.find(symbol);
+        if (updateIt == updateAssignments.bySymbol.end()) {
+          auto resetActionSourceRange = resetAssignment.action.rhs
+            ? getSourceRange(*resetAssignment.action.rhs)
+            : blockSourceRange; // LCOV_EXCL_LINE
+          auto resetBits = buildAssignBits(
+            design,
+            resetAssignment.action,
+            lhsNet,
+            lhsBits,
+            nullptr,
+            resetActionSourceRange);
+          if (resetBits.size() != lhsBits.size()) {
+            failureReason = formatQuotedDescriptionFailure(
+              "failed to lower flat guarded reset assignment for ",
+              describeLHSForDiagnostics(*lhsExpr));
+            return DirectSequentialConditionalLowering::Failed;
+          }
+          std::vector<SNLBitNet*> dataBits = lhsBits;
+          if (!emitSequentialConditionalAssignment(
+                design,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                std::move(dataBits),
+                resetBits,
+                *resetConditionExpr,
+                clkNet,
+                clockEdge,
+                asyncResetEventExpr,
+                asyncResetEventEdge,
+                blockSourceRange,
+                failureReason)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+          ++resetAssignmentIndex;
+          continue;
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        GuardedDirectSequentialAssignment guardedReset{
+          lhsExpr,
+          resetAssignment.action,
+          {GuardedSequentialCondition{resetConditionExpr, true}}
+        };
+        if (!applyGuardedDirectSequentialAssignment(
+              design,
+              guardedReset,
+              resetAssignmentIndex,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              baseName,
+              dataBits,
+              blockSourceRange,
+              conditionNetCache,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+        for (const auto assignmentIndex : updateIt->second) {
+          if (assignmentIndex >= updateAssignments.assignments.size()) {
+            return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+          }
+          if (!applyGuardedDirectSequentialAssignment(
+                design,
+                updateAssignments.assignments[assignmentIndex],
+                assignmentIndex,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                blockSourceRange,
+                conditionNetCache,
+                failureReason)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialDataAssignment(
+              design,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              clkNet,
+              clockEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+        ++resetAssignmentIndex;
+      }
+
+      for (const auto& updateEntry : updateAssignments.bySymbol) {
+        if (loweredSymbols.contains(updateEntry.first)) {
+          continue;
+        }
+        if (updateEntry.second.empty()) {
+          continue; // LCOV_EXCL_LINE
+        }
+
+        const auto firstAssignmentIndex = updateEntry.second.front();
+        if (firstAssignmentIndex >= updateAssignments.assignments.size()) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        const auto& firstAssignment =
+          updateAssignments.assignments[firstAssignmentIndex];
+        const auto* lhsExpr = firstAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        for (const auto assignmentIndex : updateEntry.second) {
+          if (assignmentIndex >= updateAssignments.assignments.size()) {
+            return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+          }
+          if (!applyGuardedDirectSequentialAssignment(
+                design,
+                updateAssignments.assignments[assignmentIndex],
+                assignmentIndex,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                blockSourceRange,
+                conditionNetCache,
+                failureReason)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialDataAssignment(
+              design,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              clkNet,
+              clockEdge,
               blockSourceRange,
               failureReason)) {
           return DirectSequentialConditionalLowering::Failed;
@@ -25565,6 +26480,24 @@ endmodule
 
       const auto& topCond = current->as<slang::ast::ConditionalStatement>();
       switch (lowerSequentialDirectAssignmentConditionalFastPath(
+        design,
+        topCond,
+        clkNet,
+        clockEdge,
+        asyncResetEventExpr,
+        asyncResetEventEdge,
+        blockSourceRange,
+        failureReason,
+        ignoredSymbols)) {
+        case DirectSequentialConditionalLowering::Lowered:
+          return true;
+        case DirectSequentialConditionalLowering::Failed:
+          return false;
+        case DirectSequentialConditionalLowering::NotApplicable:
+          break;
+      }
+
+      switch (lowerSequentialGuardedDirectAssignmentConditionalFastPath(
         design,
         topCond,
         clkNet,
@@ -27395,13 +28328,6 @@ endmodule
         if (stmt && isIgnorableSequentialStatementTree(*stmt)) {
           continue;
         }
-        if (stmt) {
-          warnLargeUninferredMemoryAssignments(
-            *stmt,
-            moduleName,
-            ignoredSequentialSymbolsPtr,
-            uninferredMemoryWarningThreshold);
-        }
 
         SNLBitNet* clkNet = nullptr;
         auto clockEdge = slang::ast::EdgeKind::PosEdge;
@@ -27435,23 +28361,65 @@ endmodule
           continue;
         }
 
+        auto markSequentialBlockLowered = [&]() {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.sequentialBlocksLowered;
+          noteSVPerfProgress();
+#endif
+        };
+
+        auto getTopSequentialStatement = [&](const Statement& root) -> const Statement* {
+          const Statement* current = unwrapStatement(root);
+          while (current && current->kind == slang::ast::StatementKind::List) {
+            const Statement* onlyStatement = nullptr;
+            bool sawMultipleStatements = false;
+            const auto& list = current->as<slang::ast::StatementList>().list;
+            for (const auto* item : list) {
+              const Statement* candidate = item ? unwrapStatement(*item) : nullptr;
+              if (!candidate ||
+                  isIgnorableSequentialTimingStatement(*candidate) ||
+                  candidate->kind == slang::ast::StatementKind::Empty) {
+                continue;
+              }
+              if (candidate->kind == slang::ast::StatementKind::VariableDeclaration) {
+                const auto& declStmt =
+                  candidate->as<slang::ast::VariableDeclStatement>();
+                if (declStmt.symbol.getInitializer() == nullptr) {
+                  continue;
+                }
+              }
+              if (onlyStatement) {
+                sawMultipleStatements = true;
+                break;
+              }
+              onlyStatement = candidate;
+            }
+            if (!onlyStatement || sawMultipleStatements) {
+              return current;
+            }
+            current = onlyStatement;
+          }
+          return current;
+        };
+        const Statement* topSequentialStmt =
+          stmt ? getTopSequentialStatement(*stmt) : nullptr;
+
         AlwaysFFChain chain;
         bool extractedAlwaysFFChain = false;
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeSequentialPerfScopeName("extractAlwaysFFChain"));
 #endif
-          extractedAlwaysFFChain = stmt && extractAlwaysFFChain(*stmt, chain);
+          extractedAlwaysFFChain =
+            topSequentialStmt && extractAlwaysFFChain(*topSequentialStmt, chain);
         }
         if (!extractedAlwaysFFChain) {
           std::string multiAssignFailureReason;
-          if (stmt) {
-            const Statement* current = unwrapStatement(*stmt);
-            if (current &&
-                current->kind == slang::ast::StatementKind::Conditional) {
+          if (topSequentialStmt) {
+            if (topSequentialStmt->kind == slang::ast::StatementKind::Conditional) {
               if (lowerSequentialMultiAssignmentConditional(
                     design,
-                    *stmt,
+                    *topSequentialStmt,
                     clkNet,
                     clockEdge,
                     asyncResetEventExpr,
@@ -27459,19 +28427,55 @@ endmodule
                     statementSourceRange,
                     multiAssignFailureReason,
                     ignoredSequentialSymbolsPtr)) {
+                markSequentialBlockLowered();
                 continue;
               }
-            } else if (
-              lowerSequentialDirectMultiAssignment(
+            } else {
+              bool flatListLoweringFailed = false;
+              switch (lowerSequentialResetThenGuardedDirectAssignmentListFastPath(
                 design,
-                *stmt,
+                *topSequentialStmt,
                 clkNet,
                 clockEdge,
+                asyncResetEventExpr,
+                asyncResetEventEdge,
                 statementSourceRange,
                 multiAssignFailureReason,
                 ignoredSequentialSymbolsPtr)) {
-              continue;
+                case DirectSequentialConditionalLowering::Lowered:
+                  markSequentialBlockLowered();
+                  continue;
+                case DirectSequentialConditionalLowering::Failed:
+                  flatListLoweringFailed = true;
+                  break;
+                case DirectSequentialConditionalLowering::NotApplicable:
+                  break;
+              }
+              if (flatListLoweringFailed) {
+                // Leave multiAssignFailureReason intact for the unsupported
+                // diagnostic below; this path may have partially materialized
+                // nets before detecting an internal lowering mismatch.
+              } else {
+                if (lowerSequentialDirectMultiAssignment(
+                      design,
+                      *topSequentialStmt,
+                      clkNet,
+                      clockEdge,
+                      statementSourceRange,
+                      multiAssignFailureReason,
+                      ignoredSequentialSymbolsPtr)) {
+                  markSequentialBlockLowered();
+                  continue;
+                }
+              }
             }
+          }
+          if (stmt) {
+            warnLargeUninferredMemoryAssignments(
+              *stmt,
+              moduleName,
+              ignoredSequentialSymbolsPtr,
+              uninferredMemoryWarningThreshold);
           }
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
@@ -27484,6 +28488,13 @@ endmodule
         }
         if (shouldIgnoreTrackedLHS(chain.lhs, ignoredSequentialSymbolsPtr)) {
           continue;
+        }
+        if (stmt) {
+          warnLargeUninferredMemoryAssignments(
+            *stmt,
+            moduleName,
+            ignoredSequentialSymbolsPtr,
+            uninferredMemoryWarningThreshold);
         }
         const bool explicitHoldDefault =
           chain.hasDefault &&

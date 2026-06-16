@@ -22012,6 +22012,140 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentWideGuardedDirectBlockSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_wide_guarded_direct_block_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_wide_guarded_direct_block_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module seq_multi_assignment_wide_guarded_direct_block_supported(\n"
+    << "  input  logic        clk,\n"
+    << "  input  logic        rst,\n"
+    << "  input  logic        en,\n"
+    << "  input  logic [15:0] d,\n"
+    << "  output logic [15:0] q\n"
+    << ");\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "  logic q_" << i << ";\n"
+           << "  assign q[" << i << "] = q_" << i << ";\n";
+  }
+  svFile
+    << "  always_ff @(posedge clk or posedge rst) begin\n"
+    << "    if (rst) begin\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "      q_" << i << " <= 1'b0;\n";
+  }
+  svFile
+    << "    end else begin\n"
+    << "      if (en) begin\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "        q_" << i << " <= d[" << i << "];\n";
+  }
+  svFile
+    << "      end\n"
+    << "    end\n"
+    << "  end\n"
+    << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_wide_guarded_direct_block_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(16u, countDFFRBits(top));
+  EXPECT_EQ(16u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedDirectBlockWithUnresetRegSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported",
+    R"(module seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d,
+  output logic q,
+  output logic u
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+    end else begin
+      if (en) begin
+        q <= d;
+        u <= d;
+      end
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(1u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
+  EXPECT_EQ(3u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentFlatResetThenGuardedDirectSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_flat_reset_then_guarded_direct_supported",
+    R"(module seq_multi_assignment_flat_reset_then_guarded_direct_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d,
+  output logic q,
+  output logic r,
+  output logic u
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+      r <= 1'b0;
+    end
+    if (en) begin
+      q <= d;
+      u <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_flat_reset_then_guarded_direct_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(2u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
+  EXPECT_EQ(3u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultiAssignmentNestedGuardedBlockSkipsUnrelatedBranches) {
   // Generated reset/update blocks can contain a shared synchronous branch that
   // touches every register and an else branch with many one-register guarded
