@@ -3345,8 +3345,10 @@ endmodule
     top,
     "generated_genvar_equality_uses_elaborated_index_dump");
   const auto dumpedText = readTextFile(dumpedVerilog);
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+  EXPECT_NE(std::string::npos, dumpedText.find("not ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("and ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[1]"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombForSizedCastIndexEqualitySupported) {
@@ -3386,8 +3388,10 @@ endmodule
     top,
     "always_comb_for_sized_cast_index_equality_dump");
   const auto dumpedText = readTextFile(dumpedVerilog);
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+  EXPECT_NE(std::string::npos, dumpedText.find("not ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("and ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[1]"));
 }
 
 TEST_F(
@@ -11623,8 +11627,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
   }
 
   EXPECT_EQ(3u, andGateCount);
-  EXPECT_EQ(9u, xnorGateCount);
-  EXPECT_EQ(1u, assignCount);
+  EXPECT_EQ(5u, xnorGateCount);
+  EXPECT_EQ(4u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -11675,9 +11679,9 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
   }
 
   EXPECT_EQ(3u, andGateCount);
-  EXPECT_EQ(9u, xnorGateCount);
-  EXPECT_EQ(4u, notGateCount);
-  EXPECT_EQ(1u, assignCount);
+  EXPECT_EQ(5u, xnorGateCount);
+  EXPECT_EQ(5u, notGateCount);
+  EXPECT_EQ(4u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -11732,7 +11736,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualityMemberAccessSupported)
     }
   }
   EXPECT_EQ(1u, andGateCount);
-  EXPECT_EQ(2u, xnorGateCount);
+  EXPECT_EQ(0u, xnorGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_member_access_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -16892,16 +16896,17 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_case_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t xnorGateCount = 0;
+  size_t compareGateCount = 0;
   for (auto inst : top->getInstances()) {
     if (!NLDB0::isGate(inst->getModel())) {
       continue;
     }
-    if (NLDB0::getGateName(inst->getModel()) == "xnor") {
-      ++xnorGateCount;
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "xnor" || gateName == "and" || gateName == "not") {
+      ++compareGateCount;
     }
   }
-  EXPECT_GT(xnorGateCount, 0u);
+  EXPECT_GT(compareGateCount, 0u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_comb_case_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -28098,6 +28103,109 @@ endmodule
   EXPECT_EQ(5u, countDFFREBits(top));
   EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRE));
   EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentDirectResetUpdateFastPathSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_direct_reset_update_fast_path_supported",
+    R"(module seq_multi_assignment_direct_reset_update_fast_path_supported(
+  input  logic clock,
+  input  logic reset,
+  input  logic a,
+  input  logic b,
+  output logic y
+);
+  logic r0, r1, r2, r3;
+
+  always_ff @(posedge clock or posedge reset) begin
+    if (reset) begin
+      r0 <= 1'b0;
+      r1 <= 1'b0;
+      r2 <= 1'b1;
+      r3 <= 1'b0;
+    end else begin
+      r0 <= a;
+      r1 <= r0;
+      r2 <= r1 | b;
+      r3 <= r2;
+    end
+  end
+
+  assign y = r3;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_direct_reset_update_fast_path_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(3u, countDFFREBits(top));
+  EXPECT_EQ(1u, countDFFSEBits(top));
+  EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialDirectUpdateSharesRepeatedEqualityCone) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_update_shares_repeated_equality_cone",
+    R"(module seq_direct_update_shares_repeated_equality_cone(
+  input  logic       clock,
+  input  logic       reset,
+  input  logic [3:0] source,
+  output logic       y
+);
+  logic r0, r1;
+
+  always_ff @(posedge clock or posedge reset) begin
+    if (reset) begin
+      r0 <= 1'b0;
+      r1 <= 1'b0;
+    end else begin
+      r0 <= source == 4'd3;
+      r1 <= source == 4'd3;
+    end
+  end
+
+  assign y = r0 | r1;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_direct_update_shares_repeated_equality_cone"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t notGateCount = 0;
+  size_t xnorGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model || !NLDB0::isGate(model)) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(model);
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+
+  EXPECT_EQ(2u, countDFFREBits(top));
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(2u, notGateCount);
+  EXPECT_EQ(0u, xnorGateCount);
 }
 
 TEST_F(

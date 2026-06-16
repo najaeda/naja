@@ -967,6 +967,7 @@ class SNLSVConstructorImpl {
       unsupportedElements_.clear();
       warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
+      gateOutputCache_.clear();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot(true);
 #endif
@@ -14284,39 +14285,75 @@ endmodule
         return false;
       }
 
-      std::vector<SNLNet*> xnorBits;
-      xnorBits.reserve(compareWidth);
-      for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
-        auto* xnorBit = SNLScalarNet::create(design);
-        annotateSourceInfo(xnorBit, sourceRange);
-        auto xnorOut = createBinaryGate(
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto makeBitEquals = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        if (leftBit == rightBit) {
+          return const1;
+        }
+        if ((leftBit == const0 && rightBit == const1) ||
+            (leftBit == const1 && rightBit == const0)) {
+          return const0;
+        }
+        if (leftBit == const0) {
+          return createNotBitGate(design, rightBit, sourceRange);
+        }
+        if (rightBit == const0) {
+          return createNotBitGate(design, leftBit, sourceRange);
+        }
+        if (leftBit == const1) {
+          return rightBit;
+        }
+        if (rightBit == const1) {
+          return leftBit;
+        }
+        return getSingleBitNet(createBinaryGate(
           design,
           NLDB0::GateType(NLDB0::GateType::Xnor),
-          leftBits[bitIndex],
-          rightBits[bitIndex],
-          xnorBit,
-          sourceRange);
-        if (!xnorOut) {
+          leftBit,
+          rightBit,
+          nullptr,
+          sourceRange));
+      };
+
+      std::vector<SNLNet*> bitEquals;
+      bitEquals.reserve(compareWidth);
+      for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
+        auto* bitEqualsNet = makeBitEquals(leftBits[bitIndex], rightBits[bitIndex]);
+        if (!bitEqualsNet) {
           return false; // LCOV_EXCL_LINE
         }
-        xnorBits.push_back(xnorOut);
+        if (bitEqualsNet == const0) {
+          createAssignInstance(design, const0, lhsBit, sourceRange);
+          return true;
+        }
+        if (bitEqualsNet != const1) {
+          bitEquals.push_back(bitEqualsNet);
+        }
       }
 
-      if (xnorBits.size() == 1) {
-        createAssignInstance(design, xnorBits.front(), lhsBit, sourceRange);
+      if (bitEquals.empty()) {
+        createAssignInstance(design, const1, lhsBit, sourceRange);
+        return true;
+      }
+      if (bitEquals.size() == 1) {
+        createAssignInstance(design, bitEquals.front(), lhsBit, sourceRange);
         return true;
       }
 
-      SNLNet* andOut = lhsBit;
-      if (!createGateInstance(
+      auto* equalityBit = createGateOutput(
             design,
             NLDB0::GateType(NLDB0::GateType::And),
-            xnorBits,
-            andOut,
-            sourceRange) ||
-          !andOut) {
+            bitEquals,
+            nullptr,
+            sourceRange);
+      if (!equalityBit) {
         return false; // LCOV_EXCL_LINE
       }
+      createAssignInstance(design, equalityBit, lhsBit, sourceRange);
       return true;
     }
 
@@ -15936,6 +15973,61 @@ endmodule
     }
 
 
+    struct GateOutputCacheKey {
+      SNLDesign* design {nullptr};
+      std::string gateType {};
+      std::vector<SNLNet*> inputs {};
+
+      bool operator==(const GateOutputCacheKey& other) const {
+        return design == other.design &&
+               gateType == other.gateType &&
+               inputs == other.inputs;
+      }
+    };
+
+    struct GateOutputCacheKeyHash {
+      size_t operator()(const GateOutputCacheKey& key) const noexcept {
+        size_t hashValue = std::hash<SNLDesign*>{}(key.design);
+        hashValue =
+          SNLSVConstructorImpl::hashCombine(hashValue, std::hash<std::string>{}(key.gateType));
+        for (auto* input : key.inputs) {
+          hashValue =
+            SNLSVConstructorImpl::hashCombine(hashValue, std::hash<SNLNet*>{}(input));
+        }
+        return hashValue;
+      }
+    };
+
+    SNLNet* createGateOutput(
+      SNLDesign* design,
+      const NLDB0::GateType& type,
+      const std::vector<SNLNet*>& inputs,
+      SNLBitNet* outNet = nullptr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (inputs.empty()) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      if (!outNet) {
+        GateOutputCacheKey key {design, type.getString(), inputs};
+        if (auto cacheIt = gateOutputCache_.find(key);
+            cacheIt != gateOutputCache_.end()) {
+          return cacheIt->second;
+        }
+
+        SNLNet* gateOutNet = nullptr;
+        if (!createGateInstance(design, type, inputs, gateOutNet, sourceRange) ||
+            !gateOutNet) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        gateOutputCache_.emplace(std::move(key), gateOutNet);
+        return gateOutNet;
+      }
+
+      SNLNet* gateOutNet = outNet;
+      createGateInstance(design, type, inputs, gateOutNet, sourceRange);
+      return gateOutNet;
+    }
+
     SNLNet* createBinaryGate(
       SNLDesign* design,
       const NLDB0::GateType& type,
@@ -15943,10 +16035,7 @@ endmodule
       SNLNet* in1,
       SNLBitNet* outNet = nullptr,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      std::vector<SNLNet*> inputs { in0, in1 };
-      SNLNet* gateOutNet = outNet;
-      createGateInstance(design, type, inputs, gateOutNet, sourceRange);
-      return gateOutNet;
+      return createGateOutput(design, type, std::vector<SNLNet*> { in0, in1 }, outNet, sourceRange);
     }
 
     SNLNet* createUnaryGate(
@@ -15955,10 +16044,7 @@ endmodule
       SNLNet* in0,
       SNLBitNet* outNet = nullptr,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      std::vector<SNLNet*> inputs { in0 };
-      SNLNet* gateOutNet = outNet;
-      createGateInstance(design, type, inputs, gateOutNet, sourceRange);
-      return gateOutNet;
+      return createGateOutput(design, type, std::vector<SNLNet*> { in0 }, outNet, sourceRange);
     }
 
     SNLBitNet* createAndBitGate(
@@ -16211,6 +16297,22 @@ endmodule
       std::vector<std::pair<std::string, int64_t>> loopNameConstants {};
       int8_t stepDelta {0};
       std::optional<slang::ast::BinaryOperator> compoundOp {};
+    };
+
+    struct DirectSequentialAssignment {
+      const Expression* lhs {nullptr};
+      AssignAction action {};
+    };
+
+    struct DirectSequentialAssignmentTable {
+      std::vector<DirectSequentialAssignment> assignments {};
+      std::unordered_map<const slang::ast::ValueSymbol*, size_t> bySymbol {};
+    };
+
+    enum class DirectSequentialConditionalLowering {
+      NotApplicable,
+      Lowered,
+      Failed
     };
 
     struct AlwaysFFChain {
@@ -19095,6 +19197,67 @@ endmodule
              << current->kind << ")";
       setFailureReason(reason.str());
       return false;
+    }
+
+    bool tryGetDirectSequentialAssignmentSymbol(
+      const Expression& lhsExpr,
+      const slang::ast::ValueSymbol*& symbol) const {
+      if (!isIntegralNamedLHS(&lhsExpr)) {
+        return false;
+      }
+      return tryGetValueSymbolReference(lhsExpr, symbol);
+    }
+
+    bool collectDirectSequentialAssignmentTable(
+      const Statement& stmt,
+      DirectSequentialAssignmentTable& table,
+      std::string* failureReason = nullptr,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      std::vector<std::pair<const Expression*, AssignAction>> directAssignments;
+      if (!collectDirectAssignments(stmt, directAssignments, failureReason)) {
+        return false;
+      }
+
+      table.assignments.clear();
+      table.bySymbol.clear();
+      table.assignments.reserve(directAssignments.size());
+      table.bySymbol.reserve(directAssignments.size());
+      for (const auto& [lhsExpr, action] : directAssignments) {
+        if (!lhsExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
+          continue;
+        }
+        if (action.stepDelta != 0 || action.compoundOp || !action.rhs) {
+          setFailureReason(
+            "direct sequential fast path supports only simple assignment actions");
+          return false;
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          setFailureReason(formatDescribedFailure(
+            "direct sequential fast path supports only integral named LHS targets: ",
+            describeExpression(*lhsExpr)));
+          return false;
+        }
+        const auto assignmentIndex = table.assignments.size();
+        const auto insertResult = table.bySymbol.emplace(symbol, assignmentIndex);
+        if (!insertResult.second) {
+          setFailureReason(formatDescribedFailure(
+            "direct sequential fast path does not support duplicate LHS target: ",
+            describeExpression(*lhsExpr)));
+          return false;
+        }
+        table.assignments.push_back(DirectSequentialAssignment{lhsExpr, action});
+      }
+      return true;
     }
 
     bool getSingleLHSFallbackPathAssignmentMax(
@@ -24649,6 +24812,421 @@ endmodule
       return true;
     }
 
+    bool buildSequentialIncrementerBitsIfNeeded(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::string& baseName,
+      const AssignAction& action,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::vector<SNLBitNet*>& incrementerBits) {
+      if (!needsIncrementerForAction(design, lhsNet, action)) {
+        return true;
+      }
+      auto incNet = getOrCreateNamedNet(
+        design,
+        joinName("inc", baseName),
+        lhsNet,
+        sourceRange);
+      auto incBits = collectBits(incNet);
+      auto incCarryNet = getOrCreateNamedNet(
+        design,
+        joinName("inc_carry", baseName),
+        lhsNet,
+        sourceRange);
+      auto carryBits = collectBits(incCarryNet);
+      incrementerBits = buildIncrementer(
+        design,
+        lhsBits,
+        incBits,
+        carryBits,
+        sourceRange);
+      return !incrementerBits.empty();
+    }
+
+    bool emitSequentialConditionalAssignment(
+      SNLDesign* design,
+      const Expression& lhsExpr,
+      SNLNet* lhsNet,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*> dataBits,
+      const std::vector<SNLBitNet*>& resetBits,
+      const Expression& resetConditionExpr,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason) {
+      if (lhsBits.empty() ||
+          dataBits.size() != lhsBits.size() ||
+          resetBits.size() != lhsBits.size()) {
+        failureReason = formatQuotedDescriptionFailure(
+          "sequential conditional assignment width mismatch for ",
+          describeLHSForDiagnostics(lhsExpr));
+        return false;
+      }
+
+      auto baseName = getExpressionBaseName(lhsExpr);
+      // LCOV_EXCL_START
+      if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+        baseName = lhsNet->getName().getString();
+      }
+      // LCOV_EXCL_STOP
+
+      auto resetSourceRange = getSourceRange(resetConditionExpr);
+      bool useAsyncResetDFFRN = false;
+      bool useAsyncResetDFFRE = false;
+      bool useAsyncResetDFFSE = false;
+      SNLBitNet* asyncResetControlNet = nullptr;
+      if (asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
+        auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        bool resetToZero = true;
+        bool resetToOne = true;
+        for (auto* bit : resetBits) {
+          if (bit != constZero) {
+            resetToZero = false;
+          }
+          if (bit != constOne) {
+            resetToOne = false;
+          }
+          if (!resetToZero && !resetToOne) {
+            break;
+          }
+        }
+        auto* candidateResetNet =
+          getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
+        if (candidateResetNet) {
+          if (*asyncResetEventEdge == slang::ast::EdgeKind::NegEdge &&
+              resetToZero &&
+              NLDB0::getDFFRN() &&
+              isActiveLowResetConditionForSignal(
+                resetConditionExpr,
+                *asyncResetEventExpr)) {
+            asyncResetControlNet = candidateResetNet;
+            useAsyncResetDFFRN = true;
+          } else if (
+            *asyncResetEventEdge == slang::ast::EdgeKind::PosEdge &&
+            isActiveHighResetConditionForSignal(
+              resetConditionExpr,
+              *asyncResetEventExpr)) {
+            if (resetToZero && NLDB0::getDFFRE()) {
+              asyncResetControlNet = candidateResetNet;
+              useAsyncResetDFFRE = true;
+            } else if (resetToOne && NLDB0::getDFFSE()) {
+              asyncResetControlNet = candidateResetNet;
+              useAsyncResetDFFSE = true;
+            }
+          }
+        }
+      }
+
+      if (!useAsyncResetDFFRN && !useAsyncResetDFFRE && !useAsyncResetDFFSE) {
+        auto* resetNet = resolveConditionNet(
+          design,
+          resetConditionExpr,
+          joinName("rst", baseName),
+          resetSourceRange);
+        if (!resetNet) {
+          std::ostringstream reason;
+          reason << "unable to resolve reset condition net for '"
+                 << describeLHSForDiagnostics(lhsExpr) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+        std::vector<SNLBitNet*> rstBits;
+        if (!createMux2Instance(
+              design,
+              resetNet,
+              dataBits,
+              resetBits,
+              rstBits,
+              resetSourceRange)) {
+          // createMux2Instance should be total here after width validation;
+          // keep this as defensive reporting for internal construction
+          // failures rather than a parser-reachable lowering branch.
+          // LCOV_EXCL_START
+          failureReason = formatQuotedDescriptionFailure(
+            "unable to build reset mux for ",
+            describeLHSForDiagnostics(lhsExpr));
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        dataBits = std::move(rstBits);
+      }
+
+      auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+      bool emittedVectorSequential = false;
+      if (lhsBits.size() > 1) {
+        const auto width = lhsBits.size();
+        if (useAsyncResetDFFRN) {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFFRN(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange,
+            asyncResetControlNet,
+            "RN");
+        } else if (useAsyncResetDFFRE) {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFFRE(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange,
+            constEnableOne,
+            "E",
+            asyncResetControlNet,
+            "R");
+        } else if (useAsyncResetDFFSE) {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFFSE(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange,
+            constEnableOne,
+            "E",
+            asyncResetControlNet,
+            "S");
+        } else if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFFN(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange);
+        } else {
+          emittedVectorSequential = createVectorSequentialInstance(
+            design,
+            NLDB0::getOrCreateDFF(width),
+            clkNet,
+            "C",
+            dataBits,
+            lhsBits,
+            blockSourceRange);
+        }
+      }
+      if (!emittedVectorSequential) {
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (useAsyncResetDFFRN) {
+            createDFFRNInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              asyncResetControlNet,
+              lhsBits[i],
+              blockSourceRange);
+          } else if (useAsyncResetDFFRE) {
+            createDFFREInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              constEnableOne,
+              asyncResetControlNet,
+              lhsBits[i],
+              blockSourceRange);
+          } else if (useAsyncResetDFFSE) {
+            createDFFSEInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              constEnableOne,
+              asyncResetControlNet,
+              lhsBits[i],
+              blockSourceRange);
+          } else {
+            if (clockEdge == slang::ast::EdgeKind::NegEdge) {
+              createDFFNInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                lhsBits[i],
+                blockSourceRange);
+            } else {
+              createDFFInstance(
+                design,
+                clkNet,
+                dataBits[i],
+                lhsBits[i],
+                blockSourceRange);
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    DirectSequentialConditionalLowering lowerSequentialDirectAssignmentConditionalFastPath(
+      SNLDesign* design,
+      const slang::ast::ConditionalStatement& topCond,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      if (topCond.conditions.size() != 1 ||
+          !topCond.conditions[0].expr ||
+          topCond.conditions[0].pattern ||
+          !topCond.ifFalse) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      DirectSequentialAssignmentTable resetAssignments;
+      DirectSequentialAssignmentTable updateAssignments;
+      std::string directCollectionFailureReason;
+      if (!collectDirectSequentialAssignmentTable(
+            topCond.ifTrue,
+            resetAssignments,
+            &directCollectionFailureReason,
+            ignoredSymbols) ||
+          !collectDirectSequentialAssignmentTable(
+            *topCond.ifFalse,
+            updateAssignments,
+            &directCollectionFailureReason,
+            ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      if (resetAssignments.assignments.empty()) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      for (const auto& updateEntry : updateAssignments.bySymbol) {
+        const auto* symbol = updateEntry.first;
+        if (!resetAssignments.bySymbol.contains(symbol)) {
+          return DirectSequentialConditionalLowering::NotApplicable;
+        }
+      }
+
+      const auto& resetConditionExpr = *topCond.conditions[0].expr;
+      auto getActionSourceRange = [&](const AssignAction& action) {
+        if (action.rhs) {
+          return getSourceRange(*action.rhs);
+        }
+        return blockSourceRange; // LCOV_EXCL_LINE
+      };
+
+      for (const auto& resetAssignment : resetAssignments.assignments) {
+        const auto* lhsExpr = resetAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        std::vector<SNLBitNet*> resetIncrementerBits;
+        if (!buildSequentialIncrementerBitsIfNeeded(
+              design,
+              lhsNet,
+              lhsBits,
+              baseName,
+              resetAssignment.action,
+              blockSourceRange,
+              resetIncrementerBits)) {
+          failureReason = formatQuotedDescriptionFailure(
+            "failed to build reset incrementer for ",
+            describeLHSForDiagnostics(*lhsExpr));
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        auto resetBits = buildAssignBits(
+          design,
+          resetAssignment.action,
+          lhsNet,
+          lhsBits,
+          resetIncrementerBits.empty() ? nullptr : &resetIncrementerBits,
+          getActionSourceRange(resetAssignment.action));
+        if (resetBits.size() != lhsBits.size()) {
+          failureReason = formatQuotedDescriptionFailure(
+            "failed to lower direct sequential reset assignment for ",
+            describeLHSForDiagnostics(*lhsExpr));
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        if (auto updateIt = updateAssignments.bySymbol.find(symbol);
+            updateIt != updateAssignments.bySymbol.end()) {
+          const auto& updateAssignment =
+            updateAssignments.assignments[updateIt->second];
+          std::vector<SNLBitNet*> dataIncrementerBits;
+          if (!buildSequentialIncrementerBitsIfNeeded(
+                design,
+                lhsNet,
+                lhsBits,
+                baseName,
+                updateAssignment.action,
+                blockSourceRange,
+                dataIncrementerBits)) {
+            failureReason = formatQuotedDescriptionFailure(
+              "failed to build update incrementer for ",
+              describeLHSForDiagnostics(*lhsExpr));
+            return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+          }
+          dataBits = buildAssignBits(
+            design,
+            updateAssignment.action,
+            lhsNet,
+            lhsBits,
+            dataIncrementerBits.empty() ? nullptr : &dataIncrementerBits,
+            getActionSourceRange(updateAssignment.action));
+          if (dataBits.size() != lhsBits.size()) {
+            failureReason = formatQuotedDescriptionFailure(
+              "failed to lower direct sequential update assignment for ",
+              describeLHSForDiagnostics(*lhsExpr));
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialConditionalAssignment(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              std::move(dataBits),
+              resetBits,
+              resetConditionExpr,
+              clkNet,
+              clockEdge,
+              asyncResetEventExpr,
+              asyncResetEventEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      return DirectSequentialConditionalLowering::Lowered;
+    }
+
     bool lowerSequentialMultiAssignmentConditional(
       SNLDesign* design,
       const Statement& stmt,
@@ -24670,6 +25248,24 @@ endmodule
       // LCOV_EXCL_STOP
 
       const auto& topCond = current->as<slang::ast::ConditionalStatement>();
+      switch (lowerSequentialDirectAssignmentConditionalFastPath(
+        design,
+        topCond,
+        clkNet,
+        clockEdge,
+        asyncResetEventExpr,
+        asyncResetEventEdge,
+        blockSourceRange,
+        failureReason,
+        ignoredSymbols)) {
+        case DirectSequentialConditionalLowering::Lowered:
+          return true;
+        case DirectSequentialConditionalLowering::Failed:
+          return false;
+        case DirectSequentialConditionalLowering::NotApplicable:
+          break;
+      }
+
       std::unordered_set<const slang::ast::ValueSymbol*> suppressedBaseTrackingSymbols;
       if (topCond.ifFalse) {
         collectSequentialFallbackBaseTrackingSuppressedSymbols(
@@ -24900,7 +25496,6 @@ endmodule
           }
         }
 
-        auto resetSourceRange = getSourceRange(*topCond.conditions[0].expr);
         std::vector<SNLBitNet*> resetBits = lhsBits;
         std::vector<SNLBitNet*> resetIncrementerBits;
         size_t resetTempIndex = 0;
@@ -24919,194 +25514,21 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
 
-        bool useAsyncResetDFFRN = false;
-        bool useAsyncResetDFFRE = false;
-        bool useAsyncResetDFFSE = false;
-        SNLBitNet* asyncResetControlNet = nullptr;
-        if (asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
-          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
-          auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-          bool resetToZero = true;
-          bool resetToOne = true;
-          for (auto* bit : resetBits) {
-            if (bit != constZero) {
-              resetToZero = false;
-            }
-            if (bit != constOne) {
-              resetToOne = false;
-            }
-            if (!resetToZero && !resetToOne) {
-              break;
-            }
-          }
-          auto* candidateResetNet =
-            getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
-          if (candidateResetNet) {
-            if (*asyncResetEventEdge == slang::ast::EdgeKind::NegEdge &&
-                resetToZero &&
-                NLDB0::getDFFRN() &&
-                isActiveLowResetConditionForSignal(
-                  *topCond.conditions[0].expr,
-                  *asyncResetEventExpr)) {
-              asyncResetControlNet = candidateResetNet;
-              useAsyncResetDFFRN = true;
-            } else if (
-              *asyncResetEventEdge == slang::ast::EdgeKind::PosEdge &&
-              isActiveHighResetConditionForSignal(
-                *topCond.conditions[0].expr,
-                *asyncResetEventExpr)) {
-              if (resetToZero && NLDB0::getDFFRE()) {
-                asyncResetControlNet = candidateResetNet;
-                useAsyncResetDFFRE = true;
-              } else if (resetToOne && NLDB0::getDFFSE()) {
-                asyncResetControlNet = candidateResetNet;
-                useAsyncResetDFFSE = true;
-              }
-            }
-          }
-        }
-
-        if (!useAsyncResetDFFRN && !useAsyncResetDFFRE && !useAsyncResetDFFSE) {
-          auto* resetNet = resolveConditionNet(
-            design,
-            *topCond.conditions[0].expr,
-            joinName("rst", baseName),
-            resetSourceRange);
-          if (!resetNet) {
-            std::ostringstream reason;
-            reason << "unable to resolve reset condition net for '"
-                   << describeLHSForDiagnostics(*lhsExpr) << "'";
-            failureReason = reason.str();
-            return false;
-          }
-          std::vector<SNLBitNet*> rstBits;
-          if (!createMux2Instance(
-                design,
-                resetNet,
-                dataBits,
-                resetBits,
-                rstBits,
-                resetSourceRange)) {
-            // createMux2Instance should be total here after width validation;
-            // keep this as defensive reporting for internal construction
-            // failures rather than a parser-reachable lowering branch.
-            // LCOV_EXCL_START
-            failureReason = formatQuotedDescriptionFailure(
-              "unable to build reset mux for ",
-              describeLHSForDiagnostics(*lhsExpr));
-            return false;
-            // LCOV_EXCL_STOP
-          }
-          dataBits = std::move(rstBits);
-        }
-
-        auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-        bool emittedVectorSequential = false;
-        if (lhsBits.size() > 1) {
-          const auto width = lhsBits.size();
-          if (useAsyncResetDFFRN) {
-            emittedVectorSequential = createVectorSequentialInstance(
+        if (!emitSequentialConditionalAssignment(
               design,
-              NLDB0::getOrCreateDFFRN(width),
-              clkNet,
-              "C",
-              dataBits,
+              *lhsExpr,
+              lhsNet,
               lhsBits,
+              std::move(dataBits),
+              resetBits,
+              *topCond.conditions[0].expr,
+              clkNet,
+              clockEdge,
+              asyncResetEventExpr,
+              asyncResetEventEdge,
               blockSourceRange,
-              asyncResetControlNet,
-              "RN");
-          } else if (useAsyncResetDFFRE) {
-            emittedVectorSequential = createVectorSequentialInstance(
-              design,
-              NLDB0::getOrCreateDFFRE(width),
-              clkNet,
-              "C",
-              dataBits,
-              lhsBits,
-              blockSourceRange,
-              constEnableOne,
-              "E",
-              asyncResetControlNet,
-              "R");
-          } else if (useAsyncResetDFFSE) {
-            emittedVectorSequential = createVectorSequentialInstance(
-              design,
-              NLDB0::getOrCreateDFFSE(width),
-              clkNet,
-              "C",
-              dataBits,
-              lhsBits,
-              blockSourceRange,
-              constEnableOne,
-              "E",
-              asyncResetControlNet,
-              "S");
-          } else if (clockEdge == slang::ast::EdgeKind::NegEdge) {
-            emittedVectorSequential = createVectorSequentialInstance(
-              design,
-              NLDB0::getOrCreateDFFN(width),
-              clkNet,
-              "C",
-              dataBits,
-              lhsBits,
-              blockSourceRange);
-          } else {
-            emittedVectorSequential = createVectorSequentialInstance(
-              design,
-              NLDB0::getOrCreateDFF(width),
-              clkNet,
-              "C",
-              dataBits,
-              lhsBits,
-              blockSourceRange);
-          }
-        }
-        if (!emittedVectorSequential) {
-          for (size_t i = 0; i < lhsBits.size(); ++i) {
-            if (useAsyncResetDFFRN) {
-              createDFFRNInstance(
-                design,
-                clkNet,
-                dataBits[i],
-                asyncResetControlNet,
-                lhsBits[i],
-                blockSourceRange);
-            } else if (useAsyncResetDFFRE) {
-              createDFFREInstance(
-                design,
-                clkNet,
-                dataBits[i],
-                constEnableOne,
-                asyncResetControlNet,
-                lhsBits[i],
-                blockSourceRange);
-            } else if (useAsyncResetDFFSE) {
-              createDFFSEInstance(
-                design,
-                clkNet,
-                dataBits[i],
-                constEnableOne,
-                asyncResetControlNet,
-                lhsBits[i],
-                blockSourceRange);
-            } else {
-              if (clockEdge == slang::ast::EdgeKind::NegEdge) {
-                createDFFNInstance(
-                  design,
-                  clkNet,
-                  dataBits[i],
-                  lhsBits[i],
-                  blockSourceRange);
-              } else {
-                createDFFInstance(
-                  design,
-                  clkNet,
-                  dataBits[i],
-                  lhsBits[i],
-                  blockSourceRange);
-              }
-            }
-          }
+              failureReason)) {
+          return false;
         }
       }
 
@@ -28337,6 +28759,8 @@ endmodule
       std::vector<SNLBitNet*>,
       DynamicElementSelectCacheKeyHash>
       dynamicElementSelectCache_ {};
+    std::unordered_map<GateOutputCacheKey, SNLNet*, GateOutputCacheKeyHash>
+      gateOutputCache_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
