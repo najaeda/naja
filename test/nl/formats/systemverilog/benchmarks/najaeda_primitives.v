@@ -78,6 +78,34 @@ module naja_dffrn #(
   end
 endmodule
 
+module naja_dffr #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire R,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge R) begin
+    if (R) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffs #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire S,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge S) begin
+    if (S) Q <= {WIDTH{1'b1}};
+    else Q <= D;
+  end
+endmodule
+
 module naja_dffe #(
   parameter WIDTH = 1
 ) (

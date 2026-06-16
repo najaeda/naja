@@ -242,6 +242,8 @@ class SNLVRLDumper {
     void dumpNajaDLatchModel(std::ostream& o);
     void dumpNajaDFFNModel(std::ostream& o);
     void dumpNajaDFFRNModel(std::ostream& o);
+    void dumpNajaDFFRModel(std::ostream& o);
+    void dumpNajaDFFSModel(std::ostream& o);
     void dumpNajaDFFEModel(std::ostream& o);
     void dumpNajaDFFREModel(std::ostream& o);
     void dumpNajaDFFSEModel(std::ostream& o);

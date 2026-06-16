@@ -48,6 +48,8 @@ bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
           naja::NL::NLDB0::isDFF(design) ||
           naja::NL::NLDB0::isDFFN(design) ||
           naja::NL::NLDB0::isDFFRN(design) ||
+          naja::NL::NLDB0::isDFFR(design) ||
+          naja::NL::NLDB0::isDFFS(design) ||
           naja::NL::NLDB0::isDFFE(design) ||
           naja::NL::NLDB0::isDFFRE(design) ||
           naja::NL::NLDB0::isDFFSE(design));
@@ -60,6 +62,8 @@ naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* de
   if (naja::NL::NLDB0::isDFF(design) ||
       naja::NL::NLDB0::isDFFN(design) ||
       naja::NL::NLDB0::isDFFRN(design) ||
+      naja::NL::NLDB0::isDFFR(design) ||
+      naja::NL::NLDB0::isDFFS(design) ||
       naja::NL::NLDB0::isDFFE(design) ||
       naja::NL::NLDB0::isDFFRE(design) ||
       naja::NL::NLDB0::isDFFSE(design)) {

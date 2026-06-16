@@ -37,6 +37,8 @@ namespace {
   constexpr naja::NL::NLID::LibraryID DivModLibraryID = 10;
   constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 11;
   constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 12;
+  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 13;
+  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 14;
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -66,6 +68,10 @@ namespace {
   constexpr const char* DFFNPrefix = "naja_dffn__w";
   constexpr const char* DFFRNName = "naja_dffrn";
   constexpr const char* DFFRNPrefix = "naja_dffrn__w";
+  constexpr const char* DFFRName = "naja_dffr";
+  constexpr const char* DFFRPrefix = "naja_dffr__w";
+  constexpr const char* DFFSName = "naja_dffs";
+  constexpr const char* DFFSPrefix = "naja_dffs__w";
   constexpr const char* DFFEName = "naja_dffe";
   constexpr const char* DFFEPrefix = "naja_dffe__w";
   constexpr const char* DFFREName = "naja_dffre";
@@ -513,6 +519,38 @@ namespace {
     SNLDesignModeling::addInputsToClockArcs({dffrnData, dffrnResetN}, dffrnClock);
   }
 
+  void createDFFRPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dffr = SNLDesign::create(
+      rootLibrary,
+      NLID::DesignID(ScalarPrimitiveDesignID),
+      SNLDesign::Type::Primitive,
+      NLName(DFFRName));
+    SNLParameter::create(dffr, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    auto dffrClock = SNLScalarTerm::create(dffr, Term0ID, SNLTerm::Direction::Input, NLName("C"));
+    auto dffrData = SNLScalarTerm::create(dffr, Term1ID, SNLTerm::Direction::Input, NLName("D"));
+    auto dffrReset = SNLScalarTerm::create(dffr, Term2ID, SNLTerm::Direction::Input, NLName("R"));
+    auto dffrOutput = SNLScalarTerm::create(dffr, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffrClock, {dffrOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffrData, dffrReset}, dffrClock);
+  }
+
+  void createDFFSPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dffs = SNLDesign::create(
+      rootLibrary,
+      NLID::DesignID(ScalarPrimitiveDesignID),
+      SNLDesign::Type::Primitive,
+      NLName(DFFSName));
+    SNLParameter::create(dffs, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    auto dffsClock = SNLScalarTerm::create(dffs, Term0ID, SNLTerm::Direction::Input, NLName("C"));
+    auto dffsData = SNLScalarTerm::create(dffs, Term1ID, SNLTerm::Direction::Input, NLName("D"));
+    auto dffsSet = SNLScalarTerm::create(dffs, Term2ID, SNLTerm::Direction::Input, NLName("S"));
+    auto dffsOutput = SNLScalarTerm::create(dffs, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffsClock, {dffsOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffsData, dffsSet}, dffsClock);
+  }
+
   void createDFFEPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dffe = SNLDesign::create(
@@ -832,6 +870,10 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, DFFNLibraryID, NLLibrary::Type::Primitives, NLName(DFFNName));
   auto dffrnLibrary =
     NLLibrary::create(rootLibrary, DFFRNLibraryID, NLLibrary::Type::Primitives, NLName(DFFRNName));
+  auto dffrLibrary =
+    NLLibrary::create(rootLibrary, DFFRLibraryID, NLLibrary::Type::Primitives, NLName(DFFRName));
+  auto dffsLibrary =
+    NLLibrary::create(rootLibrary, DFFSLibraryID, NLLibrary::Type::Primitives, NLName(DFFSName));
   auto dffeLibrary =
     NLLibrary::create(rootLibrary, DFFELibraryID, NLLibrary::Type::Primitives, NLName(DFFEName));
   auto dffreLibrary =
@@ -852,6 +894,8 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   createDLatchPrimitive(dlatchLibrary);
   createDFFNPrimitive(dffnLibrary);
   createDFFRNPrimitive(dffrnLibrary);
+  createDFFRPrimitive(dffrLibrary);
+  createDFFSPrimitive(dffsLibrary);
   createDFFEPrimitive(dffeLibrary);
   createDFFREPrimitive(dffreLibrary);
   createDFFSEPrimitive(dffseLibrary);
@@ -1510,6 +1554,118 @@ SNLScalarTerm* NLDB0::getDFFRNOutput() {
   auto dffrn = getDFFRN();
   if (dffrn) {
     return dffrn->getScalarTerm(Term3ID);
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFFR() {
+  auto* dffrLibrary = getPrimitiveLibrary(DFFRLibraryID);
+  if (dffrLibrary) {
+    return dffrLibrary->getSNLDesign(NLID::DesignID(ScalarPrimitiveDesignID));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getOrCreateDFFR(size_t width) {
+  return getOrCreateWidthPrimitive(
+    DFFRLibraryID,
+    DFFRName,
+    DFFRName,
+    DFFRPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFRPrefix, width, "R", false);
+    });
+}
+
+bool NLDB0::isDFFR(const SNLDesign* design) {
+  return isWidthPrimitive(design, DFFRLibraryID, DFFRName, DFFRPrefix);
+}
+
+SNLScalarTerm* NLDB0::getDFFRClock() {
+  auto dffr = getDFFR();
+  if (dffr) {
+    return dffr->getScalarTerm(Term0ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFRData() {
+  auto dffr = getDFFR();
+  if (dffr) {
+    return dffr->getScalarTerm(Term1ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFRReset() {
+  auto dffr = getDFFR();
+  if (dffr) {
+    return dffr->getScalarTerm(Term2ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFROutput() {
+  auto dffr = getDFFR();
+  if (dffr) {
+    return dffr->getScalarTerm(Term3ID);
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFFS() {
+  auto* dffsLibrary = getPrimitiveLibrary(DFFSLibraryID);
+  if (dffsLibrary) {
+    return dffsLibrary->getSNLDesign(NLID::DesignID(ScalarPrimitiveDesignID));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getOrCreateDFFS(size_t width) {
+  return getOrCreateWidthPrimitive(
+    DFFSLibraryID,
+    DFFSName,
+    DFFSName,
+    DFFSPrefix,
+    width,
+    [](NLLibrary* primitives, size_t width) {
+      createSequentialWidthPrimitive(primitives, DFFSPrefix, width, "S", false);
+    });
+}
+
+bool NLDB0::isDFFS(const SNLDesign* design) {
+  return isWidthPrimitive(design, DFFSLibraryID, DFFSName, DFFSPrefix);
+}
+
+SNLScalarTerm* NLDB0::getDFFSClock() {
+  auto dffs = getDFFS();
+  if (dffs) {
+    return dffs->getScalarTerm(Term0ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFSData() {
+  auto dffs = getDFFS();
+  if (dffs) {
+    return dffs->getScalarTerm(Term1ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFSSet() {
+  auto dffs = getDFFS();
+  if (dffs) {
+    return dffs->getScalarTerm(Term2ID);
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFSOutput() {
+  auto dffs = getDFFS();
+  if (dffs) {
+    return dffs->getScalarTerm(Term3ID);
   }
   return nullptr;
 }

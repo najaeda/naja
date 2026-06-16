@@ -175,6 +175,15 @@ class NLDB0 {
     static SNLScalarTerm* getDFFRNData();
     static SNLScalarTerm* getDFFRNResetN();
     static SNLScalarTerm* getDFFRNOutput();
+    /// \brief Edge-triggered D flip-flop with active-high asynchronous reset.
+    /// Pins: C (clock), D (data), R (reset high active), Q (output).
+    static SNLDesign* getDFFR();
+    static SNLDesign* getOrCreateDFFR(size_t width);
+    static bool isDFFR(const SNLDesign* design);
+    static SNLScalarTerm* getDFFRClock();
+    static SNLScalarTerm* getDFFRData();
+    static SNLScalarTerm* getDFFRReset();
+    static SNLScalarTerm* getDFFROutput();
     /// \brief Edge-triggered D flip-flop with clock enable.
     /// Pins: C (clock), D (data), E (enable), Q (output).
     static SNLDesign* getDFFE();
@@ -204,6 +213,15 @@ class NLDB0 {
     static SNLScalarTerm* getDFFSEEnable();
     static SNLScalarTerm* getDFFSESet();
     static SNLScalarTerm* getDFFSEOutput();
+    /// \brief Edge-triggered D flip-flop with active-high asynchronous set.
+    /// Pins: C (clock), D (data), S (set high active), Q (output).
+    static SNLDesign* getDFFS();
+    static SNLDesign* getOrCreateDFFS(size_t width);
+    static bool isDFFS(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSClock();
+    static SNLScalarTerm* getDFFSData();
+    static SNLScalarTerm* getDFFSSet();
+    static SNLScalarTerm* getDFFSOutput();
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);

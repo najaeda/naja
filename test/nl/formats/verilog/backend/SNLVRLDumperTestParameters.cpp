@@ -364,6 +364,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffrn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffr #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffs #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse #("));

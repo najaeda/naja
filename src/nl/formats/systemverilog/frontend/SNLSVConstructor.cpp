@@ -24968,9 +24968,9 @@ endmodule
       // LCOV_EXCL_STOP
 
       auto resetSourceRange = getSourceRange(resetConditionExpr);
+      bool useAsyncResetDFFR = false;
+      bool useAsyncResetDFFS = false;
       bool useAsyncResetDFFRN = false;
-      bool useAsyncResetDFFRE = false;
-      bool useAsyncResetDFFSE = false;
       SNLBitNet* asyncResetControlNet = nullptr;
       if (asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
         auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -25004,18 +25004,18 @@ endmodule
             isActiveHighResetConditionForSignal(
               resetConditionExpr,
               *asyncResetEventExpr)) {
-            if (resetToZero && NLDB0::getDFFRE()) {
+            if (resetToZero && NLDB0::getDFFR()) {
               asyncResetControlNet = candidateResetNet;
-              useAsyncResetDFFRE = true;
-            } else if (resetToOne && NLDB0::getDFFSE()) {
+              useAsyncResetDFFR = true;
+            } else if (resetToOne && NLDB0::getDFFS()) {
               asyncResetControlNet = candidateResetNet;
-              useAsyncResetDFFSE = true;
+              useAsyncResetDFFS = true;
             }
           }
         }
       }
 
-      if (!useAsyncResetDFFRN && !useAsyncResetDFFRE && !useAsyncResetDFFSE) {
+      if (!useAsyncResetDFFRN && !useAsyncResetDFFR && !useAsyncResetDFFS) {
         auto* resetNet = resolveConditionNet(
           design,
           resetConditionExpr,
@@ -25049,7 +25049,6 @@ endmodule
         dataBits = std::move(rstBits);
       }
 
-      auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
       bool emittedVectorSequential = false;
       if (lhsBits.size() > 1) {
         const auto width = lhsBits.size();
@@ -25064,30 +25063,26 @@ endmodule
             blockSourceRange,
             asyncResetControlNet,
             "RN");
-        } else if (useAsyncResetDFFRE) {
+        } else if (useAsyncResetDFFR) {
           emittedVectorSequential = createVectorSequentialInstance(
             design,
-            NLDB0::getOrCreateDFFRE(width),
+            NLDB0::getOrCreateDFFR(width),
             clkNet,
             "C",
             dataBits,
             lhsBits,
             blockSourceRange,
-            constEnableOne,
-            "E",
             asyncResetControlNet,
             "R");
-        } else if (useAsyncResetDFFSE) {
+        } else if (useAsyncResetDFFS) {
           emittedVectorSequential = createVectorSequentialInstance(
             design,
-            NLDB0::getOrCreateDFFSE(width),
+            NLDB0::getOrCreateDFFS(width),
             clkNet,
             "C",
             dataBits,
             lhsBits,
             blockSourceRange,
-            constEnableOne,
-            "E",
             asyncResetControlNet,
             "S");
         } else if (clockEdge == slang::ast::EdgeKind::NegEdge) {
@@ -25120,21 +25115,19 @@ endmodule
               asyncResetControlNet,
               lhsBits[i],
               blockSourceRange);
-          } else if (useAsyncResetDFFRE) {
-            createDFFREInstance(
+          } else if (useAsyncResetDFFR) {
+            createDFFRInstance(
               design,
               clkNet,
               dataBits[i],
-              constEnableOne,
               asyncResetControlNet,
               lhsBits[i],
               blockSourceRange);
-          } else if (useAsyncResetDFFSE) {
-            createDFFSEInstance(
+          } else if (useAsyncResetDFFS) {
+            createDFFSInstance(
               design,
               clkNet,
               dataBits[i],
-              constEnableOne,
               asyncResetControlNet,
               lhsBits[i],
               blockSourceRange);
@@ -26625,6 +26618,78 @@ endmodule
       }
     }
 
+    void createDFFRInstance(
+      SNLDesign* design,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* resetNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto dffr = NLDB0::getDFFR();
+      auto inst = SNLInstance::create(design, dffr);
+      annotateSourceInfo(inst, sourceRange);
+      auto cTerm = NLDB0::getDFFRClock();
+      auto dTerm = NLDB0::getDFFRData();
+      auto rTerm = NLDB0::getDFFRReset();
+      auto qTerm = NLDB0::getDFFROutput();
+      if (cTerm) {
+        if (auto instTerm = inst->getInstTerm(cTerm)) {
+          instTerm->setNet(clkNet);
+        }
+      }
+      if (dTerm) {
+        if (auto instTerm = inst->getInstTerm(dTerm)) {
+          instTerm->setNet(dNet);
+        }
+      }
+      if (rTerm) {
+        if (auto instTerm = inst->getInstTerm(rTerm)) {
+          instTerm->setNet(resetNet);
+        }
+      }
+      if (qTerm) {
+        if (auto instTerm = inst->getInstTerm(qTerm)) {
+          instTerm->setNet(qNet);
+        }
+      }
+    }
+
+    void createDFFSInstance(
+      SNLDesign* design,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* setNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto dffs = NLDB0::getDFFS();
+      auto inst = SNLInstance::create(design, dffs);
+      annotateSourceInfo(inst, sourceRange);
+      auto cTerm = NLDB0::getDFFSClock();
+      auto dTerm = NLDB0::getDFFSData();
+      auto sTerm = NLDB0::getDFFSSet();
+      auto qTerm = NLDB0::getDFFSOutput();
+      if (cTerm) {
+        if (auto instTerm = inst->getInstTerm(cTerm)) {
+          instTerm->setNet(clkNet);
+        }
+      }
+      if (dTerm) {
+        if (auto instTerm = inst->getInstTerm(dTerm)) {
+          instTerm->setNet(dNet);
+        }
+      }
+      if (sTerm) {
+        if (auto instTerm = inst->getInstTerm(sTerm)) {
+          instTerm->setNet(setNet);
+        }
+      }
+      if (qTerm) {
+        if (auto instTerm = inst->getInstTerm(qTerm)) {
+          instTerm->setNet(qNet);
+        }
+      }
+    }
+
     void createDFFEInstance(
       SNLDesign* design,
       SNLNet* clkNet,
@@ -27503,6 +27568,8 @@ endmodule
         }
 
         bool useAsyncResetDFFRN = false;
+        bool useAsyncResetDFFR = false;
+        bool useAsyncResetDFFS = false;
         bool useAsyncResetDFFRE = false;
         bool useAsyncResetDFFSE = false;
         SNLBitNet* asyncResetControlNet = nullptr;
@@ -27534,12 +27601,22 @@ endmodule
             } else if (
               *asyncResetEventEdge == slang::ast::EdgeKind::PosEdge &&
               isActiveHighResetConditionForSignal(*chain.resetCond, *asyncResetEventExpr)) {
-              if (resetToZero && NLDB0::getDFFRE()) {
+              // Prefer the combined reset+enable cells only when a usable clock
+              // enable is present; otherwise emit the plain async-reset/set flop
+              // (DFFR/DFFS) instead of tying the enable of a DFFRE/DFFSE high.
+              const bool hasUsableEnable = chain.enableCond && canUseEnablePrimitive;
+              if (resetToZero && hasUsableEnable && NLDB0::getDFFRE()) {
                 asyncResetControlNet = candidateResetNet;
                 useAsyncResetDFFRE = true;
-              } else if (resetToOne && NLDB0::getDFFSE()) {
+              } else if (resetToOne && hasUsableEnable && NLDB0::getDFFSE()) {
                 asyncResetControlNet = candidateResetNet;
                 useAsyncResetDFFSE = true;
+              } else if (resetToZero && NLDB0::getDFFR()) {
+                asyncResetControlNet = candidateResetNet;
+                useAsyncResetDFFR = true;
+              } else if (resetToOne && NLDB0::getDFFS()) {
+                asyncResetControlNet = candidateResetNet;
+                useAsyncResetDFFS = true;
               }
             }
           }
@@ -27583,6 +27660,8 @@ endmodule
 
         if (chain.resetCond &&
             !useAsyncResetDFFRN &&
+            !useAsyncResetDFFR &&
+            !useAsyncResetDFFS &&
             !useAsyncResetDFFRE &&
             !useAsyncResetDFFSE) {
           {
@@ -27640,6 +27719,28 @@ endmodule
                 statementSourceRange,
                 asyncResetControlNet,
                 "RN");
+            } else if (useAsyncResetDFFR) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design,
+                NLDB0::getOrCreateDFFR(width),
+                clkNet,
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
+                asyncResetControlNet,
+                "R");
+            } else if (useAsyncResetDFFS) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design,
+                NLDB0::getOrCreateDFFS(width),
+                clkNet,
+                "C",
+                dataBits,
+                lhsBits,
+                statementSourceRange,
+                asyncResetControlNet,
+                "S");
             } else if (useAsyncResetDFFRE) {
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
@@ -27701,6 +27802,22 @@ endmodule
             for (size_t i = 0; i < lhsBits.size(); ++i) {
               if (useAsyncResetDFFRN) {
                 createDFFRNInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  asyncResetControlNet,
+                  lhsBits[i],
+                  statementSourceRange);
+              } else if (useAsyncResetDFFR) {
+                createDFFRInstance(
+                  design,
+                  clkNet,
+                  dataBits[i],
+                  asyncResetControlNet,
+                  lhsBits[i],
+                  statementSourceRange);
+              } else if (useAsyncResetDFFS) {
+                createDFFSInstance(
                   design,
                   clkNet,
                   dataBits[i],

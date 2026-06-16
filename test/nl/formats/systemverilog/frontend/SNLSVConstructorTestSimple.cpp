@@ -272,6 +272,14 @@ size_t countDFFRNBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFRN);
 }
 
+size_t countDFFRBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFR);
+}
+
+size_t countDFFSBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFS);
+}
+
 size_t countDFFEBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFE);
 }
@@ -21824,25 +21832,25 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffreCount);
+  EXPECT_EQ(2u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -21900,27 +21908,28 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
-  // All three registers reset to 0 with an async posedge reset, so each maps to
-  // a DFFRE. Only the guarded q0 update needs a hold mux.
+  // All three registers reset to 0 with an async posedge reset and no enable, so
+  // each maps to a plain async-reset DFFR. Only the guarded q0 update needs a
+  // hold mux.
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(3u, dffreCount);
+  EXPECT_EQ(3u, dffrCount);
   EXPECT_EQ(1u, mux2Count);
 }
 
@@ -27932,26 +27941,26 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListPosedgeResetSup
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(8u, dffreCount);
+  EXPECT_EQ(8u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -27988,26 +27997,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffseModel = NLDB0::getDFFSE();
+  auto dffsModel = NLDB0::getDFFS();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffseModel, nullptr);
+  ASSERT_NE(dffsModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(8u, dffseCount);
+  EXPECT_EQ(8u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28055,26 +28064,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffreCount);
+  EXPECT_EQ(2u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28122,26 +28131,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffseModel = NLDB0::getDFFSE();
+  auto dffsModel = NLDB0::getDFFS();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffseModel, nullptr);
+  ASSERT_NE(dffsModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffseCount);
+  EXPECT_EQ(2u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28178,8 +28187,8 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   EXPECT_EQ(0u, countDFFBits(top));
-  EXPECT_EQ(5u, countDFFREBits(top));
-  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRE));
+  EXPECT_EQ(5u, countDFFRBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFR));
   EXPECT_EQ(0u, countMux2Instances(top));
 }
 
@@ -28223,8 +28232,8 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   EXPECT_EQ(0u, countDFFBits(top));
-  EXPECT_EQ(3u, countDFFREBits(top));
-  EXPECT_EQ(1u, countDFFSEBits(top));
+  EXPECT_EQ(3u, countDFFRBits(top));
+  EXPECT_EQ(1u, countDFFSBits(top));
   EXPECT_EQ(0u, countMux2Instances(top));
 }
 
@@ -28280,7 +28289,7 @@ endmodule
     }
   }
 
-  EXPECT_EQ(2u, countDFFREBits(top));
+  EXPECT_EQ(2u, countDFFRBits(top));
   EXPECT_EQ(1u, andGateCount);
   EXPECT_EQ(2u, notGateCount);
   EXPECT_EQ(0u, xnorGateCount);
@@ -28319,8 +28328,8 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   EXPECT_EQ(0u, countDFFBits(top));
-  EXPECT_EQ(5u, countDFFSEBits(top));
-  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFSE));
+  EXPECT_EQ(5u, countDFFSBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFS));
   EXPECT_EQ(0u, countMux2Instances(top));
 }
 
@@ -28388,19 +28397,19 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isMux2(inst->getModel())) {
       mux2Count += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(1u, dffreCount);
+  EXPECT_EQ(1u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28430,19 +28439,19 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isMux2(inst->getModel())) {
       mux2Count += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(1u, dffseCount);
+  EXPECT_EQ(1u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 

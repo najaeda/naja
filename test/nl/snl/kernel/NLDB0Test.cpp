@@ -63,6 +63,12 @@ NLID::LibraryID expectedSequentialLibraryID(const NLName& name) {
   if (name == NLName("naja_dffse")) {
     return NLID::LibraryID(9);
   }
+  if (name == NLName("naja_dffr")) {
+    return NLID::LibraryID(13);
+  }
+  if (name == NLName("naja_dffs")) {
+    return NLID::LibraryID(14);
+  }
   return NLID::LibraryID(0);
 }
 
@@ -917,6 +923,18 @@ TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
       {NLDB0::getDFFRNOutput()},
     },
     {
+      NLDB0::getDFFR(),
+      NLDB0::getDFFRClock(),
+      {NLDB0::getDFFRData(), NLDB0::getDFFRReset()},
+      {NLDB0::getDFFROutput()},
+    },
+    {
+      NLDB0::getDFFS(),
+      NLDB0::getDFFSClock(),
+      {NLDB0::getDFFSData(), NLDB0::getDFFSSet()},
+      {NLDB0::getDFFSOutput()},
+    },
+    {
       NLDB0::getDFFE(),
       NLDB0::getDFFEClock(),
       {NLDB0::getDFFEData(), NLDB0::getDFFEEnable()},
@@ -1065,6 +1083,74 @@ TEST_F(NLDB0Test, testDFFRN) {
   EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, resetN->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+}
+
+TEST_F(NLDB0Test, testDFFR) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffr = NLDB0::getDFFR();
+  ASSERT_NE(nullptr, dffr);
+  EXPECT_TRUE(NLDB0::isDFFR(dffr));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffr));
+  EXPECT_EQ(NLName("naja_dffr"), dffr->getName());
+  EXPECT_FALSE(NLDB0::isDFFR(NLDB0::getDFF()));
+  EXPECT_FALSE(NLDB0::isDFFR(NLDB0::getDFFRN()));
+
+  auto clock = NLDB0::getDFFRClock();
+  auto data = NLDB0::getDFFRData();
+  auto reset = NLDB0::getDFFRReset();
+  auto output = NLDB0::getDFFROutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, reset);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("R"), reset->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, reset->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+
+  auto dffr4 = NLDB0::getOrCreateDFFR(4);
+  ASSERT_NE(nullptr, dffr4);
+  EXPECT_TRUE(NLDB0::isDFFR(dffr4));
+}
+
+TEST_F(NLDB0Test, testDFFS) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffs = NLDB0::getDFFS();
+  ASSERT_NE(nullptr, dffs);
+  EXPECT_TRUE(NLDB0::isDFFS(dffs));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffs));
+  EXPECT_EQ(NLName("naja_dffs"), dffs->getName());
+  EXPECT_FALSE(NLDB0::isDFFS(NLDB0::getDFF()));
+  EXPECT_FALSE(NLDB0::isDFFS(NLDB0::getDFFR()));
+
+  auto clock = NLDB0::getDFFSClock();
+  auto data = NLDB0::getDFFSData();
+  auto set = NLDB0::getDFFSSet();
+  auto output = NLDB0::getDFFSOutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, set);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("S"), set->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, set->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+
+  auto dffs4 = NLDB0::getOrCreateDFFS(4);
+  ASSERT_NE(nullptr, dffs4);
+  EXPECT_TRUE(NLDB0::isDFFS(dffs4));
 }
 
 TEST_F(NLDB0Test, testDFFN) {

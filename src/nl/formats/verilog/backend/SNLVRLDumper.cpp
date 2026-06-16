@@ -1743,7 +1743,8 @@ bool SNLVRLDumper::dumpInstance(
   }
   if (auto* model = instance->getModel();
       NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
-      NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
+      NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) || NLDB0::isDFFS(model) ||
+      NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
       NLDB0::isDFFSE(model)) {
     emitNajaPrimitiveModels_ = true;
     std::string instanceName;
@@ -2263,6 +2264,38 @@ void SNLVRLDumper::dumpNajaDFFRNModel(std::ostream& o) {
   o << "endmodule //naja_dffrn\n";
 }
 
+void SNLVRLDumper::dumpNajaDFFRModel(std::ostream& o) {
+  o << "module naja_dffr #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input C,\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  input R,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge R) begin\n";
+  o << "    if (R) Q <= {WIDTH{1'b0}};\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffr\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFSModel(std::ostream& o) {
+  o << "module naja_dffs #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input C,\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  input S,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge S) begin\n";
+  o << "    if (S) Q <= {WIDTH{1'b1}};\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffs\n";
+}
+
 void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
   o << "module naja_dffe #(\n";
   o << "  parameter WIDTH = 1\n";
@@ -2518,6 +2551,10 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   dumpNajaDFFNModel(outFile);
   outFile << '\n';
   dumpNajaDFFRNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFRModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSModel(outFile);
   outFile << '\n';
   dumpNajaDFFEModel(outFile);
   outFile << '\n';
