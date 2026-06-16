@@ -19273,10 +19273,17 @@ endmodule
       return true;
     }
 
-    // Record a single top-level branch statement under the unique integral named
-    // register it assigns. Returns false (caller treats as "not applicable") when
-    // the statement targets a non-keyable LHS or writes more than one register, so
-    // those shapes fall back to the generic per-LHS replay path.
+    // Record a top-level branch statement under each integral named register it
+    // assigns. A statement that writes several registers (e.g. a guarded block of
+    // pipeline-register updates such as `if (s2_fire) begin s3_a <= ...; s3_b <=
+    // ...; end`) is indexed once per distinct register, so each register's replay
+    // sees exactly the statements that can drive it. Per-register replay
+    // (applySequentialStatementForLhs) ignores assignments to other registers, so
+    // re-walking a shared multi-register statement per register is correct and
+    // keeps the cost bounded by statement size rather than the whole branch.
+    // Returns false (caller treats as "not applicable") only when the statement
+    // targets a non-keyable LHS, so those shapes fall back to the generic per-LHS
+    // replay path.
     bool appendGuardedSequentialIndexEntry(
       const Statement& stmt,
       SequentialBranchStatementIndex& index,
@@ -19286,8 +19293,9 @@ endmodule
             stmt, lhsExpressions, nullptr, false, false, ignoredSymbols)) {
         return false;
       }
-      const slang::ast::ValueSymbol* statementSymbol = nullptr;
-      const Expression* representativeLhs = nullptr;
+      // Index the statement at most once per register, even when the same register
+      // is assigned in several arms of the statement.
+      std::unordered_set<const slang::ast::ValueSymbol*> statementSymbols;
       for (const auto* lhsExpr : lhsExpressions) {
         if (!lhsExpr) {
           continue; // LCOV_EXCL_LINE
@@ -19296,32 +19304,26 @@ endmodule
         if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
           return false;
         }
-        if (statementSymbol && symbol != statementSymbol) {
-          return false;
+        if (!statementSymbols.insert(symbol).second) {
+          continue;
         }
-        statementSymbol = symbol;
-        if (!representativeLhs) {
-          representativeLhs = lhsExpr;
+        auto [it, inserted] = index.bySymbol.try_emplace(symbol);
+        if (inserted) {
+          index.order.push_back(symbol);
+          index.representativeLhs[symbol] = lhsExpr;
         }
+        it->second.push_back(&stmt);
       }
-      if (!statementSymbol) {
-        // The statement does not drive any tracked register (e.g. a fully ignored
-        // memory write or a bookkeeping statement); nothing to index.
-        return true;
-      }
-      auto [it, inserted] = index.bySymbol.try_emplace(statementSymbol);
-      if (inserted) {
-        index.order.push_back(statementSymbol);
-        index.representativeLhs[statementSymbol] = representativeLhs;
-      }
-      it->second.push_back(&stmt);
+      // A statement that drives no tracked register (e.g. a fully ignored memory
+      // write or a bookkeeping statement) contributes nothing to the index.
       return true;
     }
 
     // Build a per-register statement index for one sequential conditional branch.
     // Lists/blocks are flattened; every other leaf statement (direct assignment,
-    // guarded if/case) is treated as a single indexed unit. Returns false when any
-    // leaf cannot be keyed to a single integral named register.
+    // guarded if/case) is treated as a single indexed unit and keyed under each
+    // integral named register it drives. Returns false when any leaf cannot be
+    // keyed to integral named registers.
     bool collectGuardedSequentialAssignmentIndex(
       const Statement& branch,
       SequentialBranchStatementIndex& index,

@@ -21935,6 +21935,83 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedMultiLhsBlockSupported) {
+  // Reset/update block whose update branch contains a single guarded block that
+  // drives several registers at once (e.g. a pipeline-stage advance such as
+  // `if (en) begin q1 <= d1; q2 <= d2; end`). The reset branch resets every
+  // updated register, so the guarded multi-assignment fast path applies: it
+  // indexes the shared block once per register it drives and replays it per
+  // register, instead of falling back to the generic per-LHS branch scan. Mirrors
+  // the XiangShan AheadBtb hotspot that made loading hang.
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_guarded_multi_lhs_block_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_guarded_multi_lhs_block_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_guarded_multi_lhs_block_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic       en,
+  input  logic [3:0] d0,
+  input  logic [3:0] d1,
+  input  logic [3:0] d2,
+  output logic [3:0] q0,
+  output logic [3:0] q1,
+  output logic [3:0] q2
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 4'h0;
+      q1 <= 4'h0;
+      q2 <= 4'h0;
+    end else begin
+      q0 <= d0;
+      if (en) begin
+        q1 <= d1;
+        q2 <= d2;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_multi_lhs_block_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffrCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
+    }
+  }
+  // The three 4-bit registers all async-reset to 0 -> three DFFR (12 bits). q0
+  // updates unconditionally (no mux); q1 and q2 are driven only inside the shared
+  // guarded block, so each gets exactly one 4-bit hold mux. The fast path must
+  // not emit spurious mux-of-identical-input garbage for the shared multi-LHS
+  // statement.
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(12u, dffrCount);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 4));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultibitOneBitLiteralRHSExtendsWithZeros) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -23262,9 +23339,17 @@ endmodule
     }
   }
   EXPECT_EQ(17u, ffCount);
-  EXPECT_EQ(9u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 1));
-  EXPECT_EQ(6u, countMux2Instances(top, 8));
+  // The else branch's leading `if (valid_i) begin q1 <= q1_d; q2 <= q2_d; end`
+  // drives two registers in one statement, and the reset branch resets every
+  // updated register, so this now lowers via the guarded multi-assignment fast
+  // path. Each register is replayed only against the statements that drive it:
+  // q0 keeps its two-level flush/valid mux (2 x 1-bit), and q1/q2 each get a
+  // single 8-bit hold mux. The generic per-LHS scan this used to fall back to
+  // re-walked the whole branch per register and emitted mux-of-identical-input
+  // garbage (9 muxes total); the fast path produces the minimal 4.
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 1));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "seq_multi_assignment_else_block_supported");
@@ -27884,10 +27969,17 @@ endmodule
   EXPECT_EQ(3u, countPrimitiveInstances(top, NLDB0::isDFFRN));
   EXPECT_EQ(0u, countDFFEBits(top));
   EXPECT_EQ(0u, countDFFREBits(top));
-  EXPECT_EQ(9u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 1));
-  EXPECT_EQ(3u, countMux2Instances(top, 16));
-  EXPECT_EQ(3u, countMux2Instances(top, 64));
+  // The leading `if (valid_i) begin unaligned_address_q <= ...; unaligned_instr_q
+  // <= ...; end` drives two registers in one statement while the reset branch
+  // resets all three, so this lowers via the guarded multi-assignment fast path.
+  // unaligned_q keeps its two-level flush/valid mux (2 x 1-bit) and the two
+  // valid-guarded registers each get a single hold mux (1 x 16-bit, 1 x 64-bit).
+  // The generic per-LHS fallback this replaced re-walked the whole branch per
+  // register and emitted mux-of-identical-input garbage (9 muxes total).
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 1));
+  EXPECT_EQ(1u, countMux2Instances(top, 16));
+  EXPECT_EQ(1u, countMux2Instances(top, 64));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,
