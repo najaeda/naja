@@ -16309,6 +16309,19 @@ endmodule
       std::unordered_map<const slang::ast::ValueSymbol*, size_t> bySymbol {};
     };
 
+    // Per-register index of the top-level statements that drive a sequential
+    // branch. Unlike DirectSequentialAssignmentTable this tolerates guarded
+    // conditional assignments (if/case) as long as every top-level statement
+    // writes a single integral named register, which is the common generated
+    // RTL shape (e.g. XiangShan TLFIFOFixer's thousands of reset/update regs).
+    struct SequentialBranchStatementIndex {
+      std::unordered_map<const slang::ast::ValueSymbol*, std::vector<const Statement*>>
+        bySymbol {};
+      std::unordered_map<const slang::ast::ValueSymbol*, const Expression*>
+        representativeLhs {};
+      std::vector<const slang::ast::ValueSymbol*> order {};
+    };
+
     enum class DirectSequentialConditionalLowering {
       NotApplicable,
       Lowered,
@@ -19258,6 +19271,86 @@ endmodule
         table.assignments.push_back(DirectSequentialAssignment{lhsExpr, action});
       }
       return true;
+    }
+
+    // Record a single top-level branch statement under the unique integral named
+    // register it assigns. Returns false (caller treats as "not applicable") when
+    // the statement targets a non-keyable LHS or writes more than one register, so
+    // those shapes fall back to the generic per-LHS replay path.
+    bool appendGuardedSequentialIndexEntry(
+      const Statement& stmt,
+      SequentialBranchStatementIndex& index,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) const {
+      std::vector<const Expression*> lhsExpressions;
+      if (!collectAssignedLHSExpressions(
+            stmt, lhsExpressions, nullptr, false, false, ignoredSymbols)) {
+        return false;
+      }
+      const slang::ast::ValueSymbol* statementSymbol = nullptr;
+      const Expression* representativeLhs = nullptr;
+      for (const auto* lhsExpr : lhsExpressions) {
+        if (!lhsExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          return false;
+        }
+        if (statementSymbol && symbol != statementSymbol) {
+          return false;
+        }
+        statementSymbol = symbol;
+        if (!representativeLhs) {
+          representativeLhs = lhsExpr;
+        }
+      }
+      if (!statementSymbol) {
+        // The statement does not drive any tracked register (e.g. a fully ignored
+        // memory write or a bookkeeping statement); nothing to index.
+        return true;
+      }
+      auto [it, inserted] = index.bySymbol.try_emplace(statementSymbol);
+      if (inserted) {
+        index.order.push_back(statementSymbol);
+        index.representativeLhs[statementSymbol] = representativeLhs;
+      }
+      it->second.push_back(&stmt);
+      return true;
+    }
+
+    // Build a per-register statement index for one sequential conditional branch.
+    // Lists/blocks are flattened; every other leaf statement (direct assignment,
+    // guarded if/case) is treated as a single indexed unit. Returns false when any
+    // leaf cannot be keyed to a single integral named register.
+    bool collectGuardedSequentialAssignmentIndex(
+      const Statement& branch,
+      SequentialBranchStatementIndex& index,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) const {
+      const Statement* current = unwrapStatement(branch);
+      if (!current) {
+        return false; // LCOV_EXCL_LINE
+      }
+      switch (current->kind) {
+        case slang::ast::StatementKind::Empty:
+          return true;
+        case slang::ast::StatementKind::Block:
+          return collectGuardedSequentialAssignmentIndex(
+            current->as<slang::ast::BlockStatement>().body, index, ignoredSymbols);
+        case slang::ast::StatementKind::List: {
+          const auto& list = current->as<slang::ast::StatementList>().list;
+          for (const auto* item : list) {
+            if (!item) {
+              continue; // LCOV_EXCL_LINE
+            }
+            if (!collectGuardedSequentialAssignmentIndex(*item, index, ignoredSymbols)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        default:
+          return appendGuardedSequentialIndexEntry(*current, index, ignoredSymbols);
+      }
     }
 
     bool getSingleLHSFallbackPathAssignmentMax(
@@ -25227,6 +25320,137 @@ endmodule
       return DirectSequentialConditionalLowering::Lowered;
     }
 
+    // Generalization of the direct fast path that also accepts guarded conditional
+    // updates (e.g. "if (cond) reg <= next;") as long as each top-level branch
+    // statement drives a single integral named register and the reset branch
+    // resets every updated register. It builds a per-register statement index for
+    // both branches once, then replays only the statement(s) that write each
+    // register instead of replaying the whole branch per register. This turns the
+    // large generated reset/update block (thousands of regs, e.g. TLFIFOFixer)
+    // from O(regs * statements) into O(statements).
+    DirectSequentialConditionalLowering lowerSequentialGuardedAssignmentConditionalFastPath(
+      SNLDesign* design,
+      const slang::ast::ConditionalStatement& topCond,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::ast::EdgeKind>& asyncResetEventEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      if (topCond.conditions.size() != 1 ||
+          !topCond.conditions[0].expr ||
+          topCond.conditions[0].pattern ||
+          !topCond.ifFalse) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      SequentialBranchStatementIndex resetIndex;
+      SequentialBranchStatementIndex updateIndex;
+      if (!collectGuardedSequentialAssignmentIndex(
+            topCond.ifTrue, resetIndex, ignoredSymbols) ||
+          !collectGuardedSequentialAssignmentIndex(
+            *topCond.ifFalse, updateIndex, ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      if (resetIndex.order.empty()) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      // Only handle blocks where the reset branch resets every updated register,
+      // so iterating the reset targets covers all sequential outputs of the block.
+      for (const auto* symbol : updateIndex.order) {
+        if (!resetIndex.bySymbol.contains(symbol)) {
+          return DirectSequentialConditionalLowering::NotApplicable;
+        }
+      }
+
+      const auto& resetConditionExpr = *topCond.conditions[0].expr;
+      auto replayStatements = [&](
+        const std::vector<const Statement*>& statements,
+        const Expression& lhsExpr,
+        SNLNet* lhsNet,
+        const std::vector<SNLBitNet*>& lhsBits,
+        const std::string& baseName,
+        std::vector<SNLBitNet*>& outBits) -> bool {
+        std::vector<SNLBitNet*> incrementerBits;
+        size_t tempIndex = 0;
+        for (const auto* statement : statements) {
+          if (!statement) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!applySequentialStatementForLhs(
+                design,
+                *statement,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                outBits,
+                incrementerBits,
+                tempIndex,
+                failureReason,
+                ignoredSymbols)) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      for (const auto* symbol : resetIndex.order) {
+        const Expression* lhsExpr = resetIndex.representativeLhs[symbol];
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design, *lhsExpr, lhsNet, lhsBits, failureReason)) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        std::vector<SNLBitNet*> resetBits = lhsBits;
+        if (!replayStatements(
+              resetIndex.bySymbol[symbol], *lhsExpr, lhsNet, lhsBits, baseName, resetBits)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        if (auto updateIt = updateIndex.bySymbol.find(symbol);
+            updateIt != updateIndex.bySymbol.end()) {
+          if (!replayStatements(
+                updateIt->second, *lhsExpr, lhsNet, lhsBits, baseName, dataBits)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialConditionalAssignment(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              std::move(dataBits),
+              resetBits,
+              resetConditionExpr,
+              clkNet,
+              clockEdge,
+              asyncResetEventExpr,
+              asyncResetEventEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      return DirectSequentialConditionalLowering::Lowered;
+    }
+
     bool lowerSequentialMultiAssignmentConditional(
       SNLDesign* design,
       const Statement& stmt,
@@ -25249,6 +25473,24 @@ endmodule
 
       const auto& topCond = current->as<slang::ast::ConditionalStatement>();
       switch (lowerSequentialDirectAssignmentConditionalFastPath(
+        design,
+        topCond,
+        clkNet,
+        clockEdge,
+        asyncResetEventExpr,
+        asyncResetEventEdge,
+        blockSourceRange,
+        failureReason,
+        ignoredSymbols)) {
+        case DirectSequentialConditionalLowering::Lowered:
+          return true;
+        case DirectSequentialConditionalLowering::Failed:
+          return false;
+        case DirectSequentialConditionalLowering::NotApplicable:
+          break;
+      }
+
+      switch (lowerSequentialGuardedAssignmentConditionalFastPath(
         design,
         topCond,
         clkNet,

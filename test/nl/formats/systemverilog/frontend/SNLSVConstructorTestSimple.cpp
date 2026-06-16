@@ -21848,6 +21848,84 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedUpdateSupported) {
+  // Reset/update block whose update branch mixes a guarded conditional
+  // assignment with plain assignments. The direct fast path rejects the leading
+  // conditional, so this exercises the guarded multi-assignment fast path that
+  // indexes each register once instead of replaying the whole branch per LHS.
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_guarded_update_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_guarded_update_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_guarded_update_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d0,
+  input  logic d1,
+  input  logic d2,
+  output logic q0,
+  output logic q1,
+  output logic q2
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 1'b0;
+      q1 <= 1'b0;
+      q2 <= 1'b0;
+    end else begin
+      if (en)
+        q0 <= d0;
+      q1 <= d1;
+      q2 <= q1 | d2;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_update_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t dffCount = 0;
+  size_t dffreCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFRE(inst->getModel())) {
+      dffreCount += getPrimitiveWidth(inst);
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  // All three registers reset to 0 with an async posedge reset, so each maps to
+  // a DFFRE. Only the guarded q0 update needs a hold mux.
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(3u, dffreCount);
+  EXPECT_EQ(1u, mux2Count);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultibitOneBitLiteralRHSExtendsWithZeros) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
