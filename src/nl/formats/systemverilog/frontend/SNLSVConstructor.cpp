@@ -16322,6 +16322,14 @@ endmodule
       std::vector<const slang::ast::ValueSymbol*> order {};
     };
 
+    struct SequentialStatementAssignmentCacheEntry {
+      bool collectSucceeded {false};
+      std::vector<const Expression*> lhsExpressions {};
+    };
+
+    using SequentialStatementAssignmentCache =
+      std::unordered_map<const Statement*, SequentialStatementAssignmentCacheEntry>;
+
     enum class DirectSequentialConditionalLowering {
       NotApplicable,
       Lowered,
@@ -19565,6 +19573,74 @@ endmodule
       });
     }
 
+    bool statementMayAssignTrackedSequentialLHS(
+      const Statement& stmt,
+      const Expression& trackedLhs,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols,
+      SequentialStatementAssignmentCache* assignmentCache) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const std::vector<const Expression*>* statementLHSExpressions = nullptr;
+      bool collectSucceeded = false;
+      if (assignmentCache) {
+        auto [it, inserted] = assignmentCache->try_emplace(current);
+        auto& entry = it->second;
+        if (inserted) {
+          entry.collectSucceeded = collectAssignedLHSExpressions(
+            *current,
+            entry.lhsExpressions,
+            nullptr,
+            false,
+            true,
+            ignoredSymbols);
+        }
+        collectSucceeded = entry.collectSucceeded;
+        statementLHSExpressions = &entry.lhsExpressions;
+      } else {
+        std::vector<const Expression*> uncachedLHSExpressions;
+        collectSucceeded = collectAssignedLHSExpressions(
+          *current,
+          uncachedLHSExpressions,
+          nullptr,
+          false,
+          true,
+          ignoredSymbols);
+        if (!collectSucceeded) {
+          return true;
+        }
+        for (const auto* statementLHSExpr : uncachedLHSExpressions) {
+          if (!statementLHSExpr) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (sameLhs(statementLHSExpr, &trackedLhs) ||
+              isTrackedSelectionSubLhsOf(statementLHSExpr, &trackedLhs) ||
+              isTrackedSelectionSubLhsOf(&trackedLhs, statementLHSExpr)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      if (!collectSucceeded) {
+        return true;
+      }
+
+      for (const auto* statementLHSExpr : *statementLHSExpressions) {
+        if (!statementLHSExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        if (sameLhs(statementLHSExpr, &trackedLhs) ||
+            isTrackedSelectionSubLhsOf(statementLHSExpr, &trackedLhs) ||
+            isTrackedSelectionSubLhsOf(&trackedLhs, statementLHSExpr)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     bool applySequentialStatementForLhs(
       SNLDesign* design,
       const Statement& stmt,
@@ -19576,7 +19652,8 @@ endmodule
       std::vector<SNLBitNet*>& incrementerBits,
       size_t& tempIndex,
       std::string& failureReason,
-      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
+      SequentialStatementAssignmentCache* assignmentCache = nullptr) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -19610,7 +19687,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                assignmentCache)) {
             return false;
           }
         }
@@ -19633,9 +19711,20 @@ endmodule
               incrementerBits,
               tempIndex,
               failureReason,
-              ignoredSymbols);
+              ignoredSymbols,
+              assignmentCache);
           },
           failureReason);
+      }
+
+      if ((current->kind == slang::ast::StatementKind::Conditional ||
+           current->kind == slang::ast::StatementKind::Case) &&
+          !statementMayAssignTrackedSequentialLHS(
+            *current,
+            lhsExpr,
+            ignoredSymbols,
+            assignmentCache)) {
+        return true;
       }
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
@@ -19658,7 +19747,8 @@ endmodule
             incrementerBits,
             tempIndex,
             failureReason,
-            ignoredSymbols);
+            ignoredSymbols,
+            assignmentCache);
         }
 
         std::vector<SNLBitNet*> trueBits = dataBits;
@@ -19673,7 +19763,8 @@ endmodule
               incrementerBits,
               tempIndex,
               failureReason,
-              ignoredSymbols)) {
+              ignoredSymbols,
+              assignmentCache)) {
           return false; // LCOV_EXCL_LINE
         }
 
@@ -19690,7 +19781,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                assignmentCache)) {
             return false;
           }
         }
@@ -19747,7 +19839,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                assignmentCache)) {
             return false; // LCOV_EXCL_LINE
           }
           mergedBits = std::move(defaultBits);
@@ -19766,7 +19859,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                assignmentCache)) {
             return false; // LCOV_EXCL_LINE
           }
           mergedBits = std::move(lastItemBits);
@@ -19786,7 +19880,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                assignmentCache)) {
             return false; // LCOV_EXCL_LINE
           }
 
@@ -25360,6 +25455,7 @@ endmodule
       }
 
       const auto& resetConditionExpr = *topCond.conditions[0].expr;
+      SequentialStatementAssignmentCache assignmentCache;
       auto replayStatements = [&](
         const std::vector<const Statement*>& statements,
         const Expression& lhsExpr,
@@ -25384,7 +25480,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                &assignmentCache)) {
             return false;
           }
         }
@@ -25694,6 +25791,7 @@ endmodule
         }
       }
 
+      SequentialStatementAssignmentCache assignmentCache;
       for (const auto* lhsExpr : conditionalLHSExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
         std::vector<SNLBitNet*> lhsBits;
@@ -25728,7 +25826,8 @@ endmodule
                 incrementerBits,
                 tempIndex,
                 failureReason,
-                ignoredSymbols)) {
+                ignoredSymbols,
+                &assignmentCache)) {
             return false;
           }
         }
@@ -25747,7 +25846,8 @@ endmodule
               resetIncrementerBits,
               resetTempIndex,
               failureReason,
-              ignoredSymbols)) {
+              ignoredSymbols,
+              &assignmentCache)) {
           return false; // LCOV_EXCL_LINE
         }
 
@@ -26229,7 +26329,8 @@ endmodule
             bin.op == slang::ast::BinaryOperator::LogicalShiftRight ||
             bin.op == slang::ast::BinaryOperator::ArithmeticShiftRight ||
             isEqualityBinaryOp(bin.op) ||
-            isInequalityBinaryOp(bin.op);
+            isInequalityBinaryOp(bin.op) ||
+            isRelationalBinaryOp(bin.op);
           if (!supportedArithmeticOp) {
             reportUnsupportedElement(
               formatDescribedFailure(

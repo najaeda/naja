@@ -22012,6 +22012,71 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentNestedGuardedBlockSkipsUnrelatedBranches) {
+  // Generated reset/update blocks can contain a shared synchronous branch that
+  // touches every register and an else branch with many one-register guarded
+  // updates. Replaying every unrelated guard for every LHS scales badly and
+  // emits redundant muxes.
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_nested_guarded_block_skips_unrelated_branches",
+    R"(module seq_multi_assignment_nested_guarded_block_skips_unrelated_branches(
+  input  logic clk,
+  input  logic rst,
+  input  logic clear,
+  input  logic en0,
+  input  logic en1,
+  input  logic en2,
+  input  logic en3,
+  input  logic d0,
+  input  logic d1,
+  input  logic d2,
+  input  logic d3,
+  output logic q0,
+  output logic q1,
+  output logic q2,
+  output logic q3
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 1'b0;
+      q1 <= 1'b0;
+      q2 <= 1'b0;
+      q3 <= 1'b0;
+    end else begin
+      if (clear) begin
+        q0 <= 1'b0;
+        q1 <= 1'b0;
+        q2 <= 1'b0;
+        q3 <= 1'b0;
+      end else begin
+        if (en0)
+          q0 <= d0;
+        if (en1)
+          q1 <= d1;
+        if (en2)
+          q2 <= d2;
+        if (en3)
+          q3 <= d3;
+      end
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_nested_guarded_block_skips_unrelated_branches"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(4u, countDFFRBits(top));
+  EXPECT_EQ(8u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialMultibitOneBitLiteralRHSExtendsWithZeros) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -29248,6 +29313,34 @@ endmodule
   }
   EXPECT_EQ(2u, dffCount);
   EXPECT_EQ(1u, countMux2Instances(top));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRelationalRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_relational_rhs_supported",
+    R"(module seq_relational_rhs_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic [3:0] count,
+  output logic       q
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst)
+      q <= 1'b0;
+    else
+      q <= count > 4'd6;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_relational_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
