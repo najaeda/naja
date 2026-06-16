@@ -489,6 +489,11 @@ class SNLSVConstructorImpl {
       bool snapshotWriteInProgress {false};
       bool writeWarningEmitted {false};
 
+      std::string currentPhase {};
+      std::string currentLoweringStep {};
+      std::string currentTopInstance {};
+      std::vector<std::string> activeBuildDesigns {};
+      size_t maxBuildDesignStackDepth {0};
       std::chrono::nanoseconds constructDuration {0};
       std::chrono::nanoseconds parseDuration {0};
       std::chrono::nanoseconds diagnosticsReportDuration {0};
@@ -508,7 +513,10 @@ class SNLSVConstructorImpl {
 
       size_t inputPathCount {0};
       size_t topInstanceCount {0};
+      size_t topInstanceBuildsStarted {0};
+      size_t topInstanceBuildsCompleted {0};
       size_t buildDesignCalls {0};
+      size_t buildDesignReturns {0};
       size_t buildDesignCacheHits {0};
       size_t createTermsCalls {0};
       size_t createNetsCalls {0};
@@ -572,6 +580,52 @@ class SNLSVConstructorImpl {
         SVPerfReport* report_ {nullptr};
         std::chrono::nanoseconds* bucket_ {nullptr};
         std::chrono::steady_clock::time_point start_ {};
+    };
+
+    class SVPerfProgressLabelGuard {
+      public:
+        SVPerfProgressLabelGuard(
+          SVPerfReport& report,
+          std::string& label,
+          std::string value):
+          label_((report.enabled) ? &label : nullptr) {
+          if (label_) {
+            previous_ = *label_;
+            *label_ = std::move(value);
+          }
+        }
+
+        ~SVPerfProgressLabelGuard() {
+          if (label_) {
+            *label_ = std::move(previous_);
+          }
+        }
+
+      private:
+        std::string* label_ {nullptr};
+        std::string previous_ {};
+    };
+
+    class SVPerfBuildDesignStackGuard {
+      public:
+        SVPerfBuildDesignStackGuard(SVPerfReport& report, std::string designName):
+          report_((report.enabled) ? &report : nullptr) {
+          if (report_) {
+            report_->activeBuildDesigns.push_back(std::move(designName));
+            report_->maxBuildDesignStackDepth = std::max(
+              report_->maxBuildDesignStackDepth,
+              report_->activeBuildDesigns.size());
+          }
+        }
+
+        ~SVPerfBuildDesignStackGuard() {
+          if (report_ && !report_->activeBuildDesigns.empty()) {
+            report_->activeBuildDesigns.pop_back();
+          }
+        }
+
+      private:
+        SVPerfReport* report_ {nullptr};
     };
 
     std::chrono::milliseconds getSVPerfSnapshotInterval() const {
@@ -652,6 +706,16 @@ class SNLSVConstructorImpl {
         }
         return duration;
       };
+      const auto joinActiveBuildDesigns = [&]() {
+        std::ostringstream stack;
+        for (size_t i = 0; i < svPerfReport_.activeBuildDesigns.size(); ++i) {
+          if (i != 0) {
+            stack << " > ";
+          }
+          stack << toSingleLine(svPerfReport_.activeBuildDesigns[i]);
+        }
+        return stack.str();
+      };
 
       const auto reportPath = svPerfReport_.reportPath;
       auto tmpPath = reportPath;
@@ -691,6 +755,40 @@ class SNLSVConstructorImpl {
       }
       output << "inputs.path_count=" << svPerfReport_.inputPathCount << "\n";
       output << "inputs.top_instance_count=" << svPerfReport_.topInstanceCount << "\n";
+      output << "progress.phase="
+             << (svPerfReport_.currentPhase.empty() ? "idle" : svPerfReport_.currentPhase)
+             << "\n";
+      output << "progress.lowering_step="
+             << (svPerfReport_.currentLoweringStep.empty()
+                  ? "idle"
+                  : svPerfReport_.currentLoweringStep)
+             << "\n";
+      output << "progress.top_instance="
+             << (svPerfReport_.currentTopInstance.empty()
+                  ? "idle"
+                  : toSingleLine(svPerfReport_.currentTopInstance))
+             << "\n";
+      output << "progress.build_design_current="
+             << (svPerfReport_.activeBuildDesigns.empty()
+                  ? "idle"
+                  : toSingleLine(svPerfReport_.activeBuildDesigns.back()))
+             << "\n";
+      output << "progress.build_design_stack="
+             << (svPerfReport_.activeBuildDesigns.empty()
+                  ? "idle"
+                  : joinActiveBuildDesigns())
+             << "\n";
+      output << "progress.build_design_stack_depth="
+             << svPerfReport_.activeBuildDesigns.size() << "\n";
+      output << "progress.max_build_design_stack_depth="
+             << svPerfReport_.maxBuildDesignStackDepth << "\n";
+      output << "progress.top_instance_builds_started="
+             << svPerfReport_.topInstanceBuildsStarted << "\n";
+      output << "progress.top_instance_builds_completed="
+             << svPerfReport_.topInstanceBuildsCompleted << "\n";
+      output << "progress.build_design_returns=" << svPerfReport_.buildDesignReturns << "\n";
+      output << "progress.build_designs_active="
+             << (svPerfReport_.buildDesignCalls - svPerfReport_.buildDesignReturns) << "\n";
 
       output << std::fixed << std::setprecision(3);
       output << "time.construct.total_ms=" << toMilliseconds(svPerfReport_.constructDuration)
@@ -876,6 +974,10 @@ class SNLSVConstructorImpl {
         {
           NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "parse");
           const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.parseDuration);
 #endif
           constructWithSlangDriver(paths);
@@ -888,6 +990,10 @@ class SNLSVConstructorImpl {
           getCompilationDiagnosticsReport(*compilation_);
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "diagnostics_report");
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
@@ -908,13 +1014,26 @@ class SNLSVConstructorImpl {
         {
           NajaPerf::Scope scope("SNLSVConstructorImpl::buildTopDesigns");
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "build_top_designs");
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.buildTopDesignsDuration);
 #endif
           for (const auto* top : root.topInstances) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            const SVPerfProgressLabelGuard topProgress(
+              svPerfReport_,
+              svPerfReport_.currentTopInstance,
+              std::string(top->body.getDefinition().name));
+            ++svPerfReport_.topInstanceBuildsStarted;
+            noteSVPerfProgress();
+#endif
             buildDesign(top->body);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            ++svPerfReport_.topInstanceBuildsCompleted;
             maybeWriteSVPerfReportSnapshot();
 #endif
           }
@@ -925,6 +1044,10 @@ class SNLSVConstructorImpl {
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "dump_elaborated_ast");
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.elaboratedASTDumpDuration);
@@ -937,6 +1060,10 @@ class SNLSVConstructorImpl {
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "diagnostics_report");
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
@@ -949,6 +1076,10 @@ class SNLSVConstructorImpl {
 
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfProgressLabelGuard progress(
+            svPerfReport_,
+            svPerfReport_.currentPhase,
+            "unsupported_check");
           const SVPerfScopedTimer timer(
             svPerfReport_,
             svPerfReport_.unsupportedCheckDuration);
@@ -2491,10 +2622,15 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.buildDesignCalls;
       noteSVPerfProgress();
+      const auto buildDesignProgressGuard = slang::ScopeGuard([&]() {
+        ++svPerfReport_.buildDesignReturns;
+        noteSVPerfProgress();
+      });
 #endif
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const SVPerfBuildDesignStackGuard buildDesignStackGuard(svPerfReport_, defName);
       const auto makePerfScopeName = [&](const char* phase) {
         return std::string("SNLSVConstructorImpl::") + phase + "(" + defName + ")";
       };
@@ -2527,6 +2663,10 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const SVPerfScopedTimer designTimer(svPerfReport_, svPerfReport_.buildDesignDuration);
       NajaPerf::Scope buildDesignScope(makePerfScopeName("buildDesign"));
+      const SVPerfProgressLabelGuard buildStep(
+        svPerfReport_,
+        svPerfReport_.currentLoweringStep,
+        "build_design");
 #endif
       auto savedInferredMemories = std::move(inferredMemories_);
       auto savedInferredMemoryByStateSymbol = std::move(inferredMemoryByStateSymbol_);
@@ -2551,6 +2691,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createTerms"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "create_terms");
         ++svPerfReport_.createTermsCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createTermsDuration);
 #endif
@@ -2562,6 +2706,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createNets"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "create_nets");
         ++svPerfReport_.createNetsCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createNetsDuration);
 #endif
@@ -2573,6 +2721,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("connectTermsToNets"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "connect_terms_to_nets");
         ++svPerfReport_.connectTermsToNetsCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -2586,6 +2738,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "infer_memories");
 #endif
         inferMemories(design, body);
       }
@@ -2595,6 +2751,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("prepareInferredMemories"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "prepare_inferred_memories");
 #endif
         prepareInferredMemories(design);
       }
@@ -2604,6 +2764,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createContinuousAssigns"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "create_continuous_assigns");
         ++svPerfReport_.createContinuousAssignsCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -2617,6 +2781,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createInstances"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "create_instances");
         ++svPerfReport_.createInstancesCalls;
         const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createInstancesDuration);
 #endif
@@ -2628,6 +2796,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createSequentialLogic"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "create_sequential_logic");
         ++svPerfReport_.createSequentialLogicCalls;
         const SVPerfScopedTimer timer(
           svPerfReport_,
@@ -2641,6 +2813,10 @@ endmodule
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("finalizeInferredMemories"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "finalize_inferred_memories");
 #endif
         finalizeInferredMemories(design);
       }

@@ -30528,6 +30528,12 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorP
   EXPECT_EQ(std::string::npos, report.find(header, headerPos + header.size()));
   EXPECT_NE(std::string::npos, report.find("snapshot.kind=final"));
   EXPECT_NE(std::string::npos, report.find("result=success"));
+  EXPECT_NE(std::string::npos, report.find("progress.phase=idle"));
+  EXPECT_NE(std::string::npos, report.find("progress.lowering_step=idle"));
+  EXPECT_NE(std::string::npos, report.find("progress.top_instance_builds_started=1"));
+  EXPECT_NE(std::string::npos, report.find("progress.top_instance_builds_completed=1"));
+  EXPECT_NE(std::string::npos, report.find("progress.build_design_returns="));
+  EXPECT_NE(std::string::npos, report.find("progress.build_designs_active=0"));
 
   const std::string writeCountKey = "snapshot.write_count=";
   const auto writeCountPos = report.find(writeCountKey);
