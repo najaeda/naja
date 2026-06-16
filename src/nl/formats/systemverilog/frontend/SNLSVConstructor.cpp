@@ -19151,6 +19151,33 @@ endmodule
       return getConstantBit(expr, constantBit) && constantBit;
     }
 
+    // AST-level detection of `lhs <= lhs + 1` / `lhs <= 1 + lhs` self-increment
+    // assignments. The direct and guarded-direct sequential fast paths build
+    // assignment bits without a precomputed incrementer, so these self-updates
+    // must fall back to the generic sequential lowering path, which builds the
+    // incrementer explicitly. Mirrors the positive (increment) case of
+    // getSelfUpdateStepDeltaForAction() without requiring net resolution, which
+    // is unavailable while the assignment tables are being collected.
+    bool actionRhsIsSelfIncrement(
+      const slang::ast::ValueSymbol& symbol,
+      const AssignAction& action) const {
+      if (!action.rhs) {
+        return false;
+      }
+      const auto* rhsExpr = stripConversions(*action.rhs);
+      if (!rhsExpr || rhsExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
+        return false;
+      }
+      const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
+      if (bin.op != slang::ast::BinaryOperator::Add) {
+        return false;
+      }
+      return (isValueSymbolReference(bin.left(), symbol) &&
+              isConstantOneExpression(bin.right())) ||
+             (isValueSymbolReference(bin.right(), symbol) &&
+              isConstantOneExpression(bin.left()));
+    }
+
     int8_t getSelfUpdateStepDeltaForAction(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -19307,6 +19334,11 @@ endmodule
             describeExpression(*lhsExpr)));
           return false;
         }
+        if (actionRhsIsSelfIncrement(*symbol, action)) {
+          setFailureReason(
+            "direct sequential fast path does not support self-increment assignment actions");
+          return false;
+        }
         const auto assignmentIndex = table.assignments.size();
         const auto insertResult = table.bySymbol.emplace(symbol, assignmentIndex);
         if (!insertResult.second) {
@@ -19346,6 +19378,11 @@ endmodule
         setFailureReason(formatDescribedFailure(
           "guarded direct sequential fast path supports only integral named LHS targets: ",
           describeExpression(lhsExpr)));
+        return false;
+      }
+      if (actionRhsIsSelfIncrement(*symbol, action)) {
+        setFailureReason(
+          "guarded direct sequential fast path does not support self-increment assignment actions");
         return false;
       }
 
@@ -28329,6 +28366,18 @@ endmodule
           continue;
         }
 
+        // Warn about uninferred memories once per block, before any lowering
+        // path is attempted. This must run unconditionally: a fast path that
+        // successfully expands an uninferred memory into gates/flops would
+        // otherwise hide the diagnostic. Warnings are deduplicated per symbol.
+        if (stmt) {
+          warnLargeUninferredMemoryAssignments(
+            *stmt,
+            moduleName,
+            ignoredSequentialSymbolsPtr,
+            uninferredMemoryWarningThreshold);
+        }
+
         SNLBitNet* clkNet = nullptr;
         auto clockEdge = slang::ast::EdgeKind::PosEdge;
         const Expression* asyncResetEventExpr = nullptr;
@@ -28470,13 +28519,6 @@ endmodule
               }
             }
           }
-          if (stmt) {
-            warnLargeUninferredMemoryAssignments(
-              *stmt,
-              moduleName,
-              ignoredSequentialSymbolsPtr,
-              uninferredMemoryWarningThreshold);
-          }
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
                  << "': unsupported statement pattern for sequential lowering";
@@ -28488,13 +28530,6 @@ endmodule
         }
         if (shouldIgnoreTrackedLHS(chain.lhs, ignoredSequentialSymbolsPtr)) {
           continue;
-        }
-        if (stmt) {
-          warnLargeUninferredMemoryAssignments(
-            *stmt,
-            moduleName,
-            ignoredSequentialSymbolsPtr,
-            uninferredMemoryWarningThreshold);
         }
         const bool explicitHoldDefault =
           chain.hasDefault &&

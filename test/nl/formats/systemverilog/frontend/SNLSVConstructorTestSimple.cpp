@@ -14808,11 +14808,14 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseCoverage2SequentialIgnorableBranchNoAssignmentUnsupported) {
+  parseCoverage2SequentialIgnorableBranchNoAssignmentSupported) {
+  // The if-branch only contains ignorable system tasks and assigns nothing, so
+  // q_o holds its value when en_i is set and loads d_i otherwise. This lowers
+  // to q_o <= en_i ? q_o : d_i, i.e. a feedback mux feeding a DFF.
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
-    "coverage2_sequential_ignorable_branch_no_assignment_unsupported",
-    R"(module coverage2_sequential_ignorable_branch_no_assignment_unsupported(
+    "coverage2_sequential_ignorable_branch_no_assignment_supported",
+    R"(module coverage2_sequential_ignorable_branch_no_assignment_supported(
   input  logic clk_i,
   input  logic en_i,
   input  logic d_i,
@@ -14829,11 +14832,20 @@ TEST_F(
 endmodule
 )");
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'coverage2_sequential_ignorable_branch_no_assignment_unsupported'"});
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_sequential_ignorable_branch_no_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
+  EXPECT_GE(countMux2Instances(top), 1u);
 }
 
 TEST_F(
@@ -24156,22 +24168,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentResetBranchWithoutAssignmentsUnsupported) {
+  parseSequentialMultiAssignmentResetBranchWithoutAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "seq_multi_assignment_reset_branch_without_assignments_unsupported";
+    outPath / "seq_multi_assignment_reset_branch_without_assignments_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_multi_assignment_reset_branch_without_assignments_unsupported.sv";
+    outPath / "seq_multi_assignment_reset_branch_without_assignments_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_reset_branch_without_assignments_unsupported(
+    << R"(module seq_multi_assignment_reset_branch_without_assignments_supported(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic d0_i,
@@ -24191,10 +24203,22 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"reset branch does not contain assignments"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_reset_branch_without_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t ffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
+      ffCount += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(2u, ffCount);
 }
 
 TEST_F(
