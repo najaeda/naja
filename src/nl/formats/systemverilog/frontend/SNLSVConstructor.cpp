@@ -2476,7 +2476,9 @@ endmodule
       driver.addStandardArgs();
 
       std::vector<std::string> args;
-      args.reserve(paths.size() + 7 + options_.suppressWarnings.size());
+      args.reserve(
+        paths.size() + 7 + options_.preprocessorDefines.size() +
+        options_.suppressWarnings.size());
       args.emplace_back("snl_sv_constructor");
       args.emplace_back("--translate-off-format");
       args.emplace_back("pragma,translate_off,translate_on");
@@ -2484,6 +2486,9 @@ endmodule
       args.emplace_back("synthesis,translate_off,translate_on");
       args.emplace_back("--translate-off-format");
       args.emplace_back("synopsys,translate_off,translate_on");
+      for (const auto& define : options_.preprocessorDefines) {
+        args.emplace_back("-D" + define);
+      }
       for (const auto& w : options_.suppressWarnings) {
         args.emplace_back("-Wno-" + w);
       }

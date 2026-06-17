@@ -29,6 +29,8 @@ class SNLSVConstructor {
       std::optional<std::filesystem::path> diagnosticsReportPath {};
       bool prettyPrintElaboratedASTJson {true};
       bool includeSourceInfoInElaboratedASTJson {true};
+      /// Slang preprocessor defines (passed as -D<name>[=<value>] to the driver).
+      std::vector<std::string> preprocessorDefines {};
       /// Slang warning names to suppress (passed as -Wno-<name> to the driver).
       std::vector<std::string> suppressWarnings {};
     };

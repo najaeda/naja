@@ -170,6 +170,35 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 config=netlist.SystemVerilogConfig(top=""),
             )
 
+    def test_load_system_verilog_with_flist_top_and_define(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
+            design_sv = os.path.join(temp_dir, "define_selects_top.sv")
+            with open(design_sv, "w", encoding="utf-8") as design_file:
+                design_file.write(
+                    "`ifdef SYNTHESIS\n"
+                    "module synth_top(input logic a, output logic y);\n"
+                    "  assign y = a;\n"
+                    "endmodule\n"
+                    "`else\n"
+                    "module sim_top(input logic a, output logic y);\n"
+                    "  assign y = ~a;\n"
+                    "endmodule\n"
+                    "`endif\n")
+
+            source_flist = os.path.join(temp_dir, "sources.f")
+            with open(source_flist, "w", encoding="utf-8") as flist:
+                flist.write(f"{design_sv}\n")
+
+            top = netlist.load_system_verilog(
+                [],
+                config=netlist.SystemVerilogConfig(
+                    flist=source_flist,
+                    top="synth_top",
+                    defines=["SYNTHESIS"]),
+            )
+            self.assertIsNotNone(top)
+            self.assertEqual("synth_top", top.get_model_name())
+
     def test_load_system_verilog_with_flist_and_top(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
             generic_sv = os.path.join(temp_dir, "generic.sv")

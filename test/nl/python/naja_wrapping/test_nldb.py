@@ -245,6 +245,27 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
 
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with tempfile.NamedTemporaryFile("w", suffix=".sv", delete=False) as defineFile:
+      defineFile.write("`ifdef SYNTHESIS\n")
+      defineFile.write("module synth_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`else\n")
+      defineFile.write("module sim_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = ~a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`endif\n")
+      definePath = defineFile.name
+    try:
+      top = db.loadSystemVerilog([definePath], defines=["SYNTHESIS"])
+      self.assertIsNotNone(top)
+      self.assertEqual("synth_top", top.getName())
+    finally:
+      if os.path.exists(definePath):
+        os.remove(definePath)
+
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
@@ -321,6 +342,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)
