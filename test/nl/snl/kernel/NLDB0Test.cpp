@@ -929,6 +929,7 @@ TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
   EXPECT_EQ(NLID::LibraryID(15), tableSelect->getLibrary()->getID());
   EXPECT_EQ(NLName("naja_table_select"), tableSelect->getLibrary()->getName());
   EXPECT_EQ(rootLibrary, tableSelect->getLibrary()->getParentLibrary());
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(tableSelect), NLException);
 
   EXPECT_THROW(NLDB0::getOrCreateDFF(0), NLException);
   const auto tooWide =
