@@ -97,22 +97,23 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
             )
             with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
-            self.assertIn("sv_src_file", dumped_text)
-
-            with_compact_rtl_infos = os.path.join(
-                dump_dir, "simple_with_compact_rtl_infos.v"
-            )
-            top.dump_verilog(
-                with_compact_rtl_infos,
-                config=netlist.VerilogDumpConfig(
-                    dumpRTLInfosAsAttributes=True,
-                    rtlInfoDumpMode="CompactAttribute",
-                ),
-            )
-            with open(with_compact_rtl_infos, "r", encoding="utf-8") as dumped_file:
-                dumped_text = dumped_file.read()
             self.assertNotIn("sv_src_file", dumped_text)
             self.assertIn('naja_sv_src="', dumped_text)
+
+            with_verbose_rtl_infos = os.path.join(
+                dump_dir, "simple_with_verbose_rtl_infos.v"
+            )
+            top.dump_verilog(
+                with_verbose_rtl_infos,
+                config=netlist.VerilogDumpConfig(
+                    dumpRTLInfosAsAttributes=True,
+                    rtlInfoDumpMode="VerboseAttributes",
+                ),
+            )
+            with open(with_verbose_rtl_infos, "r", encoding="utf-8") as dumped_file:
+                dumped_text = dumped_file.read()
+            self.assertIn("sv_src_file", dumped_text)
+            self.assertNotIn('naja_sv_src="', dumped_text)
 
             with_assign_instances = os.path.join(dump_dir, "simple_with_assign_instances.v")
             top.dump_verilog(

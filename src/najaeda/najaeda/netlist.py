@@ -1912,7 +1912,7 @@ class VerilogConfig:
 @dataclass
 class VerilogDumpConfig:
     dumpRTLInfosAsAttributes: bool = False
-    rtlInfoDumpMode: str = "VerboseAttributes"
+    rtlInfoDumpMode: str = "CompactAttribute"
     dumpAssignsAsInstances: bool = False
 
     def __post_init__(self):

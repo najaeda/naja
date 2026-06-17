@@ -75,7 +75,7 @@ class SNLVRLDumper {
         void setDumpHierarchy(bool mode) { dumpHierarchy_ = mode; }
         bool isDumpHierarchy() const { return dumpHierarchy_; }
         void setDumpRTLInfosAsAttributes(bool mode) {
-          rtlInfoDumpMode_ = mode ? RTLInfoDumpMode::VerboseAttributes : RTLInfoDumpMode::None;
+          rtlInfoDumpMode_ = mode ? RTLInfoDumpMode::CompactAttribute : RTLInfoDumpMode::None;
         }
         bool isDumpRTLInfosAsAttributes() const {
           return rtlInfoDumpMode_ != RTLInfoDumpMode::None;
@@ -89,7 +89,7 @@ class SNLVRLDumper {
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
-        RTLInfoDumpMode rtlInfoDumpMode_ {RTLInfoDumpMode::VerboseAttributes};
+        RTLInfoDumpMode rtlInfoDumpMode_ {RTLInfoDumpMode::CompactAttribute};
         bool        dumpAssignsAsInstances_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }

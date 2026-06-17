@@ -294,18 +294,19 @@ class SNLDBTest(unittest.TestCase):
         dumpRTLInfosAsAttributes=True)
       with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
         dumped_text = dumped_file.read()
-      self.assertIn("sv_src_file", dumped_text)
-
-      with_compact_rtl_infos = os.path.join(dump_dir, "simple_with_compact_rtl_infos.v")
-      top.dumpVerilog(
-        path=dump_dir,
-        top_file_name=os.path.basename(with_compact_rtl_infos),
-        dumpRTLInfosAsAttributes=True,
-        rtlInfoDumpMode="CompactAttribute")
-      with open(with_compact_rtl_infos, "r", encoding="utf-8") as dumped_file:
-        dumped_text = dumped_file.read()
       self.assertNotIn("sv_src_file", dumped_text)
       self.assertIn('naja_sv_src="', dumped_text)
+
+      with_verbose_rtl_infos = os.path.join(dump_dir, "simple_with_verbose_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(with_verbose_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="VerboseAttributes")
+      with open(with_verbose_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
 
   def testDestroy(self):
     u = naja.NLUniverse.get()
