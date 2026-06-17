@@ -108,7 +108,9 @@ cases:
         primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
 
         self.assertIn("module naja_table_select #(", primitives)
-        self.assertIn("assign Y = (ADDR < DEPTH) ? DATA[ADDR*WIDTH +: WIDTH]", primitives)
+        self.assertIn("function [WIDTH-1:0] select_data", primitives)
+        self.assertIn("if (addr == i[ABITS-1:0])", primitives)
+        self.assertIn("assign Y = select_data(DATA, ADDR)", primitives)
 
     def test_parser_accepts_local_lint_runner(self):
         parser = sv_regress.build_parser()

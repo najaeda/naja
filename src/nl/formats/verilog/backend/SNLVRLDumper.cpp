@@ -2261,7 +2261,21 @@ void SNLVRLDumper::dumpNajaTableSelectModel(std::ostream& o) {
   o << "  input [ABITS-1:0] ADDR,\n";
   o << "  output [WIDTH-1:0] Y\n";
   o << ");\n";
-  o << "  assign Y = (ADDR < DEPTH) ? DATA[ADDR*WIDTH +: WIDTH] : {WIDTH{1'b0}};\n";
+  o << "  function [WIDTH-1:0] select_data;\n";
+  o << "    input [WIDTH*DEPTH-1:0] data;\n";
+  o << "    input [ABITS-1:0] addr;\n";
+  o << "    integer i;\n";
+  o << "    begin\n";
+  o << "      select_data = {WIDTH{1'b0}};\n";
+  o << "      for (i = 0; i < DEPTH; i = i + 1) begin\n";
+  o << "        if (addr == i[ABITS-1:0]) begin\n";
+  o << "          select_data = data[i*WIDTH +: WIDTH];\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end\n";
+  o << "  endfunction\n";
+  o << "\n";
+  o << "  assign Y = select_data(DATA, ADDR);\n";
   o << "endmodule //naja_table_select\n";
 }
 
