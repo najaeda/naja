@@ -52,6 +52,12 @@ class SNLVRLDumper {
   public:
     SNLVRLDumper();
 
+    enum class RTLInfoDumpMode {
+      None,
+      VerboseAttributes,
+      CompactAttribute
+    };
+
     class Configuration {
       public:
         Configuration() = default;
@@ -68,8 +74,14 @@ class SNLVRLDumper {
         bool hasLibraryFileName() const { return not libraryFileName_.empty(); }
         void setDumpHierarchy(bool mode) { dumpHierarchy_ = mode; }
         bool isDumpHierarchy() const { return dumpHierarchy_; }
-        void setDumpRTLInfosAsAttributes(bool mode) { dumpRTLInfosAsAttributes_ = mode; }
-        bool isDumpRTLInfosAsAttributes() const { return dumpRTLInfosAsAttributes_; }
+        void setDumpRTLInfosAsAttributes(bool mode) {
+          rtlInfoDumpMode_ = mode ? RTLInfoDumpMode::VerboseAttributes : RTLInfoDumpMode::None;
+        }
+        bool isDumpRTLInfosAsAttributes() const {
+          return rtlInfoDumpMode_ != RTLInfoDumpMode::None;
+        }
+        void setRTLInfoDumpMode(RTLInfoDumpMode mode) { rtlInfoDumpMode_ = mode; }
+        RTLInfoDumpMode getRTLInfoDumpMode() const { return rtlInfoDumpMode_; }
         void setDumpAssignsAsInstances(bool mode) { dumpAssignsAsInstances_ = mode; }
         bool isDumpAssignsAsInstances() const { return dumpAssignsAsInstances_; }
       private:
@@ -77,7 +89,7 @@ class SNLVRLDumper {
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
-        bool        dumpRTLInfosAsAttributes_ {true};
+        RTLInfoDumpMode rtlInfoDumpMode_ {RTLInfoDumpMode::VerboseAttributes};
         bool        dumpAssignsAsInstances_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
@@ -92,6 +104,7 @@ class SNLVRLDumper {
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
     void setDumpRTLInfosAsAttributes(bool mode);
+    void setRTLInfoDumpMode(RTLInfoDumpMode mode);
     void setDumpAssignsAsInstances(bool mode);
 
     /**

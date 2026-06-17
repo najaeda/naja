@@ -150,7 +150,9 @@ size_t countSubstring(const std::string& text, const std::string& needle) {
 
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
                                                const std::string& outDirName,
-                                               bool dumpRTLInfosAsAttributes = false) {
+                                               bool dumpRTLInfosAsAttributes = false,
+                                               SNLVRLDumper::RTLInfoDumpMode rtlInfoDumpMode =
+                                                 SNLVRLDumper::RTLInfoDumpMode::VerboseAttributes) {
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= outDirName;
   if (std::filesystem::exists(outPath)) {
@@ -163,6 +165,9 @@ std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
   dumper.setTopFileName(fileName);
   dumper.setSingleFile(true);
   dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  if (dumpRTLInfosAsAttributes) {
+    dumper.setRTLInfoDumpMode(rtlInfoDumpMode);
+  }
   dumper.dumpDesign(top, outPath);
   return outPath / fileName;
 }
@@ -997,6 +1002,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
     std::istreambuf_iterator<char>(dumpedWithRTLInfosFile),
     std::istreambuf_iterator<char>()};
   EXPECT_NE(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
+
+  auto dumpedVerilogWithCompactRTLInfos =
+    dumpTopAndGetVerilogPath(
+      top, "simple_module_with_compact_rtl_infos", true,
+      SNLVRLDumper::RTLInfoDumpMode::CompactAttribute);
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilogWithCompactRTLInfos));
+  std::ifstream dumpedWithCompactRTLInfosFile(dumpedVerilogWithCompactRTLInfos);
+  ASSERT_TRUE(dumpedWithCompactRTLInfosFile.good());
+  std::string dumpedWithCompactRTLInfosText{
+    std::istreambuf_iterator<char>(dumpedWithCompactRTLInfosFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_EQ(dumpedWithCompactRTLInfosText.find("sv_src_file"), std::string::npos);
+  EXPECT_NE(dumpedWithCompactRTLInfosText.find("naja_sv_src=\""), std::string::npos);
+  EXPECT_NE(dumpedWithCompactRTLInfosText.find("simple.sv:"), std::string::npos);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {

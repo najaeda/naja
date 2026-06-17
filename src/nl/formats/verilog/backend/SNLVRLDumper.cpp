@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <unordered_set>
+#include <utility>
 
 #include "NajaLog.h"
 #include "NajaUtils.h"
@@ -1017,6 +1018,10 @@ void SNLVRLDumper::setDumpRTLInfosAsAttributes(bool mode) {
   configuration_.setDumpRTLInfosAsAttributes(mode);
 }
 
+void SNLVRLDumper::setRTLInfoDumpMode(RTLInfoDumpMode mode) {
+  configuration_.setRTLInfoDumpMode(mode);
+}
+
 void SNLVRLDumper::setDumpAssignsAsInstances(bool mode) {
   configuration_.setDumpAssignsAsInstances(mode);
 }
@@ -1194,7 +1199,23 @@ void SNLVRLDumper::dumpAttributes(
       rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
     if (rtlInfos) {
-      for (const auto& info : rtlInfos->getDumpAttributes()) {
+      std::vector<std::pair<std::string, std::string>> attributes;
+      switch (configuration_.getRTLInfoDumpMode()) {
+        case RTLInfoDumpMode::None:
+          break;
+        case RTLInfoDumpMode::VerboseAttributes:
+          attributes = rtlInfos->getDumpAttributes();
+          break;
+        case RTLInfoDumpMode::CompactAttribute:
+          if (auto compactSourceLoc = rtlInfos->getCompactSourceLocAttribute()) {
+            attributes.push_back(std::move(*compactSourceLoc));
+          }
+          for (const auto& info : rtlInfos->getInfos()) {
+            attributes.emplace_back(info.first.getString(), info.second);
+          }
+          break;
+      }
+      for (const auto& info : attributes) {
         ++dumpedRTLInfos;
         o << "(* ";
         o << info.first;
