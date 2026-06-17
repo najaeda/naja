@@ -967,6 +967,74 @@ src/rtl/top.sv
             self.assertIn("--program", sim_command)
             self.assertIn(program, sim_command)
 
+    def test_ibex_generated_netlist_check_accepts_split_line_write_decoder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = Path(tmpdir) / "ibex_naja.v"
+            generated.write_text(
+                """
+module ibex_register_file_ff;
+  naja_xnor instance_0 (
+    .A(waddr_a_i[0]),
+    .B(1'b1),
+    .Y(net_0)
+  );
+  naja_xnor instance_1 (
+    .A(1'b1),
+    .B(waddr_a_i[1]),
+    .Y(net_1)
+  );
+endmodule
+""",
+                encoding="utf-8",
+            )
+
+            ibex_simple_system.check_generated_netlist(generated)
+
+    def test_ibex_generated_netlist_check_accepts_vector_write_decoder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = Path(tmpdir) / "ibex_naja.v"
+            generated.write_text(
+                """
+module ibex_register_file_ff;
+  naja_eq #(
+    .WIDTH(5)
+  ) instance_0 (
+    .A(waddr_a_i),
+    .B(5'b00001),
+    .Y(net_0)
+  );
+  naja_eq #(
+    .WIDTH(5)
+  ) instance_1 (
+    .A(5'b00010),
+    .B(waddr_a_i),
+    .Y(net_1)
+  );
+endmodule
+""",
+                encoding="utf-8",
+            )
+
+            ibex_simple_system.check_generated_netlist(generated)
+
+    def test_ibex_generated_netlist_check_rejects_all_zero_write_decoder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = Path(tmpdir) / "ibex_naja.v"
+            generated.write_text(
+                """
+module ibex_register_file_ff;
+  xnor (net_0, waddr_a_i[0], 1'b0);
+  xnor (net_1, waddr_a_i[1], 1'b0);
+endmodule
+""",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(SystemExit) as context:
+                ibex_simple_system.check_generated_netlist(generated)
+
+        self.assertIn("write decoder still looks stale", str(context.exception))
+
     def test_ibex_secure_netlist_flist_enables_secure_ibex(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
