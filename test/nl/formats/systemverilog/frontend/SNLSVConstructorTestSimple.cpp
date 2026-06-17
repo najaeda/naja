@@ -30374,6 +30374,70 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseDynamicPackedArrayTableSelectUsesPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "dynamic_packed_array_table_select_uses_primitive";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "dynamic_packed_array_table_select_uses_primitive.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module dynamic_packed_array_table_select_uses_primitive(
+  input  logic [1:0] idx_i,
+  input  logic [3:0] a_i,
+  input  logic [3:0] b_i,
+  input  logic [3:0] c_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] y_o
+);
+  logic [3:0][3:0] lut;
+
+  assign lut[0] = a_i;
+  assign lut[1] = b_i;
+  assign lut[2] = c_i;
+  assign lut[3] = d_i;
+  assign y_o = lut[idx_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("dynamic_packed_array_table_select_uses_primitive"));
+  ASSERT_NE(top, nullptr);
+
+  size_t tableSelectCount = 0;
+  NLDB0::TableSelectSignature tableSelectSignature;
+  for (auto inst: top->getInstances()) {
+    if (NLDB0::isTableSelect(inst->getModel())) {
+      ++tableSelectCount;
+      tableSelectSignature = NLDB0::getTableSelectSignature(inst);
+    }
+  }
+  EXPECT_EQ(1u, tableSelectCount);
+  EXPECT_EQ(4u, tableSelectSignature.width);
+  EXPECT_EQ(4u, tableSelectSignature.depth);
+  EXPECT_EQ(2u, tableSelectSignature.abits);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "dynamic_packed_array_table_select_uses_primitive_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_table_select "));
+
+  const auto primitivesPath = dumpedVerilog.parent_path() / "naja_primitives.v";
+  const auto primitivesText = readTextFile(primitivesPath);
+  EXPECT_NE(std::string::npos, primitivesText.find("module naja_table_select"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialGeneratedPacked2DNestedSelectNoDuplicateDrivers) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

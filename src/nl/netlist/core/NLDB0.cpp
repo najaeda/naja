@@ -39,6 +39,7 @@ namespace {
   constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 12;
   constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 13;
   constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 14;
+  constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 15;
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -57,6 +58,8 @@ namespace {
   constexpr const char* DivModUnsignedLibraryName = "unsigned";
   constexpr const char* DivModSignedLibraryName = "signed";
   constexpr const char* DivModPrefix = "naja_divmod__";
+  constexpr const char* TableSelectName = "naja_table_select";
+  constexpr const char* TableSelectPrefix = "naja_table_select__";
   constexpr const char* Mux2Name = "naja_mux2";
   constexpr const char* Mux2ScalarName = "naja_mux2__w1";
   constexpr const char* Mux2Prefix = "naja_mux2__w";
@@ -111,6 +114,16 @@ namespace {
     name << DivModPrefix
          << (signature.isSigned ? "s" : "u")
          << "_w" << signature.width;
+    return name.str();
+  }
+
+  std::string getTableSelectInternalName(
+      const naja::NL::NLDB0::TableSelectSignature& signature) {
+    std::ostringstream name;
+    name << TableSelectPrefix
+         << "w" << signature.width
+         << "_d" << signature.depth
+         << "_a" << signature.abits;
     return name.str();
   }
 
@@ -710,6 +723,55 @@ namespace {
     SNLDesignModeling::setTruthTables(mux2, truthTables);
   }
 
+  void createTableSelectPrimitive(
+    naja::NL::NLLibrary* tableSelectLibrary,
+    const naja::NL::NLDB0::TableSelectSignature& signature) {
+    using namespace naja::NL;
+    auto tableSelect = SNLDesign::create(
+      tableSelectLibrary,
+      SNLDesign::Type::Primitive,
+      NLName(getTableSelectInternalName(signature)));
+    SNLParameter::create(
+      tableSelect, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(signature.width));
+    SNLParameter::create(
+      tableSelect, NLName("DEPTH"), SNLParameter::Type::Decimal, std::to_string(signature.depth));
+    SNLParameter::create(
+      tableSelect, NLName("ABITS"), SNLParameter::Type::Decimal, std::to_string(signature.abits));
+
+    auto* data = SNLBusTerm::create(
+      tableSelect,
+      Term0ID,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.width * signature.depth - 1),
+      0,
+      NLName("DATA"));
+    auto* addr = SNLBusTerm::create(
+      tableSelect,
+      Term1ID,
+      SNLTerm::Direction::Input,
+      static_cast<NLID::Bit>(signature.abits - 1),
+      0,
+      NLName("ADDR"));
+    auto* out = SNLBusTerm::create(
+      tableSelect,
+      Term2ID,
+      SNLTerm::Direction::Output,
+      static_cast<NLID::Bit>(signature.width - 1),
+      0,
+      NLName("Y"));
+
+    auto addrBits = collectBitTerms(*addr);
+    for (size_t bit = 0; bit < signature.width; ++bit) {
+      SNLDesignModeling::BitTerms inputs = addrBits;
+      for (size_t row = 0; row < signature.depth; ++row) {
+        inputs.push_back(data->getBit(static_cast<NLID::Bit>(row * signature.width + bit)));
+      }
+      SNLDesignModeling::addCombinatorialArcs(
+        inputs,
+        {out->getBit(static_cast<NLID::Bit>(bit))});
+    }
+  }
+
   size_t getMemoryDecimalParameter(const naja::NL::SNLDesign* design, const char* name) {
     auto* parameter = design ? design->getParameter(naja::NL::NLName(name)) : nullptr;
     if (!parameter) {
@@ -782,6 +844,17 @@ namespace {
         rootLibrary,
         naja::NL::NLLibrary::Type::Primitives,
         naja::NL::NLName(MemoryLibraryName));
+  }
+
+  naja::NL::NLLibrary* getTableSelectLibrary() {
+    return getPrimitiveLibrary(TableSelectLibraryID);
+  }
+
+  naja::NL::NLLibrary* getOrCreateTableSelectLibrary() {
+    if (auto* existing = getTableSelectLibrary()) {
+      return existing;
+    }
+    return getOrCreatePrimitiveLibrary(TableSelectLibraryID, TableSelectName);
   }
 
 }
@@ -882,6 +955,8 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, DFFSELibraryID, NLLibrary::Type::Primitives, NLName(DFFSEName));
   auto divModLibrary =
     NLLibrary::create(rootLibrary, DivModLibraryID, NLLibrary::Type::Primitives, NLName(DivModLibraryName));
+  NLLibrary::create(
+    rootLibrary, TableSelectLibraryID, NLLibrary::Type::Primitives, NLName(TableSelectName));
   NLLibrary::create(
     divModLibrary, DivModUnsignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModUnsignedLibraryName));
   NLLibrary::create(
@@ -1020,6 +1095,61 @@ SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
   return design->getBusTerm(NLName("WE"));
 }
 
+bool NLDB0::isTableSelect(const SNLDesign* design) {
+  return design && design->isPrimitive() && design->getLibrary() == getTableSelectLibrary() &&
+         !design->isUnnamed() &&
+         design->getName().getString().rfind(TableSelectPrefix, 0) == 0;
+}
+
+NLDB0::TableSelectSignature NLDB0::getTableSelectSignature(const SNLDesign* design) {
+  if (!isTableSelect(design)) {
+    throw NLException("NLDB0::getTableSelectSignature: design is not a table select primitive");
+  }
+  TableSelectSignature signature;
+  signature.width = getMemoryDecimalParameter(design, "WIDTH");
+  signature.depth = getMemoryDecimalParameter(design, "DEPTH");
+  signature.abits = getMemoryDecimalParameter(design, "ABITS");
+  return signature;
+}
+
+NLDB0::TableSelectSignature NLDB0::getTableSelectSignature(const SNLInstance* instance) {
+  if (!instance || !isTableSelect(instance->getModel())) {
+    throw NLException("NLDB0::getTableSelectSignature: instance is not a table select primitive");
+  }
+  auto signature = getTableSelectSignature(instance->getModel());
+  if (auto* width = instance->getInstParameter(NLName("WIDTH"))) {
+    signature.width = getMemoryDecimalParameter(instance, "WIDTH");
+  }
+  if (auto* depth = instance->getInstParameter(NLName("DEPTH"))) {
+    signature.depth = getMemoryDecimalParameter(instance, "DEPTH");
+  }
+  if (auto* abits = instance->getInstParameter(NLName("ABITS"))) {
+    signature.abits = getMemoryDecimalParameter(instance, "ABITS");
+  }
+  return signature;
+}
+
+SNLBusTerm* NLDB0::getTableSelectData(const SNLDesign* design) {
+  if (!isTableSelect(design)) {
+    throw NLException("NLDB0::getTableSelectData: design is not a table select primitive");
+  }
+  return design->getBusTerm(NLName("DATA"));
+}
+
+SNLBusTerm* NLDB0::getTableSelectAddress(const SNLDesign* design) {
+  if (!isTableSelect(design)) {
+    throw NLException("NLDB0::getTableSelectAddress: design is not a table select primitive");
+  }
+  return design->getBusTerm(NLName("ADDR"));
+}
+
+SNLBusTerm* NLDB0::getTableSelectOutput(const SNLDesign* design) {
+  if (!isTableSelect(design)) {
+    throw NLException("NLDB0::getTableSelectOutput: design is not a table select primitive");
+  }
+  return design->getBusTerm(NLName("Y"));
+}
+
 bool NLDB0::isDivMod(const SNLDesign* design) {
   if (!design || !design->isPrimitive() || !isDB0Primitive(design) || design->isUnnamed()) {
     return false;
@@ -1090,6 +1220,9 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   }
   if (isDivMod(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: divmod primitive has no truth table");
+  }
+  if (isTableSelect(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: table select primitive has no truth table");
   }
   if (isAssign(design)) {
     return SNLTruthTable(1, 0b10, getInputFlatTermDependencies(design));
@@ -1194,6 +1327,32 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
   }
   createMemoryPrimitive(memoryLibrary, signature);
   return memoryLibrary->getSNLDesign(name);
+}
+
+SNLDesign* NLDB0::getOrCreateTableSelect(const TableSelectSignature& signature) {
+  auto* tableSelectLibrary = getOrCreateTableSelectLibrary();
+  if (!tableSelectLibrary) {
+    return nullptr;
+  }
+  if (signature.width == 0 || signature.depth == 0 || signature.abits == 0) {
+    throw NLException("NLDB0::getOrCreateTableSelect: invalid table select signature");
+  }
+  if (signature.depth > std::numeric_limits<size_t>::max() / signature.width) {
+    throw NLException("NLDB0::getOrCreateTableSelect: data width overflow");
+  }
+  const auto dataWidth = signature.width * signature.depth;
+  const auto maxBit = static_cast<size_t>(std::numeric_limits<NLID::Bit>::max());
+  if (dataWidth - 1 > maxBit ||
+      signature.width - 1 > maxBit ||
+      signature.abits - 1 > maxBit) {
+    throw NLException("NLDB0::getOrCreateTableSelect: bus bound does not fit a bit ID");
+  }
+  const auto name = NLName(getTableSelectInternalName(signature));
+  if (auto* existing = tableSelectLibrary->getSNLDesign(name)) {
+    return existing;
+  }
+  createTableSelectPrimitive(tableSelectLibrary, signature);
+  return tableSelectLibrary->getSNLDesign(name);
 }
 
 SNLDesign* NLDB0::getAssign() {

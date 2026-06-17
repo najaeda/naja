@@ -67,6 +67,18 @@ class NLDB0 {
       }
     };
 
+    struct TableSelectSignature {
+      size_t width {0};
+      size_t depth {0};
+      size_t abits {0};
+
+      bool operator==(const TableSelectSignature& other) const {
+        return width == other.width &&
+               depth == other.depth &&
+               abits == other.abits;
+      }
+    };
+
     class GateType {
       public:
         enum GateTypeEnum {
@@ -113,6 +125,12 @@ class NLDB0 {
     static SNLBusTerm* getDivModDivisor(const SNLDesign* design);
     static SNLBusTerm* getDivModQuotient(const SNLDesign* design);
     static SNLBusTerm* getDivModRemainder(const SNLDesign* design);
+    static bool isTableSelect(const SNLDesign* design);
+    static TableSelectSignature getTableSelectSignature(const SNLDesign* design);
+    static TableSelectSignature getTableSelectSignature(const SNLInstance* instance);
+    static SNLBusTerm* getTableSelectData(const SNLDesign* design);
+    static SNLBusTerm* getTableSelectAddress(const SNLDesign* design);
+    static SNLBusTerm* getTableSelectOutput(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -239,6 +257,8 @@ class NLDB0 {
     static SNLDesign* getOrCreateDivMod(const DivModSignature& signature);
     /// \brief Create or reuse a fully managed DB0 memory primitive.
     static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
+    /// \brief Create or reuse a compact combinational table-select primitive.
+    static SNLDesign* getOrCreateTableSelect(const TableSelectSignature& signature);
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };

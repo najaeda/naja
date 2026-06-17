@@ -405,6 +405,85 @@ TEST_F(NLDB0Test, testWideMux2ModelingArcs) {
   }
 }
 
+TEST_F(NLDB0Test, testTableSelectModelingArcsAreBitLanePrecise) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::TableSelectSignature signature;
+  signature.width = 4;
+  signature.depth = 3;
+  signature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+  ASSERT_NE(nullptr, tableSelect);
+
+  auto* data = NLDB0::getTableSelectData(tableSelect);
+  auto* addr = NLDB0::getTableSelectAddress(tableSelect);
+  auto* out = NLDB0::getTableSelectOutput(tableSelect);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, addr);
+  ASSERT_NE(nullptr, out);
+
+  for (size_t bit = 0; bit < signature.width; ++bit) {
+    auto* yBit = out->getBit(static_cast<NLID::Bit>(bit));
+    ASSERT_NE(nullptr, yBit);
+
+    auto inputs = std::vector(
+      SNLDesignModeling::getCombinatorialInputs(yBit).begin(),
+      SNLDesignModeling::getCombinatorialInputs(yBit).end());
+    EXPECT_EQ(signature.abits + signature.depth, inputs.size());
+    for (size_t addrBit = 0; addrBit < signature.abits; ++addrBit) {
+      EXPECT_NE(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          addr->getBit(static_cast<NLID::Bit>(addrBit))));
+    }
+    for (size_t row = 0; row < signature.depth; ++row) {
+      EXPECT_NE(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          data->getBit(static_cast<NLID::Bit>(row * signature.width + bit))));
+      EXPECT_EQ(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          data->getBit(static_cast<NLID::Bit>(
+            row * signature.width + ((bit + 1) % signature.width)))));
+    }
+  }
+
+  for (size_t bit = 0; bit < signature.width; ++bit) {
+    auto* dataBit = data->getBit(static_cast<NLID::Bit>(bit));
+    ASSERT_NE(nullptr, dataBit);
+    auto outputs = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(dataBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(dataBit).end());
+    EXPECT_EQ(1u, outputs.size());
+    EXPECT_EQ(out->getBit(static_cast<NLID::Bit>(bit)), outputs.front());
+  }
+
+  for (size_t addrBit = 0; addrBit < signature.abits; ++addrBit) {
+    auto* addressBit = addr->getBit(static_cast<NLID::Bit>(addrBit));
+    ASSERT_NE(nullptr, addressBit);
+    auto outputs = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(addressBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(addressBit).end());
+    EXPECT_EQ(signature.width, outputs.size());
+    for (size_t bit = 0; bit < signature.width; ++bit) {
+      EXPECT_NE(
+        outputs.end(),
+        std::find(
+          outputs.begin(),
+          outputs.end(),
+          out->getBit(static_cast<NLID::Bit>(bit))));
+    }
+  }
+}
+
 TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());

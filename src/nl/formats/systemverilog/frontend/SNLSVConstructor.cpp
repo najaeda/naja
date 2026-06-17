@@ -13122,6 +13122,46 @@ endmodule
                         elementCount <= (std::numeric_limits<size_t>::max() / 2) &&
                         treeSize <= elementCount * 2;
                       if (treeSizeCloseToElementCount) {
+                        std::vector<SNLBitNet*> tableValueBits;
+                        tableValueBits.reserve(elementCount * elementWidth);
+                        bool tableValueBitsOk = true;
+                        for (size_t logicalIndex = 0; logicalIndex < elementCount; ++logicalIndex) {
+                          const auto translated = valueType.getFixedRange().translateIndex(
+                            static_cast<int32_t>(logicalIndex));
+                          if (translated < 0 ||
+                              translated >= static_cast<int32_t>(elementCount)) {
+                            tableValueBitsOk = false; // LCOV_EXCL_LINE
+                            break; // LCOV_EXCL_LINE
+                          }
+                          const auto offset = static_cast<size_t>(translated) * elementWidth;
+                          if (offset + elementWidth > valueBits.size()) {
+                            tableValueBitsOk = false; // LCOV_EXCL_LINE
+                            break; // LCOV_EXCL_LINE
+                          }
+                          tableValueBits.insert(
+                            tableValueBits.end(),
+                            valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                            valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+                        }
+                        if (tableValueBitsOk) {
+                          std::vector<SNLBitNet*> tableSelectedBits;
+                          if (createTableSelectInstance(
+                                design,
+                                tableValueBits,
+                                selectorBits,
+                                elementWidth,
+                                elementCount,
+                                tableSelectedBits,
+                                elementSourceRange)) {
+                            bits = std::move(tableSelectedBits);
+                            resizeBitsToWidth(bits, targetWidth, const0);
+                            if (canUseCache) {
+                              dynamicElementSelectCache_.emplace(std::move(cacheKey), bits);
+                            }
+                            return true;
+                          }
+                        }
+
                         std::vector<SNLBitNet*> zeroElement(elementWidth, const0);
                         std::vector<std::vector<SNLBitNet*>> level(treeSize, zeroElement);
                         for (size_t logicalIndex = 0; logicalIndex < elementCount; ++logicalIndex) {
@@ -16567,6 +16607,69 @@ endmodule
       createMux2Instance(design, select, inARef, inBRef, outNet, sourceRange);
       outBits = collectBits(outNet);
       return true;
+    }
+
+    bool createTableSelectInstance(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& dataBits,
+      const std::vector<SNLBitNet*>& selectorBits,
+      size_t elementWidth,
+      size_t elementCount,
+      std::vector<SNLBitNet*>& outBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (!design ||
+          dataBits.empty() ||
+          selectorBits.empty() ||
+          elementWidth == 0 ||
+          elementCount == 0 ||
+          dataBits.size() != elementWidth * elementCount) {
+        return false; // LCOV_EXCL_LINE
+      }
+      auto* model = NLDB0::getOrCreateTableSelect(
+        NLDB0::TableSelectSignature {
+          elementWidth,
+          elementCount,
+          selectorBits.size()
+        });
+      if (!model) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto dataRef = getOrMaterializePackedNetRef(design, dataBits, sourceRange);
+      auto addressRef = getOrMaterializePackedNetRef(design, selectorBits, sourceRange);
+      SNLNet* outNet = nullptr;
+      if (elementWidth == 1) {
+        outNet = SNLScalarNet::create(design);
+      } else {
+        outNet = SNLBusNet::create(
+          design,
+          static_cast<NLID::Bit>(elementWidth - 1),
+          0);
+      }
+      annotateSourceInfo(outNet, sourceRange);
+
+      auto* inst = SNLInstance::create(design, model);
+      annotateSourceInfo(inst, sourceRange);
+      auto addInstParam = [&](const char* name, const std::string& value) {
+        auto* parameter = model->getParameter(NLName(name));
+        if (!parameter) {
+          throw SNLSVConstructorException(
+            "Failed to resolve table-select parameter"); // LCOV_EXCL_LINE
+        }
+        SNLInstParameter::create(inst, parameter, value);
+      };
+      addInstParam("WIDTH", std::to_string(elementWidth));
+      addInstParam("DEPTH", std::to_string(elementCount));
+      addInstParam("ABITS", std::to_string(selectorBits.size()));
+      inst->setTermNet(NLDB0::getTableSelectData(model), dataRef.net, dataRef.msb, dataRef.lsb);
+      inst->setTermNet(
+        NLDB0::getTableSelectAddress(model),
+        addressRef.net,
+        addressRef.msb,
+        addressRef.lsb);
+      inst->setTermNet(NLDB0::getTableSelectOutput(model), outNet);
+      outBits = collectBits(outNet);
+      return outBits.size() == elementWidth;
     }
 
     bool createFAInstance(
