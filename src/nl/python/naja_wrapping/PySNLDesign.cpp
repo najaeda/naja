@@ -40,9 +40,33 @@
 
 #include "NetlistGraph.h"
 
+#include <optional>
+#include <string>
+
 namespace PYNAJA {
 
 using namespace naja::NL;
+
+namespace {
+
+std::optional<SNLVRLDumper::RTLInfoDumpMode> parseRTLInfoDumpMode(const char* mode) {
+  if (mode == nullptr) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  const std::string modeString(mode);
+  if (modeString == "None" || modeString == "none") {
+    return SNLVRLDumper::RTLInfoDumpMode::None;
+  }
+  if (modeString == "VerboseAttributes" || modeString == "verbose_attributes") {
+    return SNLVRLDumper::RTLInfoDumpMode::VerboseAttributes;
+  }
+  if (modeString == "CompactAttribute" || modeString == "compact_attribute") {
+    return SNLVRLDumper::RTLInfoDumpMode::CompactAttribute;
+  }
+  return std::nullopt;
+}
+
+}  // namespace
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, function)
 
@@ -118,16 +142,19 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   const char* topFileName = nullptr;
   int dumpRTLInfosAsAttributes = 0;
   int dumpAssignsAsInstances = 0;
+  const char* rtlInfoDumpMode = nullptr;
 
   static const char* const kwords[] = {
     "path", "top_file_name", "dumpRTLInfosAsAttributes", "dumpAssignsAsInstances",
+    "rtlInfoDumpMode",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|pp:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|pps:SNLDesign.dumpVerilog",
     const_cast<char**>(kwords),
-    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances)) {
+    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances,
+    &rtlInfoDumpMode)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
@@ -136,6 +163,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   SNLVRLDumper dumper;
   dumper.setTopFileName(topFileName);
   dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  if (rtlInfoDumpMode) {
+    auto parsedMode = parseRTLInfoDumpMode(rtlInfoDumpMode);
+    if (not parsedMode) {
+      setError("invalid rtlInfoDumpMode: expected None, VerboseAttributes, or CompactAttribute");
+      return nullptr;
+    }
+    dumper.setRTLInfoDumpMode(*parsedMode);
+  }
   dumper.setDumpAssignsAsInstances(dumpAssignsAsInstances);
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH

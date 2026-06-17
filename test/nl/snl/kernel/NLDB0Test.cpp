@@ -63,6 +63,12 @@ NLID::LibraryID expectedSequentialLibraryID(const NLName& name) {
   if (name == NLName("naja_dffse")) {
     return NLID::LibraryID(9);
   }
+  if (name == NLName("naja_dffr")) {
+    return NLID::LibraryID(13);
+  }
+  if (name == NLName("naja_dffs")) {
+    return NLID::LibraryID(14);
+  }
   return NLID::LibraryID(0);
 }
 
@@ -397,6 +403,151 @@ TEST_F(NLDB0Test, testWideMux2ModelingArcs) {
       selectOutputs.end(),
       std::find(selectOutputs.begin(), selectOutputs.end(), out->getBit(bit)));
   }
+}
+
+TEST_F(NLDB0Test, testTableSelectModelingArcsAreBitLanePrecise) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::TableSelectSignature signature;
+  signature.width = 4;
+  signature.depth = 3;
+  signature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+  ASSERT_NE(nullptr, tableSelect);
+
+  auto* data = NLDB0::getTableSelectData(tableSelect);
+  auto* addr = NLDB0::getTableSelectAddress(tableSelect);
+  auto* out = NLDB0::getTableSelectOutput(tableSelect);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, addr);
+  ASSERT_NE(nullptr, out);
+
+  for (size_t bit = 0; bit < signature.width; ++bit) {
+    auto* yBit = out->getBit(static_cast<NLID::Bit>(bit));
+    ASSERT_NE(nullptr, yBit);
+
+    auto inputs = std::vector(
+      SNLDesignModeling::getCombinatorialInputs(yBit).begin(),
+      SNLDesignModeling::getCombinatorialInputs(yBit).end());
+    EXPECT_EQ(signature.abits + signature.depth, inputs.size());
+    for (size_t addrBit = 0; addrBit < signature.abits; ++addrBit) {
+      EXPECT_NE(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          addr->getBit(static_cast<NLID::Bit>(addrBit))));
+    }
+    for (size_t row = 0; row < signature.depth; ++row) {
+      EXPECT_NE(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          data->getBit(static_cast<NLID::Bit>(row * signature.width + bit))));
+      EXPECT_EQ(
+        inputs.end(),
+        std::find(
+          inputs.begin(),
+          inputs.end(),
+          data->getBit(static_cast<NLID::Bit>(
+            row * signature.width + ((bit + 1) % signature.width)))));
+    }
+  }
+
+  for (size_t bit = 0; bit < signature.width; ++bit) {
+    auto* dataBit = data->getBit(static_cast<NLID::Bit>(bit));
+    ASSERT_NE(nullptr, dataBit);
+    auto outputs = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(dataBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(dataBit).end());
+    EXPECT_EQ(1u, outputs.size());
+    EXPECT_EQ(out->getBit(static_cast<NLID::Bit>(bit)), outputs.front());
+  }
+
+  for (size_t addrBit = 0; addrBit < signature.abits; ++addrBit) {
+    auto* addressBit = addr->getBit(static_cast<NLID::Bit>(addrBit));
+    ASSERT_NE(nullptr, addressBit);
+    auto outputs = std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(addressBit).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(addressBit).end());
+    EXPECT_EQ(signature.width, outputs.size());
+    for (size_t bit = 0; bit < signature.width; ++bit) {
+      EXPECT_NE(
+        outputs.end(),
+        std::find(
+          outputs.begin(),
+          outputs.end(),
+          out->getBit(static_cast<NLID::Bit>(bit))));
+    }
+  }
+}
+
+TEST_F(NLDB0Test, testTableSelectSignatureAndErrors) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::TableSelectSignature signature;
+  signature.width = 4;
+  signature.depth = 3;
+  signature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+  ASSERT_NE(nullptr, tableSelect);
+  EXPECT_EQ(signature, NLDB0::getTableSelectSignature(tableSelect));
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library =
+      NLLibrary::create(db, NLLibrary::Type::Standard, NLName("designs"));
+  ASSERT_NE(nullptr, library);
+  auto* top =
+      SNLDesign::create(library, SNLDesign::Type::Standard, NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* instance = SNLInstance::create(top, tableSelect, NLName("select0"));
+  ASSERT_NE(nullptr, instance);
+  EXPECT_EQ(signature, NLDB0::getTableSelectSignature(instance));
+
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("WIDTH")), "8");
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("DEPTH")), "5");
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("ABITS")), "3");
+  auto overridden = NLDB0::getTableSelectSignature(instance);
+  EXPECT_EQ(8, overridden.width);
+  EXPECT_EQ(5, overridden.depth);
+  EXPECT_EQ(3, overridden.abits);
+
+  EXPECT_THROW(
+    NLDB0::getTableSelectSignature(static_cast<const SNLInstance*>(nullptr)),
+    NLException);
+  auto* notTableSelect = SNLDesign::create(
+    library,
+    SNLDesign::Type::Standard,
+    NLName("notTableSelect"));
+  ASSERT_NE(nullptr, notTableSelect);
+  auto* notTableSelectInstance = SNLInstance::create(top, notTableSelect, NLName("notSelect0"));
+  ASSERT_NE(nullptr, notTableSelectInstance);
+  EXPECT_FALSE(NLDB0::isTableSelect(notTableSelect));
+  EXPECT_THROW(NLDB0::getTableSelectSignature(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectSignature(notTableSelectInstance), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectData(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectAddress(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectOutput(notTableSelect), NLException);
+
+  NLDB0::TableSelectSignature invalidSignature;
+  invalidSignature.width = 0;
+  invalidSignature.depth = 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
+
+  invalidSignature.width = 2;
+  invalidSignature.depth = std::numeric_limits<size_t>::max() / 2 + 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
+
+  invalidSignature.width = static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) + 2;
+  invalidSignature.depth = 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
 }
 
 TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
@@ -762,6 +913,24 @@ TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
   EXPECT_EQ(NLName("unsigned"), divMod->getLibrary()->getName());
   EXPECT_EQ(divModLibrary, divMod->getLibrary()->getParentLibrary());
 
+  auto* tableSelectLibrary = rootLibrary->getLibrary(NLID::LibraryID(15));
+  ASSERT_NE(nullptr, tableSelectLibrary);
+  tableSelectLibrary->destroy();
+  EXPECT_EQ(nullptr, rootLibrary->getLibrary(NLID::LibraryID(15)));
+
+  NLDB0::TableSelectSignature tableSelectSignature;
+  tableSelectSignature.width = 4;
+  tableSelectSignature.depth = 3;
+  tableSelectSignature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(tableSelectSignature);
+  ASSERT_NE(nullptr, tableSelect);
+  ASSERT_NE(nullptr, tableSelect->getLibrary());
+  EXPECT_TRUE(NLDB0::isTableSelect(tableSelect));
+  EXPECT_EQ(NLID::LibraryID(15), tableSelect->getLibrary()->getID());
+  EXPECT_EQ(NLName("naja_table_select"), tableSelect->getLibrary()->getName());
+  EXPECT_EQ(rootLibrary, tableSelect->getLibrary()->getParentLibrary());
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(tableSelect), NLException);
+
   EXPECT_THROW(NLDB0::getOrCreateDFF(0), NLException);
   const auto tooWide =
       static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max()) + 1;
@@ -917,6 +1086,18 @@ TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
       {NLDB0::getDFFRNOutput()},
     },
     {
+      NLDB0::getDFFR(),
+      NLDB0::getDFFRClock(),
+      {NLDB0::getDFFRData(), NLDB0::getDFFRReset()},
+      {NLDB0::getDFFROutput()},
+    },
+    {
+      NLDB0::getDFFS(),
+      NLDB0::getDFFSClock(),
+      {NLDB0::getDFFSData(), NLDB0::getDFFSSet()},
+      {NLDB0::getDFFSOutput()},
+    },
+    {
       NLDB0::getDFFE(),
       NLDB0::getDFFEClock(),
       {NLDB0::getDFFEData(), NLDB0::getDFFEEnable()},
@@ -1067,6 +1248,74 @@ TEST_F(NLDB0Test, testDFFRN) {
   EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
 }
 
+TEST_F(NLDB0Test, testDFFR) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffr = NLDB0::getDFFR();
+  ASSERT_NE(nullptr, dffr);
+  EXPECT_TRUE(NLDB0::isDFFR(dffr));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffr));
+  EXPECT_EQ(NLName("naja_dffr"), dffr->getName());
+  EXPECT_FALSE(NLDB0::isDFFR(NLDB0::getDFF()));
+  EXPECT_FALSE(NLDB0::isDFFR(NLDB0::getDFFRN()));
+
+  auto clock = NLDB0::getDFFRClock();
+  auto data = NLDB0::getDFFRData();
+  auto reset = NLDB0::getDFFRReset();
+  auto output = NLDB0::getDFFROutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, reset);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("R"), reset->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, reset->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+
+  auto dffr4 = NLDB0::getOrCreateDFFR(4);
+  ASSERT_NE(nullptr, dffr4);
+  EXPECT_TRUE(NLDB0::isDFFR(dffr4));
+}
+
+TEST_F(NLDB0Test, testDFFS) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffs = NLDB0::getDFFS();
+  ASSERT_NE(nullptr, dffs);
+  EXPECT_TRUE(NLDB0::isDFFS(dffs));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffs));
+  EXPECT_EQ(NLName("naja_dffs"), dffs->getName());
+  EXPECT_FALSE(NLDB0::isDFFS(NLDB0::getDFF()));
+  EXPECT_FALSE(NLDB0::isDFFS(NLDB0::getDFFR()));
+
+  auto clock = NLDB0::getDFFSClock();
+  auto data = NLDB0::getDFFSData();
+  auto set = NLDB0::getDFFSSet();
+  auto output = NLDB0::getDFFSOutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, set);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("S"), set->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, set->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+
+  auto dffs4 = NLDB0::getOrCreateDFFS(4);
+  ASSERT_NE(nullptr, dffs4);
+  EXPECT_TRUE(NLDB0::isDFFS(dffs4));
+}
+
 TEST_F(NLDB0Test, testDFFN) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -1215,6 +1464,18 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFRNData());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNResetN());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFR());
+  EXPECT_FALSE(NLDB0::isDFFR(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFRClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRReset());
+  EXPECT_EQ(nullptr, NLDB0::getDFFROutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFS());
+  EXPECT_FALSE(NLDB0::isDFFS(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFSClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSSet());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSOutput());
   EXPECT_EQ(nullptr, NLDB0::getDFFE());
   EXPECT_FALSE(NLDB0::isDFFE(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getDFFEClock());
@@ -1246,6 +1507,11 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   NLDB0::DivModSignature divModSignature;
   divModSignature.width = 4;
   EXPECT_EQ(nullptr, NLDB0::getOrCreateDivMod(divModSignature));
+  NLDB0::TableSelectSignature tableSelectSignature;
+  tableSelectSignature.width = 4;
+  tableSelectSignature.depth = 3;
+  tableSelectSignature.abits = 2;
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateTableSelect(tableSelectSignature));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 

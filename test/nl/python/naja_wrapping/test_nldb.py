@@ -245,6 +245,27 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
 
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with tempfile.NamedTemporaryFile("w", suffix=".sv", delete=False) as defineFile:
+      defineFile.write("`ifdef SYNTHESIS\n")
+      defineFile.write("module synth_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`else\n")
+      defineFile.write("module sim_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = ~a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`endif\n")
+      definePath = defineFile.name
+    try:
+      top = db.loadSystemVerilog([definePath], defines=["SYNTHESIS"])
+      self.assertIsNotNone(top)
+      self.assertEqual("synth_top", top.getName())
+    finally:
+      if os.path.exists(definePath):
+        os.remove(definePath)
+
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
@@ -273,7 +294,38 @@ class SNLDBTest(unittest.TestCase):
         dumpRTLInfosAsAttributes=True)
       with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
         dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+      self.assertIn('naja_sv_src="', dumped_text)
+
+      with_verbose_rtl_infos = os.path.join(dump_dir, "simple_with_verbose_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(with_verbose_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="VerboseAttributes")
+      with open(with_verbose_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
       self.assertIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
+
+      none_rtl_infos = os.path.join(dump_dir, "simple_none_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(none_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="None")
+      with open(none_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
+
+      with self.assertRaises(RuntimeError) as context:
+        top.dumpVerilog(
+          path=dump_dir,
+          top_file_name="simple_invalid_rtl_infos.v",
+          dumpRTLInfosAsAttributes=True,
+          rtlInfoDumpMode="Invalid")
+      self.assertIn("invalid rtlInfoDumpMode", str(context.exception))
 
   def testDestroy(self):
     u = naja.NLUniverse.get()
@@ -321,6 +373,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)

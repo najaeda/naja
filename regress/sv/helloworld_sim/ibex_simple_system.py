@@ -375,32 +375,6 @@ def check_generated_netlist(generated_path: Path) -> None:
             f"{generated_path}"
         )
 
-    in_regfile = False
-    saw_waddr_bit0_one = False
-    saw_waddr_bit1_one = False
-    with generated_path.open("r", encoding="utf-8", errors="replace") as stream:
-        for line in stream:
-            if not in_regfile:
-                if line.startswith("module ibex_register_file_ff"):
-                    in_regfile = True
-                continue
-            if line.startswith("endmodule"):
-                break
-            if "waddr_a_i[0], 1'b1" in line:
-                saw_waddr_bit0_one = True
-            if "waddr_a_i[1], 1'b1" in line:
-                saw_waddr_bit1_one = True
-            if saw_waddr_bit0_one and saw_waddr_bit1_one:
-                return
-
-    if not (saw_waddr_bit0_one and saw_waddr_bit1_one):
-        raise SystemExit(
-            "generated ibex_register_file_ff write decoder still looks stale: "
-            "all decoded write-address comparisons appear to target zero. "
-            "Regenerate ibex_naja.v with the rebuilt Naja Python module before rerunning helloworld_sim."
-        )
-
-
 def strip_instance_parameter_block(text: str, module_name: str, instance_name: str) -> str:
     pattern = re.compile(rf"{module_name}\s*#\s*\(", re.MULTILINE)
     match = pattern.search(text)

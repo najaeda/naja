@@ -235,6 +235,23 @@ std::vector<std::pair<std::string, std::string>> SNLRTLInfos::getDumpAttributes(
   return attributes;
 }
 
+std::optional<std::pair<std::string, std::string>>
+SNLRTLInfos::getCompactSourceLocAttribute() const {
+  if (not sourceLoc_) {
+    return std::nullopt;
+  }
+  std::string value = sourceLoc_->file.getString();
+  value += ":";
+  value += std::to_string(sourceLoc_->line);
+  value += ":";
+  value += std::to_string(sourceLoc_->column);
+  value += "-";
+  value += std::to_string(sourceLoc_->endLine);
+  value += ":";
+  value += std::to_string(sourceLoc_->endColumn);
+  return std::make_pair(std::string("naja_sv_src"), std::move(value));
+}
+
 void SNLRTLInfos::cloneInfos(const SNLRTLInfos& from) {
   sourceLoc_ = from.sourceLoc_;
   symbolPathId_ = from.symbolPathId_;

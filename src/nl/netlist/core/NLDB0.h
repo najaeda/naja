@@ -67,6 +67,18 @@ class NLDB0 {
       }
     };
 
+    struct TableSelectSignature {
+      size_t width {0};
+      size_t depth {0};
+      size_t abits {0};
+
+      bool operator==(const TableSelectSignature& other) const {
+        return width == other.width &&
+               depth == other.depth &&
+               abits == other.abits;
+      }
+    };
+
     class GateType {
       public:
         enum GateTypeEnum {
@@ -113,6 +125,12 @@ class NLDB0 {
     static SNLBusTerm* getDivModDivisor(const SNLDesign* design);
     static SNLBusTerm* getDivModQuotient(const SNLDesign* design);
     static SNLBusTerm* getDivModRemainder(const SNLDesign* design);
+    static bool isTableSelect(const SNLDesign* design);
+    static TableSelectSignature getTableSelectSignature(const SNLDesign* design);
+    static TableSelectSignature getTableSelectSignature(const SNLInstance* instance);
+    static SNLBusTerm* getTableSelectData(const SNLDesign* design);
+    static SNLBusTerm* getTableSelectAddress(const SNLDesign* design);
+    static SNLBusTerm* getTableSelectOutput(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
@@ -175,6 +193,15 @@ class NLDB0 {
     static SNLScalarTerm* getDFFRNData();
     static SNLScalarTerm* getDFFRNResetN();
     static SNLScalarTerm* getDFFRNOutput();
+    /// \brief Edge-triggered D flip-flop with active-high asynchronous reset.
+    /// Pins: C (clock), D (data), R (reset high active), Q (output).
+    static SNLDesign* getDFFR();
+    static SNLDesign* getOrCreateDFFR(size_t width);
+    static bool isDFFR(const SNLDesign* design);
+    static SNLScalarTerm* getDFFRClock();
+    static SNLScalarTerm* getDFFRData();
+    static SNLScalarTerm* getDFFRReset();
+    static SNLScalarTerm* getDFFROutput();
     /// \brief Edge-triggered D flip-flop with clock enable.
     /// Pins: C (clock), D (data), E (enable), Q (output).
     static SNLDesign* getDFFE();
@@ -204,6 +231,15 @@ class NLDB0 {
     static SNLScalarTerm* getDFFSEEnable();
     static SNLScalarTerm* getDFFSESet();
     static SNLScalarTerm* getDFFSEOutput();
+    /// \brief Edge-triggered D flip-flop with active-high asynchronous set.
+    /// Pins: C (clock), D (data), S (set high active), Q (output).
+    static SNLDesign* getDFFS();
+    static SNLDesign* getOrCreateDFFS(size_t width);
+    static bool isDFFS(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSClock();
+    static SNLScalarTerm* getDFFSData();
+    static SNLScalarTerm* getDFFSSet();
+    static SNLScalarTerm* getDFFSOutput();
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);
@@ -221,6 +257,8 @@ class NLDB0 {
     static SNLDesign* getOrCreateDivMod(const DivModSignature& signature);
     /// \brief Create or reuse a fully managed DB0 memory primitive.
     static SNLDesign* getOrCreateMemory(const MemorySignature& signature);
+    /// \brief Create or reuse a compact combinational table-select primitive.
+    static SNLDesign* getOrCreateTableSelect(const TableSelectSignature& signature);
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };

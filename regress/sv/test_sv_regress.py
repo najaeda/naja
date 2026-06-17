@@ -104,6 +104,14 @@ cases:
 
         self.assertEqual(["lint", "helloworld_sim"], args.stage)
 
+    def test_primitives_file_contains_table_select_shim(self):
+        primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("module naja_table_select #(", primitives)
+        self.assertIn("function [WIDTH-1:0] select_data", primitives)
+        self.assertIn("if (addr == i[ABITS-1:0])", primitives)
+        self.assertIn("assign Y = select_data(DATA, ADDR)", primitives)
+
     def test_parser_accepts_local_lint_runner(self):
         parser = sv_regress.build_parser()
         args = parser.parse_args(["run", "--lint-runner", "local"])
@@ -173,6 +181,7 @@ cases:
         self.assertIn("ghcr.io/najaeda/naja/sv-sim:latest", workflow)
         job = workflow_config["jobs"]["cva6-pr-sim"]
         self.assertIn("pull_request", job["if"])
+        self.assertIn("push", job["if"])
         self.assertIn("workflow_dispatch", job["if"])
         self.assertNotIn("container", job)
         self.assertEqual(
@@ -965,6 +974,29 @@ src/rtl/top.sv
             self.assertIn("--secure-ibex", sim_command)
             self.assertIn("--program", sim_command)
             self.assertIn(program, sim_command)
+
+    def test_ibex_generated_netlist_check_accepts_current_generated_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = Path(tmpdir) / "ibex_naja.v"
+            generated.write_text("module generated; endmodule\n", encoding="utf-8")
+
+            ibex_simple_system.check_generated_netlist(generated)
+
+    def test_ibex_generated_netlist_check_rejects_old_generated_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = Path(tmpdir) / "ibex_naja.v"
+            generated.write_text("module generated; endmodule\n", encoding="utf-8")
+            constructor_source = (
+                ibex_simple_system.REPO_ROOT / "src" / "nl" / "formats" /
+                "systemverilog" / "frontend" / "SNLSVConstructor.cpp"
+            )
+            old_time = constructor_source.stat().st_mtime - 1
+            os.utime(generated, (old_time, old_time))
+
+            with self.assertRaises(SystemExit) as context:
+                ibex_simple_system.check_generated_netlist(generated)
+
+        self.assertIn("generated netlist is older than", str(context.exception))
 
     def test_ibex_secure_netlist_flist_enables_secure_ibex(self):
         with tempfile.TemporaryDirectory() as tmpdir:

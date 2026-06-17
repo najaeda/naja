@@ -95,6 +95,7 @@ TEST_F(SNLRTLInfosTest, sourceLocUsesTypedStorage) {
   auto* infos = SNLRTLInfos::create(design);
   ASSERT_NE(nullptr, infos);
   EXPECT_FALSE(infos->hasSourceLoc());
+  EXPECT_FALSE(infos->getCompactSourceLocAttribute());
 
   infos->setSourceLoc({NLName("top.sv"), 12, 14, 3, 19});
   ASSERT_TRUE(infos->hasSourceLoc());

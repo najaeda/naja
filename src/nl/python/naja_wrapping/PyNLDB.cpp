@@ -252,22 +252,23 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   int include_source_info_in_elaborated_ast_json = 1;  // Default: true
   PyObject* flist = nullptr;  // Optional: string path passed as slang -f
   PyObject* diagnostics_report_path = nullptr;  // Optional: string
+  PyObject* defines = nullptr;  // Optional: list of preprocessor defines
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
-    "diagnostics_report_path", "suppress_warnings",
+    "diagnostics_report_path", "defines", "suppress_warnings",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOO:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOO:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &suppress_warnings)) {
+    &defines, &suppress_warnings)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -331,6 +332,24 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
         return nullptr;
       }
       options.suppressWarnings.push_back(PyUnicode_AsUTF8(item));
+    }
+  }
+
+  if (defines != nullptr && defines != Py_None) {
+    if (not PyList_Check(defines)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: defines must be a list, got: "
+          << getStringForPyObject(defines);
+      setError(oss.str());
+      return nullptr;
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(defines); ++i) {
+      PyObject* item = PyList_GetItem(defines, i);
+      if (not PyUnicode_Check(item)) {
+        setError("NLDB.loadSystemVerilog: defines items must be strings");
+        return nullptr;
+      }
+      options.preprocessorDefines.push_back(PyUnicode_AsUTF8(item));
     }
   }
 
@@ -461,7 +480,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
     "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
     "  flist (str, optional): slang -f command file path\n"
-    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path."},
+    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path\n"
+    "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
+    "  suppress_warnings (list[str], optional): Slang warning names to suppress."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

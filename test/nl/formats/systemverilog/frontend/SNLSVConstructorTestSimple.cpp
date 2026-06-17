@@ -150,7 +150,9 @@ size_t countSubstring(const std::string& text, const std::string& needle) {
 
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
                                                const std::string& outDirName,
-                                               bool dumpRTLInfosAsAttributes = false) {
+                                               bool dumpRTLInfosAsAttributes = false,
+                                               SNLVRLDumper::RTLInfoDumpMode rtlInfoDumpMode =
+                                                 SNLVRLDumper::RTLInfoDumpMode::CompactAttribute) {
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= outDirName;
   if (std::filesystem::exists(outPath)) {
@@ -163,6 +165,9 @@ std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
   dumper.setTopFileName(fileName);
   dumper.setSingleFile(true);
   dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  if (dumpRTLInfosAsAttributes) {
+    dumper.setRTLInfoDumpMode(rtlInfoDumpMode);
+  }
   dumper.dumpDesign(top, outPath);
   return outPath / fileName;
 }
@@ -193,6 +198,34 @@ SNLNet* getSingleAssignInputDriving(SNLBitNet* drivenNet) {
   if (!inputTerm) {
     ADD_FAILURE() << "Assign driver has no input term";
     return nullptr;
+  }
+  return inputTerm->getNet();
+}
+
+SNLNet* traceSingleAssignInputDriving(SNLNet* net) {
+  auto* bitNet = dynamic_cast<SNLBitNet*>(net);
+  if (!bitNet) {
+    return net;
+  }
+
+  std::vector<SNLInstance*> assignDrivers;
+  for (auto* instTerm : bitNet->getInstTerms()) {
+    if (!instTerm || instTerm->getBitTerm() != NLDB0::getAssignOutput()) {
+      continue;
+    }
+    auto* instance = instTerm->getInstance();
+    if (instance && NLDB0::isAssign(instance->getModel())) {
+      assignDrivers.push_back(instance);
+    }
+  }
+
+  if (assignDrivers.size() != 1) {
+    return net;
+  }
+
+  auto* inputTerm = assignDrivers.front()->getInstTerm(NLDB0::getAssignInput());
+  if (!inputTerm) {
+    return net;
   }
   return inputTerm->getNet();
 }
@@ -270,6 +303,14 @@ size_t countDFFNBits(const SNLDesign* design) {
 
 size_t countDFFRNBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFRN);
+}
+
+size_t countDFFRBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFR);
+}
+
+size_t countDFFSBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFS);
 }
 
 size_t countDFFEBits(const SNLDesign* design) {
@@ -401,6 +442,23 @@ size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
       continue;
     }
     if (width != 0 && getMux2Width(inst) != width) {
+      continue;
+    }
+    ++count;
+  }
+  return count;
+}
+
+size_t countTableSelectInstances(
+  const SNLDesign* design,
+  std::optional<NLDB0::TableSelectSignature> expectedSignature = std::nullopt) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isTableSelect(inst->getModel())) {
+      continue;
+    }
+    if (expectedSignature &&
+        NLDB0::getTableSelectSignature(inst) != *expectedSignature) {
       continue;
     }
     ++count;
@@ -960,7 +1018,21 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   std::string dumpedWithRTLInfosText{
     std::istreambuf_iterator<char>(dumpedWithRTLInfosFile),
     std::istreambuf_iterator<char>()};
-  EXPECT_NE(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
+  EXPECT_EQ(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
+  EXPECT_NE(dumpedWithRTLInfosText.find("naja_sv_src=\""), std::string::npos);
+
+  auto dumpedVerilogWithVerboseRTLInfos =
+    dumpTopAndGetVerilogPath(
+      top, "simple_module_with_verbose_rtl_infos", true,
+      SNLVRLDumper::RTLInfoDumpMode::VerboseAttributes);
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilogWithVerboseRTLInfos));
+  std::ifstream dumpedWithVerboseRTLInfosFile(dumpedVerilogWithVerboseRTLInfos);
+  ASSERT_TRUE(dumpedWithVerboseRTLInfosFile.good());
+  std::string dumpedWithVerboseRTLInfosText{
+    std::istreambuf_iterator<char>(dumpedWithVerboseRTLInfosFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(dumpedWithVerboseRTLInfosText.find("sv_src_file"), std::string::npos);
+  EXPECT_EQ(dumpedWithVerboseRTLInfosText.find("naja_sv_src=\""), std::string::npos);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {
@@ -2978,6 +3050,83 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalZeroOrFastPathSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_assign_conditional_zero_or_fast_path_supported",
+    R"(module continuous_assign_conditional_zero_or_fast_path_supported(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  input  logic       idx_i,
+  output logic [7:0] y_o
+);
+  wire sel_0 = idx_i == 1'b0;
+  wire sel_1 = idx_i == 1'b1;
+  assign y_o =
+    (sel_0 ? a_i : 8'h00) |
+    (sel_1 ? b_i : 8'h00);
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_conditional_zero_or_fast_path_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_EQ(0u, orGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousPackedArrayDynamicSelectMuxTreeSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_packed_array_dynamic_select_mux_tree_supported",
+    R"(module continuous_packed_array_dynamic_select_mux_tree_supported(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  input  logic [7:0] c_i,
+  input  logic [7:0] d_i,
+  input  logic [1:0] idx_i,
+  output logic [7:0] y_o
+);
+  wire [3:0][7:0] lookup = {d_i, c_i, b_i, a_i};
+  assign y_o = lookup[idx_i];
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_packed_array_dynamic_select_mux_tree_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 4, 2}));
+
+  size_t xnorGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+  EXPECT_EQ(0u, xnorGateCount);
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignConditionalNonMonotonicPackedBranchSupported) {
@@ -3345,8 +3494,10 @@ endmodule
     top,
     "generated_genvar_equality_uses_elaborated_index_dump");
   const auto dumpedText = readTextFile(dumpedVerilog);
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+  EXPECT_NE(std::string::npos, dumpedText.find("not ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("and ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[1]"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombForSizedCastIndexEqualitySupported) {
@@ -3386,8 +3537,10 @@ endmodule
     top,
     "always_comb_for_sized_cast_index_equality_dump");
   const auto dumpedText = readTextFile(dumpedVerilog);
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b0"));
-  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0], 1'b1"));
+  EXPECT_NE(std::string::npos, dumpedText.find("not ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("and ("));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[0]"));
+  EXPECT_NE(std::string::npos, dumpedText.find("addr_i[1]"));
 }
 
 TEST_F(
@@ -10946,15 +11099,19 @@ endmodule
 
   auto top = library_->getSNLDesign(NLName("always_comb_dynamic_packed_read_write_wide_mux_supported"));
   ASSERT_NE(top, nullptr);
-  EXPECT_EQ(4u, countMux2Instances(top));
-  EXPECT_EQ(4u, countMux2Instances(top, 8));
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 2, 1}));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "always_comb_dynamic_packed_read_write_wide_mux_supported");
   const auto dumpedText = readTextFile(dumpedVerilog);
   EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_table_select "));
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -11623,8 +11780,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
   }
 
   EXPECT_EQ(3u, andGateCount);
-  EXPECT_EQ(9u, xnorGateCount);
-  EXPECT_EQ(1u, assignCount);
+  EXPECT_EQ(5u, xnorGateCount);
+  EXPECT_EQ(4u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -11675,9 +11832,9 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
   }
 
   EXPECT_EQ(3u, andGateCount);
-  EXPECT_EQ(9u, xnorGateCount);
-  EXPECT_EQ(4u, notGateCount);
-  EXPECT_EQ(1u, assignCount);
+  EXPECT_EQ(5u, xnorGateCount);
+  EXPECT_EQ(5u, notGateCount);
+  EXPECT_EQ(4u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -11732,7 +11889,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualityMemberAccessSupported)
     }
   }
   EXPECT_EQ(1u, andGateCount);
-  EXPECT_EQ(2u, xnorGateCount);
+  EXPECT_EQ(0u, xnorGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_member_access_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -14796,11 +14953,14 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseCoverage2SequentialIgnorableBranchNoAssignmentUnsupported) {
+  parseCoverage2SequentialIgnorableBranchNoAssignmentSupported) {
+  // The if-branch only contains ignorable system tasks and assigns nothing, so
+  // q_o holds its value when en_i is set and loads d_i otherwise. This lowers
+  // to q_o <= en_i ? q_o : d_i, i.e. a feedback mux feeding a DFF.
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
-    "coverage2_sequential_ignorable_branch_no_assignment_unsupported",
-    R"(module coverage2_sequential_ignorable_branch_no_assignment_unsupported(
+    "coverage2_sequential_ignorable_branch_no_assignment_supported",
+    R"(module coverage2_sequential_ignorable_branch_no_assignment_supported(
   input  logic clk_i,
   input  logic en_i,
   input  logic d_i,
@@ -14817,11 +14977,20 @@ TEST_F(
 endmodule
 )");
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported sequential block in module "
-     "'coverage2_sequential_ignorable_branch_no_assignment_unsupported'"});
+  constructor.construct(svPath);
+  auto top = library_->getSNLDesign(
+    NLName("coverage2_sequential_ignorable_branch_no_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
+
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
+  EXPECT_GE(countMux2Instances(top), 1u);
 }
 
 TEST_F(
@@ -16892,16 +17061,17 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_case_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t xnorGateCount = 0;
+  size_t compareGateCount = 0;
   for (auto inst : top->getInstances()) {
     if (!NLDB0::isGate(inst->getModel())) {
       continue;
     }
-    if (NLDB0::getGateName(inst->getModel()) == "xnor") {
-      ++xnorGateCount;
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "xnor" || gateName == "and" || gateName == "not") {
+      ++compareGateCount;
     }
   }
-  EXPECT_GT(xnorGateCount, 0u);
+  EXPECT_GT(compareGateCount, 0u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_comb_case_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -21819,26 +21989,381 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffreCount);
+  EXPECT_EQ(2u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedUpdateSupported) {
+  // Reset/update block whose update branch mixes a guarded conditional
+  // assignment with plain assignments. The direct fast path rejects the leading
+  // conditional, so this exercises the guarded multi-assignment fast path that
+  // indexes each register once instead of replaying the whole branch per LHS.
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_guarded_update_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_guarded_update_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_guarded_update_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d0,
+  input  logic d1,
+  input  logic d2,
+  output logic q0,
+  output logic q1,
+  output logic q2
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 1'b0;
+      q1 <= 1'b0;
+      q2 <= 1'b0;
+    end else begin
+      if (en)
+        q0 <= d0;
+      q1 <= d1;
+      q2 <= q1 | d2;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_update_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrModel = NLDB0::getDFFR();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t dffCount = 0;
+  size_t dffrCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  // All three registers reset to 0 with an async posedge reset and no enable, so
+  // each maps to a plain async-reset DFFR. Only the guarded q0 update needs a
+  // hold mux.
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(3u, dffrCount);
+  EXPECT_EQ(1u, mux2Count);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedMultiLhsBlockSupported) {
+  // Reset/update block whose update branch contains a single guarded block that
+  // drives several registers at once (e.g. a pipeline-stage advance such as
+  // `if (en) begin q1 <= d1; q2 <= d2; end`). The reset branch resets every
+  // updated register, so the guarded multi-assignment fast path applies: it
+  // indexes the shared block once per register it drives and replays it per
+  // register, instead of falling back to the generic per-LHS branch scan. Mirrors
+  // the XiangShan AheadBtb hotspot that made loading hang.
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_guarded_multi_lhs_block_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_guarded_multi_lhs_block_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_guarded_multi_lhs_block_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic       en,
+  input  logic [3:0] d0,
+  input  logic [3:0] d1,
+  input  logic [3:0] d2,
+  output logic [3:0] q0,
+  output logic [3:0] q1,
+  output logic [3:0] q2
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 4'h0;
+      q1 <= 4'h0;
+      q2 <= 4'h0;
+    end else begin
+      q0 <= d0;
+      if (en) begin
+        q1 <= d1;
+        q2 <= d2;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_multi_lhs_block_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffrCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
+    }
+  }
+  // The three 4-bit registers all async-reset to 0 -> three DFFR (12 bits). q0
+  // updates unconditionally (no mux); q1 and q2 are driven only inside the shared
+  // guarded block, so each gets exactly one 4-bit hold mux. The fast path must
+  // not emit spurious mux-of-identical-input garbage for the shared multi-LHS
+  // statement.
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(12u, dffrCount);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 4));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentWideGuardedDirectBlockSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_wide_guarded_direct_block_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_wide_guarded_direct_block_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module seq_multi_assignment_wide_guarded_direct_block_supported(\n"
+    << "  input  logic        clk,\n"
+    << "  input  logic        rst,\n"
+    << "  input  logic        en,\n"
+    << "  input  logic [15:0] d,\n"
+    << "  output logic [15:0] q\n"
+    << ");\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "  logic q_" << i << ";\n"
+           << "  assign q[" << i << "] = q_" << i << ";\n";
+  }
+  svFile
+    << "  always_ff @(posedge clk or posedge rst) begin\n"
+    << "    if (rst) begin\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "      q_" << i << " <= 1'b0;\n";
+  }
+  svFile
+    << "    end else begin\n"
+    << "      if (en) begin\n";
+  for (size_t i = 0; i < 16; ++i) {
+    svFile << "        q_" << i << " <= d[" << i << "];\n";
+  }
+  svFile
+    << "      end\n"
+    << "    end\n"
+    << "  end\n"
+    << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_wide_guarded_direct_block_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(16u, countDFFRBits(top));
+  EXPECT_EQ(16u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentGuardedDirectBlockWithUnresetRegSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported",
+    R"(module seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d,
+  output logic q,
+  output logic u
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+    end else begin
+      if (en) begin
+        q <= d;
+        u <= d;
+      end
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_guarded_direct_block_with_unreset_reg_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(1u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
+  EXPECT_EQ(3u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentFlatResetThenGuardedDirectSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_flat_reset_then_guarded_direct_supported",
+    R"(module seq_multi_assignment_flat_reset_then_guarded_direct_supported(
+  input  logic clk,
+  input  logic rst,
+  input  logic en,
+  input  logic d,
+  output logic q,
+  output logic r,
+  output logic u
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q <= 1'b0;
+      r <= 1'b0;
+    end
+    if (en) begin
+      q <= d;
+      u <= d;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_flat_reset_then_guarded_direct_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(2u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
+  EXPECT_EQ(3u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentNestedGuardedBlockSkipsUnrelatedBranches) {
+  // Generated reset/update blocks can contain a shared synchronous branch that
+  // touches every register and an else branch with many one-register guarded
+  // updates. Replaying every unrelated guard for every LHS scales badly and
+  // emits redundant muxes.
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_nested_guarded_block_skips_unrelated_branches",
+    R"(module seq_multi_assignment_nested_guarded_block_skips_unrelated_branches(
+  input  logic clk,
+  input  logic rst,
+  input  logic clear,
+  input  logic en0,
+  input  logic en1,
+  input  logic en2,
+  input  logic en3,
+  input  logic d0,
+  input  logic d1,
+  input  logic d2,
+  input  logic d3,
+  output logic q0,
+  output logic q1,
+  output logic q2,
+  output logic q3
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      q0 <= 1'b0;
+      q1 <= 1'b0;
+      q2 <= 1'b0;
+      q3 <= 1'b0;
+    end else begin
+      if (clear) begin
+        q0 <= 1'b0;
+        q1 <= 1'b0;
+        q2 <= 1'b0;
+        q3 <= 1'b0;
+      end else begin
+        if (en0)
+          q0 <= d0;
+        if (en1)
+          q1 <= d1;
+        if (en2)
+          q2 <= d2;
+        if (en3)
+          q3 <= d3;
+      end
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_nested_guarded_block_skips_unrelated_branches"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(4u, countDFFRBits(top));
+  EXPECT_EQ(8u, countMux2Instances(top));
 }
 
 TEST_F(
@@ -21885,12 +22410,18 @@ endmodule
   ASSERT_NE(qSized, nullptr);
   ASSERT_NE(qUnbased, nullptr);
 
-  auto* qBased0Data = getDFFDataForOutputBit(top, qBased->getBit(0));
-  auto* qBased1Data = getDFFDataForOutputBit(top, qBased->getBit(1));
-  auto* qSized0Data = getDFFDataForOutputBit(top, qSized->getBit(0));
-  auto* qSized1Data = getDFFDataForOutputBit(top, qSized->getBit(1));
-  auto* qUnbased0Data = getDFFDataForOutputBit(top, qUnbased->getBit(0));
-  auto* qUnbased1Data = getDFFDataForOutputBit(top, qUnbased->getBit(1));
+  auto* qBased0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qBased->getBit(0)));
+  auto* qBased1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qBased->getBit(1)));
+  auto* qSized0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qSized->getBit(0)));
+  auto* qSized1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qSized->getBit(1)));
+  auto* qUnbased0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qUnbased->getBit(0)));
+  auto* qUnbased1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qUnbased->getBit(1)));
   ASSERT_NE(qBased0Data, nullptr);
   ASSERT_NE(qBased1Data, nullptr);
   ASSERT_NE(qSized0Data, nullptr);
@@ -23170,9 +23701,17 @@ endmodule
     }
   }
   EXPECT_EQ(17u, ffCount);
-  EXPECT_EQ(9u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 1));
-  EXPECT_EQ(6u, countMux2Instances(top, 8));
+  // The else branch's leading `if (valid_i) begin q1 <= q1_d; q2 <= q2_d; end`
+  // drives two registers in one statement, and the reset branch resets every
+  // updated register, so this now lowers via the guarded multi-assignment fast
+  // path. Each register is replayed only against the statements that drive it:
+  // q0 keeps its two-level flush/valid mux (2 x 1-bit), and q1/q2 each get a
+  // single 8-bit hold mux. The generic per-LHS scan this used to fall back to
+  // re-walked the whole branch per register and emitted mux-of-identical-input
+  // garbage (9 muxes total); the fast path produces the minimal 4.
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 1));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "seq_multi_assignment_else_block_supported");
@@ -23780,22 +24319,22 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentResetBranchWithoutAssignmentsUnsupported) {
+  parseSequentialMultiAssignmentResetBranchWithoutAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
-    outPath / "seq_multi_assignment_reset_branch_without_assignments_unsupported";
+    outPath / "seq_multi_assignment_reset_branch_without_assignments_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "seq_multi_assignment_reset_branch_without_assignments_unsupported.sv";
+    outPath / "seq_multi_assignment_reset_branch_without_assignments_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module seq_multi_assignment_reset_branch_without_assignments_unsupported(
+    << R"(module seq_multi_assignment_reset_branch_without_assignments_supported(
   input  logic clk_i,
   input  logic rst_ni,
   input  logic d0_i,
@@ -23815,10 +24354,22 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"reset branch does not contain assignments"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_reset_branch_without_assignments_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t ffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && NLDB0::isDFF(inst->getModel())) ||
+        (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
+      ffCount += getPrimitiveWidth(inst);
+    }
+  }
+  EXPECT_EQ(2u, ffCount);
 }
 
 TEST_F(
@@ -27792,10 +28343,17 @@ endmodule
   EXPECT_EQ(3u, countPrimitiveInstances(top, NLDB0::isDFFRN));
   EXPECT_EQ(0u, countDFFEBits(top));
   EXPECT_EQ(0u, countDFFREBits(top));
-  EXPECT_EQ(9u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 1));
-  EXPECT_EQ(3u, countMux2Instances(top, 16));
-  EXPECT_EQ(3u, countMux2Instances(top, 64));
+  // The leading `if (valid_i) begin unaligned_address_q <= ...; unaligned_instr_q
+  // <= ...; end` drives two registers in one statement while the reset branch
+  // resets all three, so this lowers via the guarded multi-assignment fast path.
+  // unaligned_q keeps its two-level flush/valid mux (2 x 1-bit) and the two
+  // valid-guarded registers each get a single hold mux (1 x 16-bit, 1 x 64-bit).
+  // The generic per-LHS fallback this replaced re-walked the whole branch per
+  // register and emitted mux-of-identical-input garbage (9 muxes total).
+  EXPECT_EQ(4u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 1));
+  EXPECT_EQ(1u, countMux2Instances(top, 16));
+  EXPECT_EQ(1u, countMux2Instances(top, 64));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,
@@ -27849,26 +28407,26 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListPosedgeResetSup
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(8u, dffreCount);
+  EXPECT_EQ(8u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -27905,26 +28463,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffseModel = NLDB0::getDFFSE();
+  auto dffsModel = NLDB0::getDFFS();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffseModel, nullptr);
+  ASSERT_NE(dffsModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(8u, dffseCount);
+  EXPECT_EQ(8u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -27972,26 +28530,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffreModel = NLDB0::getDFFRE();
+  auto dffrModel = NLDB0::getDFFR();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(dffrModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffreCount);
+  EXPECT_EQ(2u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28039,26 +28597,26 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   auto dffModel = NLDB0::getDFF();
-  auto dffseModel = NLDB0::getDFFSE();
+  auto dffsModel = NLDB0::getDFFS();
   auto mux2Model = NLDB0::getMux2();
   ASSERT_NE(dffModel, nullptr);
-  ASSERT_NE(dffseModel, nullptr);
+  ASSERT_NE(dffsModel, nullptr);
   ASSERT_NE(mux2Model, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (inst->getModel() == mux2Model) {
       ++mux2Count;
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(2u, dffseCount);
+  EXPECT_EQ(2u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28095,9 +28653,112 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   EXPECT_EQ(0u, countDFFBits(top));
-  EXPECT_EQ(5u, countDFFREBits(top));
-  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRE));
+  EXPECT_EQ(5u, countDFFRBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFR));
   EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentDirectResetUpdateFastPathSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_multi_assignment_direct_reset_update_fast_path_supported",
+    R"(module seq_multi_assignment_direct_reset_update_fast_path_supported(
+  input  logic clock,
+  input  logic reset,
+  input  logic a,
+  input  logic b,
+  output logic y
+);
+  logic r0, r1, r2, r3;
+
+  always_ff @(posedge clock or posedge reset) begin
+    if (reset) begin
+      r0 <= 1'b0;
+      r1 <= 1'b0;
+      r2 <= 1'b1;
+      r3 <= 1'b0;
+    end else begin
+      r0 <= a;
+      r1 <= r0;
+      r2 <= r1 | b;
+      r3 <= r2;
+    end
+  end
+
+  assign y = r3;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_direct_reset_update_fast_path_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(3u, countDFFRBits(top));
+  EXPECT_EQ(1u, countDFFSBits(top));
+  EXPECT_EQ(0u, countMux2Instances(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialDirectUpdateSharesRepeatedEqualityCone) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_update_shares_repeated_equality_cone",
+    R"(module seq_direct_update_shares_repeated_equality_cone(
+  input  logic       clock,
+  input  logic       reset,
+  input  logic [3:0] source,
+  output logic       y
+);
+  logic r0, r1;
+
+  always_ff @(posedge clock or posedge reset) begin
+    if (reset) begin
+      r0 <= 1'b0;
+      r1 <= 1'b0;
+    end else begin
+      r0 <= source == 4'd3;
+      r1 <= source == 4'd3;
+    end
+  end
+
+  assign y = r0 | r1;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_direct_update_shares_repeated_equality_cone"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t notGateCount = 0;
+  size_t xnorGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model || !NLDB0::isGate(model)) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(model);
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+
+  EXPECT_EQ(2u, countDFFRBits(top));
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(2u, notGateCount);
+  EXPECT_EQ(0u, xnorGateCount);
 }
 
 TEST_F(
@@ -28133,8 +28794,8 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   EXPECT_EQ(0u, countDFFBits(top));
-  EXPECT_EQ(5u, countDFFSEBits(top));
-  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFSE));
+  EXPECT_EQ(5u, countDFFSBits(top));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFS));
   EXPECT_EQ(0u, countMux2Instances(top));
 }
 
@@ -28202,19 +28863,19 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   size_t dffCount = 0;
-  size_t dffreCount = 0;
+  size_t dffrCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFRE(inst->getModel())) {
-      dffreCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFR(inst->getModel())) {
+      dffrCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isMux2(inst->getModel())) {
       mux2Count += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(1u, dffreCount);
+  EXPECT_EQ(1u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28244,19 +28905,19 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   size_t dffCount = 0;
-  size_t dffseCount = 0;
+  size_t dffsCount = 0;
   size_t mux2Count = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (NLDB0::isDFFSE(inst->getModel())) {
-      dffseCount += getPrimitiveWidth(inst);
+    } else if (NLDB0::isDFFS(inst->getModel())) {
+      dffsCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isMux2(inst->getModel())) {
       mux2Count += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(0u, dffCount);
-  EXPECT_EQ(1u, dffseCount);
+  EXPECT_EQ(1u, dffsCount);
   EXPECT_EQ(0u, mux2Count);
 }
 
@@ -28963,6 +29624,34 @@ endmodule
   EXPECT_EQ(1u, countMux2Instances(top));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRelationalRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_relational_rhs_supported",
+    R"(module seq_relational_rhs_supported(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic [3:0] count,
+  output logic       q
+);
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst)
+      q <= 1'b0;
+    else
+      q <= count > 4'd6;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_relational_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(0u, countDFFBits(top));
+  EXPECT_EQ(1u, countDFFRBits(top));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -29227,6 +29916,48 @@ endmodule
     }
   }
   EXPECT_EQ(18u, dffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialTopLevelGuardedMultiAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_top_level_guarded_multi_assignment_supported",
+    R"(module seq_top_level_guarded_multi_assignment_supported(
+  input  logic       clk_i,
+  input  logic       e0_i,
+  input  logic       e1_i,
+  input  logic       e2_i,
+  input  logic [7:0] d0_i,
+  input  logic [7:0] d1_i,
+  input  logic [7:0] d2_i,
+  output logic [7:0] q0_o,
+  output logic [7:0] q1_o
+);
+  always_ff @(posedge clk_i) begin
+    if (e0_i) begin
+      q0_o <= d0_i;
+      q1_o <= d1_i;
+    end else if (e1_i) begin
+      q0_o <= d1_i;
+      q1_o <= d2_i;
+    end
+    if (e2_i) begin
+      q0_o <= q1_o;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_top_level_guarded_multi_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(16u, countDFFBits(top));
+  EXPECT_EQ(5u, countMux2Instances(top, 8));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTopLevelMultiAssignmentNegedgeSupported) {
@@ -29662,6 +30393,61 @@ endmodule
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[0])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[1])"));
   EXPECT_EQ(1u, countOccurrences(dumpedText, ".Q(data_q[2])"));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseDynamicPackedArrayTableSelectUsesPrimitive) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "dynamic_packed_array_table_select_uses_primitive";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "dynamic_packed_array_table_select_uses_primitive.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module dynamic_packed_array_table_select_uses_primitive(
+  input  logic [1:0] idx_i,
+  input  logic [3:0] a_i,
+  input  logic [3:0] b_i,
+  input  logic [3:0] c_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] y_o
+);
+  logic [3:0][3:0] lut;
+
+  assign lut[0] = a_i;
+  assign lut[1] = b_i;
+  assign lut[2] = c_i;
+  assign lut[3] = d_i;
+  assign y_o = lut[idx_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("dynamic_packed_array_table_select_uses_primitive"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {4, 4, 2}));
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "dynamic_packed_array_table_select_uses_primitive_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_table_select "));
+
+  const auto primitivesPath = dumpedVerilog.parent_path() / "naja_primitives.v";
+  const auto primitivesText = readTextFile(primitivesPath);
+  EXPECT_NE(std::string::npos, primitivesText.find("module naja_table_select"));
 }
 
 TEST_F(
@@ -30528,6 +31314,25 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorP
   EXPECT_EQ(std::string::npos, report.find(header, headerPos + header.size()));
   EXPECT_NE(std::string::npos, report.find("snapshot.kind=final"));
   EXPECT_NE(std::string::npos, report.find("result=success"));
+  EXPECT_NE(std::string::npos, report.find("progress.phase=idle"));
+  EXPECT_NE(std::string::npos, report.find("progress.lowering_step=idle"));
+  EXPECT_NE(std::string::npos, report.find("progress.top_instance_builds_started=1"));
+  EXPECT_NE(std::string::npos, report.find("progress.top_instance_builds_completed=1"));
+  EXPECT_NE(std::string::npos, report.find("progress.build_design_returns="));
+  EXPECT_NE(std::string::npos, report.find("progress.build_designs_active=0"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.design.longest_build_design_model=top"));
+
+  const std::string longestModelTimeKey = "time.lowering.longest_build_design_model_ms=";
+  const auto longestModelTimePos = report.find(longestModelTimeKey);
+  ASSERT_NE(std::string::npos, longestModelTimePos);
+  const auto longestModelTimeEnd = report.find('\n', longestModelTimePos);
+  ASSERT_NE(std::string::npos, longestModelTimeEnd);
+  const auto longestModelTimeText = report.substr(
+    longestModelTimePos + longestModelTimeKey.size(),
+    longestModelTimeEnd - longestModelTimePos - longestModelTimeKey.size());
+  EXPECT_GE(std::stod(longestModelTimeText), 0.0);
 
   const std::string writeCountKey = "snapshot.write_count=";
   const auto writeCountPos = report.find(writeCountKey);

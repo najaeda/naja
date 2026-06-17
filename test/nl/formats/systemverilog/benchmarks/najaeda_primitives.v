@@ -26,6 +26,32 @@ module naja_mux2 #(
   assign Y = S ? B : A;
 endmodule
 
+module naja_table_select #(
+  parameter WIDTH = 1,
+  parameter DEPTH = 1,
+  parameter ABITS = 1
+) (
+  input wire [WIDTH*DEPTH-1:0] DATA,
+  input wire [ABITS-1:0] ADDR,
+  output wire [WIDTH-1:0] Y
+);
+  function [WIDTH-1:0] select_data;
+    input [WIDTH*DEPTH-1:0] data;
+    input [ABITS-1:0] addr;
+    integer i;
+    begin
+      select_data = {WIDTH{1'b0}};
+      for (i = 0; i < DEPTH; i = i + 1) begin
+        if (addr == i[ABITS-1:0]) begin
+          select_data = data[i*WIDTH +: WIDTH];
+        end
+      end
+    end
+  endfunction
+
+  assign Y = select_data(DATA, ADDR);
+endmodule
+
 module naja_dff #(
   parameter WIDTH = 1
 ) (
@@ -74,6 +100,34 @@ module naja_dffrn #(
 );
   always @(posedge C or negedge RN) begin
     if (!RN) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffr #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire R,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge R) begin
+    if (R) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffs #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire S,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge S) begin
+    if (S) Q <= {WIDTH{1'b1}};
     else Q <= D;
   end
 endmodule

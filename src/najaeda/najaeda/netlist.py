@@ -1792,11 +1792,16 @@ class Instance:
         logging.info(
             f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
+        dump_kwargs = {
+            "dumpRTLInfosAsAttributes": config.dumpRTLInfosAsAttributes,
+            "dumpAssignsAsInstances": config.dumpAssignsAsInstances,
+        }
+        if config.dumpRTLInfosAsAttributes:
+            dump_kwargs["rtlInfoDumpMode"] = config.rtlInfoDumpMode
         self.__get_snl_model().dumpVerilog(
             dir_path,
             os.path.basename(path),
-            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes,
-            dumpAssignsAsInstances=config.dumpAssignsAsInstances)
+            **dump_kwargs)
         execution_time = time.time() - start_time
         logging.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
@@ -1907,7 +1912,17 @@ class VerilogConfig:
 @dataclass
 class VerilogDumpConfig:
     dumpRTLInfosAsAttributes: bool = False
+    rtlInfoDumpMode: str = "CompactAttribute"
     dumpAssignsAsInstances: bool = False
+
+    def __post_init__(self):
+        allowed = {"None", "VerboseAttributes", "CompactAttribute"}
+        if self.rtlInfoDumpMode not in allowed:
+            raise ValueError(
+                "Invalid rtlInfoDumpMode: "
+                f"{self.rtlInfoDumpMode!r}. "
+                "Expected one of: None, VerboseAttributes, CompactAttribute."
+            )
 
 
 @dataclass
@@ -1919,6 +1934,7 @@ class SystemVerilogConfig:
     include_source_info_in_elaborated_ast_json: bool = True
     flist: str = None
     top: str = None
+    defines: list = None  # Slang preprocessor defines (e.g. ["SYNTHESIS", "WIDTH=32"])
     suppress_warnings: list = None  # Slang warning names to suppress (e.g. ["sign-conversion"])
 
 
@@ -1987,12 +2003,25 @@ def load_system_verilog(
             f"(got {type(config.top).__name__})")
     if isinstance(config.top, str) and not config.top.strip():
         raise ValueError("SystemVerilogConfig.top must not be empty")
+    if config.defines is not None:
+        if not isinstance(config.defines, list):
+            raise ValueError(
+                "SystemVerilogConfig.defines must be a list "
+                f"(got {type(config.defines).__name__})")
+        for define in config.defines:
+            if not isinstance(define, str):
+                raise ValueError("SystemVerilogConfig.defines items must be strings")
+            if not define.strip():
+                raise ValueError("SystemVerilogConfig.defines items must not be empty")
+            if any(char.isspace() for char in define):
+                raise ValueError(
+                    "SystemVerilogConfig.defines items must not contain whitespace")
 
     effective_flist = config.flist
     temp_flist_path = None
     if config.top is not None:
         # Expose top selection at najaeda layer without changing the C++ API:
-        # build a temporary command file that injects slang --top.
+        # build a temporary slang command file.
         with tempfile.NamedTemporaryFile(
                 "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
             temp_flist_path = top_flist.name
@@ -2012,6 +2041,7 @@ def load_system_verilog(
             include_source_info_in_elaborated_ast_json=(
                 config.include_source_info_in_elaborated_ast_json),
             flist=effective_flist,
+            defines=config.defines,
             suppress_warnings=config.suppress_warnings,
         )
     finally:

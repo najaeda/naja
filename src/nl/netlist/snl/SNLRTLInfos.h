@@ -57,6 +57,7 @@ class SNLRTLInfos {
     InfoValue getInfo(const InfoName& name) const;
     const Infos& getInfos() const;
     std::vector<std::pair<std::string, std::string>> getDumpAttributes() const;
+    std::optional<std::pair<std::string, std::string>> getCompactSourceLocAttribute() const;
     void cloneInfos(const SNLRTLInfos& from);
 
   private:
