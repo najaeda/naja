@@ -502,6 +502,8 @@ class SNLSVConstructorImpl {
       std::chrono::nanoseconds unsupportedCheckDuration {0};
 
       std::chrono::nanoseconds buildDesignDuration {0};
+      std::chrono::nanoseconds longestBuildDesignDuration {0};
+      std::string longestBuildDesignModel {};
       std::chrono::nanoseconds createTermsDuration {0};
       std::chrono::nanoseconds createNetsDuration {0};
       std::chrono::nanoseconds connectTermsToNetsDuration {0};
@@ -579,6 +581,33 @@ class SNLSVConstructorImpl {
       private:
         SVPerfReport* report_ {nullptr};
         std::chrono::nanoseconds* bucket_ {nullptr};
+        std::chrono::steady_clock::time_point start_ {};
+    };
+
+    class SVPerfBuildDesignTimer {
+      public:
+        SVPerfBuildDesignTimer(SVPerfReport& report, std::string modelName):
+          report_((report.enabled) ? &report : nullptr),
+          modelName_(std::move(modelName)) {
+          if (report_) {
+            start_ = std::chrono::steady_clock::now();
+          }
+        }
+
+        ~SVPerfBuildDesignTimer() {
+          if (!report_) {
+            return;
+          }
+          const auto elapsed = std::chrono::steady_clock::now() - start_;
+          if (elapsed > report_->longestBuildDesignDuration) {
+            report_->longestBuildDesignDuration = elapsed;
+            report_->longestBuildDesignModel = std::move(modelName_);
+          }
+        }
+
+      private:
+        SVPerfReport* report_ {nullptr};
+        std::string modelName_ {};
         std::chrono::steady_clock::time_point start_ {};
     };
 
@@ -810,6 +839,8 @@ class SNLSVConstructorImpl {
       output << "time.lowering.build_design_ms="
              << toMilliseconds(durationWithActiveTimers(svPerfReport_.buildDesignDuration))
              << "\n";
+      output << "time.lowering.longest_build_design_model_ms="
+             << toMilliseconds(svPerfReport_.longestBuildDesignDuration) << "\n";
       output << "time.lowering.create_terms_ms="
              << toMilliseconds(durationWithActiveTimers(svPerfReport_.createTermsDuration))
              << "\n";
@@ -842,6 +873,11 @@ class SNLSVConstructorImpl {
       output << "count.design.build_cache_hits=" << svPerfReport_.buildDesignCacheHits << "\n";
       output << "count.design.unique_built="
              << (svPerfReport_.buildDesignCalls - svPerfReport_.buildDesignCacheHits) << "\n";
+      output << "count.design.longest_build_design_model="
+             << (svPerfReport_.longestBuildDesignModel.empty()
+                  ? "none"
+                  : toSingleLine(svPerfReport_.longestBuildDesignModel))
+             << "\n";
       output << "count.lowering.create_terms_calls=" << svPerfReport_.createTermsCalls << "\n";
       output << "count.lowering.create_nets_calls=" << svPerfReport_.createNetsCalls << "\n";
       output << "count.lowering.connect_terms_to_nets_calls="
@@ -965,9 +1001,11 @@ class SNLSVConstructorImpl {
       emittedWarnings_.clear();
       loggedWarningReasons_.clear();
       unsupportedElements_.clear();
+      cachedCompilationDiagnosticsReport_.clear();
       warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
+      initializeDiagnosticsReport();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot(true);
 #endif
@@ -987,8 +1025,9 @@ class SNLSVConstructorImpl {
         maybeWriteSVPerfReportSnapshot();
 #endif
 
-        const auto compilationDiagnosticsReport =
+        cachedCompilationDiagnosticsReport_ =
           getCompilationDiagnosticsReport(*compilation_);
+        dumpCurrentDiagnosticsReport();
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfProgressLabelGuard progress(
@@ -999,7 +1038,7 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpDiagnosticsReport(buildDiagnosticsReport(compilationDiagnosticsReport));
+          dumpCurrentDiagnosticsReport();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
             svPerfReport_.failureReason = *failure;
@@ -1037,6 +1076,7 @@ class SNLSVConstructorImpl {
             ++svPerfReport_.topInstanceBuildsCompleted;
             maybeWriteSVPerfReportSnapshot();
 #endif
+            dumpCurrentDiagnosticsReport();
           }
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1069,7 +1109,7 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpDiagnosticsReport(buildDiagnosticsReport(compilationDiagnosticsReport));
+          dumpCurrentDiagnosticsReport();
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
@@ -1099,6 +1139,7 @@ class SNLSVConstructorImpl {
           svPerfReport_.failureReason = e.what();
         }
 #endif
+        tryDumpCurrentDiagnosticsReport();
         throw;
       } catch (...) { // LCOV_EXCL_LINE
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -2512,6 +2553,24 @@ endmodule
       return hasDiagnostics ? report.str() : std::string {};
     }
 
+    void initializeDiagnosticsReport() const {
+      if (!options_.diagnosticsReportPath) {
+        return;
+      }
+      dumpDiagnosticsReport("SystemVerilog diagnostics report generation in progress.\n");
+    }
+
+    void dumpCurrentDiagnosticsReport() const {
+      dumpDiagnosticsReport(buildDiagnosticsReport(cachedCompilationDiagnosticsReport_));
+    }
+
+    void tryDumpCurrentDiagnosticsReport() const noexcept {
+      try {
+        dumpCurrentDiagnosticsReport();
+      } catch (...) {
+      }
+    }
+
     void dumpDiagnosticsReport(const std::string& report) const {
       if (!options_.diagnosticsReportPath) {
         return;
@@ -2663,6 +2722,7 @@ endmodule
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const SVPerfScopedTimer designTimer(svPerfReport_, svPerfReport_.buildDesignDuration);
+      const SVPerfBuildDesignTimer buildDesignTimer(svPerfReport_, defName);
       NajaPerf::Scope buildDesignScope(makePerfScopeName("buildDesign"));
       const SVPerfProgressLabelGuard buildStep(
         svPerfReport_,
@@ -30728,6 +30788,7 @@ endmodule
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;
+    std::string cachedCompilationDiagnosticsReport_;
     std::vector<std::string> warnings_;
     std::unordered_set<std::string> emittedWarnings_;
     std::unordered_set<std::string> loggedWarningReasons_;

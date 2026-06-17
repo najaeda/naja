@@ -31223,6 +31223,19 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorP
   EXPECT_NE(std::string::npos, report.find("progress.top_instance_builds_completed=1"));
   EXPECT_NE(std::string::npos, report.find("progress.build_design_returns="));
   EXPECT_NE(std::string::npos, report.find("progress.build_designs_active=0"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.design.longest_build_design_model=top"));
+
+  const std::string longestModelTimeKey = "time.lowering.longest_build_design_model_ms=";
+  const auto longestModelTimePos = report.find(longestModelTimeKey);
+  ASSERT_NE(std::string::npos, longestModelTimePos);
+  const auto longestModelTimeEnd = report.find('\n', longestModelTimePos);
+  ASSERT_NE(std::string::npos, longestModelTimeEnd);
+  const auto longestModelTimeText = report.substr(
+    longestModelTimePos + longestModelTimeKey.size(),
+    longestModelTimeEnd - longestModelTimePos - longestModelTimeKey.size());
+  EXPECT_GE(std::stod(longestModelTimeText), 0.0);
 
   const std::string writeCountKey = "snapshot.write_count=";
   const auto writeCountPos = report.find(writeCountKey);
