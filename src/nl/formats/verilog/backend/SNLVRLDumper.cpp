@@ -1209,7 +1209,7 @@ void SNLVRLDumper::dumpAttributes(
       std::vector<std::pair<std::string, std::string>> attributes;
       switch (configuration_.getRTLInfoDumpMode()) {
         case RTLInfoDumpMode::None:
-          break;
+          break; // LCOV_EXCL_LINE
         case RTLInfoDumpMode::VerboseAttributes:
           attributes = rtlInfos->getDumpAttributes();
           break;

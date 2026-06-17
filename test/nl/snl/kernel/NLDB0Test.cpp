@@ -484,6 +484,72 @@ TEST_F(NLDB0Test, testTableSelectModelingArcsAreBitLanePrecise) {
   }
 }
 
+TEST_F(NLDB0Test, testTableSelectSignatureAndErrors) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  NLDB0::TableSelectSignature signature;
+  signature.width = 4;
+  signature.depth = 3;
+  signature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+  ASSERT_NE(nullptr, tableSelect);
+  EXPECT_EQ(signature, NLDB0::getTableSelectSignature(tableSelect));
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library =
+      NLLibrary::create(db, NLLibrary::Type::Standard, NLName("designs"));
+  ASSERT_NE(nullptr, library);
+  auto* top =
+      SNLDesign::create(library, SNLDesign::Type::Standard, NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* instance = SNLInstance::create(top, tableSelect, NLName("select0"));
+  ASSERT_NE(nullptr, instance);
+  EXPECT_EQ(signature, NLDB0::getTableSelectSignature(instance));
+
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("WIDTH")), "8");
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("DEPTH")), "5");
+  SNLInstParameter::create(instance, tableSelect->getParameter(NLName("ABITS")), "3");
+  auto overridden = NLDB0::getTableSelectSignature(instance);
+  EXPECT_EQ(8, overridden.width);
+  EXPECT_EQ(5, overridden.depth);
+  EXPECT_EQ(3, overridden.abits);
+
+  EXPECT_THROW(
+    NLDB0::getTableSelectSignature(static_cast<const SNLInstance*>(nullptr)),
+    NLException);
+  auto* notTableSelect = SNLDesign::create(
+    library,
+    SNLDesign::Type::Standard,
+    NLName("notTableSelect"));
+  ASSERT_NE(nullptr, notTableSelect);
+  auto* notTableSelectInstance = SNLInstance::create(top, notTableSelect, NLName("notSelect0"));
+  ASSERT_NE(nullptr, notTableSelectInstance);
+  EXPECT_FALSE(NLDB0::isTableSelect(notTableSelect));
+  EXPECT_THROW(NLDB0::getTableSelectSignature(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectSignature(notTableSelectInstance), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectData(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectAddress(notTableSelect), NLException);
+  EXPECT_THROW(NLDB0::getTableSelectOutput(notTableSelect), NLException);
+
+  NLDB0::TableSelectSignature invalidSignature;
+  invalidSignature.width = 0;
+  invalidSignature.depth = 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
+
+  invalidSignature.width = 2;
+  invalidSignature.depth = std::numeric_limits<size_t>::max() / 2 + 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
+
+  invalidSignature.width = static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) + 2;
+  invalidSignature.depth = 1;
+  invalidSignature.abits = 1;
+  EXPECT_THROW(NLDB0::getOrCreateTableSelect(invalidSignature), NLException);
+}
+
 TEST_F(NLDB0Test, testClonePreservesDB0WideMux2Model) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -846,6 +912,23 @@ TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
   EXPECT_EQ(NLID::LibraryID(11), divMod->getLibrary()->getID());
   EXPECT_EQ(NLName("unsigned"), divMod->getLibrary()->getName());
   EXPECT_EQ(divModLibrary, divMod->getLibrary()->getParentLibrary());
+
+  auto* tableSelectLibrary = rootLibrary->getLibrary(NLID::LibraryID(15));
+  ASSERT_NE(nullptr, tableSelectLibrary);
+  tableSelectLibrary->destroy();
+  EXPECT_EQ(nullptr, rootLibrary->getLibrary(NLID::LibraryID(15)));
+
+  NLDB0::TableSelectSignature tableSelectSignature;
+  tableSelectSignature.width = 4;
+  tableSelectSignature.depth = 3;
+  tableSelectSignature.abits = 2;
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(tableSelectSignature);
+  ASSERT_NE(nullptr, tableSelect);
+  ASSERT_NE(nullptr, tableSelect->getLibrary());
+  EXPECT_TRUE(NLDB0::isTableSelect(tableSelect));
+  EXPECT_EQ(NLID::LibraryID(15), tableSelect->getLibrary()->getID());
+  EXPECT_EQ(NLName("naja_table_select"), tableSelect->getLibrary()->getName());
+  EXPECT_EQ(rootLibrary, tableSelect->getLibrary()->getParentLibrary());
 
   EXPECT_THROW(NLDB0::getOrCreateDFF(0), NLException);
   const auto tooWide =
@@ -1423,6 +1506,11 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   NLDB0::DivModSignature divModSignature;
   divModSignature.width = 4;
   EXPECT_EQ(nullptr, NLDB0::getOrCreateDivMod(divModSignature));
+  NLDB0::TableSelectSignature tableSelectSignature;
+  tableSelectSignature.width = 4;
+  tableSelectSignature.depth = 3;
+  tableSelectSignature.abits = 2;
+  EXPECT_EQ(nullptr, NLDB0::getOrCreateTableSelect(tableSelectSignature));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 

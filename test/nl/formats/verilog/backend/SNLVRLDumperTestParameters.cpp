@@ -22,6 +22,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLParameter.h"
+#include "SNLRTLInfos.h"
 
 using namespace naja::NL;
 
@@ -140,6 +141,31 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       ins->setTermNet(NLDB0::getDivModRemainder(divmod), r);
       SNLInstParameter::create(ins, divmod->getParameter(NLName("WIDTH")), "8");
       SNLInstParameter::create(ins, divmod->getParameter(NLName("SIGNED")), "1");
+      return ins;
+    }
+
+    SNLInstance* createTableSelectInstance() {
+      NLDB0::TableSelectSignature signature;
+      signature.width = 4;
+      signature.depth = 3;
+      signature.abits = 2;
+
+      auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+      if (nullptr == tableSelect) {
+        return nullptr;
+      }
+
+      auto* data = SNLBusNet::create(top_, 11, 0, NLName("select_data"));
+      auto* address = SNLBusNet::create(top_, 1, 0, NLName("select_address"));
+      auto* y = SNLBusNet::create(top_, 3, 0, NLName("select_y"));
+
+      auto* ins = SNLInstance::create(top_, tableSelect, NLName("select0"));
+      ins->setTermNet(NLDB0::getTableSelectData(tableSelect), data);
+      ins->setTermNet(NLDB0::getTableSelectAddress(tableSelect), address);
+      ins->setTermNet(NLDB0::getTableSelectOutput(tableSelect), y);
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("WIDTH")), "4");
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("DEPTH")), "3");
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("ABITS")), "2");
       return ins;
     }
 
@@ -458,6 +484,38 @@ TEST_F(SNLVRLDumperTestParameters, testDivModInstanceAndPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_divmod #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("assign Q = SIGNED ?"));
   EXPECT_EQ(std::string::npos, primitiveDump.find("naja_divmod__s_w8"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testTableSelectInstanceDump) {
+  ASSERT_NE(nullptr, createTableSelectInstance());
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_table_select #("));
+  EXPECT_NE(std::string::npos, dumped.find(") select0 ("));
+  EXPECT_NE(std::string::npos, dumped.find(".DATA(select_data)"));
+  EXPECT_NE(std::string::npos, dumped.find(".ADDR(select_address)"));
+  EXPECT_NE(std::string::npos, dumped.find(".Y(select_y)"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_table_select__("));
+  EXPECT_EQ(std::string::npos, dumped.find("module naja_table_select #("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testRTLInfoCompactAttributesDumpExtraInfos) {
+  ASSERT_TRUE(top_);
+  auto* infos = SNLRTLInfos::create(top_);
+  infos->setSourceLoc({NLName("top.sv"), 10, 12, 3, 9});
+  infos->setInfo(NLName("custom_info"), "value");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("(* naja_sv_src=\"top.sv:10:3-12:9\" *)"));
+  EXPECT_NE(std::string::npos, dumped.find("(* custom_info=\"value\" *)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
