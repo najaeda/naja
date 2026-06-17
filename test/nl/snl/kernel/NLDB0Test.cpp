@@ -1301,6 +1301,18 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFRNData());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNResetN());
   EXPECT_EQ(nullptr, NLDB0::getDFFRNOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFR());
+  EXPECT_FALSE(NLDB0::isDFFR(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFRClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRReset());
+  EXPECT_EQ(nullptr, NLDB0::getDFFROutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFS());
+  EXPECT_FALSE(NLDB0::isDFFS(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFSClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSSet());
+  EXPECT_EQ(nullptr, NLDB0::getDFFSOutput());
   EXPECT_EQ(nullptr, NLDB0::getDFFE());
   EXPECT_FALSE(NLDB0::isDFFE(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getDFFEClock());

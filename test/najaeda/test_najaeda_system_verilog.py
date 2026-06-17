@@ -170,6 +170,34 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 config=netlist.SystemVerilogConfig(top=""),
             )
 
+    def test_load_system_verilog_with_invalid_defines_raises(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        cases = [
+            (
+                "SYNTHESIS",
+                r"SystemVerilogConfig\.defines must be a list \(got str\)",
+            ),
+            (
+                [1],
+                r"SystemVerilogConfig\.defines items must be strings",
+            ),
+            (
+                [""],
+                r"SystemVerilogConfig\.defines items must not be empty",
+            ),
+            (
+                ["HAS SPACE"],
+                r"SystemVerilogConfig\.defines items must not contain whitespace",
+            ),
+        ]
+        for defines, message in cases:
+            with self.subTest(defines=defines):
+                with self.assertRaisesRegex(ValueError, message):
+                    netlist.load_system_verilog(
+                        design_files,
+                        config=netlist.SystemVerilogConfig(defines=defines),
+                    )
+
     def test_load_system_verilog_with_flist_top_and_define(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
             design_sv = os.path.join(temp_dir, "define_selects_top.sv")
