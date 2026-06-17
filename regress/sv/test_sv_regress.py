@@ -104,6 +104,12 @@ cases:
 
         self.assertEqual(["lint", "helloworld_sim"], args.stage)
 
+    def test_primitives_file_contains_table_select_shim(self):
+        primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("module naja_table_select #(", primitives)
+        self.assertIn("assign Y = (ADDR < DEPTH) ? DATA[ADDR*WIDTH +: WIDTH]", primitives)
+
     def test_parser_accepts_local_lint_runner(self):
         parser = sv_regress.build_parser()
         args = parser.parse_args(["run", "--lint-runner", "local"])

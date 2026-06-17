@@ -26,6 +26,18 @@ module naja_mux2 #(
   assign Y = S ? B : A;
 endmodule
 
+module naja_table_select #(
+  parameter WIDTH = 1,
+  parameter DEPTH = 1,
+  parameter ABITS = 1
+) (
+  input wire [WIDTH*DEPTH-1:0] DATA,
+  input wire [ABITS-1:0] ADDR,
+  output wire [WIDTH-1:0] Y
+);
+  assign Y = (ADDR < DEPTH) ? DATA[ADDR*WIDTH +: WIDTH] : {WIDTH{1'b0}};
+endmodule
+
 module naja_dff #(
   parameter WIDTH = 1
 ) (
