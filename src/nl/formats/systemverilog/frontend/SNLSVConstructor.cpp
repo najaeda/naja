@@ -7303,6 +7303,9 @@ endmodule
           auto net = getOrCreateNet(design, loweredName, valueSym.getType());
           setLoweredValueSymbolNet(design, valueSym, net);
           annotateSourceInfo(net, getSourceRange(valueSym));
+          if (const auto* initializer = valueSym.getInitializer()) {
+            recordEqualitySelectorNet(net, *initializer);
+          }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.netsCreated;
           noteSVPerfProgress();
@@ -13034,6 +13037,81 @@ endmodule
                       }
                     }
 
+                    const auto elementCount =
+                      static_cast<size_t>(valueType.getFixedRange().width());
+                    const auto rangeLeft = valueType.getFixedRange().left;
+                    const auto rangeRight = valueType.getFixedRange().right;
+                    const auto minIndex = std::min(rangeLeft, rangeRight);
+                    const auto maxIndex = std::max(rangeLeft, rangeRight);
+                    if (minIndex == 0 &&
+                        maxIndex >= 0 &&
+                        static_cast<size_t>(maxIndex) + 1 == elementCount &&
+                        selectorBits.size() < sizeof(size_t) * 8 &&
+                        elementCount <= (size_t {1} << selectorBits.size())) {
+                      const auto treeSize = size_t {1} << selectorBits.size();
+                      // The mux-tree path is for generated table reads where
+                      // the selector width closely matches the table size. A
+                      // small table indexed by a wide int is better handled by
+                      // the equality-decode fallback below.
+                      const bool treeSizeCloseToElementCount =
+                        elementCount <= (std::numeric_limits<size_t>::max() / 2) &&
+                        treeSize <= elementCount * 2;
+                      if (treeSizeCloseToElementCount) {
+                        std::vector<SNLBitNet*> zeroElement(elementWidth, const0);
+                        std::vector<std::vector<SNLBitNet*>> level(treeSize, zeroElement);
+                        for (size_t logicalIndex = 0; logicalIndex < elementCount; ++logicalIndex) {
+                          const auto translated = valueType.getFixedRange().translateIndex(
+                            static_cast<int32_t>(logicalIndex));
+                          if (translated < 0 ||
+                              translated >= static_cast<int32_t>(elementCount)) {
+                            return false; // LCOV_EXCL_LINE
+                          }
+                          const auto offset = static_cast<size_t>(translated) * elementWidth;
+                          if (offset + elementWidth > valueBits.size()) {
+                            return false; // LCOV_EXCL_LINE
+                          }
+                          level[logicalIndex].assign(
+                            valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                            valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+                        }
+
+                        for (size_t bitIndex = 0; bitIndex < selectorBits.size(); ++bitIndex) {
+                          std::vector<std::vector<SNLBitNet*>> nextLevel;
+                          nextLevel.reserve(level.size() / 2);
+                          for (size_t pairIndex = 0; pairIndex + 1 < level.size(); pairIndex += 2) {
+                            const auto& lowBits = level[pairIndex];
+                            const auto& highBits = level[pairIndex + 1];
+                            if (lowBits == highBits) {
+                              nextLevel.push_back(lowBits);
+                              continue;
+                            }
+                            std::vector<SNLBitNet*> muxedBits;
+                            if (!createMux2Instance(
+                                  design,
+                                  selectorBits[bitIndex],
+                                  lowBits,
+                                  highBits,
+                                  muxedBits,
+                                  elementSourceRange)) {
+                              return false; // LCOV_EXCL_LINE
+                            }
+                            nextLevel.push_back(std::move(muxedBits));
+                          }
+                          level = std::move(nextLevel);
+                        }
+
+                        if (level.size() != 1 || level.front().size() != elementWidth) {
+                          return false; // LCOV_EXCL_LINE
+                        }
+                        bits = std::move(level.front());
+                        resizeBitsToWidth(bits, targetWidth, const0);
+                        if (canUseCache) {
+                          dynamicElementSelectCache_.emplace(std::move(cacheKey), bits);
+                        }
+                        return true;
+                      }
+                    }
+
                     std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
                     int32_t index = valueType.getFixedRange().right;
                     const int32_t end = valueType.getFixedRange().left;
@@ -13602,6 +13680,233 @@ endmodule
                << ", target_width=" << targetWidth << ")";
         setFailureReason(reason.str());
         return false;
+      }
+      return true;
+    }
+
+    struct ConditionalZeroContribution {
+      const Expression* condition {nullptr};
+      const Expression* value {nullptr};
+      bool invertCondition {false};
+      bool constantZero {false};
+    };
+
+    struct EqualitySelectorInfo {
+      const slang::ast::ValueSymbol* selectorSymbol {nullptr};
+      uint64_t value {0};
+    };
+
+    bool isConstantZeroExpression(const Expression& expr) const {
+      uint64_t value = 0;
+      return getConstantUnsigned(expr, value) && value == 0;
+    }
+
+    bool matchEqualitySelectorExpression(
+      const Expression& expr,
+      EqualitySelectorInfo& selector) const {
+      selector = {};
+      const auto* stripped = stripConversions(expr);
+      if (!stripped ||
+          stripped->kind != slang::ast::ExpressionKind::BinaryOp) {
+        return false;
+      }
+      const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+      if (!isEqualityBinaryOp(binaryExpr.op)) {
+        return false;
+      }
+
+      const slang::ast::ValueSymbol* symbol = nullptr;
+      uint64_t value = 0;
+      if (tryGetValueSymbolReference(binaryExpr.left(), symbol) &&
+          getConstantUnsigned(binaryExpr.right(), value)) {
+        selector.selectorSymbol = symbol;
+        selector.value = value;
+        return selector.selectorSymbol != nullptr;
+      }
+      if (tryGetValueSymbolReference(binaryExpr.right(), symbol) &&
+          getConstantUnsigned(binaryExpr.left(), value)) {
+        selector.selectorSymbol = symbol;
+        selector.value = value;
+        return selector.selectorSymbol != nullptr;
+      }
+      return false;
+    }
+
+    void recordEqualitySelectorNet(SNLNet* net, const Expression& expr) {
+      auto* bit = getSingleBitNet(net);
+      if (!bit) {
+        return;
+      }
+      EqualitySelectorInfo selector;
+      if (matchEqualitySelectorExpression(expr, selector)) {
+        equalitySelectorsByNet_[bit] = selector;
+      }
+    }
+
+    bool matchConditionalZeroContribution(
+      const Expression& expr,
+      ConditionalZeroContribution& contribution) const {
+      contribution = {};
+      const auto* stripped = stripConversions(expr);
+      if (!stripped ||
+          stripped->kind != slang::ast::ExpressionKind::ConditionalOp) {
+        return false;
+      }
+      const auto& conditionalExpr = stripped->as<slang::ast::ConditionalExpression>();
+      if (conditionalExpr.conditions.size() != 1 ||
+          conditionalExpr.conditions.front().pattern) {
+        return false;
+      }
+
+      const bool leftIsZero = isConstantZeroExpression(conditionalExpr.left());
+      const bool rightIsZero = isConstantZeroExpression(conditionalExpr.right());
+      if (!leftIsZero && !rightIsZero) {
+        return false;
+      }
+
+      if (leftIsZero && rightIsZero) {
+        contribution.constantZero = true;
+        return true;
+      }
+
+      contribution.condition = conditionalExpr.conditions.front().expr;
+      contribution.value = leftIsZero ? &conditionalExpr.right() : &conditionalExpr.left();
+      contribution.invertCondition = leftIsZero;
+      return contribution.condition && contribution.value;
+    }
+
+    bool createBitwiseOrConditionalZeroAssign(
+      SNLDesign* design,
+      const NLDB0::GateType& gateType,
+      const std::vector<const Expression*>& operands,
+      const std::vector<SNLBitNet*>& lhsBits,
+      bool& handled,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      std::string* failureReason = nullptr) {
+      handled = false;
+      if (gateType.getString() != "or" || lhsBits.empty() || operands.empty()) {
+        return true;
+      }
+
+      std::vector<std::optional<ConditionalZeroContribution>> contributions;
+      contributions.reserve(operands.size());
+      bool hasConditionalZeroContribution = false;
+      for (const auto* operand : operands) {
+        if (!operand) {
+          contributions.emplace_back(std::nullopt);
+          continue;
+        }
+        ConditionalZeroContribution contribution;
+        if (matchConditionalZeroContribution(*operand, contribution)) {
+          hasConditionalZeroContribution = true;
+          contributions.emplace_back(contribution);
+        } else {
+          contributions.emplace_back(std::nullopt);
+        }
+      }
+      if (!hasConditionalZeroContribution) {
+        return true;
+      }
+
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+      const auto bitWidth = lhsBits.size();
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+      std::vector<SNLBitNet*> selectBits;
+      selectBits.reserve(operands.size());
+      std::vector<const Expression*> valueExprs;
+      valueExprs.reserve(operands.size());
+      const slang::ast::ValueSymbol* selectorSymbol = nullptr;
+      std::unordered_set<uint64_t> selectorValues;
+      for (size_t operandIndex = 0; operandIndex < operands.size(); ++operandIndex) {
+        const auto& contribution = contributions[operandIndex];
+        if (!contribution) {
+          return true;
+        }
+        if (contribution->constantZero) {
+          continue;
+        }
+        if (contribution->invertCondition || !contribution->condition || !contribution->value) {
+          return true;
+        }
+
+        auto* selectBit =
+          resolveCombinationalConditionNet(design, *contribution->condition);
+        if (!selectBit) {
+          setFailureReason("failed to resolve one-hot conditional-zero select");
+          handled = true;
+          return false;
+        }
+        if (selectBit == const0) {
+          continue;
+        }
+
+        auto selectorIt = equalitySelectorsByNet_.find(selectBit);
+        if (selectorIt == equalitySelectorsByNet_.end()) {
+          return true;
+        }
+        const auto& selector = selectorIt->second;
+        if (!selector.selectorSymbol) {
+          return true; // LCOV_EXCL_LINE
+        }
+        if (!selectorSymbol) {
+          selectorSymbol = selector.selectorSymbol;
+        } else if (selectorSymbol != selector.selectorSymbol) {
+          return true;
+        }
+        if (!selectorValues.insert(selector.value).second) {
+          return true;
+        }
+        selectBits.push_back(selectBit);
+        valueExprs.push_back(contribution->value);
+      }
+
+      if (selectBits.empty()) {
+        handled = true;
+        for (auto* lhsBit : lhsBits) {
+          createAssignInstance(design, const0, lhsBit, sourceRange);
+        }
+        return true;
+      }
+
+      handled = true;
+      std::vector<SNLBitNet*> selectedBits(bitWidth, const0);
+      for (size_t index = 0; index < selectBits.size(); ++index) {
+        if (selectBits[index] == const1) {
+          if (!resolveExpressionBits(design, *valueExprs[index], bitWidth, selectedBits) ||
+              selectedBits.size() != bitWidth) {
+            setFailureReason("failed to resolve selected one-hot value bits");
+            return false;
+          }
+          continue;
+        }
+        std::vector<SNLBitNet*> valueBits;
+        if (!resolveExpressionBits(design, *valueExprs[index], bitWidth, valueBits) ||
+            valueBits.size() != bitWidth) {
+          setFailureReason("failed to resolve selected one-hot value bits");
+          return false;
+        }
+        std::vector<SNLBitNet*> muxedBits;
+        if (!createMux2Instance(
+              design,
+              selectBits[index],
+              selectedBits,
+              valueBits,
+              muxedBits,
+              sourceRange) ||
+            muxedBits.size() != bitWidth) {
+          setFailureReason("failed to create one-hot vector mux");
+          return false;
+        }
+        selectedBits = std::move(muxedBits);
+      }
+      for (size_t bitIndex = 0; bitIndex < bitWidth; ++bitIndex) {
+        createAssignInstance(design, selectedBits[bitIndex], lhsBits[bitIndex], sourceRange);
       }
       return true;
     }
@@ -19410,9 +19715,17 @@ endmodule
         return true; // LCOV_EXCL_LINE
       }
       if (isIgnorableSequentialTimingStatement(*current) ||
-          current->kind == slang::ast::StatementKind::Empty ||
-          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+          current->kind == slang::ast::StatementKind::Empty) {
         return true;
+      }
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        if (!declStmt.symbol.getInitializer()) {
+          return true;
+        }
+        setFailureReason(
+          "guarded direct sequential fast path does not support initialized local variables");
+        return false;
       }
 
       if (current->kind == slang::ast::StatementKind::List) {
@@ -26842,6 +27155,108 @@ endmodule
       return true;
     }
 
+    DirectSequentialConditionalLowering lowerSequentialGuardedDirectAssignmentListFastPath(
+      SNLDesign* design,
+      const Statement& stmt,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Conditional) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      GuardedDirectSequentialAssignmentTable assignments;
+      std::string collectionFailureReason;
+      if (!collectGuardedDirectSequentialAssignmentTable(
+            *current,
+            assignments,
+            &collectionFailureReason,
+            ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      if (assignments.assignments.empty()) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      std::unordered_set<const slang::ast::ValueSymbol*> loweredSymbols;
+      GuardedSequentialConditionNetCache conditionNetCache;
+      for (const auto& firstAssignment : assignments.assignments) {
+        const auto* lhsExpr = firstAssignment.lhs;
+        if (!lhsExpr) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetDirectSequentialAssignmentSymbol(*lhsExpr, symbol) || !symbol) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+        if (!loweredSymbols.insert(symbol).second) {
+          continue;
+        }
+
+        const auto updateIt = assignments.bySymbol.find(symbol);
+        if (updateIt == assignments.bySymbol.end() || updateIt->second.empty()) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+        }
+
+        auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBitsOrFormatFailure(
+              design,
+              *lhsExpr,
+              lhsNet,
+              lhsBits,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        // LCOV_EXCL_START
+        if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
+          baseName = lhsNet->getName().getString();
+        }
+        // LCOV_EXCL_STOP
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        for (const auto assignmentIndex : updateIt->second) {
+          if (assignmentIndex >= assignments.assignments.size()) {
+            return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE
+          }
+          if (!applyGuardedDirectSequentialAssignment(
+                design,
+                assignments.assignments[assignmentIndex],
+                assignmentIndex,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                blockSourceRange,
+                conditionNetCache,
+                failureReason)) {
+            return DirectSequentialConditionalLowering::Failed;
+          }
+        }
+
+        if (!emitSequentialDataAssignment(
+              design,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              clkNet,
+              clockEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed;
+        }
+      }
+
+      return DirectSequentialConditionalLowering::Lowered;
+    }
+
     bool lowerSequentialDirectMultiAssignment(
       SNLDesign* design,
       const Statement& stmt,
@@ -26859,6 +27274,22 @@ endmodule
         failureReason = "top-level statement is not a direct assignment block";
         return false;
         // LCOV_EXCL_STOP
+      }
+
+      switch (lowerSequentialGuardedDirectAssignmentListFastPath(
+        design,
+        *current,
+        clkNet,
+        clockEdge,
+        blockSourceRange,
+        failureReason,
+        ignoredSymbols)) {
+        case DirectSequentialConditionalLowering::Lowered:
+          return true;
+        case DirectSequentialConditionalLowering::Failed:
+          return false;
+        case DirectSequentialConditionalLowering::NotApplicable:
+          break;
       }
 
       std::vector<const Expression*> lhsExpressions;
@@ -29307,13 +29738,15 @@ endmodule
             }
             if (isEqualityBinaryOp(binaryExpr.op)) {
               reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
-              if (!createEqualityAssign(
-                    design,
-                    lhsNet,
-                    binaryExpr.left(),
-                    binaryExpr.right(),
-                    assignSourceRange) &&
-                  !tryAssignResolvedRhsBits(*rhs)) {
+              const bool equalityAssigned = createEqualityAssign(
+                design,
+                lhsNet,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                assignSourceRange);
+              if (equalityAssigned) {
+                recordEqualitySelectorNet(lhsNet, *rhs);
+              } else if (!tryAssignResolvedRhsBits(*rhs)) {
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
@@ -29441,7 +29874,25 @@ endmodule
 
           if (lhsResolvedAsBitSlice || lhsGateBits.size() > 1) {
             std::string gateFailureReason;
-            if (!createBitwiseGateAssign(
+            bool optimizedOrHandled = false;
+            if (!createBitwiseOrConditionalZeroAssign(
+                  design,
+                  *gateType,
+                  operands,
+                  lhsGateBits,
+                  optimizedOrHandled,
+                  assignSourceRange,
+                  &gateFailureReason)) {
+              std::ostringstream reason;
+              reason << "Unsupported gate construction in continuous assign"
+                     << " (gate=" << gateType->getString()
+                     << ", lhs_width=" << lhsGateBits.size();
+              if (!gateFailureReason.empty()) {
+                reason << ", " << gateFailureReason;
+              }
+              reason << ")";
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            } else if (!optimizedOrHandled && !createBitwiseGateAssign(
                   design,
                   *gateType,
                   operands,
@@ -30269,6 +30720,7 @@ endmodule
       dynamicElementSelectCache_ {};
     std::unordered_map<GateOutputCacheKey, SNLNet*, GateOutputCacheKeyHash>
       gateOutputCache_ {};
+    std::unordered_map<SNLBitNet*, EqualitySelectorInfo> equalitySelectorsByNet_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;

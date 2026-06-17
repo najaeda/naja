@@ -197,6 +197,34 @@ SNLNet* getSingleAssignInputDriving(SNLBitNet* drivenNet) {
   return inputTerm->getNet();
 }
 
+SNLNet* traceSingleAssignInputDriving(SNLNet* net) {
+  auto* bitNet = dynamic_cast<SNLBitNet*>(net);
+  if (!bitNet) {
+    return net;
+  }
+
+  std::vector<SNLInstance*> assignDrivers;
+  for (auto* instTerm : bitNet->getInstTerms()) {
+    if (!instTerm || instTerm->getBitTerm() != NLDB0::getAssignOutput()) {
+      continue;
+    }
+    auto* instance = instTerm->getInstance();
+    if (instance && NLDB0::isAssign(instance->getModel())) {
+      assignDrivers.push_back(instance);
+    }
+  }
+
+  if (assignDrivers.size() != 1) {
+    return net;
+  }
+
+  auto* inputTerm = assignDrivers.front()->getInstTerm(NLDB0::getAssignInput());
+  if (!inputTerm) {
+    return net;
+  }
+  return inputTerm->getNet();
+}
+
 size_t getPrimitiveWidth(const SNLInstance* instance) {
   if (!instance) {
     return 0;
@@ -2984,6 +3012,81 @@ endmodule
   auto top = library_->getSNLDesign(NLName("continuous_assign_conditional_scalar_mux_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalZeroOrFastPathSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_assign_conditional_zero_or_fast_path_supported",
+    R"(module continuous_assign_conditional_zero_or_fast_path_supported(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  input  logic       idx_i,
+  output logic [7:0] y_o
+);
+  wire sel_0 = idx_i == 1'b0;
+  wire sel_1 = idx_i == 1'b1;
+  assign y_o =
+    (sel_0 ? a_i : 8'h00) |
+    (sel_1 ? b_i : 8'h00);
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_conditional_zero_or_fast_path_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_EQ(0u, orGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousPackedArrayDynamicSelectMuxTreeSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_packed_array_dynamic_select_mux_tree_supported",
+    R"(module continuous_packed_array_dynamic_select_mux_tree_supported(
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  input  logic [7:0] c_i,
+  input  logic [7:0] d_i,
+  input  logic [1:0] idx_i,
+  output logic [7:0] y_o
+);
+  wire [3:0][7:0] lookup = {d_i, c_i, b_i, a_i};
+  assign y_o = lookup[idx_i];
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_packed_array_dynamic_select_mux_tree_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
+  EXPECT_EQ(3u, countMux2Instances(top));
+  EXPECT_EQ(3u, countMux2Instances(top, 8));
+
+  size_t xnorGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+  EXPECT_EQ(0u, xnorGateCount);
 }
 
 TEST_F(
@@ -10958,8 +11061,8 @@ endmodule
 
   auto top = library_->getSNLDesign(NLName("always_comb_dynamic_packed_read_write_wide_mux_supported"));
   ASSERT_NE(top, nullptr);
-  EXPECT_EQ(4u, countMux2Instances(top));
-  EXPECT_EQ(4u, countMux2Instances(top, 8));
+  EXPECT_EQ(3u, countMux2Instances(top));
+  EXPECT_EQ(3u, countMux2Instances(top, 8));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
 
   auto dumpedVerilog =
@@ -22265,12 +22368,18 @@ endmodule
   ASSERT_NE(qSized, nullptr);
   ASSERT_NE(qUnbased, nullptr);
 
-  auto* qBased0Data = getDFFDataForOutputBit(top, qBased->getBit(0));
-  auto* qBased1Data = getDFFDataForOutputBit(top, qBased->getBit(1));
-  auto* qSized0Data = getDFFDataForOutputBit(top, qSized->getBit(0));
-  auto* qSized1Data = getDFFDataForOutputBit(top, qSized->getBit(1));
-  auto* qUnbased0Data = getDFFDataForOutputBit(top, qUnbased->getBit(0));
-  auto* qUnbased1Data = getDFFDataForOutputBit(top, qUnbased->getBit(1));
+  auto* qBased0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qBased->getBit(0)));
+  auto* qBased1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qBased->getBit(1)));
+  auto* qSized0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qSized->getBit(0)));
+  auto* qSized1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qSized->getBit(1)));
+  auto* qUnbased0Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qUnbased->getBit(0)));
+  auto* qUnbased1Data = traceSingleAssignInputDriving(
+    getDFFDataForOutputBit(top, qUnbased->getBit(1)));
   ASSERT_NE(qBased0Data, nullptr);
   ASSERT_NE(qBased1Data, nullptr);
   ASSERT_NE(qSized0Data, nullptr);
@@ -29765,6 +29874,48 @@ endmodule
     }
   }
   EXPECT_EQ(18u, dffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialTopLevelGuardedMultiAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_top_level_guarded_multi_assignment_supported",
+    R"(module seq_top_level_guarded_multi_assignment_supported(
+  input  logic       clk_i,
+  input  logic       e0_i,
+  input  logic       e1_i,
+  input  logic       e2_i,
+  input  logic [7:0] d0_i,
+  input  logic [7:0] d1_i,
+  input  logic [7:0] d2_i,
+  output logic [7:0] q0_o,
+  output logic [7:0] q1_o
+);
+  always_ff @(posedge clk_i) begin
+    if (e0_i) begin
+      q0_o <= d0_i;
+      q1_o <= d1_i;
+    end else if (e1_i) begin
+      q0_o <= d1_i;
+      q1_o <= d2_i;
+    end
+    if (e2_i) begin
+      q0_o <= q1_o;
+    end
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_top_level_guarded_multi_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+
+  EXPECT_EQ(16u, countDFFBits(top));
+  EXPECT_EQ(5u, countMux2Instances(top, 8));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTopLevelMultiAssignmentNegedgeSupported) {
