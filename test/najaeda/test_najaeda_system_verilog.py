@@ -124,6 +124,11 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 dumped_text = dumped_file.read()
             self.assertIn("assign_module", dumped_text)
 
+    def test_dump_verilog_config_rejects_invalid_rtl_info_mode(self):
+        with self.assertRaises(ValueError) as context:
+            netlist.VerilogDumpConfig(rtlInfoDumpMode="Invalid")
+        self.assertIn("Invalid rtlInfoDumpMode", str(context.exception))
+
     def test_load_system_verilog_with_flist(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
         flist_path = os.path.join(najaeda_test_path, "simple_najaeda.f")

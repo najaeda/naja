@@ -308,6 +308,25 @@ class SNLDBTest(unittest.TestCase):
       self.assertIn("sv_src_file", dumped_text)
       self.assertNotIn('naja_sv_src="', dumped_text)
 
+      none_rtl_infos = os.path.join(dump_dir, "simple_none_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(none_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="None")
+      with open(none_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
+
+      with self.assertRaises(RuntimeError) as context:
+        top.dumpVerilog(
+          path=dump_dir,
+          top_file_name="simple_invalid_rtl_infos.v",
+          dumpRTLInfosAsAttributes=True,
+          rtlInfoDumpMode="Invalid")
+      self.assertIn("invalid rtlInfoDumpMode", str(context.exception))
+
   def testDestroy(self):
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)

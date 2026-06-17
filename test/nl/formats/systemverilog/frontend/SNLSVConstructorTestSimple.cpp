@@ -449,6 +449,23 @@ size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
   return count;
 }
 
+size_t countTableSelectInstances(
+  const SNLDesign* design,
+  std::optional<NLDB0::TableSelectSignature> expectedSignature = std::nullopt) {
+  size_t count = 0;
+  for (auto inst : design->getInstances()) {
+    if (!NLDB0::isTableSelect(inst->getModel())) {
+      continue;
+    }
+    if (expectedSignature &&
+        NLDB0::getTableSelectSignature(inst) != *expectedSignature) {
+      continue;
+    }
+    ++count;
+  }
+  return count;
+}
+
 size_t countFAInstances(const SNLDesign* design) {
   size_t count = 0;
   for (auto inst : design->getInstances()) {
@@ -3095,8 +3112,10 @@ endmodule
     NLName("continuous_packed_array_dynamic_select_mux_tree_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("y_o")), nullptr);
-  EXPECT_EQ(3u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 4, 2}));
 
   size_t xnorGateCount = 0;
   for (auto inst : top->getInstances()) {
@@ -11080,15 +11099,19 @@ endmodule
 
   auto top = library_->getSNLDesign(NLName("always_comb_dynamic_packed_read_write_wide_mux_supported"));
   ASSERT_NE(top, nullptr);
-  EXPECT_EQ(3u, countMux2Instances(top));
-  EXPECT_EQ(3u, countMux2Instances(top, 8));
+  EXPECT_EQ(2u, countMux2Instances(top));
+  EXPECT_EQ(2u, countMux2Instances(top, 8));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 2, 1}));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "always_comb_dynamic_packed_read_write_wide_mux_supported");
   const auto dumpedText = readTextFile(dumpedVerilog);
   EXPECT_NE(std::string::npos, dumpedText.find("naja_mux2 #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(8)"));
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_table_select "));
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -30412,18 +30435,9 @@ endmodule
     NLName("dynamic_packed_array_table_select_uses_primitive"));
   ASSERT_NE(top, nullptr);
 
-  size_t tableSelectCount = 0;
-  NLDB0::TableSelectSignature tableSelectSignature;
-  for (auto inst: top->getInstances()) {
-    if (NLDB0::isTableSelect(inst->getModel())) {
-      ++tableSelectCount;
-      tableSelectSignature = NLDB0::getTableSelectSignature(inst);
-    }
-  }
-  EXPECT_EQ(1u, tableSelectCount);
-  EXPECT_EQ(4u, tableSelectSignature.width);
-  EXPECT_EQ(4u, tableSelectSignature.depth);
-  EXPECT_EQ(2u, tableSelectSignature.abits);
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {4, 4, 2}));
 
   const auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,

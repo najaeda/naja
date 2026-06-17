@@ -51,7 +51,7 @@ namespace {
 
 std::optional<SNLVRLDumper::RTLInfoDumpMode> parseRTLInfoDumpMode(const char* mode) {
   if (mode == nullptr) {
-    return std::nullopt;
+    return std::nullopt; // LCOV_EXCL_LINE
   }
   const std::string modeString(mode);
   if (modeString == "None" || modeString == "none") {

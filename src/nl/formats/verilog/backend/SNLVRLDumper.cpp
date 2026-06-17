@@ -1202,7 +1202,7 @@ void SNLVRLDumper::dumpAttributes(
       rtlInfos = designObject->getRTLInfos();
     }
     std::chrono::steady_clock::time_point rtlInfosStart {};
-    if (perfActive) {
+    if (perfActive) { // LCOV_EXCL_LINE
       rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
     if (rtlInfos) {
