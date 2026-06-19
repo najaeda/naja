@@ -1558,3 +1558,96 @@ TEST_F(NLDB0Test, testErrors) {
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
+
+TEST_F(NLDB0Test, testGetOrCreatePrimitiveDispatch) {
+  NLUniverse::create();
+
+  const auto resolve = [](SNLDesign* primitive) {
+    return NLDB0::getOrCreatePrimitive(
+        primitive->getLibrary()->getID(), primitive->getID());
+  };
+
+  auto* fa = NLDB0::getFA();
+  ASSERT_NE(nullptr, fa);
+  EXPECT_EQ(fa, resolve(fa));
+  EXPECT_EQ(
+      nullptr,
+      NLDB0::getOrCreatePrimitive(
+          fa->getLibrary()->getID(), NLID::DesignID(fa->getID() + 1)));
+
+  const std::vector<SNLDesign*> widthPrimitives {
+    NLDB0::getOrCreateMux2(4),
+    NLDB0::getOrCreateDFF(4),
+    NLDB0::getOrCreateDLatch(4),
+    NLDB0::getOrCreateDFFN(4),
+    NLDB0::getOrCreateDFFRN(4),
+    NLDB0::getOrCreateDFFR(4),
+    NLDB0::getOrCreateDFFS(4),
+    NLDB0::getOrCreateDFFE(4),
+    NLDB0::getOrCreateDFFRE(4),
+    NLDB0::getOrCreateDFFSE(4)
+  };
+  for (auto* primitive: widthPrimitives) {
+    ASSERT_NE(nullptr, primitive);
+    EXPECT_EQ(primitive, resolve(primitive));
+  }
+
+  for (bool isSigned: {false, true}) {
+    NLDB0::DivModSignature signature {4, isSigned};
+    auto* divMod = NLDB0::getOrCreateDivMod(signature);
+    ASSERT_NE(nullptr, divMod);
+    EXPECT_EQ(divMod, resolve(divMod));
+  }
+
+  NLDB0::MemorySignature memorySignature {
+    8, 16, 4, 2, 1, NLDB0::MemoryResetMode::AsyncLow
+  };
+  auto* memory = NLDB0::getOrCreateMemory(memorySignature);
+  ASSERT_NE(nullptr, memory);
+  const NLDB0::PrimitiveParameters memoryParameters {
+    {"WIDTH", "8"},
+    {"DEPTH", "16"},
+    {"ABITS", "4"},
+    {"RD_PORTS", "2"},
+    {"WR_PORTS", "1"},
+    {"RST_ENABLE", "1"},
+    {"RST_ASYNC", "1"},
+    {"RST_ACTIVE_LOW", "1"}
+  };
+  EXPECT_EQ(
+      memory,
+      NLDB0::getOrCreatePrimitive(
+          memory->getLibrary()->getID(), memory->getID(), memoryParameters));
+  EXPECT_THROW(
+      NLDB0::getOrCreatePrimitive(
+          memory->getLibrary()->getID(), memory->getID(), {}),
+      NLException);
+
+  NLDB0::TableSelectSignature tableSelectSignature {8, 4, 2};
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(tableSelectSignature);
+  ASSERT_NE(nullptr, tableSelect);
+  const NLDB0::PrimitiveParameters tableSelectParameters {
+    {"WIDTH", "8"},
+    {"DEPTH", "4"},
+    {"ABITS", "2"}
+  };
+  EXPECT_EQ(
+      tableSelect,
+      NLDB0::getOrCreatePrimitive(
+          tableSelect->getLibrary()->getID(),
+          tableSelect->getID(),
+          tableSelectParameters));
+
+  auto* andGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 4);
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 4);
+  ASSERT_NE(nullptr, andGate);
+  ASSERT_NE(nullptr, buffer);
+  EXPECT_EQ(andGate, resolve(andGate));
+  EXPECT_EQ(buffer, resolve(buffer));
+
+  EXPECT_EQ(
+      nullptr,
+      NLDB0::getOrCreatePrimitive(
+          NLID::LibraryID(std::numeric_limits<NLID::LibraryID>::max()),
+          NLID::DesignID(1)));
+}
