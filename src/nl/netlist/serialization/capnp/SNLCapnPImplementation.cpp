@@ -24,6 +24,9 @@
 #include "NLDB0.h"
 #include "NLException.h"
 
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
+#include "SNLCapnPRTLInfos.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -80,6 +83,9 @@ void dumpInstance(
     auto instParameterBuilder = instParameters[id++];
     dumpInstParameter(instParameterBuilder, instParameter);
   }
+  if (snlInstance->hasRTLInfos()) {
+    dumpRTLInfos(instance.initRtlInfos(), snlInstance->getRTLInfos());
+  }
 }
 
 void dumpBitTermReference(DBImplementation::NetComponentReference::Builder& componentReference,
@@ -132,6 +138,9 @@ void dumpScalarNet(
       dumpNetComponentReference(componentRefBuilder, component);
     }
   }
+  if (scalarNet->hasRTLInfos()) {
+    dumpRTLInfos(scalarNetBuilder.initRtlInfos(), scalarNet->getRTLInfos());
+  }
 }
 
 void dumpBusNetBit(
@@ -151,6 +160,9 @@ void dumpBusNetBit(
         dumpNetComponentReference(componentRefBuilder, component);
       }
     }
+    if (busNetBit->hasRTLInfos()) {
+      dumpRTLInfos(bitBuilder.initRtlInfos(), busNetBit->getRTLInfos());
+    }
   } else {
     bitBuilder.setDestroyed(true);
   }
@@ -166,6 +178,9 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
+  if (busNet->hasRTLInfos()) {
+    dumpRTLInfos(busNetBuilder.initRtlInfos(), busNet->getRTLInfos());
+  }
   auto bits = busNetBuilder.initBits(busNet->getWidth());
   size_t id = 0;
   for (size_t i=0; i<busNet->getWidth(); i++) {
@@ -307,6 +322,9 @@ void loadInstance(
       loadInstParameter(snlInstance, instParameter);
     }
   }
+  if (instance.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(snlInstance), instance.getRtlInfos());
+  }
 }
 
 void loadTermReference(
@@ -428,7 +446,13 @@ void loadBusNet(
           }
         }
       }
+      if (bitNet.hasRtlInfos()) {
+        loadRTLInfos(SNLRTLInfos::create(busNetBit), bitNet.getRtlInfos());
+      }
     }
+  }
+  if (net.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(busNet), net.getRtlInfos());
   }
 }
 
@@ -449,6 +473,9 @@ void loadScalarNet(
         loadTermReference(scalarNet, componentReference.getTermReference());
       }
     }
+  }
+  if (net.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(scalarNet), net.getRtlInfos());
   }
 }
 
