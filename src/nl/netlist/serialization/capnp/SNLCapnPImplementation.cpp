@@ -21,6 +21,7 @@
 #include "naja_nl_implementation.capnp.h"
 
 #include "NLUniverse.h"
+#include "NLDB0.h"
 #include "NLException.h"
 
 #include "SNLScalarNet.h"
@@ -268,7 +269,26 @@ void loadInstance(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
-  auto model = NLUniverse::get()->getSNLDesign(snlModelReference);
+  SNLDesign* model = nullptr;
+  if (snlModelReference.dbID_ == NLID::DBID(0)) {
+    //DB0 primitives are canonical and may need lazy (re)creation: resolve the
+    //reference directly (libraryID selects the family, designID the size) instead
+    //of relying on them having been loaded. Multi-parameter primitives (memory,
+    //table select) are rebuilt from the instance parameters, which carry the
+    //full signature.
+    NLDB0::PrimitiveParameters parameters;
+    if (instance.hasInstParameters()) {
+      for (auto instParameter: instance.getInstParameters()) {
+        parameters.emplace(
+          std::string(instParameter.getName()), std::string(instParameter.getValue()));
+      }
+    }
+    model = NLDB0::getOrCreatePrimitive(
+      snlModelReference.libraryID_, snlModelReference.designID_, parameters);
+  }
+  if (not model) {
+    model = NLUniverse::get()->getSNLDesign(snlModelReference);
+  }
   //LCOV_EXCL_START
   if (not model) {
     std::ostringstream reason;

@@ -5,6 +5,9 @@
 
 #pragma once
 #include <cstddef>
+#include <map>
+#include <string>
+#include "NLID.h"
 #include "SNLTruthTable.h"
 
 namespace naja::NL {
@@ -133,6 +136,23 @@ class NLDB0 {
     static SNLBusTerm* getTableSelectOutput(const SNLDesign* design);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
+
+    /// \brief Instance parameters (name -> value) carried by a serialized
+    /// instance, used to rebuild multi-parameter primitives on load.
+    using PrimitiveParameters = std::map<std::string, std::string>;
+    /// \brief Resolve, lazily (re)creating if needed, the DB0 primitive a
+    /// serialized model reference points to.
+    ///
+    /// DB0 (NLID::DBID 0) primitive IDs are canonical: \p libraryID selects the
+    /// primitive family and \p designID encodes the single size parameter
+    /// (gate fan-in/out, mux/dff/divmod width). Multi-parameter families
+    /// (memory, table select) are rebuilt from \p parameters (the instance
+    /// parameters, which carry the full signature). Returns nullptr if the
+    /// reference does not designate a known DB0 primitive family.
+    static SNLDesign* getOrCreatePrimitive(
+      NLID::LibraryID libraryID,
+      NLID::DesignID designID,
+      const PrimitiveParameters& parameters = {});
 
     static SNLDesign* getAssign();
     static bool isAssign(const SNLDesign* design);
