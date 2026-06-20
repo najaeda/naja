@@ -13,7 +13,7 @@ add_library(naja_nl_dump STATIC
     ${najaCommonSources} ${najaNLInterfaceSources}
     ${najaNLImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp
-    SNLCapnP.cpp
+    SNLCapnP.cpp SNLCapnPRTLInfos.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
 
 set_target_properties(naja_nl_dump PROPERTIES POSITION_INDEPENDENT_CODE ON)

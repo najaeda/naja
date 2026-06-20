@@ -9,6 +9,8 @@ set(snl_capnp_tests
     SNLCapnPTest0.cpp
     SNLCapnPTest1.cpp
     SNLCapnPTest2.cpp
+    SNLCapnPTest3.cpp
+    SNLCapnPRTLInfosTest.cpp
     #SNLCapnPStreamingReceiveTest.cpp
 )
 

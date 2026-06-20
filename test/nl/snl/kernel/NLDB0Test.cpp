@@ -45,29 +45,29 @@ NLID::LibraryID expectedSequentialLibraryID(const NLName& name) {
   if (name == NLName("naja_dff")) {
     return NLID::LibraryID(3);
   }
-  if (name == NLName("naja_dlatch")) {
+  if (name == NLName("naja_dffn")) {
     return NLID::LibraryID(4);
   }
-  if (name == NLName("naja_dffn")) {
+  if (name == NLName("naja_dffrn")) {
     return NLID::LibraryID(5);
   }
-  if (name == NLName("naja_dffrn")) {
+  if (name == NLName("naja_dffr")) {
     return NLID::LibraryID(6);
   }
-  if (name == NLName("naja_dffe")) {
+  if (name == NLName("naja_dffs")) {
     return NLID::LibraryID(7);
   }
-  if (name == NLName("naja_dffre")) {
+  if (name == NLName("naja_dffe")) {
     return NLID::LibraryID(8);
   }
-  if (name == NLName("naja_dffse")) {
+  if (name == NLName("naja_dffre")) {
     return NLID::LibraryID(9);
   }
-  if (name == NLName("naja_dffr")) {
-    return NLID::LibraryID(13);
+  if (name == NLName("naja_dffse")) {
+    return NLID::LibraryID(10);
   }
-  if (name == NLName("naja_dffs")) {
-    return NLID::LibraryID(14);
+  if (name == NLName("naja_dlatch")) {
+    return NLID::LibraryID(11);
   }
   return NLID::LibraryID(0);
 }
@@ -594,10 +594,10 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   ASSERT_NE(nullptr, divmod0->getLibrary());
   EXPECT_EQ(8, divmod0->getID());
   EXPECT_EQ(NLName("unsigned"), divmod0->getLibrary()->getName());
-  EXPECT_EQ(11, divmod0->getLibrary()->getID());
+  EXPECT_EQ(13, divmod0->getLibrary()->getID());
   ASSERT_NE(nullptr, divmod0->getLibrary()->getParentLibrary());
   EXPECT_EQ(NLName("naja_divmod"), divmod0->getLibrary()->getParentLibrary()->getName());
-  EXPECT_EQ(10, divmod0->getLibrary()->getParentLibrary()->getID());
+  EXPECT_EQ(12, divmod0->getLibrary()->getParentLibrary()->getID());
   EXPECT_EQ(NLName("naja_divmod__u_w8"), divmod0->getName());
   EXPECT_EQ(divmod0, divmod0->getLibrary()->getSNLDesign(NLID::DesignID(8)));
   EXPECT_EQ(signature, NLDB0::getDivModSignature(divmod0));
@@ -616,7 +616,7 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   EXPECT_EQ(8, signedDivMod->getID());
   ASSERT_NE(nullptr, signedDivMod->getLibrary());
   EXPECT_EQ(NLName("signed"), signedDivMod->getLibrary()->getName());
-  EXPECT_EQ(12, signedDivMod->getLibrary()->getID());
+  EXPECT_EQ(14, signedDivMod->getLibrary()->getID());
   EXPECT_EQ(divmod0->getLibrary()->getParentLibrary(), signedDivMod->getLibrary()->getParentLibrary());
   EXPECT_EQ(signedDivMod, signedDivMod->getLibrary()->getSNLDesign(NLID::DesignID(8)));
   EXPECT_EQ(NLName("naja_divmod__s_w8"), signedDivMod->getName());
@@ -655,7 +655,9 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   EXPECT_NE(q0Inputs.end(), std::find(q0Inputs.begin(), q0Inputs.end(), dividend->getBit(0)));
   EXPECT_NE(q0Inputs.end(), std::find(q0Inputs.begin(), q0Inputs.end(), divisor->getBit(0)));
 
-  auto* db = NLDB0::getDB0();
+  //Host the test design in a regular user DB: DB0 is reserved for NLDB0-managed
+  //primitives, which always use explicit library IDs.
+  auto* db = NLDB::create(NLUniverse::get());
   ASSERT_NE(nullptr, db);
   auto* topLibrary = NLLibrary::create(db, NLName("WORK"));
   auto* top = SNLDesign::create(topLibrary, SNLDesign::Type::Standard, NLName("top"));
@@ -769,7 +771,9 @@ TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
 
-  auto* db = NLDB0::getDB0();
+  //Host the test design in a regular user DB: DB0 is reserved for NLDB0-managed
+  //primitives, which always use explicit library IDs.
+  auto* db = NLDB::create(NLUniverse::get());
   ASSERT_NE(nullptr, db);
   auto* topLibrary = NLLibrary::create(db, NLName("WORK"));
   auto* top = SNLDesign::create(topLibrary, SNLDesign::Type::Standard, NLName("top"));
@@ -896,12 +900,12 @@ TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
   EXPECT_EQ(expectedSequentialLibraryID(NLName("naja_dff")), dff2->getLibrary()->getID());
   EXPECT_EQ(NLName("naja_dff"), dff2->getLibrary()->getName());
 
-  auto* divModLibrary = rootLibrary->getLibrary(NLID::LibraryID(10));
+  auto* divModLibrary = rootLibrary->getLibrary(NLID::LibraryID(12));
   ASSERT_NE(nullptr, divModLibrary);
-  auto* unsignedDivModLibrary = divModLibrary->getLibrary(NLID::LibraryID(11));
+  auto* unsignedDivModLibrary = divModLibrary->getLibrary(NLID::LibraryID(13));
   ASSERT_NE(nullptr, unsignedDivModLibrary);
   unsignedDivModLibrary->destroy();
-  EXPECT_EQ(nullptr, divModLibrary->getLibrary(NLID::LibraryID(11)));
+  EXPECT_EQ(nullptr, divModLibrary->getLibrary(NLID::LibraryID(13)));
 
   NLDB0::DivModSignature divModSignature;
   divModSignature.width = 4;
@@ -909,7 +913,7 @@ TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {
   ASSERT_NE(nullptr, divMod);
   ASSERT_NE(nullptr, divMod->getLibrary());
   EXPECT_TRUE(NLDB0::isDivMod(divMod));
-  EXPECT_EQ(NLID::LibraryID(11), divMod->getLibrary()->getID());
+  EXPECT_EQ(NLID::LibraryID(13), divMod->getLibrary()->getID());
   EXPECT_EQ(NLName("unsigned"), divMod->getLibrary()->getName());
   EXPECT_EQ(divModLibrary, divMod->getLibrary()->getParentLibrary());
 
@@ -1553,4 +1557,97 @@ TEST_F(NLDB0Test, testErrors) {
   NLUniverse::get()->destroy();
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
+}
+
+TEST_F(NLDB0Test, testGetOrCreatePrimitiveDispatch) {
+  NLUniverse::create();
+
+  const auto resolve = [](SNLDesign* primitive) {
+    return NLDB0::getOrCreatePrimitive(
+        primitive->getLibrary()->getID(), primitive->getID());
+  };
+
+  auto* fa = NLDB0::getFA();
+  ASSERT_NE(nullptr, fa);
+  EXPECT_EQ(fa, resolve(fa));
+  EXPECT_EQ(
+      nullptr,
+      NLDB0::getOrCreatePrimitive(
+          fa->getLibrary()->getID(), NLID::DesignID(fa->getID() + 1)));
+
+  const std::vector<SNLDesign*> widthPrimitives {
+    NLDB0::getOrCreateMux2(4),
+    NLDB0::getOrCreateDFF(4),
+    NLDB0::getOrCreateDLatch(4),
+    NLDB0::getOrCreateDFFN(4),
+    NLDB0::getOrCreateDFFRN(4),
+    NLDB0::getOrCreateDFFR(4),
+    NLDB0::getOrCreateDFFS(4),
+    NLDB0::getOrCreateDFFE(4),
+    NLDB0::getOrCreateDFFRE(4),
+    NLDB0::getOrCreateDFFSE(4)
+  };
+  for (auto* primitive: widthPrimitives) {
+    ASSERT_NE(nullptr, primitive);
+    EXPECT_EQ(primitive, resolve(primitive));
+  }
+
+  for (bool isSigned: {false, true}) {
+    NLDB0::DivModSignature signature {4, isSigned};
+    auto* divMod = NLDB0::getOrCreateDivMod(signature);
+    ASSERT_NE(nullptr, divMod);
+    EXPECT_EQ(divMod, resolve(divMod));
+  }
+
+  NLDB0::MemorySignature memorySignature {
+    8, 16, 4, 2, 1, NLDB0::MemoryResetMode::AsyncLow
+  };
+  auto* memory = NLDB0::getOrCreateMemory(memorySignature);
+  ASSERT_NE(nullptr, memory);
+  const NLDB0::PrimitiveParameters memoryParameters {
+    {"WIDTH", "8"},
+    {"DEPTH", "16"},
+    {"ABITS", "4"},
+    {"RD_PORTS", "2"},
+    {"WR_PORTS", "1"},
+    {"RST_ENABLE", "1"},
+    {"RST_ASYNC", "1"},
+    {"RST_ACTIVE_LOW", "1"}
+  };
+  EXPECT_EQ(
+      memory,
+      NLDB0::getOrCreatePrimitive(
+          memory->getLibrary()->getID(), memory->getID(), memoryParameters));
+  EXPECT_THROW(
+      NLDB0::getOrCreatePrimitive(
+          memory->getLibrary()->getID(), memory->getID(), {}),
+      NLException);
+
+  NLDB0::TableSelectSignature tableSelectSignature {8, 4, 2};
+  auto* tableSelect = NLDB0::getOrCreateTableSelect(tableSelectSignature);
+  ASSERT_NE(nullptr, tableSelect);
+  const NLDB0::PrimitiveParameters tableSelectParameters {
+    {"WIDTH", "8"},
+    {"DEPTH", "4"},
+    {"ABITS", "2"}
+  };
+  EXPECT_EQ(
+      tableSelect,
+      NLDB0::getOrCreatePrimitive(
+          tableSelect->getLibrary()->getID(),
+          tableSelect->getID(),
+          tableSelectParameters));
+
+  auto* andGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 4);
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 4);
+  ASSERT_NE(nullptr, andGate);
+  ASSERT_NE(nullptr, buffer);
+  EXPECT_EQ(andGate, resolve(andGate));
+  EXPECT_EQ(buffer, resolve(buffer));
+
+  EXPECT_EQ(
+      nullptr,
+      NLDB0::getOrCreatePrimitive(
+          NLID::LibraryID(std::numeric_limits<NLID::LibraryID>::max()),
+          NLID::DesignID(1)));
 }

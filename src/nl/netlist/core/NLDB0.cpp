@@ -27,19 +27,25 @@ namespace {
   constexpr naja::NL::NLID::LibraryID RootLibraryID = 0;
   constexpr naja::NL::NLID::LibraryID AssignLibraryID = 1;
   constexpr naja::NL::NLID::LibraryID Mux2LibraryID = 2;
+  //All DFF primitive families share one contiguous canonical ID range [3, 10].
   constexpr naja::NL::NLID::LibraryID DFFLibraryID = 3;
-  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 4;
-  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 5;
-  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 6;
-  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 7;
-  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 8;
-  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 9;
-  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 10;
-  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 11;
-  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 12;
-  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 13;
-  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 14;
+  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 4;
+  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 5;
+  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 6;
+  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 7;
+  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 8;
+  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 9;
+  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 10;
+  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 11;
+  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 12;
+  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 13;
+  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 14;
   constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 15;
+  constexpr naja::NL::NLID::LibraryID MemoryLibraryID = 16;
+  //Gate libraries get one reserved canonical ID per GateType so that a model
+  //reference into DB0 is self-describing: libraryID = GateLibraryIDBase + GateType,
+  //designID = gate fan-in (N-input) or fan-out (N-output).
+  constexpr naja::NL::NLID::LibraryID GateLibraryIDBase = 17;
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -842,6 +848,7 @@ namespace {
     }
     return naja::NL::NLLibrary::create(
         rootLibrary,
+        MemoryLibraryID,
         naja::NL::NLLibrary::Type::Primitives,
         naja::NL::NLName(MemoryLibraryName));
   }
@@ -855,6 +862,40 @@ namespace {
       return existing;
     }
     return getOrCreatePrimitiveLibrary(TableSelectLibraryID, TableSelectName);
+  }
+
+  size_t getDecimalParameter(
+      const naja::NL::NLDB0::PrimitiveParameters& parameters, const char* name) {
+    auto it = parameters.find(name);
+    if (it == parameters.end()) {
+      throw naja::NL::NLException(
+          std::string("NLDB0::getOrCreatePrimitive: missing parameter ") + name);
+    }
+    return static_cast<size_t>(std::stoull(it->second));
+  }
+
+  naja::NL::NLDB0::MemorySignature memorySignatureFromParameters(
+      const naja::NL::NLDB0::PrimitiveParameters& parameters) {
+    naja::NL::NLDB0::MemorySignature signature;
+    signature.width = getDecimalParameter(parameters, "WIDTH");
+    signature.depth = getDecimalParameter(parameters, "DEPTH");
+    signature.abits = getDecimalParameter(parameters, "ABITS");
+    signature.readPorts = getDecimalParameter(parameters, "RD_PORTS");
+    signature.writePorts = getDecimalParameter(parameters, "WR_PORTS");
+    signature.resetMode = getMemoryResetMode(
+        getDecimalParameter(parameters, "RST_ENABLE"),
+        getDecimalParameter(parameters, "RST_ASYNC"),
+        getDecimalParameter(parameters, "RST_ACTIVE_LOW"));
+    return signature;
+  }
+
+  naja::NL::NLDB0::TableSelectSignature tableSelectSignatureFromParameters(
+      const naja::NL::NLDB0::PrimitiveParameters& parameters) {
+    naja::NL::NLDB0::TableSelectSignature signature;
+    signature.width = getDecimalParameter(parameters, "WIDTH");
+    signature.depth = getDecimalParameter(parameters, "DEPTH");
+    signature.abits = getDecimalParameter(parameters, "ABITS");
+    return signature;
   }
 
 }
@@ -2022,7 +2063,9 @@ NLLibrary* NLDB0::getOrCreateGateLibrary(const GateType& type) {
   if (not rootLib) {
     return nullptr;
   }
-  return NLLibrary::create(getDB0RootLibrary(), NLLibrary::Type::Primitives, NLName(type.getString()));
+  auto libraryID = static_cast<NLID::LibraryID>(
+    GateLibraryIDBase + static_cast<int>(static_cast<GateType::GateTypeEnum>(type)));
+  return NLLibrary::create(rootLib, libraryID, NLLibrary::Type::Primitives, NLName(type.getString()));
 }
 
 NLLibrary* NLDB0::getGateLibrary(const GateType& type) {
@@ -2065,7 +2108,9 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
   std::string gateName(type.getString() + "_" + std::to_string(nbOutputs));
   auto gate = gateLibrary->getSNLDesign(NLName(gateName));
   if (not gate) {
-    gate = SNLDesign::create(gateLibrary, SNLDesign::Type::Primitive, NLName(gateName));
+    //Canonical design ID = fan-out, so the model reference is self-describing.
+    gate = SNLDesign::create(
+      gateLibrary, NLID::DesignID(nbOutputs), SNLDesign::Type::Primitive, NLName(gateName));
     SNLBusTerm::create(gate, SNLTerm::Direction::Output, NLID::Bit(nbOutputs-1), 0);
     SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
   }
@@ -2086,7 +2131,9 @@ SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
   std::string gateName(type.getString() + "_" + std::to_string(nbInputs));
   auto gate = gateLibrary->getSNLDesign(NLName(gateName));
   if (not gate) {
-    gate = SNLDesign::create(gateLibrary, SNLDesign::Type::Primitive, NLName(gateName));
+    //Canonical design ID = fan-in, so the model reference is self-describing.
+    gate = SNLDesign::create(
+      gateLibrary, NLID::DesignID(nbInputs), SNLDesign::Type::Primitive, NLName(gateName));
     SNLScalarTerm::create(gate, SNLTerm::Direction::Output);
     SNLBusTerm::create(gate, SNLTerm::Direction::Input, NLID::Bit(nbInputs-1), 0);
   }
@@ -2152,6 +2199,62 @@ SNLBusTerm* NLDB0::getGateNTerms(const SNLDesign* gate) {
     return gate->getBusTerm(NLID::DesignObjectID(1));
   } else if (isNOutputGate(gate)) {
     return gate->getBusTerm(NLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getOrCreatePrimitive(
+    NLID::LibraryID libraryID,
+    NLID::DesignID designID,
+    const PrimitiveParameters& parameters) {
+  //Single-parameter families: designID carries the width / fan-in / fan-out.
+  switch (libraryID) {
+    case RootLibraryID:
+      return (designID == FADesignID) ? getFA() : nullptr;
+    case AssignLibraryID:
+      return getAssign();
+    case Mux2LibraryID:
+      return getOrCreateMux2(designID);
+    case DFFLibraryID:
+      return getOrCreateDFF(designID);
+    case DLatchLibraryID:
+      return getOrCreateDLatch(designID);
+    case DFFNLibraryID:
+      return getOrCreateDFFN(designID);
+    case DFFRNLibraryID:
+      return getOrCreateDFFRN(designID);
+    case DFFRLibraryID:
+      return getOrCreateDFFR(designID);
+    case DFFSLibraryID:
+      return getOrCreateDFFS(designID);
+    case DFFELibraryID:
+      return getOrCreateDFFE(designID);
+    case DFFRELibraryID:
+      return getOrCreateDFFRE(designID);
+    case DFFSELibraryID:
+      return getOrCreateDFFSE(designID);
+    case DivModUnsignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), false});
+    case DivModSignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), true});
+    //Multi-parameter families: the full signature comes from the instance params.
+    case MemoryLibraryID:
+      return getOrCreateMemory(memorySignatureFromParameters(parameters));
+    case TableSelectLibraryID:
+      return getOrCreateTableSelect(tableSelectSignatureFromParameters(parameters));
+    default:
+      break;
+  }
+  //Gate libraries: one reserved ID per GateType, designID = fan-in/out.
+  if (libraryID >= GateLibraryIDBase &&
+      libraryID < GateLibraryIDBase + GateType::Unknown) {
+    GateType type(GateType::GateTypeEnum(libraryID - GateLibraryIDBase));
+    if (type.isNInput()) {
+      return getOrCreateNInputGate(type, designID);
+    }
+    if (type.isNOutput()) {
+      return getOrCreateNOutputGate(type, designID);
+    }
   }
   return nullptr;
 }
