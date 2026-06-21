@@ -67,9 +67,11 @@ struct SNLLogicalConeExtractor {
       if (found != indexOf_.end()) {
         return found->second;
       }
+      // LCOV_EXCL_START
       if (nodes_.size() >= std::numeric_limits<NodeID>::max()) {
         throw NLException("SNLLogicalCone node count exceeds NodeID capacity");
       }
+      // LCOV_EXCL_STOP
       auto id = static_cast<NodeID>(nodes_.size());
       nodes_.push_back(Node {occurrence, kind, {}, {}});
       indexOf_.emplace(occurrence, id);

@@ -269,6 +269,63 @@ TEST_F(SNLLogicalConeTest0, ReconvergentLogicIsShared) {
   EXPECT_EQ(input, cone.getNodes()[cone.getLeaves()[0]].occurrence.getObject());
 }
 
+TEST_F(SNLLogicalConeTest0, DuplicateAndCyclicEdgesAreIgnored) {
+  auto multiOutput = SNLDesign::create(
+    primitives_, SNLDesign::Type::Primitive, NLName("MULTI_OUTPUT"));
+  auto multiInput = SNLScalarTerm::create(
+    multiOutput, SNLTerm::Direction::Input, NLName("I"));
+  auto multiOutput0 = SNLScalarTerm::create(
+    multiOutput, SNLTerm::Direction::Output, NLName("O0"));
+  auto multiOutput1 = SNLScalarTerm::create(
+    multiOutput, SNLTerm::Direction::Output, NLName("O1"));
+  SNLDesignModeling::addCombinatorialArcs(
+    {multiInput}, {multiOutput0, multiOutput1});
+
+  SNLScalarTerm* bufferInput = nullptr;
+  SNLScalarTerm* bufferOutput = nullptr;
+  auto buffer = createBuffer(
+    primitives_, NLName("LOOP_BUFFER"), bufferInput, bufferOutput);
+
+  auto top = SNLDesign::create(library_, NLName("TOP"));
+  auto input = SNLScalarTerm::create(
+    top, SNLTerm::Direction::Input, NLName("IN"));
+  auto duplicateOutput = SNLScalarTerm::create(
+    top, SNLTerm::Direction::Output, NLName("DUPLICATE_OUT"));
+  auto loopOutput = SNLScalarTerm::create(
+    top, SNLTerm::Direction::Output, NLName("LOOP_OUT"));
+  auto multiInstance =
+    SNLInstance::create(top, multiOutput, NLName("multi"));
+  auto loopInstance =
+    SNLInstance::create(top, buffer, NLName("loop"));
+
+  auto inputNet = SNLScalarNet::create(top);
+  input->setNet(inputNet);
+  multiInstance->getInstTerm(multiInput)->setNet(inputNet);
+  auto duplicateNet = SNLScalarNet::create(top);
+  multiInstance->getInstTerm(multiOutput0)->setNet(duplicateNet);
+  multiInstance->getInstTerm(multiOutput1)->setNet(duplicateNet);
+  duplicateOutput->setNet(duplicateNet);
+
+  SNLLogicalCone duplicateCone(
+    SNLOccurrence(duplicateOutput), SNLLogicalCone::Direction::FanIn);
+  ASSERT_EQ(3, duplicateCone.getNodeCount());
+  auto multiNode = findNode(duplicateCone, multiInstance);
+  ASSERT_NE(nullptr, multiNode);
+  EXPECT_EQ(1, duplicateCone.getNodes()[duplicateCone.getRoot()].next.size());
+
+  auto loopNet = SNLScalarNet::create(top);
+  loopInstance->getInstTerm(bufferInput)->setNet(loopNet);
+  loopInstance->getInstTerm(bufferOutput)->setNet(loopNet);
+  loopOutput->setNet(loopNet);
+
+  SNLLogicalCone loopCone(
+    SNLOccurrence(loopOutput), SNLLogicalCone::Direction::FanIn);
+  ASSERT_EQ(2, loopCone.getNodeCount());
+  auto loopNode = findNode(loopCone, loopInstance);
+  ASSERT_NE(nullptr, loopNode);
+  EXPECT_TRUE(loopNode->next.empty());
+}
+
 TEST_F(SNLLogicalConeTest0, RejectsWholeBusRoot) {
   auto top = SNLDesign::create(library_, NLName("TOP"));
   auto bus = SNLBusTerm::create(

@@ -13,6 +13,7 @@ class SNLLogicalConeTest(unittest.TestCase):
     db = naja.NLDB.create(universe)
     designs = naja.NLLibrary.create(db, "designs")
     primitives = naja.NLLibrary.createPrimitives(db, "primitives")
+    self.primitives = primitives
 
     flop = naja.SNLDesign.createPrimitive(primitives, "DFF")
     self.d = naja.SNLScalarTerm.create(
@@ -82,13 +83,45 @@ class SNLLogicalConeTest(unittest.TestCase):
 
     fanout = naja.SNLLogicalCone(
       naja.SNLOccurrence(self.upstream.getInstTerm(self.q)),
-      naja.SNLLogicalCone.FanOut)
+      "fanout")
+    self.assertEqual(naja.SNLLogicalCone.FanOut,
+                     fanout.get_direction())
     self.assertEqual(
       {"flop", "ports"}, {node[2] for node in fanout.get_leaves()})
+    self.assertEqual("SNLLogicalCone(nodes=4)", repr(fanin))
+
+  def test_blackbox_leaf(self):
+    blackbox = naja.SNLDesign.createPrimitive(
+      self.primitives, "BLACKBOX")
+    blackbox_output = naja.SNLScalarTerm.create(
+      blackbox, naja.SNLTerm.Direction.Output, "O")
+    instance = naja.SNLInstance.create(self.top, blackbox, "blackbox")
+    net = naja.SNLScalarNet.create(self.top, "blackbox_output")
+    instance.getInstTerm(blackbox_output).setNet(net)
+    output = naja.SNLScalarTerm.create(
+      self.top, naja.SNLTerm.Direction.Output, "BLACKBOX_OUT")
+    output.setNet(net)
+
+    cone = naja.SNLLogicalCone(naja.SNLOccurrence(output), "fanin")
+    self.assertEqual(("blackbox",), tuple(node[2] for node in cone.get_leaves()))
+
+  def test_unbound(self):
+    cone = naja.SNLLogicalCone.__new__(naja.SNLLogicalCone)
+    self.assertEqual("SNLLogicalCone(unbound)", repr(cone))
+    for method in (
+        cone.get_nodes,
+        cone.get_root,
+        cone.get_leaves,
+        cone.get_direction,
+        cone.get_node_count):
+      with self.assertRaises(RuntimeError):
+        method()
 
   def test_errors(self):
     bus = naja.SNLBusTerm.create(
       self.top, naja.SNLTerm.Direction.Input, 3, 0, "BUS")
+    with self.assertRaises(RuntimeError):
+      naja.SNLLogicalCone()
     with self.assertRaises(RuntimeError):
       naja.SNLLogicalCone(naja.SNLOccurrence(), "fanin")
     with self.assertRaises(RuntimeError):
@@ -103,6 +136,9 @@ class SNLLogicalConeTest(unittest.TestCase):
     with self.assertRaises(RuntimeError):
       naja.SNLLogicalCone(
         naja.SNLOccurrence(self.top_output), "sideways")
+    for direction in ("fan_in", "FanIn", "fan_out", "FanOut"):
+      with self.assertRaises(RuntimeError):
+        naja.SNLLogicalCone(naja.SNLOccurrence(self.top_output), direction)
 
 
 if __name__ == "__main__":

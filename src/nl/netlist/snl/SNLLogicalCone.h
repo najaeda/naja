@@ -11,7 +11,7 @@
 
 namespace naja::NL {
 
-class SNLLogicalCone {
+class SNLLogicalCone { // LCOV_EXCL_LINE declaration attributed by gcov
   public:
     enum class Direction { FanIn, FanOut };
 
@@ -19,7 +19,7 @@ class SNLLogicalCone {
 
     enum class NodeKind { Root, Internal, Flop, Ports, Blackbox };
 
-    struct Node {
+    struct Node { // LCOV_EXCL_LINE declaration attributed by gcov
       SNLOccurrence       occurrence {};
       NodeKind            kind       {NodeKind::Internal};
       std::vector<NodeID> next       {};
