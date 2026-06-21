@@ -73,7 +73,7 @@ static int PySNLLogicalCone_Init(
 
   SNLLogicalCone::Direction direction;
   if (not parseDirection(directionObject, direction)) {
-    setError("SNLLogicalCone direction must be Direction.FanIn or Direction.FanOut");
+    setError("SNLLogicalCone direction must be FanIn or FanOut");
     return -1;
   }
 
@@ -258,56 +258,16 @@ void PySNLLogicalCone_LinkPyType() {
   PyTypeSNLLogicalCone.tp_methods = PySNLLogicalCone_Methods;
 }
 
-static PyObject* createConstantsNamespace(
-  const char* name,
-  const std::initializer_list<std::pair<const char*, PyObject*>>& constants) {
-  auto object = PyModule_New(name);
-  if (not object) {
-    return nullptr;
-  }
-  for (const auto& [constantName, value]: constants) {
-    if (PyObject_SetAttrString(object, constantName, value) < 0) {
-      Py_DECREF(object);
-      return nullptr;
-    }
-  }
-  return object;
-}
-
 void PySNLLogicalCone_postModuleInit() {
-  auto fanIn = toPyLong(SNLLogicalCone::Direction::FanIn);
-  auto fanOut = toPyLong(SNLLogicalCone::Direction::FanOut);
-  auto direction = createConstantsNamespace(
-    "SNLLogicalCone.Direction",
-    {{"FanIn", fanIn}, {"FanOut", fanOut}});
-  PyDict_SetItemString(PyTypeSNLLogicalCone.tp_dict, "Direction", direction);
-  PyDict_SetItemString(PyTypeSNLLogicalCone.tp_dict, "FanIn", fanIn);
-  PyDict_SetItemString(PyTypeSNLLogicalCone.tp_dict, "FanOut", fanOut);
-  Py_DECREF(direction);
-  Py_DECREF(fanIn);
-  Py_DECREF(fanOut);
-
-  auto root = PyUnicode_FromString("root");
-  auto internal = PyUnicode_FromString("internal");
-  auto flop = PyUnicode_FromString("flop");
-  auto ports = PyUnicode_FromString("ports");
-  auto blackbox = PyUnicode_FromString("blackbox");
-  auto nodeKind = createConstantsNamespace(
-    "SNLLogicalCone.NodeKind",
-    {
-      {"Root", root},
-      {"Internal", internal},
-      {"Flop", flop},
-      {"Ports", ports},
-      {"Blackbox", blackbox}
-    });
-  PyDict_SetItemString(PyTypeSNLLogicalCone.tp_dict, "NodeKind", nodeKind);
-  Py_DECREF(nodeKind);
-  Py_DECREF(root);
-  Py_DECREF(internal);
-  Py_DECREF(flop);
-  Py_DECREF(ports);
-  Py_DECREF(blackbox);
+  PyObject* constant;
+  LoadObjectConstant(
+    PyTypeSNLLogicalCone.tp_dict,
+    SNLLogicalCone::Direction::FanIn,
+    "FanIn");
+  LoadObjectConstant(
+    PyTypeSNLLogicalCone.tp_dict,
+    SNLLogicalCone::Direction::FanOut,
+    "FanOut");
 }
 
 PyTypeObjectDefinitions(SNLLogicalCone)

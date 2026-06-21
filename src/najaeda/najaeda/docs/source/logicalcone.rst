@@ -15,8 +15,7 @@ Python API
 Construct a cone with ``SNLLogicalCone(start, direction)``.  ``start`` is one
 ``SNLOccurrence`` referencing a scalar term or one bit of a bus.  A caller
 wanting a bus cone constructs one ``SNLLogicalCone`` per bit.  Direction is
-``SNLLogicalCone.Direction.FanIn`` or
-``SNLLogicalCone.Direction.FanOut``.
+``SNLLogicalCone.FanIn`` or ``SNLLogicalCone.FanOut``.
 
 ``get_nodes()``, ``get_root()``, and ``get_leaves()`` return node tuples:
 

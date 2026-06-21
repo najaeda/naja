@@ -62,8 +62,8 @@ class SNLLogicalConeTest(unittest.TestCase):
   def test_fanin_and_fanout(self):
     start = naja.SNLOccurrence(self.downstream.getInstTerm(self.d))
     fanin = naja.SNLLogicalCone(
-      start, direction=naja.SNLLogicalCone.Direction.FanIn)
-    self.assertEqual(naja.SNLLogicalCone.Direction.FanIn,
+      start, direction=naja.SNLLogicalCone.FanIn)
+    self.assertEqual(naja.SNLLogicalCone.FanIn,
                      fanin.get_direction())
     self.assertEqual(4, fanin.get_node_count())
     self.assertEqual(2, len(fanin.get_leaves()))
