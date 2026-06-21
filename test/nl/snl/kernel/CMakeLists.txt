@@ -20,6 +20,7 @@ SET(snl_tests
   SNLOccurrenceTest.cpp SNLParameterTest.cpp
   SNLAttributesTest.cpp
   SNLRTLInfosTest.cpp
+  SNLLogicalConeTest0.cpp
   SNLMergeAssignsTest.cpp
   SNLUtilsTest.cpp
 )
