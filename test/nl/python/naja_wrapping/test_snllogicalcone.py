@@ -72,6 +72,15 @@ class SNLLogicalConeTest(unittest.TestCase):
       {"flop", "ports"}, {node[2] for node in fanin.get_leaves()})
 
     nodes = fanin.get_nodes()
+    for _, occurrence, kind, _, _ in nodes:
+      if kind in ("internal", "flop", "blackbox"):
+        self.assertTrue(occurrence.isInstanceOccurrence())
+        self.assertIsNotNone(occurrence.getInstance())
+        self.assertIsNotNone(occurrence.getInstance().getModel())
+      else:
+        self.assertFalse(occurrence.isInstanceOccurrence())
+        self.assertIsNone(occurrence.getInstance())
+        self.assertIsNotNone(occurrence.getNetComponent())
     root = fanin.get_root()
     self.assertEqual("root", root[2])
     self.assertEqual(1, len(root[3]))
@@ -104,6 +113,10 @@ class SNLLogicalConeTest(unittest.TestCase):
 
     cone = naja.SNLLogicalCone(naja.SNLOccurrence(output), "fanin")
     self.assertEqual(("blackbox",), tuple(node[2] for node in cone.get_leaves()))
+    blackbox_node = cone.get_leaves()[0]
+    self.assertTrue(blackbox_node[1].isInstanceOccurrence())
+    self.assertEqual(instance, blackbox_node[1].getInstance())
+    self.assertEqual(blackbox, blackbox_node[1].getInstance().getModel())
 
   def test_unbound(self):
     cone = naja.SNLLogicalCone.__new__(naja.SNLLogicalCone)

@@ -15,6 +15,7 @@ class SNLBitNet;
 class SNLNetComponent;
 class SNLBitTerm;
 class SNLInstTerm;
+class SNLInstance;
 
 /**
  * \brief SNLOccurrence is the representation of a SNLDesignObject in a specific hierarchical context.
@@ -47,6 +48,8 @@ class SNLOccurrence {
     bool isValid() const { return object_ != nullptr; }
     /// \return true if this SNLOccurrence references a SNLNetComponent.
     bool isNetComponentOccurrence() const;
+    /// \return true if this SNLOccurrence references a SNLInstance.
+    bool isInstanceOccurrence() const;
 
     /// \return the corresponding SNLOccurrence of the SNLBitNet referenced by this SNLOccurrence.
     SNLOccurrence getComponentBitNetOccurrence() const;
@@ -56,6 +59,8 @@ class SNLOccurrence {
     SNLNetComponent* getNetComponent() const;
     /// \return the SNLInstTerm referenced by this SNLOccurrence if the object is a SNLInstTerm.
     SNLInstTerm* getInstTerm() const;
+    /// \return the SNLInstance referenced by this SNLOccurrence if the object is a SNLInstance.
+    SNLInstance* getInstance() const;
     /// \return the SNLBitTerm referenced by this SNLOccurrence if the object is a SNLBitTerm.
     SNLBitTerm* getBitTerm() const;
 
