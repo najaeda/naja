@@ -31,6 +31,7 @@ set(SNL_SOURCES
   snl/SNLUtils.cpp
   snl/SNLOccurrence.cpp
   snl/SNLEquipotential.cpp
+  snl/SNLLogicalCone.cpp
   snl/SNLUniquifier.cpp
 )
 
@@ -82,6 +83,7 @@ set(HEADERS
   snl/SNLUtils.h
   snl/SNLOccurrence.h
   snl/SNLEquipotential.h
+  snl/SNLLogicalCone.h
   snl/SNLExceptions.h
   pnl/PNLPoint.h
   pnl/PNLDesign.h

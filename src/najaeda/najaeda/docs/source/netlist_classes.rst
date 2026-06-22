@@ -9,3 +9,4 @@ Netlist Classes
    term
    net
    equipotential
+   logicalcone

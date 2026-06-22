@@ -50,6 +50,7 @@
 #include "PySNLPath.h"
 #include "PySNLOccurrence.h"
 #include "PySNLEquipotential.h"
+#include "PySNLLogicalCone.h"
 #include "PySNLOccurrences.h"
 #include "PySNLUniquifier.h"
 
@@ -204,6 +205,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLPath_LinkPyType();
   PySNLUniquifier_LinkPyType();
   PySNLEquipotential_LinkPyType();
+  PySNLLogicalCone_LinkPyType();
   PySNLOccurrence_LinkPyType();
 
   PySNLAttributes_LinkPyType();
@@ -254,6 +256,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLPath);
   PYTYPE_READY(SNLUniquifier);
   PYTYPE_READY(SNLEquipotential);
+  PYTYPE_READY(SNLLogicalCone);
   PYTYPE_READY(SNLOccurrence);
   PYTYPE_READY(SNLAttributes);
   PYTYPE_READY(NLDBs);
@@ -328,9 +331,11 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLUniquifier);
   PyModule_AddType(mod, &PyTypeSNLOccurrence);
   PyModule_AddType(mod, &PyTypeSNLEquipotential);
+  PyModule_AddType(mod, &PyTypeSNLLogicalCone);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
+  PySNLLogicalCone_postModuleInit();
 
   return mod;
 }

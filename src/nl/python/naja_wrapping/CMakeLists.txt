@@ -25,7 +25,7 @@ set(SOURCES
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLOccurrences.cpp
-  PySNLEquipotential.cpp PySNLUniquifier.cpp
+  PySNLEquipotential.cpp PySNLLogicalCone.cpp PySNLUniquifier.cpp
   NajaPythonProperty.cpp
 )
 
