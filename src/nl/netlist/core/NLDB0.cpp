@@ -2111,8 +2111,10 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
     //Canonical design ID = fan-out, so the model reference is self-describing.
     gate = SNLDesign::create(
       gateLibrary, NLID::DesignID(nbOutputs), SNLDesign::Type::Primitive, NLName(gateName));
-    SNLBusTerm::create(gate, SNLTerm::Direction::Output, NLID::Bit(nbOutputs-1), 0);
-    SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
+    auto outputs =
+      SNLBusTerm::create(gate, SNLTerm::Direction::Output, NLID::Bit(nbOutputs-1), 0);
+    auto input = SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
+    SNLDesignModeling::addCombinatorialArcs({input}, collectBitTerms(*outputs));
   }
   return gate;
 }
@@ -2134,8 +2136,10 @@ SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
     //Canonical design ID = fan-in, so the model reference is self-describing.
     gate = SNLDesign::create(
       gateLibrary, NLID::DesignID(nbInputs), SNLDesign::Type::Primitive, NLName(gateName));
-    SNLScalarTerm::create(gate, SNLTerm::Direction::Output);
-    SNLBusTerm::create(gate, SNLTerm::Direction::Input, NLID::Bit(nbInputs-1), 0);
+    auto output = SNLScalarTerm::create(gate, SNLTerm::Direction::Output);
+    auto inputs =
+      SNLBusTerm::create(gate, SNLTerm::Direction::Input, NLID::Bit(nbInputs-1), 0);
+    SNLDesignModeling::addCombinatorialArcs(collectBitTerms(*inputs), {output});
   }
   return gate;
 }
