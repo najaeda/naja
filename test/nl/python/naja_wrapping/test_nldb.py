@@ -161,6 +161,30 @@ class SNLDBTest(unittest.TestCase):
     db.loadVerilog(verilogs, keep_assigns=False)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, keep_assign=False)
 
+  def testAssignInstancePartition(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.NamedTemporaryFile("w", suffix=".v", delete=False) as source:
+      source.write("module child(input i, output o); assign o = i; endmodule\n")
+      source.write(
+        "module top(input i, output o); "
+        "wire n; child u_child(.i(i), .o(n)); assign o = n; endmodule\n")
+      source_path = source.name
+    try:
+      top = db.loadVerilog([source_path])
+      instances = list(top.getInstances())
+      non_assign_instances = list(top.getNonAssignInstances())
+      assign_instances = list(top.getAssignInstances())
+
+      self.assertEqual(
+        instances,
+        non_assign_instances + assign_instances)
+      self.assertTrue(all(not inst.getModel().isAssign() for inst in non_assign_instances))
+      self.assertTrue(all(inst.getModel().isAssign() for inst in assign_instances))
+      self.assertEqual(1, len(non_assign_instances))
+      self.assertEqual(1, len(assign_instances))
+    finally:
+      os.remove(source_path)
+
   def testVerilogPreprocessEnabled(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)

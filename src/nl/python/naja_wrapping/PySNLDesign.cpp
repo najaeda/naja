@@ -608,6 +608,8 @@ GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
 GetContainerMethod(SNLDesign, SNLBitNet*, SNLBitNets, BitNets)
 HasElementsMethod(SNLDesign, hasInstances, getInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, NonAssignInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, AssignInstances)
 HasElementsMethod(SNLDesign, hasPrimitiveInstances, getPrimitiveInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, PrimitiveInstances)
 HasElementsMethod(SNLDesign, hasNonPrimitiveInstances, getNonPrimitiveInstances)
@@ -724,6 +726,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign has instances."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,
     "get a container of SNLInstances."},
+  { "getNonAssignInstances", (PyCFunction)PySNLDesign_getNonAssignInstances, METH_NOARGS,
+    "get instances excluding only assign glue."},
+  { "getAssignInstances", (PyCFunction)PySNLDesign_getAssignInstances, METH_NOARGS,
+    "get assign-glue instances."},
   { "hasPrimitiveInstances", (PyCFunction)PySNLDesign_hasPrimitiveInstances, METH_NOARGS,
     "Returns True if the SNLDesign has primitive instances."},
   { "getPrimitiveInstances", (PyCFunction)PySNLDesign_getPrimitiveInstances, METH_NOARGS,
