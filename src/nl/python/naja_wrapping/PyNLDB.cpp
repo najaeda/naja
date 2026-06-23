@@ -435,6 +435,7 @@ PyObject* PyNLDB_getLibrary(PyNLDB* self, PyObject* arg) {
 }
 
 DirectGetNumericMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
+DirectGetNLIDMethod(PyNLDB_getNLID, PyNLDB, NLDB)
 
 GetBoolAttribute(NLDB, isTopDB)
 GetObjectMethod(NLDB, SNLDesign, getTopDesign)
@@ -450,6 +451,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "create a NLDB."},
   { "getID", (PyCFunction)PyNLDB_getID, METH_NOARGS,
     "get the NLDB ID."},
+  { "getNLID", (PyCFunction)PyNLDB_getNLID, METH_NOARGS,
+    "get the NLID."},
   { "isTopDB", (PyCFunction)PyNLDB_isTopDB, METH_NOARGS,
     "Returns True if the NLDB is the top DB."},
   { "getTopDesign", (PyCFunction)PyNLDB_getTopDesign, METH_NOARGS,

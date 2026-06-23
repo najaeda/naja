@@ -2,7 +2,7 @@ Objects identification
 ----------------------
 
 Each Design DB object has a unique identifier:
-`SNLID <https://github.com/xtofalex/naja/blob/main/src/snl/snl/kernel/SNLID.h>`_.
+`NLID <https://github.com/najaeda/naja/blob/main/src/nl/netlist/core/NLID.h>`_.
 
 +-------------+-----------+--------------+-------------------+
 | Field       | Type      | Size (bytes) | Value range       |
@@ -22,9 +22,9 @@ Each Design DB object has a unique identifier:
 | Bit         | int32_t   | 4            | 0 - 4,294,967,295 |
 +-------------+-----------+--------------+-------------------+
 
-Each object SNLID can be accessed with :func:`getSNLID` method.
+Each object NLID can be accessed with the :func:`getNLID` method.
 
-**SNLIDs** allow to:
+**NLIDs** allow to:
 
 - compare and sort objects.
 - reference uniquely objects.

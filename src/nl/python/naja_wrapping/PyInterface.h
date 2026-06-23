@@ -12,6 +12,7 @@
 #include <Python.h>
 
 #include "NLException.h"
+#include "NLID.h"
 #include "NajaPythonProperty.h"
 
 namespace PYNAJA {
@@ -99,6 +100,20 @@ PyObject* toPyLong(T value) {
   } else {
     return PyLong_FromUnsignedLongLong(static_cast<unsigned long long>(value));
   }
+}
+
+inline PyObject* toPyNLID(const naja::NL::NLID& id) {
+  PyObject* pyList = PyList_New(6);
+  if (not pyList) {
+    return nullptr;
+  }
+  PyList_SetItem(pyList, 0, toPyLong(id.dbID_));
+  PyList_SetItem(pyList, 1, toPyLong(id.libraryID_));
+  PyList_SetItem(pyList, 2, toPyLong(id.designID_));
+  PyList_SetItem(pyList, 3, toPyLong(id.designObjectID_));
+  PyList_SetItem(pyList, 4, toPyLong(id.instanceID_));
+  PyList_SetItem(pyList, 5, toPyLong(id.bit_));
+  return pyList;
 }
 
 }
@@ -191,6 +206,12 @@ PyObject* toPyLong(T value) {
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
     GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
     return PYNAJA::toPyLong(selfObject->FUNC_NAME()); \
+  }
+
+#define DirectGetNLIDMethod(PY_FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self) { \
+    GENERIC_METHOD_HEAD(SELF_TYPE, "getNLID()") \
+    return PYNAJA::toPyNLID(selfObject->getNLID()); \
   }
 
 // -------------------------------------------------------------------

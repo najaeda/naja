@@ -17,6 +17,64 @@ class SNLDesignTest(unittest.TestCase):
       naja.NLUniverse.get().destroy()
       del self.lib
 
+  def assertNLID(self, obj):
+    nlid = obj.getNLID()
+    self.assertIsInstance(nlid, list)
+    self.assertEqual(6, len(nlid))
+    for field in nlid:
+      self.assertIsInstance(field, int)
+
+  def test_get_nlid_exports(self):
+    for cls in (
+      naja.NLDB,
+      naja.NLLibrary,
+      naja.SNLDesign,
+      naja.SNLDesignObject,
+      naja.SNLInstance,
+      naja.SNLNet,
+      naja.SNLBitNet,
+      naja.SNLScalarNet,
+      naja.SNLBusNet,
+      naja.SNLBusNetBit,
+      naja.SNLNetComponent,
+      naja.SNLTerm,
+      naja.SNLBitTerm,
+      naja.SNLScalarTerm,
+      naja.SNLBusTerm,
+      naja.SNLBusTermBit,
+      naja.SNLBundleTerm,
+      naja.SNLInstTerm,
+    ):
+      self.assertTrue(hasattr(cls, "getNLID"))
+
+    db = self.lib.getDB()
+    model = naja.SNLDesign.create(self.lib, "MODEL")
+    scalar_term = naja.SNLScalarTerm.create(model, naja.SNLTerm.Direction.Input, "I")
+    bus_term = naja.SNLBusTerm.create(model, naja.SNLTerm.Direction.Output, 3, 0, "O")
+    bus_term_bit = list(bus_term.getBits())[0]
+    scalar_net = naja.SNLScalarNet.create(model, "n")
+    bus_net = naja.SNLBusNet.create(model, 3, 0, "b")
+    bus_net_bit = list(bus_net.getBits())[0]
+    top = naja.SNLDesign.create(self.lib, "TOP")
+    instance = naja.SNLInstance.create(top, model, "u0")
+    inst_term = instance.getInstTerm(scalar_term)
+
+    for obj in (
+      db,
+      self.lib,
+      model,
+      scalar_term,
+      bus_term,
+      bus_term_bit,
+      scalar_net,
+      bus_net,
+      bus_net_bit,
+      top,
+      instance,
+      inst_term,
+    ):
+      self.assertNLID(obj)
+
   def test0(self):
     self.assertIsNotNone(self.lib)
     self.assertFalse(any(self.lib.getSNLDesigns()))
