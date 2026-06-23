@@ -369,6 +369,16 @@ NajaCollection<SNLInstance*> SNLDesign::getInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&instances_));
 }
 
+NajaCollection<SNLInstance*> SNLDesign::getNonAssignInstances() const {
+  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isAssign(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getAssignInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isAssign(); };
+  return getInstances().getSubCollection(filter);
+}
+
 NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }

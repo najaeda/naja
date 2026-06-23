@@ -51,6 +51,14 @@ class SNLOccurrenceTest(unittest.TestCase):
     occurrence2 = naja.SNLOccurrence(ins1)
     occurrence3 = naja.SNLOccurrence()
     self.assertIsInstance(occurrence, naja.SNLOccurrence)
+    self.assertTrue(occurrence.isInstanceOccurrence())
+    self.assertEqual(ins2, occurrence.getInstance())
+    self.assertIsNone(occurrence.getInstTerm())
+    self.assertIsNone(occurrence.getNetComponent())
+    self.assertTrue(occurrence2.isInstanceOccurrence())
+    self.assertEqual(ins1, occurrence2.getInstance())
+    self.assertFalse(occurrence3.isInstanceOccurrence())
+    self.assertIsNone(occurrence3.getInstance())
 
     instTerms = tuple(ins1.getInstTerms())
 
@@ -63,6 +71,9 @@ class SNLOccurrenceTest(unittest.TestCase):
     insttermoccurrence2 = naja.SNLOccurrence(instTerms[0])
 
     instTerm = insttermoccurrence1.getInstTerm()
+    self.assertIsNotNone(instTerm)
+    self.assertFalse(insttermoccurrence1.isInstanceOccurrence())
+    self.assertIsNone(insttermoccurrence1.getInstance())
     
     uniq = naja.SNLUniquifier(insttermoccurrence1.getPath())
     uniqPath = uniq.getPathUniqCollection()

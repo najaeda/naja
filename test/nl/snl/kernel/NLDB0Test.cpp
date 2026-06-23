@@ -154,6 +154,108 @@ TEST_F(NLDB0Test, testAND) {
   EXPECT_EQ(48, and48Inputs->getWidth());
 }
 
+TEST_F(NLDB0Test, testGatePrimitiveModeling) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto* db = NLDB::create(NLUniverse::get());
+  ASSERT_NE(nullptr, db);
+  auto* library = NLLibrary::create(db, NLName("WORK"));
+  ASSERT_NE(nullptr, library);
+  auto* top = SNLDesign::create(library, NLName("top"));
+  ASSERT_NE(nullptr, top);
+
+  const std::vector<NLDB0::GateType> nInputTypes = {
+    NLDB0::GateType::And,
+    NLDB0::GateType::Nand,
+    NLDB0::GateType::Or,
+    NLDB0::GateType::Nor,
+    NLDB0::GateType::Xor,
+    NLDB0::GateType::Xnor,
+  };
+  for (const auto& type: nInputTypes) {
+    auto* gate = NLDB0::getOrCreateNInputGate(type, 4);
+    ASSERT_NE(nullptr, gate);
+    EXPECT_TRUE(SNLDesignModeling::hasModeling(gate));
+
+    auto* output = NLDB0::getGateSingleTerm(gate);
+    auto* inputs = NLDB0::getGateNTerms(gate);
+    ASSERT_NE(nullptr, output);
+    ASSERT_NE(nullptr, inputs);
+
+    std::vector<SNLBitTerm*> expectedInputs;
+    for (auto* input: inputs->getBits()) {
+      expectedInputs.push_back(input);
+      expectTerms(
+        collectTerms(SNLDesignModeling::getCombinatorialOutputs(input)),
+        std::vector<SNLBitTerm*>({output}));
+    }
+    expectTerms(
+      collectTerms(SNLDesignModeling::getCombinatorialInputs(output)),
+      expectedInputs);
+
+    auto* instance =
+      SNLInstance::create(top, gate, NLName(type.getString() + "_gate"));
+    ASSERT_NE(nullptr, instance);
+    std::vector<SNLInstTerm*> expectedInstInputs;
+    for (auto* input: inputs->getBits()) {
+      expectedInstInputs.push_back(instance->getInstTerm(input));
+    }
+    expectTerms(
+      collectTerms(
+        SNLDesignModeling::getCombinatorialInputs(instance->getInstTerm(output))),
+      expectedInstInputs);
+
+    EXPECT_EQ(gate, NLDB0::getOrCreateNInputGate(type, 4));
+    EXPECT_EQ(
+      expectedInputs.size(),
+      SNLDesignModeling::getCombinatorialInputs(output).size());
+  }
+
+  const std::vector<NLDB0::GateType> nOutputTypes = {
+    NLDB0::GateType::Buf,
+    NLDB0::GateType::Not,
+  };
+  for (const auto& type: nOutputTypes) {
+    auto* gate = NLDB0::getOrCreateNOutputGate(type, 4);
+    ASSERT_NE(nullptr, gate);
+    EXPECT_TRUE(SNLDesignModeling::hasModeling(gate));
+
+    auto* input = NLDB0::getGateSingleTerm(gate);
+    auto* outputs = NLDB0::getGateNTerms(gate);
+    ASSERT_NE(nullptr, input);
+    ASSERT_NE(nullptr, outputs);
+
+    std::vector<SNLBitTerm*> expectedOutputs;
+    for (auto* output: outputs->getBits()) {
+      expectedOutputs.push_back(output);
+      expectTerms(
+        collectTerms(SNLDesignModeling::getCombinatorialInputs(output)),
+        std::vector<SNLBitTerm*>({input}));
+    }
+    expectTerms(
+      collectTerms(SNLDesignModeling::getCombinatorialOutputs(input)),
+      expectedOutputs);
+
+    auto* instance =
+      SNLInstance::create(top, gate, NLName(type.getString() + "_gate"));
+    ASSERT_NE(nullptr, instance);
+    std::vector<SNLInstTerm*> expectedInstOutputs;
+    for (auto* output: outputs->getBits()) {
+      expectedInstOutputs.push_back(instance->getInstTerm(output));
+    }
+    expectTerms(
+      collectTerms(
+        SNLDesignModeling::getCombinatorialOutputs(instance->getInstTerm(input))),
+      expectedInstOutputs);
+
+    EXPECT_EQ(gate, NLDB0::getOrCreateNOutputGate(type, 4));
+    EXPECT_EQ(
+      expectedOutputs.size(),
+      SNLDesignModeling::getCombinatorialOutputs(input).size());
+  }
+}
+
 TEST_F(NLDB0Test, testFA) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());

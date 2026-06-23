@@ -167,6 +167,12 @@ class SNLDesign final: public NLObject {
     /// \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship).
     NajaCollection<SNLInstance*> getInstances() const;
 
+    /// \return getInstances() excluding only instances whose model is assign glue.
+    NajaCollection<SNLInstance*> getNonAssignInstances() const;
+
+    /// \return the collection of instances whose model is assign glue.
+    NajaCollection<SNLInstance*> getAssignInstances() const;
+
     /**
      * \return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship).
      * \remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.

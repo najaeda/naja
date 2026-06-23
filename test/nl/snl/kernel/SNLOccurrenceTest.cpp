@@ -11,6 +11,7 @@ using ::testing::ElementsAre;
 
 #include "SNLPath.h"
 #include "SNLScalarTerm.h"
+#include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLOccurrence.h"
@@ -82,6 +83,8 @@ TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
   EXPECT_EQ(emptyOccurrence, SNLOccurrence());
   EXPECT_EQ(SNLOccurrence(), emptyOccurrence.getComponentBitNetOccurrence());
   EXPECT_EQ(nullptr, emptyOccurrence.getComponentBitNet());
+  EXPECT_FALSE(emptyOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(nullptr, emptyOccurrence.getInstance());
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
@@ -95,6 +98,12 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   EXPECT_EQ(topITerm->getNet(), topITermOccurrence.getComponentBitNet());
 
   ASSERT_NE(h0Instance_, nullptr);
+  auto h0InstanceOccurrence = SNLOccurrence(h0Instance_);
+  EXPECT_TRUE(h0InstanceOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(h0Instance_, h0InstanceOccurrence.getInstance());
+  EXPECT_EQ(nullptr, h0InstanceOccurrence.getInstTerm());
+  EXPECT_EQ(nullptr, h0InstanceOccurrence.getNetComponent());
+
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   auto iTerm = h0Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
@@ -114,6 +123,8 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   EXPECT_EQ(h0IInstTermOccurrence, SNLOccurrence(SNLPath(), h0IInstTerm));
   EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
   EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);
+  EXPECT_FALSE(h0IInstTermOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(nullptr, h0IInstTermOccurrence.getInstance());
 }
 
 TEST_F(SNLOccurrenceTest, testh1Level) {
