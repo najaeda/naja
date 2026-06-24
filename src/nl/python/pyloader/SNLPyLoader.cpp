@@ -56,12 +56,23 @@ std::string getPythonError() {
 
   std::string result;
 
+  if (type) {
+    const char* typeName = PyExceptionClass_Name(type);
+    if (typeName) {
+      result = typeName;
+    }
+  }
+
   if (value) {
     PyObjRef strValue(PyObject_Str(value));
     if (strValue) {
       const char* c = PyUnicode_AsUTF8(strValue.get());
       if (c) {
-        result = c;
+        if (result.empty()) {
+          result = c;
+        } else {
+          result += std::string(": ") + c;
+        }
       }
     }
   }
