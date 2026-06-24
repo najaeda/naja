@@ -33,20 +33,16 @@ private:
 };
 
 // Initializes the Python interpreter if not already running.
-// Finalizes it on destruction only if this instance started it.
+// The naja extension owns static PyTypeObjects whose dictionaries are tied to
+// the active interpreter, so an embedded loader must not finalize and restart
+// Python in the same process.
 // Uses Py_InitializeEx(0) to avoid overriding the host's signal handlers.
 struct PythonInit {
-  PythonInit() : owned(!Py_IsInitialized()) {
-    if (owned) {
+  PythonInit() {
+    if (not Py_IsInitialized()) {
       Py_InitializeEx(0);
     }
   }
-  ~PythonInit() {
-    if (owned) {
-      Py_Finalize();
-    }
-  }
-  const bool owned;
 };
 
 std::string getPythonError() {
