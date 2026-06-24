@@ -29,8 +29,10 @@ class NLIDTest(unittest.TestCase):
     universe.setTopDesign(top)
     return {
       "db": db,
+      "library": library,
       "top": top,
       "scalar_net": scalar_net,
+      "bus_net": bus_net,
       "bus_net_bit": bus_net.getBit(2),
       "model_input": model_input,
       "model_output_bit": model_output.getBusTermBit(1),
@@ -71,7 +73,15 @@ class NLIDTest(unittest.TestCase):
     self.assertEqual(naja.NLID.Type.Instance, ids["instance"].getType())
 
     for name, obj in objects.items():
-      self.assertEqual(obj, universe.getObject(ids[name]))
+      resolved = universe.getObject(ids[name])
+      if name == "bus_net":
+        self.assertIsNone(resolved)
+      else:
+        self.assertEqual(obj, resolved)
+
+    with self.assertRaises(RuntimeError) as context:
+      universe.getObject("not an NLID")
+    self.assertEqual("NLUniverse.getObject expects an NLID argument", str(context.exception))
 
     unknown = naja.NLID(
       naja.NLID.Type.Instance,
