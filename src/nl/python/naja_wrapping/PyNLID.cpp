@@ -165,7 +165,7 @@ static void PyNLID_DeAlloc(PyNLID* self) {
 PyObject* PyNLID_Link(const NLID& id) {
   PyNLID* pyObject = PyObject_NEW(PyNLID, &PyTypeNLID);
   if (not pyObject) {
-    return nullptr;
+    return nullptr; // LCOV_EXCL_LINE
   }
   pyObject->object_ = new NLID(id);
   return reinterpret_cast<PyObject*>(pyObject);
@@ -173,7 +173,7 @@ PyObject* PyNLID_Link(const NLID& id) {
 
 static PyObject* PyNLID_Repr(PyNLID* self) {
   if (not self->object_) {
-    return PyUnicode_FromString("<NLID unbound>");
+    return PyUnicode_FromString("<NLID unbound>"); // LCOV_EXCL_LINE
   }
   return PyUnicode_FromString(getCompactString(*self->object_).c_str());
 }
@@ -247,7 +247,7 @@ static PyObject* PyNLID_FromString(PyObject*, PyObject* arg) {
       unsignedFields[5],
       bit);
   if (not args) {
-    return nullptr;
+    return nullptr; // LCOV_EXCL_LINE
   }
   PyObject* nlid = PyObject_CallObject(reinterpret_cast<PyObject*>(&PyTypeNLID), args);
   Py_DECREF(args);

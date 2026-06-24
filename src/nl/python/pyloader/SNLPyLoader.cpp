@@ -69,8 +69,8 @@ std::string getPythonError() {
       const char* c = PyUnicode_AsUTF8(strValue.get());
       if (c) {
         if (result.empty()) {
-          result = c;
-        } else {
+          result = c; // LCOV_EXCL_LINE
+        } else { // LCOV_EXCL_LINE
           result += std::string(": ") + c;
         }
       }

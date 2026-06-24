@@ -47,6 +47,83 @@ class NLIDTest(unittest.TestCase):
     self.assertEqual(nlid, naja.NLID.from_string(str(nlid)))
     self.assertEqual(str(nlid), repr(nlid))
 
+  def assertNLIDConstructorError(self, fields, message):
+    with self.assertRaises(RuntimeError) as context:
+      naja.NLID(*fields)
+    self.assertEqual(message, str(context.exception))
+
+  def test_constructor_rejects_invalid_fields(self):
+    valid = [
+      naja.NLID.Type.Instance,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+    ]
+
+    with self.assertRaises(RuntimeError) as context:
+      naja.NLID(*valid[:-1])
+    self.assertEqual("NLID constructor expects seven integer arguments", str(context.exception))
+
+    self.assertNLIDConstructorError(
+      ["instance", *valid[1:]],
+      "NLID type must be an integer")
+    self.assertNLIDConstructorError(
+      [255, *valid[1:]],
+      "NLID type is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:1], "db", *valid[2:]],
+      "NLID dbID must be an integer")
+    self.assertNLIDConstructorError(
+      [*valid[:1], 2**32, *valid[2:]],
+      "NLID dbID is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:2], 2**32, *valid[3:]],
+      "NLID libraryID is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:3], 2**32, *valid[4:]],
+      "NLID designID is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:4], 2**32, *valid[5:]],
+      "NLID designObjectID is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:5], 2**32, valid[6]],
+      "NLID instanceID is out of range")
+    self.assertNLIDConstructorError(
+      [*valid[:6], "bit"],
+      "NLID bit must be an integer")
+    self.assertNLIDConstructorError(
+      [*valid[:6], 2**31],
+      "NLID bit is out of range")
+
+    with self.assertRaises(OverflowError):
+      naja.NLID(*[*valid[:6], 2**100])
+    with self.assertRaises(OverflowError):
+      naja.NLID(*[*valid[:1], -1, *valid[2:]])
+
+  def test_from_string_rejects_invalid_input(self):
+    with self.assertRaises(RuntimeError) as context:
+      naja.NLID.from_string(1)
+    self.assertEqual("NLID.from_string expects a string", str(context.exception))
+
+    for value in ("", "not-an-nlid", "NLID(1:2:3:4:5:6:7"):
+      with self.subTest(value=value):
+        with self.assertRaises(RuntimeError) as context:
+          naja.NLID.from_string(value)
+        self.assertEqual(
+          "NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)",
+          str(context.exception))
+
+    for value in ("NLID(1:2:3:4:5:6)", "NLID(1:2:3:4:5:6:7:8)", "NLID(1,2:3:4:5:6:7)"):
+      with self.subTest(value=value):
+        with self.assertRaises(RuntimeError) as context:
+          naja.NLID.from_string(value)
+        self.assertEqual(
+          "NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)",
+          str(context.exception))
+
   def test_value_semantics_and_get_object(self):
     objects = self.create_design()
     universe = naja.NLUniverse.get()
@@ -58,6 +135,7 @@ class NLIDTest(unittest.TestCase):
     self.assertEqual("label", {ids["instance"]: "label"}[objects["instance"].getNLID()])
     self.assertEqual(ids["instance"], objects["instance"].getNLID())
     self.assertNotEqual(ids["instance"], ids["scalar_net"])
+    self.assertNotEqual(ids["instance"], object())
     self.assertTrue(min(ids.values()) < max(ids.values()))
 
     for nlid in ids.values():
@@ -71,6 +149,11 @@ class NLIDTest(unittest.TestCase):
     self.assertTrue(ids["model_output_bit"].isTerm())
     self.assertTrue(ids["inst_term"].isTerm())
     self.assertEqual(naja.NLID.Type.Instance, ids["instance"].getType())
+    self.assertEqual(0, ids["instance"].getInstanceID())
+    self.assertFalse(ids["scalar_net"].isInstance())
+    self.assertFalse(ids["instance"].isNet())
+    self.assertFalse(ids["scalar_net"].isTerm())
+    self.assertFalse(ids["instance"].isDesign())
 
     for name, obj in objects.items():
       resolved = universe.getObject(ids[name])
