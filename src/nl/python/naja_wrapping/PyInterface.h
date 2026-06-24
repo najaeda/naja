@@ -14,6 +14,7 @@
 #include "NLException.h"
 #include "NLID.h"
 #include "NajaPythonProperty.h"
+#include "PyNLID.h"
 
 namespace PYNAJA {
 
@@ -103,17 +104,7 @@ PyObject* toPyLong(T value) {
 }
 
 inline PyObject* toPyNLID(const naja::NL::NLID& id) {
-  PyObject* pyList = PyList_New(6);
-  if (not pyList) {
-    return nullptr;
-  }
-  PyList_SetItem(pyList, 0, toPyLong(id.dbID_));
-  PyList_SetItem(pyList, 1, toPyLong(id.libraryID_));
-  PyList_SetItem(pyList, 2, toPyLong(id.designID_));
-  PyList_SetItem(pyList, 3, toPyLong(id.designObjectID_));
-  PyList_SetItem(pyList, 4, toPyLong(id.instanceID_));
-  PyList_SetItem(pyList, 5, toPyLong(id.bit_));
-  return pyList;
+  return PyNLID_Link(id);
 }
 
 }

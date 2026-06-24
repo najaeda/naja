@@ -19,9 +19,9 @@ class SNLDesignTest(unittest.TestCase):
 
   def assertNLID(self, obj):
     nlid = obj.getNLID()
-    self.assertIsInstance(nlid, list)
-    self.assertEqual(6, len(nlid))
-    for field in nlid:
+    self.assertIsInstance(nlid, naja.NLID)
+    self.assertEqual(7, len(nlid.toTuple()))
+    for field in nlid.toTuple():
       self.assertIsInstance(field, int)
 
   def test_get_nlid_exports(self):
@@ -181,7 +181,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(design, naja.NLUniverse.get().getTopDesign())
     self.assertEqual(design.getDB(), naja.NLUniverse.get().getTopDB())
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().setTopDesign(self.lib)
-    self.assertEqual(len(design.getNLID()), 6)
+    self.assertEqual(7, len(design.getNLID().toTuple()))
 
   def test1(self):
     self.assertIsNotNone(self.lib)

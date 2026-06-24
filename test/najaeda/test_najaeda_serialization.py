@@ -51,9 +51,10 @@ class TestSerialization(unittest.TestCase):
     # ------------------------------------------------------------
     def test_serialize_design_ref(self):
         ref = serialize_design_ref(self.design)
-        self.assertEqual(ref["db_id"], self.design.getNLID()[0])
-        self.assertEqual(ref["library_id"], self.design.getNLID()[1])
-        self.assertEqual(ref["design_id"], self.design.getNLID()[2])
+        nlid = self.design.getNLID()
+        self.assertEqual(ref["db_id"], nlid.getDBID())
+        self.assertEqual(ref["library_id"], nlid.getLibraryID())
+        self.assertEqual(ref["design_id"], nlid.getDesignID())
 
     # ------------------------------------------------------------
     # serialize_model

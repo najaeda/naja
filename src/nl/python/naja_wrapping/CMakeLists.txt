@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
+  PyNLID.cpp
   PyNLUniverse.cpp
   PyNLDB.cpp PyNLLibrary.cpp
   PyNLDBs.cpp PyNLLibraries.cpp
