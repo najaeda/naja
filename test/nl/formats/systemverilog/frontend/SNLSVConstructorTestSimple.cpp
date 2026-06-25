@@ -5284,7 +5284,7 @@ TEST_F(
   ASSERT_TRUE(svFile.good());
   svFile
     << R"(module continuous_assign_procedural_return_function_const_ref_formal_unsupported(
-  input  logic a,
+  input  var logic a,
   output logic y
 );
   function automatic logic passthrough(const ref logic x);
@@ -6321,7 +6321,7 @@ TEST_F(
 endpackage
 
 module always_comb_config_range_check_function_ref_formal_unsupported(
-  input logic [63:0] addr,
+  input var logic [63:0] addr,
   output logic inside_o
 );
   localparam cfg_pkg::cfg_t Cfg = '{
