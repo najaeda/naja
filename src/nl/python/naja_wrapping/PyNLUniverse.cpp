@@ -5,12 +5,26 @@
 #include "PyNLUniverse.h"
 
 #include "PyInterface.h"
+#include "PyNLID.h"
 #include "PyNLDB.h"
 #include "PyNLDBs.h"
+#include "PyNLLibrary.h"
 #include "PySNLDesign.h"
+#include "PySNLInstance.h"
+#include "PySNLInstTerm.h"
+#include "PySNLBitNet.h"
+#include "PySNLBitTerm.h"
 
 #include "NajaLog.h"
 #include "NLUniverse.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
+#include "NLObject.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
+#include "SNLDesign.h"
+#include "SNLInstance.h"
+#include "SNLInstTerm.h"
 #include "SNLUtils.h"
 #include "RemoveLoadlessLogic.h"
 #include "ConstantPropagation.h"
@@ -231,6 +245,41 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
   return PySNLDesign_Link(design);
 }
 
+static PyObject* PyNLUniverse_getObject(PyNLUniverse* self, PyObject* arg) {
+  METHOD_HEAD("NLUniverse.getObject()")
+  if (not IsPyNLID(arg)) {
+    setError("NLUniverse.getObject expects an NLID argument");
+    return nullptr;
+  }
+
+  NLObject* object = selfObject->getObject(PYNLID_O(arg));
+  if (not object) {
+    Py_RETURN_NONE;
+  }
+  if (auto db = dynamic_cast<NLDB*>(object)) {
+    return PyNLDB_Link(db);
+  }
+  if (auto library = dynamic_cast<NLLibrary*>(object)) {
+    return PyNLLibrary_Link(library);
+  }
+  if (auto design = dynamic_cast<SNLDesign*>(object)) {
+    return PySNLDesign_Link(design);
+  }
+  if (auto instance = dynamic_cast<SNLInstance*>(object)) {
+    return PySNLInstance_Link(instance);
+  }
+  if (auto instTerm = dynamic_cast<SNLInstTerm*>(object)) {
+    return PySNLInstTerm_Link(instTerm);
+  }
+  if (auto bitNet = dynamic_cast<SNLBitNet*>(object)) {
+    return PySNLBitNet_Link(bitNet);
+  }
+  if (auto bitTerm = dynamic_cast<SNLBitTerm*>(object)) {
+    return PySNLBitTerm_Link(bitTerm);
+  }
+  Py_RETURN_NONE;
+}
+
 GetObjectMethod(NLUniverse, SNLDesign, getTopDesign)
 GetObjectMethod(NLUniverse, NLDB, getTopDB)
 GetObjectByIndex(NLUniverse, NLDB, DB)
@@ -251,6 +300,8 @@ PyMethodDef PyNLUniverse_Methods[] = {
     "set the top SNLDesign"},
   { "getSNLDesign", (PyCFunction)pyNLUniverse_getSNLDesign, METH_VARARGS,
     "get the SNLDesign with the given name or NLID::DesignReference (dbID, libID, designID)"},
+  { "getObject", (PyCFunction)PyNLUniverse_getObject, METH_O,
+    "get the object with the given NLID"},
   { "setTopDB", (PyCFunction)PyNLUniverse_setTopDB, METH_O,
     "set the top NLDB"},
   { "getTopDB", (PyCFunction)PyNLUniverse_getTopDB, METH_NOARGS,

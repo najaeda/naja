@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import snl
+import naja
 
 def edit():
   logging.basicConfig(filename='edit_faulty.log', filemode='w' ,level=logging.DEBUG)

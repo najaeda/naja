@@ -74,5 +74,12 @@ TEST_F(SNLPyDBEditTest0, testEditDBError) {
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
   scriptPath /= "edit";
   scriptPath /= "edit_faulty.py";
-  EXPECT_THROW(SNLPyEdit::edit(scriptPath), NLException);
+  try {
+    SNLPyEdit::edit(scriptPath);
+    FAIL() << "Expected NLException";
+  } catch (const NLException& e) {
+    std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Error while calling edit"));
+    EXPECT_NE(std::string::npos, reason.find("NameError"));
+  }
 }

@@ -500,20 +500,6 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
   return PySNLInstance_Link(instance);
 }
 
-// Return list for NLID of the design
-// Function to be called from Python
-PyObject* PySNLDesign_getNLID(PySNLDesign* self) { 
-  PyObject* py_list = PyList_New(6); 
-  naja::NL::NLID id = self->object_->getNLID();
-  PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
-  PyList_SetItem(py_list, 1, PyLong_FromLong(id.libraryID_));
-  PyList_SetItem(py_list, 2, PyLong_FromLong(id.designID_));
-  PyList_SetItem(py_list, 3, PyLong_FromLong(id.designObjectID_));
-  PyList_SetItem(py_list, 4, PyLong_FromLong(id.instanceID_));
-  PyList_SetItem(py_list, 5, PyLong_FromLong(id.bit_));
-  return py_list;
-}
-
 static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
   METHOD_HEAD("SNLDesign.addAttribute()")
   PySNLAttribute* pyAttribute = nullptr;
@@ -583,6 +569,7 @@ GetNameMethod(SNLDesign)
 SetNameMethod(SNLDesign)
 DirectGetNumericMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 DirectGetNumericMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
+DirectGetNLIDMethod(PySNLDesign_getNLID, PySNLDesign, SNLDesign)
 GetBoolAttribute(SNLDesign, isUnnamed)
 GetBoolAttribute(SNLDesign, isBlackBox)
 GetBoolAttribute(SNLDesign, isPrimitive)

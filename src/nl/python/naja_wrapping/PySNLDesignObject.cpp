@@ -28,6 +28,7 @@ DBoDestroyAttribute(PySNLDesignObject_destroy, PySNLDesignObject)
 PyTypeObjectDefinitions(SNLDesignObject)
 
 GetBoolAttribute(SNLDesignObject, isUnnamed)
+DirectGetNLIDMethod(PySNLDesignObject_getNLID, PySNLDesignObject, SNLDesignObject)
 
 GetContainerMethod(SNLDesignObject, SNLAttribute, SNLAttributes, Attributes)
 
@@ -70,6 +71,8 @@ static PyObject* PySNLDesignObject_addAttribute(PySNLDesignObject* self, PyObjec
 PyMethodDef PySNLDesignObject_Methods[] = {
   {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
     "Returns the SNLDesignObject owner design."},
+  {"getNLID", (PyCFunction)PySNLDesignObject_getNLID, METH_NOARGS,
+    "get the NLID."},
   {"addAttribute", (PyCFunction)PySNLDesignObject_addAttribute, METH_VARARGS,
     "add an attribute to this design object."},
   {"getAttributes", (PyCFunction)PySNLDesignObject_getAttributes, METH_NOARGS,

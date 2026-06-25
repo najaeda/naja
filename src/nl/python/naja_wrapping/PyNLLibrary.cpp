@@ -75,6 +75,7 @@ GetObjectMethod(NLLibrary, NLDB, getDB)
 GetObjectByName(NLLibrary, NLLibrary, getLibrary)
 
 DirectGetNumericMethod(PyNLLibrary_getID, getID, PyNLLibrary, NLLibrary)
+DirectGetNLIDMethod(PyNLLibrary_getNLID, PyNLLibrary, NLLibrary)
 
 GetBoolAttribute(NLLibrary, isStandard)
 GetBoolAttribute(NLLibrary, isPrimitives)
@@ -104,6 +105,8 @@ PyMethodDef PyNLLibrary_Methods[] = {
     "is this a primitives NLLibrary?"},
   { "getID", (PyCFunction)PyNLLibrary_getID, METH_NOARGS,
     "get the ID."},
+  { "getNLID", (PyCFunction)PyNLLibrary_getNLID, METH_NOARGS,
+    "get the NLID."},
   { "getDB", (PyCFunction)PyNLLibrary_getDB, METH_VARARGS,
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PyNLLibrary_getLibrary, METH_VARARGS,

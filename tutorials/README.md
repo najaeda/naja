@@ -9,7 +9,7 @@ Each chapter can be opened directly in Google Colab — no local install needed.
 | 2 | [Liberty Primitives and Design](notebooks/02_liberty_primitives_design.ipynb) — load a gate-level design with Liberty primitives, browse and collect stats | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/02_liberty_primitives_design.ipynb) |
 | 3 | [Editing a Netlist](notebooks/03_editing_a_netlist.ipynb) — rename instances and nets, disconnect and reconnect signals, delete logic | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/03_editing_a_netlist.ipynb) |
 | 4 | [SystemVerilog Elaborated Netlist](notebooks/04_systemverilog_elaborated_netlist.ipynb) — load a parameterised SV design and inspect the elaborated hierarchy | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/04_systemverilog_elaborated_netlist.ipynb) |
-| 5 | [Exploring ibex, a RISC-V Core](notebooks/05_ibex_riscv_core.ipynb) — load a real-world SV core, navigate the pipeline hierarchy, collect module statistics | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/05_ibex_riscv_core.ipynb) |
+| 5 | [Exploring ibex, a RISC-V Core](notebooks/05_ibex_riscv_core.ipynb) — load a real-world SV core, navigate the pipeline hierarchy, inspect RTL source ranges, collect module statistics | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/05_ibex_riscv_core.ipynb) |
 | 6 | [Gate-Level Analysis: Fanout and Net Statistics](notebooks/06_fanout_analysis.ipynb) — compute fanout for every net using the Equipotential API, trace drivers, export to pandas | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebooks/06_fanout_analysis.ipynb) |
 
 ## Benchmarks
@@ -23,7 +23,7 @@ Design files used by the tutorials are in [`benchmarks/`](benchmarks/):
 ## Running Locally
 
 ```bash
-pip install najaeda jupyter nbmake nbstripout
+pip install najaeda==0.7.6 jupyter nbmake nbstripout
 # one-time git hook to keep notebooks clean
 nbstripout --install
 # run all tutorials as a test suite

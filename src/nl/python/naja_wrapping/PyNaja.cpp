@@ -12,6 +12,7 @@
 #include "NajaPerf.h"
 
 #include "PyNLUniverse.h"
+#include "PyNLID.h"
 #include "PyNLDB.h"
 #include "PyNLLibrary.h"
 #include "PySNLAttribute.h"
@@ -179,6 +180,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
     "naja_python");
 
   PyNLUniverse_LinkPyType();
+  PyNLID_LinkPyType();
   PyNLDB_LinkPyType();
   PyNLLibrary_LinkPyType();
   PySNLAttribute_LinkPyType();
@@ -229,6 +231,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLOccurrences_LinkPyType();
 
   PYTYPE_READY(SNLAttribute);
+  PYTYPE_READY(NLID);
   PYTYPE_READY(NLUniverse);
   PYTYPE_READY(NLDB);
   PYTYPE_READY(NLLibrary);
@@ -306,6 +309,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   }
 
   PyModule_AddType(mod, &PyTypeSNLAttribute);
+  PyModule_AddType(mod, &PyTypeNLID);
   PyModule_AddType(mod, &PyTypeNLUniverse);
   PyModule_AddType(mod, &PyTypeNLDB);
   PyModule_AddType(mod, &PyTypeNLLibrary);
@@ -333,6 +337,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLEquipotential);
   PyModule_AddType(mod, &PyTypeSNLLogicalCone);
 
+  PyNLID_postModuleInit();
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
   PySNLLogicalCone_postModuleInit();
