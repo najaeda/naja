@@ -254,21 +254,22 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* diagnostics_report_path = nullptr;  // Optional: string
   PyObject* defines = nullptr;  // Optional: list of preprocessor defines
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
+  int keep_ast_link = 0;  // Default: false
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
-    "diagnostics_report_path", "defines", "suppress_warnings",
+    "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOOO:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOp:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &defines, &suppress_warnings)) {
+    &defines, &suppress_warnings, &keep_ast_link)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -291,6 +292,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   options.prettyPrintElaboratedASTJson = pretty_print_elaborated_ast_json;
   options.includeSourceInfoInElaboratedASTJson =
     include_source_info_in_elaborated_ast_json;
+  options.keepASTLink = keep_ast_link;
 
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
@@ -444,7 +446,24 @@ GetContainerMethod(NLDB, NLLibrary*, NLLibraries, Libraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, GlobalLibraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, PrimitiveLibraries)
 
-DBoDestroyAttribute(PyNLDB_destroy, PyNLDB)
+static PyObject* PyNLDB_destroy(PyNLDB* self) {
+  TRY
+  if (self->object_ == nullptr) {
+    setError("applying a destroy() to a Python object with no Hurricane object attached");
+    return nullptr;
+  }
+  naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>(
+    self->object_->getProperty(naja::NajaPythonProperty::getPropertyName()));
+  if (proxy == nullptr) {
+    setError("Trying to destroy() a Hurricane object of with no Proxy attached ");
+    return nullptr;
+  }
+  SNLSVLiveASTLinkRegistry::clear(self->object_);
+  self->object_->destroy();
+  self->object_ = nullptr;
+  NLCATCH
+  Py_RETURN_NONE;
+}
 
 PyMethodDef PyNLDB_Methods[] = {
   { "create", (PyCFunction)PyNLDB_create, METH_VARARGS | METH_STATIC,
@@ -485,7 +504,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  flist (str, optional): slang -f command file path\n"
     "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path\n"
     "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
-    "  suppress_warnings (list[str], optional): Slang warning names to suppress."},
+    "  suppress_warnings (list[str], optional): Slang warning names to suppress\n"
+    "  keep_ast_link (bool, optional): retain live Slang AST to SNL object links when supported "
+    "(default False)."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

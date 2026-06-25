@@ -1936,6 +1936,7 @@ class SystemVerilogConfig:
     top: str = None
     defines: list = None  # Slang preprocessor defines (e.g. ["SYNTHESIS", "WIDTH=32"])
     suppress_warnings: list = None  # Slang warning names to suppress (e.g. ["sign-conversion"])
+    keep_ast_link: bool = False  # Keep live Slang AST to SNL object links when supported.
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -2003,6 +2004,10 @@ def load_system_verilog(
             f"(got {type(config.top).__name__})")
     if isinstance(config.top, str) and not config.top.strip():
         raise ValueError("SystemVerilogConfig.top must not be empty")
+    if not isinstance(config.keep_ast_link, bool):
+        raise ValueError(
+            "SystemVerilogConfig.keep_ast_link must be a bool "
+            f"(got {type(config.keep_ast_link).__name__})")
     if config.defines is not None:
         if not isinstance(config.defines, list):
             raise ValueError(
@@ -2043,6 +2048,7 @@ def load_system_verilog(
             flist=effective_flist,
             defines=config.defines,
             suppress_warnings=config.suppress_warnings,
+            keep_ast_link=config.keep_ast_link,
         )
     finally:
         if temp_flist_path and os.path.exists(temp_flist_path):

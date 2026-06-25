@@ -26,6 +26,7 @@
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
+#include "SNLSVConstructor.h"
 #include "RemoveLoadlessLogic.h"
 #include "ConstantPropagation.h"
 #include "FanoutComputer.h"
@@ -285,7 +286,24 @@ GetObjectMethod(NLUniverse, NLDB, getTopDB)
 GetObjectByIndex(NLUniverse, NLDB, DB)
 GetContainerMethod(NLUniverse, NLDB*, NLDBs, UserDBs)
 
-DBoDestroyAttribute(PyNLUniverse_destroy, PyNLUniverse)
+static PyObject* PyNLUniverse_destroy(PyNLUniverse* self) {
+  TRY
+  if (self->object_ == nullptr) {
+    setError("applying a destroy() to a Python object with no Hurricane object attached");
+    return nullptr;
+  }
+  naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>(
+    self->object_->getProperty(naja::NajaPythonProperty::getPropertyName()));
+  if (proxy == nullptr) {
+    setError("Trying to destroy() a Hurricane object of with no Proxy attached ");
+    return nullptr;
+  }
+  SNLSVLiveASTLinkRegistry::clearAll();
+  self->object_->destroy();
+  self->object_ = nullptr;
+  NLCATCH
+  Py_RETURN_NONE;
+}
 
 PyMethodDef PyNLUniverse_Methods[] = {
   { "create", (PyCFunction)PyNLUniverse_create, METH_NOARGS|METH_STATIC,

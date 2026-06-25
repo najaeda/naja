@@ -56,8 +56,46 @@
 #include "PySNLUniquifier.h"
 
 #include "NajaVersion.h"
+#include "NLObject.h"
+#include "SNLSVConstructor.h"
+#include "SNLDesign.h"
+#include "SNLDesignObject.h"
+#include "SNLInstance.h"
+#include "SNLNet.h"
+#include "SNLNetComponent.h"
+#include "SNLTerm.h"
 
 namespace PYNAJA {
+
+namespace {
+
+constexpr const char* kSlangSymbolCapsuleName = "naja.slang.Symbol";
+constexpr const char* kSlangCompilationCapsuleName = "naja.slang.Compilation";
+
+PyObject* wrapNLObject(naja::NL::NLObject* object) {
+  using namespace naja::NL;
+  if (!object) {
+    Py_RETURN_NONE;
+  }
+  if (auto* design = dynamic_cast<SNLDesign*>(object)) {
+    return PySNLDesign_Link(design);
+  }
+  if (auto* instance = dynamic_cast<SNLInstance*>(object)) {
+    return PySNLInstance_Link(instance);
+  }
+  if (auto* net = dynamic_cast<SNLNet*>(object)) {
+    return PySNLNet_Link(net);
+  }
+  if (auto* term = dynamic_cast<SNLTerm*>(object)) {
+    return PySNLTerm_Link(term);
+  }
+  if (auto* component = dynamic_cast<SNLNetComponent*>(object)) {
+    return PySNLNetComponent_Link(component);
+  }
+  Py_RETURN_NONE;
+}
+
+}  // namespace
 
 static PyObject* getVersion(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_VERSION.c_str());
@@ -153,6 +191,75 @@ static PyObject* clearLogSinks(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* liveCompilation(PyObject*, PyObject*) {
+  auto* link = naja::NL::SNLSVLiveASTLinkRegistry::getLatest();
+  if (!link || !link->getCompilation()) {
+    Py_RETURN_NONE;
+  }
+  return PyCapsule_New(
+    link->getCompilation(),
+    kSlangCompilationCapsuleName,
+    nullptr);
+}
+
+static PyObject* astSymbolOf(PyObject*, PyObject* arg) {
+  naja::NL::NLObject* object = nullptr;
+  if (IsPySNLDesign(arg)) {
+    object = PYSNLDesign_O(arg);
+  } else if (IsPySNLDesignObject(arg)) {
+    object = PYSNLDesignObject_O(arg);
+  } else {
+    setError("ast_symbol_of expects an SNLDesign or SNLDesignObject");
+    return nullptr;
+  }
+  auto* link = naja::NL::SNLSVLiveASTLinkRegistry::findForObject(object);
+  if (!link) {
+    Py_RETURN_NONE;
+  }
+  auto* symbol = link->getSymbol(object);
+  if (!symbol) {
+    Py_RETURN_NONE;
+  }
+  return PyCapsule_New(
+    const_cast<slang::ast::Symbol*>(symbol),
+    kSlangSymbolCapsuleName,
+    nullptr);
+}
+
+static PyObject* snlObjectsOf(PyObject*, PyObject* arg) {
+  auto* symbol = static_cast<const slang::ast::Symbol*>(
+    PyCapsule_GetPointer(arg, kSlangSymbolCapsuleName));
+  if (!symbol) {
+    return nullptr;
+  }
+  auto* link = naja::NL::SNLSVLiveASTLinkRegistry::findForSymbol(symbol);
+  auto* result = PyList_New(0);
+  if (!result) {
+    return nullptr;
+  }
+  if (!link) {
+    return result;
+  }
+  for (auto* object : link->getObjects(symbol)) {
+    PyObject* pyObject = wrapNLObject(object);
+    if (!pyObject) {
+      Py_DECREF(result);
+      return nullptr;
+    }
+    if (pyObject == Py_None) {
+      Py_DECREF(pyObject);
+      continue;
+    }
+    if (PyList_Append(result, pyObject) < 0) {
+      Py_DECREF(pyObject);
+      Py_DECREF(result);
+      return nullptr;
+    }
+    Py_DECREF(pyObject);
+  }
+  return result;
+}
+
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
@@ -162,6 +269,12 @@ static PyMethodDef NajaMethods[] = {
   { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
   { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
   { "clearLogSinks", clearLogSinks, METH_NOARGS, "clear all log sinks" },
+  { "live_compilation", liveCompilation, METH_NOARGS,
+    "Return the live Slang compilation capsule for the latest retained SystemVerilog load." },
+  { "ast_symbol_of", astSymbolOf, METH_O,
+    "Return the live Slang symbol capsule associated with an SNL object, or None." },
+  { "snl_objects_of", snlObjectsOf, METH_O,
+    "Return SNL objects associated with a live Slang symbol capsule." },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

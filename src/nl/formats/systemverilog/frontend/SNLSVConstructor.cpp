@@ -95,6 +95,149 @@
 namespace naja::NL {
 
 namespace {
+using LiveASTLinksByDB = std::unordered_map<NLDB*, std::unique_ptr<SNLSVLiveASTLink>>;
+
+LiveASTLinksByDB& liveASTLinksByDB() {
+  static LiveASTLinksByDB links;
+  return links;
+}
+
+NLDB*& latestLiveASTLinkDB() {
+  static NLDB* db = nullptr;
+  return db;
+}
+
+const SNLSVLiveASTLink::Objects& emptyLiveASTLinkObjects() {
+  static const SNLSVLiveASTLink::Objects objects;
+  return objects;
+}
+
+NLDB* getObjectDB(const NLObject* object) {
+  if (!object) {
+    return nullptr;
+  }
+  if (auto* db = dynamic_cast<const NLDB*>(object)) {
+    return const_cast<NLDB*>(db);
+  }
+  if (auto* design = dynamic_cast<const SNLDesign*>(object)) {
+    return design->getDB();
+  }
+  if (auto* designObject = dynamic_cast<const SNLDesignObject*>(object)) {
+    return designObject->getDB();
+  }
+  return nullptr;
+}
+}  // namespace
+
+SNLSVLiveASTLink::~SNLSVLiveASTLink() = default;
+
+void SNLSVLiveASTLink::bind(NLObject* object, const slang::ast::Symbol& symbol) {
+  if (!object) {
+    return;
+  }
+  auto existing = symbolByObject_.find(object);
+  if (existing != symbolByObject_.end()) {
+    if (existing->second == &symbol) {
+      return;
+    }
+    auto oldObjects = objectsBySymbol_.find(existing->second);
+    if (oldObjects != objectsBySymbol_.end()) {
+      auto& objects = oldObjects->second;
+      objects.erase(std::remove(objects.begin(), objects.end(), object), objects.end());
+      if (objects.empty()) {
+        objectsBySymbol_.erase(oldObjects);
+      }
+    }
+  }
+  symbolByObject_[object] = &symbol;
+  auto& objects = objectsBySymbol_[&symbol];
+  if (std::find(objects.begin(), objects.end(), object) == objects.end()) {
+    objects.push_back(object);
+  }
+}
+
+const slang::ast::Symbol* SNLSVLiveASTLink::getSymbol(const NLObject* object) const {
+  auto found = symbolByObject_.find(object);
+  if (found == symbolByObject_.end()) {
+    return nullptr;
+  }
+  return found->second;
+}
+
+const SNLSVLiveASTLink::Objects&
+SNLSVLiveASTLink::getObjects(const slang::ast::Symbol* symbol) const {
+  auto found = objectsBySymbol_.find(symbol);
+  if (found == objectsBySymbol_.end()) {
+    return emptyLiveASTLinkObjects();
+  }
+  return found->second;
+}
+
+bool SNLSVLiveASTLink::hasSymbol(const slang::ast::Symbol* symbol) const {
+  return objectsBySymbol_.find(symbol) != objectsBySymbol_.end();
+}
+
+void SNLSVLiveASTLinkRegistry::clear(NLDB* db) {
+  if (!db) {
+    return;
+  }
+  liveASTLinksByDB().erase(db);
+  if (latestLiveASTLinkDB() == db) {
+    latestLiveASTLinkDB() = nullptr;
+  }
+}
+
+void SNLSVLiveASTLinkRegistry::clearAll() {
+  liveASTLinksByDB().clear();
+  latestLiveASTLinkDB() = nullptr;
+}
+
+void SNLSVLiveASTLinkRegistry::store(NLDB* db, std::unique_ptr<SNLSVLiveASTLink> link) {
+  if (!db) {
+    return;
+  }
+  if (!link) {
+    clear(db);
+    return;
+  }
+  liveASTLinksByDB()[db] = std::move(link);
+  latestLiveASTLinkDB() = db;
+}
+
+const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::get(NLDB* db) {
+  auto found = liveASTLinksByDB().find(db);
+  if (found == liveASTLinksByDB().end()) {
+    return nullptr;
+  }
+  return found->second.get();
+}
+
+const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::getLatest() {
+  return get(latestLiveASTLinkDB());
+}
+
+const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::findForObject(const NLObject* object) {
+  if (auto* db = getObjectDB(object)) {
+    return get(db);
+  }
+  return nullptr;
+}
+
+const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::findForSymbol(
+  const slang::ast::Symbol* symbol) {
+  if (!symbol) {
+    return nullptr;
+  }
+  for (const auto& [db, link] : liveASTLinksByDB()) {
+    (void)db;
+    if (link && link->hasSymbol(symbol)) {
+      return link.get();
+    }
+  }
+  return nullptr;
+}
+
+namespace {
 
 using slang::ast::ArgumentDirection;
 using slang::ast::Expression;
@@ -468,7 +611,8 @@ class SNLSVConstructorImpl {
       const SNLSVConstructor::ConstructOptions& options):
       library_(library),
       config_(config),
-      options_(options)
+      options_(options),
+      liveASTLink_(options.keepASTLink ? std::make_unique<SNLSVLiveASTLink>() : nullptr)
     {}
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -988,6 +1132,7 @@ class SNLSVConstructorImpl {
       if (!library_) {
         throw SNLSVConstructorException("SNLSVConstructor requires a valid NLLibrary");
       }
+      SNLSVLiveASTLinkRegistry::clear(library_->getDB());
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       initializeSVPerfReport(paths);
       const auto perfReportGuard = slang::ScopeGuard([&]() {
@@ -1130,6 +1275,7 @@ class SNLSVConstructorImpl {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
 #endif
+        persistLiveASTLink();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         svPerfReport_.success = true;
 #endif
@@ -2521,6 +2667,31 @@ endmodule
       compilation_ = driver.createCompilation();
     }
 
+    void bindLiveASTLink(NLObject* object, const Symbol& symbol) {
+      if (liveASTLink_) {
+        liveASTLink_->bind(object, symbol);
+      }
+    }
+
+    void cloneLiveASTLink(const NLObject* from, NLObject* to) const {
+      if (!liveASTLink_ || !from || !to) {
+        return;
+      }
+      if (auto* symbol = liveASTLink_->getSymbol(from)) {
+        liveASTLink_->bind(to, *symbol);
+      }
+    }
+
+    void persistLiveASTLink() {
+      if (!liveASTLink_) {
+        return;
+      }
+      liveASTLink_->driver_ = std::move(driver_);
+      liveASTLink_->compilation_ = std::move(compilation_);
+      liveASTLink_->syntaxTrees_ = std::move(syntaxTrees_);
+      SNLSVLiveASTLinkRegistry::store(library_->getDB(), std::move(liveASTLink_));
+    }
+
     std::string buildDiagnosticsReport(const std::string& slangReport) const {
       std::ostringstream report;
       bool hasDiagnostics = false;
@@ -2753,6 +2924,7 @@ endmodule
       bodyToDesign_[&body] = design;
       representativeBodies.push_back(&body);
       annotateSourceInfo(design, getSourceRange(definition));
+      bindLiveASTLink(design, body);
 
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -3532,6 +3704,7 @@ endmodule
 #endif
       }
       toInfos->cloneInfos(*fromInfos);
+      cloneLiveASTLink(from, to);
     }
 
     template<typename TObject>
@@ -7290,18 +7463,19 @@ endmodule
           continue;
         }
         auto range = getRangeFromType(port.getType());
+        SNLTerm* term = nullptr;
         if (range && range->width() > 1) {
-          auto term = SNLBusTerm::create(
+          term = SNLBusTerm::create(
             design,
             *direction,
             static_cast<NLID::Bit>(range->left),
             static_cast<NLID::Bit>(range->right),
             NLName(portName));
-          annotateSourceInfo(term, getSourceRange(port));
         } else {
-          auto term = SNLScalarTerm::create(design, *direction, NLName(portName));
-          annotateSourceInfo(term, getSourceRange(port));
+          term = SNLScalarTerm::create(design, *direction, NLName(portName));
         }
+        annotateSourceInfo(term, getSourceRange(port));
+        bindLiveASTLink(term, port);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portsCreated;
         noteSVPerfProgress();
@@ -7368,6 +7542,7 @@ endmodule
           auto net = getOrCreateNet(design, loweredName, valueSym.getType());
           setLoweredValueSymbolNet(design, valueSym, net);
           annotateSourceInfo(net, getSourceRange(valueSym));
+          bindLiveASTLink(net, valueSym);
           if (const auto* initializer = valueSym.getInitializer()) {
             recordEqualitySelectorNet(net, *initializer);
           }
@@ -25777,6 +25952,15 @@ endmodule
         return false;
       }
 
+      const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
+      const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+      if (tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+        activeSequentialASTSymbol_ = trackedSymbol;
+      }
+      const auto activeSequentialASTSymbolGuard = slang::ScopeGuard([&]() {
+        activeSequentialASTSymbol_ = savedActiveSequentialASTSymbol;
+      });
+
       bool emittedVectorSequential = false;
       if (lhsBits.size() > 1) {
         const auto width = lhsBits.size();
@@ -25844,6 +26028,15 @@ endmodule
           describeLHSForDiagnostics(lhsExpr));
         return false;
       }
+
+      const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
+      const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+      if (tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+        activeSequentialASTSymbol_ = trackedSymbol;
+      }
+      const auto activeSequentialASTSymbolGuard = slang::ScopeGuard([&]() {
+        activeSequentialASTSymbol_ = savedActiveSequentialASTSymbol;
+      });
 
       auto baseName = getExpressionBaseName(lhsExpr);
       // LCOV_EXCL_START
@@ -28172,10 +28365,14 @@ endmodule
       SNLNet* clkNet,
       SNLNet* dNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dff = NLDB0::getDFF();
       auto inst = SNLInstance::create(design, dff);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFClock();
       auto dTerm = NLDB0::getDFFData();
       auto qTerm = NLDB0::getDFFOutput();
@@ -28201,10 +28398,14 @@ endmodule
       SNLNet* enableNet,
       SNLNet* dNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dlatch = NLDB0::getDLatch();
       auto inst = SNLInstance::create(design, dlatch);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto eTerm = NLDB0::getDLatchEnable();
       auto dTerm = NLDB0::getDLatchData();
       auto qTerm = NLDB0::getDLatchOutput();
@@ -28230,10 +28431,14 @@ endmodule
       SNLNet* clkNet,
       SNLNet* dNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffn = NLDB0::getDFFN();
       auto inst = SNLInstance::create(design, dffn);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFNClock();
       auto dTerm = NLDB0::getDFFNData();
       auto qTerm = NLDB0::getDFFNOutput();
@@ -28260,10 +28465,14 @@ endmodule
       SNLNet* dNet,
       SNLNet* resetNNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffrn = NLDB0::getDFFRN();
       auto inst = SNLInstance::create(design, dffrn);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFRNClock();
       auto dTerm = NLDB0::getDFFRNData();
       auto rnTerm = NLDB0::getDFFRNResetN();
@@ -28296,10 +28505,14 @@ endmodule
       SNLNet* dNet,
       SNLNet* resetNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffr = NLDB0::getDFFR();
       auto inst = SNLInstance::create(design, dffr);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFRClock();
       auto dTerm = NLDB0::getDFFRData();
       auto rTerm = NLDB0::getDFFRReset();
@@ -28332,10 +28545,14 @@ endmodule
       SNLNet* dNet,
       SNLNet* setNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffs = NLDB0::getDFFS();
       auto inst = SNLInstance::create(design, dffs);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFSClock();
       auto dTerm = NLDB0::getDFFSData();
       auto sTerm = NLDB0::getDFFSSet();
@@ -28368,10 +28585,14 @@ endmodule
       SNLNet* dNet,
       SNLNet* enableNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffe = NLDB0::getDFFE();
       auto inst = SNLInstance::create(design, dffe);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFEClock();
       auto dTerm = NLDB0::getDFFEData();
       auto eTerm = NLDB0::getDFFEEnable();
@@ -28405,10 +28626,14 @@ endmodule
       SNLNet* enableNet,
       SNLNet* resetNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffre = NLDB0::getDFFRE();
       auto inst = SNLInstance::create(design, dffre);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFREClock();
       auto dTerm = NLDB0::getDFFREData();
       auto eTerm = NLDB0::getDFFREEnable();
@@ -28448,10 +28673,14 @@ endmodule
       SNLNet* enableNet,
       SNLNet* setNet,
       SNLNet* qNet,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      const Symbol* astSymbol = nullptr) {
       auto dffse = NLDB0::getDFFSE();
       auto inst = SNLInstance::create(design, dffse);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       auto cTerm = NLDB0::getDFFSEClock();
       auto dTerm = NLDB0::getDFFSEData();
       auto eTerm = NLDB0::getDFFSEEnable();
@@ -28495,7 +28724,8 @@ endmodule
       SNLNet* extraControl0 = nullptr,
       const char* extraControl0TermName = nullptr,
       SNLNet* extraControl1 = nullptr,
-      const char* extraControl1TermName = nullptr) {
+      const char* extraControl1TermName = nullptr,
+      const Symbol* astSymbol = nullptr) {
       if (!design || !model || !clockOrEnableNet || dataBits.empty() ||
           dataBits.size() != outputBits.size()) {
         return false; // LCOV_EXCL_LINE
@@ -28510,6 +28740,9 @@ endmodule
       }
       auto* inst = SNLInstance::create(design, model);
       annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
       if (auto* term = model->getScalarTerm(NLName(clockOrEnableTermName))) {
         inst->setTermNet(term, clockOrEnableNet);
       }
@@ -29192,6 +29425,16 @@ endmodule
         auto resetSourceRange = chain.resetCond
           ? getSourceRange(*chain.resetCond)
           : statementSourceRange; // LCOV_EXCL_LINE
+        const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
+        activeSequentialASTSymbol_ = &block;
+        const slang::ast::ValueSymbol* activeSequentialValueSymbol = nullptr;
+        if (chain.lhs &&
+            tryGetRootValueSymbolReference(*chain.lhs, activeSequentialValueSymbol)) {
+          activeSequentialASTSymbol_ = activeSequentialValueSymbol;
+        }
+        const auto activeSequentialASTSymbolGuard = slang::ScopeGuard([&]() {
+          activeSequentialASTSymbol_ = savedActiveSequentialASTSymbol;
+        });
 
         std::vector<SNLBitNet*> incrementerBits;
         if (needsIncrementerForAction(design, lhsNet, chain.resetAction) ||
@@ -30387,6 +30630,7 @@ endmodule
             modelDesign,
             NLName(getLoweredSymbolName(instance)));
           annotateSourceInfo(inst, getSourceRange(instance));
+          bindLiveASTLink(inst, instance);
           connectInstance(inst, instance);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.instancesCreated;
@@ -30873,6 +31117,7 @@ endmodule
     mutable std::vector<bool> activeForLoopBreaks_ {};
     mutable std::vector<std::unordered_map<const Symbol*, SNLNet*>> activeFunctionArgumentNets_ {};
     mutable std::vector<const slang::ast::SubroutineSymbol*> activeInlinedCallSubroutines_ {};
+    const Symbol* activeSequentialASTSymbol_ {nullptr};
     std::vector<std::unordered_map<const slang::ast::ValueSymbol*, SNLNet*>>
       activeFunctionLocalNets_ {};
     std::vector<std::string> activeFunctionLocalSuffixes_ {};
@@ -30892,6 +31137,7 @@ endmodule
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
+    std::unique_ptr<SNLSVLiveASTLink> liveASTLink_;
     std::unordered_map<const InstanceBodySymbol*, SNLDesign*> bodyToDesign_;
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
