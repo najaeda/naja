@@ -8,6 +8,7 @@ set(snl_sv_constructor_tests
     SNLSVConstructorTestAlwaysComb.cpp
     SNLSVConstructorTestSequentialOverlap.cpp
     SNLSVConstructorTestElab.cpp
+    SNLSVIntentTest.cpp
 )
 add_executable(snlSVConstructorTests ${snl_sv_constructor_tests})
 target_compile_definitions(snlSVConstructorTests PRIVATE

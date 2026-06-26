@@ -250,7 +250,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* elaborated_ast_json_path = nullptr;  // Optional: string
   int pretty_print_elaborated_ast_json = 1;  // Default: true
   int include_source_info_in_elaborated_ast_json = 1;  // Default: true
-  PyObject* flist = nullptr;  // Optional: string path passed as slang -f
+  PyObject* flist = nullptr;  // Optional: string path passed as a frontend file list
   PyObject* diagnostics_report_path = nullptr;  // Optional: string
   PyObject* defines = nullptr;  // Optional: list of preprocessor defines
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
@@ -498,14 +498,14 @@ PyMethodDef PyNLDB_Methods[] = {
     "Args:\n"
     "  files (list[str]): input SystemVerilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
-    "  elaborated_ast_json_path (str, optional): dump Slang elaborated AST JSON to this path\n"
+    "  elaborated_ast_json_path (str, optional): dump elaborated frontend AST JSON to this path\n"
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
     "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
-    "  flist (str, optional): slang -f command file path\n"
-    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path\n"
+    "  flist (str, optional): frontend file-list command path\n"
+    "  diagnostics_report_path (str, optional): dump frontend diagnostics (warnings/errors) to this path\n"
     "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
-    "  suppress_warnings (list[str], optional): Slang warning names to suppress\n"
-    "  keep_ast_link (bool, optional): retain live Slang AST to SNL object links when supported "
+    "  suppress_warnings (list[str], optional): frontend warning names to suppress\n"
+    "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "
     "(default False)."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},

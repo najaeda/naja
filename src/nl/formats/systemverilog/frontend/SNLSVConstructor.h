@@ -81,11 +81,11 @@ class SNLSVConstructor {
       std::optional<std::filesystem::path> diagnosticsReportPath {};
       bool prettyPrintElaboratedASTJson {true};
       bool includeSourceInfoInElaboratedASTJson {true};
-      /// Request retention of live Slang AST to SNL object links after load.
+      /// Request retention of live frontend AST to SNL object links after load.
       bool keepASTLink {false};
-      /// Slang preprocessor defines (passed as -D<name>[=<value>] to the driver).
+      /// SystemVerilog preprocessor defines (passed as -D<name>[=<value>] to the driver).
       std::vector<std::string> preprocessorDefines {};
-      /// Slang warning names to suppress (passed as -Wno-<name> to the driver).
+      /// SystemVerilog frontend warning names to suppress.
       std::vector<std::string> suppressWarnings {};
     };
 

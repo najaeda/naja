@@ -11,6 +11,34 @@ import zipfile
 import naja
 import faulthandler 
 
+INTENT_MINI_SV = """\
+package mini_pkg;
+  typedef enum logic [1:0] {
+    ST_IDLE = 2'b00,
+    ST_RUN  = 2'b01,
+    ST_DONE = 2'b11
+  } state_e;
+  localparam int PLEN = (32 == 32) ? 34 : 56;
+endpackage
+
+module intent_mini #(
+    parameter int DEPTH = 4
+) (
+    input  logic clk,
+    input  logic rst_n
+);
+  import mini_pkg::*;
+  localparam int IDX_W = $clog2(DEPTH);
+
+  mini_pkg::state_e state_q;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) state_q <= ST_IDLE;
+    else        state_q <= ST_RUN;
+  end
+endmodule
+"""
+
 class SNLDBTest(unittest.TestCase):
   def setUp(self):
     naja.NLUniverse.create()
@@ -305,6 +333,65 @@ class SNLDBTest(unittest.TestCase):
     finally:
       if os.path.exists(definePath):
         os.remove(definePath)
+
+  def testSystemVerilogIntentAPI(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertFalse(naja.intent_available())
+    with self.assertRaises(RuntimeError):
+      naja.intent_type_of(db)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+      sv_file = os.path.join(tempdir, "intent_mini.sv")
+      with open(sv_file, "w", encoding="utf-8") as fixture:
+        fixture.write(INTENT_MINI_SV)
+
+      top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
+      self.assertIsNotNone(top)
+      self.assertTrue(naja.intent_available())
+
+      state_q = top.getNet("state_q")
+      self.assertIsNotNone(state_q)
+      type_rec = naja.intent_type_of(state_q)
+      self.assertEqual("mini_pkg::state_e", type_rec["type"])
+      self.assertEqual("enum", type_rec["canonical_kind"])
+      self.assertTrue(type_rec["src"].endswith("intent_mini.sv:19"))
+      enum = type_rec["enum"]
+      self.assertEqual(2, enum["width"])
+      self.assertTrue(enum["decl"].endswith("intent_mini.sv:2"))
+      self.assertEqual(
+        {"ST_IDLE": "2'b00", "ST_RUN": "2'b01", "ST_DONE": "2'b11"},
+        {m["name"]: m["encoding"] for m in enum["members"]})
+
+      ff = next(
+        inst for inst in top.getInstances()
+        if inst.getModel().getName() == "naja_dffrn__w2")
+      self.assertEqual(type_rec, naja.intent_type_of(ff))
+
+      params = naja.intent_parameters_of(top)
+      self.assertEqual("intent_mini", params["module"])
+      self.assertEqual(2, params["count"])
+      by_name = {p["name"]: p for p in params["parameters"]}
+      self.assertFalse(by_name["DEPTH"]["localparam"])
+      self.assertEqual("4", by_name["DEPTH"]["value"])
+      self.assertEqual("4", by_name["DEPTH"]["expr"])
+      self.assertTrue(by_name["IDX_W"]["localparam"])
+      self.assertEqual("2", by_name["IDX_W"]["value"])
+      self.assertEqual("$clog2(DEPTH)", by_name["IDX_W"]["expr"])
+
+      plen = naja.intent_package_member("mini_pkg", "PLEN")
+      self.assertEqual("PLEN", plen["name"])
+      self.assertEqual("34", plen["value"])
+      self.assertEqual("(32 == 32) ? 34 : 56", plen["expr"])
+      self.assertTrue(plen["localparam"])
+
+      state_sym = naja.ast_symbol_of(state_q)
+      linked_objects = naja.snl_objects_of(state_sym)
+      self.assertIn(state_q, linked_objects)
+      self.assertIn(ff, linked_objects)
+
+    db.destroy()
+    self.assertFalse(naja.intent_available())
 
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()
