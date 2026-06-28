@@ -57,6 +57,15 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         self.assertIsNotNone(top)
         self.assertEqual("top", top.get_model_name())
 
+    def test_load_system_verilog_with_ast_link_option(self):
+        design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
+        top = netlist.load_system_verilog(
+            design_file,
+            config=netlist.SystemVerilogConfig(keep_ast_link=True),
+        )
+        self.assertIsNotNone(top)
+        self.assertEqual("top", top.get_model_name())
+
     def test_source_range_absent(self):
         top = netlist.create_top("top")
         self.assertIsNone(top.get_source_range())
@@ -189,6 +198,16 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
             netlist.load_system_verilog(
                 design_files,
                 config=netlist.SystemVerilogConfig(top=""),
+            )
+
+    def test_load_system_verilog_with_invalid_ast_link_option_raises(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        with self.assertRaisesRegex(
+                ValueError,
+                r"SystemVerilogConfig\.keep_ast_link must be a bool \(got str\)"):
+            netlist.load_system_verilog(
+                design_files,
+                config=netlist.SystemVerilogConfig(keep_ast_link="true"),
             )
 
     def test_load_system_verilog_with_invalid_defines_raises(self):

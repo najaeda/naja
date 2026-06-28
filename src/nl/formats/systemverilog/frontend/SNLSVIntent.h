@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "SNLRTLInfos.h"
+
+namespace naja::NL {
+
+class NLObject;
+class SNLDesignObject;
+
+struct SNLSVIntentEnumMember {
+  std::string name {};
+  std::string encoding {};
+};
+
+struct SNLSVIntentStructField {
+  std::string name {};
+  std::string typeName {};
+  uint64_t msb {0};
+  uint64_t lsb {0};
+};
+
+struct SNLSVIntentType {  // LCOV_EXCL_LINE compiler-generated initialization artifact
+  bool valid {false};
+  std::string typeName {};
+  std::string canonicalKind {};
+  SNLSourceLoc declLoc {NLName()};
+  bool isEnum {false};
+  unsigned enumWidth {0};
+  SNLSourceLoc enumDeclLoc {NLName()};
+  std::vector<SNLSVIntentEnumMember> members {};
+  bool isStruct {false};
+  uint64_t structWidth {0};
+  SNLSourceLoc structDeclLoc {NLName()};
+  std::vector<SNLSVIntentStructField> fields {};
+};
+
+struct SNLSVIntentParam {
+  std::string name {};
+  std::string value {};
+  std::string expr {};
+  bool localParam {false};
+  SNLSourceLoc loc {NLName()};
+};
+
+struct SNLSVIntentParams {
+  bool valid {false};
+  std::string module {};
+  std::vector<SNLSVIntentParam> params {};
+};
+
+class SNLSVIntent {
+  public:
+    static bool available();
+    static SNLSVIntentType typeOf(const SNLDesignObject* object);
+    static SNLSVIntentType typeOf(const NLObject* object);
+    static SNLSVIntentParams parametersOf(const SNLDesignObject* object);
+    static SNLSVIntentParams parametersOf(const NLObject* object);
+    static SNLSVIntentType packageMemberType(
+      const std::string& package,
+      const std::string& member);
+    static SNLSVIntentParam packageMember(
+      const std::string& package,
+      const std::string& member);
+};
+
+}  // namespace naja::NL
