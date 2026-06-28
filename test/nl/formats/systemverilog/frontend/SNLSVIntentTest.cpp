@@ -21,6 +21,10 @@
 #include "SNLSVConstructor.h"
 #include "SNLSVIntent.h"
 
+#include "slang/ast/Compilation.h"
+#include "slang/ast/symbols/CompilationUnitSymbols.h"
+#include "slang/driver/Driver.h"
+
 using namespace naja::NL;
 
 #ifndef SNL_SV_DUMPER_TEST_PATH
@@ -39,6 +43,9 @@ std::filesystem::path writeIntentMiniFixture(const std::string& testName) {
   const auto svPath = outPath / "intent_mini.sv";
   std::ofstream svFile(svPath);
   svFile << R"(
+interface mini_if;
+endinterface
+
 package mini_pkg;
   typedef logic [7:0] byte_t;
   typedef enum logic [1:0] {
@@ -55,8 +62,29 @@ package mini_pkg;
     logic [7:0] raw;
     byte_t      data;
   } overlay_t;
+  typedef integer integer_t;
+  typedef logic scalar_t;
+  typedef real floating_t;
+  typedef logic unpacked_array_t[2];
+  typedef logic dynamic_array_t[];
+  typedef logic associative_array_t[int];
+  typedef logic queue_t[$];
+  typedef struct { logic value; } unpacked_struct_t;
+  typedef union { logic value; bit alternate; } unpacked_union_t;
+  class mini_class;
+  endclass
+  typedef mini_class class_t;
+  typedef string string_t;
+  typedef event event_t;
+  typedef virtual mini_if virtual_interface_t;
+  typedef chandle chandle_t;
+  function void do_nothing();
+  endfunction
   localparam int PLEN = (32 == 32) ? 34 : 56;
 endpackage
+
+module intent_child #(parameter int WIDTH = 1) ();
+endmodule
 
 module intent_mini #(
     parameter int DEPTH = 4
@@ -72,6 +100,7 @@ module intent_mini #(
   logic [3:0]        plain_q;
   payload_t          payload_q;
   overlay_t          overlay_q;
+  intent_child #(.WIDTH(DEPTH)) u_child ();
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) state_q <= ST_IDLE;
@@ -146,7 +175,7 @@ TEST_F(SNLSVIntentTest, returnsEnumIntentForSourceAndBitBlastedObjects) {
   EXPECT_EQ("ST_DONE", type.members[2].name);
   EXPECT_EQ("2'b11", type.members[2].encoding);
   EXPECT_NE(std::string::npos, type.enumDeclLoc.file.getString().find("intent_mini.sv"));
-  EXPECT_EQ(4u, type.enumDeclLoc.line);
+  EXPECT_EQ(7u, type.enumDeclLoc.line);
 
   auto* ff = findInstanceByModel(top, "naja_dffrn__w2");
   ASSERT_NE(nullptr, ff);
@@ -197,7 +226,7 @@ TEST_F(SNLSVIntentTest, returnsScalarAliasAndPackedAggregateIntent) {
   EXPECT_FALSE(payloadType.isEnum);
   ASSERT_TRUE(payloadType.isStruct);
   EXPECT_EQ(11u, payloadType.structWidth);
-  EXPECT_EQ(9u, payloadType.structDeclLoc.line);
+  EXPECT_EQ(12u, payloadType.structDeclLoc.line);
   ASSERT_EQ(3u, payloadType.fields.size());
   EXPECT_EQ("valid", payloadType.fields[0].name);
   EXPECT_EQ("logic", payloadType.fields[0].typeName);
@@ -262,6 +291,66 @@ TEST_F(SNLSVIntentTest, returnsParametersAndPackageMembers) {
   ASSERT_TRUE(packageType.valid);
   EXPECT_EQ("mini_pkg::state_e", packageType.typeName);
   EXPECT_TRUE(packageType.isEnum);
+
+  const std::map<std::string, std::string> typeKinds {
+    {"integer_t", "integer"},
+    {"scalar_t", "scalar"},
+    {"floating_t", "floating"},
+    {"byte_t", "packed_array"},
+    {"unpacked_array_t", "unpacked_array"},
+    {"dynamic_array_t", "dynamic_array"},
+    {"associative_array_t", "associative_array"},
+    {"queue_t", "queue"},
+    {"payload_t", "packed_struct"},
+    {"unpacked_struct_t", "unpacked_struct"},
+    {"overlay_t", "packed_union"},
+    {"unpacked_union_t", "unpacked_union"},
+    {"class_t", "class"},
+    {"string_t", "string"},
+    {"event_t", "event"},
+    {"virtual_interface_t", "virtual_interface"},
+    {"chandle_t", "unknown"},
+  };
+  for (const auto& [name, expectedKind] : typeKinds) {
+    const auto memberType = SNLSVIntent::packageMemberType("mini_pkg", name);
+    ASSERT_TRUE(memberType.valid) << name;
+    EXPECT_EQ(expectedKind, memberType.canonicalKind) << name;
+  }
+  const auto voidType =
+    SNLSVIntent::packageMemberType("mini_pkg", "do_nothing");
+  ASSERT_TRUE(voidType.valid);
+  EXPECT_EQ("void", voidType.canonicalKind);
+
+  auto* child = findInstanceByModel(top, "intent_child");
+  ASSERT_NE(nullptr, child);
+  const auto childParams = SNLSVIntent::parametersOf(child);
+  ASSERT_TRUE(childParams.valid);
+  EXPECT_EQ("intent_child", childParams.module);
+  ASSERT_EQ(1u, childParams.params.size());
+  EXPECT_EQ("WIDTH", childParams.params[0].name);
+  EXPECT_EQ("4", childParams.params[0].value);
+}
+
+TEST_F(SNLSVIntentTest, returnsInvalidForUnsupportedQueries) {
+  auto* top = loadIntentMini();
+  ASSERT_NE(nullptr, top);
+
+  EXPECT_FALSE(SNLSVIntent::typeOf(static_cast<const NLObject*>(nullptr)).valid);
+  EXPECT_FALSE(
+    SNLSVIntent::parametersOf(static_cast<const NLObject*>(nullptr)).valid);
+  EXPECT_FALSE(SNLSVIntent::typeOf(top).valid);
+
+  auto* stateQ = top->getNet(NLName("state_q"));
+  ASSERT_NE(nullptr, stateQ);
+  EXPECT_FALSE(SNLSVIntent::parametersOf(stateQ).valid);
+
+  auto* synthetic = SNLScalarNet::create(top, NLName("unlinked_synthetic"));
+  EXPECT_FALSE(SNLSVIntent::typeOf(synthetic).valid);
+  EXPECT_FALSE(SNLSVIntent::parametersOf(synthetic).valid);
+
+  EXPECT_FALSE(SNLSVIntent::packageMemberType("missing_pkg", "state_e").valid);
+  EXPECT_FALSE(SNLSVIntent::packageMemberType("mini_pkg", "missing").valid);
+  EXPECT_TRUE(SNLSVIntent::packageMember("mini_pkg", "state_e").name.empty());
 }
 
 TEST_F(SNLSVIntentTest, returnsInvalidWithoutWarmLink) {
@@ -275,4 +364,71 @@ TEST_F(SNLSVIntentTest, returnsInvalidWithoutWarmLink) {
   EXPECT_FALSE(SNLSVIntent::typeOf(stateQ).valid);
   EXPECT_FALSE(SNLSVIntent::parametersOf(top).valid);
   EXPECT_TRUE(SNLSVIntent::packageMember("mini_pkg", "PLEN").name.empty());
+  EXPECT_FALSE(SNLSVIntent::packageMemberType("mini_pkg", "state_e").valid);
+}
+
+TEST_F(SNLSVIntentTest, liveASTLinkRegistryEdgeCases) {
+  auto* top = loadIntentMini();
+  ASSERT_NE(nullptr, top);
+
+  auto* db = library_->getDB();
+  const auto* retainedLink = SNLSVLiveASTLinkRegistry::get(db);
+  ASSERT_NE(nullptr, retainedLink);
+  ASSERT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::getLatest());
+  ASSERT_NE(nullptr, retainedLink->getCompilation());
+
+  auto* stateQ = top->getNet(NLName("state_q"));
+  auto* plainQ = top->getNet(NLName("plain_q"));
+  ASSERT_NE(nullptr, stateQ);
+  ASSERT_NE(nullptr, plainQ);
+  const auto* stateSymbol = retainedLink->getSymbol(stateQ);
+  const auto* plainSymbol = retainedLink->getSymbol(plainQ);
+  ASSERT_NE(nullptr, stateSymbol);
+  ASSERT_NE(nullptr, plainSymbol);
+  ASSERT_NE(stateSymbol, plainSymbol);
+
+  SNLSVLiveASTLink localLink;
+  localLink.bind(nullptr, *stateSymbol);
+  EXPECT_EQ(nullptr, localLink.getSymbol(nullptr));
+  EXPECT_TRUE(localLink.getObjects(stateSymbol).empty());
+
+  localLink.bind(stateQ, *stateSymbol);
+  localLink.bind(plainQ, *stateSymbol);
+  ASSERT_EQ(2u, localLink.getObjects(stateSymbol).size());
+
+  // Rebinding stateQ leaves plainQ on the old symbol; rebinding plainQ then
+  // removes the old symbol entry entirely.
+  localLink.bind(stateQ, *plainSymbol);
+  ASSERT_EQ(1u, localLink.getObjects(stateSymbol).size());
+  EXPECT_EQ(plainQ, localLink.getObjects(stateSymbol).front());
+  localLink.bind(plainQ, *plainSymbol);
+  EXPECT_TRUE(localLink.getObjects(stateSymbol).empty());
+  ASSERT_EQ(2u, localLink.getObjects(plainSymbol).size());
+
+  // Binding an object to the same symbol twice is idempotent.
+  localLink.bind(plainQ, *plainSymbol);
+  EXPECT_EQ(2u, localLink.getObjects(plainSymbol).size());
+
+  EXPECT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::findForObject(db));
+  EXPECT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::findForObject(top));
+  EXPECT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::findForObject(stateQ));
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForObject(nullptr));
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForObject(library_));
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForObject(NLUniverse::get()));
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForSymbol(nullptr));
+  EXPECT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::findForSymbol(stateSymbol));
+
+  const auto* package = retainedLink->getCompilation()->getPackage("mini_pkg");
+  ASSERT_NE(nullptr, package);
+  const auto* plenSymbol = package->find("PLEN");
+  ASSERT_NE(nullptr, plenSymbol);
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForSymbol(plenSymbol));
+
+  SNLSVLiveASTLinkRegistry::clear(nullptr);
+  SNLSVLiveASTLinkRegistry::store(nullptr, std::make_unique<SNLSVLiveASTLink>());
+  EXPECT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::get(db));
+
+  SNLSVLiveASTLinkRegistry::store(db, nullptr);
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::get(db));
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::getLatest());
 }

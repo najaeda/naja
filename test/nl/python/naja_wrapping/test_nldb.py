@@ -292,6 +292,10 @@ class SNLDBTest(unittest.TestCase):
     self.assertTrue(os.path.exists(diagnostics_path))
     self.assertIsNone(naja.live_compilation())
     self.assertIsNone(naja.ast_symbol_of(top))
+    with self.assertRaises(RuntimeError):
+      naja.ast_symbol_of(db)
+    with self.assertRaises(ValueError):
+      naja.snl_objects_of(object())
 
     db.destroy()
     db = naja.NLDB.create(u)
@@ -305,6 +309,19 @@ class SNLDBTest(unittest.TestCase):
     net_symbol = naja.ast_symbol_of(top.getNet("y"))
     self.assertIsNotNone(net_symbol)
     self.assertIn(top.getNet("y"), naja.snl_objects_of(net_symbol))
+    term_symbol = naja.ast_symbol_of(top.getTerm("a"))
+    self.assertIsNotNone(term_symbol)
+    self.assertIn(top.getTerm("a"), naja.snl_objects_of(term_symbol))
+
+    # A correctly named capsule whose pointer is unknown to the live registry
+    # is valid input and produces an empty result.
+    import ctypes
+    capsule_new = ctypes.pythonapi.PyCapsule_New
+    capsule_new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
+    capsule_new.restype = ctypes.py_object
+    capsule_name = b"naja.frontend.Symbol"
+    unknown_symbol = capsule_new(ctypes.c_void_p(1), capsule_name, None)
+    self.assertEqual([], naja.snl_objects_of(unknown_symbol))
 
     db.destroy()
     self.assertIsNone(naja.live_compilation())
@@ -354,6 +371,10 @@ class SNLDBTest(unittest.TestCase):
     self.assertFalse(naja.intent_available())
     with self.assertRaises(RuntimeError):
       naja.intent_type_of(db)
+    with self.assertRaises(RuntimeError):
+      naja.intent_parameters_of(db)
+    with self.assertRaises(RuntimeError):
+      naja.intent_package_member("mini_pkg")
 
     with tempfile.TemporaryDirectory() as tempdir:
       sv_file = os.path.join(tempdir, "intent_mini.sv")
@@ -425,6 +446,8 @@ class SNLDBTest(unittest.TestCase):
 
       synthetic = naja.SNLScalarNet.create(top, "synthetic")
       self.assertIsNone(naja.intent_type_of(synthetic))
+      self.assertIsNone(naja.ast_symbol_of(synthetic))
+      self.assertIsNone(naja.intent_parameters_of(synthetic))
 
       ff = next(
         inst for inst in top.getInstances()
@@ -447,6 +470,12 @@ class SNLDBTest(unittest.TestCase):
       self.assertEqual("34", plen["value"])
       self.assertEqual("(32 == 32) ? 34 : 56", plen["expr"])
       self.assertTrue(plen["localparam"])
+
+      package_type = naja.intent_package_member("mini_pkg", "state_e")
+      self.assertEqual("mini_pkg::state_e", package_type["type"])
+      self.assertEqual("enum", package_type["canonical_kind"])
+      self.assertEqual(2, package_type["enum"]["width"])
+      self.assertIsNone(naja.intent_package_member("mini_pkg", "missing"))
 
       state_sym = naja.ast_symbol_of(state_q)
       linked_objects = naja.snl_objects_of(state_sym)
@@ -523,6 +552,11 @@ class SNLDBTest(unittest.TestCase):
     db = naja.NLDB.create(u) 
     self.assertIsNotNone(db)
     db.destroy()
+
+    with self.assertRaisesRegex(
+        RuntimeError,
+        r"applying a destroy\(\) to a Python object with no Hurricane object attached"):
+      db.destroy()
 
   def testCreationError(self):
     u = naja.NLUniverse.get()

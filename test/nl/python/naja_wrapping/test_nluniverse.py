@@ -21,5 +21,14 @@ class SNLUniverseTest(unittest.TestCase):
     self.assertIsNone(naja.NLUniverse.get().getTopDesign())
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.create()
 
+  def testDestroyTwice(self):
+    universe = naja.NLUniverse.create()
+    universe.destroy()
+
+    with self.assertRaisesRegex(
+        RuntimeError,
+        r"applying a destroy\(\) to a Python object with no Hurricane object attached"):
+      universe.destroy()
+
 if __name__ == '__main__':
   unittest.main()

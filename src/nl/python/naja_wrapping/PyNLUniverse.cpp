@@ -294,9 +294,9 @@ static PyObject* PyNLUniverse_destroy(PyNLUniverse* self) {
   }
   naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>(
     self->object_->getProperty(naja::NajaPythonProperty::getPropertyName()));
-  if (proxy == nullptr) {
-    setError("Trying to destroy() a Hurricane object of with no Proxy attached ");
-    return nullptr;
+  if (proxy == nullptr) { // Defensive: PyNLUniverse_Link always installs the proxy.
+    setError("Trying to destroy() a Hurricane object of with no Proxy attached "); // LCOV_EXCL_LINE
+    return nullptr; // LCOV_EXCL_LINE
   }
   SNLSVLiveASTLinkRegistry::clearAll();
   self->object_->destroy();

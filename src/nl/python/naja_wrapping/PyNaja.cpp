@@ -77,7 +77,7 @@ constexpr const char* kFrontendCompilationCapsuleName = "naja.frontend.Compilati
 PyObject* wrapNLObject(naja::NL::NLObject* object) {
   using namespace naja::NL;
   if (!object) {
-    Py_RETURN_NONE;
+    Py_RETURN_NONE;  // LCOV_EXCL_LINE defensive: live AST links never bind null objects
   }
   if (auto* design = dynamic_cast<SNLDesign*>(object)) {
     return PySNLDesign_Link(design);
@@ -91,15 +91,18 @@ PyObject* wrapNLObject(naja::NL::NLObject* object) {
   if (auto* term = dynamic_cast<SNLTerm*>(object)) {
     return PySNLTerm_Link(term);
   }
+  // LCOV_EXCL_START defensive: the live AST registry only binds designs,
+  // instances, nets, and terms; keep the generic component/fallback handling.
   if (auto* component = dynamic_cast<SNLNetComponent*>(object)) {
     return PySNLNetComponent_Link(component);
   }
   Py_RETURN_NONE;
+  // LCOV_EXCL_STOP
 }
 
 std::string formatIntentSourceLoc(const naja::NL::SNLSourceLoc& loc) {
   if (loc.line == 0 || loc.file.empty()) {
-    return {};
+    return {};  // LCOV_EXCL_LINE defensive: frontend intent records have source locations
   }
   const auto filename = std::filesystem::path(loc.file.getString()).filename().string();
   return filename + ":" + std::to_string(loc.line);
@@ -107,7 +110,7 @@ std::string formatIntentSourceLoc(const naja::NL::SNLSourceLoc& loc) {
 
 int setDictItem(PyObject* dict, const char* key, PyObject* value) {
   if (!value) {
-    return -1;
+    return -1;  // LCOV_EXCL_LINE CPython allocation failure
   }
   const int status = PyDict_SetItemString(dict, key, value);
   Py_DECREF(value);
@@ -116,11 +119,11 @@ int setDictItem(PyObject* dict, const char* key, PyObject* value) {
 
 PyObject* buildIntentParamDict(const naja::NL::SNLSVIntentParam& param) {
   if (param.name.empty()) {
-    Py_RETURN_NONE;
+    Py_RETURN_NONE;  // LCOV_EXCL_LINE frontend parameter records are always named
   }
   PyObject* dict = PyDict_New();
   if (!dict) {
-    return nullptr;
+    return nullptr;  // LCOV_EXCL_LINE CPython allocation failure
   }
   const auto src = formatIntentSourceLoc(param.loc);
   if (setDictItem(dict, "name", PyUnicode_FromString(param.name.c_str())) < 0 ||
@@ -128,8 +131,10 @@ PyObject* buildIntentParamDict(const naja::NL::SNLSVIntentParam& param) {
       setDictItem(dict, "expr", PyUnicode_FromString(param.expr.c_str())) < 0 ||
       setDictItem(dict, "localparam", PyBool_FromLong(param.localParam)) < 0 ||
       setDictItem(dict, "src", PyUnicode_FromString(src.c_str())) < 0) {
+    // LCOV_EXCL_START CPython allocation/dictionary insertion failure
     Py_DECREF(dict);
     return nullptr;
+    // LCOV_EXCL_STOP
   }
   return dict;
 }
@@ -140,7 +145,7 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
   }
   PyObject* dict = PyDict_New();
   if (!dict) {
-    return nullptr;
+    return nullptr;  // LCOV_EXCL_LINE CPython allocation failure
   }
   const auto src = formatIntentSourceLoc(type.declLoc);
   if (setDictItem(dict, "type", PyUnicode_FromString(type.typeName.c_str())) < 0 ||
@@ -149,14 +154,18 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
         "canonical_kind",
         PyUnicode_FromString(type.canonicalKind.c_str())) < 0 ||
       setDictItem(dict, "src", PyUnicode_FromString(src.c_str())) < 0) {
+    // LCOV_EXCL_START CPython allocation/dictionary insertion failure
     Py_DECREF(dict);
     return nullptr;
+    // LCOV_EXCL_STOP
   }
   if (type.isEnum) {
     PyObject* enumDict = PyDict_New();
     if (!enumDict) {
+      // LCOV_EXCL_START CPython allocation failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     PyObject* members = PyList_New(0);
     if (!members) {
@@ -167,10 +176,12 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
     for (const auto& member : type.members) {
       PyObject* memberDict = PyDict_New();
       if (!memberDict) {
+        // LCOV_EXCL_START CPython allocation failure
         Py_DECREF(members);
         Py_DECREF(enumDict);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       if (setDictItem(memberDict, "name", PyUnicode_FromString(member.name.c_str())) < 0 ||
           setDictItem(
@@ -178,11 +189,13 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
             "encoding",
             PyUnicode_FromString(member.encoding.c_str())) < 0 ||
           PyList_Append(members, memberDict) < 0) {
+        // LCOV_EXCL_START CPython allocation/list insertion failure
         Py_DECREF(memberDict);
         Py_DECREF(members);
         Py_DECREF(enumDict);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       Py_DECREF(memberDict);
     }
@@ -191,28 +204,36 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
         setDictItem(enumDict, "decl", PyUnicode_FromString(enumDecl.c_str())) < 0 ||
         setDictItem(enumDict, "members", members) < 0 ||
         setDictItem(dict, "enum", enumDict) < 0) {
+      // LCOV_EXCL_START CPython allocation/dictionary insertion failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
   } else if (type.isStruct) {
     PyObject* structDict = PyDict_New();
     if (!structDict) {
+      // LCOV_EXCL_START CPython allocation failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     PyObject* fields = PyList_New(0);
     if (!fields) {
+      // LCOV_EXCL_START CPython allocation failure
       Py_DECREF(structDict);
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     for (const auto& field : type.fields) {
       PyObject* fieldDict = PyDict_New();
       if (!fieldDict) {
+        // LCOV_EXCL_START CPython allocation failure
         Py_DECREF(fields);
         Py_DECREF(structDict);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       if (setDictItem(fieldDict, "name", PyUnicode_FromString(field.name.c_str())) < 0 ||
           setDictItem(
@@ -222,11 +243,13 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
           setDictItem(fieldDict, "msb", PyLong_FromUnsignedLongLong(field.msb)) < 0 ||
           setDictItem(fieldDict, "lsb", PyLong_FromUnsignedLongLong(field.lsb)) < 0 ||
           PyList_Append(fields, fieldDict) < 0) {
+        // LCOV_EXCL_START CPython allocation/list insertion failure
         Py_DECREF(fieldDict);
         Py_DECREF(fields);
         Py_DECREF(structDict);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       Py_DECREF(fieldDict);
     }
@@ -241,8 +264,10 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
           PyUnicode_FromString(structDecl.c_str())) < 0 ||
         setDictItem(structDict, "fields", fields) < 0 ||
         setDictItem(dict, "struct", structDict) < 0) {
+      // LCOV_EXCL_START CPython allocation/dictionary insertion failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
   }
   return dict;
@@ -399,7 +424,7 @@ static PyObject* snlObjectsOf(PyObject*, PyObject* arg) {
   auto* link = naja::NL::SNLSVLiveASTLinkRegistry::findForSymbol(symbol);
   auto* result = PyList_New(0);
   if (!result) {
-    return nullptr;
+    return nullptr;  // LCOV_EXCL_LINE CPython allocation failure
   }
   if (!link) {
     return result;
@@ -407,17 +432,23 @@ static PyObject* snlObjectsOf(PyObject*, PyObject* arg) {
   for (auto* object : link->getObjects(symbol)) {
     PyObject* pyObject = wrapNLObject(object);
     if (!pyObject) {
+      // LCOV_EXCL_START CPython wrapper allocation failure
       Py_DECREF(result);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     if (pyObject == Py_None) {
+      // LCOV_EXCL_START defensive: all registry-bound object kinds are wrapped
       Py_DECREF(pyObject);
       continue;
+      // LCOV_EXCL_STOP
     }
     if (PyList_Append(result, pyObject) < 0) {
+      // LCOV_EXCL_START CPython allocation/list insertion failure
       Py_DECREF(pyObject);
       Py_DECREF(result);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     Py_DECREF(pyObject);
   }
@@ -438,9 +469,11 @@ static PyObject* intentTypeOf(PyObject*, PyObject* arg) {
   }
   try {
     return buildIntentTypeDict(naja::NL::SNLSVIntent::typeOf(object));
+    // LCOV_EXCL_START defensive: SNLSVIntent::typeOf already catches failures
   } catch (...) {
     Py_RETURN_NONE;
   }
+  // LCOV_EXCL_STOP
 }
 
 static PyObject* intentParametersOf(PyObject*, PyObject* arg) {
@@ -455,42 +488,54 @@ static PyObject* intentParametersOf(PyObject*, PyObject* arg) {
     }
     PyObject* dict = PyDict_New();
     if (!dict) {
-      return nullptr;
+      return nullptr;  // LCOV_EXCL_LINE CPython allocation failure
     }
     PyObject* paramList = PyList_New(0);
     if (!paramList) {
+      // LCOV_EXCL_START CPython allocation failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     for (const auto& param : params.params) {
       PyObject* paramDict = buildIntentParamDict(param);
       if (!paramDict) {
+        // LCOV_EXCL_START CPython allocation/dictionary insertion failure
         Py_DECREF(paramList);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       if (paramDict == Py_None) {
+        // LCOV_EXCL_START defensive: frontend parameter records are always named
         Py_DECREF(paramDict);
         continue;
+        // LCOV_EXCL_STOP
       }
       if (PyList_Append(paramList, paramDict) < 0) {
+        // LCOV_EXCL_START CPython allocation/list insertion failure
         Py_DECREF(paramDict);
         Py_DECREF(paramList);
         Py_DECREF(dict);
         return nullptr;
+        // LCOV_EXCL_STOP
       }
       Py_DECREF(paramDict);
     }
     if (setDictItem(dict, "module", PyUnicode_FromString(params.module.c_str())) < 0 ||
         setDictItem(dict, "parameters", paramList) < 0 ||
         setDictItem(dict, "count", PyLong_FromSize_t(params.params.size())) < 0) {
+      // LCOV_EXCL_START CPython allocation/dictionary insertion failure
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     return dict;
+    // LCOV_EXCL_START defensive: SNLSVIntent::parametersOf already catches failures
   } catch (...) {
     Py_RETURN_NONE;
   }
+  // LCOV_EXCL_STOP
 }
 
 static PyObject* intentPackageMember(PyObject*, PyObject* args) {
@@ -507,9 +552,11 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
     }
     return buildIntentTypeDict(
       naja::NL::SNLSVIntent::packageMemberType(package, member));
+    // LCOV_EXCL_START defensive: SNLSVIntent package queries already catch failures
   } catch (...) {
     Py_RETURN_NONE;
   }
+  // LCOV_EXCL_STOP
 }
 
 static PyMethodDef NajaMethods[] = {
