@@ -27,7 +27,7 @@ struct SNLSVIntentStructField {
   uint64_t lsb {0};
 };
 
-struct SNLSVIntentType {
+struct SNLSVIntentType {  // LCOV_EXCL_LINE compiler-generated initialization artifact
   bool valid {false};
   std::string typeName {};
   std::string canonicalKind {};

@@ -10,6 +10,7 @@
 #include <string>
 
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "NLLibrary.h"
 #include "NLName.h"
 #include "NLUniverse.h"
@@ -90,7 +91,10 @@ module intent_mini #(
     parameter int DEPTH = 4
 ) (
     input  logic clk,
-    input  logic rst_n
+    input  logic rst_n,
+    input  logic rst,
+    input  logic enable,
+    input  logic data
 );
   import mini_pkg::*;
   localparam int IDX_W = $clog2(DEPTH);
@@ -100,7 +104,24 @@ module intent_mini #(
   logic [3:0]        plain_q;
   payload_t          payload_q;
   overlay_t          overlay_q;
+  logic              latch_q;
+  logic              reset_enable_q;
+  logic              set_enable_q;
   intent_child #(.WIDTH(DEPTH)) u_child ();
+
+  always_latch begin
+    if (enable) latch_q <= data;
+  end
+
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) reset_enable_q <= 1'b0;
+    else if (enable) reset_enable_q <= data;
+  end
+
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) set_enable_q <= 1'b1;
+    else if (enable) set_enable_q <= data;
+  end
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) state_q <= ST_IDLE;
@@ -184,6 +205,35 @@ TEST_F(SNLSVIntentTest, returnsEnumIntentForSourceAndBitBlastedObjects) {
   EXPECT_EQ(type.typeName, ffType.typeName);
   ASSERT_TRUE(ffType.isEnum);
   EXPECT_EQ(type.members[2].encoding, ffType.members[2].encoding);
+}
+
+TEST_F(SNLSVIntentTest, createsScalarSequentialPrimitivesWithLiveLinkEnabled) {
+  auto* top = loadIntentMini();
+  ASSERT_NE(nullptr, top);
+
+  bool foundLatch = false;
+  bool foundDFFRE = false;
+  bool foundDFFSE = false;
+  for (auto* instance : top->getInstances()) {
+    const auto* model = instance->getModel();
+    if (!NLDB0::isDLatch(model) &&
+        !NLDB0::isDFFRE(model) &&
+        !NLDB0::isDFFSE(model)) {
+      continue;
+    }
+
+    const auto type = SNLSVIntent::typeOf(instance);
+    ASSERT_TRUE(type.valid);
+    EXPECT_EQ("logic", type.typeName);
+    EXPECT_EQ("scalar", type.canonicalKind);
+    foundLatch |= NLDB0::isDLatch(model);
+    foundDFFRE |= NLDB0::isDFFRE(model);
+    foundDFFSE |= NLDB0::isDFFSE(model);
+  }
+
+  EXPECT_TRUE(foundLatch);
+  EXPECT_TRUE(foundDFFRE);
+  EXPECT_TRUE(foundDFFSE);
 }
 
 TEST_F(SNLSVIntentTest, returnsScalarAliasAndPackedAggregateIntent) {

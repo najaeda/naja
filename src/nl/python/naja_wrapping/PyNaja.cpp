@@ -169,9 +169,11 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
     }
     PyObject* members = PyList_New(0);
     if (!members) {
+      // LCOV_EXCL_START CPython allocation failure
       Py_DECREF(enumDict);
       Py_DECREF(dict);
       return nullptr;
+      // LCOV_EXCL_STOP CPython allocation failure
     }
     for (const auto& member : type.members) {
       PyObject* memberDict = PyDict_New();

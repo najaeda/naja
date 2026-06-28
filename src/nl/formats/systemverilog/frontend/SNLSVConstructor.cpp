@@ -28866,6 +28866,15 @@ endmodule
             return false;
           }
 
+          const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (tryGetRootValueSymbolReference(*pattern.lhs, trackedSymbol)) {
+            activeSequentialASTSymbol_ = trackedSymbol;
+          }
+          const auto activeSequentialASTSymbolGuard = slang::ScopeGuard([&]() {
+            activeSequentialASTSymbol_ = savedActiveSequentialASTSymbol;
+          });
+
           auto baseName = getExpressionBaseName(*pattern.lhs);
           if (baseName.empty() && lhsNet && !lhsNet->isUnnamed()) {
             // LCOV_EXCL_START
