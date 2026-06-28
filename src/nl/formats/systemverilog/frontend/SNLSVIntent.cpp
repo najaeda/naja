@@ -19,7 +19,9 @@
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
+#include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/ValueSymbol.h"
+#include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/AllTypes.h"
 #include "slang/ast/types/DeclaredType.h"
 #include "slang/ast/types/Type.h"
@@ -212,6 +214,12 @@ const slang::ast::Type* symbolType(const slang::ast::Symbol& symbol) {
   if (const auto* value = symbol.as_if<slang::ast::ValueSymbol>()) {
     return &value->getType();
   }
+  if (const auto* port = symbol.as_if<slang::ast::PortSymbol>()) {
+    return &port->getType();
+  }
+  if (const auto* multiPort = symbol.as_if<slang::ast::MultiPortSymbol>()) {
+    return &multiPort->getType();
+  }
   if (const auto* declaredType = symbol.getDeclaredType()) {
     return &declaredType->getType();
   }
@@ -286,6 +294,30 @@ void addEnumDetails(
   }
 }
 
+template<typename TAggregate>
+void addStructDetails(
+  const slang::ast::Compilation& compilation,
+  const TAggregate& aggregateType,
+  SNLSVIntentType& result) {
+  result.isStruct = true;
+  result.structWidth = aggregateType.getBitWidth();
+  result.structDeclLoc = sourceLocOf(compilation, aggregateType);
+  for (const auto& member : aggregateType.members()) {
+    const auto* field = member.template as_if<slang::ast::FieldSymbol>();
+    if (!field) {
+      continue;
+    }
+    const auto& fieldType = field->getType();
+    const auto fieldWidth = fieldType.getBitWidth();
+    SNLSVIntentStructField structField;
+    structField.name = std::string(field->name);
+    structField.typeName = fieldType.toString();
+    structField.lsb = field->bitOffset;
+    structField.msb = field->bitOffset + (fieldWidth ? fieldWidth - 1 : 0);
+    result.fields.push_back(std::move(structField));
+  }
+}
+
 SNLSVIntentType buildTypeRecord(
   const slang::ast::Compilation& compilation,
   const slang::ast::Symbol& symbol,
@@ -298,6 +330,16 @@ SNLSVIntentType buildTypeRecord(
   result.declLoc = sourceLocOf(compilation, symbol);
   if (canonical.isEnum()) {
     addEnumDetails(compilation, canonical.as<slang::ast::EnumType>(), result);
+  } else if (canonical.kind == slang::ast::SymbolKind::PackedStructType) {
+    addStructDetails(
+      compilation,
+      canonical.as<slang::ast::PackedStructType>(),
+      result);
+  } else if (canonical.isPackedUnion()) {
+    addStructDetails(
+      compilation,
+      canonical.as<slang::ast::PackedUnionType>(),
+      result);
   }
   return result;
 }

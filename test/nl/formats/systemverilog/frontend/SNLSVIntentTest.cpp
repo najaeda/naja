@@ -16,6 +16,7 @@
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
+#include "SNLScalarNet.h"
 
 #include "SNLSVConstructor.h"
 #include "SNLSVIntent.h"
@@ -39,11 +40,21 @@ std::filesystem::path writeIntentMiniFixture(const std::string& testName) {
   std::ofstream svFile(svPath);
   svFile << R"(
 package mini_pkg;
+  typedef logic [7:0] byte_t;
   typedef enum logic [1:0] {
     ST_IDLE = 2'b00,
     ST_RUN  = 2'b01,
     ST_DONE = 2'b11
   } state_e;
+  typedef struct packed {
+    logic   valid;
+    byte_t  data;
+    state_e state;
+  } payload_t;
+  typedef union packed {
+    logic [7:0] raw;
+    byte_t      data;
+  } overlay_t;
   localparam int PLEN = (32 == 32) ? 34 : 56;
 endpackage
 
@@ -57,6 +68,10 @@ module intent_mini #(
   localparam int IDX_W = $clog2(DEPTH);
 
   mini_pkg::state_e state_q;
+  byte_t             byte_q;
+  logic [3:0]        plain_q;
+  payload_t          payload_q;
+  overlay_t          overlay_q;
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) state_q <= ST_IDLE;
@@ -131,7 +146,7 @@ TEST_F(SNLSVIntentTest, returnsEnumIntentForSourceAndBitBlastedObjects) {
   EXPECT_EQ("ST_DONE", type.members[2].name);
   EXPECT_EQ("2'b11", type.members[2].encoding);
   EXPECT_NE(std::string::npos, type.enumDeclLoc.file.getString().find("intent_mini.sv"));
-  EXPECT_EQ(3u, type.enumDeclLoc.line);
+  EXPECT_EQ(4u, type.enumDeclLoc.line);
 
   auto* ff = findInstanceByModel(top, "naja_dffrn__w2");
   ASSERT_NE(nullptr, ff);
@@ -140,6 +155,79 @@ TEST_F(SNLSVIntentTest, returnsEnumIntentForSourceAndBitBlastedObjects) {
   EXPECT_EQ(type.typeName, ffType.typeName);
   ASSERT_TRUE(ffType.isEnum);
   EXPECT_EQ(type.members[2].encoding, ffType.members[2].encoding);
+}
+
+TEST_F(SNLSVIntentTest, returnsScalarAliasAndPackedAggregateIntent) {
+  auto* top = loadIntentMini();
+  ASSERT_NE(nullptr, top);
+
+  auto* clk = top->getNet(NLName("clk"));
+  ASSERT_NE(nullptr, clk);
+  const auto clkType = SNLSVIntent::typeOf(clk);
+  ASSERT_TRUE(clkType.valid);
+  EXPECT_EQ("logic", clkType.typeName);
+  EXPECT_EQ("scalar", clkType.canonicalKind);
+  EXPECT_FALSE(clkType.isEnum);
+  EXPECT_FALSE(clkType.isStruct);
+
+  auto* byteQ = top->getNet(NLName("byte_q"));
+  ASSERT_NE(nullptr, byteQ);
+  const auto byteType = SNLSVIntent::typeOf(byteQ);
+  ASSERT_TRUE(byteType.valid);
+  EXPECT_EQ("mini_pkg::byte_t", byteType.typeName);
+  EXPECT_EQ("packed_array", byteType.canonicalKind);
+  EXPECT_FALSE(byteType.isEnum);
+  EXPECT_FALSE(byteType.isStruct);
+
+  auto* plainQ = top->getNet(NLName("plain_q"));
+  ASSERT_NE(nullptr, plainQ);
+  const auto plainType = SNLSVIntent::typeOf(plainQ);
+  ASSERT_TRUE(plainType.valid);
+  EXPECT_EQ("logic[3:0]", plainType.typeName);
+  EXPECT_EQ("packed_array", plainType.canonicalKind);
+  EXPECT_FALSE(plainType.isEnum);
+  EXPECT_FALSE(plainType.isStruct);
+
+  auto* payloadQ = top->getNet(NLName("payload_q"));
+  ASSERT_NE(nullptr, payloadQ);
+  const auto payloadType = SNLSVIntent::typeOf(payloadQ);
+  ASSERT_TRUE(payloadType.valid);
+  EXPECT_EQ("mini_pkg::payload_t", payloadType.typeName);
+  EXPECT_EQ("packed_struct", payloadType.canonicalKind);
+  EXPECT_FALSE(payloadType.isEnum);
+  ASSERT_TRUE(payloadType.isStruct);
+  EXPECT_EQ(11u, payloadType.structWidth);
+  EXPECT_EQ(9u, payloadType.structDeclLoc.line);
+  ASSERT_EQ(3u, payloadType.fields.size());
+  EXPECT_EQ("valid", payloadType.fields[0].name);
+  EXPECT_EQ("logic", payloadType.fields[0].typeName);
+  EXPECT_EQ(10u, payloadType.fields[0].msb);
+  EXPECT_EQ(10u, payloadType.fields[0].lsb);
+  EXPECT_EQ("data", payloadType.fields[1].name);
+  EXPECT_EQ("mini_pkg::byte_t", payloadType.fields[1].typeName);
+  EXPECT_EQ(9u, payloadType.fields[1].msb);
+  EXPECT_EQ(2u, payloadType.fields[1].lsb);
+  EXPECT_EQ("state", payloadType.fields[2].name);
+  EXPECT_EQ("mini_pkg::state_e", payloadType.fields[2].typeName);
+  EXPECT_EQ(1u, payloadType.fields[2].msb);
+  EXPECT_EQ(0u, payloadType.fields[2].lsb);
+
+  auto* overlayQ = top->getNet(NLName("overlay_q"));
+  ASSERT_NE(nullptr, overlayQ);
+  const auto overlayType = SNLSVIntent::typeOf(overlayQ);
+  ASSERT_TRUE(overlayType.valid);
+  EXPECT_EQ("mini_pkg::overlay_t", overlayType.typeName);
+  EXPECT_EQ("packed_union", overlayType.canonicalKind);
+  ASSERT_TRUE(overlayType.isStruct);
+  EXPECT_EQ(8u, overlayType.structWidth);
+  ASSERT_EQ(2u, overlayType.fields.size());
+  EXPECT_EQ(7u, overlayType.fields[0].msb);
+  EXPECT_EQ(0u, overlayType.fields[0].lsb);
+  EXPECT_EQ(7u, overlayType.fields[1].msb);
+  EXPECT_EQ(0u, overlayType.fields[1].lsb);
+
+  auto* synthetic = SNLScalarNet::create(top, NLName("synthetic"));
+  EXPECT_FALSE(SNLSVIntent::typeOf(synthetic).valid);
 }
 
 TEST_F(SNLSVIntentTest, returnsParametersAndPackageMembers) {

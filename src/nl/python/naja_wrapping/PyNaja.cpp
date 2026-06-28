@@ -194,6 +194,56 @@ PyObject* buildIntentTypeDict(const naja::NL::SNLSVIntentType& type) {
       Py_DECREF(dict);
       return nullptr;
     }
+  } else if (type.isStruct) {
+    PyObject* structDict = PyDict_New();
+    if (!structDict) {
+      Py_DECREF(dict);
+      return nullptr;
+    }
+    PyObject* fields = PyList_New(0);
+    if (!fields) {
+      Py_DECREF(structDict);
+      Py_DECREF(dict);
+      return nullptr;
+    }
+    for (const auto& field : type.fields) {
+      PyObject* fieldDict = PyDict_New();
+      if (!fieldDict) {
+        Py_DECREF(fields);
+        Py_DECREF(structDict);
+        Py_DECREF(dict);
+        return nullptr;
+      }
+      if (setDictItem(fieldDict, "name", PyUnicode_FromString(field.name.c_str())) < 0 ||
+          setDictItem(
+            fieldDict,
+            "type",
+            PyUnicode_FromString(field.typeName.c_str())) < 0 ||
+          setDictItem(fieldDict, "msb", PyLong_FromUnsignedLongLong(field.msb)) < 0 ||
+          setDictItem(fieldDict, "lsb", PyLong_FromUnsignedLongLong(field.lsb)) < 0 ||
+          PyList_Append(fields, fieldDict) < 0) {
+        Py_DECREF(fieldDict);
+        Py_DECREF(fields);
+        Py_DECREF(structDict);
+        Py_DECREF(dict);
+        return nullptr;
+      }
+      Py_DECREF(fieldDict);
+    }
+    const auto structDecl = formatIntentSourceLoc(type.structDeclLoc);
+    if (setDictItem(
+          structDict,
+          "width",
+          PyLong_FromUnsignedLongLong(type.structWidth)) < 0 ||
+        setDictItem(
+          structDict,
+          "decl",
+          PyUnicode_FromString(structDecl.c_str())) < 0 ||
+        setDictItem(structDict, "fields", fields) < 0 ||
+        setDictItem(dict, "struct", structDict) < 0) {
+      Py_DECREF(dict);
+      return nullptr;
+    }
   }
   return dict;
 }

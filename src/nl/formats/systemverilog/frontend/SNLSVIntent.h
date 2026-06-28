@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,13 @@ struct SNLSVIntentEnumMember {
   std::string encoding {};
 };
 
+struct SNLSVIntentStructField {
+  std::string name {};
+  std::string typeName {};
+  uint64_t msb {0};
+  uint64_t lsb {0};
+};
+
 struct SNLSVIntentType {
   bool valid {false};
   std::string typeName {};
@@ -28,6 +36,10 @@ struct SNLSVIntentType {
   unsigned enumWidth {0};
   SNLSourceLoc enumDeclLoc {NLName()};
   std::vector<SNLSVIntentEnumMember> members {};
+  bool isStruct {false};
+  uint64_t structWidth {0};
+  SNLSourceLoc structDeclLoc {NLName()};
+  std::vector<SNLSVIntentStructField> fields {};
 };
 
 struct SNLSVIntentParam {

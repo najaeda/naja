@@ -13,11 +13,21 @@ import faulthandler
 
 INTENT_MINI_SV = """\
 package mini_pkg;
+  typedef logic [7:0] byte_t;
   typedef enum logic [1:0] {
     ST_IDLE = 2'b00,
     ST_RUN  = 2'b01,
     ST_DONE = 2'b11
   } state_e;
+  typedef struct packed {
+    logic   valid;
+    byte_t  data;
+    state_e state;
+  } payload_t;
+  typedef union packed {
+    logic [7:0] raw;
+    byte_t      data;
+  } overlay_t;
   localparam int PLEN = (32 == 32) ? 34 : 56;
 endpackage
 
@@ -31,6 +41,10 @@ module intent_mini #(
   localparam int IDX_W = $clog2(DEPTH);
 
   mini_pkg::state_e state_q;
+  byte_t             byte_q;
+  logic [3:0]        plain_q;
+  payload_t          payload_q;
+  overlay_t          overlay_q;
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) state_q <= ST_IDLE;
@@ -355,13 +369,62 @@ class SNLDBTest(unittest.TestCase):
       type_rec = naja.intent_type_of(state_q)
       self.assertEqual("mini_pkg::state_e", type_rec["type"])
       self.assertEqual("enum", type_rec["canonical_kind"])
-      self.assertTrue(type_rec["src"].endswith("intent_mini.sv:19"))
+      self.assertTrue(type_rec["src"].endswith("intent_mini.sv:29"))
       enum = type_rec["enum"]
       self.assertEqual(2, enum["width"])
-      self.assertTrue(enum["decl"].endswith("intent_mini.sv:2"))
+      self.assertTrue(enum["decl"].endswith("intent_mini.sv:3"))
       self.assertEqual(
         {"ST_IDLE": "2'b00", "ST_RUN": "2'b01", "ST_DONE": "2'b11"},
         {m["name"]: m["encoding"] for m in enum["members"]})
+
+      clk_rec = naja.intent_type_of(top.getNet("clk"))
+      self.assertEqual("logic", clk_rec["type"])
+      self.assertEqual("scalar", clk_rec["canonical_kind"])
+      self.assertTrue(clk_rec["src"].endswith("intent_mini.sv:23"))
+      self.assertNotIn("enum", clk_rec)
+      self.assertNotIn("struct", clk_rec)
+      self.assertEqual(clk_rec, naja.intent_type_of(top.getTerm("clk")))
+
+      byte_rec = naja.intent_type_of(top.getNet("byte_q"))
+      self.assertEqual("mini_pkg::byte_t", byte_rec["type"])
+      self.assertEqual("packed_array", byte_rec["canonical_kind"])
+      self.assertTrue(byte_rec["src"].endswith("intent_mini.sv:30"))
+      self.assertNotIn("enum", byte_rec)
+      self.assertNotIn("struct", byte_rec)
+
+      plain_rec = naja.intent_type_of(top.getNet("plain_q"))
+      self.assertEqual("logic[3:0]", plain_rec["type"])
+      self.assertEqual("packed_array", plain_rec["canonical_kind"])
+      self.assertTrue(plain_rec["src"].endswith("intent_mini.sv:31"))
+      self.assertNotIn("enum", plain_rec)
+      self.assertNotIn("struct", plain_rec)
+
+      payload_rec = naja.intent_type_of(top.getNet("payload_q"))
+      self.assertEqual("mini_pkg::payload_t", payload_rec["type"])
+      self.assertEqual("packed_struct", payload_rec["canonical_kind"])
+      self.assertTrue(payload_rec["src"].endswith("intent_mini.sv:32"))
+      self.assertNotIn("enum", payload_rec)
+      payload = payload_rec["struct"]
+      self.assertEqual(11, payload["width"])
+      self.assertTrue(payload["decl"].endswith("intent_mini.sv:8"))
+      self.assertEqual([
+        {"name": "valid", "type": "logic", "msb": 10, "lsb": 10},
+        {"name": "data", "type": "mini_pkg::byte_t", "msb": 9, "lsb": 2},
+        {"name": "state", "type": "mini_pkg::state_e", "msb": 1, "lsb": 0},
+      ], payload["fields"])
+
+      overlay_rec = naja.intent_type_of(top.getNet("overlay_q"))
+      self.assertEqual("mini_pkg::overlay_t", overlay_rec["type"])
+      self.assertEqual("packed_union", overlay_rec["canonical_kind"])
+      self.assertEqual(8, overlay_rec["struct"]["width"])
+      self.assertTrue(overlay_rec["struct"]["decl"].endswith("intent_mini.sv:13"))
+      self.assertEqual([
+        {"name": "raw", "type": "logic[7:0]", "msb": 7, "lsb": 0},
+        {"name": "data", "type": "mini_pkg::byte_t", "msb": 7, "lsb": 0},
+      ], overlay_rec["struct"]["fields"])
+
+      synthetic = naja.SNLScalarNet.create(top, "synthetic")
+      self.assertIsNone(naja.intent_type_of(synthetic))
 
       ff = next(
         inst for inst in top.getInstances()
