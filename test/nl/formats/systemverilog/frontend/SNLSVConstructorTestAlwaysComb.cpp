@@ -159,6 +159,33 @@ class SNLSVConstructorTestAlwaysComb: public ::testing::Test {
     NLLibrary* library_ {nullptr};
 };
 
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombNonBlockingAssignmentUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath =
+      createTestDirectory("always_comb_nonblocking_assignment_unsupported");
+
+  const auto svPath =
+      outPath / "always_comb_nonblocking_assignment_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_nonblocking_assignment_unsupported(
+  input  logic data_i,
+  output logic data_o
+);
+  always_comb begin
+    data_o <= data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(constructor, svPath,
+                             {"Unsupported combinational block",
+                              "non-blocking assignments in combinational "
+                              "procedural blocks are unsupported"});
+}
+
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombConstantFalseShortCircuitSkipsUnsupportedBranch) {
