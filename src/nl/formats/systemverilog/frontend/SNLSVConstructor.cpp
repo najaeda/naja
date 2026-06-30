@@ -16938,6 +16938,8 @@ endmodule
       return sumBits;
     }
 
+    enum class ProceduralAssignmentScheduling { Blocking, NonBlocking, Unknown };
+
     struct AssignAction {
       const Expression* lhs {nullptr};
       const Expression* rhs {nullptr};
@@ -16945,7 +16947,18 @@ endmodule
       std::vector<std::pair<std::string, int64_t>> loopNameConstants {};
       int8_t stepDelta {0};
       std::optional<slang::ast::BinaryOperator> compoundOp {};
+      ProceduralAssignmentScheduling scheduling {ProceduralAssignmentScheduling::Unknown};
     };
+
+    struct ProceduralAssignmentSchedulingSummary {
+      bool hasBlocking {false};
+      bool hasNonBlocking {false};
+      std::unordered_map<const slang::ast::ValueSymbol*, uint8_t> schedulingBySymbol {};
+    };
+
+    bool assignmentUpdatesActiveProceduralValue(const AssignAction& action) const {
+      return action.scheduling == ProceduralAssignmentScheduling::Blocking;
+    }
 
     struct DirectSequentialAssignment {
       const Expression* lhs {nullptr};
@@ -17793,6 +17806,11 @@ endmodule
         }
         action.stepDelta = 0;
         action.compoundOp = assign.op;
+        action.scheduling = assign.isBlocking()
+          ? ProceduralAssignmentScheduling::Blocking
+          : assign.isNonBlocking()
+            ? ProceduralAssignmentScheduling::NonBlocking
+            : ProceduralAssignmentScheduling::Unknown;
         return true;
       }
       if (expr.kind == slang::ast::ExpressionKind::UnaryOp) {
@@ -17817,6 +17835,7 @@ endmodule
             ? static_cast<int8_t>(-1)
             : static_cast<int8_t>(1);
           action.compoundOp = std::nullopt;
+          action.scheduling = ProceduralAssignmentScheduling::Blocking;
           return true;
         }
       }
@@ -19873,6 +19892,152 @@ endmodule
       SNLNet* lhsNet,
       const AssignAction& action) {
       return getSelfUpdateStepDeltaForAction(design, lhsNet, action) > 0;
+    }
+
+    using ProceduralSchedulingPathState =
+      std::unordered_map<const slang::ast::ValueSymbol*, uint8_t>;
+
+    bool analyzeProceduralAssignmentScheduling(
+      const Statement& stmt,
+      ProceduralAssignmentSchedulingSummary& summary,
+      ProceduralSchedulingPathState& pathState,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current ||
+          isIgnorableSequentialTimingStatement(*current) ||
+          current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !analyzeProceduralAssignmentScheduling(
+                *item, summary, pathState, failureReason, ignoredSymbols)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      const auto mergeBranchStates = [](
+        const ProceduralSchedulingPathState& left,
+        const ProceduralSchedulingPathState& right,
+        ProceduralSchedulingPathState& merged) {
+        merged.clear();
+        for (const auto& [symbol, leftMasks] : left) {
+          const auto rightIt = right.find(symbol);
+          const auto rightMasks = rightIt == right.end() ? 1u : rightIt->second;
+          merged[symbol] = static_cast<uint8_t>(leftMasks | rightMasks);
+        }
+        for (const auto& [symbol, rightMasks] : right) {
+          if (!left.contains(symbol)) {
+            merged[symbol] = static_cast<uint8_t>(1u | rightMasks);
+          }
+        }
+      };
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        auto trueState = pathState;
+        if (!analyzeProceduralAssignmentScheduling(
+              conditional.ifTrue, summary, trueState, failureReason, ignoredSymbols)) {
+          return false; // LCOV_EXCL_LINE: recursive scheduling-analysis failure propagation.
+        }
+        auto falseState = pathState;
+        if (conditional.ifFalse && !analyzeProceduralAssignmentScheduling(
+              *conditional.ifFalse, summary, falseState, failureReason, ignoredSymbols)) {
+          return false; // LCOV_EXCL_LINE: recursive scheduling-analysis failure propagation.
+        }
+        mergeBranchStates(trueState, falseState, pathState);
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        ProceduralSchedulingPathState mergedState;
+        bool sawBranch = false;
+        const auto analyzeBranch = [&](const Statement& branch) {
+          auto branchState = pathState;
+          if (!analyzeProceduralAssignmentScheduling(
+                branch, summary, branchState, failureReason, ignoredSymbols)) {
+            return false; // LCOV_EXCL_LINE: recursive scheduling-analysis failure propagation.
+          }
+          if (!sawBranch) {
+            mergedState = std::move(branchState);
+            sawBranch = true;
+          } else {
+            ProceduralSchedulingPathState nextMerged;
+            mergeBranchStates(mergedState, branchState, nextMerged);
+            mergedState = std::move(nextMerged);
+          }
+          return true;
+        };
+        if (caseStmt.defaultCase && !analyzeBranch(*caseStmt.defaultCase)) {
+          return false; // LCOV_EXCL_LINE: case-branch analysis failure propagation.
+        }
+        for (const auto& item : caseStmt.items) {
+          if (item.stmt && !analyzeBranch(*item.stmt)) {
+            return false; // LCOV_EXCL_LINE: case-item analysis failure propagation.
+          }
+        }
+        if (!caseStmt.defaultCase) {
+          ProceduralSchedulingPathState nextMerged;
+          mergeBranchStates(mergedState, pathState, nextMerged);
+          mergedState = std::move(nextMerged);
+          sawBranch = true;
+        }
+        if (sawBranch) {
+          pathState = std::move(mergedState);
+        }
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        return analyzeProceduralAssignmentScheduling(
+          current->as<slang::ast::ForLoopStatement>().body,
+          summary, pathState, failureReason, ignoredSymbols);
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhs, action) ||
+          shouldIgnoreTrackedLHS(lhs, ignoredSymbols)) {
+        return true;
+      }
+      if (action.scheduling == ProceduralAssignmentScheduling::Unknown) {
+        failureReason = "assignment has unsupported procedural scheduling semantics"; // LCOV_EXCL_LINE
+        return false; // LCOV_EXCL_LINE: Slang assignments are classified blocking or non-blocking.
+      }
+      const uint8_t schedulingBit =
+        action.scheduling == ProceduralAssignmentScheduling::Blocking ? 1u : 2u;
+      summary.hasBlocking |= schedulingBit == 1u;
+      summary.hasNonBlocking |= schedulingBit == 2u;
+      const slang::ast::ValueSymbol* symbol = nullptr;
+      if (!lhs || !tryGetRootValueSymbolReference(*lhs, symbol) || !symbol) {
+        return true;
+      }
+      summary.schedulingBySymbol[symbol] |= schedulingBit;
+      const uint8_t currentMasks = pathState.contains(symbol) ? pathState[symbol] : 1u;
+      uint8_t nextMasks = 0u;
+      for (uint8_t mask = 0; mask < 4; ++mask) {
+        if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+          continue;
+        }
+        const auto nextMask = static_cast<uint8_t>(mask | schedulingBit);
+        if (nextMask == 3u) {
+          failureReason =
+            "mixed blocking and non-blocking assignments to procedural target '" +
+            std::string(symbol->name) +
+            "' can execute on the same control-flow path and cannot be represented "
+            "by the current netlist scheduling model";
+          return false;
+        }
+        nextMasks |= static_cast<uint8_t>(1u << nextMask);
+      }
+      pathState[symbol] = nextMasks;
+      return true;
     }
 
     bool collectDirectAssignments(
@@ -24870,7 +25035,8 @@ endmodule
       std::string& failureReason,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
       CombinationalSubtreeSummaryCache* subtreeSummaryCache = nullptr,
-      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols = nullptr) {
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols = nullptr,
+      bool preserveAssignmentScheduling = false) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -24920,7 +25086,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             return false; // LCOV_EXCL_LINE
           }
           if (isCurrentForLoopBreakRequested()) {
@@ -24945,7 +25112,8 @@ endmodule
               failureReason,
               ignoredSymbols,
               subtreeSummaryCache,
-              replaySymbols);
+              replaySymbols,
+              preserveAssignmentScheduling);
           },
           failureReason,
           [&](const Symbol& loopSymbol, int64_t loopValue) {
@@ -25009,7 +25177,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             return false; // LCOV_EXCL_LINE: default-case failure mirrors covered case-item failures.
           }
 
@@ -25053,7 +25222,8 @@ endmodule
               failureReason,
               ignoredSymbols,
               subtreeSummaryCache,
-              replaySymbols)) {
+              replaySymbols,
+              preserveAssignmentScheduling)) {
           // LCOV_EXCL_START
           // Failure cleanup mirrors directly tested statement lowering
           // failures; this branch only restores replay state before return.
@@ -25082,7 +25252,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             // LCOV_EXCL_START
             // False-branch failure mirrors the true-branch cleanup path.
             activeProceduralReplayEnv_ = replayEnvPtr;
@@ -25108,8 +25279,8 @@ endmodule
                   mergedReplayEnv,
                   condSourceRange,
                   failureReason,
-                  replayLhsSymbol,
-                  &dataBits)) {
+                  preserveAssignmentScheduling ? nullptr : replayLhsSymbol,
+                  preserveAssignmentScheduling ? nullptr : &dataBits)) {
               // Replay merge failure details are covered in the merge helper;
               // this call site only propagates the helper result.
               // LCOV_EXCL_START
@@ -25151,8 +25322,8 @@ endmodule
                 mergedReplayEnv,
                 condSourceRange,
                 failureReason,
-                replayLhsSymbol,
-                &dataBits)) {
+                preserveAssignmentScheduling ? nullptr : replayLhsSymbol,
+                preserveAssignmentScheduling ? nullptr : &dataBits)) {
             // Replay merge failure details are covered in the merge helper;
             // this call site only propagates the helper result.
             // LCOV_EXCL_START
@@ -25202,7 +25373,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             // LCOV_EXCL_START
             activeProceduralReplayEnv_ = replayEnvPtr;
             return false;
@@ -25231,7 +25403,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             // LCOV_EXCL_START
             activeProceduralReplayEnv_ = replayEnvPtr;
             return false;
@@ -25263,7 +25436,8 @@ endmodule
                 failureReason,
                 ignoredSymbols,
                 subtreeSummaryCache,
-                replaySymbols)) {
+                replaySymbols,
+                preserveAssignmentScheduling)) {
             // LCOV_EXCL_START
             // Item statement failures mirror default/last-item failures and
             // only restore replay state here.
@@ -25309,8 +25483,8 @@ endmodule
                     nextReplayEnv,
                     itemSourceRange,
                     failureReason,
-                    replayLhsSymbol,
-                    &mergedBits)) {
+                    preserveAssignmentScheduling ? nullptr : replayLhsSymbol,
+                    preserveAssignmentScheduling ? nullptr : &mergedBits)) {
                 // Replay merge failure details are covered in the merge helper.
                 // LCOV_EXCL_START
                 return false;
@@ -25344,8 +25518,8 @@ endmodule
                   nextReplayEnv,
                   itemSourceRange,
                   failureReason,
-                  replayLhsSymbol,
-                  &mergedBits)) {
+                  preserveAssignmentScheduling ? nullptr : replayLhsSymbol,
+                  preserveAssignmentScheduling ? nullptr : &mergedBits)) {
               // Replay merge failure details are covered in the merge helper.
               // LCOV_EXCL_START
               return false;
@@ -25451,6 +25625,10 @@ endmodule
           (sameLhs(assignedLHS, &lhsExpr) ||
            isTrackedSelectionSubLhsOf(assignedLHS, &lhsExpr));
         if (replaySymbols && assignedLHS && !assignsCurrentLhs) {
+          if (preserveAssignmentScheduling &&
+              !assignmentUpdatesActiveProceduralValue(action)) {
+            return true;
+          }
           bool replayHandled = false;
           if (!applyCombinationalAssignmentToReplaySymbol(
                 design,
@@ -25480,7 +25658,8 @@ endmodule
           }
           if (handled) {
             const slang::ast::ValueSymbol* trackedSymbol = nullptr;
-            if (activeProceduralReplayEnv_ &&
+            if ((!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+                activeProceduralReplayEnv_ &&
                 tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
               (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
             }
@@ -25500,7 +25679,8 @@ endmodule
           }
           if (handled) {
             const slang::ast::ValueSymbol* trackedSymbol = nullptr;
-            if (activeProceduralReplayEnv_ &&
+            if ((!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+                activeProceduralReplayEnv_ &&
                 tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
               (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
             }
@@ -25520,7 +25700,8 @@ endmodule
           }
           if (handled) {
             const slang::ast::ValueSymbol* trackedSymbol = nullptr;
-            if (activeProceduralReplayEnv_ &&
+            if ((!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+                activeProceduralReplayEnv_ &&
                 tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
               (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
             }
@@ -25540,7 +25721,8 @@ endmodule
           }
           if (handled) {
             const slang::ast::ValueSymbol* trackedSymbol = nullptr;
-            if (activeProceduralReplayEnv_ &&
+            if ((!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+                activeProceduralReplayEnv_ &&
                 tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
               (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
             }
@@ -25561,7 +25743,8 @@ endmodule
         }
         dataBits = std::move(assignedBits);
         const slang::ast::ValueSymbol* trackedSymbol = nullptr;
-        if (activeProceduralReplayEnv_ &&
+        if ((!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+            activeProceduralReplayEnv_ &&
             tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
           (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
         }
@@ -25716,7 +25899,19 @@ endmodule
       const Statement& stmt,
       const std::optional<slang::SourceRange>& sourceRange,
       std::string& failureReason,
-      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
+      bool allowNonBlockingAssignments = false) {
+      ProceduralAssignmentSchedulingSummary schedulingSummary;
+      ProceduralSchedulingPathState schedulingPathState;
+      if (!analyzeProceduralAssignmentScheduling(
+            stmt, schedulingSummary, schedulingPathState, failureReason, ignoredSymbols)) {
+        return false; // LCOV_EXCL_LINE: scheduling-analysis failure propagation.
+      }
+      if (schedulingSummary.hasNonBlocking && !allowNonBlockingAssignments) {
+        failureReason =
+          "non-blocking assignments in combinational procedural blocks are unsupported";
+        return false;
+      }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const auto designName = design->getName().getString();
       const auto makeCombinationalLHSScopeName =
@@ -26004,6 +26199,138 @@ endmodule
         }
       }
       return true;
+    }
+
+    DirectSequentialConditionalLowering lowerSequentialProceduralScheduling(
+      SNLDesign* design,
+      const Statement& stmt,
+      SNLBitNet* clkNet,
+      slang::ast::EdgeKind clockEdge,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr) {
+      ProceduralAssignmentSchedulingSummary schedulingSummary;
+      ProceduralSchedulingPathState schedulingPathState;
+      if (!analyzeProceduralAssignmentScheduling(
+            stmt, schedulingSummary, schedulingPathState, failureReason, ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: collector failure propagation.
+      }
+      if (!schedulingSummary.hasBlocking) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+
+      ProceduralReplayDependencyMap replayDependencyMap;
+      std::unordered_set<const slang::ast::ValueSymbol*> conditionSymbols;
+      collectProceduralReplayDependencies(
+        stmt, replayDependencyMap, conditionSymbols, ignoredSymbols);
+      bool requiresSchedulingReplay = false;
+      for (const auto& [blockingSymbol, schedulingMask] :
+           schedulingSummary.schedulingBySymbol) {
+        if ((schedulingMask & 1u) == 0u) {
+          continue;
+        }
+        for (const auto& [targetSymbol, dependencies] : replayDependencyMap) {
+          if (targetSymbol != blockingSymbol && dependencies.contains(blockingSymbol)) {
+            requiresSchedulingReplay = true;
+            break;
+          }
+        }
+        if (requiresSchedulingReplay) {
+          break;
+        }
+      }
+      if (!requiresSchedulingReplay) {
+        return DirectSequentialConditionalLowering::NotApplicable;
+      }
+      if (asyncResetEventExpr) {
+        failureReason =
+          "blocking assignments in sequential blocks with asynchronous event controls "
+          "are not yet supported";
+        return DirectSequentialConditionalLowering::Failed;
+      }
+
+      std::vector<const Expression*> lhsExpressions;
+      if (!collectAssignedLHSExpressions(
+            stmt, lhsExpressions, &failureReason, true, false, ignoredSymbols)) {
+        return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: collector failure propagation.
+      }
+      std::vector<const Expression*> flattenedLHSExpressions;
+      for (const auto* lhsExpr : lhsExpressions) {
+        if (lhsExpr && !appendFlattenedConcatenationLHSExpressions(
+              *lhsExpr, flattenedLHSExpressions)) {
+          failureReason = "failed to flatten sequential procedural assignment LHS"; // LCOV_EXCL_LINE
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: validated LHS cannot fail flattening here.
+        }
+      }
+      std::vector<const Expression*> trackedLHSExpressions;
+      for (const auto* lhsExpr : flattenedLHSExpressions) {
+        appendTrackedSelectionLHS(
+          getTrackedProceduralReplayLHS(lhsExpr), trackedLHSExpressions);
+      }
+
+      CombinationalSubtreeSummaryCache subtreeSummaryCache;
+      for (const auto* lhsExpr : trackedLHSExpressions) {
+        if (!lhsExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBits(
+              design, *lhsExpr, lhsBits, &failureReason, true) || lhsBits.empty()) {
+          failureReason = formatDescribedFailure( // LCOV_EXCL_LINE
+            "unable to resolve sequential procedural assignment LHS: ", // LCOV_EXCL_LINE
+            describeExpression(*lhsExpr)); // LCOV_EXCL_LINE
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: validated tracked LHS resolution failure.
+        }
+
+        const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+        std::unordered_set<const slang::ast::ValueSymbol*> replaySymbols;
+        const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbolsPtr = nullptr;
+        if (tryGetRootValueSymbolReference(*lhsExpr, trackedSymbol)) {
+          replaySymbols =
+            getProceduralReplayRelevantSymbols(*trackedSymbol, replayDependencyMap);
+          replaySymbolsPtr = &replaySymbols;
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        ProceduralReplayEnv replayEnv;
+        if (trackedSymbol) {
+          replayEnv[trackedSymbol] = lhsBits;
+        }
+        auto* savedActiveProceduralReplayEnv = activeProceduralReplayEnv_;
+        activeProceduralReplayEnv_ = trackedSymbol ? &replayEnv : nullptr;
+        const auto replayEnvGuard = slang::ScopeGuard([&]() {
+          activeProceduralReplayEnv_ = savedActiveProceduralReplayEnv;
+        });
+        size_t tempIndex = 0;
+        if (!applyCombinationalStatementForLhs(
+              design,
+              stmt,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              tempIndex,
+              failureReason,
+              ignoredSymbols,
+              &subtreeSummaryCache,
+              replaySymbolsPtr,
+              true)) {
+          failureReason = "sequential procedural scheduling replay failed: " + failureReason; // LCOV_EXCL_LINE
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: replay helper failure propagation.
+        }
+        if (!emitSequentialDataAssignment(
+              design,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              clkNet,
+              clockEdge,
+              blockSourceRange,
+              failureReason)) {
+          return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: emitter failure propagation.
+        }
+      }
+      return DirectSequentialConditionalLowering::Lowered;
     }
 
     bool emitSequentialConditionalAssignment(
@@ -28800,7 +29127,9 @@ endmodule
 #endif
         const auto& block = *blockPtr;
         auto blockSourceRange = getSourceRange(block);
-        auto lowerCombinationalBlock = [&](const Statement& combinationalStmt) {
+        auto lowerCombinationalBlock = [
+          &](const Statement& combinationalStmt,
+             bool allowNonBlockingAssignments = false) {
           std::unordered_set<const slang::ast::ValueSymbol*> ignoredSymbols;
           const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbolsPtr = nullptr;
           for (const auto& memory : inferredMemories_) {
@@ -28828,7 +29157,8 @@ endmodule
                 combinationalStmt,
                 blockSourceRange,
                 combFailureReason,
-                ignoredSymbolsPtr)) {
+                ignoredSymbolsPtr,
+                allowNonBlockingAssignments)) {
             std::ostringstream reason;
             reason << "Unsupported combinational block in module '" << moduleName << "'";
             if (!combFailureReason.empty()) {
@@ -29135,7 +29465,7 @@ endmodule
           const Statement* latchStmt = unwrapStatement(block.getBody());
           auto latchSourceRange = latchStmt ? getSourceRange(*latchStmt) : blockSourceRange;
           if (latchStmt && canLowerAlwaysLatchAsCombinational(*latchStmt)) {
-            lowerCombinationalBlock(*latchStmt);
+            lowerCombinationalBlock(*latchStmt, true);
             continue;
           }
           std::string latchFailureReason;
@@ -29293,6 +29623,32 @@ endmodule
         };
         const Statement* topSequentialStmt =
           stmt ? getTopSequentialStatement(*stmt) : nullptr;
+
+        if (topSequentialStmt) {
+          std::string schedulingFailureReason;
+          switch (lowerSequentialProceduralScheduling(
+            design,
+            *topSequentialStmt,
+            clkNet,
+            clockEdge,
+            asyncResetEventExpr,
+            statementSourceRange,
+            schedulingFailureReason,
+            ignoredSequentialSymbolsPtr)) {
+            case DirectSequentialConditionalLowering::Lowered:
+              markSequentialBlockLowered();
+              continue;
+            case DirectSequentialConditionalLowering::Failed: {
+              std::ostringstream reason;
+              reason << "Unsupported sequential block in module '" << moduleName
+                     << "': " << schedulingFailureReason;
+              reportUnsupportedElement(reason.str(), statementSourceRange);
+              continue;
+            }
+            case DirectSequentialConditionalLowering::NotApplicable:
+              break;
+          }
+        }
 
         AlwaysFFChain chain;
         bool extractedAlwaysFFChain = false;
