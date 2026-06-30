@@ -29411,6 +29411,87 @@ endmodule
 }
 
 TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialSchedulingReplayPreservesForeignNonBlockingAssignment) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+                 "sequential_scheduling_replay_preserves_foreign_nonblocking";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "top.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top (
+  input logic clk, b, d,
+  output logic a, c, e
+);
+  always_ff @(posedge clk) begin
+    a = b;
+    c <= d;
+    e = a ^ c;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto* b = dynamic_cast<SNLBitNet*>(top->getNet(NLName("b")));
+  auto* c = dynamic_cast<SNLBitNet*>(top->getNet(NLName("c")));
+  auto* d = dynamic_cast<SNLBitNet*>(top->getNet(NLName("d")));
+  auto* e = dynamic_cast<SNLBitNet*>(top->getNet(NLName("e")));
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(c, nullptr);
+  ASSERT_NE(d, nullptr);
+  ASSERT_NE(e, nullptr);
+  EXPECT_EQ(d, getDFFDataForOutputBit(top, c));
+  auto* eData = dynamic_cast<SNLBitNet*>(getDFFDataForOutputBit(top, e));
+  ASSERT_NE(eData, nullptr);
+  EXPECT_TRUE(netDependsOn(eData, b));
+  EXPECT_TRUE(netDependsOn(eData, c));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialBlockingReplayWithAsyncResetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+                 "sequential_blocking_replay_async_reset_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "top.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top (
+  input logic clk, rst_n, b,
+  output logic a, c
+);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      a = 1'b0;
+      c = 1'b0;
+    end else begin
+      a = b;
+      c = a;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"blocking assignments in sequential blocks with asynchronous event controls "
+     "are not yet supported"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
        parseSequentialBlockingLoopPartialUpdatesActiveValue) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
