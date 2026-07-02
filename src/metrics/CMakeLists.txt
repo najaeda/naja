@@ -4,12 +4,16 @@
 
 set(SOURCES
   FanoutComputer.cpp
+  LogicCone.cpp
   LogicLevelComputer.cpp
+  SNLLogicalCone.cpp
 )
 
 set(naja_metrics_HEADERS
   FanoutComputer.h
+  LogicCone.h
   LogicLevelComputer.h
+  SNLLogicalCone.h
 )
 
 add_library(naja_metrics SHARED ${SOURCES})

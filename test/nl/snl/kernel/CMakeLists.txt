@@ -33,7 +33,7 @@ SET(snl_tests_with_pyloader
 ADD_EXECUTABLE(snlTests ${snl_tests})
 target_compile_definitions(snlTests PRIVATE
   SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
-TARGET_LINK_LIBRARIES(snlTests naja_nl gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlTests naja_nl naja_metrics gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlTests)
 
 if(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
