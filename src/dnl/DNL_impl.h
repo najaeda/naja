@@ -157,6 +157,24 @@ void DNL<DNLInstance, DNLTerminal>::display() const {
 }
 
 template <class DNLInstance, class DNLTerminal>
+void DNL<DNLInstance, DNLTerminal>::initDFSIntervals() {
+  DNLID next = 0;
+  std::function<void(DNLID)> visit = [&](DNLID id) {
+    const auto dfsIn = next++;
+    const auto children = getDNLInstanceFromID(id).getChildren();
+    if (children.first != DNLID_MAX) {
+      for (DNLID child = children.first; child <= children.second; ++child) {
+        visit(child);
+      }
+    }
+    getNonConstDNLInstanceFromID(id).setDFSInterval(dfsIn, next);
+  };
+  if (not DNLInstances_.empty()) {
+    visit(0);
+  }
+}
+
+template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::process() {
   std::vector<DNLID> stack;
   // Creating the top
@@ -296,6 +314,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     }
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
+  initDFSIntervals();
   DNLInstances_.push_back(DNLInstance());
   DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();

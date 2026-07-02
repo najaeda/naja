@@ -198,6 +198,16 @@ class DNLInstanceFull {
   const std::pair<DNLID, DNLID>& getChildren() const {
     return childrenIndexes_;
   }
+  void setDFSInterval(DNLID dfsIn, DNLID dfsOut) {
+    dfsIn_ = dfsIn;
+    dfsOut_ = dfsOut;
+  }
+  DNLID getDFSIn() const { return dfsIn_; }
+  DNLID getDFSOut() const { return dfsOut_; }
+  bool isUnder(const DNLInstanceFull& parent) const {
+    return id_ != DNLID_MAX and parent.id_ != DNLID_MAX and
+      parent.dfsIn_ <= dfsIn_ and dfsIn_ < parent.dfsOut_;
+  }
   /**
    * \brief Check if the DNLInstanceFull is leaf.
    * \return True if the DNLInstanceFull is leaf.
@@ -214,6 +224,8 @@ class DNLInstanceFull {
   DNLID id_ = DNLID_MAX;
   DNLID parent_ = DNLID_MAX;
   std::pair<DNLID, DNLID> termsIndexes_;
+  DNLID dfsIn_ = DNLID_MAX;
+  DNLID dfsOut_ = DNLID_MAX;
 };
 
 class DNLTerminalFull {
@@ -686,6 +698,7 @@ class DNL {
   const SNLDesign* getTopDesign() const { return top_; }
   
  private:
+  void initDFSIntervals();
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
   const SNLDesign* top_;
