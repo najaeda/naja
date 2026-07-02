@@ -5,15 +5,22 @@
 #include "LogicCone.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <deque>
 #include <limits>
 #include <map>
 #include <set>
 #include <utility>
 
+#include <tbb/blocked_range.h>
+#include <tbb/enumerable_thread_specific.h>
+#include <tbb/parallel_for.h>
+#include <tbb/task_arena.h>
+
 #include "DNL.h"
 #include "NLException.h"
 #include "NLUniverse.h"
+#include "SNLBusTerm.h"
 #include "SNLBitTerm.h"
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
@@ -21,12 +28,18 @@
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLTerm.h"
+#include "SNLUtils.h"
 
 namespace {
 
 using namespace naja::DNL;
 using namespace naja::NL;
 using naja::NAJA_METRICS::LogicCone;
+
+using Node = LogicCone::Node;
+using NodeID = LogicCone::NodeID;
+using NodeKind = LogicCone::NodeKind;
+using Direction = LogicCone::Direction;
 
 SNLDesign* inferTopDesign(const SNLOccurrence& occurrence) {
   if (not occurrence.isValid()) {
@@ -36,7 +49,7 @@ SNLDesign* inferTopDesign(const SNLOccurrence& occurrence) {
   if (not path.empty()) {
     return path.getDesign();
   }
-  if (auto term = occurrence.getBitTerm()) {
+  if (auto term = dynamic_cast<SNLTerm*>(occurrence.getObject())) {
     return term->getDesign();
   }
   if (auto instTerm = occurrence.getInstTerm()) {
@@ -51,26 +64,99 @@ SNLOccurrence getInstanceOccurrence(const DNLInstanceFull& instance) {
     instance.getSNLInstance());
 }
 
-struct LogicConeExtractor {
-  using Node = LogicCone::Node;
-  using NodeID = LogicCone::NodeID;
-  using NodeKind = LogicCone::NodeKind;
-  using Direction = LogicCone::Direction;
+struct ConeData {
+  std::vector<Node> nodes {};
+  NodeID root {0};
+  std::vector<NodeID> leaves {};
+  std::map<SNLOccurrence, NodeID> indexOf {};
+  std::set<DNLID> expandedTerms {};
+  std::deque<std::pair<NodeID, DNLID>> queue {};
+  std::vector<NodeID> bitRoots {};
 
+  static bool isLeaf(NodeKind kind) {
+    return kind == NodeKind::Flop or
+      kind == NodeKind::Ports or
+      kind == NodeKind::Blackbox;
+  }
+
+  void eraseLeaf(NodeID id) {
+    leaves.erase(std::remove(leaves.begin(), leaves.end(), id), leaves.end());
+  }
+
+  NodeID getOrCreate(
+    const SNLOccurrence& occurrence,
+    NodeKind kind) {
+    auto found = indexOf.find(occurrence);
+    if (found != indexOf.end()) {
+      auto id = found->second;
+      if (kind == NodeKind::Root and nodes[id].kind != NodeKind::Root) {
+        if (isLeaf(nodes[id].kind)) {
+          eraseLeaf(id);
+        }
+        nodes[id].kind = NodeKind::Root;
+      }
+      return id;
+    }
+
+    // LCOV_EXCL_START
+    if (nodes.size() >= std::numeric_limits<NodeID>::max()) {
+      throw NLException("LogicCone node count exceeds NodeID capacity");
+    }
+    // LCOV_EXCL_STOP
+    auto id = static_cast<NodeID>(nodes.size());
+    nodes.push_back(Node {occurrence, kind, {}, {}});
+    indexOf.emplace(occurrence, id);
+    if (isLeaf(kind)) {
+      leaves.push_back(id);
+    }
+    return id;
+  }
+
+  bool wouldCreateCycle(NodeID parentID, NodeID childID) const {
+    if (parentID == childID) {
+      return true;
+    }
+    std::vector<NodeID> stack {childID};
+    std::set<NodeID> visited;
+    while (not stack.empty()) {
+      auto current = stack.back();
+      stack.pop_back();
+      if (current == parentID) {
+        return true;
+      }
+      if (not visited.insert(current).second) {
+        continue;
+      }
+      const auto& next = nodes[current].next;
+      stack.insert(stack.end(), next.begin(), next.end());
+    }
+    return false;
+  }
+
+  void addEdge(NodeID parentID, NodeID childID) {
+    auto& next = nodes[parentID].next;
+    if (std::find(next.begin(), next.end(), childID) != next.end()) {
+      return;
+    }
+    if (wouldCreateCycle(parentID, childID)) {
+      return;
+    }
+    next.push_back(childID);
+    nodes[childID].prev.push_back(parentID);
+  }
+};
+
+struct LogicConeExtractor {
   LogicConeExtractor(
     DNLFull& dnl,
     Direction direction,
-    std::vector<Node>& nodes,
-    NodeID& root,
-    std::vector<NodeID>& leaves):
+    ConeData& data):
     dnl_(dnl),
     direction_(direction),
-    nodes_(nodes),
-    root_(root),
-    leaves_(leaves)
+    data_(data)
   {}
 
-  void extract(const SNLOccurrence& start) {
+  NodeID extract(const SNLOccurrence& start) {
     if (not start.isValid() or
         (not start.getBitTerm() and not start.getInstTerm())) {
       throw NLException(
@@ -83,14 +169,17 @@ struct LogicConeExtractor {
       throw NLException("LogicCone start is not present in the current DNL");
     }
 
-    root_ = getOrCreate(start, NodeKind::Root);
-    queue_.emplace_back(root_, startTerminal->getID());
+    auto root = data_.getOrCreate(start, NodeKind::Root);
+    data_.root = root;
+    data_.queue.clear();
+    data_.queue.emplace_back(root, startTerminal->getID());
 
-    while (not queue_.empty()) {
-      auto [parentID, terminalID] = queue_.front();
-      queue_.pop_front();
+    while (not data_.queue.empty()) {
+      auto [parentID, terminalID] = data_.queue.front();
+      data_.queue.pop_front();
       extractIso(parentID, terminalID);
     }
+    return root;
   }
 
   private:
@@ -133,66 +222,6 @@ struct LogicConeExtractor {
       return terminal.isNull() ? nullptr : &terminal;
     }
 
-    NodeID getOrCreate(
-      const SNLOccurrence& occurrence,
-      NodeKind kind) {
-      auto found = indexOf_.find(occurrence);
-      if (found != indexOf_.end()) {
-        return found->second;
-      }
-      // LCOV_EXCL_START
-      if (nodes_.size() >= std::numeric_limits<NodeID>::max()) {
-        throw NLException("LogicCone node count exceeds NodeID capacity");
-      }
-      // LCOV_EXCL_STOP
-      auto id = static_cast<NodeID>(nodes_.size());
-      nodes_.push_back(Node {occurrence, kind, {}, {}});
-      indexOf_.emplace(occurrence, id);
-      if (isLeaf(kind)) {
-        leaves_.push_back(id);
-      }
-      return id;
-    }
-
-    static bool isLeaf(NodeKind kind) {
-      return kind == NodeKind::Flop or
-        kind == NodeKind::Ports or
-        kind == NodeKind::Blackbox;
-    }
-
-    bool wouldCreateCycle(NodeID parentID, NodeID childID) const {
-      if (parentID == childID) {
-        return true;
-      }
-      std::vector<NodeID> stack {childID};
-      std::set<NodeID> visited;
-      while (not stack.empty()) {
-        auto current = stack.back();
-        stack.pop_back();
-        if (current == parentID) {
-          return true;
-        }
-        if (not visited.insert(current).second) {
-          continue;
-        }
-        const auto& next = nodes_[current].next;
-        stack.insert(stack.end(), next.begin(), next.end());
-      }
-      return false;
-    }
-
-    void addEdge(NodeID parentID, NodeID childID) {
-      auto& next = nodes_[parentID].next;
-      if (std::find(next.begin(), next.end(), childID) != next.end()) {
-        return;
-      }
-      if (wouldCreateCycle(parentID, childID)) {
-        return;
-      }
-      next.push_back(childID);
-      nodes_[childID].prev.push_back(parentID);
-    }
-
     NodeKind getNodeKind(const DNLInstanceFull& instance) const {
       auto model = instance.getSNLInstance()->getModel();
       if (SNLDesignModeling::isSequential(model)) {
@@ -211,7 +240,7 @@ struct LogicConeExtractor {
       if (kind != NodeKind::Internal) {
         return;
       }
-      if (not expandedTerms_.insert(terminal.getID()).second) {
+      if (not data_.expandedTerms.insert(terminal.getID()).second) {
         return;
       }
 
@@ -225,21 +254,22 @@ struct LogicConeExtractor {
         if (nextTerminal.isNull()) {
           continue;
         }
-        queue_.emplace_back(childID, nextTerminal.getID());
+        data_.queue.emplace_back(childID, nextTerminal.getID());
       }
     }
 
     void addTerminal(NodeID parentID, const DNLTerminalFull& terminal) {
       if (terminal.isTopPort()) {
-        auto portID = getOrCreate(terminal.getOccurrence(), NodeKind::Ports);
-        addEdge(parentID, portID);
+        auto portID =
+          data_.getOrCreate(terminal.getOccurrence(), NodeKind::Ports);
+        data_.addEdge(parentID, portID);
         return;
       }
 
       auto& instance = terminal.getDNLInstance();
       auto kind = getNodeKind(instance);
-      auto childID = getOrCreate(getInstanceOccurrence(instance), kind);
-      addEdge(parentID, childID);
+      auto childID = data_.getOrCreate(getInstanceOccurrence(instance), kind);
+      data_.addEdge(parentID, childID);
       expandThroughInstance(childID, terminal, kind);
     }
 
@@ -262,13 +292,96 @@ struct LogicConeExtractor {
 
     DNLFull& dnl_;
     Direction direction_;
-    std::vector<Node>& nodes_;
-    NodeID& root_;
-    std::vector<NodeID>& leaves_;
-    std::map<SNLOccurrence, NodeID> indexOf_ {};
-    std::set<DNLID> expandedTerms_ {};
-    std::deque<std::pair<NodeID, DNLID>> queue_ {};
+    ConeData& data_;
 };
+
+std::vector<SNLOccurrence> getBusBitOccurrences(
+    const SNLOccurrence& busOccurrence,
+    SNLBusTerm* bus) {
+  std::vector<SNLOccurrence> bits;
+  bits.reserve(static_cast<size_t>(bus->getWidth()));
+  auto path = busOccurrence.getPath();
+  for (auto bit : bus->getBits()) {
+    bits.emplace_back(path, bit);
+  }
+  return bits;
+}
+
+void mergeConeData(
+    ConeData& merged,
+    const ConeData& local,
+    NodeID busRoot) {
+  if (local.nodes.empty()) {
+    return;
+  }
+
+  std::vector<NodeID> remap(local.nodes.size());
+  for (size_t i = 0; i < local.nodes.size(); ++i) {
+    remap[i] = merged.getOrCreate(
+        local.nodes[i].occurrence,
+        local.nodes[i].kind);
+  }
+  for (size_t i = 0; i < local.nodes.size(); ++i) {
+    for (auto next : local.nodes[i].next) {
+      merged.addEdge(remap[i], remap[next]);
+    }
+  }
+  for (auto bitRoot : local.bitRoots) {
+    merged.addEdge(busRoot, remap[bitRoot]);
+  }
+}
+
+ConeData extractSingleBitCone(
+    DNLFull& dnl,
+    Direction direction,
+    const SNLOccurrence& start) {
+  ConeData data;
+  LogicConeExtractor extractor(dnl, direction, data);
+  extractor.extract(start);
+  return data;
+}
+
+ConeData extractBusCone(
+    DNLFull& dnl,
+    Direction direction,
+    const SNLOccurrence& busOccurrence,
+    SNLBusTerm* bus) {
+  auto bitOccurrences = getBusBitOccurrences(busOccurrence, bus);
+  if (bitOccurrences.empty()) {
+    throw NLException("LogicCone bus start has no bits");
+  }
+
+  SNLUtils::prepareForConcurrentAccess(dnl.getTopDesign());
+  tbb::enumerable_thread_specific<ConeData> localCones;
+
+  auto extractRange = [&](size_t begin, size_t end) {
+    auto& local = localCones.local();
+    LogicConeExtractor extractor(dnl, direction, local);
+    for (size_t i = begin; i < end; ++i) {
+      local.bitRoots.push_back(extractor.extract(bitOccurrences[i]));
+    }
+  };
+
+  if (not std::getenv("NON_MT")) {
+    tbb::task_arena arena(tbb::task_arena::automatic);
+    arena.execute([&]() {
+      tbb::parallel_for(
+          tbb::blocked_range<size_t>(0, bitOccurrences.size()),
+          [&](const tbb::blocked_range<size_t>& range) {
+            extractRange(range.begin(), range.end());
+          });
+    });
+  } else {
+    extractRange(0, bitOccurrences.size());
+  }
+
+  ConeData merged;
+  merged.root = merged.getOrCreate(busOccurrence, NodeKind::Root);
+  for (const auto& local : localCones) {
+    mergeConeData(merged, local, merged.root);
+  }
+  return merged;
+}
 
 }  // namespace
 
@@ -287,8 +400,15 @@ LogicCone::LogicCone(
     naja::NL::NLUniverse::get()->setTopDesign(top);
   }
   auto dnl = naja::DNL::get();
-  LogicConeExtractor extractor(*dnl, direction_, nodes_, root_, leaves_);
-  extractor.extract(start);
+  auto data = [&]() {
+    if (auto bus = dynamic_cast<naja::NL::SNLBusTerm*>(start.getObject())) {
+      return extractBusCone(*dnl, direction_, start, bus);
+    }
+    return extractSingleBitCone(*dnl, direction_, start);
+  }();
+  nodes_ = std::move(data.nodes);
+  root_ = data.root;
+  leaves_ = std::move(data.leaves);
 }
 
 }  // namespace naja::NAJA_METRICS

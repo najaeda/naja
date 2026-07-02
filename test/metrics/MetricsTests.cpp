@@ -19,6 +19,7 @@
 #include "NLUniverse.h"
 #include "NetlistGraph.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLOccurrence.h"
 #include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
@@ -177,6 +178,68 @@ TEST_F(MetricsTests, logicConeMatchesSNLLogicalCone) {
       SNLOccurrence(upstream->getInstTerm(q)),
       LogicCone::Direction::FanOut);
   expectSameCone(snlFanOut, dnlFanOut);
+}
+
+TEST_F(MetricsTests, logicConeBusOccurrenceBuildsSharedCone) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+
+  auto buffer = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
+  auto i = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Input, NLName("I"));
+  auto o = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignModeling::addCombinatorialArcs({i}, {o});
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topInput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Input, NLName("IN"));
+  auto topOutput = SNLBusTerm::create(
+      top, SNLTerm::Direction::Output, 1, 0, NLName("OUT"));
+  auto instance = SNLInstance::create(top, buffer, NLName("buffer"));
+
+  auto inputNet = SNLScalarNet::create(top, NLName("input"));
+  topInput->setNet(inputNet);
+  instance->getInstTerm(i)->setNet(inputNet);
+
+  auto outputNet = SNLScalarNet::create(top, NLName("output"));
+  instance->getInstTerm(o)->setNet(outputNet);
+  topOutput->getBit(0)->setNet(outputNet);
+  topOutput->getBit(1)->setNet(outputNet);
+
+  LogicCone cone(SNLOccurrence(topOutput), LogicCone::Direction::FanIn);
+  auto bit0 = topOutput->getBit(0);
+  auto bit1 = topOutput->getBit(1);
+
+  ASSERT_EQ(5, cone.getNodeCount());
+  EXPECT_EQ(topOutput, cone.getNodes()[cone.getRoot()].occurrence.getObject());
+  EXPECT_EQ(LogicCone::NodeKind::Root, cone.getNodes()[cone.getRoot()].kind);
+
+  std::map<SNLDesignObject*, LogicCone::NodeKind> expectedKinds {
+      {topOutput, LogicCone::NodeKind::Root},
+      {bit0, LogicCone::NodeKind::Root},
+      {bit1, LogicCone::NodeKind::Root},
+      {instance, LogicCone::NodeKind::Internal},
+      {topInput, LogicCone::NodeKind::Ports},
+  };
+  EXPECT_EQ(expectedKinds, collectNodeKinds(cone));
+
+  std::set<SNLDesignObject*> expectedLeaves {topInput};
+  EXPECT_EQ(expectedLeaves, collectLeaves(cone));
+
+  std::set<std::pair<SNLDesignObject*, SNLDesignObject*>> expectedEdges {
+      {topOutput, bit0},
+      {topOutput, bit1},
+      {bit0, instance},
+      {bit1, instance},
+      {instance, topInput},
+  };
+  EXPECT_EQ(expectedEdges, collectEdges(cone));
 }
 
 // Building a test like the prvious only with 3 levels of hierarchy

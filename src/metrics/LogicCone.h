@@ -17,6 +17,7 @@ class LogicCone { // LCOV_EXCL_LINE declaration attributed by gcov
     using NodeKind = naja::NL::SNLLogicalCone::NodeKind;
     using Node = naja::NL::SNLLogicalCone::Node;
 
+    // A bus-term occurrence builds one shared cone for all its bits.
     LogicCone(const naja::NL::SNLOccurrence& start, Direction direction);
 
     Direction getDirection() const { return direction_; }
