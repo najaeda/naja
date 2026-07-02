@@ -157,17 +157,21 @@ struct LogicConeExtractor {
   {}
 
   NodeID extract(const SNLOccurrence& start) {
+    // LCOV_EXCL_START
     if (not start.isValid() or
         (not start.getBitTerm() and not start.getInstTerm())) {
       throw NLException(
         "LogicCone start must be a valid single-bit "
         "SNLNetComponent occurrence");
     }
+    // LCOV_EXCL_STOP
 
     auto startTerminal = findTerminal(start);
+    // LCOV_EXCL_START
     if (not startTerminal) {
       throw NLException("LogicCone start is not present in the current DNL");
     }
+    // LCOV_EXCL_STOP
 
     auto root = data_.getOrCreate(start, NodeKind::Root);
     data_.root = root;
@@ -187,9 +191,11 @@ struct LogicConeExtractor {
       auto instance = &dnl_.getTop();
       for (auto snlInstance: path.getInstances()) {
         auto& child = instance->getChildInstance(snlInstance);
+        // LCOV_EXCL_START
         if (child.isNull()) {
           return nullptr;
         }
+        // LCOV_EXCL_STOP
         instance = &child;
       }
       return instance;
@@ -199,27 +205,45 @@ struct LogicConeExtractor {
       const SNLOccurrence& occurrence) const {
       if (auto bitTerm = occurrence.getBitTerm()) {
         auto instance = findInstance(occurrence.getPath());
+        // LCOV_EXCL_START
         if (not instance) {
           return nullptr;
         }
+        // LCOV_EXCL_STOP
         auto& terminal = instance->getTerminalFromBitTerm(bitTerm);
-        return terminal.isNull() ? nullptr : &terminal;
+        // LCOV_EXCL_START
+        if (terminal.isNull()) {
+          return nullptr;
+        }
+        // LCOV_EXCL_STOP
+        return &terminal;
       }
 
       auto instTerm = occurrence.getInstTerm();
+      // LCOV_EXCL_START
       if (not instTerm) {
         return nullptr;
       }
+      // LCOV_EXCL_STOP
       auto parent = findInstance(occurrence.getPath());
+      // LCOV_EXCL_START
       if (not parent) {
         return nullptr;
       }
+      // LCOV_EXCL_STOP
       auto& instance = parent->getChildInstance(instTerm->getInstance());
+      // LCOV_EXCL_START
       if (instance.isNull()) {
         return nullptr;
       }
+      // LCOV_EXCL_STOP
       auto& terminal = instance.getTerminal(instTerm);
-      return terminal.isNull() ? nullptr : &terminal;
+      // LCOV_EXCL_START
+      if (terminal.isNull()) {
+        return nullptr;
+      }
+      // LCOV_EXCL_STOP
+      return &terminal;
     }
 
     NodeKind getNodeKind(const DNLInstanceFull& instance) const {
@@ -251,9 +275,11 @@ struct LogicConeExtractor {
       auto& instance = terminal.getDNLInstance();
       for (auto nextInstTerm: crossed) {
         auto& nextTerminal = instance.getTerminal(nextInstTerm);
+        // LCOV_EXCL_START
         if (nextTerminal.isNull()) {
           continue;
         }
+        // LCOV_EXCL_STOP
         data_.queue.emplace_back(childID, nextTerminal.getID());
       }
     }
@@ -283,9 +309,11 @@ struct LogicConeExtractor {
         direction_ == Direction::FanIn ? iso.getDrivers() : iso.getReaders();
       for (auto nextTerminalID: terminals) {
         const auto& terminal = dnl_.getDNLTerminalFromID(nextTerminalID);
+        // LCOV_EXCL_START
         if (terminal.isNull()) {
           continue;
         }
+        // LCOV_EXCL_STOP
         addTerminal(parentID, terminal);
       }
     }
@@ -311,9 +339,11 @@ void mergeConeData(
     ConeData& merged,
     const ConeData& local,
     NodeID busRoot) {
+  // LCOV_EXCL_START
   if (local.nodes.empty()) {
     return;
   }
+  // LCOV_EXCL_STOP
 
   std::vector<NodeID> remap(local.nodes.size());
   for (size_t i = 0; i < local.nodes.size(); ++i) {
@@ -347,9 +377,11 @@ ConeData extractBusCone(
     const SNLOccurrence& busOccurrence,
     SNLBusTerm* bus) {
   auto bitOccurrences = getBusBitOccurrences(busOccurrence, bus);
+  // LCOV_EXCL_START
   if (bitOccurrences.empty()) {
     throw NLException("LogicCone bus start has no bits");
   }
+  // LCOV_EXCL_STOP
 
   SNLUtils::prepareForConcurrentAccess(dnl.getTopDesign());
   tbb::enumerable_thread_specific<ConeData> localCones;

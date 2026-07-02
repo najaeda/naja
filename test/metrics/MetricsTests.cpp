@@ -6,9 +6,12 @@
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
 
+#include <cstdlib>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
+#include <string>
 
 #include "DNL.h"
 #include "FanoutComputer.h"
@@ -23,6 +26,7 @@
 #include "SNLOccurrence.h"
 #include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
+#include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLLogicalCone.h"
 #include "SNLPath.h"
@@ -112,6 +116,94 @@ void expectSameCone(const SNLLogicalCone& expected, const LogicCone& actual) {
   EXPECT_EQ(collectEdges(expected), collectEdges(actual));
 }
 
+void setEnvVar(const char* name, const std::string& value) {
+#if defined(_WIN32)
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), 1);
+#endif
+}
+
+void unsetEnvVar(const char* name) {
+#if defined(_WIN32)
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
+}
+
+class ScopedEnvVar {
+  public:
+    explicit ScopedEnvVar(const char* name):
+      name_(name) {
+      if (const char* value = std::getenv(name)) {
+        previous_ = value;
+      }
+    }
+
+    ~ScopedEnvVar() {
+      if (previous_) {
+        setEnvVar(name_.c_str(), *previous_);
+      } else {
+        unsetEnvVar(name_.c_str());
+      }
+    }
+
+    void set(const std::string& value) const {
+      setEnvVar(name_.c_str(), value);
+    }
+
+  private:
+    std::string name_;
+    std::optional<std::string> previous_;
+};
+
+struct SharedBusConeDesign {
+  SNLBusTerm* output {nullptr};
+  SNLBusTermBit* bit0 {nullptr};
+  SNLBusTermBit* bit1 {nullptr};
+  SNLScalarTerm* input {nullptr};
+  SNLInstance* instance {nullptr};
+};
+
+SharedBusConeDesign createSharedBusConeDesign(
+    NLUniverse* univ,
+    NLLibrary* library,
+    NLLibrary* primitives) {
+  auto buffer = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
+  auto i = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Input, NLName("I"));
+  auto o = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignModeling::addCombinatorialArcs({i}, {o});
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topInput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Input, NLName("IN"));
+  auto topOutput = SNLBusTerm::create(
+      top, SNLTerm::Direction::Output, 1, 0, NLName("OUT"));
+  auto instance = SNLInstance::create(top, buffer, NLName("buffer"));
+
+  auto inputNet = SNLScalarNet::create(top, NLName("input"));
+  topInput->setNet(inputNet);
+  instance->getInstTerm(i)->setNet(inputNet);
+
+  auto outputNet = SNLScalarNet::create(top, NLName("output"));
+  instance->getInstTerm(o)->setNet(outputNet);
+  topOutput->getBit(0)->setNet(outputNet);
+  topOutput->getBit(1)->setNet(outputNet);
+
+  return {
+      topOutput,
+      topOutput->getBit(0),
+      topOutput->getBit(1),
+      topInput,
+      instance,
+  };
+}
+
 }  // namespace
 
 TEST_F(MetricsTests, logicConeMatchesSNLLogicalCone) {
@@ -186,60 +278,269 @@ TEST_F(MetricsTests, logicConeBusOccurrenceBuildsSharedCone) {
   NLLibrary* library = NLLibrary::create(db, NLName("designs"));
   NLLibrary* primitives =
       NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+  auto design = createSharedBusConeDesign(univ, library, primitives);
 
-  auto buffer = SNLDesign::create(
-      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
-  auto i = SNLScalarTerm::create(
-      buffer, SNLTerm::Direction::Input, NLName("I"));
-  auto o = SNLScalarTerm::create(
-      buffer, SNLTerm::Direction::Output, NLName("O"));
-  SNLDesignModeling::addCombinatorialArcs({i}, {o});
+  LogicCone cone(SNLOccurrence(design.output), LogicCone::Direction::FanIn);
+
+  ASSERT_EQ(5, cone.getNodeCount());
+  EXPECT_EQ(
+      design.output,
+      cone.getNodes()[cone.getRoot()].occurrence.getObject());
+  EXPECT_EQ(LogicCone::NodeKind::Root, cone.getNodes()[cone.getRoot()].kind);
+
+  std::map<SNLDesignObject*, LogicCone::NodeKind> expectedKinds {
+      {design.output, LogicCone::NodeKind::Root},
+      {design.bit0, LogicCone::NodeKind::Root},
+      {design.bit1, LogicCone::NodeKind::Root},
+      {design.instance, LogicCone::NodeKind::Internal},
+      {design.input, LogicCone::NodeKind::Ports},
+  };
+  EXPECT_EQ(expectedKinds, collectNodeKinds(cone));
+
+  std::set<SNLDesignObject*> expectedLeaves {design.input};
+  EXPECT_EQ(expectedLeaves, collectLeaves(cone));
+
+  std::set<std::pair<SNLDesignObject*, SNLDesignObject*>> expectedEdges {
+      {design.output, design.bit0},
+      {design.output, design.bit1},
+      {design.bit0, design.instance},
+      {design.bit1, design.instance},
+      {design.instance, design.input},
+  };
+  EXPECT_EQ(expectedEdges, collectEdges(cone));
+}
+
+TEST_F(MetricsTests, logicConeBusOccurrenceBuildsSharedConeNonMT) {
+  const ScopedEnvVar nonMT("NON_MT");
+  nonMT.set("1");
+
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+  auto design = createSharedBusConeDesign(univ, library, primitives);
+
+  LogicCone cone(SNLOccurrence(design.output), LogicCone::Direction::FanIn);
+
+  EXPECT_EQ(5, cone.getNodeCount());
+  EXPECT_EQ(
+      design.output,
+      cone.getNodes()[cone.getRoot()].occurrence.getObject());
+  EXPECT_EQ(
+      std::set<SNLDesignObject*>({design.input}),
+      collectLeaves(cone));
+}
+
+TEST_F(MetricsTests, logicConeHandlesBlackboxLeaf) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+
+  auto blackbox = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BB"));
+  auto input = SNLScalarTerm::create(
+      blackbox, SNLTerm::Direction::Input, NLName("I"));
+  auto output = SNLScalarTerm::create(
+      blackbox, SNLTerm::Direction::Output, NLName("O"));
 
   auto top = SNLDesign::create(library, NLName("TOP"));
   univ->setTopDesign(top);
   auto topInput = SNLScalarTerm::create(
       top, SNLTerm::Direction::Input, NLName("IN"));
-  auto topOutput = SNLBusTerm::create(
-      top, SNLTerm::Direction::Output, 1, 0, NLName("OUT"));
-  auto instance = SNLInstance::create(top, buffer, NLName("buffer"));
+  auto topOutput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  auto instance = SNLInstance::create(top, blackbox, NLName("blackbox"));
 
   auto inputNet = SNLScalarNet::create(top, NLName("input"));
   topInput->setNet(inputNet);
-  instance->getInstTerm(i)->setNet(inputNet);
-
+  instance->getInstTerm(input)->setNet(inputNet);
   auto outputNet = SNLScalarNet::create(top, NLName("output"));
-  instance->getInstTerm(o)->setNet(outputNet);
-  topOutput->getBit(0)->setNet(outputNet);
-  topOutput->getBit(1)->setNet(outputNet);
+  instance->getInstTerm(output)->setNet(outputNet);
+  topOutput->setNet(outputNet);
 
   LogicCone cone(SNLOccurrence(topOutput), LogicCone::Direction::FanIn);
-  auto bit0 = topOutput->getBit(0);
-  auto bit1 = topOutput->getBit(1);
 
-  ASSERT_EQ(5, cone.getNodeCount());
-  EXPECT_EQ(topOutput, cone.getNodes()[cone.getRoot()].occurrence.getObject());
-  EXPECT_EQ(LogicCone::NodeKind::Root, cone.getNodes()[cone.getRoot()].kind);
-
-  std::map<SNLDesignObject*, LogicCone::NodeKind> expectedKinds {
+  ASSERT_EQ(2, cone.getNodeCount());
+  const std::map<SNLDesignObject*, LogicCone::NodeKind> expectedKinds {
       {topOutput, LogicCone::NodeKind::Root},
-      {bit0, LogicCone::NodeKind::Root},
-      {bit1, LogicCone::NodeKind::Root},
-      {instance, LogicCone::NodeKind::Internal},
-      {topInput, LogicCone::NodeKind::Ports},
+      {instance, LogicCone::NodeKind::Blackbox},
   };
   EXPECT_EQ(expectedKinds, collectNodeKinds(cone));
+  EXPECT_EQ(
+      std::set<SNLDesignObject*>({instance}),
+      collectLeaves(cone));
+}
 
-  std::set<SNLDesignObject*> expectedLeaves {topInput};
-  EXPECT_EQ(expectedLeaves, collectLeaves(cone));
+TEST_F(MetricsTests, logicConeSuppressesDuplicateEdges) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
 
-  std::set<std::pair<SNLDesignObject*, SNLDesignObject*>> expectedEdges {
-      {topOutput, bit0},
-      {topOutput, bit1},
-      {bit0, instance},
-      {bit1, instance},
-      {instance, topInput},
-  };
-  EXPECT_EQ(expectedEdges, collectEdges(cone));
+  auto multi = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("MULTI"));
+  auto input = SNLScalarTerm::create(
+      multi, SNLTerm::Direction::Input, NLName("I"));
+  auto output0 = SNLScalarTerm::create(
+      multi, SNLTerm::Direction::Output, NLName("O0"));
+  auto output1 = SNLScalarTerm::create(
+      multi, SNLTerm::Direction::Output, NLName("O1"));
+  SNLDesignModeling::addCombinatorialArcs({input}, {output0, output1});
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topInput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Input, NLName("IN"));
+  auto topOutput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  auto instance = SNLInstance::create(top, multi, NLName("multi"));
+
+  auto inputNet = SNLScalarNet::create(top, NLName("input"));
+  topInput->setNet(inputNet);
+  instance->getInstTerm(input)->setNet(inputNet);
+  auto outputNet = SNLScalarNet::create(top, NLName("output"));
+  instance->getInstTerm(output0)->setNet(outputNet);
+  instance->getInstTerm(output1)->setNet(outputNet);
+  topOutput->setNet(outputNet);
+
+  LogicCone cone(SNLOccurrence(topOutput), LogicCone::Direction::FanIn);
+  const auto& nodes = cone.getNodes();
+
+  ASSERT_EQ(3, cone.getNodeCount());
+  ASSERT_EQ(1, nodes[cone.getRoot()].next.size());
+  auto instanceNode = nodes[cone.getRoot()].next.front();
+  EXPECT_EQ(instance, nodes[instanceNode].occurrence.getObject());
+  EXPECT_EQ(1, nodes[instanceNode].next.size());
+  EXPECT_EQ(
+      topInput,
+      nodes[nodes[instanceNode].next.front()].occurrence.getObject());
+}
+
+TEST_F(MetricsTests, logicConeAvoidsCombinationalCycles) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+
+  auto buffer = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
+  auto input = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Input, NLName("I"));
+  auto output = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignModeling::addCombinatorialArcs({input}, {output});
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topOutput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  auto instance = SNLInstance::create(top, buffer, NLName("loop"));
+
+  auto loopNet = SNLScalarNet::create(top, NLName("loop"));
+  instance->getInstTerm(input)->setNet(loopNet);
+  instance->getInstTerm(output)->setNet(loopNet);
+  topOutput->setNet(loopNet);
+
+  LogicCone cone(SNLOccurrence(topOutput), LogicCone::Direction::FanIn);
+  const auto& nodes = cone.getNodes();
+
+  ASSERT_EQ(2, cone.getNodeCount());
+  auto instanceNode = nodes[cone.getRoot()].next.front();
+  EXPECT_EQ(instance, nodes[instanceNode].occurrence.getObject());
+  EXPECT_TRUE(nodes[instanceNode].next.empty());
+}
+
+TEST_F(MetricsTests, logicConeHandlesUnconnectedRoot) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto output = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+
+  LogicCone cone(SNLOccurrence(output), LogicCone::Direction::FanIn);
+
+  ASSERT_EQ(1, cone.getNodeCount());
+  EXPECT_EQ(output, cone.getNodes()[cone.getRoot()].occurrence.getObject());
+  EXPECT_TRUE(cone.getLeaves().empty());
+}
+
+TEST_F(MetricsTests, logicConeRejectsInvalidRoot) {
+  NLUniverse::create();
+  EXPECT_THROW(
+      LogicCone(SNLOccurrence(), LogicCone::Direction::FanIn),
+      NLException);
+}
+
+TEST_F(MetricsTests, logicConeHandlesHierarchicalBitTermRoot) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+
+  auto buffer = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
+  auto bufferInput = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Input, NLName("I"));
+  auto bufferOutput = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignModeling::addCombinatorialArcs({bufferInput}, {bufferOutput});
+
+  auto child = SNLDesign::create(library, NLName("CHILD"));
+  auto childInput = SNLScalarTerm::create(
+      child, SNLTerm::Direction::Input, NLName("I"));
+  auto childOutput = SNLScalarTerm::create(
+      child, SNLTerm::Direction::Output, NLName("O"));
+  auto childBuffer = SNLInstance::create(child, buffer, NLName("buffer"));
+  auto childInputNet = SNLScalarNet::create(child, NLName("child_input"));
+  childInput->setNet(childInputNet);
+  childBuffer->getInstTerm(bufferInput)->setNet(childInputNet);
+  auto childOutputNet = SNLScalarNet::create(child, NLName("child_output"));
+  childBuffer->getInstTerm(bufferOutput)->setNet(childOutputNet);
+  childOutput->setNet(childOutputNet);
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topInput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Input, NLName("IN"));
+  auto topOutput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  auto childInstance = SNLInstance::create(top, child, NLName("child"));
+  auto topInputNet = SNLScalarNet::create(top, NLName("top_input"));
+  topInput->setNet(topInputNet);
+  childInstance->getInstTerm(childInput)->setNet(topInputNet);
+  auto topOutputNet = SNLScalarNet::create(top, NLName("top_output"));
+  childInstance->getInstTerm(childOutput)->setNet(topOutputNet);
+  topOutput->setNet(topOutputNet);
+
+  auto start = SNLOccurrence(SNLPath(childInstance), childOutput);
+  SNLLogicalCone snlCone(start, SNLLogicalCone::Direction::FanIn);
+  LogicCone dnlCone(start, LogicCone::Direction::FanIn);
+
+  expectSameCone(snlCone, dnlCone);
+}
+
+TEST_F(MetricsTests, logicConeInfersAndSetsTopDesign) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  auto otherTop = SNLDesign::create(library, NLName("OTHER_TOP"));
+  auto output = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  univ->setTopDesign(otherTop);
+
+  LogicCone cone(SNLOccurrence(output), LogicCone::Direction::FanIn);
+
+  EXPECT_EQ(top, univ->getTopDesign());
+  EXPECT_EQ(output, cone.getNodes()[cone.getRoot()].occurrence.getObject());
 }
 
 // Building a test like the prvious only with 3 levels of hierarchy
