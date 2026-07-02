@@ -36,7 +36,7 @@ using namespace naja::DNL;
 using namespace naja::NL;
 using naja::NAJA_METRICS::LogicCone;
 
-using Node = LogicCone::Node;
+using PublicNode = LogicCone::Node;
 using NodeID = LogicCone::NodeID;
 using NodeKind = LogicCone::NodeKind;
 using Direction = LogicCone::Direction;
@@ -58,17 +58,32 @@ SNLDesign* inferTopDesign(const SNLOccurrence& occurrence) {
   return nullptr;
 }
 
-SNLOccurrence getInstanceOccurrence(const DNLInstanceFull& instance) {
-  return SNLOccurrence(
-    instance.getPath().getHeadPath(),
-    instance.getSNLInstance());
-}
+enum class NodeKeyKind { BusRoot, Instance, Terminal };
+
+struct NodeKey {
+  NodeKeyKind kind {NodeKeyKind::Terminal};
+  DNLID id {DNLID_MAX};
+
+  bool operator<(const NodeKey& rhs) const {
+    if (kind != rhs.kind) {
+      return kind < rhs.kind;
+    }
+    return id < rhs.id;
+  }
+};
+
+struct Node {
+  NodeKey key {};
+  NodeKind kind {NodeKind::Internal};
+  std::vector<NodeID> next {};
+  std::vector<NodeID> prev {};
+};
 
 struct ConeData {
   std::vector<Node> nodes {};
   NodeID root {0};
   std::vector<NodeID> leaves {};
-  std::map<SNLOccurrence, NodeID> indexOf {};
+  std::map<NodeKey, NodeID> indexOf {};
   std::set<DNLID> expandedTerms {};
   std::deque<std::pair<NodeID, DNLID>> queue {};
   std::vector<NodeID> bitRoots {};
@@ -84,9 +99,9 @@ struct ConeData {
   }
 
   NodeID getOrCreate(
-    const SNLOccurrence& occurrence,
+    NodeKey key,
     NodeKind kind) {
-    auto found = indexOf.find(occurrence);
+    auto found = indexOf.find(key);
     if (found != indexOf.end()) {
       auto id = found->second;
       if (kind == NodeKind::Root and nodes[id].kind != NodeKind::Root) {
@@ -104,8 +119,8 @@ struct ConeData {
     }
     // LCOV_EXCL_STOP
     auto id = static_cast<NodeID>(nodes.size());
-    nodes.push_back(Node {occurrence, kind, {}, {}});
-    indexOf.emplace(occurrence, id);
+    nodes.push_back(Node {key, kind, {}, {}});
+    indexOf.emplace(key, id);
     if (isLeaf(kind)) {
       leaves.push_back(id);
     }
@@ -173,7 +188,9 @@ struct LogicConeExtractor {
     }
     // LCOV_EXCL_STOP
 
-    auto root = data_.getOrCreate(start, NodeKind::Root);
+    auto root = data_.getOrCreate(
+        {NodeKeyKind::Terminal, startTerminal->getID()},
+        NodeKind::Root);
     data_.root = root;
     data_.queue.clear();
     data_.queue.emplace_back(root, startTerminal->getID());
@@ -286,15 +303,18 @@ struct LogicConeExtractor {
 
     void addTerminal(NodeID parentID, const DNLTerminalFull& terminal) {
       if (terminal.isTopPort()) {
-        auto portID =
-          data_.getOrCreate(terminal.getOccurrence(), NodeKind::Ports);
+        auto portID = data_.getOrCreate(
+            {NodeKeyKind::Terminal, terminal.getID()},
+            NodeKind::Ports);
         data_.addEdge(parentID, portID);
         return;
       }
 
       auto& instance = terminal.getDNLInstance();
       auto kind = getNodeKind(instance);
-      auto childID = data_.getOrCreate(getInstanceOccurrence(instance), kind);
+      auto childID = data_.getOrCreate(
+          {NodeKeyKind::Instance, instance.getID()},
+          kind);
       data_.addEdge(parentID, childID);
       expandThroughInstance(childID, terminal, kind);
     }
@@ -348,7 +368,7 @@ void mergeConeData(
   std::vector<NodeID> remap(local.nodes.size());
   for (size_t i = 0; i < local.nodes.size(); ++i) {
     remap[i] = merged.getOrCreate(
-        local.nodes[i].occurrence,
+        local.nodes[i].key,
         local.nodes[i].kind);
   }
   for (size_t i = 0; i < local.nodes.size(); ++i) {
@@ -359,6 +379,55 @@ void mergeConeData(
   for (auto bitRoot : local.bitRoots) {
     merged.addEdge(busRoot, remap[bitRoot]);
   }
+}
+
+SNLOccurrence resolveOccurrence(
+    DNLFull& dnl,
+    const Node& node,
+    const SNLOccurrence& startOccurrence) {
+  if (node.key.kind == NodeKeyKind::BusRoot) {
+    return startOccurrence;
+  }
+  if (node.key.kind == NodeKeyKind::Instance) {
+    const auto& instance = dnl.getDNLInstanceFromID(node.key.id);
+    // LCOV_EXCL_START
+    if (instance.isNull() or instance.isTop()) {
+      return SNLOccurrence();
+    }
+    // LCOV_EXCL_STOP
+    return SNLOccurrence(
+        instance.getPath().getHeadPath(),
+        instance.getSNLInstance());
+  }
+  // LCOV_EXCL_START
+  if (node.key.kind == NodeKeyKind::Terminal) {
+    const auto& terminal = dnl.getDNLTerminalFromID(node.key.id);
+    if (terminal.isNull()) {
+      return SNLOccurrence();
+    }
+    if (terminal.isTopPort()) {
+      return SNLOccurrence(terminal.getSnlBitTerm());
+    }
+    return terminal.getOccurrence();
+  }
+  return SNLOccurrence();
+  // LCOV_EXCL_STOP
+}
+
+std::vector<PublicNode> buildPublicNodes(
+    DNLFull& dnl,
+    const ConeData& data,
+    const SNLOccurrence& startOccurrence) {
+  std::vector<PublicNode> nodes;
+  nodes.reserve(data.nodes.size());
+  for (const auto& node : data.nodes) {
+    nodes.push_back(PublicNode {
+        resolveOccurrence(dnl, node, startOccurrence),
+        node.kind,
+        node.next,
+        node.prev});
+  }
+  return nodes;
 }
 
 ConeData extractSingleBitCone(
@@ -408,7 +477,9 @@ ConeData extractBusCone(
   }
 
   ConeData merged;
-  merged.root = merged.getOrCreate(busOccurrence, NodeKind::Root);
+  merged.root = merged.getOrCreate(
+      {NodeKeyKind::BusRoot, DNLID_MAX},
+      NodeKind::Root);
   for (const auto& local : localCones) {
     mergeConeData(merged, local, merged.root);
   }
@@ -438,7 +509,7 @@ LogicCone::LogicCone(
     }
     return extractSingleBitCone(*dnl, direction_, start);
   }();
-  nodes_ = std::move(data.nodes);
+  nodes_ = buildPublicNodes(*dnl, data, start);
   root_ = data.root;
   leaves_ = std::move(data.leaves);
 }
