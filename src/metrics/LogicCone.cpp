@@ -384,8 +384,12 @@ void mergeConeData(
 SNLOccurrence resolveOccurrence(
     DNLFull& dnl,
     const Node& node,
-    const SNLOccurrence& startOccurrence) {
+    const SNLOccurrence& startOccurrence,
+    bool hasBusRoot) {
   if (node.key.kind == NodeKeyKind::BusRoot) {
+    return startOccurrence;
+  }
+  if (not hasBusRoot and node.kind == NodeKind::Root) {
     return startOccurrence;
   }
   if (node.key.kind == NodeKeyKind::Instance) {
@@ -399,17 +403,21 @@ SNLOccurrence resolveOccurrence(
         instance.getPath().getHeadPath(),
         instance.getSNLInstance());
   }
-  // LCOV_EXCL_START
   if (node.key.kind == NodeKeyKind::Terminal) {
     const auto& terminal = dnl.getDNLTerminalFromID(node.key.id);
+    // LCOV_EXCL_START
     if (terminal.isNull()) {
       return SNLOccurrence();
     }
+    // LCOV_EXCL_STOP
     if (terminal.isTopPort()) {
       return SNLOccurrence(terminal.getSnlBitTerm());
     }
-    return terminal.getOccurrence();
+    return SNLOccurrence(
+        terminal.getDNLInstance().getPath(),
+        terminal.getSnlBitTerm());
   }
+  // LCOV_EXCL_START
   return SNLOccurrence();
   // LCOV_EXCL_STOP
 }
@@ -420,9 +428,12 @@ std::vector<PublicNode> buildPublicNodes(
     const SNLOccurrence& startOccurrence) {
   std::vector<PublicNode> nodes;
   nodes.reserve(data.nodes.size());
+  auto hasBusRoot =
+      data.root < data.nodes.size() and
+      data.nodes[data.root].key.kind == NodeKeyKind::BusRoot;
   for (const auto& node : data.nodes) {
     nodes.push_back(PublicNode {
-        resolveOccurrence(dnl, node, startOccurrence),
+        resolveOccurrence(dnl, node, startOccurrence, hasBusRoot),
         node.kind,
         node.next,
         node.prev});
