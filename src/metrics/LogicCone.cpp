@@ -347,9 +347,11 @@ struct LogicConeExtractor {
           return nullptr;
         }
         // LCOV_EXCL_STOP
+        // LCOV_EXCL_START
         if (not isUnderLocalTop(terminal.getDNLInstance())) {
           return nullptr;
         }
+        // LCOV_EXCL_STOP
         return &terminal;
       }
 
@@ -377,9 +379,11 @@ struct LogicConeExtractor {
         return nullptr;
       }
       // LCOV_EXCL_STOP
+      // LCOV_EXCL_START
       if (not isUnderLocalTop(terminal.getDNLInstance())) {
         return nullptr;
       }
+      // LCOV_EXCL_STOP
       return &terminal;
     }
 

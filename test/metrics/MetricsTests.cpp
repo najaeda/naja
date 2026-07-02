@@ -729,9 +729,26 @@ TEST_F(MetricsTests, logicConeInfersAndSetsTopDesign) {
   NLLibrary* library = NLLibrary::create(db, NLName("designs"));
   auto top = SNLDesign::create(library, NLName("TOP"));
   auto otherTop = SNLDesign::create(library, NLName("OTHER_TOP"));
+  auto repeatedModel = SNLDesign::create(library, NLName("REPEATED"));
+  SNLInstance::create(otherTop, repeatedModel, NLName("first"));
+  SNLInstance::create(otherTop, repeatedModel, NLName("second"));
   auto output = SNLScalarTerm::create(
       top, SNLTerm::Direction::Output, NLName("OUT"));
   univ->setTopDesign(otherTop);
+
+  LogicCone cone(SNLOccurrence(output), LogicCone::Direction::FanIn);
+
+  EXPECT_EQ(top, univ->getTopDesign());
+  EXPECT_EQ(output, cone.getNodes()[cone.getRoot()].occurrence.getObject());
+}
+
+TEST_F(MetricsTests, logicConeInfersTopDesignWhenUniverseTopUnset) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  auto output = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
 
   LogicCone cone(SNLOccurrence(output), LogicCone::Direction::FanIn);
 

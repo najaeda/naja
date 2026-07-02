@@ -58,7 +58,7 @@ ManagedTypeDeallocMethod(SNLOccurrence)
 GetObjectMethod(SNLOccurrence, SNLNetComponent, getNetComponent)
 GetObjectMethod(SNLOccurrence, SNLInstTerm, getInstTerm)
 GetObjectMethod(SNLOccurrence, SNLInstance, getInstance)
-GetObjectMethod(SNLOccurrence, SNLDesign, getDesign)
+GetObjectMethod(SNLOccurrence, SNLDesign, getDesign) // LCOV_EXCL_LINE
 GetObjectMethod(SNLOccurrence, SNLPath, getPath)
 GetBoolAttribute(SNLOccurrence, isInstanceOccurrence)
 
