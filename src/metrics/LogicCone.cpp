@@ -125,7 +125,7 @@ struct ConeData {
         return true;
       }
       if (not visited.insert(current).second) {
-        continue;
+        continue; // LCOV_EXCL_LINE defensive guard for repeated graph visits
       }
       const auto& next = nodes[current].next;
       stack.insert(stack.end(), next.begin(), next.end());

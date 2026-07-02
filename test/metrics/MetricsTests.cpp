@@ -332,6 +332,33 @@ TEST_F(MetricsTests, logicConeBusOccurrenceBuildsSharedConeNonMT) {
       collectLeaves(cone));
 }
 
+TEST_F(MetricsTests, logicConeBusRootPromotionRemovesPortLeaf) {
+  const ScopedEnvVar nonMT("NON_MT");
+  nonMT.set("1");
+
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto bus = SNLBusTerm::create(
+      top, SNLTerm::Direction::InOut, 1, 0, NLName("BUS"));
+  auto sharedNet = SNLScalarNet::create(top, NLName("shared"));
+  bus->getBit(0)->setNet(sharedNet);
+  bus->getBit(1)->setNet(sharedNet);
+
+  LogicCone cone(SNLOccurrence(bus), LogicCone::Direction::FanIn);
+
+  ASSERT_EQ(3, cone.getNodeCount());
+  const std::map<SNLDesignObject*, LogicCone::NodeKind> expectedKinds {
+      {bus, LogicCone::NodeKind::Root},
+      {bus->getBit(0), LogicCone::NodeKind::Root},
+      {bus->getBit(1), LogicCone::NodeKind::Root},
+  };
+  EXPECT_EQ(expectedKinds, collectNodeKinds(cone));
+  EXPECT_TRUE(cone.getLeaves().empty());
+}
+
 TEST_F(MetricsTests, logicConeHandlesBlackboxLeaf) {
   NLUniverse* univ = NLUniverse::create();
   NLDB* db = NLDB::create(univ);
@@ -455,6 +482,49 @@ TEST_F(MetricsTests, logicConeAvoidsCombinationalCycles) {
   EXPECT_TRUE(nodes[instanceNode].next.empty());
 }
 
+TEST_F(MetricsTests, logicConeAvoidsIndirectCombinationalCycles) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  NLLibrary* primitives =
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+
+  auto buffer = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("BUF"));
+  auto input = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Input, NLName("I"));
+  auto output = SNLScalarTerm::create(
+      buffer, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignModeling::addCombinatorialArcs({input}, {output});
+
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto topOutput = SNLScalarTerm::create(
+      top, SNLTerm::Direction::Output, NLName("OUT"));
+  auto first = SNLInstance::create(top, buffer, NLName("first"));
+  auto second = SNLInstance::create(top, buffer, NLName("second"));
+
+  auto firstOutputNet = SNLScalarNet::create(top, NLName("first_output"));
+  first->getInstTerm(output)->setNet(firstOutputNet);
+  second->getInstTerm(input)->setNet(firstOutputNet);
+  topOutput->setNet(firstOutputNet);
+
+  auto secondOutputNet = SNLScalarNet::create(top, NLName("second_output"));
+  second->getInstTerm(output)->setNet(secondOutputNet);
+  first->getInstTerm(input)->setNet(secondOutputNet);
+
+  LogicCone cone(SNLOccurrence(topOutput), LogicCone::Direction::FanIn);
+  const auto& nodes = cone.getNodes();
+
+  ASSERT_EQ(3, cone.getNodeCount());
+  auto firstNode = nodes[cone.getRoot()].next.front();
+  ASSERT_EQ(first, nodes[firstNode].occurrence.getObject());
+  ASSERT_EQ(1, nodes[firstNode].next.size());
+  auto secondNode = nodes[firstNode].next.front();
+  EXPECT_EQ(second, nodes[secondNode].occurrence.getObject());
+  EXPECT_TRUE(nodes[secondNode].next.empty());
+}
+
 TEST_F(MetricsTests, logicConeHandlesUnconnectedRoot) {
   NLUniverse* univ = NLUniverse::create();
   NLDB* db = NLDB::create(univ);
@@ -475,6 +545,19 @@ TEST_F(MetricsTests, logicConeRejectsInvalidRoot) {
   NLUniverse::create();
   EXPECT_THROW(
       LogicCone(SNLOccurrence(), LogicCone::Direction::FanIn),
+      NLException);
+}
+
+TEST_F(MetricsTests, logicConeRejectsNetRoot) {
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("designs"));
+  auto top = SNLDesign::create(library, NLName("TOP"));
+  univ->setTopDesign(top);
+  auto net = SNLScalarNet::create(top, NLName("net"));
+
+  EXPECT_THROW(
+      LogicCone(SNLOccurrence(net), LogicCone::Direction::FanIn),
       NLException);
 }
 
