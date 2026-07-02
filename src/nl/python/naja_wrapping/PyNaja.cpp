@@ -730,6 +730,11 @@ PyMODINIT_FUNC PyInit_naja(void) {
     //LCOV_EXCL_STOP
   }
 
+  if (PyNLDB_addSystemVerilogExceptions(mod) < 0) {
+    Py_DECREF(mod);
+    return nullptr; // LCOV_EXCL_LINE CPython exception registration failure
+  }
+
   PyModule_AddType(mod, &PyTypeSNLAttribute);
   PyModule_AddType(mod, &PyTypeNLID);
   PyModule_AddType(mod, &PyTypeNLUniverse);

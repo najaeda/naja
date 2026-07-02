@@ -84,6 +84,7 @@
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
+#include "slang/diagnostics/DiagnosticClient.h"
 #include "slang/diagnostics/Diagnostics.h"
 #include "slang/driver/Driver.h"
 #include "slang/syntax/SyntaxNode.h"
@@ -251,6 +252,38 @@ using slang::ast::TimingControl;
 using slang::ast::Type;
 using slang::ast::ValueSymbol;
 
+class StructuredDiagnosticClient final: public slang::DiagnosticClient {
+  public:
+    void report(const slang::ReportedDiagnostic& diagnostic) override {
+      SNLSVDiagnostic result;
+      result.severity = getSeverityString(diagnostic.severity);
+      result.message = diagnostic.formattedMessage;
+      if (diagnostic.location != slang::SourceLocation::NoLocation) {
+        result.file = getFileName(diagnostic.location);
+        result.line = sourceManager->getLineNumber(diagnostic.location);
+        result.column = getColumnNumber(diagnostic.location);
+      }
+      diagnostics.push_back(std::move(result));
+    }
+
+    std::vector<SNLSVDiagnostic> diagnostics;
+};
+
+std::vector<SNLSVDiagnostic> getStructuredDiagnostics(
+  const slang::SourceManager& sourceManager,
+  const slang::Diagnostics& diagnostics) {
+  slang::DiagnosticEngine engine(sourceManager);
+  auto client = std::make_shared<StructuredDiagnosticClient>();
+  engine.addClient(client);
+  engine.issue(diagnostics);
+  return std::move(client->diagnostics);
+}
+
+struct CompilationFailureDetails {
+  std::string reason;
+  std::vector<SNLSVDiagnostic> diagnostics;
+};
+
 std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
   if (diags.empty()) {
@@ -262,7 +295,7 @@ std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation
   return {}; // LCOV_EXCL_LINE
 }
 
-std::optional<std::string> getCompilationFailureDetails(
+std::optional<CompilationFailureDetails> getCompilationFailureDetails(
   slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
   // Collect only error-level (and above) diagnostics so the failure message
@@ -286,16 +319,23 @@ std::optional<std::string> getCompilationFailureDetails(
       reason << ":\n" << details;
     }
   }
-  return reason.str();
+  CompilationFailureDetails failure;
+  failure.reason = reason.str();
+  if (const auto* sourceManager = compilation.getSourceManager()) {
+    failure.diagnostics = getStructuredDiagnostics(*sourceManager, errors);
+  }
+  return failure;
 }
 
-std::optional<std::string> getDriverFailureDetails(
+std::optional<CompilationFailureDetails> getDriverFailureDetails(
   const slang::driver::Driver& driver) {
   std::ostringstream details;
   bool hasDetails = false;
+  CompilationFailureDetails failure;
 
   for (const auto& error : driver.sourceLoader.getErrors()) {
     details << error << "\n";
+    failure.diagnostics.push_back({"error", {}, 0, 0, error});
     hasDetails = true;
   }
 
@@ -310,6 +350,11 @@ std::optional<std::string> getDriverFailureDetails(
       slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags);
     if (!parseDetails.empty()) {
       details << parseDetails;
+      auto structured = getStructuredDiagnostics(driver.sourceManager, parseDiags);
+      failure.diagnostics.insert(
+        failure.diagnostics.end(),
+        std::make_move_iterator(structured.begin()),
+        std::make_move_iterator(structured.end()));
       hasDetails = true;
     }
   }
@@ -321,7 +366,43 @@ std::optional<std::string> getDriverFailureDetails(
 
   std::ostringstream reason;
   reason << "SystemVerilog compilation failed:\n" << details.str();
-  return reason.str();
+  failure.reason = reason.str();
+  return failure;
+}
+
+std::string makeUnsupportedCode(const std::string& reason) {
+  constexpr std::string_view prefix = "unsupported ";
+  if (reason.size() < prefix.size() ||
+      !std::equal(
+        prefix.begin(), prefix.end(), reason.begin(),
+        [](char left, char right) {
+          return left == static_cast<char>(std::tolower(static_cast<unsigned char>(right)));
+        })) {
+    return {};
+  }
+  std::string normalized;
+  bool previousWasSeparator = false;
+  for (const unsigned char character : std::string_view(reason).substr(prefix.size())) {
+    if (std::isalnum(character)) {
+      normalized.push_back(static_cast<char>(std::tolower(character)));
+      previousWasSeparator = false;
+    } else if (!previousWasSeparator) {
+      normalized.push_back('_');
+      previousWasSeparator = true;
+    }
+  }
+  while (!normalized.empty() && normalized.back() == '_') {
+    normalized.pop_back();
+  }
+  constexpr std::string_view inferredMemoryPrefix = "inferred_memory_";
+  if (std::string_view(normalized).starts_with(inferredMemoryPrefix)) {
+    return "sv.unsupported.inferred_memory." +
+      normalized.substr(inferredMemoryPrefix.size());
+  }
+  if (std::string_view(normalized).starts_with("procedural_block_")) {
+    return "sv.unsupported.procedural_block";
+  }
+  return {};
 }
 
 bool allNetsArePortNets(SNLDesign* design) {
@@ -349,7 +430,7 @@ void collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op
   const Expression* current = stripConversions(expr);
   if (!current) {
     // LCOV_EXCL_START
-    throw SNLSVConstructorException(
+    throw SNLSVInternalError(
       "Internal error: null expression while collecting binary operands");
     // LCOV_EXCL_STOP
   }
@@ -431,7 +512,7 @@ bool isKnown2StateConstantExpr(const Expression& expr) {
   const auto* stripped = stripConversions(expr);
   if (!stripped) {
     // LCOV_EXCL_START
-    throw SNLSVConstructorException(
+    throw SNLSVInternalError(
       "Internal error: null expression in isKnown2StateConstantExpr");
     // LCOV_EXCL_STOP
   }
@@ -1130,7 +1211,7 @@ class SNLSVConstructorImpl {
 
     void construct(const SNLSVConstructor::Paths& paths) {
       if (!library_) {
-        throw SNLSVConstructorException("SNLSVConstructor requires a valid NLLibrary");
+        throw SNLSVInternalError("SNLSVConstructor requires a valid NLLibrary");
       }
       SNLSVLiveASTLinkRegistry::clear(library_->getDB());
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1146,6 +1227,7 @@ class SNLSVConstructorImpl {
       emittedWarnings_.clear();
       loggedWarningReasons_.clear();
       unsupportedElements_.clear();
+      unsupportedElementDetails_.clear();
       cachedCompilationDiagnosticsReport_.clear();
       warnedUninferredMemorySymbols_.clear();
       dynamicElementSelectCache_.clear();
@@ -1186,10 +1268,10 @@ class SNLSVConstructorImpl {
           dumpCurrentDiagnosticsReport();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
-            svPerfReport_.failureReason = *failure;
+            svPerfReport_.failureReason = failure->reason;
           }
 #endif
-          throw SNLSVConstructorException(*failure);
+          throw SNLSVSyntaxError(failure->reason, std::move(failure->diagnostics));
         }
 
         const auto& root = compilation_->getRoot();
@@ -1908,6 +1990,7 @@ class SNLSVConstructorImpl {
       }
 
       unsupportedElements_.clear();
+      unsupportedElementDetails_.clear();
       detail::FindTimedStatementTestResult result;
       result.foundTimed = findTimedStatement(proceduralBlock->getBody()) != nullptr;
       result.reportedUnsupported = !unsupportedElements_.empty();
@@ -2652,11 +2735,11 @@ endmodule
           !driver.processOptions() ||
           !driver.parseAllSources()) {
         if (auto failure = getDriverFailureDetails(driver)) {
-          dumpDiagnosticsReport(*failure);
-          throw SNLSVConstructorException(*failure);
+          dumpDiagnosticsReport(failure->reason);
+          throw SNLSVSyntaxError(failure->reason, std::move(failure->diagnostics));
         }
         dumpDiagnosticsReport("SystemVerilog compilation failed");
-        throw SNLSVConstructorException("SystemVerilog compilation failed");
+        throw SNLSVSyntaxError("SystemVerilog compilation failed", {});
       }
 
       for (const auto& tree : driver.syntaxTrees) {
@@ -2753,7 +2836,7 @@ endmodule
       }
       const auto& reportPath = *options_.diagnosticsReportPath;
       if (reportPath.empty()) {
-        throw SNLSVConstructorException("Empty path for diagnostics report dump");
+        throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
 
       auto parent = reportPath.parent_path();
@@ -2764,7 +2847,7 @@ endmodule
         if (ec) {
           std::ostringstream reason;
           reason << "Failed to create diagnostics report directory: " << parent.string();
-          throw SNLSVConstructorException(reason.str());
+          throw SNLSVInternalError(reason.str());
         }
         // LCOV_EXCL_STOP
       }
@@ -2774,7 +2857,7 @@ endmodule
       if (!output) {
         std::ostringstream reason;
         reason << "Failed to create diagnostics report file: " << reportPath.string();
-        throw SNLSVConstructorException(reason.str());
+        throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
 
@@ -2788,7 +2871,7 @@ endmodule
       if (!output.good()) {
         std::ostringstream reason;
         reason << "Failed to write diagnostics report file: " << reportPath.string();
-        throw SNLSVConstructorException(reason.str());
+        throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
     }
@@ -2799,7 +2882,7 @@ endmodule
       }
       const auto& jsonPath = *options_.elaboratedASTJsonPath;
       if (jsonPath.empty()) {
-        throw SNLSVConstructorException("Empty path for elaborated AST JSON dump");
+        throw SNLSVInternalError("Empty path for elaborated AST JSON dump");
       }
 
       auto parent = jsonPath.parent_path();
@@ -2810,7 +2893,7 @@ endmodule
         if (ec) {
           std::ostringstream reason;
           reason << "Failed to create elaborated AST JSON directory: " << parent.string();
-          throw SNLSVConstructorException(reason.str());
+          throw SNLSVInternalError(reason.str());
         }
         // LCOV_EXCL_STOP
       }
@@ -2827,7 +2910,7 @@ endmodule
       if (!output) {
         std::ostringstream reason;
         reason << "Failed to create elaborated AST JSON file: " << jsonPath.string();
-        throw SNLSVConstructorException(reason.str());
+        throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
       output << writer.view();
@@ -2835,7 +2918,7 @@ endmodule
       if (!output.good()) {
         std::ostringstream reason;
         reason << "Failed to write elaborated AST JSON file: " << jsonPath.string();
-        throw SNLSVConstructorException(reason.str());
+        throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
     }
@@ -3415,6 +3498,7 @@ endmodule
       message << reason;
       auto unsupported = message.str();
       unsupportedElements_.push_back(unsupported);
+      unsupportedElementDetails_.push_back({unsupported, makeUnsupportedCode(reason)});
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstUnsupported.empty()) {
         svPerfReport_.firstUnsupported = unsupported;
@@ -3483,7 +3567,7 @@ endmodule
       for (const auto& unsupported : unsupportedElements_) {
         reason << "\n - " << unsupported;
       }
-      throw SNLSVConstructorException(reason.str());
+      throw SNLSVUnsupportedConstructError(reason.str(), unsupportedElementDetails_);
     }
 
     SNLRTLInfos* getOrCreateRTLInfos(SNLDesign* design) const {
@@ -4141,7 +4225,7 @@ endmodule
       auto busBits = collectBits(busNet);
       if (busBits.size() != bits.size()) {
         // LCOV_EXCL_START
-        throw SNLSVConstructorException(
+        throw SNLSVInternalError(
           "Internal error: bus width mismatch while connecting inferred memory net");
         // LCOV_EXCL_STOP
       }
@@ -7293,7 +7377,7 @@ endmodule
         signature.writePorts = std::max<size_t>(1, memory.writePorts.size());
         auto* model = NLDB0::getOrCreateMemory(signature);
         if (!model) {
-          throw SNLSVConstructorException("Failed to create inferred memory model"); // LCOV_EXCL_LINE
+          throw SNLSVInternalError("Failed to create inferred memory model"); // LCOV_EXCL_LINE
         }
 
         auto* inst = SNLInstance::create(
@@ -7305,7 +7389,7 @@ endmodule
         auto addInstParam = [&](const char* name, const std::string& value) {
           auto* parameter = model->getParameter(NLName(name));
           if (!parameter) {
-            throw SNLSVConstructorException("Failed to resolve inferred memory parameter"); // LCOV_EXCL_LINE
+            throw SNLSVInternalError("Failed to resolve inferred memory parameter"); // LCOV_EXCL_LINE
           }
           SNLInstParameter::create(inst, parameter, value);
         };
@@ -7333,11 +7417,11 @@ endmodule
         auto* clkTerm = model->getScalarTerm(NLName("CLK"));
         auto* rstTerm = model->getScalarTerm(NLName("RST"));
         if (!clkTerm || !rstTerm) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory scalar ports"); // LCOV_EXCL_LINE
+          throw SNLSVInternalError("Failed to resolve inferred memory scalar ports"); // LCOV_EXCL_LINE
         }
         auto* clkNet = getSingleBitNet(resolveExpressionNet(design, *memory.clockExpr));
         if (!clkNet) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory clock net"); // LCOV_EXCL_LINE
+          throw SNLSVInternalError("Failed to resolve inferred memory clock net"); // LCOV_EXCL_LINE
         }
         inst->setTermNet(clkTerm, clkNet);
 
@@ -7355,7 +7439,7 @@ endmodule
         auto* wdataTerm = model->getBusTerm(NLName("WDATA"));
         auto* weTerm = model->getBusTerm(NLName("WE"));
         if (!raddrTerm || !rdataTerm || !waddrTerm || !wdataTerm || !weTerm) {
-          throw SNLSVConstructorException("Failed to resolve inferred memory bus ports"); // LCOV_EXCL_LINE
+          throw SNLSVInternalError("Failed to resolve inferred memory bus ports"); // LCOV_EXCL_LINE
         }
 
         for (size_t i = 0; i < memory.readPorts.size(); ++i) {
@@ -7914,7 +7998,7 @@ endmodule
 
     void requestCurrentForLoopBreak() const {
       if (!hasActiveForLoopContext()) { // LCOV_EXCL_START
-        throw SNLSVConstructorException(
+        throw SNLSVInternalError(
           "Internal error: break statement outside active for-loop context");
       } // LCOV_EXCL_STOP
       activeForLoopBreaks_.back() = true;
@@ -16661,7 +16745,7 @@ endmodule
       }
       const auto width = outNet->getWidth();
       if (width != getPackedNetRefWidth(inA) || width != getPackedNetRefWidth(inB)) {
-        throw SNLSVConstructorException("Internal error: mux width mismatch"); // LCOV_EXCL_LINE
+        throw SNLSVInternalError("Internal error: mux width mismatch"); // LCOV_EXCL_LINE
       }
 
       auto* mux2 = NLDB0::getOrCreateMux2(width);
@@ -16828,7 +16912,7 @@ endmodule
       auto addInstParam = [&](const char* name, const std::string& value) {
         auto* parameter = model->getParameter(NLName(name));
         if (!parameter) {
-          throw SNLSVConstructorException(
+          throw SNLSVInternalError(
             "Failed to resolve table-select parameter"); // LCOV_EXCL_LINE
         }
         SNLInstParameter::create(inst, parameter, value);
@@ -16883,7 +16967,7 @@ endmodule
       }
       if ((sumOutBits && sumOutBits->size() != inBits.size()) ||
           (carryOutBits && carryOutBits->size() != inBits.size())) {
-        throw SNLSVConstructorException("Internal error: invalid step-by-one scratch nets"); // LCOV_EXCL_LINE
+        throw SNLSVInternalError("Internal error: invalid step-by-one scratch nets"); // LCOV_EXCL_LINE
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -16933,7 +17017,7 @@ endmodule
             sourceRange,
             &sumOutBits,
             &carryOutBits)) {
-        throw SNLSVConstructorException("Internal error: failed to build incrementer"); // LCOV_EXCL_LINE
+        throw SNLSVInternalError("Internal error: failed to build incrementer"); // LCOV_EXCL_LINE
       }
       return sumBits;
     }
@@ -21241,7 +21325,7 @@ endmodule
                         assignedBits,
                         updatedBits,
                         elementSourceRange)) {
-                    throw SNLSVConstructorException(
+                    throw SNLSVInternalError(
                       "Internal error: failed to build wide mux for sequential element-select assignment");
                   }
                   // LCOV_EXCL_STOP
@@ -23887,7 +23971,7 @@ endmodule
                 updatedBits,
                 elementSourceRange)) {
             // LCOV_EXCL_START
-            throw SNLSVConstructorException(
+            throw SNLSVInternalError(
               "Internal error: failed to build wide mux for always_comb element-select assignment");
             // LCOV_EXCL_STOP
           }
@@ -28320,7 +28404,7 @@ endmodule
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto getIncrementerBits = [&]() -> const std::vector<SNLBitNet*>& {
         if (!incrementerBits || incrementerBits->empty()) {
-          throw SNLSVConstructorException("Internal error: missing precomputed incrementer bits in sequential assignment"); // LCOV_EXCL_LINE
+          throw SNLSVInternalError("Internal error: missing precomputed incrementer bits in sequential assignment"); // LCOV_EXCL_LINE
         }
         return *incrementerBits;
       }; // LCOV_EXCL_LINE
@@ -28343,7 +28427,7 @@ endmodule
         return decrementBits;
       }
       if (!action.rhs) {
-        throw SNLSVConstructorException("Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
+        throw SNLSVInternalError("Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
       }
       const auto* rhsExpr = stripConversions(*action.rhs);
       std::vector<SNLBitNet*> constantBits;
@@ -28431,7 +28515,7 @@ endmodule
         }
       }
       if (!rhsExpr) {
-        throw SNLSVConstructorException("Internal error: null RHS expression in sequential assignment"); // LCOV_EXCL_LINE
+        throw SNLSVInternalError("Internal error: null RHS expression in sequential assignment"); // LCOV_EXCL_LINE
       }
       auto rhsNet = resolveExpressionNet(design, *rhsExpr);
       std::vector<SNLBitNet*> rhsBits;
@@ -31512,6 +31596,7 @@ endmodule
     std::unordered_set<std::string> emittedWarnings_;
     std::unordered_set<std::string> loggedWarningReasons_;
     std::vector<std::string> unsupportedElements_;
+    std::vector<SNLSVUnsupportedElement> unsupportedElementDetails_;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     mutable SVPerfReport svPerfReport_ {};
 #endif
