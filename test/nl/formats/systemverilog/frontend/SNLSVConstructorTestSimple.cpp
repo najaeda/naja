@@ -875,10 +875,12 @@ void expectUnsupportedConstruct(
   try {
     constructor.construct(svPath);
     FAIL() << "Expected unsupported SystemVerilog element exception";
-  } catch (const SNLSVConstructorException& e) {
+  } catch (const SNLSVUnsupportedConstructError& e) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"))
       << reason;
+    ASSERT_FALSE(e.getUnsupportedElements().empty());
+    EXPECT_FALSE(e.getUnsupportedElements().front().message.empty());
     for (const auto* expected : expectedSubstrings) {
       EXPECT_NE(std::string::npos, reason.find(expected)) << reason;
     }
@@ -908,7 +910,7 @@ TEST(SNLSVConstructorStandaloneTest, constructRequiresValidLibrary) {
   try {
     constructor.construct(paths);
     FAIL() << "Expected null library rejection";
-  } catch (const SNLSVConstructorException& e) {
+  } catch (const SNLSVInternalError& e) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("SNLSVConstructor requires a valid NLLibrary"));
   }
@@ -1795,9 +1797,15 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorThrowsCompilationError) {
   try {
     constructor.construct(svPath);
     FAIL() << "Expected SystemVerilog compilation failure";
-  } catch (const SNLSVConstructorException& e) {
+  } catch (const SNLSVSyntaxError& e) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed"));
+    ASSERT_FALSE(e.getDiagnostics().empty());
+    EXPECT_EQ("error", e.getDiagnostics().front().severity);
+    EXPECT_FALSE(e.getDiagnostics().front().file.empty());
+    EXPECT_GT(e.getDiagnostics().front().line, 0u);
+    EXPECT_GT(e.getDiagnostics().front().column, 0u);
+    EXPECT_FALSE(e.getDiagnostics().front().message.empty());
   }
 }
 
@@ -31729,7 +31737,7 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyDiagnosticsReportPathThrows) {
   try {
     constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
     FAIL() << "Expected empty diagnostics report path exception";
-  } catch (const SNLSVConstructorException& e) {
+  } catch (const SNLSVInternalError& e) {
     const std::string reason = e.what();
     EXPECT_NE(
       std::string::npos,
@@ -31746,7 +31754,7 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyElaboratedASTJsonPathThrows) {
   try {
     constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
     FAIL() << "Expected empty elaborated AST JSON path exception";
-  } catch (const SNLSVConstructorException& e) {
+  } catch (const SNLSVInternalError& e) {
     const std::string reason = e.what();
     EXPECT_NE(
       std::string::npos,
