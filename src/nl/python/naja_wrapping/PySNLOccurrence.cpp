@@ -5,6 +5,7 @@
 
 #include "PySNLOccurrence.h"
 #include "PyInterface.h"
+#include "PySNLDesign.h"
 #include "SNLDesignObject.h"
 #include "PySNLDesignObject.h"
 #include "PySNLPath.h"
@@ -57,6 +58,7 @@ ManagedTypeDeallocMethod(SNLOccurrence)
 GetObjectMethod(SNLOccurrence, SNLNetComponent, getNetComponent)
 GetObjectMethod(SNLOccurrence, SNLInstTerm, getInstTerm)
 GetObjectMethod(SNLOccurrence, SNLInstance, getInstance)
+GetObjectMethod(SNLOccurrence, SNLDesign, getDesign)
 GetObjectMethod(SNLOccurrence, SNLPath, getPath)
 GetBoolAttribute(SNLOccurrence, isInstanceOccurrence)
 
@@ -67,6 +69,8 @@ PyMethodDef PySNLOccurrence_Methods[] = {
     "get the SNLInstTerm of the SNLOccurrence."},
   { "getInstance", (PyCFunction)PySNLOccurrence_getInstance, METH_NOARGS,
     "get the SNLInstance of the SNLOccurrence (None if the object is not an instance)."},
+  { "getDesign", (PyCFunction)PySNLOccurrence_getDesign, METH_NOARGS,
+    "get the design context of the SNLOccurrence."},
   { "isInstanceOccurrence", (PyCFunction)PySNLOccurrence_isInstanceOccurrence, METH_NOARGS,
     "return whether the SNLOccurrence references an SNLInstance."},
   { "getPath", (PyCFunction)PySNLOccurrence_getPath, METH_NOARGS,

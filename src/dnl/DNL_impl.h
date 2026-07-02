@@ -184,6 +184,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       DNLInstance(nullptr, DNLInstances_.size(), DNLID_MAX));
   assert(DNLInstances_.back().getID() == DNLInstances_.size() - 1);
   DNLID parentId = DNLInstances_.back().getID();
+  registerDesignInstance(top_, parentId);
   std::pair<DNLID, DNLID> childrenIndexes;
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = DNLTerms_.size();
@@ -206,6 +207,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   for (auto inst : top_->getInstances()) {
     DNLInstances_.push_back(DNLInstance(inst, DNLInstances_.size(), parentId));
     assert(DNLInstances_.back().getID() > 0);
+    registerDesignInstance(inst->getModel(), DNLInstances_.back().getID());
     stack.push_back(DNLInstances_.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
     termIndexes.first = DNLTerms_.size();
@@ -264,6 +266,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
 #endif
       DNLInstances_.push_back(
           DNLInstance(inst, DNLInstances_.size(), parentId));
+      registerDesignInstance(inst->getModel(), DNLInstances_.back().getID());
       stack.push_back(DNLInstances_.back().getID());
       if (/*inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive()
              ||*/

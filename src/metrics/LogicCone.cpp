@@ -41,21 +41,38 @@ using NodeID = LogicCone::NodeID;
 using NodeKind = LogicCone::NodeKind;
 using Direction = LogicCone::Direction;
 
-SNLDesign* inferTopDesign(const SNLOccurrence& occurrence) {
-  if (not occurrence.isValid()) {
-    return nullptr;
+bool designContains(const SNLDesign* root, const SNLDesign* target) {
+  if (not root or not target) {
+    return false;
   }
-  auto path = occurrence.getPath();
-  if (not path.empty()) {
-    return path.getDesign();
+  std::vector<const SNLDesign*> stack {root};
+  std::set<const SNLDesign*> visited;
+  while (not stack.empty()) {
+    auto design = stack.back();
+    stack.pop_back();
+    if (design == target) {
+      return true;
+    }
+    if (not visited.insert(design).second) {
+      continue;
+    }
+    for (auto instance : design->getInstances()) {
+      stack.push_back(instance->getModel());
+    }
   }
-  if (auto term = dynamic_cast<SNLTerm*>(occurrence.getObject())) {
-    return term->getDesign();
+  return false;
+}
+
+DNLID getLocalTopID(
+    DNLFull& dnl,
+    const SNLOccurrence& occurrence) {
+  auto localTopID = dnl.getDNLInstanceIDForDesign(occurrence.getDesign());
+  // LCOV_EXCL_START
+  if (localTopID == DNLID_MAX) {
+    throw NLException("LogicCone start design is not present in the current DNL");
   }
-  if (auto instTerm = occurrence.getInstTerm()) {
-    return instTerm->getInstance()->getDesign();
-  }
-  return nullptr;
+  // LCOV_EXCL_STOP
+  return localTopID;
 }
 
 enum class NodeKeyKind { BusRoot, Instance, Terminal };
@@ -165,9 +182,11 @@ struct LogicConeExtractor {
   LogicConeExtractor(
     DNLFull& dnl,
     Direction direction,
+    DNLID localTopID,
     ConeData& data):
     dnl_(dnl),
     direction_(direction),
+    localTopID_(localTopID),
     data_(data)
   {}
 
@@ -204,8 +223,103 @@ struct LogicConeExtractor {
   }
 
   private:
+    const DNLInstanceFull& localTop() const {
+      return dnl_.getDNLInstanceFromID(localTopID_);
+    }
+
+    bool isUnderLocalTop(const DNLInstanceFull& instance) const {
+      return instance.isUnder(localTop());
+    }
+
+    bool isLocalPort(const DNLTerminalFull& terminal) const {
+      if (localTopID_ == dnl_.getTop().getID()) {
+        return terminal.isTopPort();
+      }
+      return terminal.getDNLInstance().getID() == localTopID_;
+    }
+
+    bool isBoundaryPortForDirection(const DNLTerminalFull& terminal) const {
+      if (not isLocalPort(terminal)) {
+        return false;
+      }
+      const auto portDirection =
+        direction_ == Direction::FanIn ?
+          SNLTerm::Direction::Input :
+          SNLTerm::Direction::Output;
+      return terminal.getSnlBitTerm()->getDirection() == portDirection;
+    }
+
+    static void pushTerminal(std::vector<DNLID>& stack, DNLID terminalID) {
+      if (terminalID != DNLID_MAX) {
+        stack.push_back(terminalID);
+      }
+    }
+
+    std::vector<DNLID> collectLocalBoundaryPorts(DNLID seedTerminalID) const {
+      std::vector<DNLID> ports;
+      if (localTopID_ == dnl_.getTop().getID()) {
+        return ports;
+      }
+
+      std::vector<DNLID> stack {seedTerminalID};
+      std::set<DNLID> visited;
+      while (not stack.empty()) {
+        auto terminalID = stack.back();
+        stack.pop_back();
+        if (not visited.insert(terminalID).second) {
+          continue; // LCOV_EXCL_LINE repeated terminal graph visit
+        }
+
+        const auto& terminal = dnl_.getDNLTerminalFromID(terminalID);
+        // LCOV_EXCL_START
+        if (terminal.isNull()) {
+          continue;
+        }
+        // LCOV_EXCL_STOP
+        if (isLocalPort(terminal)) {
+          if (isBoundaryPortForDirection(terminal)) {
+            ports.push_back(terminalID);
+          }
+          continue;
+        }
+
+        auto pushNetTerms = [&](const DNLInstanceFull& context, auto net) {
+          for (auto instTerm : net->getInstTerms()) {
+            const auto& child =
+                context.getChildInstance(instTerm->getInstance());
+            // LCOV_EXCL_START
+            if (child.isNull()) {
+              continue;
+            }
+            // LCOV_EXCL_STOP
+            pushTerminal(stack, child.getTerminal(instTerm).getID());
+          }
+          for (auto bitTerm : net->getBitTerms()) {
+            pushTerminal(
+                stack,
+                context.getTerminalFromBitTerm(bitTerm).getID());
+          }
+        };
+
+        auto bitTermNet = terminal.getSnlBitTerm()->getNet();
+        if (bitTermNet and
+            not terminal.getDNLInstance().getSNLModel()->isAssign()) {
+          pushNetTerms(terminal.getDNLInstance(), bitTermNet);
+        }
+
+        auto instTerm = terminal.getSnlTerm();
+        if (not terminal.getDNLInstance().isTop() and
+            instTerm and instTerm->getNet()) {
+          pushNetTerms(
+              terminal.getDNLInstance().getParentInstance(),
+              instTerm->getNet());
+        }
+      }
+      return ports;
+    }
+
     const DNLInstanceFull* findInstance(const SNLPath& path) const {
-      auto instance = &dnl_.getTop();
+      auto instance = &localTop();
       for (auto snlInstance: path.getInstances()) {
         auto& child = instance->getChildInstance(snlInstance);
         // LCOV_EXCL_START
@@ -233,6 +347,9 @@ struct LogicConeExtractor {
           return nullptr;
         }
         // LCOV_EXCL_STOP
+        if (not isUnderLocalTop(terminal.getDNLInstance())) {
+          return nullptr;
+        }
         return &terminal;
       }
 
@@ -260,6 +377,9 @@ struct LogicConeExtractor {
         return nullptr;
       }
       // LCOV_EXCL_STOP
+      if (not isUnderLocalTop(terminal.getDNLInstance())) {
+        return nullptr;
+      }
       return &terminal;
     }
 
@@ -302,7 +422,7 @@ struct LogicConeExtractor {
     }
 
     void addTerminal(NodeID parentID, const DNLTerminalFull& terminal) {
-      if (terminal.isTopPort()) {
+      if (isLocalPort(terminal)) {
         auto portID = data_.getOrCreate(
             {NodeKeyKind::Terminal, terminal.getID()},
             NodeKind::Ports);
@@ -327,19 +447,36 @@ struct LogicConeExtractor {
       const auto& iso = dnl_.getDNLIsoDB().getIsoFromIsoIDconst(isoID);
       const auto& terminals =
         direction_ == Direction::FanIn ? iso.getDrivers() : iso.getReaders();
-      for (auto nextTerminalID: terminals) {
-        const auto& terminal = dnl_.getDNLTerminalFromID(nextTerminalID);
-        // LCOV_EXCL_START
-        if (terminal.isNull()) {
-          continue;
+      auto addTerminals = [&](const auto& terminalIDs, bool localBoundaryOnly) {
+        for (auto nextTerminalID: terminalIDs) {
+          const auto& terminal = dnl_.getDNLTerminalFromID(nextTerminalID);
+          // LCOV_EXCL_START
+          if (terminal.isNull()) {
+            continue;
+          }
+          // LCOV_EXCL_STOP
+          if (not isUnderLocalTop(terminal.getDNLInstance())) {
+            continue;
+          }
+          if (localBoundaryOnly and not isBoundaryPortForDirection(terminal)) {
+            continue;
+          }
+          addTerminal(parentID, terminal);
         }
-        // LCOV_EXCL_STOP
-        addTerminal(parentID, terminal);
+      };
+      addTerminals(terminals, false);
+
+      const auto& localBoundaryTerminals =
+        direction_ == Direction::FanIn ? iso.getReaders() : iso.getDrivers();
+      addTerminals(localBoundaryTerminals, true);
+      for (auto boundaryTerminalID : collectLocalBoundaryPorts(terminalID)) {
+        addTerminal(parentID, dnl_.getDNLTerminalFromID(boundaryTerminalID));
       }
     }
 
     DNLFull& dnl_;
     Direction direction_;
+    DNLID localTopID_;
     ConeData& data_;
 };
 
@@ -381,10 +518,37 @@ void mergeConeData(
   }
 }
 
+SNLPath getRelativePath(DNLFull& dnl, DNLID localTopID, DNLID targetID) {
+  SNLPath path;
+  if (targetID == localTopID or targetID == DNLID_MAX) {
+    return path;
+  }
+
+  std::vector<SNLInstance*> instances;
+  auto currentID = targetID;
+  while (currentID != localTopID) {
+    const auto& current = dnl.getDNLInstanceFromID(currentID);
+    // LCOV_EXCL_START
+    if (current.isNull() or current.isTop()) {
+      return SNLPath();
+    }
+    // LCOV_EXCL_STOP
+    instances.push_back(current.getSNLInstance());
+    currentID = current.getParentID();
+  }
+
+  std::reverse(instances.begin(), instances.end());
+  for (auto instance : instances) {
+    path = SNLPath(path, instance);
+  }
+  return path;
+}
+
 SNLOccurrence resolveOccurrence(
     DNLFull& dnl,
     const Node& node,
     const SNLOccurrence& startOccurrence,
+    DNLID localTopID,
     bool hasBusRoot) {
   if (node.key.kind == NodeKeyKind::BusRoot) {
     return startOccurrence;
@@ -400,7 +564,7 @@ SNLOccurrence resolveOccurrence(
     }
     // LCOV_EXCL_STOP
     return SNLOccurrence(
-        instance.getPath().getHeadPath(),
+        getRelativePath(dnl, localTopID, instance.getParentID()),
         instance.getSNLInstance());
   }
   if (node.key.kind == NodeKeyKind::Terminal) {
@@ -410,11 +574,8 @@ SNLOccurrence resolveOccurrence(
       return SNLOccurrence();
     }
     // LCOV_EXCL_STOP
-    if (terminal.isTopPort()) {
-      return SNLOccurrence(terminal.getSnlBitTerm());
-    }
     return SNLOccurrence(
-        terminal.getDNLInstance().getPath(),
+        getRelativePath(dnl, localTopID, terminal.getDNLInstance().getID()),
         terminal.getSnlBitTerm());
   }
   // LCOV_EXCL_START
@@ -425,7 +586,8 @@ SNLOccurrence resolveOccurrence(
 std::vector<PublicNode> buildPublicNodes(
     DNLFull& dnl,
     const ConeData& data,
-    const SNLOccurrence& startOccurrence) {
+    const SNLOccurrence& startOccurrence,
+    DNLID localTopID) {
   std::vector<PublicNode> nodes;
   nodes.reserve(data.nodes.size());
   auto hasBusRoot =
@@ -433,7 +595,8 @@ std::vector<PublicNode> buildPublicNodes(
       data.nodes[data.root].key.kind == NodeKeyKind::BusRoot;
   for (const auto& node : data.nodes) {
     nodes.push_back(PublicNode {
-        resolveOccurrence(dnl, node, startOccurrence, hasBusRoot),
+        resolveOccurrence(
+            dnl, node, startOccurrence, localTopID, hasBusRoot),
         node.kind,
         node.next,
         node.prev});
@@ -444,9 +607,10 @@ std::vector<PublicNode> buildPublicNodes(
 ConeData extractSingleBitCone(
     DNLFull& dnl,
     Direction direction,
+    DNLID localTopID,
     const SNLOccurrence& start) {
   ConeData data;
-  LogicConeExtractor extractor(dnl, direction, data);
+  LogicConeExtractor extractor(dnl, direction, localTopID, data);
   extractor.extract(start);
   return data;
 }
@@ -454,6 +618,7 @@ ConeData extractSingleBitCone(
 ConeData extractBusCone(
     DNLFull& dnl,
     Direction direction,
+    DNLID localTopID,
     const SNLOccurrence& busOccurrence,
     SNLBusTerm* bus) {
   auto bitOccurrences = getBusBitOccurrences(busOccurrence, bus);
@@ -468,7 +633,7 @@ ConeData extractBusCone(
 
   auto extractRange = [&](size_t begin, size_t end) {
     auto& local = localCones.local();
-    LogicConeExtractor extractor(dnl, direction, local);
+    LogicConeExtractor extractor(dnl, direction, localTopID, local);
     for (size_t i = begin; i < end; ++i) {
       local.bitRoots.push_back(extractor.extract(bitOccurrences[i]));
     }
@@ -505,22 +670,25 @@ LogicCone::LogicCone(
   const naja::NL::SNLOccurrence& start,
   Direction direction):
   direction_(direction) {
-  auto top = inferTopDesign(start);
+  auto top = start.getDesign();
   if (not top or not naja::NL::NLUniverse::get()) {
     throw naja::NL::NLException(
       "LogicCone requires an occurrence in an existing NLUniverse");
   }
-  if (naja::NL::NLUniverse::get()->getTopDesign() != top) {
-    naja::NL::NLUniverse::get()->setTopDesign(top);
+  auto universe = naja::NL::NLUniverse::get();
+  auto currentTop = universe->getTopDesign();
+  if (currentTop != top and not designContains(currentTop, top)) {
+    universe->setTopDesign(top);
   }
   auto dnl = naja::DNL::get();
+  auto localTopID = getLocalTopID(*dnl, start);
   auto data = [&]() {
     if (auto bus = dynamic_cast<naja::NL::SNLBusTerm*>(start.getObject())) {
-      return extractBusCone(*dnl, direction_, start, bus);
+      return extractBusCone(*dnl, direction_, localTopID, start, bus);
     }
-    return extractSingleBitCone(*dnl, direction_, start);
+    return extractSingleBitCone(*dnl, direction_, localTopID, start);
   }();
-  nodes_ = buildPublicNodes(*dnl, data, start);
+  nodes_ = buildPublicNodes(*dnl, data, start, localTopID);
   root_ = data.root;
   leaves_ = std::move(data.leaves);
 }
