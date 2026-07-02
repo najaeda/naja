@@ -53,8 +53,10 @@ PyObject* buildDiagnostics(const std::vector<SNLSVDiagnostic>& diagnostics) {
       "column", static_cast<unsigned long long>(diagnostic.column),
       "message", diagnostic.message.c_str());
     if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
       Py_DECREF(result);
-      return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+      return nullptr;
+      // LCOV_EXCL_STOP
     }
     PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
   }
@@ -74,8 +76,10 @@ PyObject* buildUnsupportedElements(
       "message", unsupported.message.c_str(),
       "code", unsupported.code.c_str());
     if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
       Py_DECREF(result);
-      return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+      return nullptr;
+      // LCOV_EXCL_STOP
     }
     PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
   }
@@ -92,14 +96,18 @@ void raiseSystemVerilogError(
   }
   PyObject* exception = PyObject_CallFunction(exceptionType, "s", message.c_str());
   if (!exception) {
+    // LCOV_EXCL_START CPython allocation failure cleanup
     Py_XDECREF(attributeValue);
-    return; // LCOV_EXCL_LINE CPython allocation failure
+    return;
+    // LCOV_EXCL_STOP
   }
   if (attributeName && attributeValue) {
     if (PyObject_SetAttrString(exception, attributeName, attributeValue) < 0) {
+      // LCOV_EXCL_START CPython attribute failure cleanup
       Py_DECREF(attributeValue);
       Py_DECREF(exception);
-      return; // LCOV_EXCL_LINE CPython attribute failure
+      return;
+      // LCOV_EXCL_STOP
     }
     Py_DECREF(attributeValue);
   }
@@ -118,10 +126,12 @@ int PyNLDB_addSystemVerilogExceptions(PyObject* module) {
     }
     Py_INCREF(result);
     if (PyModule_AddObject(module, moduleName, result) < 0) {
+      // LCOV_EXCL_START CPython module failure cleanup
       Py_DECREF(result);
       Py_DECREF(result);
       result = nullptr;
-      return -1; // LCOV_EXCL_LINE CPython module failure
+      return -1;
+      // LCOV_EXCL_STOP
     }
     return 0;
   };
@@ -138,7 +148,7 @@ int PyNLDB_addSystemVerilogExceptions(PyObject* module) {
       addException(
         "naja.SystemVerilogInternalError", "SystemVerilogInternalError",
         PySystemVerilogError, PySystemVerilogInternalError) < 0) {
-    return -1;
+    return -1; // LCOV_EXCL_LINE CPython exception registration failure
   }
   return 0;
 }
