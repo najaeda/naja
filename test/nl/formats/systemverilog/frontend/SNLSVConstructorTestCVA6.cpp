@@ -9,9 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <optional>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +23,6 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
-#include "SNLLogicalCone.h"
 #include "SNLOccurrence.h"
 #include "SNLSVConstructor.h"
 #include "SNLTerm.h"
@@ -84,48 +81,6 @@ class ScopedEnvVar {
 };
 
 template <typename Cone>
-std::map<SNLOccurrence, typename Cone::NodeKind> collectNodeKinds(
-    const Cone& cone) {
-  std::map<SNLOccurrence, typename Cone::NodeKind> result;
-  for (const auto& node : cone.getNodes()) {
-    result.emplace(node.occurrence, node.kind);
-  }
-  return result;
-}
-
-template <typename Cone>
-std::set<std::pair<SNLOccurrence, SNLOccurrence>> collectEdges(
-    const Cone& cone) {
-  std::set<std::pair<SNLOccurrence, SNLOccurrence>> result;
-  const auto& nodes = cone.getNodes();
-  for (const auto& node : nodes) {
-    for (auto next : node.next) {
-      result.emplace(node.occurrence, nodes[next].occurrence);
-    }
-  }
-  return result;
-}
-
-template <typename Cone>
-std::set<SNLOccurrence> collectLeaves(const Cone& cone) {
-  std::set<SNLOccurrence> result;
-  for (auto leaf : cone.getLeaves()) {
-    result.insert(cone.getNodes()[leaf].occurrence);
-  }
-  return result;
-}
-
-void expectSameCone(const SNLLogicalCone& expected, const LogicCone& actual) {
-  ASSERT_EQ(expected.getNodeCount(), actual.getNodeCount());
-  EXPECT_EQ(
-      expected.getNodes()[expected.getRoot()].occurrence,
-      actual.getNodes()[actual.getRoot()].occurrence);
-  EXPECT_EQ(collectNodeKinds(expected), collectNodeKinds(actual));
-  EXPECT_EQ(collectLeaves(expected), collectLeaves(actual));
-  EXPECT_EQ(collectEdges(expected), collectEdges(actual));
-}
-
-template <typename Cone>
 std::pair<Cone, std::chrono::microseconds> makeTimedCone(
     const SNLOccurrence& start,
     typename Cone::Direction direction) {
@@ -172,7 +127,7 @@ class SNLSVConstructorTestCVA6: public ::testing::Test {
     NLLibrary* library_ {nullptr};
 };
 
-TEST_F(SNLSVConstructorTestCVA6, cva6NocReqOLogicConesMatch) {
+TEST_F(SNLSVConstructorTestCVA6, cva6NocReqOLogicConeBuilds) {
   const char* cva6RepoEnv = std::getenv("CVA6_REPO_DIR");
   if (cva6RepoEnv == nullptr or std::string(cva6RepoEnv).empty()) {
     GTEST_SKIP() << "Set CVA6_REPO_DIR to a CVA6 checkout to run this test";
@@ -223,12 +178,10 @@ TEST_F(SNLSVConstructorTestCVA6, cva6NocReqOLogicConesMatch) {
     SCOPED_TRACE(bit->getString());
     const auto bitName = bit->getString();
     const auto start = SNLOccurrence(bit);
-    auto [snlCone, snlElapsed] = makeTimedCone<SNLLogicalCone>(
-        start, SNLLogicalCone::Direction::FanIn);
-    printConeStats(bitName, "SNLLogicalCone", snlCone, snlElapsed);
-    auto [dnlCone, dnlElapsed] = makeTimedCone<LogicCone>(
+    auto [cone, elapsed] = makeTimedCone<LogicCone>(
         start, LogicCone::Direction::FanIn);
-    printConeStats(bitName, "LogicCone", dnlCone, dnlElapsed);
-    expectSameCone(snlCone, dnlCone);
+    printConeStats(bitName, "LogicCone", cone, elapsed);
+    EXPECT_GT(cone.getNodeCount(), 0);
+    EXPECT_EQ(start, cone.getNodes()[cone.getRoot()].occurrence);
   }
 }

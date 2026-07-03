@@ -17,17 +17,17 @@ namespace PYNAJA {
 typedef struct {
   PyObject_HEAD
   naja::NAJA_METRICS::LogicCone* object_;
-} PySNLLogicalCone;
+} PyLogicCone;
 
-NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLLogicalCone;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeLogicCone;
 
-extern PyObject* PySNLLogicalCone_Link(
+extern PyObject* PyLogicCone_Link(
   const naja::NAJA_METRICS::LogicCone& logicalCone);
-extern void PySNLLogicalCone_LinkPyType();
-extern void PySNLLogicalCone_postModuleInit();
+extern void PyLogicCone_LinkPyType();
+extern void PyLogicCone_postModuleInit();
 
-#define IsPySNLLogicalCone(v) (PyObject_TypeCheck(v, &PyTypeSNLLogicalCone))
-#define PYSNLLogicalCone(v) ((PySNLLogicalCone*)(v))
-#define PYSNLLogicalCone_O(v) (PYSNLLogicalCone(v)->object_)
+#define IsPyLogicCone(v) (PyObject_TypeCheck(v, &PyTypeLogicCone))
+#define PYLogicCone(v) ((PyLogicCone*)(v))
+#define PYLogicCone_O(v) (PYLogicCone(v)->object_)
 
 }  // namespace PYNAJA

@@ -4,18 +4,27 @@
 
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
-#include "SNLLogicalCone.h"
+#include "SNLOccurrence.h"
 
 namespace naja::NAJA_METRICS {
 
 class LogicCone { // LCOV_EXCL_LINE declaration attributed by gcov
   public:
-    using Direction = naja::NL::SNLLogicalCone::Direction;
-    using NodeID = naja::NL::SNLLogicalCone::NodeID;
-    using NodeKind = naja::NL::SNLLogicalCone::NodeKind;
-    using Node = naja::NL::SNLLogicalCone::Node;
+    enum class Direction { FanIn, FanOut };
+
+    using NodeID = uint32_t;
+
+    enum class NodeKind { Root, Internal, Flop, Ports, Blackbox };
+
+    struct Node { // LCOV_EXCL_LINE declaration attributed by gcov
+      naja::NL::SNLOccurrence occurrence {};
+      NodeKind kind {NodeKind::Internal};
+      std::vector<NodeID> next {};
+      std::vector<NodeID> prev {};
+    };
 
     // A bus-term occurrence builds one shared cone for all its bits.
     LogicCone(const naja::NL::SNLOccurrence& start, Direction direction);
