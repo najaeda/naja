@@ -16,6 +16,7 @@
 #include "PySNLBitTerm.h"
 
 #include "NajaLog.h"
+#include "DNL.h"
 #include "NLUniverse.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
@@ -299,6 +300,7 @@ static PyObject* PyNLUniverse_destroy(PyNLUniverse* self) {
     return nullptr; // LCOV_EXCL_LINE
   }
   SNLSVLiveASTLinkRegistry::clearAll();
+  naja::DNL::destroy();
   self->object_->destroy();
   self->object_ = nullptr;
   NLCATCH

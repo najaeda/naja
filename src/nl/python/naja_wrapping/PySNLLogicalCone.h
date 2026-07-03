@@ -8,21 +8,21 @@
 
 #include "NajaPythonExport.h"
 
-namespace naja::NL {
-  class SNLLogicalCone;
+namespace naja::NAJA_METRICS {
+  class LogicCone;
 }
 
 namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::NL::SNLLogicalCone* object_;
+  naja::NAJA_METRICS::LogicCone* object_;
 } PySNLLogicalCone;
 
 NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLLogicalCone;
 
 extern PyObject* PySNLLogicalCone_Link(
-  const naja::NL::SNLLogicalCone& logicalCone);
+  const naja::NAJA_METRICS::LogicCone& logicalCone);
 extern void PySNLLogicalCone_LinkPyType();
 extern void PySNLLogicalCone_postModuleInit();
 
