@@ -157,6 +157,24 @@ void DNL<DNLInstance, DNLTerminal>::display() const {
 }
 
 template <class DNLInstance, class DNLTerminal>
+void DNL<DNLInstance, DNLTerminal>::initDFSIntervals() {
+  DNLID next = 0;
+  std::function<void(DNLID)> visit = [&](DNLID id) {
+    const auto dfsIn = next++;
+    const auto children = getDNLInstanceFromID(id).getChildren();
+    if (children.first != DNLID_MAX) {
+      for (DNLID child = children.first; child <= children.second; ++child) {
+        visit(child);
+      }
+    }
+    getNonConstDNLInstanceFromID(id).setDFSInterval(dfsIn, next);
+  };
+  if (not DNLInstances_.empty()) {
+    visit(0);
+  }
+}
+
+template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::process() {
   std::vector<DNLID> stack;
   // Creating the top
@@ -166,6 +184,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       DNLInstance(nullptr, DNLInstances_.size(), DNLID_MAX));
   assert(DNLInstances_.back().getID() == DNLInstances_.size() - 1);
   DNLID parentId = DNLInstances_.back().getID();
+  registerDesignInstance(top_, parentId);
   std::pair<DNLID, DNLID> childrenIndexes;
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = DNLTerms_.size();
@@ -188,6 +207,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   for (auto inst : top_->getInstances()) {
     DNLInstances_.push_back(DNLInstance(inst, DNLInstances_.size(), parentId));
     assert(DNLInstances_.back().getID() > 0);
+    registerDesignInstance(inst->getModel(), DNLInstances_.back().getID());
     stack.push_back(DNLInstances_.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
     termIndexes.first = DNLTerms_.size();
@@ -246,6 +266,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
 #endif
       DNLInstances_.push_back(
           DNLInstance(inst, DNLInstances_.size(), parentId));
+      registerDesignInstance(inst->getModel(), DNLInstances_.back().getID());
       stack.push_back(DNLInstances_.back().getID());
       if (/*inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive()
              ||*/
@@ -296,6 +317,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     }
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
+  initDFSIntervals();
   DNLInstances_.push_back(DNLInstance());
   DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();

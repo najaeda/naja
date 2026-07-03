@@ -9,44 +9,46 @@
 
 #include "PyInterface.h"
 #include "PySNLOccurrence.h"
-#include "SNLLogicalCone.h"
+#include "LogicCone.h"
+#include "SNLBusTerm.h"
 
 namespace PYNAJA {
 
 using namespace naja::NL;
+using naja::NAJA_METRICS::LogicCone;
 
-static const char* nodeKindString(SNLLogicalCone::NodeKind kind) {
+static const char* nodeKindString(LogicCone::NodeKind kind) {
   switch (kind) {
-    case SNLLogicalCone::NodeKind::Root: return "root";
-    case SNLLogicalCone::NodeKind::Internal: return "internal";
-    case SNLLogicalCone::NodeKind::Flop: return "flop";
-    case SNLLogicalCone::NodeKind::Ports: return "ports";
-    case SNLLogicalCone::NodeKind::Blackbox: return "blackbox";
+    case LogicCone::NodeKind::Root: return "root";
+    case LogicCone::NodeKind::Internal: return "internal";
+    case LogicCone::NodeKind::Flop: return "flop";
+    case LogicCone::NodeKind::Ports: return "ports";
+    case LogicCone::NodeKind::Blackbox: return "blackbox";
   }
   return "unknown"; // LCOV_EXCL_LINE defensive: all NodeKind values handled above
 }
 
 static bool parseDirection(
   PyObject* object,
-  SNLLogicalCone::Direction& direction) {
+  LogicCone::Direction& direction) {
   if (PyLong_Check(object)) {
     auto value = PyLong_AsLong(object);
-    if (value == static_cast<long>(SNLLogicalCone::Direction::FanIn)) {
-      direction = SNLLogicalCone::Direction::FanIn;
+    if (value == static_cast<long>(LogicCone::Direction::FanIn)) {
+      direction = LogicCone::Direction::FanIn;
       return true;
     }
-    if (value == static_cast<long>(SNLLogicalCone::Direction::FanOut)) {
-      direction = SNLLogicalCone::Direction::FanOut;
+    if (value == static_cast<long>(LogicCone::Direction::FanOut)) {
+      direction = LogicCone::Direction::FanOut;
       return true;
     }
   } else if (PyUnicode_Check(object)) {
     std::string value(PyUnicode_AsUTF8(object));
     if (value == "fanin") {
-      direction = SNLLogicalCone::Direction::FanIn;
+      direction = LogicCone::Direction::FanIn;
       return true;
     }
     if (value == "fanout") {
-      direction = SNLLogicalCone::Direction::FanOut;
+      direction = LogicCone::Direction::FanOut;
       return true;
     }
   }
@@ -71,7 +73,7 @@ static int PySNLLogicalCone_Init(
     return -1;
   }
 
-  SNLLogicalCone::Direction direction;
+  LogicCone::Direction direction;
   if (not parseDirection(directionObject, direction)) {
     setError("SNLLogicalCone direction must be FanIn or FanOut");
     return -1;
@@ -82,16 +84,17 @@ static int PySNLLogicalCone_Init(
     return -1;
   }
   const auto& start = *PYSNLOccurrence_O(startsObject);
+  auto bus = dynamic_cast<SNLBusTerm*>(start.getObject());
   if (not start.isValid() or
-      (not start.getBitTerm() and not start.getInstTerm())) {
+      (not bus and not start.getBitTerm() and not start.getInstTerm())) {
     setError(
       "SNLLogicalCone start must be a valid single-bit "
-      "SNLNetComponent occurrence");
+      "SNLNetComponent occurrence or a bus term occurrence");
     return -1;
   }
 
   try {
-    self->object_ = new SNLLogicalCone(start, direction);
+    self->object_ = new LogicCone(start, direction);
   // The wrapper validates every public constructor precondition above.
   // LCOV_EXCL_START
   } catch (const NLException& exception) {
@@ -123,7 +126,7 @@ static PyObject* PySNLLogicalCone_Repr(PySNLLogicalCone* self) {
 }
 
 static PyObject* nodeIDsToTuple(
-  const std::vector<SNLLogicalCone::NodeID>& ids) {
+  const std::vector<LogicCone::NodeID>& ids) {
   auto tuple = PyTuple_New(static_cast<Py_ssize_t>(ids.size()));
   if (not tuple) { // LCOV_EXCL_LINE allocation failure
     return nullptr; // LCOV_EXCL_LINE
@@ -138,8 +141,8 @@ static PyObject* nodeIDsToTuple(
 }
 
 static PyObject* nodeToTuple(
-  SNLLogicalCone::NodeID id,
-  const SNLLogicalCone::Node& node) {
+  LogicCone::NodeID id,
+  const LogicCone::Node& node) {
   auto tuple = PyTuple_New(5);
   // LCOV_EXCL_START
   if (not tuple) {
@@ -155,8 +158,8 @@ static PyObject* nodeToTuple(
 }
 
 static PyObject* nodesToTuple(
-  const SNLLogicalCone& cone,
-  const std::vector<SNLLogicalCone::NodeID>& ids) {
+  const LogicCone& cone,
+  const std::vector<LogicCone::NodeID>& ids) {
   auto tuple = PyTuple_New(static_cast<Py_ssize_t>(ids.size()));
   // LCOV_EXCL_START
   if (not tuple) {
@@ -189,7 +192,7 @@ static PyObject* PySNLLogicalCone_getNodes(PySNLLogicalCone* self) {
     PyTuple_SET_ITEM(
       tuple,
       static_cast<Py_ssize_t>(i),
-      nodeToTuple(static_cast<SNLLogicalCone::NodeID>(i), nodes[i]));
+      nodeToTuple(static_cast<LogicCone::NodeID>(i), nodes[i]));
   }
   return tuple;
 }
@@ -248,12 +251,12 @@ PyMethodDef PySNLLogicalCone_Methods[] = {
 
 // Reserved C++-to-Python link helper; no public wrapper currently calls it.
 // LCOV_EXCL_START
-PyObject* PySNLLogicalCone_Link(const SNLLogicalCone& logicalCone) {
+PyObject* PySNLLogicalCone_Link(const LogicCone& logicalCone) {
   auto pyObject = PyObject_NEW(PySNLLogicalCone, &PyTypeSNLLogicalCone);
   if (not pyObject) {
     return nullptr;
   }
-  pyObject->object_ = new SNLLogicalCone(logicalCone);
+  pyObject->object_ = new LogicCone(logicalCone);
   return reinterpret_cast<PyObject*>(pyObject);
 }
 // LCOV_EXCL_STOP
@@ -274,11 +277,11 @@ void PySNLLogicalCone_postModuleInit() {
   PyObject* constant;
   LoadObjectConstant(
     PyTypeSNLLogicalCone.tp_dict,
-    SNLLogicalCone::Direction::FanIn,
+    LogicCone::Direction::FanIn,
     "FanIn");
   LoadObjectConstant(
     PyTypeSNLLogicalCone.tp_dict,
-    SNLLogicalCone::Direction::FanOut,
+    LogicCone::Direction::FanOut,
     "FanOut");
 }
 

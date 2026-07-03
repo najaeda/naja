@@ -314,6 +314,14 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
   EXPECT_EQ(subsubmodID, 2);
   EXPECT_EQ(subsubinTermID, 4);
   EXPECT_EQ(subsuboutTermID, 5);
+  const auto& submodInstance = dnl->getTop().getChildInstance(subinst);
+  const auto& subsubmodInstance = submodInstance.getChildInstance(subsubinst);
+  EXPECT_TRUE(dnl->getTop().isUnder(dnl->getTop()));
+  EXPECT_TRUE(submodInstance.isUnder(dnl->getTop()));
+  EXPECT_TRUE(subsubmodInstance.isUnder(dnl->getTop()));
+  EXPECT_TRUE(subsubmodInstance.isUnder(submodInstance));
+  EXPECT_FALSE(dnl->getTop().isUnder(submodInstance));
+  EXPECT_FALSE(submodInstance.isUnder(subsubmodInstance));
   // Destroy the DNL
   destroy();
 }

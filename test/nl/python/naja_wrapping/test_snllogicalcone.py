@@ -143,9 +143,13 @@ class SNLLogicalConeTest(unittest.TestCase):
     with self.assertRaises(RuntimeError):
       naja.SNLLogicalCone(
         naja.SNLOccurrence(self.gate), naja.SNLLogicalCone.FanIn)
-    with self.assertRaises(RuntimeError):
-      naja.SNLLogicalCone(
-        naja.SNLOccurrence(bus), naja.SNLLogicalCone.FanIn)
+    bus_cone = naja.SNLLogicalCone(
+      naja.SNLOccurrence(bus), naja.SNLLogicalCone.FanIn)
+    self.assertEqual(naja.SNLLogicalCone.FanIn, bus_cone.get_direction())
+    self.assertEqual(1 + bus.getWidth(), bus_cone.get_node_count())
+    self.assertEqual(bus, bus_cone.get_root()[1].getNetComponent())
+    self.assertEqual("root", bus_cone.get_root()[2])
+    self.assertEqual(0, len(bus_cone.get_leaves()))
     with self.assertRaises(RuntimeError):
       naja.SNLLogicalCone(
         naja.SNLOccurrence(self.top_output), "sideways")
