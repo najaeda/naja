@@ -198,6 +198,16 @@ class DNLInstanceFull {
   const std::pair<DNLID, DNLID>& getChildren() const {
     return childrenIndexes_;
   }
+  void setDFSInterval(DNLID dfsIn, DNLID dfsOut) {
+    dfsIn_ = dfsIn;
+    dfsOut_ = dfsOut;
+  }
+  DNLID getDFSIn() const { return dfsIn_; }
+  DNLID getDFSOut() const { return dfsOut_; }
+  bool isUnder(const DNLInstanceFull& parent) const {
+    return id_ != DNLID_MAX and parent.id_ != DNLID_MAX and
+      parent.dfsIn_ <= dfsIn_ and dfsIn_ < parent.dfsOut_;
+  }
   /**
    * \brief Check if the DNLInstanceFull is leaf.
    * \return True if the DNLInstanceFull is leaf.
@@ -214,6 +224,8 @@ class DNLInstanceFull {
   DNLID id_ = DNLID_MAX;
   DNLID parent_ = DNLID_MAX;
   std::pair<DNLID, DNLID> termsIndexes_;
+  DNLID dfsIn_ = DNLID_MAX;
+  DNLID dfsOut_ = DNLID_MAX;
 };
 
 class DNLTerminalFull {
@@ -647,6 +659,24 @@ class DNL {
    */
   const DNLInstance& getTop() const { return DNLInstances_[0]; }
   /**
+   * \brief Get one DNL instance ID whose model is the given SNLDesign.
+   * \return The DNL instance ID, or DNLID_MAX when the design is not in this DNL.
+   */
+  DNLID getDNLInstanceIDForDesign(const SNLDesign* design) const {
+    // LCOV_EXCL_START
+    if (not design) {
+      return DNLID_MAX;
+    }
+    // LCOV_EXCL_STOP
+    auto found = designInstanceIDs_.find(design->getNLID());
+    // LCOV_EXCL_START
+    if (found == designInstanceIDs_.end()) {
+      return DNLID_MAX;
+    }
+    // LCOV_EXCL_STOP
+    return found->second;
+  }
+  /**
    * \brief Check if the DNLInstance is child of the parent DNLInstance.
    * \param parent The DNL ID of the parent DNLInstance.
    * \param child The DNL ID of the child DNLInstance.
@@ -686,11 +716,21 @@ class DNL {
   const SNLDesign* getTopDesign() const { return top_; }
   
  private:
+  void registerDesignInstance(const SNLDesign* design, DNLID id) {
+    // LCOV_EXCL_START
+    if (not design) {
+      return;
+    }
+    // LCOV_EXCL_STOP
+    designInstanceIDs_[design->getNLID()] = id;
+  }
+  void initDFSIntervals();
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
   const SNLDesign* top_;
   std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>> DNLTerms_;
   std::vector<DNLID> termId2isoId_;
+  std::map<NLID, DNLID> designInstanceIDs_;
   DNLIsoDB fidb_;
 };
 

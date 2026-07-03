@@ -80,6 +80,14 @@ SNLPath SNLOccurrence::getPath() const {
   return SNLPath();
 }
 
+SNLDesign* SNLOccurrence::getDesign() const {
+  auto path = getPath();
+  if (not path.empty()) {
+    return path.getDesign();
+  }
+  return object_ ? object_->getDesign() : nullptr;
+}
+
 bool SNLOccurrence::isNetComponentOccurrence() const {
   return dynamic_cast<SNLNetComponent*>(getObject()) != nullptr;
 }

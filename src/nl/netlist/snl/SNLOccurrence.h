@@ -10,6 +10,7 @@ namespace naja::NL {
 
 class SNLPath;
 class SNLSharedPath;
+class SNLDesign;
 class SNLDesignObject;
 class SNLBitNet;
 class SNLNetComponent;
@@ -42,6 +43,8 @@ class SNLOccurrence {
 
     /// \return this SNLOccurrence path.
     SNLPath getPath() const;
+    /// \return this SNLOccurrence design context.
+    SNLDesign* getDesign() const;
     /// \return this SNLOccurrence referenced SNLDesignObject.
     SNLDesignObject* getObject() const { return object_; }
     /// \return true if this SNLOccurrence is valid.
