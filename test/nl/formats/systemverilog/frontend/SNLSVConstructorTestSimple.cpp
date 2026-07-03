@@ -1809,6 +1809,41 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorThrowsCompilationError) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, formatFirstCompilationCustomTypeDiagnostic) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "first_compilation_custom_type_diagnostic";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "sign_compare.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module sign_compare(\n"
+         << "  input logic signed [7:0] lhs,\n"
+         << "  input logic [7:0] rhs,\n"
+         << "  output logic result);\n"
+         << "  assign result = lhs < rhs;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  const auto reportPath = outPath / "diagnostics.log";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  EXPECT_NO_THROW(constructor.construct(svPath, options));
+  EXPECT_NE(nullptr, library_->getSNLDesign(NLName("sign_compare")));
+
+  std::ifstream reportFile(reportPath);
+  ASSERT_TRUE(reportFile.good());
+  const std::string report(
+    (std::istreambuf_iterator<char>(reportFile)),
+    std::istreambuf_iterator<char>());
+  EXPECT_NE(std::string::npos, report.find("comparison of differently signed types"));
+  EXPECT_EQ(std::string::npos, report.find("No diagnostic formatter for type"));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseCommandFileSyntaxErrorIncludesDriverFailureDetails) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

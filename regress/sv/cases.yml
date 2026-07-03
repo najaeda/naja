@@ -35,6 +35,44 @@ cases:
       TARGET_CFG: cv64a6_imafdc_sv39
     dump:
       rtl_infos_as_attributes: true
+    # Structural integration signatures are intentionally tied to the pinned
+    # CVA6 commit above. Update these counts only after reviewing the cone diff.
+    logic_cones:
+      - term: noc_req_o
+        direction: fanin
+        expected:
+          nodes: 18399
+          edges: 34041
+          leaves: 93
+          roots: 471
+          registers: 86
+          ports: 3
+          blackboxes: 4
+          internal: 17835
+      - term: noc_req_o
+        bit: 468
+        direction: fanin
+        expected:
+          nodes: 3
+          edges: 2
+          leaves: 0
+          roots: 1
+          registers: 0
+          ports: 0
+          blackboxes: 0
+          internal: 2
+      - term: noc_req_o
+        bit: 469
+        direction: fanin
+        expected:
+          nodes: 3
+          edges: 2
+          leaves: 0
+          roots: 1
+          registers: 0
+          ports: 0
+          blackboxes: 0
+          internal: 2
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200

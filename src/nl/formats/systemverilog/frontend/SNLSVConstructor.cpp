@@ -266,6 +266,23 @@ class StructuredDiagnosticClient final: public slang::DiagnosticClient {
       diagnostics.push_back(std::move(result));
     }
 
+    void reportFallback(
+      const slang::Diagnostic& diagnostic,
+      const slang::DiagnosticEngine& engine) {
+      SNLSVDiagnostic result;
+      result.severity = getSeverityString(
+        engine.getSeverity(diagnostic.code, diagnostic.location));
+      result.message = std::string(slang::toString(diagnostic.code)) + ": " +
+        std::string(engine.getMessage(diagnostic.code)) +
+        " [diagnostic arguments unavailable]";
+      if (diagnostic.location != slang::SourceLocation::NoLocation) {
+        result.file = getFileName(diagnostic.location);
+        result.line = sourceManager->getLineNumber(diagnostic.location);
+        result.column = getColumnNumber(diagnostic.location);
+      }
+      diagnostics.push_back(std::move(result));
+    }
+
     std::vector<SNLSVDiagnostic> diagnostics;
 };
 
@@ -275,8 +292,38 @@ std::vector<SNLSVDiagnostic> getStructuredDiagnostics(
   slang::DiagnosticEngine engine(sourceManager);
   auto client = std::make_shared<StructuredDiagnosticClient>();
   engine.addClient(client);
-  engine.issue(diagnostics);
+  for (const auto& diagnostic : diagnostics) {
+    try {
+      engine.issue(diagnostic);
+    } catch (const std::runtime_error& error) {
+      if (std::string_view(error.what()) != "No diagnostic formatter for type") {
+        throw;
+      }
+      client->reportFallback(diagnostic, engine);
+    }
+  }
   return std::move(client->diagnostics);
+}
+
+std::string getDiagnosticsReport(
+  const slang::SourceManager& sourceManager,
+  const slang::Diagnostics& diagnostics) {
+  try {
+    return slang::DiagnosticEngine::reportAll(sourceManager, diagnostics);
+  } catch (const std::runtime_error& error) {
+    if (std::string_view(error.what()) != "No diagnostic formatter for type") {
+      throw;
+    }
+    std::ostringstream report;
+    for (const auto& diagnostic : getStructuredDiagnostics(sourceManager, diagnostics)) {
+      if (!diagnostic.file.empty()) {
+        report << diagnostic.file << ":" << diagnostic.line << ":"
+               << diagnostic.column << ": ";
+      }
+      report << diagnostic.severity << ": " << diagnostic.message << "\n";
+    }
+    return report.str();
+  }
 }
 
 struct CompilationFailureDetails {
@@ -290,7 +337,7 @@ std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation
     return {};
   }
   if (const auto* sourceManager = compilation.getSourceManager()) {
-    return slang::DiagnosticEngine::reportAll(*sourceManager, diags);
+    return getDiagnosticsReport(*sourceManager, diags);
   }
   return {}; // LCOV_EXCL_LINE
 }
@@ -314,7 +361,7 @@ std::optional<CompilationFailureDetails> getCompilationFailureDetails(
   std::ostringstream reason;
   reason << "SystemVerilog compilation failed";
   if (const auto* sourceManager = compilation.getSourceManager()) {
-    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, errors);
+    const auto details = getDiagnosticsReport(*sourceManager, errors);
     if (!details.empty()) {
       reason << ":\n" << details;
     }
@@ -346,8 +393,7 @@ std::optional<CompilationFailureDetails> getDriverFailureDetails(
   }
   if (!parseDiags.empty()) {
     parseDiags.sort(driver.sourceManager);
-    const auto parseDetails =
-      slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags);
+    const auto parseDetails = getDiagnosticsReport(driver.sourceManager, parseDiags);
     if (!parseDetails.empty()) {
       details << parseDetails;
       auto structured = getStructuredDiagnostics(driver.sourceManager, parseDiags);

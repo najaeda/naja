@@ -19,6 +19,7 @@ import cv32e40p_variant_netlist
 import cva6_testharness
 import ibex_secure_netlist
 import ibex_simple_system
+import logic_cone_signature
 import sv_regress
 
 
@@ -66,6 +67,7 @@ cases:
             [
                 "load_dump",
                 "lint",
+                "logic_cones",
                 "cva6_extended_sim",
                 "cva6_full_sim",
                 "cva6_local_verif_sim",
@@ -81,6 +83,7 @@ cases:
             sv_regress.select_stages([
                 "load_dump",
                 "lint",
+                "logic_cones",
                 "cva6_extended_sim",
                 "cva6_full_sim",
                 "cva6_local_verif_sim",
@@ -161,7 +164,10 @@ cases:
         workflow = (
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-regress.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("--case black_parrot --case cva6 --stage load_dump", workflow)
+        self.assertIn("--case black_parrot --stage load_dump", workflow)
+        self.assertIn(
+            "--case cva6 --stage load_dump --stage logic_cones", workflow
+        )
 
     def test_external_sim_ci_runs_cv32e40p_firmware_sims(self):
         workflow = (
@@ -295,6 +301,138 @@ cases:
             cva6["helloworld_sim"]["pass_regex"],
             cva6["cva6_full_sim"]["pass_regex"],
         )
+
+    def test_cva6_has_pinned_logic_cone_signatures(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        cva6 = sv_regress.select_cases(cases, "cva6")[0]
+
+        self.assertIn("logic_cones", cva6)
+        self.assertEqual(
+            [None, 468, 469],
+            [probe.get("bit") for probe in cva6["logic_cones"]],
+        )
+        self.assertEqual(
+            {
+                "nodes": 18399,
+                "edges": 34041,
+                "leaves": 93,
+                "roots": 471,
+                "registers": 86,
+                "ports": 3,
+                "blackboxes": 4,
+                "internal": 17835,
+            },
+            cva6["logic_cones"][0]["expected"],
+        )
+        for probe in cva6["logic_cones"][1:]:
+            self.assertEqual(
+                {
+                    "nodes": 3,
+                    "edges": 2,
+                    "leaves": 0,
+                    "roots": 1,
+                    "registers": 0,
+                    "ports": 0,
+                    "blackboxes": 0,
+                    "internal": 2,
+                },
+                probe["expected"],
+            )
+
+    def test_logic_cone_signature_counts_and_validation(self):
+        class FakeCone:
+            def get_nodes(self):
+                return (
+                    (0, None, "root", (1,), ()),
+                    (1, None, "internal", (2, 3), (0,)),
+                    (2, None, "flop", (), (1,)),
+                    (3, None, "ports", (), (1,)),
+                )
+
+            def get_leaves(self):
+                return self.get_nodes()[2:]
+
+        signature = logic_cone_signature.summarize_cone(FakeCone())
+        self.assertEqual(
+            {
+                "nodes": 4,
+                "edges": 3,
+                "leaves": 2,
+                "roots": 1,
+                "registers": 1,
+                "ports": 1,
+                "blackboxes": 0,
+                "internal": 1,
+            },
+            signature,
+        )
+        probe = {"term": "out", "expected": signature}
+        actual = {"root": "out", "direction": "fanin", **signature}
+        logic_cone_signature.validate_signatures([probe], [actual])
+        probe["expected"]["nodes"] = 5
+        with self.assertRaisesRegex(RuntimeError, "out nodes: expected 5, got 4"):
+            logic_cone_signature.validate_signatures([probe], [actual])
+
+    def test_logic_cone_signature_accepts_whole_bus_root(self):
+        class FakeBus:
+            def getBusTermBit(self, _bit):
+                raise AssertionError("whole-bus probe must not select a bit")
+
+        class FakeTerm:
+            def __init__(self):
+                self.bus = FakeBus()
+
+            def get_snl_term(self):
+                return self.bus
+
+        class FakeTop:
+            def __init__(self):
+                self.term = FakeTerm()
+
+            def get_term(self, name):
+                return self.term if name == "BUS" else None
+
+        class FakeCone:
+            def get_nodes(self):
+                return ((0, None, "root", (), ()),)
+
+            def get_leaves(self):
+                return ()
+
+        class FakeNaja:
+            @staticmethod
+            def SNLOccurrence(term):
+                return term
+
+            @staticmethod
+            def LogicCone(_start, _direction):
+                return FakeCone()
+
+        signatures = logic_cone_signature.build_signatures(
+            FakeTop(), [{"term": "BUS", "direction": "fanin"}], FakeNaja
+        )
+
+        self.assertEqual("BUS", signatures[0]["root"])
+        self.assertEqual(1, signatures[0]["nodes"])
+
+    def test_run_logic_cones_records_signature(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifacts = Path(tmpdir)
+            signature_path = artifacts / "logic-cones.json"
+            signature_path.write_text(
+                '{"top":"fake","cones":[{"root":"out","nodes":4}]}\n',
+                encoding="utf-8",
+            )
+            result = sv_regress.run_logic_cones(
+                {
+                    "name": "fake",
+                    "logic_cones": [{"term": "out", "expected": {"nodes": 4}}],
+                },
+                artifacts_dir=artifacts,
+            )
+
+        self.assertEqual("passed", result["status"])
+        self.assertEqual([{"root": "out", "nodes": 4}], result["cones"])
 
     def test_run_verilator_uses_manifest_suppressions(self):
         case = {

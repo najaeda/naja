@@ -24,6 +24,8 @@ import sys
 import time
 from typing import Any
 
+from logic_cone_signature import validate_signatures
+
 try:
     import yaml
 except ImportError as exc:  # pragma: no cover - exercised by user environment
@@ -52,6 +54,7 @@ CONFIGURED_COMMAND_SIM_STAGES = {
     "ibex_secure_dummy_instr_sim",
 }
 VALID_STAGES = {"load_dump", "lint", "github_sim", *CONFIGURED_COMMAND_SIM_STAGES}
+VALID_STAGES.add("logic_cones")
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}
 
@@ -390,8 +393,11 @@ def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
 
 GENERATOR = r'''
 import argparse
+import json
 import logging
 from najaeda import netlist
+from najaeda import naja
+from logic_cone_signature import build_signatures
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--top", required=True)
@@ -401,6 +407,8 @@ parser.add_argument("--diagnostics", required=True)
 parser.add_argument("--rtl-infos-as-attributes", action="store_true")
 parser.add_argument("--assigns-as-instances", action="store_true")
 parser.add_argument("--sv-suppress-warning", action="append", dest="sv_suppress_warnings", default=[])
+parser.add_argument("--logic-cones-config")
+parser.add_argument("--logic-cones-output")
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True)
@@ -412,6 +420,12 @@ svconfig = netlist.SystemVerilogConfig(
     suppress_warnings=args.sv_suppress_warnings or None,
 )
 top = netlist.load_system_verilog([], config=svconfig)
+if args.logic_cones_config:
+    probes = json.loads(args.logic_cones_config)
+    signatures = build_signatures(top, probes, naja)
+    with open(args.logic_cones_output, "w", encoding="utf-8") as stream:
+        json.dump({"top": args.top, "cones": signatures}, stream, indent=2, sort_keys=True)
+        stream.write("\n")
 dump_config = netlist.VerilogDumpConfig()
 dump_config.dumpRTLInfosAsAttributes = args.rtl_infos_as_attributes
 dump_config.dumpAssignsAsInstances = args.assigns_as_instances
@@ -428,6 +442,7 @@ def generate_verilog(
     artifacts_dir: Path,
     log_dir: Path,
     najaeda_path: Path,
+    build_logic_cones: bool = False,
 ) -> Path:
     if not najaeda_path.exists():
         raise RegressError(
@@ -449,7 +464,10 @@ def generate_verilog(
     flist_path = materialize_flist(case, repo_dir, case_dir, artifacts_dir)
 
     env = case_env(case, repo_dir, case_dir, artifacts_dir)
-    env["PYTHONPATH"] = f"{najaeda_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    env["PYTHONPATH"] = (
+        f"{najaeda_path}{os.pathsep}{REGRESS_SV_ROOT}{os.pathsep}"
+        f"{env.get('PYTHONPATH', '')}"
+    )
 
     dump = case.get("dump", {})
     args = [
@@ -470,6 +488,18 @@ def generate_verilog(
         args.append("--assigns-as-instances")
     for warning in case.get("sv_suppress_warnings", []):
         args.extend(["--sv-suppress-warning", str(warning)])
+    if build_logic_cones:
+        probes = case.get("logic_cones")
+        if not isinstance(probes, list) or not probes:
+            raise RegressError(
+                f"Case '{case['name']}' has no logic_cones probes configured"
+            )
+        args.extend([
+            "--logic-cones-config",
+            json.dumps(probes, separators=(",", ":")),
+            "--logic-cones-output",
+            str(artifacts_dir / "logic-cones.json"),
+        ])
 
     timeout = int(case.get("generate_timeout_seconds", 7200))
     run_command(args, cwd=repo_dir, env=env, timeout=timeout, log_path=log_dir / "generate.log")
@@ -1040,6 +1070,23 @@ def run_load_dump(
     }
 
 
+def run_logic_cones(case: dict[str, Any], *, artifacts_dir: Path) -> dict[str, Any]:
+    signature_path = artifacts_dir / "logic-cones.json"
+    if not signature_path.exists():
+        raise RegressError(f"logic_cones did not create signature file: {signature_path}")
+    with signature_path.open("r", encoding="utf-8") as stream:
+        signature = json.load(stream)
+    try:
+        validate_signatures(case["logic_cones"], signature["cones"])
+    except (KeyError, RuntimeError, ValueError) as exc:
+        raise RegressError(str(exc)) from exc
+    return {
+        "status": "passed",
+        "signature": str(signature_path),
+        "cones": signature["cones"],
+    }
+
+
 def run_case(
     case: dict[str, Any],
     work_dir: Path,
@@ -1087,6 +1134,7 @@ def run_case(
                 artifacts_dir=artifacts_dir,
                 log_dir=log_dir,
                 najaeda_path=najaeda_path,
+                build_logic_cones="logic_cones" in stages,
             )
         finally:
             summary["timings"]["generate"] = elapsed_record(phase_start, phase_started_at)
@@ -1102,6 +1150,8 @@ def run_case(
                         generated_path=generated_path,
                         log_dir=log_dir,
                     )
+                elif stage == "logic_cones":
+                    result = run_logic_cones(case, artifacts_dir=artifacts_dir)
                 elif stage == "lint":
                     result = run_lint(
                         case,

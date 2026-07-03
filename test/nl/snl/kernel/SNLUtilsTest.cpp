@@ -8,6 +8,7 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "NLLibrary.h"
 #include "NLException.h"
 
@@ -123,6 +124,17 @@ TEST_F(SNLUtilsTest, testPrepareForConcurrentAccess) {
   auto child = SNLDesign::create(library, NLName("child"));
   SNLInstance::create(child, primitive, NLName("primitive"));
   SNLInstance::create(top, child, NLName("child"));
+
+  EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
+}
+
+TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessTableSelect) {
+  auto library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto tableSelect = NLDB0::getOrCreateTableSelect({2, 2, 1});
+  ASSERT_NE(tableSelect, nullptr);
+  SNLInstance::create(top, tableSelect, NLName("select"));
 
   EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
 }
