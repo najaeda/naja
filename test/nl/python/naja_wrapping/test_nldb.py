@@ -365,6 +365,76 @@ class SNLDBTest(unittest.TestCase):
       if os.path.exists(definePath):
         os.remove(definePath)
 
+  def testSystemVerilogTypedExceptions(self):
+    self.assertTrue(issubclass(naja.SystemVerilogError, RuntimeError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogSyntaxError, naja.SystemVerilogError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogUnsupportedError, naja.SystemVerilogError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogInternalError, naja.SystemVerilogError))
+
+    u = naja.NLUniverse.get()
+    with tempfile.TemporaryDirectory() as tempdir:
+      syntax_path = os.path.join(tempdir, "typed_syntax_error.sv")
+      with open(syntax_path, "w", encoding="utf-8") as source:
+        source.write(
+          "module typed_syntax_error(input logic a, output logic y);\n"
+          "  assign y = a\n"
+          "endmodule\n")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogSyntaxError) as context:
+        db.loadSystemVerilog([syntax_path])
+      syntax_error = context.exception
+      self.assertIsInstance(syntax_error, RuntimeError)
+      self.assertIn("Error while parsing SystemVerilog: ", str(syntax_error))
+      self.assertTrue(syntax_error.diagnostics)
+      diagnostic = syntax_error.diagnostics[0]
+      self.assertEqual("error", diagnostic["severity"])
+      self.assertTrue(diagnostic["file"].endswith("typed_syntax_error.sv"))
+      self.assertGreater(diagnostic["line"], 0)
+      self.assertGreater(diagnostic["column"], 0)
+      self.assertTrue(diagnostic["message"])
+      db.destroy()
+
+      unsupported_path = os.path.join(tempdir, "typed_unsupported.sv")
+      with open(unsupported_path, "w", encoding="utf-8") as source:
+        source.write("""\
+module typed_unsupported(input logic a, output logic y);
+  task do_check(input logic value);
+  endtask
+  initial begin
+    do_check(a);
+  end
+  assign y = a;
+endmodule
+""")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogUnsupportedError) as context:
+        db.loadSystemVerilog([unsupported_path])
+      unsupported_error = context.exception
+      self.assertIsInstance(unsupported_error, RuntimeError)
+      self.assertIn("Unsupported SystemVerilog elements encountered", str(unsupported_error))
+      self.assertTrue(unsupported_error.unsupported_elements)
+      unsupported = unsupported_error.unsupported_elements[0]
+      self.assertIn("Unsupported procedural block", unsupported["message"])
+      self.assertEqual(
+        "sv.unsupported.procedural_block",
+        unsupported["code"])
+      db.destroy()
+
+      valid_path = os.path.join(tempdir, "typed_internal.sv")
+      with open(valid_path, "w", encoding="utf-8") as source:
+        source.write("module typed_internal; endmodule\n")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogInternalError) as context:
+        db.loadSystemVerilog([valid_path], diagnostics_report_path="")
+      self.assertIsInstance(context.exception, RuntimeError)
+      self.assertIn("Empty path for diagnostics report dump", str(context.exception))
+
   def testSystemVerilogIntentAPI(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)

@@ -16,6 +16,7 @@
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLSVConstructor.h"
+#include "SNLSVConstructorException.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
@@ -29,6 +30,128 @@
 namespace PYNAJA {
 
 using namespace naja::NL;
+
+namespace {
+
+PyObject* PySystemVerilogError = nullptr;
+PyObject* PySystemVerilogSyntaxError = nullptr;
+PyObject* PySystemVerilogUnsupportedError = nullptr;
+PyObject* PySystemVerilogInternalError = nullptr;
+
+PyObject* buildDiagnostics(const std::vector<SNLSVDiagnostic>& diagnostics) {
+  PyObject* result = PyList_New(static_cast<Py_ssize_t>(diagnostics.size()));
+  if (!result) {
+    return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+  }
+  for (size_t index = 0; index < diagnostics.size(); ++index) {
+    const auto& diagnostic = diagnostics[index];
+    PyObject* item = Py_BuildValue(
+      "{s:s,s:s,s:K,s:K,s:s}",
+      "severity", diagnostic.severity.c_str(),
+      "file", diagnostic.file.c_str(),
+      "line", static_cast<unsigned long long>(diagnostic.line),
+      "column", static_cast<unsigned long long>(diagnostic.column),
+      "message", diagnostic.message.c_str());
+    if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
+      Py_DECREF(result);
+      return nullptr;
+      // LCOV_EXCL_STOP
+    }
+    PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
+  }
+  return result;
+}
+
+PyObject* buildUnsupportedElements(
+  const std::vector<SNLSVUnsupportedElement>& unsupportedElements) {
+  PyObject* result = PyList_New(static_cast<Py_ssize_t>(unsupportedElements.size()));
+  if (!result) {
+    return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+  }
+  for (size_t index = 0; index < unsupportedElements.size(); ++index) {
+    const auto& unsupported = unsupportedElements[index];
+    PyObject* item = Py_BuildValue(
+      "{s:s,s:s}",
+      "message", unsupported.message.c_str(),
+      "code", unsupported.code.c_str());
+    if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
+      Py_DECREF(result);
+      return nullptr;
+      // LCOV_EXCL_STOP
+    }
+    PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
+  }
+  return result;
+}
+
+void raiseSystemVerilogError(
+  PyObject* exceptionType,
+  const std::string& message,
+  const char* attributeName = nullptr,
+  PyObject* attributeValue = nullptr) {
+  if (attributeName && !attributeValue) {
+    return; // LCOV_EXCL_LINE CPython allocation failure already set an exception
+  }
+  PyObject* exception = PyObject_CallFunction(exceptionType, "s", message.c_str());
+  if (!exception) {
+    // LCOV_EXCL_START CPython allocation failure cleanup
+    Py_XDECREF(attributeValue);
+    return;
+    // LCOV_EXCL_STOP
+  }
+  if (attributeName && attributeValue) {
+    if (PyObject_SetAttrString(exception, attributeName, attributeValue) < 0) {
+      // LCOV_EXCL_START CPython attribute failure cleanup
+      Py_DECREF(attributeValue);
+      Py_DECREF(exception);
+      return;
+      // LCOV_EXCL_STOP
+    }
+    Py_DECREF(attributeValue);
+  }
+  PyErr_SetObject(exceptionType, exception);
+  Py_DECREF(exception);
+}
+
+}  // namespace
+
+int PyNLDB_addSystemVerilogExceptions(PyObject* module) {
+  auto addException = [module](
+    const char* qualifiedName, const char* moduleName, PyObject* base, PyObject*& result) {
+    result = PyErr_NewException(qualifiedName, base, nullptr);
+    if (!result) {
+      return -1; // LCOV_EXCL_LINE CPython allocation failure
+    }
+    Py_INCREF(result);
+    if (PyModule_AddObject(module, moduleName, result) < 0) {
+      // LCOV_EXCL_START CPython module failure cleanup
+      Py_DECREF(result);
+      Py_DECREF(result);
+      result = nullptr;
+      return -1;
+      // LCOV_EXCL_STOP
+    }
+    return 0;
+  };
+
+  if (addException(
+        "naja.SystemVerilogError", "SystemVerilogError",
+        PyExc_RuntimeError, PySystemVerilogError) < 0 ||
+      addException(
+        "naja.SystemVerilogSyntaxError", "SystemVerilogSyntaxError",
+        PySystemVerilogError, PySystemVerilogSyntaxError) < 0 ||
+      addException(
+        "naja.SystemVerilogUnsupportedError", "SystemVerilogUnsupportedError",
+        PySystemVerilogError, PySystemVerilogUnsupportedError) < 0 ||
+      addException(
+        "naja.SystemVerilogInternalError", "SystemVerilogInternalError",
+        PySystemVerilogError, PySystemVerilogInternalError) < 0) {
+    return -1; // LCOV_EXCL_LINE CPython exception registration failure
+  }
+  return 0;
+}
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLDB, function)
 
@@ -384,7 +507,23 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   } catch (const std::exception& e) {
     std::ostringstream error;
     error << "Error while parsing SystemVerilog: ";
-    setError(error.str() + e.what());
+    const auto message = error.str() + e.what();
+    if (const auto* syntaxError = dynamic_cast<const SNLSVSyntaxError*>(&e)) {
+      raiseSystemVerilogError(
+        PySystemVerilogSyntaxError,
+        message,
+        "diagnostics",
+        buildDiagnostics(syntaxError->getDiagnostics()));
+    } else if (const auto* unsupportedError =
+                 dynamic_cast<const SNLSVUnsupportedConstructError*>(&e)) {
+      raiseSystemVerilogError(
+        PySystemVerilogUnsupportedError,
+        message,
+        "unsupported_elements",
+        buildUnsupportedElements(unsupportedError->getUnsupportedElements()));
+    } else {
+      raiseSystemVerilogError(PySystemVerilogInternalError, message);
+    }
     return nullptr;
   }
 

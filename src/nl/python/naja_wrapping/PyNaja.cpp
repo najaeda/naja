@@ -52,7 +52,7 @@
 #include "PySNLPath.h"
 #include "PySNLOccurrence.h"
 #include "PySNLEquipotential.h"
-#include "PySNLLogicalCone.h"
+#include "PyLogicCone.h"
 #include "PySNLOccurrences.h"
 #include "PySNLUniquifier.h"
 
@@ -629,7 +629,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLPath_LinkPyType();
   PySNLUniquifier_LinkPyType();
   PySNLEquipotential_LinkPyType();
-  PySNLLogicalCone_LinkPyType();
+  PyLogicCone_LinkPyType();
   PySNLOccurrence_LinkPyType();
 
   PySNLAttributes_LinkPyType();
@@ -681,7 +681,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLPath);
   PYTYPE_READY(SNLUniquifier);
   PYTYPE_READY(SNLEquipotential);
-  PYTYPE_READY(SNLLogicalCone);
+  PYTYPE_READY(LogicCone);
   PYTYPE_READY(SNLOccurrence);
   PYTYPE_READY(SNLAttributes);
   PYTYPE_READY(NLDBs);
@@ -730,6 +730,13 @@ PyMODINIT_FUNC PyInit_naja(void) {
     //LCOV_EXCL_STOP
   }
 
+  if (PyNLDB_addSystemVerilogExceptions(mod) < 0) {
+    // LCOV_EXCL_START CPython exception registration failure cleanup
+    Py_DECREF(mod);
+    return nullptr;
+    // LCOV_EXCL_STOP
+  }
+
   PyModule_AddType(mod, &PyTypeSNLAttribute);
   PyModule_AddType(mod, &PyTypeNLID);
   PyModule_AddType(mod, &PyTypeNLUniverse);
@@ -757,12 +764,12 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLUniquifier);
   PyModule_AddType(mod, &PyTypeSNLOccurrence);
   PyModule_AddType(mod, &PyTypeSNLEquipotential);
-  PyModule_AddType(mod, &PyTypeSNLLogicalCone);
+  PyModule_AddType(mod, &PyTypeLogicCone);
 
   PyNLID_postModuleInit();
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
-  PySNLLogicalCone_postModuleInit();
+  PyLogicCone_postModuleInit();
 
   return mod;
 }
