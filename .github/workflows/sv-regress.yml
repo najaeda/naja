@@ -62,6 +62,14 @@ jobs:
       - name: Run external SV regress lint
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage lint
 
+      - name: Run Z-Core load, dump, lint, and simulation
+        run: >-
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run
+          --case zcore
+          --stage load_dump
+          --stage lint
+          --stage github_sim
+
       - name: Run AXI cut regress (lint + simulation)
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case axi
 

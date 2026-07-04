@@ -31648,6 +31648,47 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
   EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseUnknownLiteralDiagnosticsIdentifyXAndZ) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "unknown_literal_diagnostics_identify_x_and_z",
+    R"(module unknown_literal_diagnostics_identify_x_and_z(
+  input  logic       select_i,
+  output logic [3:0] x_o,
+  output logic [3:0] z_o,
+  output logic [3:0] mixed_o
+);
+  always_comb begin
+    x_o = 4'b10x1;
+  end
+  assign z_o = select_i ? 4'b10z1 : 4'b0000;
+  assign mixed_o[3:0] = {2'bx1, 2'bz0};
+endmodule
+)");
+  const auto reportPath = svPath.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
+  EXPECT_NO_THROW(constructor.construct(svPath, options));
+
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(
+    std::string::npos,
+    report.find(
+      "X literal bits in always_comb assignment RHS lowered as 0 in SNL "
+      "(four-state distinction is not preserved)"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find(
+      "Z literal bits in continuous assign RHS lowered as 0 in SNL "
+      "(four-state distinction is not preserved)"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find(
+      "X and Z literal bits in continuous assign RHS lowered as 0 in SNL "
+      "(four-state distinction is not preserved)"));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseElaborationWarningsDedupStdoutAndDumpDiagnosticsReport) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(

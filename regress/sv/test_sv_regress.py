@@ -169,6 +169,23 @@ cases:
             "--case cva6 --stage load_dump --stage logic_cones", workflow
         )
 
+    def test_zcore_runs_full_dump_verification_flow_in_ci(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        zcore = sv_regress.select_cases(cases, "zcore")[0]
+
+        self.assertEqual("z_core_top", zcore["top"])
+        self.assertEqual("rtl/flist.vc", zcore["flist"])
+        self.assertEqual("z_core_alu_ctrl", zcore["verification_top"])
+        self.assertEqual("tb_zcore_alu_ctrl_smoke", zcore["github_sim"]["top_module"])
+        self.assertEqual("ZCORE_ALU_CTRL_SMOKE_PASS", zcore["github_sim"]["pass_regex"])
+
+        workflow = (
+            sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-regress.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--case zcore", workflow)
+        for stage in ("load_dump", "lint", "github_sim"):
+            self.assertIn(f"--stage {stage}", workflow)
+
     def test_external_sim_ci_runs_cv32e40p_firmware_sims(self):
         workflow = (
             sv_regress.REPO_ROOT / ".github" / "workflows" / "sv-external-sim.yml"

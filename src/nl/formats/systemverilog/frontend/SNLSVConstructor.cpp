@@ -24,6 +24,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
@@ -610,6 +611,41 @@ bool tryGetInt64FromSVInt(const slang::SVInt& svInt, int64_t& value) {
   }
   value = static_cast<int64_t>(*maybeUnsigned);
   return true;
+}
+
+struct UnknownLiteralKinds {
+  bool hasX {false};
+  bool hasZ {false};
+
+  void add(slang::logic_t bit) {
+    hasX = hasX || exactlyEqual(bit, slang::logic_t::x);
+    hasZ = hasZ || exactlyEqual(bit, slang::logic_t::z);
+  }
+
+  void add(const slang::SVInt& value) {
+    for (slang::bitwidth_t index = 0; index < value.getBitWidth(); ++index) {
+      add(value[index]);
+    }
+  }
+
+  std::string label() const {
+    if (hasX && hasZ) {
+      return "X and Z";
+    }
+    if (hasZ) {
+      return "Z";
+    }
+    return "X";
+  }
+};
+
+std::string formatUnknownLiteralWarning(
+  std::string_view context,
+  const UnknownLiteralKinds& kinds) {
+  std::ostringstream message;
+  message << kinds.label() << " literal bits in " << context
+          << " lowered as 0 in SNL (four-state distinction is not preserved)";
+  return message.str();
 }
 
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
@@ -14941,7 +14977,8 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits,
-      bool& usedUnknownFallback) {
+      bool& usedUnknownFallback,
+      UnknownLiteralKinds* unknownKinds = nullptr) {
       bits.clear();
       usedUnknownFallback = false;
       if (resolveExpressionBits(design, expr, targetWidth, bits) &&
@@ -14954,7 +14991,8 @@ endmodule
                expr,
                targetWidth,
                bits,
-               usedUnknownFallback) &&
+               usedUnknownFallback,
+               unknownKinds) &&
              bits.size() == targetWidth;
     }
 
@@ -14973,24 +15011,26 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -15290,24 +15330,26 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -15411,24 +15453,26 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -15896,18 +15940,19 @@ endmodule
       }
 
       bool usedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       shiftBits.clear();
       if (resolveUnknownLiteralBitsAsZero(
             design,
             shiftAmountExpr,
             shiftWidth,
             shiftBits,
-            usedUnknownFallback) &&
+            usedUnknownFallback,
+            &unknownKinds) &&
           !shiftBits.empty() &&
           usedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift amount lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("shift amount", unknownKinds),
           getSourceRange(shiftAmountExpr));
         return true;
       }
@@ -15942,12 +15987,14 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         std::ostringstream reason;
         reason << "failed to resolve value bits (" << describeExpression(valueExpr)
                << ", target_width=" << lhsBits.size() << ")";
@@ -15956,8 +16003,7 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
 
@@ -16057,12 +16103,14 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         std::ostringstream reason;
         reason << "failed to resolve value bits (" << describeExpression(valueExpr)
                << ", target_width=" << lhsBits.size() << ")";
@@ -16071,8 +16119,7 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
       if (valueBits.empty()) {
@@ -16170,18 +16217,19 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         return false; // LCOV_EXCL_LINE
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
 
@@ -23415,7 +23463,8 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits,
-      bool& usedUnknownFallback) {
+      bool& usedUnknownFallback,
+      UnknownLiteralKinds* unknownKinds = nullptr) {
       bits.clear();
       usedUnknownFallback = false;
       if (!targetWidth) {
@@ -23457,7 +23506,8 @@ endmodule
                 *args[0],
                 *argWidth,
                 argBits,
-                argUsedUnknownFallback) ||
+                argUsedUnknownFallback,
+                unknownKinds) ||
               argBits.size() != *argWidth ||
               !argUsedUnknownFallback) {
             return false;
@@ -23489,13 +23539,15 @@ endmodule
               binaryExpr.left(),
               targetWidth,
               leftBits,
-              leftUsedUnknownFallback) ||
+              leftUsedUnknownFallback,
+              unknownKinds) ||
             !resolveUnknownLiteralBitsAsZero(
               design,
               binaryExpr.right(),
               targetWidth,
               rightBits,
-              rightUsedUnknownFallback) ||
+              rightUsedUnknownFallback,
+              unknownKinds) ||
             leftBits.size() != targetWidth ||
             rightBits.size() != targetWidth ||
             (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
@@ -23523,7 +23575,8 @@ endmodule
             *knownSide,
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
         // Parser-backed unknown-literal fallback reaches ternaries only after
         // pattern conditions have been rejected and known-side folding has been
@@ -23545,7 +23598,8 @@ endmodule
             conditionalExpr.left(),
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
         if (selectBit == const0) {
           return resolveUnknownLiteralBitsAsZero(
@@ -23553,7 +23607,8 @@ endmodule
             conditionalExpr.right(),
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
 
         std::vector<SNLBitNet*> leftBits;
@@ -23565,13 +23620,15 @@ endmodule
               conditionalExpr.left(),
               targetWidth,
               leftBits,
-              leftUsedUnknownFallback) ||
+              leftUsedUnknownFallback,
+              unknownKinds) ||
             !resolveUnknownLiteralBitsAsZero(
               design,
               conditionalExpr.right(),
               targetWidth,
               rightBits,
-              rightUsedUnknownFallback) ||
+              rightUsedUnknownFallback,
+              unknownKinds) ||
             leftBits.size() != targetWidth ||
             rightBits.size() != targetWidth ||
             (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
@@ -23622,6 +23679,9 @@ endmodule
         if (!value.isUnknown()) {
           return false; // LCOV_EXCL_LINE
         }
+        if (unknownKinds) {
+          unknownKinds->add(value);
+        }
         bits.assign(targetWidth, const0);
         usedUnknownFallback = true;
         return true;
@@ -23632,6 +23692,9 @@ endmodule
         const auto& literalValue = literal.getValue();
         if (!literalValue.hasUnknown()) {
           return false; // LCOV_EXCL_LINE
+        }
+        if (unknownKinds) {
+          unknownKinds->add(literalValue);
         }
         const auto integerWidth = static_cast<size_t>(literalValue.getBitWidth());
         bits.reserve(targetWidth);
@@ -23665,6 +23728,9 @@ endmodule
         const auto& intValue = constant->integer();
         if (!intValue.hasUnknown()) {
           return false; // LCOV_EXCL_LINE
+        }
+        if (unknownKinds) {
+          unknownKinds->add(intValue);
         }
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
@@ -23725,7 +23791,8 @@ endmodule
               replicationExpr.concat(),
               concatWidth,
               concatBits,
-              concatUsedUnknownFallback) ||
+              concatUsedUnknownFallback,
+              unknownKinds) ||
             concatBits.size() != concatWidth || !concatUsedUnknownFallback) {
           return false;
         }
@@ -23799,7 +23866,8 @@ endmodule
                 *operand,
                 operandWidthBits,
                 operandBits,
-                operandUsedUnknownFallback) ||
+                operandUsedUnknownFallback,
+                unknownKinds) ||
               operandBits.size() != operandWidthBits) {
             return false;
           }
@@ -23830,7 +23898,8 @@ endmodule
               *pattern.defaultSetter,
               targetWidth,
               bits,
-              defaultUsedUnknownFallback) ||
+              defaultUsedUnknownFallback,
+              unknownKinds) ||
             bits.size() != targetWidth ||
             !defaultUsedUnknownFallback) {
           return false;
@@ -23914,9 +23983,11 @@ endmodule
         const Expression* compoundRhsExpr = action.rhs;
         std::vector<SNLBitNet*> rhsBits;
         bool usedCompoundUnknownLiteralFallback = false;
+        UnknownLiteralKinds compoundUnknownKinds;
         const auto resolveCompoundRhs = [&](const Expression& rhsExpr) {
           rhsBits.clear();
           usedCompoundUnknownLiteralFallback = false;
+          compoundUnknownKinds = {};
           if (resolveExpressionBits(design, rhsExpr, targetWidth, rhsBits) &&
               rhsBits.size() == targetWidth) {
             return true;
@@ -23927,7 +23998,8 @@ endmodule
                 rhsExpr,
                 targetWidth,
                 rhsBits,
-                usedUnknownLiteralFallback) &&
+                usedUnknownLiteralFallback,
+                &compoundUnknownKinds) &&
               rhsBits.size() == targetWidth &&
               usedUnknownLiteralFallback) {
             usedCompoundUnknownLiteralFallback = true;
@@ -24030,8 +24102,9 @@ endmodule
         auto sourceRange = getSourceRange(*compoundRhsExpr);
         if (usedCompoundUnknownLiteralFallback) {
           reportWarning(
-            "Unknown literal bits in always_comb compound assignment RHS lowered as 0 in SNL "
-            "(X/Z distinction is not preserved)",
+            formatUnknownLiteralWarning(
+              "always_comb compound assignment RHS",
+              compoundUnknownKinds),
             sourceRange);
         }
         if (*action.compoundOp == slang::ast::BinaryOperator::Add) {
@@ -24119,6 +24192,7 @@ endmodule
       }
 
       bool usedUnknownLiteralFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
           assignedBits.size() == targetWidth) {
         return true;
@@ -24134,14 +24208,14 @@ endmodule
              *action.rhs,
              targetWidth,
              assignedBits,
-             usedUnknownLiteralFallback) ||
+             usedUnknownLiteralFallback,
+             &unknownKinds) ||
            assignedBits.size() != targetWidth || !usedUnknownLiteralFallback)) {
         return failCombinationalRhsResolution();
       } // LCOV_EXCL_LINE
       if (usedUnknownLiteralFallback) {
         reportWarning(
-          "Unknown literal bits in always_comb assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("always_comb assignment RHS", unknownKinds),
           getSourceRange(*action.rhs));
       }
       return true;
@@ -29318,9 +29392,10 @@ endmodule
         const auto value =
           rhsExpr->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
         if (value.isUnknown()) {
+          UnknownLiteralKinds unknownKinds;
+          unknownKinds.add(value);
           reportWarning(
-            "Unbased unsized unknown literal in sequential assignment lowered as 0 in SNL "
-            "(X/Z distinction is not preserved)",
+            formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
             sourceRange);
           auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
           return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
@@ -29407,17 +29482,18 @@ endmodule
 
       resolvedBits.clear();
       bool usedUnknownLiteralFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (resolveUnknownLiteralBitsAsZero(
             design,
             *rhsExpr,
             lhsBits.size(),
             resolvedBits,
-            usedUnknownLiteralFallback) &&
+            usedUnknownLiteralFallback,
+            &unknownKinds) &&
           resolvedBits.size() == lhsBits.size() &&
           usedUnknownLiteralFallback) {
         reportWarning(
-          "Unknown literal bits in sequential assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
           sourceRange ? sourceRange : getSourceRange(*rhsExpr));
         return resolvedBits;
       }
@@ -31742,14 +31818,16 @@ endmodule
 
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if ((!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
                rhsBits.size() != lhsAssignBits.size()) &&
               (!resolveUnknownLiteralBitsAsZero(
                  design,
                  *rhs,
                  lhsAssignBits.size(),
-               rhsBits,
-                 usedUnknownLiteralFallback) ||
+                 rhsBits,
+                 usedUnknownLiteralFallback,
+                 &unknownKinds) ||
                rhsBits.size() != lhsAssignBits.size() || !usedUnknownLiteralFallback)) {
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
@@ -31759,8 +31837,7 @@ endmodule
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
-              "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-              "(X/Z distinction is not preserved)",
+              formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
           for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
@@ -31793,6 +31870,7 @@ endmodule
           }
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if ((!resolveExpressionBits(design, *rhs, rhsWidthBits, rhsBits) ||
                rhsBits.size() != lhsBits.size()) &&
               (!resolveUnknownLiteralBitsAsZero(
@@ -31800,7 +31878,8 @@ endmodule
                  *rhs,
                  rhsWidthBits,
                  rhsBits,
-                 usedUnknownLiteralFallback) ||
+                 usedUnknownLiteralFallback,
+                 &unknownKinds) ||
                rhsBits.size() != lhsBits.size() || !usedUnknownLiteralFallback)) {
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
@@ -31810,8 +31889,7 @@ endmodule
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
-              "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-              "(X/Z distinction is not preserved)",
+              formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
           for (size_t i = 0; i < lhsBits.size(); ++i) {
@@ -31827,6 +31905,7 @@ endmodule
         if (!rhsNet) {
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if (!lhsAssignBits.empty() &&
               ((resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
                 rhsBits.size() == lhsAssignBits.size()) ||
@@ -31840,15 +31919,15 @@ endmodule
                   *rhs,
                   lhsAssignBits.size(),
                   rhsBits,
-                  usedUnknownLiteralFallback) &&
+                  usedUnknownLiteralFallback,
+                  &unknownKinds) &&
                 rhsBits.size() == lhsAssignBits.size() && usedUnknownLiteralFallback)
                // LCOV_EXCL_STOP
                )) {
             // LCOV_EXCL_START
             if (usedUnknownLiteralFallback) {
               reportWarning(
-                "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-                "(X/Z distinction is not preserved)",
+                formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
             }
             // LCOV_EXCL_STOP
@@ -31866,6 +31945,7 @@ endmodule
         if (!createDirectAssign(design, rhsNet, lhsNet, assignSourceRange)) {
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if (!lhsAssignBits.empty() &&
               ((resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
                 rhsBits.size() == lhsAssignBits.size()) ||
@@ -31878,15 +31958,15 @@ endmodule
                   *rhs,
                   lhsAssignBits.size(),
                   rhsBits,
-                  usedUnknownLiteralFallback) &&
+                  usedUnknownLiteralFallback,
+                  &unknownKinds) &&
                 rhsBits.size() == lhsAssignBits.size() && usedUnknownLiteralFallback)
                // LCOV_EXCL_STOP
                )) {
             if (usedUnknownLiteralFallback) {
               // LCOV_EXCL_START
               reportWarning(
-                "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-                "(X/Z distinction is not preserved)",
+                formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
               // LCOV_EXCL_STOP
             } // LCOV_EXCL_LINE

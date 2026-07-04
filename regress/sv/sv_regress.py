@@ -1139,6 +1139,26 @@ def run_case(
         finally:
             summary["timings"]["generate"] = elapsed_record(phase_start, phase_started_at)
         summary["generated_verilog"] = str(generated_path)
+        verification_case = case
+        verification_path = generated_path
+        if case.get("verification_top") and any(
+            stage in {"lint", "github_sim"} for stage in stages
+        ):
+            verification_case = dict(case)
+            verification_case["top"] = str(case["verification_top"])
+            verification_case["output"] = str(
+                case.get("verification_output", f"{case['name']}_verification_naja.v")
+            )
+            verification_path = generate_verilog(
+                verification_case,
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
+                log_dir=log_dir,
+                najaeda_path=najaeda_path,
+            )
+            summary["verification_top"] = verification_case["top"]
+            summary["verification_verilog"] = str(verification_path)
         for stage in stages:
             print(f"--- stage: {stage} ---", flush=True)
             stage_started_at = timestamp_utc()
@@ -1154,21 +1174,21 @@ def run_case(
                     result = run_logic_cones(case, artifacts_dir=artifacts_dir)
                 elif stage == "lint":
                     result = run_lint(
-                        case,
+                        verification_case,
                         case_dir=case_dir,
                         artifacts_dir=artifacts_dir,
-                        generated_path=generated_path,
+                        generated_path=verification_path,
                         log_dir=log_dir,
                         lint_runner=lint_runner,
                     )
                 elif stage == "github_sim":
                     result = run_verilator_binary_stage(
-                        case,
+                        verification_case,
                         stage=stage,
                         repo_dir=repo_dir,
                         case_dir=case_dir,
                         artifacts_dir=artifacts_dir,
-                        generated_path=generated_path,
+                        generated_path=verification_path,
                         log_dir=log_dir,
                     )
                 elif stage in CONFIGURED_COMMAND_SIM_STAGES:

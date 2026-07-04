@@ -60,6 +60,29 @@ python3 regress/sv/sv_regress.py run \
 The generated Verilog and `load-dump.log` are written under each case artifact
 directory.
 
+## Z-Core Full Dump Verification
+
+The Z-Core case follows the pinned upstream `tb/Makefile` source-list and
+simulation model. It elaborates `z_core_top`, dumps the complete reachable
+design, then separately dumps the reachable `z_core_alu_ctrl` subdesign for
+bounded lint and self-checking simulation:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case zcore \
+  --stage load_dump \
+  --stage lint \
+  --stage github_sim
+```
+
+The simulation expects `ZCORE_ALU_CTRL_SMOKE_PASS`. The upstream ALU-control
+testbench was used as the stimulus reference, with explicit result checks added
+here because the upstream testbench only prints a completion message. The bounded
+verification dump is necessary because the default SoC contains a 64 MB RAM
+whose generated initialization literal makes whole-SoC lint and simulation
+impractical. Naja roundtrip reload is not included because the frontend does
+not currently accept the built-in gate primitives emitted by its dumper.
+
 ## Logic-Cone Signatures
 
 The `logic_cones` stage builds manifest-selected cones while the pinned external
