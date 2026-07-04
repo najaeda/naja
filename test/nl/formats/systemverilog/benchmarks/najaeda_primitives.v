@@ -185,7 +185,7 @@ module naja_mem #(
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
   parameter INIT_ENABLE = 0,
-  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}
+  parameter INIT = 1'b0
 ) (
   input CLK,
   input RST,
@@ -204,8 +204,10 @@ module naja_mem #(
   task automatic load_init;
     integer init_idx;
     begin
+      /* verilator lint_off SELRANGE */
       for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)
         mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
+      /* verilator lint_on SELRANGE */
     end
   endtask
 

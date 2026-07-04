@@ -64,8 +64,8 @@ directory.
 
 The Z-Core case follows the pinned upstream `tb/Makefile` source-list and
 simulation model. It elaborates `z_core_top`, dumps the complete reachable
-design, then separately dumps the reachable `z_core_alu_ctrl` subdesign for
-bounded lint and self-checking simulation:
+design, lints that complete dump, and runs a top-level reset/execution smoke
+simulation against the same dump:
 
 ```sh
 python3 regress/sv/sv_regress.py run \
@@ -75,13 +75,8 @@ python3 regress/sv/sv_regress.py run \
   --stage github_sim
 ```
 
-The simulation expects `ZCORE_ALU_CTRL_SMOKE_PASS`. The upstream ALU-control
-testbench was used as the stimulus reference, with explicit result checks added
-here because the upstream testbench only prints a completion message. The bounded
-verification dump is necessary because the default SoC contains a 64 MB RAM
-whose generated initialization literal makes whole-SoC lint and simulation
-impractical. Naja roundtrip reload is not included because the frontend does
-not currently accept the built-in gate primitives emitted by its dumper.
+The simulation expects `ZCORE_TOP_SMOKE_PASS` after reset and 200 full-SoC
+clock cycles, and rejects unknown UART or GPIO outputs.
 
 ## Logic-Cone Signatures
 

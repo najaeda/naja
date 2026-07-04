@@ -144,6 +144,47 @@ std::string normalizeParameterValue(
   return value;
 }
 
+bool isZeroVerilogIntegerLiteral(const std::string& value) {
+  std::string compact;
+  compact.reserve(value.size());
+  for (char c : value) {
+    if (c != '_') {
+      compact += c;
+    }
+  }
+  if (compact == "0") {
+    return true;
+  }
+
+  const auto quote = compact.find('\'');
+  if (quote == std::string::npos || quote == 0) {
+    return false;
+  }
+  if (!std::all_of(compact.begin(), compact.begin() + quote, [](unsigned char c) {
+        return std::isdigit(c);
+      })) {
+    return false;
+  }
+
+  auto digits = quote + 1;
+  if (digits < compact.size() &&
+      (compact[digits] == 's' || compact[digits] == 'S')) {
+    ++digits;
+  }
+  if (digits == compact.size()) {
+    return false;
+  }
+  const char base = compact[digits++];
+  if (base != 'b' && base != 'B' && base != 'o' && base != 'O' &&
+      base != 'd' && base != 'D' && base != 'h' && base != 'H') {
+    return false;
+  }
+  return digits < compact.size() &&
+         std::all_of(compact.begin() + digits, compact.end(), [](char c) {
+           return c == '0';
+         });
+}
+
 std::string getEmittedDefaultParameterValue(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLParameter* parameter) {
@@ -189,6 +230,11 @@ bool shouldDumpInstParameter(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLInstParameter* instParameter) {
   const auto* parameter = instParameter->getParameter();
+  if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
+      parameter->getName() == naja::NL::NLName("INIT") &&
+      isZeroVerilogIntegerLiteral(instParameter->getValue())) {
+    return false;
+  }
   return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
          normalizeParameterValue(
            parameter->getType(),
@@ -2445,7 +2491,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  parameter RST_ASYNC = 0,\n";
   o << "  parameter RST_ACTIVE_LOW = 0,\n";
   o << "  parameter INIT_ENABLE = 0,\n";
-  o << "  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}\n";
+  // Keep the disabled default scalar so large uninitialized memories do not
+  // force simulators to elaborate a WIDTH*DEPTH packed constant. A sized
+  // explicit override retains its own width when initialization is enabled.
+  o << "  parameter INIT = 1'b0\n";
   o << ") (\n";
   o << "  input CLK,\n";
   o << "  input RST,\n";
@@ -2463,8 +2512,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  task automatic load_init;\n";
   o << "    integer init_idx;\n";
   o << "    begin\n";
+  o << "      /* verilator lint_off SELRANGE */\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
   o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  task automatic write_ports;\n";

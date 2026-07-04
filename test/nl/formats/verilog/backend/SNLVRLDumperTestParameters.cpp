@@ -363,6 +363,26 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_index < DEPTH)"));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
+  auto* memoryInstance = createMemoryInstance();
+  ASSERT_NE(nullptr, memoryInstance);
+  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+  init->setValue("128'b" + std::string(128, '0'));
+  SNLInstParameter::create(
+    memoryInstance,
+    memoryInstance->getModel()->getParameter(NLName("INIT_ENABLE")),
+    "1");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".INIT_ENABLE(1)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 

@@ -649,8 +649,7 @@ cases:
       pass_regex: "CV32E40P_HWLP_SIM_PASS"
 
   # The source list and simulator flow mirror tb/Makefile in the pinned Z-Core
-  # repository. Naja elaborates the complete SoC, while the smoke stage reuses
-  # the dumped z_core_alu_ctrl leaf for deterministic self-checking simulation.
+  # repository. Naja elaborates, dumps, lints, and simulates the complete SoC.
   - name: zcore
     repo: https://github.com/paudiaz99/Z-Core.git
     commit: 4fae65b7bc3fa1efc4b83ffe868e0f490cc36201
@@ -658,10 +657,6 @@ cases:
     flist: rtl/flist.vc
     flist_format: fusesoc_vc
     output: zcore_naja.v
-    # The full SoC dump contains a 64 MB initialized RAM. Keep that load/dump
-    # contract, but use the ALU-control subdesign dump for bounded lint/sim.
-    verification_top: z_core_alu_ctrl
-    verification_output: zcore_alu_ctrl_naja.v
     dump:
       rtl_infos_as_attributes: true
     generate_timeout_seconds: 7200
@@ -673,10 +668,10 @@ cases:
     github_sim:
       image: verilator/verilator:v5.046
       timeout_seconds: 900
-      top_module: tb_zcore_alu_ctrl_smoke
+      top_module: tb_zcore_top_smoke
       sources:
-        - "{naja}/regress/sv/smoke/tb_zcore_alu_ctrl_smoke.sv"
-      pass_regex: "ZCORE_ALU_CTRL_SMOKE_PASS"
+        - "{naja}/regress/sv/smoke/tb_zcore_top_smoke.sv"
+      pass_regex: "ZCORE_TOP_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
 
