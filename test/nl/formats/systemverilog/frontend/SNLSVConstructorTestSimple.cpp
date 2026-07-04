@@ -24607,6 +24607,7 @@ endmodule
   ASSERT_NE(top, nullptr);
 
   size_t ffCount = 0;
+  size_t memoryCount = 0;
   auto dffModel = NLDB0::getDFF();
   auto dffrnModel = NLDB0::getDFFRN();
   for (auto inst : top->getInstances()) {
@@ -24614,8 +24615,30 @@ endmodule
         (dffrnModel && NLDB0::isDFFRN(inst->getModel()))) {
       ffCount += getPrimitiveWidth(inst);
     }
+    if (NLDB0::isMemory(inst->getModel())) {
+      ++memoryCount;
+      auto* resetEnable = inst->getInstParameter(NLName("RST_ENABLE"));
+      auto* resetAsync = inst->getInstParameter(NLName("RST_ASYNC"));
+      auto* resetActiveLow = inst->getInstParameter(NLName("RST_ACTIVE_LOW"));
+      auto* init = inst->getInstParameter(NLName("INIT"));
+      ASSERT_NE(nullptr, resetEnable);
+      ASSERT_NE(nullptr, resetAsync);
+      ASSERT_NE(nullptr, resetActiveLow);
+      ASSERT_NE(nullptr, init);
+      EXPECT_EQ("1", resetEnable->getValue());
+      EXPECT_EQ("1", resetAsync->getValue());
+      EXPECT_EQ("1", resetActiveLow->getValue());
+      if (inst->getName() == NLName("q_mem")) {
+        EXPECT_EQ("16'b0000001000000001", init->getValue());
+      } else if (inst->getName() == NLName("r_mem")) {
+        EXPECT_EQ("16'b0010000000010000", init->getValue());
+      } else {
+        ADD_FAILURE() << "Unexpected inferred memory " << inst->getName().getString();
+      }
+    }
   }
-  EXPECT_EQ(32u, ffCount);
+  EXPECT_EQ(0u, ffCount);
+  EXPECT_EQ(2u, memoryCount);
 }
 
 TEST_F(

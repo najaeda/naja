@@ -3072,6 +3072,21 @@ endmodule
 #endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "infer_memories");
+#endif
+        // Infer memories before materializing variables so successfully
+        // inferred unpacked arrays never expand into a raw SNL bit net.
+        inferMemories(design, body);
+      }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createNets"));
         const SVPerfProgressLabelGuard step(
           svPerfReport_,
@@ -3098,19 +3113,6 @@ endmodule
           svPerfReport_.connectTermsToNetsDuration);
 #endif
         connectTermsToNets(design);
-      }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-      maybeWriteSVPerfReportSnapshot();
-#endif
-      {
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
-        const SVPerfProgressLabelGuard step(
-          svPerfReport_,
-          svPerfReport_.currentLoweringStep,
-          "infer_memories");
-#endif
-        inferMemories(design, body);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
@@ -4651,8 +4653,8 @@ endmodule
 
     bool analyzeDirectSequentialMemoryWriteStatement(
       const Statement& stmt,
-      const slang::ast::ValueSymbol*& stateSymbol,
-      NLDB0::MemorySignature& signature,
+      const slang::ast::ValueSymbol& stateSymbol,
+      const NLDB0::MemorySignature& signature,
       std::vector<InferredMemoryGuard>& guards,
       std::vector<InferredMemoryWriteAction>& actions,
       std::string& failureReason) const {
@@ -4773,10 +4775,10 @@ endmodule
         return false;
       }
 
-      NLDB0::MemorySignature assignedSignature;
-      if (!getSupportedMemorySignature(assignedSymbol->getType(), assignedSignature)) {
-        // Side assignments in the same clocked block, such as registered memory
-        // read data, are still lowered by the generic sequential path.
+      // Analyze one memory candidate at a time. Assignments to other memories
+      // and scalar/vector side registers remain owned by their own candidate or
+      // by generic sequential lowering and must not poison this candidate.
+      if (assignedSymbol != &stateSymbol) {
         return true;
       }
 
@@ -4785,20 +4787,12 @@ endmodule
         return false;
       }
 
-      if (!stateSymbol) {
-        stateSymbol = assignedSymbol;
-        signature = assignedSignature;
-      } else if (assignedSymbol != stateSymbol || !(signature == assignedSignature)) {
-        failureReason = "direct inferred memory sequential block writes multiple targets";
-        return false;
-      }
-
       const slang::ast::Expression* selectorExpr = nullptr;
       size_t bitOffset = 0;
       size_t bitWidth = 0;
       if (!tryExtractInferredMemoryEntryTarget(
             *lhsExpr,
-            *stateSymbol,
+            stateSymbol,
             signature.width,
             selectorExpr,
             bitOffset,
@@ -5350,8 +5344,10 @@ endmodule
       if (const auto* strippedReset = stripConversions(resetCondition);
           strippedReset &&
           strippedReset->kind == slang::ast::ExpressionKind::UnaryOp &&
-          strippedReset->as<slang::ast::UnaryExpression>().op ==
-            slang::ast::UnaryOperator::BitwiseNot &&
+          (strippedReset->as<slang::ast::UnaryExpression>().op ==
+             slang::ast::UnaryOperator::BitwiseNot ||
+           strippedReset->as<slang::ast::UnaryExpression>().op ==
+             slang::ast::UnaryOperator::LogicalNot) &&
           tryGetValueSymbolReference(
             strippedReset->as<slang::ast::UnaryExpression>().operand(),
             resetSignal)) {
@@ -5629,9 +5625,75 @@ endmodule
       return false;
     }
 
+    void collectDirectSequentialMemoryCandidates(
+      const Statement& stmt,
+      std::vector<const slang::ast::ValueSymbol*>& candidates,
+      std::unordered_set<const slang::ast::ValueSymbol*>& seen) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return; // LCOV_EXCL_LINE
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) {
+            collectDirectSequentialMemoryCandidates(*item, candidates, seen);
+          }
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        collectDirectSequentialMemoryCandidates(
+          current->as<slang::ast::ForLoopStatement>().body,
+          candidates,
+          seen);
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        collectDirectSequentialMemoryCandidates(conditional.ifTrue, candidates, seen);
+        if (conditional.ifFalse) {
+          collectDirectSequentialMemoryCandidates(*conditional.ifFalse, candidates, seen);
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (item.stmt) {
+            collectDirectSequentialMemoryCandidates(*item.stmt, candidates, seen);
+          }
+        }
+        if (caseStmt.defaultCase) {
+          collectDirectSequentialMemoryCandidates(*caseStmt.defaultCase, candidates, seen);
+        }
+        return;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhsExpr, action) || !lhsExpr) {
+        return;
+      }
+      const slang::ast::ValueSymbol* assignedSymbol = nullptr;
+      NLDB0::MemorySignature signature;
+      if (tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol) &&
+          assignedSymbol &&
+          !isValueSymbolReference(*lhsExpr, *assignedSymbol) &&
+          getSupportedMemorySignature(assignedSymbol->getType(), signature) &&
+          seen.insert(assignedSymbol).second) {
+        candidates.push_back(assignedSymbol);
+      }
+    }
+
     bool tryMatchDirectSequentialMemoryBlock(
       const slang::ast::ProceduralBlockSymbol& block,
-      InferredMemory& memory) {
+      const slang::ast::ValueSymbol& stateSymbol,
+      InferredMemory& memory,
+      std::string& failureReason) {
+      // Candidate analysis is transactional: all mutable analysis products
+      // live in this local object and are committed to `memory` only after the
+      // complete reset and write program has matched.
+      InferredMemory candidate;
       if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
           block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
         return false; // LCOV_EXCL_LINE
@@ -5663,18 +5725,22 @@ endmodule
 
       auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
       if (asyncEvent.multiple) {
+        failureReason = "unsupported direct inferred memory event list with multiple async events";
         return false;
       }
 
-      const slang::ast::ValueSymbol* stateSymbol = nullptr;
       NLDB0::MemorySignature signature;
+      if (!getSupportedMemorySignature(stateSymbol.getType(), signature)) {
+        failureReason = "unsupported direct inferred memory state type";
+        return false; // LCOV_EXCL_LINE
+      }
       std::vector<InferredMemoryGuard> guards;
       std::vector<InferredMemoryWriteAction> directWriteActions;
-      std::string failureReason;
 
       std::vector<bool> initBits;
       const Expression* resetSignalExpr = nullptr;
       NLDB0::MemoryResetMode resetMode = NLDB0::MemoryResetMode::None;
+      bool matchedResetForm = false;
 
       const auto* current = unwrapStatement(*stmt);
       if (current &&
@@ -5688,11 +5754,10 @@ endmodule
                 guards,
                 directWriteActions,
                 failureReason) &&
-              stateSymbol &&
               !directWriteActions.empty()) {
             if (tryExtractSharedSequentialResetInitBits(
                   topCond.ifTrue,
-                  *stateSymbol,
+                  stateSymbol,
                   signature.width,
                   signature.depth,
                   initBits,
@@ -5705,17 +5770,23 @@ endmodule
                     resetInfo)) {
                 resetSignalExpr = resetInfo.resetSignalExpr;
                 resetMode = resetInfo.signature.resetMode;
-              } else {
-                initBits.clear();
+                matchedResetForm = true;
               }
-            } else {
-              initBits.clear();
             }
           }
         }
       }
 
-      if (directWriteActions.empty()) {
+      if (!matchedResetForm) {
+        // Discard every product of the speculative reset-form analysis before
+        // attempting the whole statement. This prevents a non-empty action
+        // prefix from turning a failed match into a partially inferred memory.
+        guards.clear();
+        directWriteActions.clear();
+        initBits.clear();
+        resetSignalExpr = nullptr;
+        resetMode = NLDB0::MemoryResetMode::None;
+        failureReason.clear();
         if (!analyzeDirectSequentialMemoryWriteStatement(
               *stmt,
               stateSymbol,
@@ -5723,34 +5794,36 @@ endmodule
               guards,
               directWriteActions,
               failureReason) ||
-            !stateSymbol ||
             directWriteActions.empty()) {
+          if (failureReason.empty()) {
+            failureReason = "direct inferred memory block has no supported indexed writes";
+          }
           return false;
         }
       }
 
       if (asyncEvent.expr && resetMode == NLDB0::MemoryResetMode::None) {
+        failureReason = "unsupported asynchronous inferred memory block without matched reset";
         return false;
       }
 
-      memory.stateSymbol = stateSymbol;
-      memory.shadowSymbol = nullptr;
-      memory.commitSymbol = nullptr;
-      memory.combBlock = nullptr;
-      memory.commitBlock = nullptr;
-      memory.seqBlock = &block;
-      memory.clockExpr = clockExpr;
-      memory.resetSignalExpr = resetSignalExpr;
-      memory.signature = signature;
-      memory.signature.resetMode = resetMode;
-      if (initBits.empty()) {
-        memory.initBits.assign(signature.width * signature.depth, false);
-      } else {
-        memory.initBits = std::move(initBits);
+      candidate.stateSymbol = &stateSymbol;
+      candidate.shadowSymbol = nullptr;
+      candidate.commitSymbol = nullptr;
+      candidate.combBlock = nullptr;
+      candidate.commitBlock = nullptr;
+      candidate.seqBlock = &block;
+      candidate.clockExpr = clockExpr;
+      candidate.resetSignalExpr = resetSignalExpr;
+      candidate.signature = signature;
+      candidate.signature.resetMode = resetMode;
+      if (!initBits.empty()) {
+        candidate.initBits = std::move(initBits);
       }
-      memory.commitActionsByIndex.clear();
-      memory.directWriteActions = std::move(directWriteActions);
-      memory.sourceRange = getSourceRange(block);
+      candidate.commitActionsByIndex.clear();
+      candidate.directWriteActions = std::move(directWriteActions);
+      candidate.sourceRange = getSourceRange(block);
+      memory = std::move(candidate);
       return true;
     }
 
@@ -6113,17 +6186,50 @@ endmodule
       }
 
       for (const auto* seqBlock : sequentialBlocks) {
-        InferredMemory memory;
-        if (!tryMatchDirectSequentialMemoryBlock(*seqBlock, memory) ||
-            !memory.stateSymbol ||
-            inferredMemoryByStateSymbol_.contains(memory.stateSymbol)) {
-          continue;
+        const Statement* candidateStmt = &seqBlock->getBody();
+        if (const auto* timed = findTimedStatement(*candidateStmt)) {
+          candidateStmt = &timed->stmt;
         }
+        candidateStmt = candidateStmt ? unwrapStatement(*candidateStmt) : nullptr;
+        if (!candidateStmt) {
+          continue; // LCOV_EXCL_LINE
+        }
+        std::vector<const slang::ast::ValueSymbol*> candidates;
+        std::unordered_set<const slang::ast::ValueSymbol*> seenCandidates;
+        collectDirectSequentialMemoryCandidates(
+          *candidateStmt,
+          candidates,
+          seenCandidates);
+        for (const auto* stateSymbol : candidates) {
+          if (!stateSymbol || inferredMemoryByStateSymbol_.contains(stateSymbol)) {
+            continue;
+          }
+          InferredMemory memory;
+          std::string failureReason;
+          if (!tryMatchDirectSequentialMemoryBlock(
+                *seqBlock,
+                *stateSymbol,
+                memory,
+                failureReason) ||
+              !memory.stateSymbol) {
+            if (!failureReason.empty()) {
+              // This is the single per-symbol diagnostic for a rejected direct
+              // memory candidate. Mark it before generic lowering so the
+              // size-threshold warning does not duplicate it later.
+              warnedUninferredMemorySymbols_.insert(stateSymbol);
+              std::ostringstream reason;
+              reason << "Memory '" << std::string(stateSymbol->name)
+                     << "' was not inferred as naja_mem: " << failureReason
+                     << "; using generic sequential lowering";
+              reportWarning(reason.str(), getSourceRange(*stateSymbol));
+            }
+            continue;
+          }
 
-        const size_t memoryIndex = inferredMemories_.size();
-        const auto* stateSymbol = memory.stateSymbol;
-        inferredMemories_.push_back(std::move(memory));
-        inferredMemoryByStateSymbol_[stateSymbol] = memoryIndex;
+          const size_t memoryIndex = inferredMemories_.size();
+          inferredMemories_.push_back(std::move(memory));
+          inferredMemoryByStateSymbol_[stateSymbol] = memoryIndex;
+        }
       }
 
       for (size_t i = 0; i < inferredMemories_.size(); ++i) {
@@ -6131,7 +6237,7 @@ endmodule
           inferredMemoryCombBlocks_[inferredMemories_[i].combBlock] = i;
         }
         if (inferredMemories_[i].seqBlock) {
-          inferredMemorySequentialBlocks_[inferredMemories_[i].seqBlock] = i;
+          inferredMemorySequentialBlocks_[inferredMemories_[i].seqBlock].push_back(i);
         }
       }
     }
@@ -6152,6 +6258,30 @@ endmodule
             (!memory.combBlock && !memory.directWriteActions.empty() &&
              lowerInferredMemoryDirectSequentialBlock(design, memory, failureReason))) {
           memory.lowered = true;
+          continue;
+        }
+
+        // createNets intentionally deferred these speculative memory symbols.
+        // Restore their ordinary nets before generic lowering if preparation
+        // unexpectedly rejects the otherwise matched candidate.
+        for (const auto* symbol :
+             {memory.stateSymbol, memory.shadowSymbol, memory.commitSymbol}) {
+          if (!symbol || getLoweredValueSymbolNet(design, *symbol)) {
+            continue;
+          }
+          const auto loweredName = getLoweredSymbolName(*symbol);
+          auto* net = getOrCreateNet(design, loweredName, symbol->getType());
+          setLoweredValueSymbolNet(design, *symbol, net);
+          annotateSourceInfo(net, getSourceRange(*symbol));
+          bindLiveASTLink(net, *symbol);
+        }
+        if (!failureReason.empty()) {
+          warnedUninferredMemorySymbols_.insert(memory.stateSymbol);
+          std::ostringstream reason;
+          reason << "Memory '" << std::string(memory.stateSymbol->name)
+                 << "' could not be lowered as naja_mem: " << failureReason
+                 << "; using generic lowering";
+          reportWarning(reason.str(), memory.sourceRange);
         }
       }
     }
@@ -7458,7 +7588,9 @@ endmodule
            signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
             ? "1"
             : "0");
-        addInstParam("INIT", encodeInitBits(memory.initBits));
+        if (signature.resetMode != NLDB0::MemoryResetMode::None) {
+          addInstParam("INIT", encodeInitBits(memory.initBits));
+        }
 
         auto* clkTerm = model->getScalarTerm(NLName("CLK"));
         auto* rstTerm = model->getScalarTerm(NLName("RST"));
@@ -7646,6 +7778,18 @@ endmodule
           auto loweredName = getLoweredSymbolName(valueSym);
           // Port terms are materialized first; let connectTermsToNets own their net creation.
           if (!isInsideGenerateScope(valueSym) && design->getTerm(NLName(loweredName))) {
+            continue;
+          }
+          bool deferredInferredMemorySymbol = false;
+          for (const auto& memory : inferredMemories_) {
+            if (memory.stateSymbol == &valueSym ||
+                memory.shadowSymbol == &valueSym ||
+                memory.commitSymbol == &valueSym) {
+              deferredInferredMemorySymbol = true;
+              break;
+            }
+          }
+          if (deferredInferredMemorySymbol) {
             continue;
           }
           // LCOV_EXCL_START
@@ -31599,7 +31743,7 @@ endmodule
     std::unordered_map<const slang::ast::ValueSymbol*, size_t> inferredMemoryByStateSymbol_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
       inferredMemoryCombBlocks_ {};
-    std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
+    std::unordered_map<const slang::ast::ProceduralBlockSymbol*, std::vector<size_t>>
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
