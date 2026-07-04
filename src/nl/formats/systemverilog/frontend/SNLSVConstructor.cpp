@@ -446,7 +446,8 @@ std::string makeUnsupportedCode(const std::string& reason) {
     return "sv.unsupported.inferred_memory." + // LCOV_EXCL_LINE compiler coverage artifact
       normalized.substr(inferredMemoryPrefix.size()); // LCOV_EXCL_LINE compiler coverage artifact
   }
-  if (std::string_view(normalized).starts_with("procedural_block_")) {
+  if (std::string_view(normalized).starts_with("procedural_block_") ||
+      std::string_view(normalized).starts_with("initial_block_")) {
     return "sv.unsupported.procedural_block";
   }
   return {};

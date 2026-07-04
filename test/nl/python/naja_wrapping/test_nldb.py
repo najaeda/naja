@@ -419,7 +419,7 @@ endmodule
       self.assertIn("Unsupported SystemVerilog elements encountered", str(unsupported_error))
       self.assertTrue(unsupported_error.unsupported_elements)
       unsupported = unsupported_error.unsupported_elements[0]
-      self.assertIn("Unsupported procedural block", unsupported["message"])
+      self.assertIn("Unsupported initial block", unsupported["message"])
       self.assertEqual(
         "sv.unsupported.procedural_block",
         unsupported["code"])
