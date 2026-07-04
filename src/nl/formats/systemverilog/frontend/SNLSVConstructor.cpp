@@ -817,10 +817,12 @@ class SNLSVConstructorImpl {
       size_t sequentialBlocksLowered {0};
       size_t warningCount {0};
       size_t unsupportedCount {0};
+      size_t unsupportedWarningCount {0};
 
       bool success {false};
       std::string failureReason {};
       std::string firstUnsupported {};
+      std::string firstUnsupportedWarning {};
       std::string firstWarning {};
     };
 
@@ -974,11 +976,15 @@ class SNLSVConstructorImpl {
       svPerfReport_.constructDuration = steadyNow - svPerfReport_.constructStart;
       svPerfReport_.warningCount = warnings_.size();
       svPerfReport_.unsupportedCount = unsupportedElements_.size();
+      svPerfReport_.unsupportedWarningCount = unsupportedWarnings_.size();
       if (svPerfReport_.firstWarning.empty() && !warnings_.empty()) {
         svPerfReport_.firstWarning = warnings_.front();
       }
       if (svPerfReport_.firstUnsupported.empty() && !unsupportedElements_.empty()) {
         svPerfReport_.firstUnsupported = unsupportedElements_.front();
+      }
+      if (svPerfReport_.firstUnsupportedWarning.empty() && !unsupportedWarnings_.empty()) {
+        svPerfReport_.firstUnsupportedWarning = unsupportedWarnings_.front();
       }
     }
 
@@ -1189,13 +1195,24 @@ class SNLSVConstructorImpl {
       output << "count.block.sequential_lowered="
              << svPerfReport_.sequentialBlocksLowered << "\n";
       output << "count.warning=" << svPerfReport_.warningCount << "\n";
+      // Keep count.unsupported as the compatibility alias for failure-causing
+      // unsupported errors. Unsupported warnings never make this count nonzero.
       output << "count.unsupported=" << svPerfReport_.unsupportedCount << "\n";
+      output << "count.unsupported_error=" << svPerfReport_.unsupportedCount << "\n";
+      output << "count.unsupported_warning="
+             << svPerfReport_.unsupportedWarningCount << "\n";
 
       if (!svPerfReport_.firstWarning.empty()) {
         output << "first_warning=" << toSingleLine(svPerfReport_.firstWarning) << "\n";
       }
       if (!svPerfReport_.firstUnsupported.empty()) {
         output << "first_unsupported=" << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
+        output << "first_unsupported_error="
+               << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
+      }
+      if (!svPerfReport_.firstUnsupportedWarning.empty()) {
+        output << "first_unsupported_warning="
+               << toSingleLine(svPerfReport_.firstUnsupportedWarning) << "\n";
       }
       output << "\n";
       output.close();
@@ -1274,8 +1291,11 @@ class SNLSVConstructorImpl {
       loggedWarningReasons_.clear();
       unsupportedElements_.clear();
       unsupportedElementDetails_.clear();
+      unsupportedWarnings_.clear();
+      emittedUnsupportedWarnings_.clear();
       cachedCompilationDiagnosticsReport_.clear();
       warnedUninferredMemorySymbols_.clear();
+      handledInitialBlocks_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
@@ -2037,6 +2057,8 @@ class SNLSVConstructorImpl {
 
       unsupportedElements_.clear();
       unsupportedElementDetails_.clear();
+      unsupportedWarnings_.clear();
+      emittedUnsupportedWarnings_.clear();
       detail::FindTimedStatementTestResult result;
       result.foundTimed = findTimedStatement(proceduralBlock->getBody()) != nullptr;
       result.reportedUnsupported = !unsupportedElements_.empty();
@@ -2848,8 +2870,19 @@ endmodule
         if (hasDiagnostics) {
           report << '\n';
         }
-        report << "=== Naja Unsupported SystemVerilog Elements ===\n";
+        report << "=== Naja Unsupported SystemVerilog Errors ===\n";
         for (const auto& unsupported : unsupportedElements_) {
+          report << unsupported << '\n';
+        }
+        hasDiagnostics = true;
+      }
+
+      if (!unsupportedWarnings_.empty()) {
+        if (hasDiagnostics) {
+          report << '\n';
+        }
+        report << "=== Naja Unsupported SystemVerilog Warnings ===\n";
+        for (const auto& unsupported : unsupportedWarnings_) {
           report << unsupported << '\n';
         }
         hasDiagnostics = true;
@@ -3327,6 +3360,7 @@ endmodule
       std::unordered_map<const slang::ast::Expression*, size_t> readPortBySelectorExpr {};
       std::unordered_map<int32_t, size_t> readPortByConstantSelectorIndex {};
       std::optional<slang::SourceRange> sourceRange {};
+      bool hasInitialValue {false};
       bool lowered {false};
     };
 
@@ -3535,7 +3569,7 @@ endmodule
       return message.str();
     }
 
-    void reportUnsupportedElement(
+    void reportUnsupportedError(
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
       std::ostringstream message;
@@ -3547,9 +3581,32 @@ endmodule
       auto unsupported = message.str();
       unsupportedElements_.push_back(unsupported);
       unsupportedElementDetails_.push_back({unsupported, makeUnsupportedCode(reason)});
+      reportWarning("Unsupported error: " + reason, maybeRange);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstUnsupported.empty()) {
         svPerfReport_.firstUnsupported = unsupported;
+      }
+#endif
+    }
+
+    void reportUnsupportedWarning(
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      std::ostringstream message;
+      if (auto sourceInfo = getSourceInfo(maybeRange)) {
+        message << sourceInfo->file << ":" << sourceInfo->line << ":"
+                << sourceInfo->column << ": ";
+      }
+      message << reason;
+      auto unsupported = message.str();
+      if (!emittedUnsupportedWarnings_.insert(unsupported).second) {
+        return;
+      }
+      unsupportedWarnings_.push_back(unsupported);
+      reportWarning("Unsupported warning: " + reason, maybeRange);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      if (svPerfReport_.enabled && svPerfReport_.firstUnsupportedWarning.empty()) {
+        svPerfReport_.firstUnsupportedWarning = unsupported;
       }
 #endif
     }
@@ -3754,7 +3811,7 @@ endmodule
         if (!sym.name.empty()) {
           reason << " '" << sym.name << "'";
         }
-        reportUnsupportedElement(reason.str(), getSourceRange(sym));
+        reportUnsupportedError(reason.str(), getSourceRange(sym));
       }
     }
 
@@ -3938,7 +3995,7 @@ endmodule
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
-          reportUnsupportedElement(reason.str(), sourceRange);
+          reportUnsupportedError(reason.str(), sourceRange);
           return nullptr;
         }
         // LCOV_EXCL_STOP
@@ -3983,7 +4040,7 @@ endmodule
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
-          reportUnsupportedElement(reason.str(), getSourceRange(expr));
+          reportUnsupportedError(reason.str(), getSourceRange(expr));
           return nullptr;
         }
         auto loweredName = getLoweredSymbolName(symbol);
@@ -6084,6 +6141,334 @@ endmodule
       return true;
     }
 
+    const Statement* getOnlyInitialStatement(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind != slang::ast::StatementKind::List) {
+        return current;
+      }
+      const Statement* only = nullptr;
+      for (const auto* item : current->as<slang::ast::StatementList>().list) {
+        const Statement* candidate = item ? unwrapStatement(*item) : nullptr;
+        if (!candidate || candidate->kind == slang::ast::StatementKind::Empty ||
+            (candidate->kind == slang::ast::StatementKind::VariableDeclaration &&
+             candidate->as<slang::ast::VariableDeclStatement>().symbol.getInitializer() ==
+               nullptr)) {
+          continue;
+        }
+        if (only) {
+          return nullptr;
+        }
+        only = candidate;
+      }
+      return only;
+    }
+
+    void collectInitialAssignmentRoots(
+      const Statement& stmt,
+      std::unordered_set<const slang::ast::ValueSymbol*>& roots) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) return; // LCOV_EXCL_LINE
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) collectInitialAssignmentRoots(*item, roots);
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        collectInitialAssignmentRoots(
+          current->as<slang::ast::ForLoopStatement>().body, roots);
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        collectInitialAssignmentRoots(conditional.ifTrue, roots);
+        if (conditional.ifFalse) collectInitialAssignmentRoots(*conditional.ifFalse, roots);
+        return;
+      }
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      const slang::ast::ValueSymbol* root = nullptr;
+      if (extractAssignment(*current, lhs, action) && lhs &&
+          tryGetRootValueSymbolReference(*lhs, root) && root) {
+        roots.insert(root);
+      }
+    }
+
+    bool getForLoopInitializerExpression(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol*& loopSymbol,
+      const Expression*& initializer) const {
+      loopSymbol = nullptr;
+      initializer = nullptr;
+      if (loop.loopVars.size() == 1 && loop.initializers.size() <= 1) {
+        loopSymbol = loop.loopVars.front();
+        initializer = loop.loopVars.front()->getInitializer();
+        return loopSymbol && initializer;
+      }
+      if (!loop.loopVars.empty() || loop.initializers.size() != 1) return false;
+      const auto* init = stripConversions(*loop.initializers.front());
+      if (!init || init->kind != slang::ast::ExpressionKind::Assignment) return false;
+      const auto& assignment = init->as<slang::ast::AssignmentExpression>();
+      const auto* lhs = stripConversions(assignment.left());
+      if (!lhs || !slang::ast::ValueExpressionBase::isKind(lhs->kind)) return false;
+      loopSymbol = &lhs->as<slang::ast::ValueExpressionBase>().symbol;
+      initializer = &assignment.right();
+      return true;
+    }
+
+    bool getSimplePositiveForLoopStep(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol& loopSymbol,
+      int64_t& step) const {
+      if (loop.steps.size() != 1 || !loop.steps.front()) return false;
+      int64_t next = 0;
+      std::string failureReason;
+      if (!applyForLoopStepExpression(
+            *loop.steps.front(), loopSymbol, next, failureReason) || next <= 0) {
+        return false;
+      }
+      int64_t nextFromOne = 1;
+      if (!applyForLoopStepExpression(
+            *loop.steps.front(), loopSymbol, nextFromOne, failureReason) ||
+          nextFromOne - 1 != next) {
+        return false;
+      }
+      step = next;
+      return true;
+    }
+
+    bool getAffineLoopExpression(
+      const Expression& expr,
+      const Symbol& symbol,
+      int64_t& coefficient,
+      int64_t& offset) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) return false; // LCOV_EXCL_LINE
+      if (isForLoopControlSymbolRef(*stripped, symbol)) {
+        coefficient = 1;
+        offset = 0;
+        return true;
+      }
+      if (getConstantInt64(*stripped, offset)) {
+        coefficient = 0;
+        return true;
+      }
+      if (stripped->kind != slang::ast::ExpressionKind::BinaryOp) return false;
+      const auto& binary = stripped->as<slang::ast::BinaryExpression>();
+      if (binary.op != slang::ast::BinaryOperator::Add &&
+          binary.op != slang::ast::BinaryOperator::Subtract) {
+        return false;
+      }
+      int64_t leftCoefficient = 0;
+      int64_t leftOffset = 0;
+      int64_t rightCoefficient = 0;
+      int64_t rightOffset = 0;
+      if (!getAffineLoopExpression(
+            binary.left(), symbol, leftCoefficient, leftOffset) ||
+          !getAffineLoopExpression(
+            binary.right(), symbol, rightCoefficient, rightOffset)) {
+        return false;
+      }
+      coefficient = binary.op == slang::ast::BinaryOperator::Add
+        ? leftCoefficient + rightCoefficient
+        : leftCoefficient - rightCoefficient;
+      offset = binary.op == slang::ast::BinaryOperator::Add
+        ? leftOffset + rightOffset
+        : leftOffset - rightOffset;
+      return true;
+    }
+
+    bool getLessThanLoopBound(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol& loopSymbol,
+      const Expression*& bound) const {
+      if (!loop.stopExpr) return false;
+      const auto* stop = stripConversions(*loop.stopExpr);
+      if (!stop || stop->kind != slang::ast::ExpressionKind::BinaryOp) return false;
+      const auto& binary = stop->as<slang::ast::BinaryExpression>();
+      if (binary.op != slang::ast::BinaryOperator::LessThan ||
+          !isForLoopControlSymbolRef(binary.left(), loopSymbol)) {
+        return false;
+      }
+      bound = &binary.right();
+      return true;
+    }
+
+    bool extractUniformInitialMemoryAssignment(
+      const Statement& stmt,
+      const InferredMemory& memory,
+      const Symbol& selectorSymbol,
+      std::vector<bool>& entryBits,
+      std::string& failureReason) const {
+      const Statement* assignmentStmt = getOnlyInitialStatement(stmt);
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!assignmentStmt || !extractAssignment(*assignmentStmt, lhs, action) ||
+          !lhs || !action.rhs || action.scheduling != ProceduralAssignmentScheduling::Blocking ||
+          action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "expected one blocking constant indexed assignment";
+        return false;
+      }
+      const Expression* selector = nullptr;
+      size_t bitOffset = 0;
+      size_t bitWidth = 0;
+      if (!tryExtractInferredMemoryEntryTarget(
+            *lhs,
+            *memory.stateSymbol,
+            memory.signature.width,
+            selector,
+            bitOffset,
+            bitWidth,
+            failureReason) ||
+          !selector || bitOffset != 0 || bitWidth != memory.signature.width ||
+          !isForLoopControlSymbolRef(*selector, selectorSymbol)) {
+        failureReason = "initial assignment is not a full entry indexed by the loop variable";
+        return false;
+      }
+      auto bits = getConstantInitBits(
+        *action.rhs, *memory.stateSymbol, memory.signature.width);
+      if (!bits) {
+        failureReason = "initial memory fill value is not a constant entry value";
+        return false;
+      }
+      entryBits = std::move(*bits);
+      return true;
+    }
+
+    bool analyzeUniformInitialMemoryFill(
+      const Statement& stmt,
+      const InferredMemory& memory,
+      std::vector<bool>& initBits,
+      std::string& failureReason) const {
+      const Statement* top = getOnlyInitialStatement(stmt);
+      if (!top || top->kind != slang::ast::StatementKind::ForLoop) {
+        failureReason = "expected a constant for-loop fill";
+        return false;
+      }
+      const auto& outer = top->as<slang::ast::ForLoopStatement>();
+      const Symbol* outerSymbol = nullptr;
+      const Expression* outerInitializer = nullptr;
+      const Expression* outerBound = nullptr;
+      int64_t outerStart = 0;
+      int64_t outerLimit = 0;
+      int64_t outerStep = 0;
+      if (!getForLoopInitializerExpression(outer, outerSymbol, outerInitializer) ||
+          !outerSymbol || !getConstantInt64(*outerInitializer, outerStart) ||
+          !getLessThanLoopBound(outer, *outerSymbol, outerBound) ||
+          !getConstantInt64(*outerBound, outerLimit) ||
+          !getSimplePositiveForLoopStep(outer, *outerSymbol, outerStep)) {
+        failureReason = "unsupported symbolic outer loop domain";
+        return false;
+      }
+
+      const auto depth = static_cast<int64_t>(memory.signature.depth);
+      std::vector<bool> entryBits;
+      const Statement* outerBody = getOnlyInitialStatement(outer.body);
+      if (outerBody && outerBody->kind != slang::ast::StatementKind::ForLoop) {
+        if (outerStart != 0 || outerLimit != depth || outerStep != 1 ||
+            !extractUniformInitialMemoryAssignment(
+              *outerBody, memory, *outerSymbol, entryBits, failureReason)) {
+          if (failureReason.empty()) {
+            failureReason = "loop range does not fully cover memory '" +
+              std::string(memory.stateSymbol->name) + "'";
+          }
+          return false;
+        }
+      } else if (outerBody) {
+        const auto& inner = outerBody->as<slang::ast::ForLoopStatement>();
+        const Symbol* innerSymbol = nullptr;
+        const Expression* innerInitializer = nullptr;
+        const Expression* innerBound = nullptr;
+        int64_t innerStartCoefficient = 0;
+        int64_t innerStartOffset = 0;
+        int64_t innerBoundCoefficient = 0;
+        int64_t innerBoundOffset = 0;
+        int64_t innerStep = 0;
+        if (!getForLoopInitializerExpression(inner, innerSymbol, innerInitializer) ||
+            !innerSymbol ||
+            !getAffineLoopExpression(
+              *innerInitializer,
+              *outerSymbol,
+              innerStartCoefficient,
+              innerStartOffset) ||
+            !getLessThanLoopBound(inner, *innerSymbol, innerBound) ||
+            !getAffineLoopExpression(
+              *innerBound,
+              *outerSymbol,
+              innerBoundCoefficient,
+              innerBoundOffset) ||
+            !getSimplePositiveForLoopStep(inner, *innerSymbol, innerStep) ||
+            outerStart != 0 || outerLimit != depth || outerStep <= 0 ||
+            depth % outerStep != 0 ||
+            innerStartCoefficient != 1 || innerStartOffset != 0 ||
+            innerBoundCoefficient != 1 || innerBoundOffset != outerStep ||
+            innerStep != 1 ||
+            !extractUniformInitialMemoryAssignment(
+              inner.body, memory, *innerSymbol, entryBits, failureReason)) {
+          if (failureReason.empty()) {
+            failureReason = "nested loop ranges do not form a complete non-overlapping memory fill";
+          }
+          return false;
+        }
+      } else {
+        failureReason = "initial memory loop has no assignment body";
+        return false;
+      }
+
+      initBits.clear();
+      initBits.reserve(memory.signature.width * memory.signature.depth);
+      for (size_t entry = 0; entry < memory.signature.depth; ++entry) {
+        initBits.insert(initBits.end(), entryBits.begin(), entryBits.end());
+      }
+      return true;
+    }
+
+    void mergeInitialMemoryBlocks(
+      const std::vector<const slang::ast::ProceduralBlockSymbol*>& initialBlocks) {
+      for (const auto* block : initialBlocks) {
+        if (!block) continue; // LCOV_EXCL_LINE
+        std::unordered_set<const slang::ast::ValueSymbol*> roots;
+        collectInitialAssignmentRoots(block->getBody(), roots);
+        std::vector<const slang::ast::ValueSymbol*> memoryRoots;
+        for (const auto* root : roots) {
+          NLDB0::MemorySignature signature;
+          if (root && getSupportedMemorySignature(root->getType(), signature)) {
+            memoryRoots.push_back(root);
+          }
+        }
+        if (memoryRoots.empty()) continue;
+        handledInitialBlocks_.insert(block);
+        if (memoryRoots.size() != 1) {
+          reportUnsupportedError(
+            "unsupported initial memory initialization: one initial block targets multiple memories",
+            getSourceRange(*block));
+          continue;
+        }
+        const auto* stateSymbol = memoryRoots.front();
+        const auto found = inferredMemoryByStateSymbol_.find(stateSymbol);
+        if (found == inferredMemoryByStateSymbol_.end()) {
+          reportUnsupportedError(
+            "unsupported initial memory initialization: memory '" +
+              std::string(stateSymbol->name) + "' was not inferred as naja_mem",
+            getSourceRange(*block));
+          continue;
+        }
+        auto& memory = inferredMemories_[found->second];
+        std::vector<bool> initBits;
+        std::string failureReason;
+        if (!analyzeUniformInitialMemoryFill(
+              block->getBody(), memory, initBits, failureReason)) {
+          const std::string reason = "unsupported initial memory initialization for memory '" +
+            std::string(stateSymbol->name) + "': " + failureReason;
+          reportUnsupportedError(reason, getSourceRange(*block));
+          continue;
+        }
+        memory.initBits = std::move(initBits);
+        memory.hasInitialValue = true;
+        memory.sourceRange = getSourceRange(*block);
+      }
+    }
+
     void inferMemories(SNLDesign* /*design*/, const InstanceBodySymbol& body) {
       inferredMemories_.clear();
       inferredMemoryByStateSymbol_.clear();
@@ -6092,6 +6477,7 @@ endmodule
 
       std::vector<const slang::ast::ProceduralBlockSymbol*> sequentialBlocks;
       std::vector<const slang::ast::ProceduralBlockSymbol*> combinationalBlocks;
+      std::vector<const slang::ast::ProceduralBlockSymbol*> initialBlocks;
       auto collectProceduralBlock = [&](const Symbol& sym) {
         if (sym.kind != SymbolKind::ProceduralBlock) {
           return;
@@ -6103,6 +6489,9 @@ endmodule
         }
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
           combinationalBlocks.push_back(&block);
+        }
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial) {
+          initialBlocks.push_back(&block);
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
@@ -6240,6 +6629,7 @@ endmodule
           inferredMemorySequentialBlocks_[inferredMemories_[i].seqBlock].push_back(i);
         }
       }
+      mergeInitialMemoryBlocks(initialBlocks);
     }
 
     void prepareInferredMemories(SNLDesign* design) {
@@ -7588,7 +7978,10 @@ endmodule
            signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
             ? "1"
             : "0");
-        if (signature.resetMode != NLDB0::MemoryResetMode::None) {
+        if (memory.hasInitialValue) {
+          addInstParam("INIT_ENABLE", "1");
+        }
+        if (signature.resetMode != NLDB0::MemoryResetMode::None || memory.hasInitialValue) {
           addInstParam("INIT", encodeInitBits(memory.initBits));
         }
 
@@ -7702,7 +8095,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported SystemVerilog " << getPortKindLabel(sym->kind)
                  << " declaration for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(*sym));
+          reportUnsupportedError(reason.str(), getSourceRange(*sym));
           continue;
         }
         const auto& port = sym->as<PortSymbol>();
@@ -7715,13 +8108,13 @@ endmodule
             reason << " 'ref'";
           }
           reason << " for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          reportUnsupportedError(reason.str(), getSourceRange(port));
           continue;
         }
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(port.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          reportUnsupportedError(reason.str(), getSourceRange(port));
           continue;
         }
         auto range = getRangeFromType(port.getType());
@@ -7810,7 +8203,7 @@ endmodule
               reason << " (dynamic unpacked array/queue/associative array)";
             }
             reason << " in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
+            reportUnsupportedError(reason.str(), getSourceRange(valueSym));
             continue;
           }
           auto net = getOrCreateNet(design, loweredName, valueSym.getType());
@@ -17503,6 +17896,159 @@ endmodule
       return false;
     }
 
+    bool evaluateConfigurationConstant(
+      const Expression& expr,
+      int64_t& value) const {
+      if (getConstantInt64(expr, value)) return true;
+      if (activeForLoopConstants_.empty()) return false;
+      const Symbol* contextSymbol = getConstantEvalSymbol(expr);
+      if (!contextSymbol) contextSymbol = activeForLoopConstants_.back().first;
+      if (!contextSymbol) return false; // LCOV_EXCL_LINE
+      slang::ast::EvalContext evalContext(*contextSymbol);
+      evalContext.pushEmptyFrame();
+      for (const auto& [symbol, bindingValue] : activeForLoopConstants_) {
+        if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) return false;
+        const auto* valueSymbol = &symbol->as<slang::ast::ValueSymbol>();
+        if (!evalContext.createLocal(
+              valueSymbol,
+              slang::SVInt(64, static_cast<uint64_t>(bindingValue), true))) {
+          return false;
+        }
+      }
+      auto constant = expr.eval(evalContext);
+      if (!constant || !constant.isInteger() || constant.integer().hasUnknown()) {
+        return false;
+      }
+      return tryGetInt64FromSVInt(constant.integer(), value);
+    }
+
+    bool analyzeConfigurationInitialStatement(
+      const Statement& stmt,
+      size_t& evaluatedIterations,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty) return true;
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !analyzeConfigurationInitialStatement(
+                *item, evaluatedIterations, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto* initializer =
+          current->as<slang::ast::VariableDeclStatement>().symbol.getInitializer();
+        if (!initializer) return true;
+        int64_t ignored = 0;
+        if (getConstantInt64(*initializer, ignored)) return true;
+        failureReason = "runtime variable initialization is not representable";
+        return false;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (conditional.conditions.size() != 1 || !conditional.conditions[0].expr) {
+          failureReason = "unsupported non-simple configuration condition";
+          return false;
+        }
+        int64_t conditionValue = 0;
+        if (!evaluateConfigurationConstant(
+              *conditional.conditions[0].expr, conditionValue)) {
+          failureReason = "configuration condition is not statically decidable";
+          return false;
+        }
+        if (conditionValue != 0) {
+          return analyzeConfigurationInitialStatement(
+            conditional.ifTrue, evaluatedIterations, failureReason);
+        }
+        return !conditional.ifFalse || analyzeConfigurationInitialStatement(
+          *conditional.ifFalse, evaluatedIterations, failureReason);
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        const Symbol* loopSymbol = nullptr;
+        int64_t loopValue = 0;
+        if (!extractForLoopControl(loop, loopSymbol, loopValue, failureReason) ||
+            !loopSymbol || !loop.stopExpr || loop.steps.size() != 1 || !loop.steps.front()) {
+          if (failureReason.empty()) {
+            failureReason = "unsupported configuration-check for-loop control";
+          }
+          return false;
+        }
+        while (true) {
+          bool execute = false;
+          if (!evaluateForLoopStopCondition(
+                *loop.stopExpr, *loopSymbol, loopValue, execute, failureReason)) {
+            return false;
+          }
+          if (!execute) return true;
+          if (++evaluatedIterations > 1000000) {
+            failureReason = "configuration-check loop exceeds static evaluation limit";
+            return false;
+          }
+          activeForLoopConstants_.push_back({loopSymbol, loopValue});
+          activeForLoopNameConstants_.push_back({std::string(loopSymbol->name), loopValue});
+          const auto bindingGuard = slang::ScopeGuard([&]() {
+            activeForLoopNameConstants_.pop_back();
+            activeForLoopConstants_.pop_back();
+          });
+          if (!analyzeConfigurationInitialStatement(
+                loop.body, evaluatedIterations, failureReason)) {
+            return false;
+          }
+          int64_t nextValue = loopValue;
+          if (!applyForLoopStepExpression(
+                *loop.steps.front(), *loopSymbol, nextValue, failureReason) ||
+              nextValue == loopValue) {
+            if (failureReason.empty()) {
+              failureReason = "configuration-check loop does not make progress";
+            }
+            return false;
+          }
+          loopValue = nextValue;
+        }
+      }
+      if (current->kind == slang::ast::StatementKind::ExpressionStatement) {
+        const auto* expr = stripConversions(
+          current->as<slang::ast::ExpressionStatement>().expr);
+        if (!expr || expr->kind != slang::ast::ExpressionKind::Call) {
+          failureReason = "arbitrary runtime expression is not representable";
+          return false;
+        }
+        const auto& call = expr->as<slang::ast::CallExpression>();
+        if (!call.isSystemCall()) {
+          failureReason = "user task or function call is not representable";
+          return false;
+        }
+        const auto name = std::string(call.getSubroutineName());
+        if (name == "$display" || name == "$write" || name == "$info" ||
+            name == "$warning") {
+          reportUnsupportedWarning(
+            "discarding non-structural system task '" + name +
+              "' in configuration-check initial block",
+            getSourceRange(*current));
+          return true;
+        }
+        if (name == "$error" || name == "$fatal") {
+          failureReason = "statically reachable " + name +
+            " in configuration-check initial block";
+          return false;
+        }
+        if (name == "$finish" || name == "$stop") {
+          failureReason = "statically reachable " + name +
+            " in configuration-check initial block";
+          return false;
+        }
+        failureReason = "unsupported system task '" + name +
+          "' in configuration-check initial block";
+        return false;
+      }
+      failureReason =
+        "timing, event, or arbitrary runtime behavior in initial block is not representable";
+      return false;
+    }
+
     struct CombinationalSubtreeSummary {
       std::unordered_set<const slang::ast::ValueSymbol*> affectedSymbols {};
       bool mayBreak {false};
@@ -18041,7 +18587,7 @@ endmodule
         }
         reason << ", unsupported kind=" << unsupportedStatement->kind;
         reason << ")";
-        reportUnsupportedElement(
+        reportUnsupportedError(
           reason.str(),
           getSourceRange(*current));
         return nullptr;
@@ -18053,7 +18599,7 @@ endmodule
       reason << "Unsupported statement while extracting sequential timing control"
              << " (kind=" << current->kind
              << ", expected timed '@(...)' statement)";
-      reportUnsupportedElement(
+      reportUnsupportedError(
         reason.str(),
         getSourceRange(*current));
       return nullptr;
@@ -20313,6 +20859,138 @@ endmodule
         nextMasks |= static_cast<uint8_t>(1u << nextMask);
       }
       pathState[symbol] = nextMasks;
+      return true;
+    }
+
+    bool analyzeCombinationalNonBlockingSafety(
+      const Statement& stmt,
+      std::unordered_set<const slang::ast::ValueSymbol*>& pendingNonBlocking,
+      std::string& failureReason) const {
+      const auto rejectPendingRead = [this, &pendingNonBlocking, &failureReason](
+        const Expression& expr) {
+        std::unordered_set<const slang::ast::ValueSymbol*> reads;
+        collectExpressionRootValueSymbols(expr, reads);
+        for (const auto* pending : pendingNonBlocking) {
+          if (pending && reads.contains(pending)) {
+            failureReason =
+              "scheduling-sensitive combinational block reads '" +
+              std::string(pending->name) +
+              "' after an earlier non-blocking assignment on the same control-flow path";
+            return false;
+          }
+        }
+        return true;
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration ||
+          isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !analyzeCombinationalNonBlockingSafety(
+                *item, pendingNonBlocking, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        for (const auto& condition : conditional.conditions) {
+          if (condition.expr && !rejectPendingRead(*condition.expr)) return false;
+        }
+        auto truePending = pendingNonBlocking;
+        if (!analyzeCombinationalNonBlockingSafety(
+              conditional.ifTrue, truePending, failureReason)) {
+          return false;
+        }
+        auto falsePending = pendingNonBlocking;
+        if (conditional.ifFalse && !analyzeCombinationalNonBlockingSafety(
+              *conditional.ifFalse, falsePending, failureReason)) {
+          return false;
+        }
+        truePending.insert(falsePending.begin(), falsePending.end());
+        pendingNonBlocking = std::move(truePending);
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        if (!rejectPendingRead(caseStmt.expr)) return false;
+        std::unordered_set<const slang::ast::ValueSymbol*> merged = pendingNonBlocking;
+        for (const auto& item : caseStmt.items) {
+          for (const auto* expr : item.expressions) {
+            if (expr && !rejectPendingRead(*expr)) return false;
+          }
+          auto branchPending = pendingNonBlocking;
+          if (item.stmt && !analyzeCombinationalNonBlockingSafety(
+                *item.stmt, branchPending, failureReason)) {
+            return false;
+          }
+          merged.insert(branchPending.begin(), branchPending.end());
+        }
+        if (caseStmt.defaultCase) {
+          auto branchPending = pendingNonBlocking;
+          if (!analyzeCombinationalNonBlockingSafety(
+                *caseStmt.defaultCase, branchPending, failureReason)) {
+            return false;
+          }
+          merged.insert(branchPending.begin(), branchPending.end());
+        }
+        pendingNonBlocking = std::move(merged);
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        if (loop.stopExpr && !rejectPendingRead(*loop.stopExpr)) return false;
+        ProceduralAssignmentSchedulingSummary bodySummary;
+        ProceduralSchedulingPathState bodyPathState;
+        std::string bodyFailureReason;
+        if (!analyzeProceduralAssignmentScheduling(
+              loop.body, bodySummary, bodyPathState, bodyFailureReason)) {
+          failureReason = bodyFailureReason;
+          return false;
+        }
+        if (bodySummary.hasNonBlocking) {
+          failureReason =
+            "scheduling-sensitive combinational non-blocking assignment inside a loop "
+            "has cyclic or iteration-order-dependent behavior";
+          return false;
+        }
+        return analyzeCombinationalNonBlockingSafety(
+          loop.body, pendingNonBlocking, failureReason);
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhs, action)) return true;
+      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+      if (lhs) tryGetRootValueSymbolReference(*lhs, lhsSymbol);
+      if (action.rhs && !rejectPendingRead(*action.rhs)) return false;
+      if (lhs) {
+        std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
+        collectExpressionRootValueSymbols(*lhs, lhsReads);
+        if (lhsSymbol) lhsReads.erase(lhsSymbol);
+        for (const auto* pending : pendingNonBlocking) {
+          if (pending && lhsReads.contains(pending)) {
+            failureReason =
+              "scheduling-sensitive combinational assignment uses '" +
+              std::string(pending->name) +
+              "' as an index after an earlier non-blocking assignment";
+            return false;
+          }
+        }
+      }
+      if (action.scheduling == ProceduralAssignmentScheduling::NonBlocking) {
+        if (!lhsSymbol) {
+          failureReason =
+            "scheduling-sensitive combinational non-blocking assignment has an ambiguous target";
+          return false;
+        }
+        pendingNonBlocking.insert(lhsSymbol);
+      }
       return true;
     }
 
@@ -26184,9 +26862,12 @@ endmodule
         return false; // LCOV_EXCL_LINE: scheduling-analysis failure propagation.
       }
       if (schedulingSummary.hasNonBlocking && !allowNonBlockingAssignments) {
-        failureReason =
-          "non-blocking assignments in combinational procedural blocks are unsupported";
-        return false;
+        std::unordered_set<const slang::ast::ValueSymbol*> pendingNonBlocking;
+        if (!analyzeCombinationalNonBlockingSafety(
+              stmt, pendingNonBlocking, failureReason)) {
+          return false;
+        }
+        allowNonBlockingAssignments = true;
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const auto designName = design->getName().getString();
@@ -28651,7 +29332,7 @@ endmodule
           rhsExpr->as<slang::ast::SimpleAssignmentPatternExpression>();
         if (pattern.type &&
             pattern.type->getCanonicalType().isUnpackedArray()) {
-          reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
+          reportUnsupportedError("Unsupported RHS in sequential assignment", sourceRange);
           return {};
         }
       } // LCOV_EXCL_LINE
@@ -28697,7 +29378,7 @@ endmodule
             isInequalityBinaryOp(bin.op) ||
             isRelationalBinaryOp(bin.op);
           if (!supportedArithmeticOp) {
-            reportUnsupportedElement(
+            reportUnsupportedError(
               formatDescribedFailure(
                 "Unsupported binary operator in sequential assignment: ",
                 std::string(slang::ast::OpInfo::getText(bin.op))),
@@ -28756,7 +29437,7 @@ endmodule
           auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
           return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
         }
-        reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
+        reportUnsupportedError("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }
       return {}; // LCOV_EXCL_LINE
@@ -28780,7 +29461,7 @@ endmodule
         // Non-edge signal events are diverted earlier through the explicit
         // combinational-timing path, so this sequential-only report is kept as
         // a defensive fallback.
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return nullptr;
@@ -28792,7 +29473,7 @@ endmodule
           if (!eventCtrl ||
               eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
             // LCOV_EXCL_START
-            reportUnsupportedElement(
+            reportUnsupportedError(
               "Unsupported sequential event list; only signal events are supported",
               getSourceRange(timing));
             return nullptr;
@@ -28816,7 +29497,7 @@ endmodule
             continue;
           }
 
-          reportUnsupportedElement(
+          reportUnsupportedError(
             "Unsupported sequential timing edge in event list; only posedge/negedge are supported",
             getSourceRange(*eventCtrl));
           return nullptr;
@@ -28825,12 +29506,12 @@ endmodule
           return clockExpr;
         }
 
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential event list; missing posedge clock event",
           getSourceRange(timing));
         return nullptr;
       }
-      reportUnsupportedElement(
+      reportUnsupportedError(
         "Unsupported sequential timing control",
         getSourceRange(timing));
       return nullptr;
@@ -28847,7 +29528,7 @@ endmodule
         // the sequential clock extractor, so preserve this only as defensive
         // reporting for unexpected AST shapes.
         // LCOV_EXCL_START
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return std::nullopt;
@@ -29440,7 +30121,7 @@ endmodule
             if (!combFailureReason.empty()) {
               reason << ": " << combFailureReason;
             }
-            reportUnsupportedElement(reason.str(), blockSourceRange);
+            reportUnsupportedError(reason.str(), blockSourceRange);
             return false;
           }
           return true;
@@ -29724,8 +30405,21 @@ endmodule
           continue;
         }
 
-        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial &&
-            isIgnorableSequentialStatementTree(block.getBody())) {
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial) {
+          if (handledInitialBlocks_.contains(&block)) {
+            continue;
+          }
+          size_t evaluatedIterations = 0;
+          std::string initialFailureReason;
+          if (!analyzeConfigurationInitialStatement(
+                block.getBody(), evaluatedIterations, initialFailureReason)) {
+            std::ostringstream reason;
+            reason << "Unsupported initial block in module '" << moduleName << "'";
+            if (!initialFailureReason.empty()) {
+              reason << ": " << initialFailureReason;
+            }
+            reportUnsupportedError(reason.str(), blockSourceRange);
+          }
           continue;
         }
 
@@ -29751,7 +30445,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported latch block in module '" << moduleName << "'";
               reason << ": " << latchFailureReason;
-              reportUnsupportedElement(reason.str(), latchSourceRange);
+              reportUnsupportedError(reason.str(), latchSourceRange);
             }
           }
           continue;
@@ -29763,7 +30457,7 @@ endmodule
           reason << "Unsupported procedural block in module '" << moduleName
                  << "': unsupported procedure kind " << block.procedureKind
                  << " (only always/always_ff/always_comb/always_latch are currently lowered)";
-          reportUnsupportedElement(reason.str(), blockSourceRange);
+          reportUnsupportedError(reason.str(), blockSourceRange);
           continue;
         }
         std::unordered_set<const slang::ast::ValueSymbol*> ignoredSequentialSymbols;
@@ -29839,7 +30533,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unsupported event list with multiple async events";
-              reportUnsupportedElement(reason.str(), blockSourceRange);
+              reportUnsupportedError(reason.str(), blockSourceRange);
               continue;
             }
             asyncResetEventExpr = asyncEvent.expr;
@@ -29853,7 +30547,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
                  << "': unable to resolve a single-bit clock net";
-          reportUnsupportedElement(reason.str(), blockSourceRange);
+          reportUnsupportedError(reason.str(), blockSourceRange);
           continue;
         }
 
@@ -29918,7 +30612,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': " << schedulingFailureReason;
-              reportUnsupportedElement(reason.str(), statementSourceRange);
+              reportUnsupportedError(reason.str(), statementSourceRange);
               continue;
             }
             case DirectSequentialConditionalLowering::NotApplicable:
@@ -29998,7 +30692,7 @@ endmodule
           if (!multiAssignFailureReason.empty()) {
             reason << " (" << multiAssignFailureReason << ")";
           }
-          reportUnsupportedElement(reason.str(), statementSourceRange);
+          reportUnsupportedError(reason.str(), statementSourceRange);
           continue;
         }
         if (shouldIgnoreTrackedLHS(chain.lhs, ignoredSequentialSymbolsPtr)) {
@@ -30038,7 +30732,7 @@ endmodule
             if (!lhsFailureReason.empty()) {
               reason << " (" << lhsFailureReason << ")";
             }
-            reportUnsupportedElement(reason.str(), statementSourceRange);
+            reportUnsupportedError(reason.str(), statementSourceRange);
             continue;
           }
           if (!lhsNet && lhsBits.size() == 1) {
@@ -30190,7 +30884,7 @@ endmodule
             std::ostringstream reason;
             reason << "Unsupported sequential block in module '" << moduleName
                    << "': unable to resolve enable condition net";
-            reportUnsupportedElement(reason.str(), enableSourceRange);
+            reportUnsupportedError(reason.str(), enableSourceRange);
             continue;
           }
           canUseEnablePrimitive =
@@ -30281,7 +30975,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported sequential block in module '" << moduleName
                        << "': unable to build enable mux";
-                reportUnsupportedElement(reason.str(), enableSourceRange);
+                reportUnsupportedError(reason.str(), enableSourceRange);
                 continue;
                 // LCOV_EXCL_STOP
               } // LCOV_EXCL_LINE
@@ -30309,7 +31003,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unable to resolve reset condition net";
-              reportUnsupportedElement(reason.str(), resetSourceRange);
+              reportUnsupportedError(reason.str(), resetSourceRange);
               continue;
             }
             std::vector<SNLBitNet*> rstBits;
@@ -30324,7 +31018,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unable to build reset mux";
-              reportUnsupportedElement(reason.str(), resetSourceRange);
+              reportUnsupportedError(reason.str(), resetSourceRange);
               continue;
               // LCOV_EXCL_STOP
             } // LCOV_EXCL_LINE
@@ -30595,7 +31289,7 @@ endmodule
             // representable lvalues that are diagnosed earlier during type/lhs resolution.
             std::ostringstream reason;
             reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           } // LCOV_EXCL_STOP
         }
@@ -30665,7 +31359,7 @@ endmodule
                 if (!shiftFailureReason.empty()) {
                   reason << " (" << shiftFailureReason << ")";
                 }
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30686,7 +31380,7 @@ endmodule
                 if (!shiftFailureReason.empty()) {
                   reason << " (" << shiftFailureReason << ")";
                 }
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30704,7 +31398,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30735,7 +31429,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: +",
                   assignSourceRange);
               }
@@ -30749,7 +31443,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: *",
                   assignSourceRange);
               }
@@ -30763,7 +31457,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: -",
                   assignSourceRange);
               }
@@ -30784,7 +31478,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30802,7 +31496,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30818,7 +31512,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30834,7 +31528,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30856,7 +31550,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported binary operator in continuous assign: "
                      << slang::ast::OpInfo::getText(binaryExpr.op);
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+              reportUnsupportedError(reason.str(), assignSourceRange);
               continue;
             }
             collectBinaryOperands(*rhs, binaryExpr.op, operands);
@@ -30902,7 +31596,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary operator under bitwise not in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
                 continue;
             }
             if (gateType) {
@@ -30943,7 +31637,7 @@ endmodule
                 reason << ", " << gateFailureReason;
               }
               reason << ")";
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+              reportUnsupportedError(reason.str(), assignSourceRange);
             } else if (!optimizedOrHandled && !createBitwiseGateAssign(
                   design,
                   *gateType,
@@ -30959,7 +31653,7 @@ endmodule
                 reason << ", " << gateFailureReason;
               }
               reason << ")";
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+              reportUnsupportedError(reason.str(), assignSourceRange);
             }
             continue;
           }
@@ -30996,7 +31690,7 @@ endmodule
               reason << ", " << failedOperandReason;
             }
             reason << ")";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
 
@@ -31030,7 +31724,7 @@ endmodule
                    << ", input_count=" << inputNets.size()
                    << ", output_name=" << gateOutName
                    << ", reason=createGateInstance failed)";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
             // LCOV_EXCL_STOP
           } // LCOV_EXCL_LINE
@@ -31060,7 +31754,7 @@ endmodule
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
                    << moduleName << "': " << describeExpression(*rhs);
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
           if (usedUnknownLiteralFallback) {
@@ -31091,7 +31785,7 @@ endmodule
               !rhsIsResizableLiteral) {
             auto rhsWidth = getIntegralExpressionBitWidth(*rhs);
             if (!rhsWidth || !*rhsWidth) {
-              reportUnsupportedElement(
+              reportUnsupportedError(
                 "Unsupported net compatibility in continuous assign",
                 assignSourceRange);
               continue;
@@ -31111,7 +31805,7 @@ endmodule
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
                    << moduleName << "': " << describeExpression(*rhs);
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
           if (usedUnknownLiteralFallback) {
@@ -31166,7 +31860,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported RHS in continuous assign in module '"
                  << moduleName << "': " << describeExpression(*rhs);
-          reportUnsupportedElement(reason.str(), assignSourceRange);
+          reportUnsupportedError(reason.str(), assignSourceRange);
           continue;
         }
         if (!createDirectAssign(design, rhsNet, lhsNet, assignSourceRange)) {
@@ -31204,7 +31898,7 @@ endmodule
           // LCOV_EXCL_START
           // Remaining direct-connect failures after the bit-level resize fallbacks above are
           // currently diagnosed earlier by parser/type filtering in the parser-backed suite.
-          reportUnsupportedElement(
+          reportUnsupportedError(
             "Unsupported net compatibility in continuous assign",
             assignSourceRange);
           // LCOV_EXCL_STOP
@@ -31373,7 +32067,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection: missing term '" << portName
                  << "' on model '" << model->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), getSourceRange(instance));
+          reportUnsupportedError(reason.str(), getSourceRange(instance));
           continue; // LCOV_EXCL_LINE
         }
         const Expression* expr = conn->getExpression();
@@ -31390,7 +32084,7 @@ endmodule
           reason << "Unsupported instance connection for port '" << portName
                  << "' on instance '" << inst->getName().getString()
                  << "': " << failureReason;
-          reportUnsupportedElement(
+          reportUnsupportedError(
             formatReasonWithSourceExcerpt(reason.str(), exprSourceRange),
             exprSourceRange);
         };
@@ -31659,7 +32353,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection expression for port '" << portName
                  << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           continue;
         }
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
@@ -31686,7 +32380,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
                  << portName << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           continue;
         }
         std::string failureReason;
@@ -31727,7 +32421,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
                  << portName << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           // LCOV_EXCL_STOP
         }
       }
@@ -31746,6 +32440,7 @@ endmodule
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, std::vector<size_t>>
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
+    std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};
@@ -31789,6 +32484,8 @@ endmodule
     std::unordered_set<std::string> loggedWarningReasons_;
     std::vector<std::string> unsupportedElements_;
     std::vector<SNLSVUnsupportedElement> unsupportedElementDetails_;
+    std::vector<std::string> unsupportedWarnings_;
+    std::unordered_set<std::string> emittedUnsupportedWarnings_;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     mutable SVPerfReport svPerfReport_ {};
 #endif

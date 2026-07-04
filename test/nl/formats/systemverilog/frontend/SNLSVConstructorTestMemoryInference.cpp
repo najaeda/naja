@@ -11477,3 +11477,131 @@ endmodule
   EXPECT_EQ(nullptr, top->getNet(NLName("mem")));
   EXPECT_EQ(nullptr, memoryInst->getInstParameter(NLName("INIT")));
 }
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemorySeparateUniformInitialFillSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_separate_uniform_initial_fill_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_separate_uniform_initial_fill_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_separate_uniform_initial_fill_supported(
+  input logic clk_i, input logic we_i,
+  input logic [1:0] addr_i, input logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem [0:3];
+  integer i;
+  initial begin
+    for (i = 0; i < 4; i = i + 1)
+      mem[i] = 8'h5a;
+  end
+  always_ff @(posedge clk_i) begin
+    if (we_i) mem[addr_i] <= data_i;
+  end
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_separate_uniform_initial_fill_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT_ENABLE")));
+  EXPECT_EQ("1", memoryInst->getInstParameter(NLName("INIT_ENABLE"))->getValue());
+  EXPECT_EQ("32'b01011010010110100101101001011010",
+            memoryInst->getInstParameter(NLName("INIT"))->getValue());
+  const auto dumpedPath = dumpTopAndGetVerilogPath(
+    top, "direct_memory_separate_uniform_initial_fill_supported_dump");
+  auto dumped = readTextFile(dumpedPath);
+  EXPECT_NE(std::string::npos,
+            dumped.find(".INIT(32'b01011010010110100101101001011010)"));
+  EXPECT_NE(std::string::npos, dumped.find(".INIT_ENABLE(1)"));
+  const auto primitiveDump = readTextFile(
+    dumpedPath.parent_path() / "naja_primitives.v");
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (INIT_ENABLE)"));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryNestedLargeSymbolicInitialFillSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_nested_large_symbolic_initial_fill_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_nested_large_symbolic_initial_fill_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_nested_large_symbolic_initial_fill_supported #(
+  parameter int ABITS = 16,
+  parameter int DEPTH = 2**ABITS,
+  parameter int CHUNK = 2**(ABITS/2)
+) (input logic clk_i, input logic we_i,
+   input logic [ABITS-1:0] addr_i, input logic data_i, output logic data_o);
+  logic mem [0:DEPTH-1];
+  integer i, j;
+  initial begin
+    for (i = 0; i < DEPTH; i = i + CHUNK)
+      for (j = i; j < i + CHUNK; j = j + 1)
+        mem[j] = 1'b1;
+  end
+  always_ff @(posedge clk_i)
+    if (we_i) mem[addr_i] <= data_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_nested_large_symbolic_initial_fill_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  auto* init = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+  EXPECT_TRUE(init->getValue().starts_with("65536'b"));
+  EXPECT_EQ(65536u + std::string("65536'b").size(), init->getValue().size());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryPartialInitialFillUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_partial_initial_fill_unsupported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_partial_initial_fill_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_partial_initial_fill_unsupported(
+  input logic clk_i, input logic we_i,
+  input logic [1:0] addr_i, input logic [7:0] data_i, output logic [7:0] data_o);
+  logic [7:0] mem [0:3];
+  integer i;
+  initial begin
+    for (i = 1; i < 4; i = i + 1)
+      mem[i] = 8'h00;
+  end
+  always_ff @(posedge clk_i)
+    if (we_i) mem[addr_i] <= data_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported initial memory initialization", "does not fully cover memory 'mem'"});
+}

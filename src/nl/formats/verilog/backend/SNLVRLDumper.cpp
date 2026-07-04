@@ -159,7 +159,8 @@ std::string getEmittedDefaultParameterValue(
     }
     if (parameterName == NLName("RST_ENABLE") ||
         parameterName == NLName("RST_ASYNC") ||
-        parameterName == NLName("RST_ACTIVE_LOW")) {
+        parameterName == NLName("RST_ACTIVE_LOW") ||
+        parameterName == NLName("INIT_ENABLE")) {
       return "0";
     }
     if (parameterName == NLName("INIT")) {
@@ -2443,6 +2444,7 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  parameter RST_ENABLE = 0,\n";
   o << "  parameter RST_ASYNC = 0,\n";
   o << "  parameter RST_ACTIVE_LOW = 0,\n";
+  o << "  parameter INIT_ENABLE = 0,\n";
   o << "  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}\n";
   o << ") (\n";
   o << "  input CLK,\n";
@@ -2486,6 +2488,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
+  o << "  initial begin\n";
+  o << "    if (INIT_ENABLE)\n";
+  o << "      load_init();\n";
+  o << "  end\n\n";
   o << "  always @* begin\n";
   o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
   o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";

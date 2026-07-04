@@ -184,6 +184,7 @@ module naja_mem #(
   parameter RST_ENABLE = 0,
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
+  parameter INIT_ENABLE = 0,
   parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}
 ) (
   input CLK,
@@ -230,6 +231,11 @@ module naja_mem #(
   endtask
 
   wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);
+
+  initial begin
+    if (INIT_ENABLE)
+      load_init();
+  end
 
   always @* begin
     for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin

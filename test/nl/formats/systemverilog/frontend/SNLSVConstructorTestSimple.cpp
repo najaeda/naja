@@ -32850,6 +32850,84 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationDisplayLoopIgnoredSupported) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+  ScopedEnvVar perfReportEnv("NAJA_SV_CONSTRUCTOR_REPORT");
+#endif
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_configuration_display_loop_ignored_supported",
+    R"(module initial_configuration_display_loop_ignored_supported #(
+  parameter int COUNT = 4
+) (input logic a_i, output logic y_o);
+  integer i;
+  initial begin
+    for (i = 0; i < COUNT; i = i + 1) begin
+      if (i < COUNT)
+        $display("configuration %0d", i);
+    end
+  end
+  assign y_o = a_i;
+endmodule
+)");
+  const auto reportPath = svPath.parent_path() / "diagnostics.txt";
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+  const auto perfReportPath = svPath.parent_path() / "perf.txt";
+  perfReportEnv.set(perfReportPath.string());
+#endif
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  EXPECT_NO_THROW(constructor.construct(svPath, options));
+  ASSERT_NE(nullptr, library_->getSNLDesign(
+    NLName("initial_configuration_display_loop_ignored_supported")));
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(std::string::npos,
+            report.find("=== Naja Unsupported SystemVerilog Warnings ==="));
+  EXPECT_NE(std::string::npos,
+            report.find("discarding non-structural system task '$display'"));
+  EXPECT_EQ(std::string::npos,
+            report.find("=== Naja Unsupported SystemVerilog Errors ==="));
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+  const auto perfReport = readTextFile(perfReportPath);
+  EXPECT_NE(std::string::npos, perfReport.find("result=success"));
+  EXPECT_NE(std::string::npos, perfReport.find("count.unsupported=0"));
+  EXPECT_NE(std::string::npos, perfReport.find("count.unsupported_error=0"));
+  EXPECT_NE(std::string::npos, perfReport.find("count.unsupported_warning=1"));
+#endif
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialStaticallyReachableErrorUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_statically_reachable_error_unsupported",
+    R"(module initial_statically_reachable_error_unsupported #(
+  parameter int WIDTH = 2
+) (input logic a_i, output logic y_o);
+  initial begin
+    if (WIDTH < 4)
+      $error("invalid width");
+  end
+  assign y_o = a_i;
+endmodule
+)");
+  const auto reportPath = svPath.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  try {
+    constructor.construct(svPath, options);
+    FAIL() << "Expected unsupported SystemVerilog error";
+  } catch (const SNLSVUnsupportedConstructError& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("statically reachable $error"));
+    EXPECT_NE(std::string::npos, reason.find("configuration-check initial block"));
+  }
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(std::string::npos,
+            report.find("=== Naja Unsupported SystemVerilog Errors ==="));
+  EXPECT_NE(std::string::npos,
+            report.find("Warning: Unsupported error: Unsupported initial block"));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseCoverage2InitialUserTaskCallUnsupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
@@ -32872,8 +32950,9 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"Unsupported procedural block in module "
-     "'coverage2_initial_user_task_call_unsupported'"});
+    {"Unsupported initial block in module "
+     "'coverage2_initial_user_task_call_unsupported'",
+     "user task or function call is not representable"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockIgnored) {

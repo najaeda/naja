@@ -160,30 +160,96 @@ class SNLSVConstructorTestAlwaysComb: public ::testing::Test {
 };
 
 TEST_F(SNLSVConstructorTestAlwaysComb,
-       parseAlwaysCombNonBlockingAssignmentUnsupported) {
+       parseAlwaysCombIndependentNonBlockingAssignmentsSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath =
-      createTestDirectory("always_comb_nonblocking_assignment_unsupported");
+      createTestDirectory("always_comb_independent_nonblocking_assignments_supported");
 
   const auto svPath =
-      outPath / "always_comb_nonblocking_assignment_unsupported.sv";
+      outPath / "always_comb_independent_nonblocking_assignments_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
-  svFile << R"(module always_comb_nonblocking_assignment_unsupported(
-  input  logic data_i,
-  output logic data_o
+  svFile << R"(module always_comb_independent_nonblocking_assignments_supported(
+  input  logic       sel0_i,
+  input  logic       sel1_i,
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] y0_o,
+  output logic [7:0] y1_o
 );
   always_comb begin
-    data_o <= data_i;
+    case (sel0_i)
+      1'b0: y0_o <= a_i;
+      default: y0_o <= b_i;
+    endcase
+    case (sel1_i)
+      1'b0: y1_o <= b_i;
+      default: y1_o <= a_i;
+    endcase
   end
 endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(constructor, svPath,
-                             {"Unsupported combinational block",
-                              "non-blocking assignments in combinational "
-                              "procedural blocks are unsupported"});
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_independent_nonblocking_assignments_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_NE(nullptr, top->getNet(NLName("y0_o")));
+  EXPECT_NE(nullptr, top->getNet(NLName("y1_o")));
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombNonBlockingReadAfterWriteUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_nonblocking_read_after_write_unsupported");
+  const auto svPath = outPath / "always_comb_nonblocking_read_after_write_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_nonblocking_read_after_write_unsupported(
+  input logic a_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_comb begin
+    q_o <= a_i;
+    r_o <= q_o;
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"scheduling-sensitive", "reads 'q_o' after an earlier non-blocking assignment"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombMixedBlockingNonBlockingSameTargetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_mixed_blocking_nonblocking_same_target_unsupported");
+  const auto svPath =
+    outPath / "always_comb_mixed_blocking_nonblocking_same_target_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_mixed_blocking_nonblocking_same_target_unsupported(
+  input logic a_i,
+  input logic b_i,
+  output logic q_o
+);
+  always_comb begin
+    q_o = a_i;
+    q_o <= b_i;
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"mixed blocking and non-blocking assignments", "same control-flow path"});
 }
 
 TEST_F(
