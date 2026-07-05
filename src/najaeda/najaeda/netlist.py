@@ -16,6 +16,8 @@ from dataclasses import dataclass
 
 from najaeda import naja
 
+logger = logging.getLogger(__name__)
+
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -1789,7 +1791,7 @@ class Instance:
         if config is None:
             config = VerilogDumpConfig()
         top_name = get_top().get_name()
-        logging.info(
+        logger.info(
             f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
         dump_kwargs = {
@@ -1803,7 +1805,7 @@ class Instance:
             os.path.basename(path),
             **dump_kwargs)
         execution_time = time.time() - start_time
-        logging.info(
+        logger.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
             f"in {execution_time:.2f} seconds")
 
@@ -1955,7 +1957,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
-    logging.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
+    logger.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
@@ -1965,7 +1967,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     )
     execution_time = time.time() - start_time
     top = get_top()
-    logging.info(
+    logger.info(
         f"Gate-level Verilog loading done for top '{top.get_name()}' in "
         f"{execution_time:.2f} seconds")
     return top
@@ -1992,11 +1994,11 @@ def load_system_verilog(
         files = []
     start_time = time.time()
     if files:
-        logging.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
+        logger.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
     else:
-        logging.info(f"Starting SystemVerilog loading from flist: {config.flist}")
+        logger.info(f"Starting SystemVerilog loading from flist: {config.flist}")
     if config.top is not None:
-        logging.info(f"SystemVerilog loading top override requested: {config.top}")
+        logger.info(f"SystemVerilog loading top override requested: {config.top}")
 
     if config.top is not None and not isinstance(config.top, str):
         raise ValueError(
@@ -2056,7 +2058,7 @@ def load_system_verilog(
 
     execution_time = time.time() - start_time
     top = get_top()
-    logging.info(
+    logger.info(
         f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
     return top
 
@@ -2072,7 +2074,7 @@ def load_liberty(files: Union[str, List[str]]):
         files = [files]
     if not files or len(files) == 0:
         raise Exception("No liberty files provided")
-    logging.info(f"Loading liberty files: {', '.join(files)}")
+    logger.info(f"Loading liberty files: {', '.join(files)}")
     __get_top_db().loadLibertyPrimitives(files)
 
 
@@ -2103,7 +2105,7 @@ def load_primitives_from_file(file: str):
     :param str file: the path to the primitives library file.
     The file must define a function `load(db)`.
     """
-    logging.info(f"Loading primitives from file: {file}")
+    logger.info(f"Loading primitives from file: {file}")
     if not os.path.isfile(file):
         raise FileNotFoundError(f"Cannot load primitives from non existing file: {file}")
     import importlib.util
@@ -2123,7 +2125,7 @@ def load_naja_if(path: str):
     """Load the Naja IF from the given path."""
     if not os.path.isdir(path):
         raise FileNotFoundError(f"Cannot load Naja IF from non existing directory: {path}")
-    logging.info(f"Loading Naja IF from {path}")
+    logger.info(f"Loading Naja IF from {path}")
     naja.NLDB.loadNajaIF(path)
 
 

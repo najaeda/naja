@@ -31811,6 +31811,7 @@ endmodule
   const std::string warning =
     "Case comparison operator '===' lowered as 2-state comparison in SNL";
   EXPECT_EQ(1u, countSubstring(stdoutOutput, warning));
+  EXPECT_EQ(0u, countSubstring(stdoutOutput, "Warning: "));
   const std::string policyNotice =
     "Only the first occurrence of each SystemVerilog warning code is emitted";
   EXPECT_EQ(1u, countSubstring(stdoutOutput, policyNotice));

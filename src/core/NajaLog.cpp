@@ -16,7 +16,7 @@ namespace naja::log {
 namespace {
 std::shared_ptr<spdlog::logger> logger_;
 std::mutex logger_mutex_;
-std::string pattern_ = "[naja] [%^%l%$] %v";
+std::string pattern_ = "%Y-%m-%d %H:%M:%S,%e [naja] [%^%l%$] %v";
 
 std::shared_ptr<spdlog::logger> ensureLogger() {
   std::lock_guard<std::mutex> lock(logger_mutex_);

@@ -3790,7 +3790,7 @@ endmodule
         message << sourceInfo->file << ":" << sourceInfo->line << ":" << sourceInfo->column
                 << ": ";
       }
-      message << "Warning: " << reason;
+      message << reason;
       auto warning = message.str();
       if (!emittedWarnings_.insert(warning).second) {
         return;

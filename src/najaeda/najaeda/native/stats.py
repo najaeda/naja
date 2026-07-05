@@ -6,6 +6,8 @@ import logging
 import os
 from najaeda import naja
 
+logger = logging.getLogger(__name__)
+
 
 class DesignsStats:
     def __init__(self):
@@ -321,7 +323,7 @@ def dump_constants(design, analyzed_models):
     analyzed_models.add(design)
     for bitnet in design.getBitNets():
         if bitnet.isConstant():
-            logging.info(
+            logger.info(
                 "In design "
                 + design.getName()
                 + ", constant net "
@@ -330,11 +332,11 @@ def dump_constants(design, analyzed_models):
                 + bitnet.getTypeAsString()
             )
             if all(False for _ in bitnet.getComponents()):
-                logging.info(" with zero connections\n")
+                logger.info(" with zero connections\n")
             else:
-                logging.info(" connected to:\n")
+                logger.info(" connected to:\n")
                 for component in bitnet.getComponents():
-                    logging.info(str(component) + "\n")
+                    logger.info(str(component) + "\n")
 
     for ins in design.getInstances():
         model = ins.getModel()

@@ -169,7 +169,8 @@ int main(int argc, char* argv[]) {
   naja::NajaPerf::create(statsPath, "naja_edit");
 
   naja::log::init();
-  naja::log::setPattern("[naja_edit] [%^%l%$] %v");
+  naja::log::setPattern(
+    "%Y-%m-%d %H:%M:%S,%e [naja_edit] [%^%l%$] %v");
   naja::log::setLevel(spdlog::level::trace);
 
   if (program.is_used("--log")) {

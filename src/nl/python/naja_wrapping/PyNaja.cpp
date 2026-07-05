@@ -320,6 +320,110 @@ static PyObject* logInfo(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* logMessage(PyObject* self, PyObject* args) {
+  const char* levelName = nullptr;
+  const char* message = nullptr;
+  if (!PyArg_ParseTuple(args, "ss", &levelName, &message)) {
+    setError("Failed to parse arguments in log");
+    return nullptr;
+  }
+  spdlog::level::level_enum level;
+  if (!parseLogLevel_(levelName, level)) {
+    setError("Invalid log level");
+    return nullptr;
+  }
+  naja::log::get()->log(level, "{}", message);
+  Py_RETURN_NONE;
+}
+
+static PyObject* installLoggingHandler(PyObject* self, PyObject*) {
+  PyObject* globals = PyDict_New();
+  if (!globals) {
+    return nullptr;
+  }
+  PyObject* logFunction = PyObject_GetAttrString(self, "log");
+  if (!logFunction) {
+    Py_DECREF(globals);
+    return nullptr;
+  }
+  if (PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()) < 0 ||
+      PyDict_SetItemString(globals, "_naja_log", logFunction) < 0) {
+    Py_DECREF(logFunction);
+    Py_DECREF(globals);
+    return nullptr;
+  }
+  Py_DECREF(logFunction);
+
+  static constexpr const char* installScript = R"PY(
+import logging as _logging
+
+def _native_level(level):
+    if level >= _logging.CRITICAL:
+        return "critical"
+    if level >= _logging.ERROR:
+        return "error"
+    if level >= _logging.WARNING:
+        return "warning"
+    if level >= _logging.INFO:
+        return "info"
+    return "debug"
+
+class _NajaNativeLogHandler(_logging.Handler):
+    _naja_native_handler = True
+
+    def emit(self, record):
+        try:
+            _naja_log(_native_level(record.levelno), self.format(record))
+        except Exception:
+            self.handleError(record)
+
+def _enable_native_delivery(root):
+    python_level = root.level
+    for handler in root.handlers:
+        if (not getattr(handler, "_naja_native_handler", False)
+                and handler.level == _logging.NOTSET):
+            handler.setLevel(python_level)
+    root.setLevel(_logging.DEBUG)
+
+_root_logger = _logging.getLogger()
+if not any(getattr(handler, "_naja_native_handler", False)
+           for handler in _root_logger.handlers):
+    _root_logger.addHandler(_NajaNativeLogHandler())
+_enable_native_delivery(_root_logger)
+
+if not getattr(_logging.basicConfig, "_naja_preserves_native_handler", False):
+    _original_basic_config = _logging.basicConfig
+
+    def _naja_basic_config(*args, **kwargs):
+        root = _logging.getLogger()
+        native_handlers = [
+            handler for handler in root.handlers
+            if getattr(handler, "_naja_native_handler", False)
+        ]
+        for handler in native_handlers:
+            root.removeHandler(handler)
+        try:
+            return _original_basic_config(*args, **kwargs)
+        finally:
+            _enable_native_delivery(root)
+            for handler in native_handlers:
+                if handler not in root.handlers:
+                    root.addHandler(handler)
+
+    _naja_basic_config._naja_preserves_native_handler = True
+    _logging.basicConfig = _naja_basic_config
+)PY";
+
+  PyObject* result = PyRun_String(
+    installScript, Py_file_input, globals, globals);
+  Py_DECREF(globals);
+  if (!result) {
+    return nullptr;
+  }
+  Py_DECREF(result);
+  Py_RETURN_NONE;
+}
+
 static PyObject* logCritical(PyObject* self, PyObject* args) {
   const char* message;
   if (!PyArg_ParseTuple(args, "s", &message)) {
@@ -564,6 +668,9 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
+  { "log", logMessage, METH_VARARGS, "log a message at the requested level" },
+  { "installLoggingHandler", installLoggingHandler, METH_NOARGS,
+    "route standard Python logging through the native Naja logger" },
   { "logInfo", logInfo, METH_VARARGS, "log an info message" },
   { "logWarn", logWarn, METH_VARARGS, "log a warning message" },
   { "logCritical", logCritical, METH_VARARGS, "log a critical message" },
