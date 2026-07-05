@@ -383,6 +383,44 @@ TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
   EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testMemoryInitZeroLiteralClassification) {
+  auto* memoryInstance = createMemoryInstance();
+  ASSERT_NE(nullptr, memoryInstance);
+  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+
+  struct TestCase {
+    const char* value;
+    bool isZero;
+  };
+  const TestCase testCases[] = {
+    {"0", true},
+    {"not_a_literal", false},
+    {"x'b0", false},
+    {"1'sb0", true},
+    {"1's", false},
+    {"1'q0", false},
+  };
+
+  for (const auto& testCase : testCases) {
+    SCOPED_TRACE(testCase.value);
+    init->setValue(testCase.value);
+
+    std::ostringstream out;
+    SNLVRLDumper dumper;
+    dumper.dumpDesign(top_, out);
+    const auto dumped = out.str();
+
+    if (testCase.isZero) {
+      EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
+    } else {
+      EXPECT_NE(
+        std::string::npos,
+        dumped.find(std::string(".INIT(") + testCase.value + ")"));
+    }
+  }
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 

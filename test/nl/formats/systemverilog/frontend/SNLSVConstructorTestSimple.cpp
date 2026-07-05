@@ -33037,6 +33037,83 @@ endmodule
             report.find("Warning: Unsupported error: Unsupported initial block"));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInitialConstantImmediateAssertionSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_constant_immediate_assertion_supported",
+    R"(module initial_constant_immediate_assertion_supported #(
+  parameter int WIDTH = 4
+) (input logic a_i, output logic y_o);
+  initial begin
+    assert (WIDTH >= 1)
+      $display("supported width");
+    else
+      $error("invalid width");
+  end
+  assign y_o = a_i;
+endmodule
+)");
+
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  ASSERT_NE(nullptr, library_->getSNLDesign(
+    NLName("initial_constant_immediate_assertion_supported")));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialFailedImmediateAssertionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_failed_immediate_assertion_unsupported",
+    R"(module initial_failed_immediate_assertion_unsupported #(
+  parameter int WIDTH = 0
+) (input logic a_i, output logic y_o);
+  initial
+    assert (WIDTH >= 1)
+      $display("supported width");
+    else
+      $error("invalid width");
+  assign y_o = a_i;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'initial_failed_immediate_assertion_unsupported'",
+     "statically reachable $error in configuration-check initial block"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRuntimeValidationAssertionIgnoredSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_runtime_validation_assertion_ignored_supported",
+    R"(module initial_runtime_validation_assertion_ignored_supported(
+  input logic reset_i,
+  output logic y_o
+);
+  initial
+    assert (reset_i !== 'z)
+    else begin
+      $error("reset_i should be connected");
+      $finish;
+    end
+  assign y_o = reset_i;
+endmodule
+)");
+  const auto reportPath = svPath.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
+  EXPECT_NO_THROW(constructor.construct(svPath, options));
+  ASSERT_NE(nullptr, library_->getSNLDesign(
+    NLName("initial_runtime_validation_assertion_ignored_supported")));
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(std::string::npos,
+            report.find("discarding non-structural runtime immediate assertion"));
+  EXPECT_EQ(std::string::npos,
+            report.find("=== Naja Unsupported SystemVerilog Errors ==="));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseCoverage2InitialUserTaskCallUnsupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(

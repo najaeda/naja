@@ -17951,6 +17951,37 @@ endmodule
       return getConstantInt64(expr, value);
     }
 
+    bool isNonStructuralConfigurationAssertionAction(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !isNonStructuralConfigurationAssertionAction(*item)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind != slang::ast::StatementKind::ExpressionStatement) {
+        return false;
+      }
+      const auto* expr = stripConversions(
+        current->as<slang::ast::ExpressionStatement>().expr);
+      if (!expr || expr->kind != slang::ast::ExpressionKind::Call) {
+        return false;
+      }
+      const auto& call = expr->as<slang::ast::CallExpression>();
+      if (!call.isSystemCall()) {
+        return false;
+      }
+      const auto name = std::string(call.getSubroutineName());
+      return name == "$display" || name == "$write" || name == "$info" ||
+             name == "$warning" || name == "$error" || name == "$fatal" ||
+             name == "$finish" || name == "$stop";
+    }
+
     bool analyzeConfigurationInitialStatement(
       const Statement& stmt,
       size_t& evaluatedIterations,
@@ -18037,6 +18068,47 @@ endmodule
           }
           loopValue = nextValue;
         }
+      }
+      if (current->kind == slang::ast::StatementKind::ImmediateAssertion) {
+        const auto& assertion =
+          current->as<slang::ast::ImmediateAssertionStatement>();
+        if (assertion.assertionKind != slang::ast::AssertionKind::Assert ||
+            assertion.isDeferred || assertion.isFinal) {
+          failureReason =
+            "unsupported immediate assertion kind in configuration-check initial block";
+          return false;
+        }
+        int64_t conditionValue = 0;
+        if (!evaluateConfigurationConstant(assertion.cond, conditionValue)) {
+          const bool passActionIsNonStructural =
+            !assertion.ifTrue ||
+            isNonStructuralConfigurationAssertionAction(*assertion.ifTrue);
+          const bool failActionIsNonStructural =
+            !assertion.ifFalse ||
+            isNonStructuralConfigurationAssertionAction(*assertion.ifFalse);
+          if (passActionIsNonStructural && failActionIsNonStructural) {
+            reportUnsupportedWarning(
+              "discarding non-structural runtime immediate assertion in "
+              "configuration-check initial block",
+              getSourceRange(*current));
+            return true;
+          }
+          failureReason =
+            "immediate assertion condition is not statically decidable";
+          return false;
+        }
+        const Statement* reachableAction =
+          conditionValue != 0 ? assertion.ifTrue : assertion.ifFalse;
+        if (reachableAction) {
+          return analyzeConfigurationInitialStatement(
+            *reachableAction, evaluatedIterations, failureReason);
+        }
+        if (conditionValue == 0) {
+          failureReason =
+            "statically failed immediate assertion in configuration-check initial block";
+          return false;
+        }
+        return true;
       }
       if (current->kind == slang::ast::StatementKind::ExpressionStatement) {
         const auto* expr = stripConversions(
