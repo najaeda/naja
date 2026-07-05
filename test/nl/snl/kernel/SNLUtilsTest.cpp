@@ -155,3 +155,16 @@ TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessTableSelect) {
   }
   EXPECT_EQ(2u, outputCount);
 }
+
+TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessMemory) {
+  NLDB0::MemorySignature signature;
+  signature.width = 8;
+  signature.depth = 16;
+  signature.abits = 4;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(memory, nullptr);
+
+  EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(memory));
+}

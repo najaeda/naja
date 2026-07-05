@@ -8,8 +8,10 @@ import logging
 import os
 import re
 import unittest
+from unittest import mock
 
 from najaeda import naja
+from najaeda import _logging
 
 
 class NajaedaLoggingTest(unittest.TestCase):
@@ -54,6 +56,23 @@ class NajaedaLoggingTest(unittest.TestCase):
         )
         self.assertIn("[warning] python warning through native logger", contents)
         self.assertIn("[error] python error through native logger", contents)
+
+    def test_native_level_extremes(self):
+        self.assertEqual("critical", _logging._native_level(logging.CRITICAL))
+        self.assertEqual("debug", _logging._native_level(logging.DEBUG))
+
+    def test_native_handler_reports_emit_failure(self):
+        handler = _logging.NativeLogHandler()
+        record = logging.LogRecord(
+            "najaeda.test", logging.INFO, __file__, 1, "message", (), None
+        )
+        with (
+            mock.patch.object(_logging.naja, "log", side_effect=RuntimeError("failure")),
+            mock.patch.object(handler, "handleError") as handle_error,
+        ):
+            handler.emit(record)
+
+        handle_error.assert_called_once_with(record)
 
 
 if __name__ == "__main__":

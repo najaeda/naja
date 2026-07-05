@@ -339,18 +339,22 @@ static PyObject* logMessage(PyObject* self, PyObject* args) {
 static PyObject* installLoggingHandler(PyObject* self, PyObject*) {
   PyObject* globals = PyDict_New();
   if (!globals) {
-    return nullptr;
+    return nullptr;  // LCOV_EXCL_LINE CPython allocation failure
   }
   PyObject* logFunction = PyObject_GetAttrString(self, "log");
   if (!logFunction) {
+    // LCOV_EXCL_START CPython attribute lookup/allocation failure
     Py_DECREF(globals);
     return nullptr;
+    // LCOV_EXCL_STOP
   }
   if (PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()) < 0 ||
       PyDict_SetItemString(globals, "_naja_log", logFunction) < 0) {
+    // LCOV_EXCL_START CPython dictionary insertion failure
     Py_DECREF(logFunction);
     Py_DECREF(globals);
     return nullptr;
+    // LCOV_EXCL_STOP
   }
   Py_DECREF(logFunction);
 

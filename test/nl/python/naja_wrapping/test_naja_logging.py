@@ -4,6 +4,7 @@
 
 import os
 import logging
+import sys
 import unittest
 import naja
 
@@ -105,6 +106,15 @@ class NajaLoggingTest(unittest.TestCase):
       root_logger.handlers[:] = original_handlers
       root_logger.setLevel(original_level)
       logging.basicConfig = original_basic_config
+
+  def test_install_logging_handler_reports_script_failure(self):
+    original_logging_module = sys.modules.get("logging")
+    try:
+      sys.modules["logging"] = None
+      with self.assertRaises(ModuleNotFoundError):
+        naja.installLoggingHandler()
+    finally:
+      sys.modules["logging"] = original_logging_module
 
   def test_log_warn_invalid_args(self):
     with self.assertRaises(RuntimeError):
