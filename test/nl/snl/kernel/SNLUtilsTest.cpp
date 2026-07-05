@@ -137,4 +137,21 @@ TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessTableSelect) {
   SNLInstance::create(top, tableSelect, NLName("select"));
 
   EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
+
+  size_t outputCount = 0;
+  for (auto* term: tableSelect->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      continue;
+    }
+    const auto truthTable =
+        SNLDesignModeling::getTruthTable(tableSelect, term->getOrderID());
+    EXPECT_TRUE(truthTable.isInitialized());
+    EXPECT_EQ(SNLTruthTable::GenericType::TABLE_SELECT,
+              truthTable.getGenericType());
+    EXPECT_EQ(3u, truthTable.size());
+    EXPECT_EQ(1u, truthTable.getTableSelectAddressSize());
+    EXPECT_EQ(2u, truthTable.getTableSelectDepth());
+    ++outputCount;
+  }
+  EXPECT_EQ(2u, outputCount);
 }
