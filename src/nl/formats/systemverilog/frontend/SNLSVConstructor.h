@@ -70,15 +70,13 @@ class SNLSVLiveASTLinkRegistry {
 class SNLSVConstructor {
   public:
     using Paths = std::vector<std::filesystem::path>;
-    struct Config {
-      bool blackboxDetection_ {true};  ///< If true, detect empty port-only modules as blackboxes.
-    };
-
-    Config config_ {};
-
     struct ConstructOptions {
+      /// If true, detect empty port-only modules as blackboxes.
+      bool blackboxDetection {true};
       std::optional<std::filesystem::path> elaboratedASTJsonPath {};
-      std::optional<std::filesystem::path> diagnosticsReportPath {};
+      /// Incremental diagnostics report. A report is always written; callers may
+      /// override this default path but an empty path is invalid.
+      std::filesystem::path diagnosticsReportPath {"naja_sv_diagnostics.log"};
       bool prettyPrintElaboratedASTJson {true};
       bool includeSourceInfoInElaboratedASTJson {true};
       /// Request retention of live frontend AST to SNL object links after load.

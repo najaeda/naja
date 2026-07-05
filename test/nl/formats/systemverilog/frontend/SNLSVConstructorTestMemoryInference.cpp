@@ -4079,10 +4079,14 @@ endmodule
 )";
   svFile.close();
 
+  const auto reportPath = outPath / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
   testing::internal::CaptureStdout();
   testing::internal::CaptureStderr();
   try {
-    constructor.construct(svPath);
+    constructor.construct(svPath, options);
   } catch (...) {
     (void)testing::internal::GetCapturedStdout();
     (void)testing::internal::GetCapturedStderr();
@@ -4096,9 +4100,21 @@ endmodule
     countSubstring(output, "Memory 'mem_a' was not inferred as naja_mem"))
     << output;
   EXPECT_EQ(
-    1,
+    0,
     countSubstring(output, "Memory 'mem_b' was not inferred as naja_mem"))
     << output;
+  const auto report = readTextFile(reportPath);
+  EXPECT_EQ(
+    1u,
+    countSubstring(report, "Memory 'mem_a' was not inferred as naja_mem"));
+  EXPECT_EQ(
+    1u,
+    countSubstring(report, "Memory 'mem_b' was not inferred as naja_mem"));
+  EXPECT_EQ(
+    2u,
+    countSubstring(
+      report,
+      "code=\"uninferred_memory_generic_sequential_lowering\""));
 }
 
 TEST_F(

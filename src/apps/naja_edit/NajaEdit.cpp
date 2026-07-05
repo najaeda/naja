@@ -142,7 +142,9 @@ int main(int argc, char* argv[]) {
   program.add_argument("--sv_elaborated_ast_json_path")
     .help("Dump Slang elaborated AST JSON for SystemVerilog parsing");
   program.add_argument("--sv_diagnostics_report_path")
-    .help("Dump SystemVerilog diagnostics report path");
+    .help(
+      "Incremental SystemVerilog diagnostics report path "
+      "(default: naja_sv_diagnostics.log)");
   program.add_argument("--sv_no_pretty_print_elaborated_ast_json")
     .default_value(false)
     .implicit_value(true)

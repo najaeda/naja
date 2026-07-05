@@ -332,17 +332,6 @@ struct CompilationFailureDetails {
   std::vector<SNLSVDiagnostic> diagnostics;
 };
 
-std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation) {
-  const auto& diags = compilation.getAllDiagnostics();
-  if (diags.empty()) {
-    return {};
-  }
-  if (const auto* sourceManager = compilation.getSourceManager()) {
-    return getDiagnosticsReport(*sourceManager, diags);
-  }
-  return {}; // LCOV_EXCL_LINE
-}
-
 std::optional<CompilationFailureDetails> getCompilationFailureDetails(
   slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
@@ -771,10 +760,8 @@ class SNLSVConstructorImpl {
   public:
     explicit SNLSVConstructorImpl(
       NLLibrary* library,
-      const SNLSVConstructor::Config& config,
       const SNLSVConstructor::ConstructOptions& options):
       library_(library),
-      config_(config),
       options_(options),
       liveASTLink_(options.keepASTLink ? std::make_unique<SNLSVLiveASTLink>() : nullptr)
     {}
@@ -1325,17 +1312,35 @@ class SNLSVConstructorImpl {
       syntaxTrees_.clear();
       warnings_.clear();
       emittedWarnings_.clear();
-      loggedWarningReasons_.clear();
+      loggedWarningCodes_.clear();
       unsupportedElements_.clear();
       unsupportedElementDetails_.clear();
       unsupportedWarnings_.clear();
       emittedUnsupportedWarnings_.clear();
-      cachedCompilationDiagnosticsReport_.clear();
+      reportSections_.clear();
+      slangSeverityCounts_.clear();
+      slangDiagnosticCount_ = 0;
+      elaborationWarningCount_ = 0;
+      unsupportedWarningCount_ = 0;
+      unsupportedErrorCount_ = 0;
+      elaborationWarningCodes_.clear();
+      unsupportedWarningCodes_.clear();
+      unsupportedErrorCodes_.clear();
+      warningPolicyNoticeEmitted_ = false;
+      diagnosticsReportFinalized_ = false;
       warnedUninferredMemorySymbols_.clear();
       handledInitialBlocks_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
+      const auto diagnosticsReportGuard = slang::ScopeGuard([&]() {
+        if (!diagnosticsReportFinalized_) {
+          try {
+            finalizeDiagnosticsReport(false, "unknown non-std exception");
+          } catch (...) {
+          }
+        }
+      });
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot(true);
 #endif
@@ -1355,9 +1360,10 @@ class SNLSVConstructorImpl {
         maybeWriteSVPerfReportSnapshot();
 #endif
 
-        cachedCompilationDiagnosticsReport_ =
-          getCompilationDiagnosticsReport(*compilation_);
-        dumpCurrentDiagnosticsReport();
+        if (const auto* sourceManager = compilation_->getSourceManager()) {
+          recordSlangDiagnostics(getStructuredDiagnostics(
+            *sourceManager, compilation_->getAllDiagnostics()));
+        }
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfProgressLabelGuard progress(
@@ -1368,7 +1374,6 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpCurrentDiagnosticsReport();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
             svPerfReport_.failureReason = failure->reason;
@@ -1406,7 +1411,6 @@ class SNLSVConstructorImpl {
             ++svPerfReport_.topInstanceBuildsCompleted;
             maybeWriteSVPerfReportSnapshot();
 #endif
-            dumpCurrentDiagnosticsReport();
           }
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1439,7 +1443,6 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpCurrentDiagnosticsReport();
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
@@ -1464,13 +1467,16 @@ class SNLSVConstructorImpl {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         svPerfReport_.success = true;
 #endif
+        finalizeDiagnosticsReport(true, {});
       } catch (const std::exception& e) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         if (svPerfReport_.failureReason.empty()) {
           svPerfReport_.failureReason = e.what();
         }
 #endif
-        tryDumpCurrentDiagnosticsReport();
+        if (!diagnosticsReportFinalized_) {
+          finalizeDiagnosticsReport(false, e.what());
+        }
         throw;
       } catch (...) { // LCOV_EXCL_LINE
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1478,6 +1484,9 @@ class SNLSVConstructorImpl {
           svPerfReport_.failureReason = "unknown non-std exception";
         }
 #endif
+        if (!diagnosticsReportFinalized_) { // LCOV_EXCL_LINE
+          finalizeDiagnosticsReport(false, "unknown non-std exception"); // LCOV_EXCL_LINE
+        } // LCOV_EXCL_LINE
         throw; // LCOV_EXCL_LINE
       }
     }
@@ -2840,10 +2849,9 @@ endmodule
           !driver.processOptions() ||
           !driver.parseAllSources()) {
         if (auto failure = getDriverFailureDetails(driver)) {
-          dumpDiagnosticsReport(failure->reason);
+          recordSlangDiagnostics(failure->diagnostics);
           throw SNLSVSyntaxError(failure->reason, std::move(failure->diagnostics));
         }
-        dumpDiagnosticsReport("SystemVerilog compilation failed");
         throw SNLSVSyntaxError("SystemVerilog compilation failed", {});
       }
 
@@ -2880,77 +2888,74 @@ endmodule
       SNLSVLiveASTLinkRegistry::store(library_->getDB(), std::move(liveASTLink_));
     }
 
-    std::string buildDiagnosticsReport(const std::string& slangReport) const {
-      std::ostringstream report;
-      bool hasDiagnostics = false;
-
-      if (!slangReport.empty()) {
-        report << "=== Slang Diagnostics ===\n" << slangReport;
-        if (slangReport.back() != '\n') {
-          report << '\n'; // LCOV_EXCL_LINE
+    static std::string escapeDiagnosticValue(std::string_view value) {
+      std::string escaped;
+      escaped.reserve(value.size());
+      for (const char character : value) {
+        switch (character) {
+          case '\\': escaped += "\\\\"; break;
+          case '"': escaped += "\\\""; break;
+          case '\n': escaped += "\\n"; break;
+          case '\r': escaped += "\\r"; break;
+          case '\t': escaped += "\\t"; break;
+          default: escaped += character; break;
         }
-        hasDiagnostics = true;
       }
-
-      if (!warnings_.empty()) {
-        if (hasDiagnostics) {
-          report << '\n';
-        }
-        report << "=== Naja Elaboration Warnings ===\n";
-        for (const auto& warning : warnings_) {
-          report << warning << '\n';
-        }
-        hasDiagnostics = true;
-      }
-
-      if (!unsupportedElements_.empty()) {
-        if (hasDiagnostics) {
-          report << '\n';
-        }
-        report << "=== Naja Unsupported SystemVerilog Errors ===\n";
-        for (const auto& unsupported : unsupportedElements_) {
-          report << unsupported << '\n';
-        }
-        hasDiagnostics = true;
-      }
-
-      if (!unsupportedWarnings_.empty()) {
-        if (hasDiagnostics) {
-          report << '\n';
-        }
-        report << "=== Naja Unsupported SystemVerilog Warnings ===\n";
-        for (const auto& unsupported : unsupportedWarnings_) {
-          report << unsupported << '\n';
-        }
-        hasDiagnostics = true;
-      }
-
-      return hasDiagnostics ? report.str() : std::string {};
+      return escaped;
     }
 
-    void initializeDiagnosticsReport() const {
-      if (!options_.diagnosticsReportPath) {
+    void appendDiagnosticsReport(std::string_view text) {
+      // Test-detail helpers exercise warning construction without running the
+      // full construct() lifecycle. Production construction always opens the
+      // mandatory report before any diagnostic can be recorded.
+      if (!diagnosticsReportStream_.is_open()) {
         return;
       }
-      dumpDiagnosticsReport("SystemVerilog diagnostics report generation in progress.\n");
-    }
-
-    void dumpCurrentDiagnosticsReport() const {
-      dumpDiagnosticsReport(buildDiagnosticsReport(cachedCompilationDiagnosticsReport_));
-    }
-
-    void tryDumpCurrentDiagnosticsReport() const noexcept {
-      try {
-        dumpCurrentDiagnosticsReport();
-      } catch (...) {
+      diagnosticsReportStream_ << text;
+      diagnosticsReportStream_.flush();
+      // LCOV_EXCL_START
+      if (!diagnosticsReportStream_.good()) {
+        std::ostringstream reason;
+        reason << "Failed to write diagnostics report file: "
+               << options_.diagnosticsReportPath.string();
+        throw SNLSVInternalError(reason.str());
       }
+      // LCOV_EXCL_STOP
     }
 
-    void dumpDiagnosticsReport(const std::string& report) const {
-      if (!options_.diagnosticsReportPath) {
+    void writeDiagnosticsSection(
+      std::string_view stage,
+      std::string_view heading) {
+      if (!reportSections_.insert(std::string(stage)).second) {
         return;
       }
-      const auto& reportPath = *options_.diagnosticsReportPath;
+      std::ostringstream section;
+      section << "\n=== " << heading << " ===\n";
+      appendDiagnosticsReport(section.str());
+    }
+
+    void appendDiagnosticRecord(
+      std::string_view stage,
+      std::string_view severity,
+      std::string_view code,
+      std::string_view file,
+      size_t line,
+      size_t column,
+      std::string_view message) {
+      std::ostringstream record;
+      record << "diagnostic"
+             << " stage=\"" << escapeDiagnosticValue(stage) << "\""
+             << " severity=\"" << escapeDiagnosticValue(severity) << "\""
+             << " code=\"" << escapeDiagnosticValue(code) << "\""
+             << " file=\"" << escapeDiagnosticValue(file) << "\""
+             << " line=" << line
+             << " column=" << column
+             << " message=\"" << escapeDiagnosticValue(message) << "\"\n";
+      appendDiagnosticsReport(record.str());
+    }
+
+    void initializeDiagnosticsReport() {
+      const auto& reportPath = options_.diagnosticsReportPath;
       if (reportPath.empty()) {
         throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
@@ -2968,28 +2973,130 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      std::ofstream output(reportPath, std::ios::out | std::ios::trunc);
+      diagnosticsReportStream_.open(reportPath, std::ios::out | std::ios::trunc);
       // LCOV_EXCL_START
-      if (!output) {
+      if (!diagnosticsReportStream_) {
         std::ostringstream reason;
         reason << "Failed to create diagnostics report file: " << reportPath.string();
         throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
 
-      if (!report.empty()) {
-        output << report;
-      } else {
-        output << "No SystemVerilog diagnostics.\n";
+      std::ostringstream header;
+      header << "=== Naja SystemVerilog Diagnostics ===\n"
+             << "format.version=1\n"
+             << "status=in_progress\n"
+             << "report.path=\"" << escapeDiagnosticValue(reportPath.string()) << "\"\n"
+             << "console.warning_policy=first_occurrence_per_code\n";
+      appendDiagnosticsReport(header.str());
+    }
+
+    void recordSlangDiagnostics(const std::vector<SNLSVDiagnostic>& diagnostics) {
+      if (diagnostics.empty()) {
+        return;
+      }
+      writeDiagnosticsSection("slang", "Slang Diagnostics");
+      size_t warningCount = 0;
+      size_t errorCount = 0;
+      for (const auto& diagnostic : diagnostics) {
+        ++slangDiagnosticCount_;
+        ++slangSeverityCounts_[diagnostic.severity];
+        warningCount += diagnostic.severity == "warning";
+        errorCount += diagnostic.severity == "error" || diagnostic.severity == "fatal";
+        appendDiagnosticRecord(
+          "slang",
+          diagnostic.severity,
+          "slang_diagnostic",
+          diagnostic.file,
+          diagnostic.line,
+          diagnostic.column,
+          diagnostic.message);
+      }
+      NAJA_LOG_WARN(
+        "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
+        diagnostics.size(),
+        warningCount,
+        errorCount,
+        options_.diagnosticsReportPath.string());
+    }
+
+    void emitWarningPolicyNotice() {
+      if (warningPolicyNoticeEmitted_) {
+        return;
+      }
+      warningPolicyNoticeEmitted_ = true;
+      NAJA_LOG_WARN(
+        "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+        "console; all occurrences are written to '{}'",
+        options_.diagnosticsReportPath.string());
+    }
+
+    void finalizeDiagnosticsReport(bool success, std::string_view failureReason) {
+      if (diagnosticsReportFinalized_) {
+        return;
+      }
+      if (slangDiagnosticCount_ == 0 && elaborationWarningCount_ == 0 &&
+          unsupportedWarningCount_ == 0 && unsupportedErrorCount_ == 0) {
+        appendDiagnosticsReport("\nNo SystemVerilog diagnostics.\n");
       }
 
-      // LCOV_EXCL_START
-      if (!output.good()) {
-        std::ostringstream reason;
-        reason << "Failed to write diagnostics report file: " << reportPath.string();
-        throw SNLSVInternalError(reason.str());
+      const auto severityCount = [&](std::string_view severity) {
+        const auto it = slangSeverityCounts_.find(std::string(severity));
+        return it == slangSeverityCounts_.end() ? size_t {0} : it->second;
+      };
+      std::ostringstream summary;
+      summary << "\n=== Summary ===\n"
+              << "summary.status=" << (success ? "success" : "failed") << "\n"
+              << "count.slang.total=" << slangDiagnosticCount_ << "\n"
+              << "count.slang.note=" << severityCount("note") << "\n"
+              << "count.slang.warning=" << severityCount("warning") << "\n"
+              << "count.slang.error=" << severityCount("error") << "\n"
+              << "count.slang.fatal=" << severityCount("fatal") << "\n"
+              << "count.naja_elaboration.warning_occurrences="
+              << elaborationWarningCount_ << "\n"
+              << "count.naja_elaboration.warning_codes="
+              << elaborationWarningCodes_.size() << "\n"
+              << "count.naja_unsupported_warning.occurrences="
+              << unsupportedWarningCount_ << "\n"
+              << "count.naja_unsupported_warning.codes="
+              << unsupportedWarningCodes_.size() << "\n"
+              << "count.naja_unsupported_error.occurrences="
+              << unsupportedErrorCount_ << "\n"
+              << "count.naja_unsupported_error.codes="
+              << unsupportedErrorCodes_.size() << "\n"
+              << "report.path=\""
+              << escapeDiagnosticValue(options_.diagnosticsReportPath.string()) << "\"\n";
+      if (!failureReason.empty()) {
+        summary << "failure.reason=\"" << escapeDiagnosticValue(failureReason) << "\"\n";
       }
-      // LCOV_EXCL_STOP
+      appendDiagnosticsReport(summary.str());
+      diagnosticsReportFinalized_ = true;
+
+      const auto slangWarningCount = severityCount("warning");
+      const auto slangErrorCount = severityCount("error") + severityCount("fatal");
+      if (slangWarningCount || slangErrorCount || elaborationWarningCount_ ||
+          unsupportedWarningCount_ || unsupportedErrorCount_) {
+        NAJA_LOG_WARN(
+          "SystemVerilog diagnostics summary: status={}, slang={} (warnings={}, errors={}), "
+          "elaboration_warnings={} (codes={}), unsupported_warnings={} (codes={}), "
+          "unsupported_errors={} (codes={}); report='{}'",
+          success ? "success" : "failed",
+          slangDiagnosticCount_,
+          slangWarningCount,
+          slangErrorCount,
+          elaborationWarningCount_,
+          elaborationWarningCodes_.size(),
+          unsupportedWarningCount_,
+          unsupportedWarningCodes_.size(),
+          unsupportedErrorCount_,
+          unsupportedErrorCodes_.size(),
+          options_.diagnosticsReportPath.string());
+      } else {
+        NAJA_LOG_INFO(
+          "SystemVerilog diagnostics summary: status={}, no diagnostics; report='{}'",
+          success ? "success" : "failed",
+          options_.diagnosticsReportPath.string());
+      }
     }
 
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
@@ -3264,7 +3371,7 @@ endmodule
 #endif
       validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
 
-      if (config_.blackboxDetection_ and design->isStandard()) {
+      if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
           design->setType(SNLDesign::Type::UserBlackBox);
         }
@@ -3617,8 +3724,21 @@ endmodule
       message << reason;
       auto unsupported = message.str();
       unsupportedElements_.push_back(unsupported);
-      unsupportedElementDetails_.push_back({unsupported, makeUnsupportedCode(reason)});
-      reportWarning("Unsupported error: " + reason, maybeRange);
+      auto code = makeUnsupportedCode(reason);
+      if (code.empty()) {
+        code = "sv.unsupported.error";
+      }
+      unsupportedElementDetails_.push_back({unsupported, code});
+      auto warningCode = code;
+      std::replace(warningCode.begin(), warningCode.end(), '.', '_');
+      recordNajaWarning(
+        "naja_unsupported_error",
+        "Naja Unsupported SystemVerilog Errors",
+        warningCode,
+        "Unsupported error: " + reason,
+        maybeRange,
+        unsupportedErrorCount_,
+        unsupportedErrorCodes_);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstUnsupported.empty()) {
         svPerfReport_.firstUnsupported = unsupported;
@@ -3627,6 +3747,7 @@ endmodule
     }
 
     void reportUnsupportedWarning(
+      const std::string& code,
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
       std::ostringstream message;
@@ -3640,7 +3761,14 @@ endmodule
         return;
       }
       unsupportedWarnings_.push_back(unsupported);
-      reportWarning("Unsupported warning: " + reason, maybeRange);
+      recordNajaWarning(
+        "naja_unsupported_warning",
+        "Naja Unsupported SystemVerilog Warnings",
+        code,
+        "Unsupported warning: " + reason,
+        maybeRange,
+        unsupportedWarningCount_,
+        unsupportedWarningCodes_);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstUnsupportedWarning.empty()) {
         svPerfReport_.firstUnsupportedWarning = unsupported;
@@ -3648,11 +3776,17 @@ endmodule
 #endif
     }
 
-    void reportWarning(
+    void recordNajaWarning(
+      std::string_view stage,
+      std::string_view heading,
+      const std::string& code,
       const std::string& reason,
-      const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& maybeRange,
+      size_t& occurrenceCount,
+      std::unordered_set<std::string>& warningCodes) {
       std::ostringstream message;
-      if (auto sourceInfo = getSourceInfo(maybeRange)) {
+      auto sourceInfo = getSourceInfo(maybeRange);
+      if (sourceInfo) {
         message << sourceInfo->file << ":" << sourceInfo->line << ":" << sourceInfo->column
                 << ": ";
       }
@@ -3661,15 +3795,43 @@ endmodule
       if (!emittedWarnings_.insert(warning).second) {
         return;
       }
-      warnings_.push_back(warning);
+      if (stage == "naja_elaboration") {
+        warnings_.push_back(warning);
+      }
+      ++occurrenceCount;
+      warningCodes.insert(code);
+      writeDiagnosticsSection(stage, heading);
+      appendDiagnosticRecord(
+        stage,
+        "warning",
+        code,
+        sourceInfo ? sourceInfo->file : std::string {},
+        sourceInfo ? sourceInfo->line : 0,
+        sourceInfo ? sourceInfo->column : 0,
+        reason);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstWarning.empty()) {
         svPerfReport_.firstWarning = warning;
       }
 #endif
-      if (loggedWarningReasons_.insert(reason).second) {
+      emitWarningPolicyNotice();
+      if (loggedWarningCodes_.insert(code).second) {
         NAJA_LOG_WARN("{}", warning);
       }
+    }
+
+    void reportWarning(
+      const std::string& code,
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      recordNajaWarning(
+        "naja_elaboration",
+        "Naja Elaboration Warnings",
+        code,
+        reason,
+        maybeRange,
+        elaborationWarningCount_,
+        elaborationWarningCodes_);
     }
 
     void reportCaseComparison2StateWarning(
@@ -3681,7 +3843,7 @@ endmodule
       std::ostringstream reason;
       reason << "Case comparison operator '" << slang::ast::OpInfo::getText(op)
              << "' lowered as 2-state comparison in SNL (X/Z distinction is not preserved)";
-      reportWarning(reason.str(), maybeRange);
+      reportWarning("case_comparison_two_state", reason.str(), maybeRange);
     }
 
     bool shouldSuppressCaseComparison2StateWarning(
@@ -6647,7 +6809,10 @@ endmodule
               reason << "Memory '" << std::string(stateSymbol->name)
                      << "' was not inferred as naja_mem: " << failureReason
                      << "; using generic sequential lowering";
-              reportWarning(reason.str(), getSourceRange(*stateSymbol));
+              reportWarning(
+                "uninferred_memory_generic_sequential_lowering",
+                reason.str(),
+                getSourceRange(*stateSymbol));
             }
             continue;
           }
@@ -6708,7 +6873,10 @@ endmodule
           reason << "Memory '" << std::string(memory.stateSymbol->name)
                  << "' could not be lowered as naja_mem: " << failureReason
                  << "; using generic lowering";
-          reportWarning(reason.str(), memory.sourceRange);
+          reportWarning(
+            "uninferred_memory_generic_lowering",
+            reason.str(),
+            memory.sourceRange);
         }
       }
     }
@@ -15031,6 +15199,7 @@ endmodule
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_continuous_assignment_rhs",
           formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
@@ -15350,6 +15519,7 @@ endmodule
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_continuous_assignment_rhs",
           formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
@@ -15473,6 +15643,7 @@ endmodule
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_continuous_assignment_rhs",
           formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
@@ -15953,6 +16124,7 @@ endmodule
           !shiftBits.empty() &&
           usedUnknownFallback) {
         reportWarning(
+          "unknown_literal_shift_amount",
           formatUnknownLiteralWarning("shift amount", unknownKinds),
           getSourceRange(shiftAmountExpr));
         return true;
@@ -16004,6 +16176,7 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_shift_value",
           formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
@@ -16120,6 +16293,7 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_shift_value",
           formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
@@ -16230,6 +16404,7 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
+          "unknown_literal_shift_value",
           formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
@@ -17948,7 +18123,43 @@ endmodule
     bool evaluateConfigurationConstant(
       const Expression& expr,
       int64_t& value) const {
-      return getConstantInt64(expr, value);
+      if (getConstantInt64(expr, value)) {
+        return true;
+      }
+      if (activeForLoopConstants_.empty()) {
+        return false;
+      }
+
+      const auto* evalSymbol = getConstantEvalSymbol(expr);
+      if (!evalSymbol) {
+        return false;
+      }
+      slang::ast::EvalContext evalContext(*evalSymbol);
+      evalContext.pushEmptyFrame();
+      for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
+        if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
+        const auto& type = valueSymbol.getType().getCanonicalType();
+        if (!type.isIntegral() || type.getBitWidth() <= 0) {
+          return false; // LCOV_EXCL_LINE
+        }
+        slang::SVInt constant(
+          type.getBitWidth(),
+          static_cast<uint64_t>(loopValue),
+          type.isSigned());
+        if (!evalContext.createLocal(&valueSymbol, std::move(constant))) {
+          return false; // LCOV_EXCL_LINE
+        }
+      }
+
+      auto evaluated = expr.eval(evalContext);
+      if (!evaluated || !evaluated.isInteger() ||
+          evaluated.integer().hasUnknown()) {
+        return false;
+      }
+      return tryGetInt64FromSVInt(evaluated.integer(), value);
     }
 
     bool isNonStructuralConfigurationAssertionAction(const Statement& stmt) const {
@@ -18088,6 +18299,7 @@ endmodule
             isNonStructuralConfigurationAssertionAction(*assertion.ifFalse);
           if (passActionIsNonStructural && failActionIsNonStructural) {
             reportUnsupportedWarning(
+              "discarded_configuration_check_runtime_assertion",
               "discarding non-structural runtime immediate assertion in "
               "configuration-check initial block",
               getSourceRange(*current));
@@ -18126,6 +18338,7 @@ endmodule
         if (name == "$display" || name == "$write" || name == "$info" ||
             name == "$warning") {
           reportUnsupportedWarning(
+            "discarded_configuration_check_system_task_" + name.substr(1),
             "discarding non-structural system task '" + name +
               "' in configuration-check initial block",
             getSourceRange(*current));
@@ -18846,7 +19059,7 @@ endmodule
         reason << "overflow";
       }
       reason << ", warning_threshold_bits=" << threshold << ")";
-      reportWarning(reason.str(), sourceRange);
+      reportWarning("large_uninferred_memory", reason.str(), sourceRange);
     }
 
     void warnLargeUninferredMemoryAssignments(
@@ -24155,6 +24368,7 @@ endmodule
         auto sourceRange = getSourceRange(*compoundRhsExpr);
         if (usedCompoundUnknownLiteralFallback) {
           reportWarning(
+            "unknown_literal_always_comb_compound_assignment_rhs",
             formatUnknownLiteralWarning(
               "always_comb compound assignment RHS",
               compoundUnknownKinds),
@@ -24268,6 +24482,7 @@ endmodule
       } // LCOV_EXCL_LINE
       if (usedUnknownLiteralFallback) {
         reportWarning(
+          "unknown_literal_always_comb_assignment_rhs",
           formatUnknownLiteralWarning("always_comb assignment RHS", unknownKinds),
           getSourceRange(*action.rhs));
       }
@@ -29448,6 +29663,7 @@ endmodule
           UnknownLiteralKinds unknownKinds;
           unknownKinds.add(value);
           reportWarning(
+            "unknown_literal_sequential_assignment_rhs",
             formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
             sourceRange);
           auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -29546,6 +29762,7 @@ endmodule
           resolvedBits.size() == lhsBits.size() &&
           usedUnknownLiteralFallback) {
         reportWarning(
+          "unknown_literal_sequential_assignment_rhs",
           formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
           sourceRange ? sourceRange : getSourceRange(*rhsExpr));
         return resolvedBits;
@@ -31890,6 +32107,7 @@ endmodule
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
+              "unknown_literal_continuous_assign_rhs",
               formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
@@ -31942,6 +32160,7 @@ endmodule
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
+              "unknown_literal_continuous_assign_rhs",
               formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
@@ -31980,6 +32199,7 @@ endmodule
             // LCOV_EXCL_START
             if (usedUnknownLiteralFallback) {
               reportWarning(
+                "unknown_literal_continuous_assign_rhs",
                 formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
             }
@@ -32019,6 +32239,7 @@ endmodule
             if (usedUnknownLiteralFallback) {
               // LCOV_EXCL_START
               reportWarning(
+                "unknown_literal_continuous_assign_rhs",
                 formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
               // LCOV_EXCL_STOP
@@ -32562,7 +32783,6 @@ endmodule
 
   private:
     NLLibrary* library_ {nullptr};
-    SNLSVConstructor::Config config_ {};
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
@@ -32611,10 +32831,21 @@ endmodule
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;
-    std::string cachedCompilationDiagnosticsReport_;
+    std::ofstream diagnosticsReportStream_;
+    std::unordered_set<std::string> reportSections_;
+    std::unordered_map<std::string, size_t> slangSeverityCounts_;
+    size_t slangDiagnosticCount_ {0};
+    size_t elaborationWarningCount_ {0};
+    size_t unsupportedWarningCount_ {0};
+    size_t unsupportedErrorCount_ {0};
+    std::unordered_set<std::string> elaborationWarningCodes_;
+    std::unordered_set<std::string> unsupportedWarningCodes_;
+    std::unordered_set<std::string> unsupportedErrorCodes_;
+    bool warningPolicyNoticeEmitted_ {false};
+    bool diagnosticsReportFinalized_ {false};
     std::vector<std::string> warnings_;
     std::unordered_set<std::string> emittedWarnings_;
-    std::unordered_set<std::string> loggedWarningReasons_;
+    std::unordered_set<std::string> loggedWarningCodes_;
     std::vector<std::string> unsupportedElements_;
     std::vector<SNLSVUnsupportedElement> unsupportedElementDetails_;
     std::vector<std::string> unsupportedWarnings_;
@@ -32662,9 +32893,8 @@ std::optional<std::string> testSVConstructorGetSourceExcerpt(
     end = slang::SourceLocation(alternateBuffer.id, *options.endOffset);
   }
 
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions constructOptions;
-  SNLSVConstructorImpl impl(nullptr, config, constructOptions);
+  SNLSVConstructorImpl impl(nullptr, constructOptions);
   return impl.testGetSourceExcerpt(
     std::move(compilation),
     slang::SourceRange(start, end),
@@ -32673,9 +32903,8 @@ std::optional<std::string> testSVConstructorGetSourceExcerpt(
 
 std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
   const std::string& reason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatReasonWithSourceExcerpt(reason, std::nullopt);
 }
 
@@ -32683,16 +32912,14 @@ bool testSVConstructorTryPowerInt64(
   int64_t base,
   int64_t exponent,
   int64_t& value) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testTryPowerInt64(base, exponent, value);
 }
 
 InferredMemoryGuardDefaults testSVConstructorDefaultInferredMemoryGuard() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testDefaultInferredMemoryGuardDefaults();
 }
 
@@ -32700,17 +32927,15 @@ std::optional<std::vector<int32_t>> testSVConstructorCollectIndexedRangeElementI
   int32_t startIndex,
   int32_t sliceWidth,
   bool indexedDown) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCollectIndexedRangeElementIndices(startIndex, sliceWidth, indexedDown);
 }
 
 std::optional<size_t> testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(sourceText);
 }
 
@@ -32718,18 +32943,16 @@ std::vector<bool> testSVConstructorEncodeUnsignedProductBits(
   uint64_t leftValue,
   uint64_t rightValue,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testEncodeUnsignedProductBits(leftValue, rightValue, targetWidth);
 }
 
 std::optional<std::string> testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCreatePowerOfTwoBitsFromAssignRhs(sourceText, targetWidth);
 }
 
@@ -32737,9 +32960,8 @@ std::optional<size_t> testSVConstructorResolveWildcardPatternWidthFallback(
   const std::optional<size_t>& directWidth,
   bool canonicalIntegral,
   int32_t bitWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveWildcardPatternWidthFallback(
     directWidth,
     canonicalIntegral,
@@ -32750,9 +32972,8 @@ std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAs
   const std::string& sourceText,
   size_t targetWidth,
   bool signExtend) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveWildcardCaseItemPatternFromAssignRhs(
     sourceText,
     targetWidth,
@@ -32762,27 +32983,24 @@ std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAs
 std::optional<std::string> testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveUnknownLiteralBitsAsZeroFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<std::string> testSVConstructorResolveExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveExpressionBitsFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<size_t> testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsFromAssignLhs(sourceText, allowConcatenation);
 }
 
@@ -32790,9 +33008,8 @@ std::optional<ResolveAssignmentLHSBitsTestResult>
 testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsResultFromAssignLhs(
     sourceText,
     allowConcatenation);
@@ -32802,9 +33019,8 @@ std::optional<ResolveAssignmentLHSBitsTestResult>
 testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
     sourceText,
     allowConcatenation);
@@ -32813,51 +33029,45 @@ testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
 std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveConstantExpressionBitsFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<FindTimedStatementTestResult> testSVConstructorFindTimedStatementFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFindTimedStatementFromProceduralBlock(sourceText);
 }
 
 std::optional<CollectDirectAssignmentsTestResult>
 testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCollectDirectAssignmentsFromProceduralBlock(sourceText);
 }
 
 std::optional<SingleLHSFallbackPathMaxTestResult>
 testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(sourceText);
 }
 
 std::optional<ProceduralReplayEnvMergeTestResult>
 testSVConstructorMergeProceduralReplayEnvs() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testMergeProceduralReplayEnvs();
 }
 
 std::optional<ActiveForLoopConstantHelpersTestResult>
 testSVConstructorActiveForLoopConstantHelpers() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testActiveForLoopConstantHelpers();
 }
 
@@ -32865,9 +33075,8 @@ std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromForLoop(
   const std::string& sourceText,
   int64_t initialLoopValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyForLoopStepExpressionFromForLoop(sourceText, initialLoopValue);
 }
 
@@ -32875,9 +33084,8 @@ std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromProceduralStatement(
   const std::string& sourceText,
   int64_t initialLoopValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyForLoopStepExpressionFromProceduralStatement(
     sourceText,
     initialLoopValue);
@@ -32888,43 +33096,38 @@ testSVConstructorApplyConstantCompoundForLoopOperator(
   const std::string& opText,
   int64_t initialLoopValue,
   int64_t rhsValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyConstantCompoundForLoopOperator(opText, initialLoopValue, rhsValue);
 }
 
 std::optional<bool> testSVConstructorConvertConstantToIntegerFromAssignRhs(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testConvertConstantToIntegerFromAssignRhs(sourceText);
 }
 
 std::optional<std::string> testSVConstructorAppendSignedConstantBits(
   int64_t value,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testAppendSignedConstantBits(value, targetWidth);
 }
 
 std::optional<bool> testSVConstructorSameExpressionStructureFromContinuousAssignRhsPair(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testSameExpressionStructureFromContinuousAssignRhsPair(sourceText);
 }
 
 std::vector<bool> testSVConstructorEncodeSignedInt64ConstantBits(
   int64_t value,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testEncodeSignedInt64ConstantBits(value, targetWidth);
 }
 
@@ -32932,9 +33135,8 @@ std::string testSVConstructorFormatAssignmentLHSResolutionFailureReason(
   bool hasLhsNet,
   const std::string& lhsDescription,
   const std::string& failureReason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatAssignmentLHSResolutionFailureReason(
     hasLhsNet,
     lhsDescription,
@@ -32944,9 +33146,8 @@ std::string testSVConstructorFormatAssignmentLHSResolutionFailureReason(
 std::string testSVConstructorFormatSequentialConcatLeafFailureReason(
   const std::string& lhsDescription,
   const std::string& leafFailureReason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatSequentialConcatLeafFailureReason(
     lhsDescription,
     leafFailureReason);
@@ -32955,18 +33156,16 @@ std::string testSVConstructorFormatSequentialConcatLeafFailureReason(
 std::string testSVConstructorFormatDescribedFailure(
   const std::string& prefix,
   const std::string& description) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatDescribedFailure(prefix, description);
 }
 
 std::string testSVConstructorFormatQuotedDescriptionFailure(
   const std::string& prefix,
   const std::string& description) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
 }
 // LCOV_EXCL_STOP
@@ -32988,7 +33187,7 @@ void SNLSVConstructor::construct(const std::filesystem::path& path) {
 
 void SNLSVConstructor::construct(const Paths& paths, const ConstructOptions& options) {
   NajaPerf::Scope scope("SNLSVConstructor::construct");
-  SNLSVConstructorImpl impl(library_, config_, options);
+  SNLSVConstructorImpl impl(library_, options);
   impl.construct(paths);
 }
 

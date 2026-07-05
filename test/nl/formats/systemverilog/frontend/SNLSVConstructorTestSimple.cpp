@@ -1165,7 +1165,8 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleDetectedAsUserBlackBo
 
 TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanBeDisabled) {
   SNLSVConstructor constructor(library_);
-  constructor.config_.blackboxDetection_ = false;
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxDetection = false;
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "empty_port_only_standard";
   if (std::filesystem::exists(outPath)) {
@@ -1182,7 +1183,7 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanB
          << "endmodule\n";
   svFile.close();
 
-  constructor.construct(svPath);
+  constructor.construct(svPath, options);
 
   auto unread = library_->getSNLDesign(NLName("unread"));
   ASSERT_NE(unread, nullptr);
@@ -31711,6 +31712,34 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
     std::istreambuf_iterator<char>(reportFile),
     std::istreambuf_iterator<char>()};
   EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
+  EXPECT_NE(report.find("format.version=1"), std::string::npos);
+  EXPECT_NE(report.find("status=in_progress"), std::string::npos);
+  EXPECT_NE(report.find("summary.status=success"), std::string::npos);
+  EXPECT_NE(report.find("count.slang.total=0"), std::string::npos);
+  EXPECT_NE(
+    report.find("count.naja_elaboration.warning_occurrences=0"),
+    std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReportPath) {
+  SNLSVConstructor::ConstructOptions options;
+  EXPECT_EQ(
+    std::filesystem::path("naja_sv_diagnostics.log"),
+    options.diagnosticsReportPath);
+
+  const auto reportPath = std::filesystem::current_path() / options.diagnosticsReportPath;
+  std::error_code ec;
+  std::filesystem::remove(reportPath, ec);
+
+  SNLSVConstructor constructor(library_);
+  const std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "simple" / "simple.sv");
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  const auto report = readTextFile(reportPath);
+  EXPECT_NE(report.find("report.path=\"naja_sv_diagnostics.log\""), std::string::npos);
+  EXPECT_NE(report.find("summary.status=success"), std::string::npos);
+  std::filesystem::remove(reportPath, ec);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnknownLiteralDiagnosticsIdentifyXAndZ) {
@@ -31782,11 +31811,25 @@ endmodule
   const std::string warning =
     "Case comparison operator '===' lowered as 2-state comparison in SNL";
   EXPECT_EQ(1u, countSubstring(stdoutOutput, warning));
+  const std::string policyNotice =
+    "Only the first occurrence of each SystemVerilog warning code is emitted";
+  EXPECT_EQ(1u, countSubstring(stdoutOutput, policyNotice));
+  EXPECT_LT(stdoutOutput.find(policyNotice), stdoutOutput.find(warning));
+  EXPECT_NE(
+    stdoutOutput.find("elaboration_warnings=2 (codes=1)"),
+    std::string::npos);
 
   ASSERT_TRUE(std::filesystem::exists(reportPath));
   const auto report = readTextFile(reportPath);
   EXPECT_NE(std::string::npos, report.find("=== Naja Elaboration Warnings ==="));
   EXPECT_EQ(2u, countSubstring(report, warning));
+  EXPECT_EQ(2u, countSubstring(report, "code=\"case_comparison_two_state\""));
+  EXPECT_NE(
+    report.find("count.naja_elaboration.warning_occurrences=2"),
+    std::string::npos);
+  EXPECT_NE(
+    report.find("count.naja_elaboration.warning_codes=1"),
+    std::string::npos);
 }
 
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -31875,6 +31918,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDeta
   SNLSVConstructor::ConstructOptions options;
   options.diagnosticsReportPath = reportPath;
 
+  testing::internal::CaptureStdout();
   try {
     constructor.construct(svPath, options);
     FAIL() << "Expected SystemVerilog compilation failure";
@@ -31882,6 +31926,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDeta
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed"));
   }
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+  EXPECT_NE(stdoutOutput.find("Slang emitted 1 diagnostic(s)"), std::string::npos);
+  EXPECT_NE(stdoutOutput.find(reportPath.string()), std::string::npos);
+  EXPECT_NE(stdoutOutput.find("status=failed, slang=1"), std::string::npos);
 
   ASSERT_TRUE(std::filesystem::exists(reportPath));
   std::ifstream reportFile(reportPath);
@@ -31889,7 +31937,11 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDeta
   std::string report{
     std::istreambuf_iterator<char>(reportFile),
     std::istreambuf_iterator<char>()};
-  EXPECT_NE(report.find("error"), std::string::npos);
+  EXPECT_NE(report.find("=== Slang Diagnostics ==="), std::string::npos);
+  EXPECT_NE(report.find("stage=\"slang\" severity=\"error\""), std::string::npos);
+  EXPECT_NE(report.find("summary.status=failed"), std::string::npos);
+  EXPECT_NE(report.find("count.slang.total=1"), std::string::npos);
+  EXPECT_NE(report.find("count.slang.error=1"), std::string::npos);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseEmptyDiagnosticsReportPathThrows) {
@@ -32986,7 +33038,9 @@ endmodule
 #endif
   SNLSVConstructor::ConstructOptions options;
   options.diagnosticsReportPath = reportPath;
+  testing::internal::CaptureStdout();
   EXPECT_NO_THROW(constructor.construct(svPath, options));
+  const auto stdoutOutput = testing::internal::GetCapturedStdout();
   ASSERT_NE(nullptr, library_->getSNLDesign(
     NLName("initial_configuration_display_loop_ignored_supported")));
   const auto report = readTextFile(reportPath);
@@ -32996,6 +33050,18 @@ endmodule
             report.find("discarding non-structural system task '$display'"));
   EXPECT_EQ(std::string::npos,
             report.find("=== Naja Unsupported SystemVerilog Errors ==="));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("code=\"discarded_configuration_check_system_task_display\""));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.naja_elaboration.warning_occurrences=0"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.naja_unsupported_warning.occurrences=1"));
+  EXPECT_NE(
+    stdoutOutput.find("unsupported_warnings=1 (codes=1)"),
+    std::string::npos);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
   const auto perfReport = readTextFile(perfReportPath);
   EXPECT_NE(std::string::npos, perfReport.find("result=success"));
@@ -33003,6 +33069,75 @@ endmodule
   EXPECT_NE(std::string::npos, perfReport.find("count.unsupported_error=0"));
   EXPECT_NE(std::string::npos, perfReport.find("count.unsupported_warning=1"));
 #endif
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationPackedParameterSliceSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_configuration_packed_parameter_slice_supported",
+    R"(module initial_configuration_packed_parameter_slice_supported #(
+  parameter int M_COUNT = 4,
+  parameter int M_REGIONS = 1,
+  parameter int DATA_WIDTH = 32,
+  parameter int ADDR_WIDTH = 32,
+  parameter int STRB_WIDTH = DATA_WIDTH / 8,
+  parameter [M_COUNT*M_REGIONS*32-1:0] M_ADDR_WIDTH =
+    {M_COUNT{{M_REGIONS{32'd24}}}}
+) (input logic a_i, output logic y_o);
+  integer i;
+  initial begin
+    for (i = 0; i < M_COUNT*M_REGIONS; i = i + 1) begin
+      if (M_ADDR_WIDTH[i*32 +: 32] &&
+          (M_ADDR_WIDTH[i*32 +: 32] < $clog2(STRB_WIDTH) ||
+           M_ADDR_WIDTH[i*32 +: 32] > ADDR_WIDTH)) begin
+        $error("address width out of range");
+        $finish;
+      end
+    end
+  end
+  assign y_o = a_i;
+endmodule
+)");
+
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  ASSERT_NE(nullptr, library_->getSNLDesign(
+    NLName("initial_configuration_packed_parameter_slice_supported")));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationPackedParameterSliceErrorDetected) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_configuration_packed_parameter_slice_error_detected",
+    R"(module initial_configuration_packed_parameter_slice_error_detected #(
+  parameter int M_COUNT = 4,
+  parameter int M_REGIONS = 1,
+  parameter int DATA_WIDTH = 32,
+  parameter int ADDR_WIDTH = 32,
+  parameter int STRB_WIDTH = DATA_WIDTH / 8,
+  parameter [M_COUNT*M_REGIONS*32-1:0] M_ADDR_WIDTH =
+    {32'd24, 32'd1, 32'd24, 32'd24}
+) (input logic a_i, output logic y_o);
+  integer i;
+  initial begin
+    for (i = 0; i < M_COUNT*M_REGIONS; i = i + 1) begin
+      if (M_ADDR_WIDTH[i*32 +: 32] &&
+          (M_ADDR_WIDTH[i*32 +: 32] < $clog2(STRB_WIDTH) ||
+           M_ADDR_WIDTH[i*32 +: 32] > ADDR_WIDTH)) begin
+        $error("address width out of range");
+        $finish;
+      end
+    end
+  end
+  assign y_o = a_i;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'initial_configuration_packed_parameter_slice_error_detected'",
+     "statically reachable $error in configuration-check initial block"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialStaticallyReachableErrorUnsupported) {
@@ -33034,7 +33169,14 @@ endmodule
   EXPECT_NE(std::string::npos,
             report.find("=== Naja Unsupported SystemVerilog Errors ==="));
   EXPECT_NE(std::string::npos,
-            report.find("Warning: Unsupported error: Unsupported initial block"));
+            report.find("message=\"Unsupported error: Unsupported initial block"));
+  EXPECT_NE(std::string::npos, report.find("summary.status=failed"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.naja_elaboration.warning_occurrences=0"));
+  EXPECT_NE(
+    std::string::npos,
+    report.find("count.naja_unsupported_error.occurrences=1"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialConstantImmediateAssertionSupported) {

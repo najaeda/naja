@@ -1929,7 +1929,7 @@ class VerilogDumpConfig:
 class SystemVerilogConfig:
     keep_assigns: bool = True
     elaborated_ast_json_path: str = None
-    diagnostics_report_path: str = None
+    diagnostics_report_path: str = "naja_sv_diagnostics.log"
     pretty_print_elaborated_ast_json: bool = True
     include_source_info_in_elaborated_ast_json: bool = True
     flist: str = None

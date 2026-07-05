@@ -24,6 +24,11 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
 
+    def test_system_verilog_config_diagnostics_default(self):
+        config = netlist.SystemVerilogConfig()
+        self.assertEqual(
+            "naja_sv_diagnostics.log", config.diagnostics_report_path)
+
     def test_load_system_verilog(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         top = netlist.load_system_verilog(design_files)
