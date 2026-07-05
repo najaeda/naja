@@ -3374,6 +3374,30 @@ endmodule
      "'continuous_assign_bitwise_not_resolve_expression_bits_failure_unsupported'"});
 }
 
+TEST_F(SNLSVConstructorTestSimple,
+       parseContinuousAssignBitwiseNotUnsupportedBinaryDiagnosticCovered) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_assign_bitwise_not_unsupported_binary_diagnostic_covered",
+    R"(module continuous_assign_bitwise_not_unsupported_binary_diagnostic_covered(
+  input logic [3:0] a_i,
+  output logic [3:0] y_o
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] value);
+    case (value) inside
+      [4'bxxxx:4'd7]: bad_fn = 4'hf;
+      default: bad_fn = 4'h0;
+    endcase
+  endfunction
+  assign y_o = ~(bad_fn(a_i) + a_i);
+endmodule
+)");
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator under bitwise not"});
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseContinuousAssignUnaryPlusResolveExpressionBitsFailureUnsupported) {
@@ -5107,6 +5131,47 @@ endmodule
     svPath,
     {"Unsupported RHS in continuous assign in module "
      "'continuous_assign_procedural_return_function_imported_body_unsupported'"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseContinuousShiftImportedValueDiagnosticsCovered) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_shift_imported_value_diagnostics_covered",
+    R"(module continuous_shift_imported_value_diagnostics_covered(
+  input logic a_i,
+  input logic [2:0] amount_i,
+  output logic [7:0] logical_o,
+  output logic signed [7:0] arithmetic_o
+);
+  import "DPI-C" function logic dpi_value(input logic value);
+  assign logical_o = dpi_value(a_i) >> amount_i;
+  assign arithmetic_o = $signed(dpi_value(a_i)) >>> amount_i;
+endmodule
+)");
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"failed to resolve value bits"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialImportedCallValueZeroFallbackCovered) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "sequential_imported_call_value_zero_fallback_covered",
+    R"(module sequential_imported_call_value_zero_fallback_covered(
+  input logic clk_i,
+  input logic a_i,
+  output logic q_o
+);
+  import "DPI-C" function logic dpi_value(input logic value);
+  always_ff @(posedge clk_i)
+    q_o <= dpi_value(a_i);
+endmodule
+)");
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  ASSERT_NE(nullptr, library_->getSNLDesign(
+    NLName("sequential_imported_call_value_zero_fallback_covered")));
 }
 
 TEST_F(
@@ -32904,7 +32969,10 @@ TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationDisplayLoopIgnoredSu
   integer i;
   initial begin
     for (i = 0; i < COUNT; i = i + 1) begin
-      if (i < COUNT)
+      integer iteration;
+      if (i >= COUNT)
+        $error("unreachable configuration");
+      else
         $display("configuration %0d", i);
     end
   end
@@ -32994,6 +33062,53 @@ endmodule
     {"Unsupported initial block in module "
      "'coverage2_initial_user_task_call_unsupported'",
      "user task or function call is not representable"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationFailureBranchesCovered) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "initial_configuration_failure_branches_covered",
+    R"(
+module cfg_runtime_initializer(input logic a_i);
+  initial begin integer value = a_i; $display("%0d", value); end
+endmodule
+module cfg_dynamic_condition(input logic a_i);
+  initial if (a_i) $display("dynamic");
+endmodule
+module cfg_missing_loop_test;
+  integer i;
+  initial for (i = 0; ; i++) $display("loop");
+endmodule
+module cfg_dynamic_loop_test(input logic a_i);
+  integer i;
+  initial for (i = 0; i < a_i; i++) $display("loop");
+endmodule
+module cfg_nonprogress_loop;
+  integer i;
+  initial for (i = 0; i < 1; i = i) $display("loop");
+endmodule
+module cfg_body_failure;
+  integer i;
+  initial for (i = 0; i < 1; i++) $finish;
+endmodule
+module cfg_finish;
+  initial $stop;
+endmodule
+module cfg_unknown_system_task;
+  initial $monitor("monitor");
+endmodule
+module cfg_runtime_expression;
+  integer value;
+  initial begin $display("before"); value++; end
+endmodule
+module cfg_timing;
+  initial begin $display("before"); #1; end
+endmodule
+)" );
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseFinalProceduralBlockIgnored) {

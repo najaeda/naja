@@ -11496,6 +11496,7 @@ TEST_F(SNLSVConstructorTestMemoryInference,
   logic [7:0] mem [0:3];
   integer i;
   initial begin
+    integer unused;
     for (i = 0; i < 4; i = i + 1)
       mem[i] = 8'h5a;
   end
@@ -11551,7 +11552,7 @@ TEST_F(SNLSVConstructorTestMemoryInference,
   integer i, j;
   initial begin
     for (i = 0; i < DEPTH; i = i + CHUNK)
-      for (j = i; j < i + CHUNK; j = j + 1)
+      for (j = i - 0; j < i - (-CHUNK); j = j + 1)
         mem[j] = 1'b1;
   end
   always_ff @(posedge clk_i)
@@ -11604,4 +11605,123 @@ endmodule
     constructor,
     svPath,
     {"unsupported initial memory initialization", "does not fully cover memory 'mem'"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryInitialFillValidationBranchesCovered) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_initial_fill_validation_branches_covered";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_initial_fill_validation_branches_covered.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(
+module init_two_statements(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) begin mem[i]=0; mem[i]=1; end
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_negative_step(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=3; i>=0; i=i-1) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonlinear_step(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i=i+i+1) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_affine(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i, j;
+  initial for (i=0; i<4; i=i+2) for (j=i*1; j<i+2; j++) mem[j]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_nested_affine(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i, j;
+  initial for (i=0; i<4; i=i+2) for (j=i+(i*1); j<i+2; j++) mem[j]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_bound(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<=3; i++) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonblocking(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i] <= 0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_wrong_target(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; logic other [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[0]=0;
+  initial for (i=0; i<4; i++) other[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonconstant(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i]=d;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_not_loop(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  initial mem[0]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_multiple_memories(input logic clk, we, input logic [1:0] a, input logic d);
+  logic m0 [0:3]; logic m1 [0:3]; integer i;
+  initial for (i=0; i<4; i++) begin m0[i]=0; m1[i]=0; end
+  always_ff @(posedge clk) if (we) begin m0[a] <= d; m1[a] <= d; end
+endmodule
+module init_not_inferred(input logic clk, input logic [1:0] a);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i]=0;
+  always_ff @(posedge clk) mem[0] <= mem[1];
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported initial memory initialization"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryUnsupportedCandidateDiagnosticsCovered) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_unsupported_candidate_diagnostics_covered";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_unsupported_candidate_diagnostics_covered.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(
+module direct_memory_multiple_async_events(
+  input logic clk, rst_n, set_i, we, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk or negedge rst_n or posedge set_i) begin
+    if (!rst_n) mem[0] <= 0;
+    else if (set_i) mem[0] <= 1;
+    else if (we) mem[a] <= d;
+  end
+endmodule
+module direct_memory_without_indexed_write(
+  input logic clk, input logic [1:0] a, output logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk) d <= mem[a];
+endmodule
+module direct_memory_constant_false_write(
+  input logic clk, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk)
+    if (1'b0) mem[a] <= d;
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"multiple async events"});
 }
