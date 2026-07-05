@@ -21,7 +21,7 @@ namespace naja::NL {
 
 class SNLTruthTable {
  public:
-  // Enum for generic type for N input truth table { NONE, OR, NOR, AND, NAND, XOR, XNOR}
+  // Enum for generic type for N input truth table.
   enum class GenericType {
     NONE,
     OR,
@@ -29,7 +29,8 @@ class SNLTruthTable {
     AND,
     NAND,
     XOR,
-    XNOR
+    XNOR,
+    TABLE_SELECT
   };
   
   SNLTruthTable() : size_(0) {}
@@ -53,6 +54,24 @@ class SNLTruthTable {
         NLBitDependencies::countBitsForVector(dependencies_) > size) {
       throw NLException("Dependencies count cannot exceed truth table size");
     }
+    validateGenericMetadata();
+  }
+
+  SNLTruthTable(size_t size,
+                GenericType genericType,
+                const std::vector<uint64_t>& dependencies,
+                uint32_t tableSelectAddressSize,
+                uint32_t tableSelectDepth)
+      : size_(size),
+        dependencies_(dependencies),
+        genericType_(genericType),
+        tableSelectAddressSize_(tableSelectAddressSize),
+        tableSelectDepth_(tableSelectDepth) {
+    if (size > 0 &&
+        NLBitDependencies::countBitsForVector(dependencies_) > size) {
+      throw NLException("Dependencies count cannot exceed truth table size");
+    }
+    validateGenericMetadata();
   }
 
   // user‐provided copy‐ctor
@@ -60,7 +79,9 @@ class SNLTruthTable {
     : size_(o.size_),
       bits_(o.bits_),
       dependencies_(o.dependencies_),
-      genericType_(o.genericType_)
+      genericType_(o.genericType_),
+      tableSelectAddressSize_(o.tableSelectAddressSize_),
+      tableSelectDepth_(o.tableSelectDepth_)
   {}
 
   // explicit copy‐assignment to match
@@ -71,6 +92,8 @@ class SNLTruthTable {
       bits_ = o.bits_;
       dependencies_ = o.dependencies_;
       genericType_ = o.genericType_;
+      tableSelectAddressSize_ = o.tableSelectAddressSize_;
+      tableSelectDepth_ = o.tableSelectDepth_;
     }
     return *this;
   }
@@ -119,10 +142,23 @@ class SNLTruthTable {
   static SNLTruthTable Logic1() { return SNLTruthTable(0, 1, {}); }
   static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01, fullDependencies(1)); }
   static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, fullDependencies(1)); }
+  static SNLTruthTable TableSelect(
+      uint32_t addressSize,
+      uint32_t depth,
+      const std::vector<uint64_t>& dependencies) {
+    return SNLTruthTable(
+        static_cast<size_t>(addressSize) + depth,
+        GenericType::TABLE_SELECT,
+        dependencies,
+        addressSize,
+        depth);
+  }
 
   bool operator==(const SNLTruthTable& o) const {
     return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_ &&
-           genericType_ == o.genericType_;
+           genericType_ == o.genericType_ &&
+           tableSelectAddressSize_ == o.tableSelectAddressSize_ &&
+           tableSelectDepth_ == o.tableSelectDepth_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
@@ -130,6 +166,10 @@ class SNLTruthTable {
       return size_ < o.size_;
     if (genericType_ != o.genericType_)
       return genericType_ < o.genericType_;
+    if (tableSelectAddressSize_ != o.tableSelectAddressSize_)
+      return tableSelectAddressSize_ < o.tableSelectAddressSize_;
+    if (tableSelectDepth_ != o.tableSelectDepth_)
+      return tableSelectDepth_ < o.tableSelectDepth_;
     if (bits_ != o.bits_)
       return bits_ < o.bits_;
     return dependencies_ < o.dependencies_;
@@ -164,6 +204,20 @@ class SNLTruthTable {
     return genericType_;
   }
 
+  uint32_t getTableSelectAddressSize() const {
+    if (genericType_ != GenericType::TABLE_SELECT) {
+      throw NLException("Truth table is not a table select generic");
+    }
+    return tableSelectAddressSize_;
+  }
+
+  uint32_t getTableSelectDepth() const {
+    if (genericType_ != GenericType::TABLE_SELECT) {
+      throw NLException("Truth table is not a table select generic");
+    }
+    return tableSelectDepth_;
+  }
+
   using ConstantInput = std::pair<uint32_t, bool>;
   using ConstantInputs = std::vector<ConstantInput>;
 
@@ -177,6 +231,9 @@ class SNLTruthTable {
     }
     // trivial 0‐input table
     if (size_ == 0) {
+      return *this;
+    }
+    if (idxConsts.empty()) {
       return *this;
     }
 
@@ -272,6 +329,9 @@ class SNLTruthTable {
               invert ? GenericType::XOR : GenericType::XNOR,
               deps);
         }
+        case GenericType::TABLE_SELECT:
+          throw NLException(
+              "getReducedWithConstants() does not support TABLE_SELECT");
         default:
           break;  // LCOV_EXCL_LINE
       }
@@ -418,10 +478,26 @@ class SNLTruthTable {
   }
 
  private:
+  void validateGenericMetadata() const {
+    if (genericType_ == GenericType::TABLE_SELECT) {
+      if (tableSelectAddressSize_ == 0 || tableSelectDepth_ == 0 ||
+          size_ != static_cast<size_t>(tableSelectAddressSize_) +
+                       tableSelectDepth_) {
+        throw NLException("Invalid TABLE_SELECT truth table metadata");
+      }
+      return;
+    }
+    if (tableSelectAddressSize_ != 0 || tableSelectDepth_ != 0) {
+      throw NLException("Unexpected table select metadata on truth table");
+    }
+  }
+
   uint32_t size_{0};
   NLBitVecDynamic bits_{0};
   std::vector<uint64_t> dependencies_{};
   GenericType genericType_{GenericType::NONE};
+  uint32_t tableSelectAddressSize_{0};
+  uint32_t tableSelectDepth_{0};
 };
 
 }  // namespace naja::NL
