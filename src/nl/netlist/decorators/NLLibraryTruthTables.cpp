@@ -113,6 +113,9 @@ void addDesignTruthTable(
   if (naja::NL::NLDB0::isMemory(design) || naja::NL::NLDB0::isDivMod(design)) {
     return;
   }
+  if (naja::NL::NLDB0::isTableSelect(design)) {
+    return;
+  }
   naja::NL::SNLTruthTable tt = getCommonTruthTable(design);
   if (tt.isInitialized()) {
     auto canonicalTT = canonicalizeTruthTableForLookup(tt);

@@ -134,6 +134,7 @@ class NLDB0 {
     static SNLBusTerm* getTableSelectData(const SNLDesign* design);
     static SNLBusTerm* getTableSelectAddress(const SNLDesign* design);
     static SNLBusTerm* getTableSelectOutput(const SNLDesign* design);
+    static SNLTruthTable getTableSelectTruthTable(const SNLDesign* design, size_t flatTermID);
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 

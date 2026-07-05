@@ -1604,7 +1604,7 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
     }
-    if (NLDB0::isMux2(design)) {
+    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design)) {
       size_t tableCount = 0;
       for (const auto* term : design->getBitTerms()) {
         if (term->getDirection() != SNLTerm::Direction::Input) {
@@ -1663,6 +1663,21 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return SNLTruthTable();
+    }
+    if (NLDB0::isTableSelect(design)) {
+      const SNLBitTerm* outputTerm = nullptr;
+      for (auto* term : design->getBitTerms()) {
+        if (term->getDirection() != SNLTerm::Direction::Input) {
+          if (outputTerm != nullptr) {
+            throw NLException(
+                "SNLDesignModeling::getTruthTable: table select has per-output truth tables");
+          }
+          outputTerm = term;
+        }
+      }
+      return outputTerm ? NLDB0::getTableSelectTruthTable(
+                              design, outputTerm->getOrderID())
+                        : SNLTruthTable();
     }
     return NLDB0::getPrimitiveTruthTable(design);
   }
@@ -1794,6 +1809,15 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
       return NLDB0::getPrimitiveTruthTable(design);
+    } else if (NLDB0::isTableSelect(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in table select design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getTableSelectTruthTable(design, flatTermID);
     } else {
       if (outputCount != 1) {
         std::ostringstream reason;

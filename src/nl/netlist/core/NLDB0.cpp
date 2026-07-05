@@ -1193,6 +1193,56 @@ SNLBusTerm* NLDB0::getTableSelectOutput(const SNLDesign* design) {
   return design->getBusTerm(NLName("Y"));
 }
 
+SNLTruthTable NLDB0::getTableSelectTruthTable(const SNLDesign* design, size_t flatTermID) {
+  if (!isTableSelect(design)) {
+    throw NLException("NLDB0::getTableSelectTruthTable: design is not a table select primitive");
+  }
+  auto signature = getTableSelectSignature(design);
+  if (signature.abits > std::numeric_limits<uint32_t>::max() ||
+      signature.depth > std::numeric_limits<uint32_t>::max()) {
+    throw NLException("NLDB0::getTableSelectTruthTable: signature does not fit truth table metadata");
+  }
+
+  const SNLBitTerm* outputTerm = nullptr;
+  for (const auto* term: design->getBitTerms()) {
+    if (term->getOrderID() == flatTermID) {
+      outputTerm = term;
+      break;
+    }
+  }
+  if (!outputTerm ||
+      outputTerm->getDirection() != SNLTerm::Direction::Output ||
+      outputTerm->getID() != Term2ID) {
+    std::ostringstream reason;
+    reason << "Term ID " << flatTermID
+           << " is not an output in table select design <"
+           << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+
+  const size_t outputBit = static_cast<size_t>(outputTerm->getBit());
+  if (outputBit >= signature.width) {
+    throw NLException("NLDB0::getTableSelectTruthTable: output bit is out of range");
+  }
+
+  auto* data = getTableSelectData(design);
+  auto* addr = getTableSelectAddress(design);
+  std::vector<size_t> deps;
+  deps.reserve(signature.abits + signature.depth);
+  for (auto* addrBit: addr->getBits()) {
+    deps.push_back(addrBit->getOrderID());
+  }
+  for (size_t row = 0; row < signature.depth; ++row) {
+    const auto dataBit = static_cast<NLID::Bit>(row * signature.width + outputBit);
+    deps.push_back(data->getBit(dataBit)->getOrderID());
+  }
+
+  return SNLTruthTable::TableSelect(
+      static_cast<uint32_t>(signature.abits),
+      static_cast<uint32_t>(signature.depth),
+      NLBitDependencies::encodeBits(deps));
+}
+
 bool NLDB0::isDivMod(const SNLDesign* design) {
   if (!design || !design->isPrimitive() || !isDB0Primitive(design) || design->isUnnamed()) {
     return false;
