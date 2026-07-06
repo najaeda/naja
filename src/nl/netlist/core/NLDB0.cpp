@@ -492,6 +492,9 @@ namespace {
     auto dffOutput = SNLScalarTerm::create(dff, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffClock, {dffOutput});
     SNLDesignModeling::addInputsToClockArcs({dffData}, dffClock);
+    SNLDesignModeling::setTermRole(dffClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffOutput, SNLDesignModeling::SNLTermRole::DataOutput);
   }
 
   void createDLatchPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -507,6 +510,9 @@ namespace {
     auto dlatchOutput = SNLScalarTerm::create(dlatch, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dlatchEnable, {dlatchOutput});
     SNLDesignModeling::addInputsToClockArcs({dlatchData}, dlatchEnable);
+    SNLDesignModeling::setTermRole(dlatchEnable, SNLDesignModeling::SNLTermRole::Enable);
+    SNLDesignModeling::setTermRole(dlatchData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dlatchOutput, SNLDesignModeling::SNLTermRole::DataOutput);
   }
 
   void createDFFNPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -522,6 +528,9 @@ namespace {
     auto dffnOutput = SNLScalarTerm::create(dffn, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffnClock, {dffnOutput});
     SNLDesignModeling::addInputsToClockArcs({dffnData}, dffnClock);
+    SNLDesignModeling::setTermRole(dffnClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffnData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffnOutput, SNLDesignModeling::SNLTermRole::DataOutput);
   }
 
   void createDFFRNPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -538,6 +547,10 @@ namespace {
     auto dffrnOutput = SNLScalarTerm::create(dffrn, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffrnClock, {dffrnOutput});
     SNLDesignModeling::addInputsToClockArcs({dffrnData, dffrnResetN}, dffrnClock);
+    SNLDesignModeling::setTermRole(dffrnClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffrnData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffrnOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffrnResetN, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::Low);
   }
 
   void createDFFRPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -554,6 +567,10 @@ namespace {
     auto dffrOutput = SNLScalarTerm::create(dffr, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffrClock, {dffrOutput});
     SNLDesignModeling::addInputsToClockArcs({dffrData, dffrReset}, dffrClock);
+    SNLDesignModeling::setTermRole(dffrClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffrData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffrOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffrReset, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::High);
   }
 
   void createDFFSPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -570,6 +587,10 @@ namespace {
     auto dffsOutput = SNLScalarTerm::create(dffs, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffsClock, {dffsOutput});
     SNLDesignModeling::addInputsToClockArcs({dffsData, dffsSet}, dffsClock);
+    SNLDesignModeling::setTermRole(dffsClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffsData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffsOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffsSet, SNLDesignModeling::SNLTermRole::AsyncSet, SNLDesignModeling::SNLActiveLevel::High);
   }
 
   void createDFFEPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -586,6 +607,10 @@ namespace {
     auto dffeOutput = SNLScalarTerm::create(dffe, Term3ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffeClock, {dffeOutput});
     SNLDesignModeling::addInputsToClockArcs({dffeData, dffeEnable}, dffeClock);
+    SNLDesignModeling::setTermRole(dffeClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffeData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffeOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffeEnable, SNLDesignModeling::SNLTermRole::Enable);
   }
 
   void createDFFREPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -603,6 +628,11 @@ namespace {
     auto dffreOutput = SNLScalarTerm::create(dffre, Term4ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffreClock, {dffreOutput});
     SNLDesignModeling::addInputsToClockArcs({dffreData, dffreEnable, dffreReset}, dffreClock);
+    SNLDesignModeling::setTermRole(dffreClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffreData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffreOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffreEnable, SNLDesignModeling::SNLTermRole::Enable);
+    SNLDesignModeling::setTermRole(dffreReset, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::High);
   }
 
   void createDFFSEPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -620,6 +650,11 @@ namespace {
     auto dffseOutput = SNLScalarTerm::create(dffse, Term4ID, SNLTerm::Direction::Output, NLName("Q"));
     SNLDesignModeling::addClockToOutputsArcs(dffseClock, {dffseOutput});
     SNLDesignModeling::addInputsToClockArcs({dffseData, dffseEnable, dffseSet}, dffseClock);
+    SNLDesignModeling::setTermRole(dffseClock, SNLDesignModeling::SNLTermRole::Clock);
+    SNLDesignModeling::setTermRole(dffseData, SNLDesignModeling::SNLTermRole::DataInput);
+    SNLDesignModeling::setTermRole(dffseOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    SNLDesignModeling::setTermRole(dffseEnable, SNLDesignModeling::SNLTermRole::Enable);
+    SNLDesignModeling::setTermRole(dffseSet, SNLDesignModeling::SNLTermRole::AsyncSet, SNLDesignModeling::SNLActiveLevel::High);
   }
 
   void createSequentialWidthPrimitive(
@@ -627,7 +662,11 @@ namespace {
     const char* prefix,
     size_t width,
     const char* asyncControlName,
-    bool enableControl) {
+    bool enableControl,
+    naja::NL::SNLDesignModeling::SNLTermRole asyncControlRole =
+      naja::NL::SNLDesignModeling::SNLTermRole::Other,
+    naja::NL::SNLDesignModeling::SNLActiveLevel asyncControlLevel =
+      naja::NL::SNLDesignModeling::SNLActiveLevel::NA) {
     using namespace naja::NL;
     auto seq = SNLDesign::create(
       rootLibrary,
@@ -671,6 +710,19 @@ namespace {
     }
     SNLDesignModeling::addClockToOutputsArcs(clock, outputBits);
     SNLDesignModeling::addInputsToClockArcs(clockInputs, clock);
+    SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
+    for (auto* term : dataBits) {
+      SNLDesignModeling::setTermRole(term, SNLDesignModeling::SNLTermRole::DataInput);
+    }
+    for (auto* term : outputBits) {
+      SNLDesignModeling::setTermRole(term, SNLDesignModeling::SNLTermRole::DataOutput);
+    }
+    if (enable) {
+      SNLDesignModeling::setTermRole(enable, SNLDesignModeling::SNLTermRole::Enable);
+    }
+    if (asyncControl) {
+      SNLDesignModeling::setTermRole(asyncControl, asyncControlRole, asyncControlLevel);
+    }
   }
 
   void createSequentialWidthPrimitive(
@@ -695,6 +747,13 @@ namespace {
     auto outputBits = collectBitTerms(*output);
     SNLDesignModeling::addClockToOutputsArcs(enable, outputBits);
     SNLDesignModeling::addInputsToClockArcs(dataBits, enable);
+    SNLDesignModeling::setTermRole(enable, SNLDesignModeling::SNLTermRole::Enable);
+    for (auto* term : dataBits) {
+      SNLDesignModeling::setTermRole(term, SNLDesignModeling::SNLTermRole::DataInput);
+    }
+    for (auto* term : outputBits) {
+      SNLDesignModeling::setTermRole(term, SNLDesignModeling::SNLTermRole::DataOutput);
+    }
   }
 
   void createMux2Primitive(naja::NL::NLLibrary* rootLibrary, size_t width) {
@@ -1770,7 +1829,10 @@ SNLDesign* NLDB0::getOrCreateDFFRN(size_t width) {
     DFFRNPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFRNPrefix, width, "RN", false);
+      createSequentialWidthPrimitive(
+        primitives, DFFRNPrefix, width, "RN", false,
+        SNLDesignModeling::SNLTermRole::AsyncReset,
+        SNLDesignModeling::SNLActiveLevel::Low);
     });
 }
 
@@ -1826,7 +1888,10 @@ SNLDesign* NLDB0::getOrCreateDFFR(size_t width) {
     DFFRPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFRPrefix, width, "R", false);
+      createSequentialWidthPrimitive(
+        primitives, DFFRPrefix, width, "R", false,
+        SNLDesignModeling::SNLTermRole::AsyncReset,
+        SNLDesignModeling::SNLActiveLevel::High);
     });
 }
 
@@ -1882,7 +1947,10 @@ SNLDesign* NLDB0::getOrCreateDFFS(size_t width) {
     DFFSPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFSPrefix, width, "S", false);
+      createSequentialWidthPrimitive(
+        primitives, DFFSPrefix, width, "S", false,
+        SNLDesignModeling::SNLTermRole::AsyncSet,
+        SNLDesignModeling::SNLActiveLevel::High);
     });
 }
 
@@ -1994,7 +2062,10 @@ SNLDesign* NLDB0::getOrCreateDFFRE(size_t width) {
     DFFREPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFREPrefix, width, "R", true);
+      createSequentialWidthPrimitive(
+        primitives, DFFREPrefix, width, "R", true,
+        SNLDesignModeling::SNLTermRole::AsyncReset,
+        SNLDesignModeling::SNLActiveLevel::High);
     });
 }
 
@@ -2058,7 +2129,10 @@ SNLDesign* NLDB0::getOrCreateDFFSE(size_t width) {
     DFFSEPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFSEPrefix, width, "S", true);
+      createSequentialWidthPrimitive(
+        primitives, DFFSEPrefix, width, "S", true,
+        SNLDesignModeling::SNLTermRole::AsyncSet,
+        SNLDesignModeling::SNLActiveLevel::High);
     });
 }
 

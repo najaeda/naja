@@ -24,6 +24,8 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"
 #include "PySNLTermDirection.h"
+#include "PySNLTermRole.h"
+#include "PySNLActiveLevel.h"
 #include "PySNLBundleTerm.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTermBit.h"
@@ -729,6 +731,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLNetComponent_LinkPyType ();
   PySNLTerm_LinkPyType();
   PySNLTermDirection_LinkPyType();
+  PySNLTermRole_LinkPyType();
+  PySNLActiveLevel_LinkPyType();
   PySNLBundleTerm_LinkPyType();
   PySNLBusTerm_LinkPyType();
   PySNLBitTerm_LinkPyType();
@@ -829,6 +833,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLInstParametersIterator);
   PYTYPE_READY(SNLInstTerms);
   PYTYPE_READY(SNLInstTermsIterator);
+  PYTYPE_READY(SNLTermRole);
+  PYTYPE_READY(SNLActiveLevel);
   PYTYPE_READY(SNLOccurrences);
   PYTYPE_READY(SNLOccurrencesIterator);
 
@@ -871,6 +877,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLInstance);
   PyModule_AddType(mod, &PyTypeSNLInstParameter);
   PyModule_AddType(mod, &PyTypeSNLInstTerm);
+  PyModule_AddType(mod, &PyTypeSNLTermRole);
+  PyModule_AddType(mod, &PyTypeSNLActiveLevel);
   PyModule_AddType(mod, &PyTypeSNLPath);
   PyModule_AddType(mod, &PyTypeSNLUniquifier);
   PyModule_AddType(mod, &PyTypeSNLOccurrence);
@@ -881,6 +889,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
   PyLogicCone_postModuleInit();
+  PySNLTermRole_postModuleInit();
+  PySNLActiveLevel_postModuleInit();
 
   return mod;
 }

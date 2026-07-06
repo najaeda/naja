@@ -27,6 +27,16 @@ class SNLDesign;
  */
 class SNLDesignModeling {
   public:
+    enum class SNLTermRole {
+      Clock, DataInput, DataOutput, AsyncReset, AsyncSet, Enable,
+      MemoryReadAddress, MemoryReadData, MemoryWriteAddress,
+      MemoryWriteData, MemoryWriteEnable, Other
+    };
+    enum class SNLActiveLevel { High, Low, NA };
+    struct TermRole {
+      SNLTermRole role {SNLTermRole::Other};
+      SNLActiveLevel activeLevel {SNLActiveLevel::NA};
+    };
     using TermArcs = std::set<SNLBitTerm*, SNLBitTerm::InDesignLess>;
     using Arcs = std::map<SNLBitTerm*, TermArcs, SNLBitTerm::InDesignLess>;
     struct TimingArcs {
@@ -104,6 +114,31 @@ class SNLDesignModeling {
     static NajaCollection<SNLInstTerm*> getInputRelatedClocks(SNLInstTerm* iinput);
     static NajaCollection<SNLInstTerm*> getClockRelatedOutputs(SNLInstTerm* iclock);
     static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
+    static void setTermRole(SNLBitTerm* term, SNLTermRole role,
+        SNLActiveLevel activeLevel = SNLActiveLevel::NA);
+    static SNLTermRole getTermRole(const SNLBitTerm* term);
+    static SNLTermRole getTermRole(const SNLInstTerm* term);
+    static SNLActiveLevel getResetActiveLevel(const SNLBitTerm* term);
+    static SNLActiveLevel getResetActiveLevel(const SNLInstTerm* term);
+    static bool isClock(const SNLBitTerm* term);
+    static bool isClock(const SNLInstTerm* term);
+    static bool isAsyncReset(const SNLBitTerm* term);
+    static bool isAsyncReset(const SNLInstTerm* term);
+    static bool isAsyncSet(const SNLBitTerm* term);
+    static bool isAsyncSet(const SNLInstTerm* term);
+    static bool isReset(const SNLBitTerm* term);
+    static bool isReset(const SNLInstTerm* term);
+    static bool isEnable(const SNLBitTerm* term);
+    static bool isEnable(const SNLInstTerm* term);
+    static bool isDataInput(const SNLBitTerm* term);
+    static bool isDataInput(const SNLInstTerm* term);
+    static bool isDataOutput(const SNLBitTerm* term);
+    static bool isDataOutput(const SNLInstTerm* term);
+    static NajaCollection<SNLBitTerm*> getClockTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getAsyncResetTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getAsyncSetTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getDataInputTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getOutputTerms(const SNLDesign* design);
     // Attach or query a memory interface on a primitive design. For DB0 memory
     // primitives the interface is synthesized from the existing DB0 signature,
     // and for instances the returned interface is filtered to connected ports.
@@ -150,10 +185,18 @@ class SNLDesignModeling {
     void setMemoryInterface_(const MemoryInterface& memInterface) { memoryInterface_ = memInterface; }
     bool hasMemoryInterface_() const { return memoryInterface_.has_value(); }
     MemoryInterface getMemoryInterface_() const { return *memoryInterface_; }
+    void setTermRole_(SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
+      termRoles_[term] = {role, activeLevel};
+    }
+    TermRole getTermRole_(const SNLBitTerm* term) const {
+      auto it = termRoles_.find(const_cast<SNLBitTerm*>(term));
+      return it == termRoles_.end() ? TermRole{} : it->second;
+    }
     Type          type_       { NO_PARAMETER };
     Parameter     parameter_  {};
     TimingModel   model_      {};
     std::optional<MemoryInterface> memoryInterface_ {};
+    std::map<SNLBitTerm*, TermRole, SNLBitTerm::InDesignLess> termRoles_ {};
 };
 
 }  // namespace naja::NL

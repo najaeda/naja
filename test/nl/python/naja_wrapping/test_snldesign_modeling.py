@@ -2,15 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import unittest
 import naja
 
 class SNLDesignModelingTest(unittest.TestCase):
   def setUp(self):
     universe = naja.NLUniverse.create()
-    db = naja.NLDB.create(universe)
-    self.designs = naja.NLLibrary.create(db)
-    self.primitives = naja.NLLibrary.createPrimitives(db)
+    self.db = naja.NLDB.create(universe)
+    self.designs = naja.NLLibrary.create(self.db)
+    self.primitives = naja.NLLibrary.createPrimitives(self.db)
 
   def tearDown(self):
     del self.designs
@@ -23,6 +24,56 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertFalse(self.designs.isPrimitives())
     self.assertTrue(self.primitives.isPrimitives())
     self.assertFalse(self.primitives.isStandard())
+
+  def testLoweredSequentialTermRoles(self):
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    async_path = os.path.join(
+      formats_path, "systemverilog", "benchmarks",
+      "seq_timing_event_list_negedge_reset_supported",
+      "seq_timing_event_list_negedge_reset_supported.sv")
+    top = self.db.loadSystemVerilog([async_path])
+    dffrn_inst = next(
+      inst for inst in top.getPrimitiveInstances()
+      if inst.getModel().getName().startswith("naja_dffrn"))
+    dffrn = dffrn_inst.getModel()
+
+    clocks = list(dffrn.getClockTerms())
+    resets = list(dffrn.getAsyncResetTerms())
+    data_inputs = list(dffrn.getDataInputTerms())
+    outputs = list(dffrn.getOutputTerms())
+    self.assertEqual(1, len(clocks))
+    self.assertEqual(1, len(resets))
+    self.assertEqual(8, len(data_inputs))
+    self.assertEqual(8, len(outputs))
+    self.assertEqual(naja.SNLTermRole.Clock, clocks[0].getRole())
+    self.assertTrue(clocks[0].is_clock())
+    self.assertEqual(naja.SNLTermRole.AsyncReset, resets[0].getRole())
+    self.assertEqual(naja.SNLActiveLevel.Low, resets[0].getResetActiveLevel())
+    self.assertTrue(resets[0].is_async_reset())
+    self.assertTrue(resets[0].is_reset())
+    self.assertEqual(9, len(list(naja.SNLDesign.getClockRelatedInputs(clocks[0]))))
+    self.assertTrue(all(term.is_data_input() for term in data_inputs))
+    self.assertTrue(all(term.is_data_output() for term in outputs))
+
+    reset_inst_term = next(
+      term for term in dffrn_inst.getInstTerms() if term.is_async_reset())
+    self.assertEqual(naja.SNLTermRole.AsyncReset, reset_inst_term.getRole())
+    self.assertEqual(
+      naja.SNLActiveLevel.Low, reset_inst_term.getResetActiveLevel())
+
+    sync_path = os.path.join(
+      formats_path, "systemverilog", "benchmarks",
+      "seq_reset_action_supported", "seq_reset_action_supported.sv")
+    sync_db = naja.NLDB.create(naja.NLUniverse.get())
+    sync_top = sync_db.loadSystemVerilog([sync_path])
+    dff = next(
+      inst.getModel() for inst in sync_top.getPrimitiveInstances()
+      if inst.getModel().getName().startswith("naja_dff__"))
+    self.assertEqual([], list(dff.getAsyncResetTerms()))
+    self.assertTrue(all(
+      term.getRole() != naja.SNLTermRole.AsyncReset
+      for term in dff.getBitTerms()))
 
   def testCombi(self):
     design = naja.SNLDesign.createPrimitive(self.primitives, "DESIGN")

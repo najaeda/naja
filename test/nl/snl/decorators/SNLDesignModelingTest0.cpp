@@ -193,6 +193,63 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
     ElementsAre(regIns->getInstTerm(regC)));
 }
 
+TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
+  using Role = SNLDesignModeling::SNLTermRole;
+  using Level = SNLDesignModeling::SNLActiveLevel;
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("REG"));
+  auto* clock = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("CLK"));
+  auto* data = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("DIN"));
+  auto* reset = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("RESET_B"));
+  auto* output = SNLScalarTerm::create(reg, SNLTerm::Direction::Output, NLName("DOUT"));
+  auto* other = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("UNMODELED"));
+
+  SNLDesignModeling::setTermRole(clock, Role::Clock);
+  SNLDesignModeling::setTermRole(data, Role::DataInput);
+  SNLDesignModeling::setTermRole(reset, Role::AsyncReset, Level::Low);
+  SNLDesignModeling::setTermRole(output, Role::DataOutput);
+
+  EXPECT_TRUE(SNLDesignModeling::isClock(clock));
+  EXPECT_TRUE(SNLDesignModeling::isDataInput(data));
+  EXPECT_TRUE(SNLDesignModeling::isAsyncReset(reset));
+  EXPECT_TRUE(SNLDesignModeling::isReset(reset));
+  EXPECT_EQ(Level::Low, SNLDesignModeling::getResetActiveLevel(reset));
+  EXPECT_TRUE(SNLDesignModeling::isDataOutput(output));
+  EXPECT_EQ(Role::Other, SNLDesignModeling::getTermRole(other));
+  EXPECT_EQ(Level::NA, SNLDesignModeling::getResetActiveLevel(other));
+
+  EXPECT_THAT(std::vector(SNLDesignModeling::getClockTerms(reg).begin(),
+                          SNLDesignModeling::getClockTerms(reg).end()),
+              ElementsAre(clock));
+  EXPECT_THAT(std::vector(SNLDesignModeling::getAsyncResetTerms(reg).begin(),
+                          SNLDesignModeling::getAsyncResetTerms(reg).end()),
+              ElementsAre(reset));
+  EXPECT_THAT(std::vector(SNLDesignModeling::getDataInputTerms(reg).begin(),
+                          SNLDesignModeling::getDataInputTerms(reg).end()),
+              ElementsAre(data));
+  EXPECT_THAT(std::vector(SNLDesignModeling::getOutputTerms(reg).begin(),
+                          SNLDesignModeling::getOutputTerms(reg).end()),
+              ElementsAre(output));
+
+  auto* instance = SNLInstance::create(top, reg, NLName("reg"));
+  EXPECT_TRUE(SNLDesignModeling::isClock(instance->getInstTerm(clock)));
+  EXPECT_TRUE(SNLDesignModeling::isAsyncReset(instance->getInstTerm(reset)));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(instance->getInstTerm(reset)));
+
+  auto* gate = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("GATE"));
+  auto* gateInput = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, NLName("A"));
+  EXPECT_EQ(Role::Other, SNLDesignModeling::getTermRole(gateInput));
+  EXPECT_TRUE(SNLDesignModeling::getClockTerms(gate).empty());
+  EXPECT_TRUE(SNLDesignModeling::getAsyncResetTerms(gate).empty());
+  EXPECT_TRUE(SNLDesignModeling::getDataInputTerms(gate).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputTerms(gate).empty());
+}
+
 TEST_F(SNLDesignModelingTest0, testManualMemoryInterfaceSurvivesOnInstances) {
   NLUniverse::create();
   auto db = NLDB::create(NLUniverse::get());
