@@ -32,7 +32,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
       bool                        preprocessEnabled_            {false};  ///< If true, preprocess Verilog sources before parsing.
       bool                        blackboxDetection_            {true};   ///< If true, detect blackbox designs.
-      bool                        allowUnknownDesigns_          {false};  ///< If true, allow unknown designs to be created as blackbox.
+      bool                        blackboxUnknownModules_       {false};  ///< If true, unknown module instantiations are created as AutoBlackBox designs.
       ConflictingDesignNamePolicy conflictingDesignNamePolicy_  {ConflictingDesignNamePolicy::Forbid};
     };
 

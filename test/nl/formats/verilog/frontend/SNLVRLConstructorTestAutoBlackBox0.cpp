@@ -41,7 +41,7 @@ class SNLVRLConstructorTestAutoBlackBox0: public ::testing::Test {
 TEST_F(SNLVRLConstructorTestAutoBlackBox0, test) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
-  constructor.config_.allowUnknownDesigns_ = true;
+  constructor.config_.blackboxUnknownModules_ = true;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"auto_blackbox_test0.v");
 
@@ -77,7 +77,7 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox0, test) {
 TEST_F(SNLVRLConstructorTestAutoBlackBox0, testLoadAndDump) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
-  constructor.config_.allowUnknownDesigns_ = true;
+  constructor.config_.blackboxUnknownModules_ = true;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"auto_blackbox_test0.v");
   constructor.setFirstPass(false);

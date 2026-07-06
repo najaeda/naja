@@ -68,7 +68,7 @@ TEST_F(SNLVRLConstructorTestEmptyInstanceConnection, testKnownModel) {
 TEST_F(SNLVRLConstructorTestEmptyInstanceConnection, testUnknownModel) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
-  constructor.config_.allowUnknownDesigns_ = true;
+  constructor.config_.blackboxUnknownModules_ = true;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"test_empty_instance_connection1.v");
   auto test0 = library_->getSNLDesign(NLName("test_empty_instance_connection"));

@@ -5,6 +5,7 @@
 
 import time
 import logging
+import warnings
 import hashlib
 import struct
 import sys
@@ -1894,12 +1895,17 @@ def create_top(name: str) -> Instance:
 @dataclass
 class VerilogConfig:
     keep_assigns: bool = True
-    allow_unknown_designs: bool = False
+    # Treat instantiations of unresolved (unknown) modules as AutoBlackBox cells
+    # instead of failing the load.
+    blackbox_unknown_modules: bool = False
     # Enable Verilog preprocessing (e.g. `define/ifdef/include).
     preprocess_enabled: bool = False
     # How to handle duplicate module names in the same library.
     # Accepted values: "forbid" (default), "first", "last", "verify".
     conflicting_design_name_policy: str = "forbid"
+    # Deprecated alias for blackbox_unknown_modules; kept for backward
+    # compatibility. Use blackbox_unknown_modules instead.
+    allow_unknown_designs: bool = None
 
     def __post_init__(self):
         allowed = {"forbid", "first", "last", "verify"}
@@ -1909,6 +1915,15 @@ class VerilogConfig:
                 f"{self.conflicting_design_name_policy!r}. "
                 "Expected one of: forbid, first, last, verify."
             )
+        if self.allow_unknown_designs is not None:
+            warnings.warn(
+                "VerilogConfig.allow_unknown_designs is deprecated; "
+                "use blackbox_unknown_modules instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.blackbox_unknown_modules = (
+                self.blackbox_unknown_modules or self.allow_unknown_designs)
 
 
 @dataclass
@@ -1939,6 +1954,10 @@ class SystemVerilogConfig:
     defines: list = None  # Slang preprocessor defines (e.g. ["SYNTHESIS", "WIDTH=32"])
     suppress_warnings: list = None  # Slang warning names to suppress (e.g. ["sign-conversion"])
     keep_ast_link: bool = False  # Keep live Slang AST to SNL object links when supported.
+    # Treat instantiations of unresolved (unknown) modules as AutoBlackBox cells
+    # instead of failing the load. Ports are inferred from the instantiation's
+    # connections (direction InOut, width from the connected expression).
+    blackbox_unknown_modules: bool = False
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1961,7 +1980,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
-        allow_unknown_designs=config.allow_unknown_designs,
+        blackbox_unknown_modules=config.blackbox_unknown_modules,
         preprocess_enabled=config.preprocess_enabled,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
@@ -2010,6 +2029,10 @@ def load_system_verilog(
         raise ValueError(
             "SystemVerilogConfig.keep_ast_link must be a bool "
             f"(got {type(config.keep_ast_link).__name__})")
+    if not isinstance(config.blackbox_unknown_modules, bool):
+        raise ValueError(
+            "SystemVerilogConfig.blackbox_unknown_modules must be a bool "
+            f"(got {type(config.blackbox_unknown_modules).__name__})")
     if config.defines is not None:
         if not isinstance(config.defines, list):
             raise ValueError(
@@ -2049,6 +2072,7 @@ def load_system_verilog(
                 config.include_source_info_in_elaborated_ast_json),
             flist=effective_flist,
             defines=config.defines,
+            blackbox_unknown_modules=config.blackbox_unknown_modules,
             suppress_warnings=config.suppress_warnings,
             keep_ast_link=config.keep_ast_link,
         )

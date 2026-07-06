@@ -703,7 +703,7 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
       model = NLUniverse::get()->getSNLDesign(modelName);
     }
     if (not model) {
-      if (config_.allowUnknownDesigns_) {
+      if (config_.blackboxUnknownModules_) {
         NAJA_LOG_TRACE("Unknown design: {}", modelName.getString());
         auto autoBlackBoxLibrary = getOrCreateAutoBlackBoxLibrary(library_);
         model = getOrCreateAutoBlackBox(autoBlackBoxLibrary, modelName);
@@ -1055,7 +1055,7 @@ void SNLVRLConstructor::endModule() {
       }
     }
     //Allow unknown designs
-    if (config_.allowUnknownDesigns_ and currentModule_->isStandard()) {
+    if (config_.blackboxUnknownModules_ and currentModule_->isStandard()) {
       for (auto instance: currentModule_->getInstances()) {
         if (instance->isAutoBlackBox()) {
           //spdlog::info("Auto blackbox detected: {}", instance->getDesign()->getName().getString());

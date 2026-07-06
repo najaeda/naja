@@ -65,6 +65,7 @@
 #include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/TimingControl.h"
+#include "slang/ast/expressions/AssertionExpr.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/expressions/ConversionExpression.h"
@@ -87,6 +88,7 @@
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/DiagnosticClient.h"
 #include "slang/diagnostics/Diagnostics.h"
+#include "slang/diagnostics/DeclarationsDiags.h"
 #include "slang/driver/Driver.h"
 #include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxTree.h"
@@ -333,16 +335,26 @@ struct CompilationFailureDetails {
 };
 
 std::optional<CompilationFailureDetails> getCompilationFailureDetails(
-  slang::ast::Compilation& compilation) {
+  slang::ast::Compilation& compilation,
+  bool ignoreUnknownModules = false) {
   const auto& diags = compilation.getAllDiagnostics();
   // Collect only error-level (and above) diagnostics so the failure message
   // is actionable.  Warnings are reported separately via the diagnostics
   // report dump and should not pollute the exception text.
   slang::Diagnostics errors;
   for (const auto& diag : diags) {
-    if (diag.isError()) {
-      errors.push_back(diag);
+    if (not diag.isError()) {
+      continue;
     }
+    // When blackboxing unknown modules, an unresolved instantiation is expected:
+    // slang still reports UnknownModule/UnknownPrimitive, but the constructor
+    // materializes an AutoBlackBox for it, so these must not be fatal.
+    if (ignoreUnknownModules and
+        (diag.code == slang::diag::UnknownModule or
+         diag.code == slang::diag::UnknownPrimitive)) {
+      continue;
+    }
+    errors.push_back(diag);
   }
   if (errors.empty()) {
     return std::nullopt;
@@ -1364,7 +1376,8 @@ class SNLSVConstructorImpl {
           recordSlangDiagnostics(getStructuredDiagnostics(
             *sourceManager, compilation_->getAllDiagnostics()));
         }
-        if (auto failure = getCompilationFailureDetails(*compilation_)) {
+        if (auto failure = getCompilationFailureDetails(
+              *compilation_, options_.blackboxUnknownModules)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfProgressLabelGuard progress(
             svPerfReport_,
@@ -4000,6 +4013,13 @@ endmodule
         }
 
         if (isLoweredInCoverageScope(sym.kind, coverageScope)) {
+          continue;
+        }
+
+        // Unresolved instantiations are lowered to AutoBlackBox instances when
+        // blackboxUnknownModules is enabled, so they are covered.
+        if (sym.kind == SymbolKind::UninstantiatedDef and
+            options_.blackboxUnknownModules) {
           continue;
         }
 
@@ -32304,6 +32324,15 @@ endmodule
             }
             continue;
           }
+          if (sym.kind == SymbolKind::UninstantiatedDef) {
+            // Unresolved module/primitive instantiation. When enabled, model it
+            // as an AutoBlackBox instead of letting the load fail.
+            if (options_.blackboxUnknownModules) {
+              createUnknownModuleBlackbox(
+                design, sym.as<slang::ast::UninstantiatedDefSymbol>());
+            }
+            continue;
+          }
           if (sym.kind != SymbolKind::Instance) {
             continue;
           }
@@ -32328,6 +32357,133 @@ endmodule
         }
       };
       visitScope(body);
+    }
+
+    // Unwrap the self-determined port expression carried by an unknown
+    // instantiation (slang wraps plain port actuals in a SimpleAssertionExpr).
+    static const Expression* getUninstantiatedPortExpr(
+      const slang::ast::AssertionExpr* ae) {
+      if (ae == nullptr) {
+        return nullptr;
+      }
+      if (ae->kind == slang::ast::AssertionExprKind::Simple) {
+        return &ae->as<slang::ast::SimpleAssertionExpr>().expr;
+      }
+      return nullptr;
+    }
+
+    // Materialize (or reuse) an AutoBlackBox model for an unresolved module and
+    // instantiate it. Port terms are inferred from the instantiation: names come
+    // from named connections, widths from the connected expression, and the
+    // direction defaults to InOut since it cannot be known from the actual.
+    void createUnknownModuleBlackbox(
+      SNLDesign* design,
+      const slang::ast::UninstantiatedDefSymbol& uninst) {
+      std::string modelName(uninst.definitionName);
+      if (modelName.empty()) {
+        return; // LCOV_EXCL_LINE
+      }
+      const auto portNames = uninst.getPortNames();
+      const auto portConns = uninst.getPortConnections();
+
+      SNLDesign* model = nullptr;
+      auto it = unknownBlackboxes_.find(modelName);
+      if (it != unknownBlackboxes_.end()) {
+        model = it->second;
+      } else {
+        model = SNLDesign::create(library_, NLName(modelName));
+        model->setType(SNLDesign::Type::AutoBlackBox);
+        for (size_t i = 0; i < portNames.size(); ++i) {
+          std::string portName(portNames[i]);
+          if (portName.empty()) {
+            // Ordered/unnamed connection: synthesize a positional name.
+            portName = "p" + std::to_string(i);
+          }
+          if (model->getTerm(NLName(portName))) {
+            continue; // LCOV_EXCL_LINE
+          }
+          size_t width = 1;
+          if (i < portConns.size()) {
+            if (const auto* expr = getUninstantiatedPortExpr(portConns[i])) {
+              if (expr->type) {
+                const auto bw = expr->type->getBitWidth();
+                if (bw > 0) {
+                  width = bw;
+                }
+              }
+            }
+          }
+          if (width > 1) {
+            SNLBusTerm::create(
+              model, SNLTerm::Direction::InOut,
+              static_cast<NLID::Bit>(width - 1), 0, NLName(portName));
+          } else {
+            SNLScalarTerm::create(
+              model, SNLTerm::Direction::InOut, NLName(portName));
+          }
+        }
+        unknownBlackboxes_.emplace(modelName, model);
+      }
+
+      auto inst = SNLInstance::create(
+        design, model, NLName(std::string(uninst.name)));
+      annotateSourceInfo(inst, getSourceRange(uninst));
+
+      // Wire the connections we can resolve; unresolved actuals are left
+      // dangling rather than failing the load.
+      for (size_t i = 0; i < portNames.size(); ++i) {
+        std::string portName(portNames[i]);
+        if (portName.empty()) {
+          portName = "p" + std::to_string(i);
+        }
+        auto* term = model->getTerm(NLName(portName));
+        if (!term || i >= portConns.size()) {
+          continue;
+        }
+        const auto* expr = getUninstantiatedPortExpr(portConns[i]);
+        if (!expr) {
+          continue;
+        }
+        // Resolve the actual to per-bit nets. resolveExpressionBits handles
+        // whole nets as well as bit/part-selects and concatenations, so it
+        // covers the connection forms vendor cells use.
+        auto* st = dynamic_cast<SNLScalarTerm*>(term);
+        auto* bt = dynamic_cast<SNLBusTerm*>(term);
+        const size_t termWidth =
+          bt ? static_cast<size_t>(
+                 (bt->getMSB() >= bt->getLSB()
+                    ? bt->getMSB() - bt->getLSB()
+                    : bt->getLSB() - bt->getMSB()) + 1)
+             : 1u;
+        std::vector<SNLBitNet*> bits;
+        if (!resolveExpressionBits(inst->getDesign(), *expr, termWidth, bits)) {
+          // Fallback: whole-net reference of possibly different width.
+          if (auto* net = resolveExpressionNet(inst->getDesign(), *expr)) {
+            bits = collectBits(net);
+          }
+        }
+        if (bits.empty()) {
+          continue;
+        }
+        if (st) {
+          auto* si = inst->getInstTerm(st);
+          if (si && bits.front()) {
+            si->setNet(bits.front());
+          }
+        } else if (bt) {
+          auto msb = bt->getMSB(), lsb = bt->getLSB();
+          auto step = lsb <= msb ? 1 : -1;
+          size_t idx = 0;
+          for (auto b = lsb; b != msb + step && idx < bits.size();
+               b += step, ++idx) {
+            auto* bb = bt->getBit(b);
+            auto* si = bb ? inst->getInstTerm(bb) : nullptr;
+            if (si && bits[idx]) {
+              si->setNet(bits[idx]);
+            }
+          }
+        }
+      }
     }
 
     void connectInstance(SNLInstance* inst, const InstanceSymbol& instance) {
@@ -32828,6 +32984,10 @@ endmodule
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
     std::unique_ptr<SNLSVLiveASTLink> liveASTLink_;
     std::unordered_map<const InstanceBodySymbol*, SNLDesign*> bodyToDesign_;
+    // AutoBlackBox models materialized for unresolved (unknown) module
+    // instantiations, keyed by the unknown definition name so repeated
+    // instantiations share a single model.
+    std::unordered_map<std::string, SNLDesign*> unknownBlackboxes_;
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;
