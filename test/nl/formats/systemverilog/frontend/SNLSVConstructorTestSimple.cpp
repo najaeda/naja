@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -228,6 +229,69 @@ SNLNet* traceSingleAssignInputDriving(SNLNet* net) {
     return net;
   }
   return inputTerm->getNet();
+}
+
+bool haveEquivalentFanIn(
+    SNLBitNet* lhs,
+    SNLBitNet* rhs,
+    std::set<std::pair<SNLBitNet*, SNLBitNet*>>& visited) {
+  if (!lhs || !rhs) {
+    return lhs == rhs;
+  }
+  lhs = dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(lhs));
+  rhs = dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(rhs));
+  if (!lhs || !rhs) {
+    return lhs == rhs;
+  }
+  if (lhs == rhs) {
+    return true;
+  }
+  if (lhs->isConstant() || rhs->isConstant()) {
+    return lhs->getType() == rhs->getType();
+  }
+  if (!visited.emplace(lhs, rhs).second) {
+    return true;
+  }
+
+  auto findDriver = [](SNLBitNet* net) -> SNLInstance* {
+    SNLInstance* driver = nullptr;
+    for (auto* instTerm : net->getInstTerms()) {
+      if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
+        continue;
+      }
+      if (driver && driver != instTerm->getInstance()) {
+        return nullptr;
+      }
+      driver = instTerm->getInstance();
+    }
+    return driver;
+  };
+
+  auto* lhsDriver = findDriver(lhs);
+  auto* rhsDriver = findDriver(rhs);
+  if (!lhsDriver || !rhsDriver || lhsDriver->getModel() != rhsDriver->getModel()) {
+    return false;
+  }
+  for (auto* lhsInput : lhsDriver->getInstTerms()) {
+    if (!lhsInput || lhsInput->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto* rhsInput = rhsDriver->getInstTerm(lhsInput->getBitTerm());
+    if (!rhsInput) {
+      return false;
+    }
+    auto* lhsInputNet = dynamic_cast<SNLBitNet*>(lhsInput->getNet());
+    auto* rhsInputNet = dynamic_cast<SNLBitNet*>(rhsInput->getNet());
+    if (!haveEquivalentFanIn(lhsInputNet, rhsInputNet, visited)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool haveEquivalentFanIn(SNLBitNet* lhs, SNLBitNet* rhs) {
+  std::set<std::pair<SNLBitNet*, SNLBitNet*>> visited;
+  return haveEquivalentFanIn(lhs, rhs, visited);
 }
 
 size_t getPrimitiveWidth(const SNLInstance* instance) {
@@ -1035,6 +1099,167 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
     std::istreambuf_iterator<char>()};
   EXPECT_NE(dumpedWithVerboseRTLInfosText.find("sv_src_file"), std::string::npos);
   EXPECT_EQ(dumpedWithVerboseRTLInfosText.find("naja_sv_src=\""), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationBinaryInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_binary_initializer",
+    R"(module net_declaration_binary_initializer(
+  input logic a,
+  input logic b,
+  output logic y_decl,
+  output logic y_assign
+);
+  wire w_decl = a ^ b;
+  wire w_assign;
+  assign w_assign = a ^ b;
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("net_declaration_binary_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* wDecl = dynamic_cast<SNLBitNet*>(top->getNet(NLName("w_decl")));
+  auto* wAssign = dynamic_cast<SNLBitNet*>(top->getNet(NLName("w_assign")));
+  ASSERT_NE(nullptr, wDecl);
+  ASSERT_NE(nullptr, wAssign);
+  EXPECT_TRUE(haveEquivalentFanIn(wDecl, wAssign));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGeneratedPackedNetInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "generated_packed_net_initializer",
+    R"(module generated_packed_net_initializer(
+  input logic [3:0] a,
+  input logic [3:0] b,
+  output logic [3:0] y_decl,
+  output logic [3:0] y_assign
+);
+  if (1) begin : g
+    wire [3:0] w_decl = a & b;
+    wire [3:0] w_assign;
+    assign w_assign = a & b;
+    assign y_decl = w_decl;
+    assign y_assign = w_assign;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("generated_packed_net_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+  EXPECT_EQ(8u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationConstantInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_constant_initializer",
+    R"(module net_declaration_constant_initializer(
+  output logic [3:0] y_decl,
+  output logic [3:0] y_assign
+);
+  wire [3:0] w_decl = 4'b1010;
+  wire [3:0] w_assign;
+  assign w_assign = 4'b1010;
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("net_declaration_constant_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationConcatReductionInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_concat_reduction_initializer",
+    R"(module net_declaration_concat_reduction_initializer(
+  input logic [1:0] a,
+  input logic [3:0] b,
+  output logic [2:0] y_decl,
+  output logic [2:0] y_assign
+);
+  wire [2:0] w_decl = {a, ^b};
+  wire [2:0] w_assign;
+  assign w_assign = {a, ^b};
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("net_declaration_concat_reduction_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 3; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+  EXPECT_EQ(6u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedNetInitializerIsReported) {
+  const auto svPath = writeSVTestFile(
+    "unsupported_net_initializer",
+    R"(module unsupported_net_initializer(output logic y);
+  wire value = $urandom;
+  assign y = value;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign", "Call width=32"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseVariableDeclarationInitializerIsReported) {
+  const auto svPath = writeSVTestFile(
+    "unsupported_variable_declaration_initializer",
+    R"(module unsupported_variable_declaration_initializer(
+  input logic a,
+  output logic y
+);
+  logic state = a;
+  assign y = state;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported variable declaration initializer", "initial-time procedural semantics"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {

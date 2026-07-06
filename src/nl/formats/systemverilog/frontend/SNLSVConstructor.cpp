@@ -1342,6 +1342,7 @@ class SNLSVConstructorImpl {
       diagnosticsReportFinalized_ = false;
       warnedUninferredMemorySymbols_.clear();
       handledInitialBlocks_.clear();
+      loweredNetInitializers_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
@@ -4010,6 +4011,35 @@ endmodule
             }
           }
           continue;
+        }
+
+        if (sym.kind == SymbolKind::Net) {
+          const auto& netSymbol = sym.as<slang::ast::NetSymbol>();
+          if (netSymbol.getInitializer() &&
+              !loweredNetInitializers_.contains(&netSymbol)) {
+            std::ostringstream reason;
+            reason << "Unsupported net declaration initializer in "
+                   << getLoweringCoverageScopeLabel(coverageScope)
+                   << " of module '" << moduleName << "': '" << netSymbol.name
+                   << "' was not visited by continuous-assignment lowering";
+            reportUnsupportedError(reason.str(), getSourceRange(netSymbol));
+            continue;
+          }
+        }
+
+        if (sym.kind == SymbolKind::Variable) {
+          const auto& variableSymbol = sym.as<slang::ast::VariableSymbol>();
+          if (variableSymbol.getInitializer() &&
+              !variableSymbol.flags.has(slang::ast::VariableFlags::Const)) {
+            std::ostringstream reason;
+            reason << "Unsupported variable declaration initializer in "
+                   << getLoweringCoverageScopeLabel(coverageScope)
+                   << " of module '" << moduleName << "': '"
+                   << variableSymbol.name
+                   << "' requires initial-time procedural semantics";
+            reportUnsupportedError(reason.str(), getSourceRange(variableSymbol));
+            continue;
+          }
         }
 
         if (isLoweredInCoverageScope(sym.kind, coverageScope)) {
@@ -31591,24 +31621,46 @@ endmodule
             }
             continue;
           }
-          if (sym.kind != SymbolKind::ContinuousAssign) {
+          std::optional<slang::ast::NamedValueExpression> netInitializerLhs;
+          const Expression* lhsExpression = nullptr;
+          const Expression* rhsExpression = nullptr;
+          std::optional<slang::SourceRange> assignSourceRange;
+          if (sym.kind == SymbolKind::ContinuousAssign) {
+            const auto& continuousAssign =
+              sym.as<slang::ast::ContinuousAssignSymbol>();
+            const auto& assignment = continuousAssign.getAssignment();
+            const auto& assignExpr =
+              assignment.as<slang::ast::AssignmentExpression>();
+            lhsExpression = &assignExpr.left();
+            rhsExpression = &assignExpr.right();
+            assignSourceRange = getSourceRange(assignExpr);
+          } else if (sym.kind == SymbolKind::Net) {
+            const auto& netSymbol = sym.as<slang::ast::NetSymbol>();
+            rhsExpression = netSymbol.getInitializer();
+            if (!rhsExpression) {
+              continue;
+            }
+            loweredNetInitializers_.insert(&netSymbol);
+            const auto lhsRange = slang::SourceRange{
+              netSymbol.location,
+              netSymbol.location + netSymbol.name.length()};
+            netInitializerLhs.emplace(netSymbol, lhsRange);
+            lhsExpression = &*netInitializerLhs;
+            assignSourceRange = getSourceRange(*rhsExpression);
+          } else {
             continue;
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.continuousAssignsVisited;
           noteSVPerfProgress();
 #endif
-        const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
-        const auto& assignment = continuousAssign.getAssignment();
-        const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
-        auto assignSourceRange = getSourceRange(assignExpr);
-        auto lhsNet = resolveExpressionNet(design, assignExpr.left());
+        auto lhsNet = resolveExpressionNet(design, *lhsExpression);
         std::vector<SNLBitNet*> lhsBits;
         bool lhsResolvedAsBitSlice = false;
         bool lhsResolvedAsPackedMemberSlice = false;
         bool lhsResolvedAsPackedArrayElement = false;
         if (!lhsNet) {
-          const auto* lhsExpr = stripConversions(assignExpr.left());
+          const auto* lhsExpr = stripConversions(*lhsExpression);
           const bool lhsIsSupportedSlice =
             lhsExpr &&
             (lhsExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
@@ -31616,10 +31668,10 @@ endmodule
              lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess ||
              lhsExpr->kind == slang::ast::ExpressionKind::Concatenation);
           if (lhsIsSupportedSlice) {
-            auto lhsWidth = getIntegralExpressionBitWidth(assignExpr.left());
+            auto lhsWidth = getIntegralExpressionBitWidth(*lhsExpression);
             if (lhsWidth && *lhsWidth) {
               const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
-              if (resolveExpressionBits(design, assignExpr.left(), lhsWidthBits, lhsBits) &&
+              if (resolveExpressionBits(design, *lhsExpression, lhsWidthBits, lhsBits) &&
                   lhsBits.size() == lhsWidthBits &&
                   !lhsBits.empty()) {
                 lhsResolvedAsBitSlice = true;
@@ -31660,7 +31712,7 @@ endmodule
           } // LCOV_EXCL_STOP
         }
 
-        const auto* rhs = stripConversions(assignExpr.right());
+        const auto* rhs = stripConversions(*rhsExpression);
 
         auto unwrapSignedUnsignedCastCall = [&](const Expression* exprPtr) -> const Expression* {
           const Expression* current = exprPtr;
@@ -32061,7 +32113,7 @@ endmodule
           }
 
           SNLNet* gateOutNet = nullptr;
-          std::string baseName = getExpressionBaseName(assignExpr.left());
+          std::string baseName = getExpressionBaseName(*lhsExpression);
           std::string gateOutName = joinName(gateType->getString(), baseName);
           if (gateType->isNOutput()) {
             gateOutNet = getOrCreateNamedNet(
@@ -32950,6 +33002,7 @@ endmodule
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
+    std::unordered_set<const slang::ast::NetSymbol*> loweredNetInitializers_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};
