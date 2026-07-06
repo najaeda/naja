@@ -1262,6 +1262,29 @@ endmodule
     {"Unsupported variable declaration initializer", "initial-time procedural semantics"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseUnusedGenerateVariableInitializerIsIgnored) {
+  const auto svPath = writeSVTestFile(
+    "unused_generate_variable_initializer",
+    R"(module unused_generate_variable_initializer(
+  input logic a,
+  input logic [1:0] b,
+  output logic y
+);
+  if (1) begin : gen_unused
+    logic unused_inputs = a & (|b);
+  end
+  assign y = a;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("unused_generate_variable_initializer"));
+  ASSERT_NE(nullptr, top);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

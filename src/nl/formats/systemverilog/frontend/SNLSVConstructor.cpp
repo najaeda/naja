@@ -3383,7 +3383,8 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
 #endif
-      validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
+      validateLoweringCoverage(
+        design, body, defName, LoweringCoverageScope::ModuleBody);
 
       if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -3980,6 +3981,7 @@ endmodule
     }
 
     void validateLoweringCoverage(
+      SNLDesign* design,
       const slang::ast::Scope& scope,
       const std::string& moduleName,
       LoweringCoverageScope coverageScope) {
@@ -3992,6 +3994,7 @@ endmodule
           const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
           if (!generateBlock.isUninstantiated) {
             validateLoweringCoverage(
+              design,
               generateBlock,
               moduleName,
               LoweringCoverageScope::GenerateBody);
@@ -4005,6 +4008,7 @@ endmodule
           for (const auto* entry : generateBlockArray.entries) {
             if (entry && !entry->isUninstantiated) {
               validateLoweringCoverage(
+                design,
                 *entry,
                 moduleName,
                 LoweringCoverageScope::GenerateBody);
@@ -4031,6 +4035,23 @@ endmodule
           const auto& variableSymbol = sym.as<slang::ast::VariableSymbol>();
           if (variableSymbol.getInitializer() &&
               !variableSymbol.flags.has(slang::ast::VariableFlags::Const)) {
+            // An initializer on an otherwise unconnected variable has no
+            // observable netlist behavior. This is a common lint idiom for
+            // consuming intentionally unused inputs in a generate branch.
+            // Keep rejecting initializers whose value is consumed because
+            // those require the declaration's initial-time semantics.
+            if (auto* net = getLoweredValueSymbolNet(design, variableSymbol)) {
+              bool unconnected = true;
+              for (auto* bit : net->getBits()) {
+                if (!bit->getComponents().empty()) {
+                  unconnected = false;
+                  break;
+                }
+              }
+              if (unconnected) {
+                continue;
+              }
+            }
             std::ostringstream reason;
             reason << "Unsupported variable declaration initializer in "
                    << getLoweringCoverageScopeLabel(coverageScope)
