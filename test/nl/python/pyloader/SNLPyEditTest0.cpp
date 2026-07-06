@@ -4,9 +4,14 @@
 
 #include "gtest/gtest.h"
 
+#include <filesystem>
+#include <fstream>
+#include <string>
+
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "NLException.h"
+#include "NajaLog.h"
 
 #include "SNLPyEdit.h"
 using namespace naja::NL;
@@ -14,6 +19,19 @@ using namespace naja::NL;
 #ifndef SNL_PYEDIT_TEST_PATH
 #define SNL_PYEDIT_TEST_PATH "Undefined"
 #endif
+
+#ifndef SNL_DUMP_PATH
+#define SNL_DUMP_PATH "Undefined"
+#endif
+
+namespace {
+std::string readFile(const std::filesystem::path& path) {
+  std::ifstream stream(path);
+  return std::string(
+    std::istreambuf_iterator<char>(stream),
+    std::istreambuf_iterator<char>());
+}
+}  // namespace
 
 class SNLPyDBEditTest0: public ::testing::Test {
   protected:
@@ -55,7 +73,28 @@ TEST_F(SNLPyDBEditTest0, test) {
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
   scriptPath /= "edit";
   scriptPath /= "edit_test0.py";
+
+  const auto nativeLogPath =
+    std::filesystem::path(SNL_DUMP_PATH) / "embedded_python_native.log";
+  const auto pythonLogPath =
+    std::filesystem::current_path() / "edit_test0.log";
+  std::filesystem::remove(nativeLogPath);
+  std::filesystem::remove(pythonLogPath);
+  naja::log::clearSinks();
+  naja::log::addFileSink(nativeLogPath.string());
+  naja::log::setLevel(spdlog::level::info);
   SNLPyEdit::edit(scriptPath);
+  naja::log::get()->flush();
+  const auto nativeLog = readFile(nativeLogPath);
+  EXPECT_NE(
+    std::string::npos,
+    nativeLog.find("[naja] [info] Found top design"));
+  naja::log::clearSinks();
+
+  ASSERT_TRUE(std::filesystem::exists(pythonLogPath));
+  EXPECT_NE(
+    std::string::npos,
+    readFile(pythonLogPath).find("INFO:root:Found top design"));
   EXPECT_EQ(NLName("instance00"), instance0->getName());
   EXPECT_EQ(nullptr, top->getInstance(NLName("instance0")));
   EXPECT_EQ(instance0, top->getInstance(NLName("instance00")));

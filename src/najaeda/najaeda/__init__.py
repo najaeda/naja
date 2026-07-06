@@ -13,5 +13,8 @@ except ModuleNotFoundError:
     naja = importlib.import_module(".naja", __name__)
 
 from ._version import version, git_hash
+from ._logging import configure_native_logging
 
-__all__ = ["naja", "version", "git_hash"]
+configure_native_logging()
+
+__all__ = ["naja", "version", "git_hash", "configure_native_logging"]

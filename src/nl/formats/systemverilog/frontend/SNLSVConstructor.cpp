@@ -24,6 +24,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
@@ -331,17 +332,6 @@ struct CompilationFailureDetails {
   std::vector<SNLSVDiagnostic> diagnostics;
 };
 
-std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation) {
-  const auto& diags = compilation.getAllDiagnostics();
-  if (diags.empty()) {
-    return {};
-  }
-  if (const auto* sourceManager = compilation.getSourceManager()) {
-    return getDiagnosticsReport(*sourceManager, diags);
-  }
-  return {}; // LCOV_EXCL_LINE
-}
-
 std::optional<CompilationFailureDetails> getCompilationFailureDetails(
   slang::ast::Compilation& compilation) {
   const auto& diags = compilation.getAllDiagnostics();
@@ -445,7 +435,8 @@ std::string makeUnsupportedCode(const std::string& reason) {
     return "sv.unsupported.inferred_memory." + // LCOV_EXCL_LINE compiler coverage artifact
       normalized.substr(inferredMemoryPrefix.size()); // LCOV_EXCL_LINE compiler coverage artifact
   }
-  if (std::string_view(normalized).starts_with("procedural_block_")) {
+  if (std::string_view(normalized).starts_with("procedural_block_") ||
+      std::string_view(normalized).starts_with("initial_block_")) {
     return "sv.unsupported.procedural_block";
   }
   return {};
@@ -612,6 +603,41 @@ bool tryGetInt64FromSVInt(const slang::SVInt& svInt, int64_t& value) {
   return true;
 }
 
+struct UnknownLiteralKinds {
+  bool hasX {false};
+  bool hasZ {false};
+
+  void add(slang::logic_t bit) {
+    hasX = hasX || exactlyEqual(bit, slang::logic_t::x);
+    hasZ = hasZ || exactlyEqual(bit, slang::logic_t::z);
+  }
+
+  void add(const slang::SVInt& value) {
+    for (slang::bitwidth_t index = 0; index < value.getBitWidth(); ++index) {
+      add(value[index]);
+    }
+  }
+
+  std::string label() const {
+    if (hasX && hasZ) {
+      return "X and Z";
+    }
+    if (hasZ) {
+      return "Z";
+    }
+    return "X";
+  }
+};
+
+std::string formatUnknownLiteralWarning(
+  std::string_view context,
+  const UnknownLiteralKinds& kinds) {
+  std::ostringstream message;
+  message << kinds.label() << " literal bits in " << context
+          << " lowered as 0 in SNL (four-state distinction is not preserved)";
+  return message.str();
+}
+
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
   const auto& canonical = type.getCanonicalType();
   if (canonical.isString()) {
@@ -734,10 +760,8 @@ class SNLSVConstructorImpl {
   public:
     explicit SNLSVConstructorImpl(
       NLLibrary* library,
-      const SNLSVConstructor::Config& config,
       const SNLSVConstructor::ConstructOptions& options):
       library_(library),
-      config_(config),
       options_(options),
       liveASTLink_(options.keepASTLink ? std::make_unique<SNLSVLiveASTLink>() : nullptr)
     {}
@@ -817,10 +841,12 @@ class SNLSVConstructorImpl {
       size_t sequentialBlocksLowered {0};
       size_t warningCount {0};
       size_t unsupportedCount {0};
+      size_t unsupportedWarningCount {0};
 
       bool success {false};
       std::string failureReason {};
       std::string firstUnsupported {};
+      std::string firstUnsupportedWarning {};
       std::string firstWarning {};
     };
 
@@ -974,11 +1000,15 @@ class SNLSVConstructorImpl {
       svPerfReport_.constructDuration = steadyNow - svPerfReport_.constructStart;
       svPerfReport_.warningCount = warnings_.size();
       svPerfReport_.unsupportedCount = unsupportedElements_.size();
+      svPerfReport_.unsupportedWarningCount = unsupportedWarnings_.size();
       if (svPerfReport_.firstWarning.empty() && !warnings_.empty()) {
         svPerfReport_.firstWarning = warnings_.front();
       }
       if (svPerfReport_.firstUnsupported.empty() && !unsupportedElements_.empty()) {
         svPerfReport_.firstUnsupported = unsupportedElements_.front();
+      }
+      if (svPerfReport_.firstUnsupportedWarning.empty() && !unsupportedWarnings_.empty()) {
+        svPerfReport_.firstUnsupportedWarning = unsupportedWarnings_.front();
       }
     }
 
@@ -1189,13 +1219,24 @@ class SNLSVConstructorImpl {
       output << "count.block.sequential_lowered="
              << svPerfReport_.sequentialBlocksLowered << "\n";
       output << "count.warning=" << svPerfReport_.warningCount << "\n";
+      // Keep count.unsupported as the compatibility alias for failure-causing
+      // unsupported errors. Unsupported warnings never make this count nonzero.
       output << "count.unsupported=" << svPerfReport_.unsupportedCount << "\n";
+      output << "count.unsupported_error=" << svPerfReport_.unsupportedCount << "\n";
+      output << "count.unsupported_warning="
+             << svPerfReport_.unsupportedWarningCount << "\n";
 
       if (!svPerfReport_.firstWarning.empty()) {
         output << "first_warning=" << toSingleLine(svPerfReport_.firstWarning) << "\n";
       }
       if (!svPerfReport_.firstUnsupported.empty()) {
         output << "first_unsupported=" << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
+        output << "first_unsupported_error="
+               << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
+      }
+      if (!svPerfReport_.firstUnsupportedWarning.empty()) {
+        output << "first_unsupported_warning="
+               << toSingleLine(svPerfReport_.firstUnsupportedWarning) << "\n";
       }
       output << "\n";
       output.close();
@@ -1271,14 +1312,35 @@ class SNLSVConstructorImpl {
       syntaxTrees_.clear();
       warnings_.clear();
       emittedWarnings_.clear();
-      loggedWarningReasons_.clear();
+      loggedWarningCodes_.clear();
       unsupportedElements_.clear();
       unsupportedElementDetails_.clear();
-      cachedCompilationDiagnosticsReport_.clear();
+      unsupportedWarnings_.clear();
+      emittedUnsupportedWarnings_.clear();
+      reportSections_.clear();
+      slangSeverityCounts_.clear();
+      slangDiagnosticCount_ = 0;
+      elaborationWarningCount_ = 0;
+      unsupportedWarningCount_ = 0;
+      unsupportedErrorCount_ = 0;
+      elaborationWarningCodes_.clear();
+      unsupportedWarningCodes_.clear();
+      unsupportedErrorCodes_.clear();
+      warningPolicyNoticeEmitted_ = false;
+      diagnosticsReportFinalized_ = false;
       warnedUninferredMemorySymbols_.clear();
+      handledInitialBlocks_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
+      const auto diagnosticsReportGuard = slang::ScopeGuard([&]() {
+        if (!diagnosticsReportFinalized_) {
+          try {
+            finalizeDiagnosticsReport(false, "unknown non-std exception");
+          } catch (...) {
+          }
+        }
+      });
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot(true);
 #endif
@@ -1298,9 +1360,10 @@ class SNLSVConstructorImpl {
         maybeWriteSVPerfReportSnapshot();
 #endif
 
-        cachedCompilationDiagnosticsReport_ =
-          getCompilationDiagnosticsReport(*compilation_);
-        dumpCurrentDiagnosticsReport();
+        if (const auto* sourceManager = compilation_->getSourceManager()) {
+          recordSlangDiagnostics(getStructuredDiagnostics(
+            *sourceManager, compilation_->getAllDiagnostics()));
+        }
         if (auto failure = getCompilationFailureDetails(*compilation_)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfProgressLabelGuard progress(
@@ -1311,7 +1374,6 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpCurrentDiagnosticsReport();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           if (svPerfReport_.failureReason.empty()) {
             svPerfReport_.failureReason = failure->reason;
@@ -1349,7 +1411,6 @@ class SNLSVConstructorImpl {
             ++svPerfReport_.topInstanceBuildsCompleted;
             maybeWriteSVPerfReportSnapshot();
 #endif
-            dumpCurrentDiagnosticsReport();
           }
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1382,7 +1443,6 @@ class SNLSVConstructorImpl {
             svPerfReport_,
             svPerfReport_.diagnosticsReportDuration);
 #endif
-          dumpCurrentDiagnosticsReport();
         }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
@@ -1407,13 +1467,16 @@ class SNLSVConstructorImpl {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         svPerfReport_.success = true;
 #endif
+        finalizeDiagnosticsReport(true, {});
       } catch (const std::exception& e) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         if (svPerfReport_.failureReason.empty()) {
           svPerfReport_.failureReason = e.what();
         }
 #endif
-        tryDumpCurrentDiagnosticsReport();
+        if (!diagnosticsReportFinalized_) {
+          finalizeDiagnosticsReport(false, e.what());
+        }
         throw;
       } catch (...) { // LCOV_EXCL_LINE
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -1421,6 +1484,9 @@ class SNLSVConstructorImpl {
           svPerfReport_.failureReason = "unknown non-std exception";
         }
 #endif
+        if (!diagnosticsReportFinalized_) { // LCOV_EXCL_LINE
+          finalizeDiagnosticsReport(false, "unknown non-std exception"); // LCOV_EXCL_LINE
+        } // LCOV_EXCL_LINE
         throw; // LCOV_EXCL_LINE
       }
     }
@@ -2037,6 +2103,8 @@ class SNLSVConstructorImpl {
 
       unsupportedElements_.clear();
       unsupportedElementDetails_.clear();
+      unsupportedWarnings_.clear();
+      emittedUnsupportedWarnings_.clear();
       detail::FindTimedStatementTestResult result;
       result.foundTimed = findTimedStatement(proceduralBlock->getBody()) != nullptr;
       result.reportedUnsupported = !unsupportedElements_.empty();
@@ -2781,10 +2849,9 @@ endmodule
           !driver.processOptions() ||
           !driver.parseAllSources()) {
         if (auto failure = getDriverFailureDetails(driver)) {
-          dumpDiagnosticsReport(failure->reason);
+          recordSlangDiagnostics(failure->diagnostics);
           throw SNLSVSyntaxError(failure->reason, std::move(failure->diagnostics));
         }
-        dumpDiagnosticsReport("SystemVerilog compilation failed");
         throw SNLSVSyntaxError("SystemVerilog compilation failed", {});
       }
 
@@ -2821,66 +2888,74 @@ endmodule
       SNLSVLiveASTLinkRegistry::store(library_->getDB(), std::move(liveASTLink_));
     }
 
-    std::string buildDiagnosticsReport(const std::string& slangReport) const {
-      std::ostringstream report;
-      bool hasDiagnostics = false;
-
-      if (!slangReport.empty()) {
-        report << "=== Slang Diagnostics ===\n" << slangReport;
-        if (slangReport.back() != '\n') {
-          report << '\n'; // LCOV_EXCL_LINE
+    static std::string escapeDiagnosticValue(std::string_view value) {
+      std::string escaped;
+      escaped.reserve(value.size());
+      for (const char character : value) {
+        switch (character) {
+          case '\\': escaped += "\\\\"; break;
+          case '"': escaped += "\\\""; break;
+          case '\n': escaped += "\\n"; break;
+          case '\r': escaped += "\\r"; break;
+          case '\t': escaped += "\\t"; break;
+          default: escaped += character; break;
         }
-        hasDiagnostics = true;
       }
-
-      if (!warnings_.empty()) {
-        if (hasDiagnostics) {
-          report << '\n';
-        }
-        report << "=== Naja Elaboration Warnings ===\n";
-        for (const auto& warning : warnings_) {
-          report << warning << '\n';
-        }
-        hasDiagnostics = true;
-      }
-
-      if (!unsupportedElements_.empty()) {
-        if (hasDiagnostics) {
-          report << '\n';
-        }
-        report << "=== Naja Unsupported SystemVerilog Elements ===\n";
-        for (const auto& unsupported : unsupportedElements_) {
-          report << unsupported << '\n';
-        }
-        hasDiagnostics = true;
-      }
-
-      return hasDiagnostics ? report.str() : std::string {};
+      return escaped;
     }
 
-    void initializeDiagnosticsReport() const {
-      if (!options_.diagnosticsReportPath) {
+    void appendDiagnosticsReport(std::string_view text) {
+      // Test-detail helpers exercise warning construction without running the
+      // full construct() lifecycle. Production construction always opens the
+      // mandatory report before any diagnostic can be recorded.
+      if (!diagnosticsReportStream_.is_open()) {
         return;
       }
-      dumpDiagnosticsReport("SystemVerilog diagnostics report generation in progress.\n");
-    }
-
-    void dumpCurrentDiagnosticsReport() const {
-      dumpDiagnosticsReport(buildDiagnosticsReport(cachedCompilationDiagnosticsReport_));
-    }
-
-    void tryDumpCurrentDiagnosticsReport() const noexcept {
-      try {
-        dumpCurrentDiagnosticsReport();
-      } catch (...) {
+      diagnosticsReportStream_ << text;
+      diagnosticsReportStream_.flush();
+      // LCOV_EXCL_START
+      if (!diagnosticsReportStream_.good()) {
+        std::ostringstream reason;
+        reason << "Failed to write diagnostics report file: "
+               << options_.diagnosticsReportPath.string();
+        throw SNLSVInternalError(reason.str());
       }
+      // LCOV_EXCL_STOP
     }
 
-    void dumpDiagnosticsReport(const std::string& report) const {
-      if (!options_.diagnosticsReportPath) {
+    void writeDiagnosticsSection(
+      std::string_view stage,
+      std::string_view heading) {
+      if (!reportSections_.insert(std::string(stage)).second) {
         return;
       }
-      const auto& reportPath = *options_.diagnosticsReportPath;
+      std::ostringstream section;
+      section << "\n=== " << heading << " ===\n";
+      appendDiagnosticsReport(section.str());
+    }
+
+    void appendDiagnosticRecord(
+      std::string_view stage,
+      std::string_view severity,
+      std::string_view code,
+      std::string_view file,
+      size_t line,
+      size_t column,
+      std::string_view message) {
+      std::ostringstream record;
+      record << "diagnostic"
+             << " stage=\"" << escapeDiagnosticValue(stage) << "\""
+             << " severity=\"" << escapeDiagnosticValue(severity) << "\""
+             << " code=\"" << escapeDiagnosticValue(code) << "\""
+             << " file=\"" << escapeDiagnosticValue(file) << "\""
+             << " line=" << line
+             << " column=" << column
+             << " message=\"" << escapeDiagnosticValue(message) << "\"\n";
+      appendDiagnosticsReport(record.str());
+    }
+
+    void initializeDiagnosticsReport() {
+      const auto& reportPath = options_.diagnosticsReportPath;
       if (reportPath.empty()) {
         throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
@@ -2898,28 +2973,130 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      std::ofstream output(reportPath, std::ios::out | std::ios::trunc);
+      diagnosticsReportStream_.open(reportPath, std::ios::out | std::ios::trunc);
       // LCOV_EXCL_START
-      if (!output) {
+      if (!diagnosticsReportStream_) {
         std::ostringstream reason;
         reason << "Failed to create diagnostics report file: " << reportPath.string();
         throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
 
-      if (!report.empty()) {
-        output << report;
-      } else {
-        output << "No SystemVerilog diagnostics.\n";
+      std::ostringstream header;
+      header << "=== Naja SystemVerilog Diagnostics ===\n"
+             << "format.version=1\n"
+             << "status=in_progress\n"
+             << "report.path=\"" << escapeDiagnosticValue(reportPath.string()) << "\"\n"
+             << "console.warning_policy=first_occurrence_per_code\n";
+      appendDiagnosticsReport(header.str());
+    }
+
+    void recordSlangDiagnostics(const std::vector<SNLSVDiagnostic>& diagnostics) {
+      if (diagnostics.empty()) {
+        return;
+      }
+      writeDiagnosticsSection("slang", "Slang Diagnostics");
+      size_t warningCount = 0;
+      size_t errorCount = 0;
+      for (const auto& diagnostic : diagnostics) {
+        ++slangDiagnosticCount_;
+        ++slangSeverityCounts_[diagnostic.severity];
+        warningCount += diagnostic.severity == "warning";
+        errorCount += diagnostic.severity == "error" || diagnostic.severity == "fatal";
+        appendDiagnosticRecord(
+          "slang",
+          diagnostic.severity,
+          "slang_diagnostic",
+          diagnostic.file,
+          diagnostic.line,
+          diagnostic.column,
+          diagnostic.message);
+      }
+      NAJA_LOG_WARN(
+        "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
+        diagnostics.size(),
+        warningCount,
+        errorCount,
+        options_.diagnosticsReportPath.string());
+    }
+
+    void emitWarningPolicyNotice() {
+      if (warningPolicyNoticeEmitted_) {
+        return;
+      }
+      warningPolicyNoticeEmitted_ = true;
+      NAJA_LOG_WARN(
+        "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+        "console; all occurrences are written to '{}'",
+        options_.diagnosticsReportPath.string());
+    }
+
+    void finalizeDiagnosticsReport(bool success, std::string_view failureReason) {
+      if (diagnosticsReportFinalized_) {
+        return;
+      }
+      if (slangDiagnosticCount_ == 0 && elaborationWarningCount_ == 0 &&
+          unsupportedWarningCount_ == 0 && unsupportedErrorCount_ == 0) {
+        appendDiagnosticsReport("\nNo SystemVerilog diagnostics.\n");
       }
 
-      // LCOV_EXCL_START
-      if (!output.good()) {
-        std::ostringstream reason;
-        reason << "Failed to write diagnostics report file: " << reportPath.string();
-        throw SNLSVInternalError(reason.str());
+      const auto severityCount = [&](std::string_view severity) {
+        const auto it = slangSeverityCounts_.find(std::string(severity));
+        return it == slangSeverityCounts_.end() ? size_t {0} : it->second;
+      };
+      std::ostringstream summary;
+      summary << "\n=== Summary ===\n"
+              << "summary.status=" << (success ? "success" : "failed") << "\n"
+              << "count.slang.total=" << slangDiagnosticCount_ << "\n"
+              << "count.slang.note=" << severityCount("note") << "\n"
+              << "count.slang.warning=" << severityCount("warning") << "\n"
+              << "count.slang.error=" << severityCount("error") << "\n"
+              << "count.slang.fatal=" << severityCount("fatal") << "\n"
+              << "count.naja_elaboration.warning_occurrences="
+              << elaborationWarningCount_ << "\n"
+              << "count.naja_elaboration.warning_codes="
+              << elaborationWarningCodes_.size() << "\n"
+              << "count.naja_unsupported_warning.occurrences="
+              << unsupportedWarningCount_ << "\n"
+              << "count.naja_unsupported_warning.codes="
+              << unsupportedWarningCodes_.size() << "\n"
+              << "count.naja_unsupported_error.occurrences="
+              << unsupportedErrorCount_ << "\n"
+              << "count.naja_unsupported_error.codes="
+              << unsupportedErrorCodes_.size() << "\n"
+              << "report.path=\""
+              << escapeDiagnosticValue(options_.diagnosticsReportPath.string()) << "\"\n";
+      if (!failureReason.empty()) {
+        summary << "failure.reason=\"" << escapeDiagnosticValue(failureReason) << "\"\n";
       }
-      // LCOV_EXCL_STOP
+      appendDiagnosticsReport(summary.str());
+      diagnosticsReportFinalized_ = true;
+
+      const auto slangWarningCount = severityCount("warning");
+      const auto slangErrorCount = severityCount("error") + severityCount("fatal");
+      if (slangWarningCount || slangErrorCount || elaborationWarningCount_ ||
+          unsupportedWarningCount_ || unsupportedErrorCount_) {
+        NAJA_LOG_WARN(
+          "SystemVerilog diagnostics summary: status={}, slang={} (warnings={}, errors={}), "
+          "elaboration_warnings={} (codes={}), unsupported_warnings={} (codes={}), "
+          "unsupported_errors={} (codes={}); report='{}'",
+          success ? "success" : "failed",
+          slangDiagnosticCount_,
+          slangWarningCount,
+          slangErrorCount,
+          elaborationWarningCount_,
+          elaborationWarningCodes_.size(),
+          unsupportedWarningCount_,
+          unsupportedWarningCodes_.size(),
+          unsupportedErrorCount_,
+          unsupportedErrorCodes_.size(),
+          options_.diagnosticsReportPath.string());
+      } else {
+        NAJA_LOG_INFO(
+          "SystemVerilog diagnostics summary: status={}, no diagnostics; report='{}'",
+          success ? "success" : "failed",
+          options_.diagnosticsReportPath.string());
+      }
     }
 
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
@@ -3072,6 +3249,21 @@ endmodule
 #endif
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
+        const SVPerfProgressLabelGuard step(
+          svPerfReport_,
+          svPerfReport_.currentLoweringStep,
+          "infer_memories");
+#endif
+        // Infer memories before materializing variables so successfully
+        // inferred unpacked arrays never expand into a raw SNL bit net.
+        inferMemories(design, body);
+      }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      maybeWriteSVPerfReportSnapshot();
+#endif
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("createNets"));
         const SVPerfProgressLabelGuard step(
           svPerfReport_,
@@ -3098,19 +3290,6 @@ endmodule
           svPerfReport_.connectTermsToNetsDuration);
 #endif
         connectTermsToNets(design);
-      }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-      maybeWriteSVPerfReportSnapshot();
-#endif
-      {
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-        NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
-        const SVPerfProgressLabelGuard step(
-          svPerfReport_,
-          svPerfReport_.currentLoweringStep,
-          "infer_memories");
-#endif
-        inferMemories(design, body);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
@@ -3192,7 +3371,7 @@ endmodule
 #endif
       validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
 
-      if (config_.blackboxDetection_ and design->isStandard()) {
+      if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
           design->setType(SNLDesign::Type::UserBlackBox);
         }
@@ -3325,6 +3504,7 @@ endmodule
       std::unordered_map<const slang::ast::Expression*, size_t> readPortBySelectorExpr {};
       std::unordered_map<int32_t, size_t> readPortByConstantSelectorIndex {};
       std::optional<slang::SourceRange> sourceRange {};
+      bool hasInitialValue {false};
       bool lowered {false};
     };
 
@@ -3533,7 +3713,7 @@ endmodule
       return message.str();
     }
 
-    void reportUnsupportedElement(
+    void reportUnsupportedError(
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
       std::ostringstream message;
@@ -3544,7 +3724,21 @@ endmodule
       message << reason;
       auto unsupported = message.str();
       unsupportedElements_.push_back(unsupported);
-      unsupportedElementDetails_.push_back({unsupported, makeUnsupportedCode(reason)});
+      auto code = makeUnsupportedCode(reason);
+      if (code.empty()) {
+        code = "sv.unsupported.error";
+      }
+      unsupportedElementDetails_.push_back({unsupported, code});
+      auto warningCode = code;
+      std::replace(warningCode.begin(), warningCode.end(), '.', '_');
+      recordNajaWarning(
+        "naja_unsupported_error",
+        "Naja Unsupported SystemVerilog Errors",
+        warningCode,
+        "Unsupported error: " + reason,
+        maybeRange,
+        unsupportedErrorCount_,
+        unsupportedErrorCodes_);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstUnsupported.empty()) {
         svPerfReport_.firstUnsupported = unsupported;
@@ -3552,28 +3746,92 @@ endmodule
 #endif
     }
 
-    void reportWarning(
+    void reportUnsupportedWarning(
+      const std::string& code,
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
       std::ostringstream message;
       if (auto sourceInfo = getSourceInfo(maybeRange)) {
+        message << sourceInfo->file << ":" << sourceInfo->line << ":"
+                << sourceInfo->column << ": ";
+      }
+      message << reason;
+      auto unsupported = message.str();
+      if (!emittedUnsupportedWarnings_.insert(unsupported).second) {
+        return;
+      }
+      unsupportedWarnings_.push_back(unsupported);
+      recordNajaWarning(
+        "naja_unsupported_warning",
+        "Naja Unsupported SystemVerilog Warnings",
+        code,
+        "Unsupported warning: " + reason,
+        maybeRange,
+        unsupportedWarningCount_,
+        unsupportedWarningCodes_);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      if (svPerfReport_.enabled && svPerfReport_.firstUnsupportedWarning.empty()) {
+        svPerfReport_.firstUnsupportedWarning = unsupported;
+      }
+#endif
+    }
+
+    void recordNajaWarning(
+      std::string_view stage,
+      std::string_view heading,
+      const std::string& code,
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange,
+      size_t& occurrenceCount,
+      std::unordered_set<std::string>& warningCodes) {
+      std::ostringstream message;
+      auto sourceInfo = getSourceInfo(maybeRange);
+      if (sourceInfo) {
         message << sourceInfo->file << ":" << sourceInfo->line << ":" << sourceInfo->column
                 << ": ";
       }
-      message << "Warning: " << reason;
+      message << reason;
       auto warning = message.str();
       if (!emittedWarnings_.insert(warning).second) {
         return;
       }
-      warnings_.push_back(warning);
+      if (stage == "naja_elaboration") {
+        warnings_.push_back(warning);
+      }
+      ++occurrenceCount;
+      warningCodes.insert(code);
+      writeDiagnosticsSection(stage, heading);
+      appendDiagnosticRecord(
+        stage,
+        "warning",
+        code,
+        sourceInfo ? sourceInfo->file : std::string {},
+        sourceInfo ? sourceInfo->line : 0,
+        sourceInfo ? sourceInfo->column : 0,
+        reason);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       if (svPerfReport_.enabled && svPerfReport_.firstWarning.empty()) {
         svPerfReport_.firstWarning = warning;
       }
 #endif
-      if (loggedWarningReasons_.insert(reason).second) {
+      emitWarningPolicyNotice();
+      if (loggedWarningCodes_.insert(code).second) {
         NAJA_LOG_WARN("{}", warning);
       }
+    }
+
+    void reportWarning(
+      const std::string& code,
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      recordNajaWarning(
+        "naja_elaboration",
+        "Naja Elaboration Warnings",
+        code,
+        reason,
+        maybeRange,
+        elaborationWarningCount_,
+        elaborationWarningCodes_);
     }
 
     void reportCaseComparison2StateWarning(
@@ -3585,7 +3843,7 @@ endmodule
       std::ostringstream reason;
       reason << "Case comparison operator '" << slang::ast::OpInfo::getText(op)
              << "' lowered as 2-state comparison in SNL (X/Z distinction is not preserved)";
-      reportWarning(reason.str(), maybeRange);
+      reportWarning("case_comparison_two_state", reason.str(), maybeRange);
     }
 
     bool shouldSuppressCaseComparison2StateWarning(
@@ -3752,7 +4010,7 @@ endmodule
         if (!sym.name.empty()) {
           reason << " '" << sym.name << "'";
         }
-        reportUnsupportedElement(reason.str(), getSourceRange(sym));
+        reportUnsupportedError(reason.str(), getSourceRange(sym));
       }
     }
 
@@ -3936,7 +4194,7 @@ endmodule
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
-          reportUnsupportedElement(reason.str(), sourceRange);
+          reportUnsupportedError(reason.str(), sourceRange);
           return nullptr;
         }
         // LCOV_EXCL_STOP
@@ -3981,7 +4239,7 @@ endmodule
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
-          reportUnsupportedElement(reason.str(), getSourceRange(expr));
+          reportUnsupportedError(reason.str(), getSourceRange(expr));
           return nullptr;
         }
         auto loweredName = getLoweredSymbolName(symbol);
@@ -4651,8 +4909,8 @@ endmodule
 
     bool analyzeDirectSequentialMemoryWriteStatement(
       const Statement& stmt,
-      const slang::ast::ValueSymbol*& stateSymbol,
-      NLDB0::MemorySignature& signature,
+      const slang::ast::ValueSymbol& stateSymbol,
+      const NLDB0::MemorySignature& signature,
       std::vector<InferredMemoryGuard>& guards,
       std::vector<InferredMemoryWriteAction>& actions,
       std::string& failureReason) const {
@@ -4773,10 +5031,10 @@ endmodule
         return false;
       }
 
-      NLDB0::MemorySignature assignedSignature;
-      if (!getSupportedMemorySignature(assignedSymbol->getType(), assignedSignature)) {
-        // Side assignments in the same clocked block, such as registered memory
-        // read data, are still lowered by the generic sequential path.
+      // Analyze one memory candidate at a time. Assignments to other memories
+      // and scalar/vector side registers remain owned by their own candidate or
+      // by generic sequential lowering and must not poison this candidate.
+      if (assignedSymbol != &stateSymbol) {
         return true;
       }
 
@@ -4785,20 +5043,12 @@ endmodule
         return false;
       }
 
-      if (!stateSymbol) {
-        stateSymbol = assignedSymbol;
-        signature = assignedSignature;
-      } else if (assignedSymbol != stateSymbol || !(signature == assignedSignature)) {
-        failureReason = "direct inferred memory sequential block writes multiple targets";
-        return false;
-      }
-
       const slang::ast::Expression* selectorExpr = nullptr;
       size_t bitOffset = 0;
       size_t bitWidth = 0;
       if (!tryExtractInferredMemoryEntryTarget(
             *lhsExpr,
-            *stateSymbol,
+            stateSymbol,
             signature.width,
             selectorExpr,
             bitOffset,
@@ -5350,8 +5600,10 @@ endmodule
       if (const auto* strippedReset = stripConversions(resetCondition);
           strippedReset &&
           strippedReset->kind == slang::ast::ExpressionKind::UnaryOp &&
-          strippedReset->as<slang::ast::UnaryExpression>().op ==
-            slang::ast::UnaryOperator::BitwiseNot &&
+          (strippedReset->as<slang::ast::UnaryExpression>().op ==
+             slang::ast::UnaryOperator::BitwiseNot ||
+           strippedReset->as<slang::ast::UnaryExpression>().op ==
+             slang::ast::UnaryOperator::LogicalNot) &&
           tryGetValueSymbolReference(
             strippedReset->as<slang::ast::UnaryExpression>().operand(),
             resetSignal)) {
@@ -5629,9 +5881,75 @@ endmodule
       return false;
     }
 
+    void collectDirectSequentialMemoryCandidates(
+      const Statement& stmt,
+      std::vector<const slang::ast::ValueSymbol*>& candidates,
+      std::unordered_set<const slang::ast::ValueSymbol*>& seen) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return; // LCOV_EXCL_LINE
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) {
+            collectDirectSequentialMemoryCandidates(*item, candidates, seen);
+          }
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        collectDirectSequentialMemoryCandidates(
+          current->as<slang::ast::ForLoopStatement>().body,
+          candidates,
+          seen);
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        collectDirectSequentialMemoryCandidates(conditional.ifTrue, candidates, seen);
+        if (conditional.ifFalse) {
+          collectDirectSequentialMemoryCandidates(*conditional.ifFalse, candidates, seen);
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (item.stmt) {
+            collectDirectSequentialMemoryCandidates(*item.stmt, candidates, seen);
+          }
+        }
+        if (caseStmt.defaultCase) {
+          collectDirectSequentialMemoryCandidates(*caseStmt.defaultCase, candidates, seen);
+        }
+        return;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhsExpr, action) || !lhsExpr) {
+        return;
+      }
+      const slang::ast::ValueSymbol* assignedSymbol = nullptr;
+      NLDB0::MemorySignature signature;
+      if (tryGetRootValueSymbolReference(*lhsExpr, assignedSymbol) &&
+          assignedSymbol &&
+          !isValueSymbolReference(*lhsExpr, *assignedSymbol) &&
+          getSupportedMemorySignature(assignedSymbol->getType(), signature) &&
+          seen.insert(assignedSymbol).second) {
+        candidates.push_back(assignedSymbol);
+      }
+    }
+
     bool tryMatchDirectSequentialMemoryBlock(
       const slang::ast::ProceduralBlockSymbol& block,
-      InferredMemory& memory) {
+      const slang::ast::ValueSymbol& stateSymbol,
+      InferredMemory& memory,
+      std::string& failureReason) {
+      // Candidate analysis is transactional: all mutable analysis products
+      // live in this local object and are committed to `memory` only after the
+      // complete reset and write program has matched.
+      InferredMemory candidate;
       if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
           block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
         return false; // LCOV_EXCL_LINE
@@ -5663,18 +5981,22 @@ endmodule
 
       auto asyncEvent = getSingleAsyncEventExpression(*timing, *clockExpr);
       if (asyncEvent.multiple) {
+        failureReason = "unsupported direct inferred memory event list with multiple async events";
         return false;
       }
 
-      const slang::ast::ValueSymbol* stateSymbol = nullptr;
       NLDB0::MemorySignature signature;
+      if (!getSupportedMemorySignature(stateSymbol.getType(), signature)) {
+        failureReason = "unsupported direct inferred memory state type"; // LCOV_EXCL_LINE
+        return false; // LCOV_EXCL_LINE
+      }
       std::vector<InferredMemoryGuard> guards;
       std::vector<InferredMemoryWriteAction> directWriteActions;
-      std::string failureReason;
 
       std::vector<bool> initBits;
       const Expression* resetSignalExpr = nullptr;
       NLDB0::MemoryResetMode resetMode = NLDB0::MemoryResetMode::None;
+      bool matchedResetForm = false;
 
       const auto* current = unwrapStatement(*stmt);
       if (current &&
@@ -5688,11 +6010,10 @@ endmodule
                 guards,
                 directWriteActions,
                 failureReason) &&
-              stateSymbol &&
               !directWriteActions.empty()) {
             if (tryExtractSharedSequentialResetInitBits(
                   topCond.ifTrue,
-                  *stateSymbol,
+                  stateSymbol,
                   signature.width,
                   signature.depth,
                   initBits,
@@ -5705,17 +6026,23 @@ endmodule
                     resetInfo)) {
                 resetSignalExpr = resetInfo.resetSignalExpr;
                 resetMode = resetInfo.signature.resetMode;
-              } else {
-                initBits.clear();
+                matchedResetForm = true;
               }
-            } else {
-              initBits.clear();
             }
           }
         }
       }
 
-      if (directWriteActions.empty()) {
+      if (!matchedResetForm) {
+        // Discard every product of the speculative reset-form analysis before
+        // attempting the whole statement. This prevents a non-empty action
+        // prefix from turning a failed match into a partially inferred memory.
+        guards.clear();
+        directWriteActions.clear();
+        initBits.clear();
+        resetSignalExpr = nullptr;
+        resetMode = NLDB0::MemoryResetMode::None;
+        failureReason.clear();
         if (!analyzeDirectSequentialMemoryWriteStatement(
               *stmt,
               stateSymbol,
@@ -5723,34 +6050,36 @@ endmodule
               guards,
               directWriteActions,
               failureReason) ||
-            !stateSymbol ||
             directWriteActions.empty()) {
+          if (failureReason.empty()) {
+            failureReason = "direct inferred memory block has no supported indexed writes";
+          }
           return false;
         }
       }
 
       if (asyncEvent.expr && resetMode == NLDB0::MemoryResetMode::None) {
+        failureReason = "unsupported asynchronous inferred memory block without matched reset";
         return false;
       }
 
-      memory.stateSymbol = stateSymbol;
-      memory.shadowSymbol = nullptr;
-      memory.commitSymbol = nullptr;
-      memory.combBlock = nullptr;
-      memory.commitBlock = nullptr;
-      memory.seqBlock = &block;
-      memory.clockExpr = clockExpr;
-      memory.resetSignalExpr = resetSignalExpr;
-      memory.signature = signature;
-      memory.signature.resetMode = resetMode;
-      if (initBits.empty()) {
-        memory.initBits.assign(signature.width * signature.depth, false);
-      } else {
-        memory.initBits = std::move(initBits);
+      candidate.stateSymbol = &stateSymbol;
+      candidate.shadowSymbol = nullptr;
+      candidate.commitSymbol = nullptr;
+      candidate.combBlock = nullptr;
+      candidate.commitBlock = nullptr;
+      candidate.seqBlock = &block;
+      candidate.clockExpr = clockExpr;
+      candidate.resetSignalExpr = resetSignalExpr;
+      candidate.signature = signature;
+      candidate.signature.resetMode = resetMode;
+      if (!initBits.empty()) {
+        candidate.initBits = std::move(initBits);
       }
-      memory.commitActionsByIndex.clear();
-      memory.directWriteActions = std::move(directWriteActions);
-      memory.sourceRange = getSourceRange(block);
+      candidate.commitActionsByIndex.clear();
+      candidate.directWriteActions = std::move(directWriteActions);
+      candidate.sourceRange = getSourceRange(block);
+      memory = std::move(candidate);
       return true;
     }
 
@@ -6011,6 +6340,334 @@ endmodule
       return true;
     }
 
+    const Statement* getOnlyInitialStatement(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind != slang::ast::StatementKind::List) {
+        return current;
+      }
+      const Statement* only = nullptr;
+      for (const auto* item : current->as<slang::ast::StatementList>().list) {
+        const Statement* candidate = item ? unwrapStatement(*item) : nullptr;
+        if (!candidate || candidate->kind == slang::ast::StatementKind::Empty ||
+            (candidate->kind == slang::ast::StatementKind::VariableDeclaration &&
+             candidate->as<slang::ast::VariableDeclStatement>().symbol.getInitializer() ==
+               nullptr)) {
+          continue;
+        }
+        if (only) {
+          return nullptr;
+        }
+        only = candidate;
+      }
+      return only;
+    }
+
+    void collectInitialAssignmentRoots(
+      const Statement& stmt,
+      std::unordered_set<const slang::ast::ValueSymbol*>& roots) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) return; // LCOV_EXCL_LINE
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item) collectInitialAssignmentRoots(*item, roots);
+        }
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        collectInitialAssignmentRoots(
+          current->as<slang::ast::ForLoopStatement>().body, roots);
+        return;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        collectInitialAssignmentRoots(conditional.ifTrue, roots);
+        if (conditional.ifFalse) collectInitialAssignmentRoots(*conditional.ifFalse, roots);
+        return;
+      }
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      const slang::ast::ValueSymbol* root = nullptr;
+      if (extractAssignment(*current, lhs, action) && lhs &&
+          tryGetRootValueSymbolReference(*lhs, root) && root) {
+        roots.insert(root);
+      }
+    }
+
+    bool getForLoopInitializerExpression(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol*& loopSymbol,
+      const Expression*& initializer) const {
+      loopSymbol = nullptr;
+      initializer = nullptr;
+      if (loop.loopVars.size() == 1 && loop.initializers.size() <= 1) {
+        loopSymbol = loop.loopVars.front(); // LCOV_EXCL_LINE
+        initializer = loop.loopVars.front()->getInitializer(); // LCOV_EXCL_LINE
+        return loopSymbol && initializer; // LCOV_EXCL_LINE
+      }
+      if (!loop.loopVars.empty() || loop.initializers.size() != 1) return false;
+      const auto* init = stripConversions(*loop.initializers.front());
+      if (!init || init->kind != slang::ast::ExpressionKind::Assignment) return false;
+      const auto& assignment = init->as<slang::ast::AssignmentExpression>();
+      const auto* lhs = stripConversions(assignment.left());
+      if (!lhs || !slang::ast::ValueExpressionBase::isKind(lhs->kind)) return false;
+      loopSymbol = &lhs->as<slang::ast::ValueExpressionBase>().symbol;
+      initializer = &assignment.right();
+      return true;
+    }
+
+    bool getSimplePositiveForLoopStep(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol& loopSymbol,
+      int64_t& step) const {
+      if (loop.steps.size() != 1 || !loop.steps.front()) return false;
+      int64_t next = 0;
+      std::string failureReason;
+      if (!applyForLoopStepExpression(
+            *loop.steps.front(), loopSymbol, next, failureReason) || next <= 0) {
+        return false;
+      }
+      int64_t nextFromOne = 1;
+      if (!applyForLoopStepExpression(
+            *loop.steps.front(), loopSymbol, nextFromOne, failureReason) ||
+          nextFromOne - 1 != next) {
+        return false; // LCOV_EXCL_LINE
+      }
+      step = next;
+      return true;
+    }
+
+    bool getAffineLoopExpression(
+      const Expression& expr,
+      const Symbol& symbol,
+      int64_t& coefficient,
+      int64_t& offset) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) return false; // LCOV_EXCL_LINE
+      if (isForLoopControlSymbolRef(*stripped, symbol)) {
+        coefficient = 1;
+        offset = 0;
+        return true;
+      }
+      if (getConstantInt64(*stripped, offset)) {
+        coefficient = 0;
+        return true;
+      }
+      if (stripped->kind != slang::ast::ExpressionKind::BinaryOp) return false;
+      const auto& binary = stripped->as<slang::ast::BinaryExpression>();
+      if (binary.op != slang::ast::BinaryOperator::Add &&
+          binary.op != slang::ast::BinaryOperator::Subtract) {
+        return false;
+      }
+      int64_t leftCoefficient = 0;
+      int64_t leftOffset = 0;
+      int64_t rightCoefficient = 0;
+      int64_t rightOffset = 0;
+      if (!getAffineLoopExpression(
+            binary.left(), symbol, leftCoefficient, leftOffset) ||
+          !getAffineLoopExpression(
+            binary.right(), symbol, rightCoefficient, rightOffset)) {
+        return false;
+      }
+      coefficient = binary.op == slang::ast::BinaryOperator::Add
+        ? leftCoefficient + rightCoefficient
+        : leftCoefficient - rightCoefficient;
+      offset = binary.op == slang::ast::BinaryOperator::Add
+        ? leftOffset + rightOffset
+        : leftOffset - rightOffset;
+      return true;
+    }
+
+    bool getLessThanLoopBound(
+      const slang::ast::ForLoopStatement& loop,
+      const Symbol& loopSymbol,
+      const Expression*& bound) const {
+      if (!loop.stopExpr) return false;
+      const auto* stop = stripConversions(*loop.stopExpr);
+      if (!stop || stop->kind != slang::ast::ExpressionKind::BinaryOp) return false;
+      const auto& binary = stop->as<slang::ast::BinaryExpression>();
+      if (binary.op != slang::ast::BinaryOperator::LessThan ||
+          !isForLoopControlSymbolRef(binary.left(), loopSymbol)) {
+        return false;
+      }
+      bound = &binary.right();
+      return true;
+    }
+
+    bool extractUniformInitialMemoryAssignment(
+      const Statement& stmt,
+      const InferredMemory& memory,
+      const Symbol& selectorSymbol,
+      std::vector<bool>& entryBits,
+      std::string& failureReason) const {
+      const Statement* assignmentStmt = getOnlyInitialStatement(stmt);
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!assignmentStmt || !extractAssignment(*assignmentStmt, lhs, action) ||
+          !lhs || !action.rhs || action.scheduling != ProceduralAssignmentScheduling::Blocking ||
+          action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "expected one blocking constant indexed assignment";
+        return false;
+      }
+      const Expression* selector = nullptr;
+      size_t bitOffset = 0;
+      size_t bitWidth = 0;
+      if (!tryExtractInferredMemoryEntryTarget(
+            *lhs,
+            *memory.stateSymbol,
+            memory.signature.width,
+            selector,
+            bitOffset,
+            bitWidth,
+            failureReason) ||
+          !selector || bitOffset != 0 || bitWidth != memory.signature.width ||
+          !isForLoopControlSymbolRef(*selector, selectorSymbol)) {
+        failureReason = "initial assignment is not a full entry indexed by the loop variable";
+        return false;
+      }
+      auto bits = getConstantInitBits(
+        *action.rhs, *memory.stateSymbol, memory.signature.width);
+      if (!bits) {
+        failureReason = "initial memory fill value is not a constant entry value";
+        return false;
+      }
+      entryBits = std::move(*bits);
+      return true;
+    }
+
+    bool analyzeUniformInitialMemoryFill(
+      const Statement& stmt,
+      const InferredMemory& memory,
+      std::vector<bool>& initBits,
+      std::string& failureReason) const {
+      const Statement* top = getOnlyInitialStatement(stmt);
+      if (!top || top->kind != slang::ast::StatementKind::ForLoop) {
+        failureReason = "expected a constant for-loop fill";
+        return false;
+      }
+      const auto& outer = top->as<slang::ast::ForLoopStatement>();
+      const Symbol* outerSymbol = nullptr;
+      const Expression* outerInitializer = nullptr;
+      const Expression* outerBound = nullptr;
+      int64_t outerStart = 0;
+      int64_t outerLimit = 0;
+      int64_t outerStep = 0;
+      if (!getForLoopInitializerExpression(outer, outerSymbol, outerInitializer) ||
+          !outerSymbol || !getConstantInt64(*outerInitializer, outerStart) ||
+          !getLessThanLoopBound(outer, *outerSymbol, outerBound) ||
+          !getConstantInt64(*outerBound, outerLimit) ||
+          !getSimplePositiveForLoopStep(outer, *outerSymbol, outerStep)) {
+        failureReason = "unsupported symbolic outer loop domain";
+        return false;
+      }
+
+      const auto depth = static_cast<int64_t>(memory.signature.depth);
+      std::vector<bool> entryBits;
+      const Statement* outerBody = getOnlyInitialStatement(outer.body);
+      if (outerBody && outerBody->kind != slang::ast::StatementKind::ForLoop) {
+        if (outerStart != 0 || outerLimit != depth || outerStep != 1 ||
+            !extractUniformInitialMemoryAssignment(
+              *outerBody, memory, *outerSymbol, entryBits, failureReason)) {
+          if (failureReason.empty()) {
+            failureReason = "loop range does not fully cover memory '" +
+              std::string(memory.stateSymbol->name) + "'";
+          }
+          return false;
+        }
+      } else if (outerBody) {
+        const auto& inner = outerBody->as<slang::ast::ForLoopStatement>();
+        const Symbol* innerSymbol = nullptr;
+        const Expression* innerInitializer = nullptr;
+        const Expression* innerBound = nullptr;
+        int64_t innerStartCoefficient = 0;
+        int64_t innerStartOffset = 0;
+        int64_t innerBoundCoefficient = 0;
+        int64_t innerBoundOffset = 0;
+        int64_t innerStep = 0;
+        if (!getForLoopInitializerExpression(inner, innerSymbol, innerInitializer) ||
+            !innerSymbol ||
+            !getAffineLoopExpression(
+              *innerInitializer,
+              *outerSymbol,
+              innerStartCoefficient,
+              innerStartOffset) ||
+            !getLessThanLoopBound(inner, *innerSymbol, innerBound) ||
+            !getAffineLoopExpression(
+              *innerBound,
+              *outerSymbol,
+              innerBoundCoefficient,
+              innerBoundOffset) ||
+            !getSimplePositiveForLoopStep(inner, *innerSymbol, innerStep) ||
+            outerStart != 0 || outerLimit != depth || outerStep <= 0 ||
+            depth % outerStep != 0 ||
+            innerStartCoefficient != 1 || innerStartOffset != 0 ||
+            innerBoundCoefficient != 1 || innerBoundOffset != outerStep ||
+            innerStep != 1 ||
+            !extractUniformInitialMemoryAssignment(
+              inner.body, memory, *innerSymbol, entryBits, failureReason)) {
+          if (failureReason.empty()) {
+            failureReason = "nested loop ranges do not form a complete non-overlapping memory fill";
+          }
+          return false;
+        }
+      } else {
+        failureReason = "initial memory loop has no assignment body";
+        return false;
+      }
+
+      initBits.clear();
+      initBits.reserve(memory.signature.width * memory.signature.depth);
+      for (size_t entry = 0; entry < memory.signature.depth; ++entry) {
+        initBits.insert(initBits.end(), entryBits.begin(), entryBits.end());
+      }
+      return true;
+    }
+
+    void mergeInitialMemoryBlocks(
+      const std::vector<const slang::ast::ProceduralBlockSymbol*>& initialBlocks) {
+      for (const auto* block : initialBlocks) {
+        if (!block) continue; // LCOV_EXCL_LINE
+        std::unordered_set<const slang::ast::ValueSymbol*> roots;
+        collectInitialAssignmentRoots(block->getBody(), roots);
+        std::vector<const slang::ast::ValueSymbol*> memoryRoots;
+        for (const auto* root : roots) {
+          NLDB0::MemorySignature signature;
+          if (root && getSupportedMemorySignature(root->getType(), signature)) {
+            memoryRoots.push_back(root);
+          }
+        }
+        if (memoryRoots.empty()) continue;
+        handledInitialBlocks_.insert(block);
+        if (memoryRoots.size() != 1) {
+          reportUnsupportedError(
+            "unsupported initial memory initialization: one initial block targets multiple memories",
+            getSourceRange(*block));
+          continue;
+        }
+        const auto* stateSymbol = memoryRoots.front();
+        const auto found = inferredMemoryByStateSymbol_.find(stateSymbol);
+        if (found == inferredMemoryByStateSymbol_.end()) {
+          reportUnsupportedError(
+            "unsupported initial memory initialization: memory '" +
+              std::string(stateSymbol->name) + "' was not inferred as naja_mem",
+            getSourceRange(*block));
+          continue;
+        }
+        auto& memory = inferredMemories_[found->second];
+        std::vector<bool> initBits;
+        std::string failureReason;
+        if (!analyzeUniformInitialMemoryFill(
+              block->getBody(), memory, initBits, failureReason)) {
+          const std::string reason = "unsupported initial memory initialization for memory '" +
+            std::string(stateSymbol->name) + "': " + failureReason;
+          reportUnsupportedError(reason, getSourceRange(*block));
+          continue;
+        }
+        memory.initBits = std::move(initBits);
+        memory.hasInitialValue = true;
+        memory.sourceRange = getSourceRange(*block);
+      }
+    }
+
     void inferMemories(SNLDesign* /*design*/, const InstanceBodySymbol& body) {
       inferredMemories_.clear();
       inferredMemoryByStateSymbol_.clear();
@@ -6019,6 +6676,7 @@ endmodule
 
       std::vector<const slang::ast::ProceduralBlockSymbol*> sequentialBlocks;
       std::vector<const slang::ast::ProceduralBlockSymbol*> combinationalBlocks;
+      std::vector<const slang::ast::ProceduralBlockSymbol*> initialBlocks;
       auto collectProceduralBlock = [&](const Symbol& sym) {
         if (sym.kind != SymbolKind::ProceduralBlock) {
           return;
@@ -6030,6 +6688,9 @@ endmodule
         }
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
           combinationalBlocks.push_back(&block);
+        }
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial) {
+          initialBlocks.push_back(&block);
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
@@ -6113,17 +6774,53 @@ endmodule
       }
 
       for (const auto* seqBlock : sequentialBlocks) {
-        InferredMemory memory;
-        if (!tryMatchDirectSequentialMemoryBlock(*seqBlock, memory) ||
-            !memory.stateSymbol ||
-            inferredMemoryByStateSymbol_.contains(memory.stateSymbol)) {
-          continue;
+        const Statement* candidateStmt = &seqBlock->getBody();
+        if (const auto* timed = findTimedStatement(*candidateStmt)) {
+          candidateStmt = &timed->stmt;
         }
+        candidateStmt = candidateStmt ? unwrapStatement(*candidateStmt) : nullptr;
+        if (!candidateStmt) {
+          continue; // LCOV_EXCL_LINE
+        }
+        std::vector<const slang::ast::ValueSymbol*> candidates;
+        std::unordered_set<const slang::ast::ValueSymbol*> seenCandidates;
+        collectDirectSequentialMemoryCandidates(
+          *candidateStmt,
+          candidates,
+          seenCandidates);
+        for (const auto* stateSymbol : candidates) {
+          if (!stateSymbol || inferredMemoryByStateSymbol_.contains(stateSymbol)) {
+            continue;
+          }
+          InferredMemory memory;
+          std::string failureReason;
+          if (!tryMatchDirectSequentialMemoryBlock(
+                *seqBlock,
+                *stateSymbol,
+                memory,
+                failureReason) ||
+              !memory.stateSymbol) {
+            if (!failureReason.empty()) {
+              // This is the single per-symbol diagnostic for a rejected direct
+              // memory candidate. Mark it before generic lowering so the
+              // size-threshold warning does not duplicate it later.
+              warnedUninferredMemorySymbols_.insert(stateSymbol);
+              std::ostringstream reason;
+              reason << "Memory '" << std::string(stateSymbol->name)
+                     << "' was not inferred as naja_mem: " << failureReason
+                     << "; using generic sequential lowering";
+              reportWarning(
+                "uninferred_memory_generic_sequential_lowering",
+                reason.str(),
+                getSourceRange(*stateSymbol));
+            }
+            continue;
+          }
 
-        const size_t memoryIndex = inferredMemories_.size();
-        const auto* stateSymbol = memory.stateSymbol;
-        inferredMemories_.push_back(std::move(memory));
-        inferredMemoryByStateSymbol_[stateSymbol] = memoryIndex;
+          const size_t memoryIndex = inferredMemories_.size();
+          inferredMemories_.push_back(std::move(memory));
+          inferredMemoryByStateSymbol_[stateSymbol] = memoryIndex;
+        }
       }
 
       for (size_t i = 0; i < inferredMemories_.size(); ++i) {
@@ -6131,9 +6828,10 @@ endmodule
           inferredMemoryCombBlocks_[inferredMemories_[i].combBlock] = i;
         }
         if (inferredMemories_[i].seqBlock) {
-          inferredMemorySequentialBlocks_[inferredMemories_[i].seqBlock] = i;
+          inferredMemorySequentialBlocks_[inferredMemories_[i].seqBlock].push_back(i);
         }
       }
+      mergeInitialMemoryBlocks(initialBlocks);
     }
 
     void prepareInferredMemories(SNLDesign* design) {
@@ -6152,6 +6850,33 @@ endmodule
             (!memory.combBlock && !memory.directWriteActions.empty() &&
              lowerInferredMemoryDirectSequentialBlock(design, memory, failureReason))) {
           memory.lowered = true;
+          continue;
+        }
+
+        // createNets intentionally deferred these speculative memory symbols.
+        // Restore their ordinary nets before generic lowering if preparation
+        // unexpectedly rejects the otherwise matched candidate.
+        for (const auto* symbol :
+             {memory.stateSymbol, memory.shadowSymbol, memory.commitSymbol}) {
+          if (!symbol || getLoweredValueSymbolNet(design, *symbol)) {
+            continue;
+          }
+          const auto loweredName = getLoweredSymbolName(*symbol);
+          auto* net = getOrCreateNet(design, loweredName, symbol->getType());
+          setLoweredValueSymbolNet(design, *symbol, net);
+          annotateSourceInfo(net, getSourceRange(*symbol));
+          bindLiveASTLink(net, *symbol);
+        }
+        if (!failureReason.empty()) {
+          warnedUninferredMemorySymbols_.insert(memory.stateSymbol);
+          std::ostringstream reason;
+          reason << "Memory '" << std::string(memory.stateSymbol->name)
+                 << "' could not be lowered as naja_mem: " << failureReason
+                 << "; using generic lowering";
+          reportWarning(
+            "uninferred_memory_generic_lowering",
+            reason.str(),
+            memory.sourceRange);
         }
       }
     }
@@ -7458,7 +8183,12 @@ endmodule
            signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
             ? "1"
             : "0");
-        addInstParam("INIT", encodeInitBits(memory.initBits));
+        if (memory.hasInitialValue) {
+          addInstParam("INIT_ENABLE", "1");
+        }
+        if (signature.resetMode != NLDB0::MemoryResetMode::None || memory.hasInitialValue) {
+          addInstParam("INIT", encodeInitBits(memory.initBits));
+        }
 
         auto* clkTerm = model->getScalarTerm(NLName("CLK"));
         auto* rstTerm = model->getScalarTerm(NLName("RST"));
@@ -7570,7 +8300,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported SystemVerilog " << getPortKindLabel(sym->kind)
                  << " declaration for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(*sym));
+          reportUnsupportedError(reason.str(), getSourceRange(*sym));
           continue;
         }
         const auto& port = sym->as<PortSymbol>();
@@ -7583,13 +8313,13 @@ endmodule
             reason << " 'ref'";
           }
           reason << " for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          reportUnsupportedError(reason.str(), getSourceRange(port));
           continue;
         }
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(port.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for port: " << portName;
-          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          reportUnsupportedError(reason.str(), getSourceRange(port));
           continue;
         }
         auto range = getRangeFromType(port.getType());
@@ -7648,6 +8378,18 @@ endmodule
           if (!isInsideGenerateScope(valueSym) && design->getTerm(NLName(loweredName))) {
             continue;
           }
+          bool deferredInferredMemorySymbol = false;
+          for (const auto& memory : inferredMemories_) {
+            if (memory.stateSymbol == &valueSym ||
+                memory.shadowSymbol == &valueSym ||
+                memory.commitSymbol == &valueSym) {
+              deferredInferredMemorySymbol = true;
+              break;
+            }
+          }
+          if (deferredInferredMemorySymbol) {
+            continue;
+          }
           // LCOV_EXCL_START
           // Parser-backed net creation currently reaches this loop before any
           // same-design lowered net reuse is observable through design->getNet().
@@ -7666,7 +8408,7 @@ endmodule
               reason << " (dynamic unpacked array/queue/associative array)";
             }
             reason << " in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
+            reportUnsupportedError(reason.str(), getSourceRange(valueSym));
             continue;
           }
           auto net = getOrCreateNet(design, loweredName, valueSym.getType());
@@ -14404,7 +15146,8 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits,
-      bool& usedUnknownFallback) {
+      bool& usedUnknownFallback,
+      UnknownLiteralKinds* unknownKinds = nullptr) {
       bits.clear();
       usedUnknownFallback = false;
       if (resolveExpressionBits(design, expr, targetWidth, bits) &&
@@ -14417,7 +15160,8 @@ endmodule
                expr,
                targetWidth,
                bits,
-               usedUnknownFallback) &&
+               usedUnknownFallback,
+               unknownKinds) &&
              bits.size() == targetWidth;
     }
 
@@ -14436,24 +15180,27 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_continuous_assignment_rhs",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -14753,24 +15500,27 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_continuous_assignment_rhs",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -14874,24 +15624,27 @@ endmodule
       std::vector<SNLBitNet*> rightBits;
       bool leftUsedUnknownFallback = false;
       bool rightUsedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             leftExpr,
             lhsBits.size(),
             leftBits,
-            leftUsedUnknownFallback) ||
+            leftUsedUnknownFallback,
+            &unknownKinds) ||
           !resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             rightExpr,
             lhsBits.size(),
             rightBits,
-            rightUsedUnknownFallback)) {
+            rightUsedUnknownFallback,
+            &unknownKinds)) {
         return false;
       }
       if (leftUsedUnknownFallback || rightUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in continuous assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_continuous_assignment_rhs",
+          formatUnknownLiteralWarning("continuous assignment RHS", unknownKinds),
           sourceRange);
       }
 
@@ -15359,18 +16112,20 @@ endmodule
       }
 
       bool usedUnknownFallback = false;
+      UnknownLiteralKinds unknownKinds;
       shiftBits.clear();
       if (resolveUnknownLiteralBitsAsZero(
             design,
             shiftAmountExpr,
             shiftWidth,
             shiftBits,
-            usedUnknownFallback) &&
+            usedUnknownFallback,
+            &unknownKinds) &&
           !shiftBits.empty() &&
           usedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift amount lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_shift_amount",
+          formatUnknownLiteralWarning("shift amount", unknownKinds),
           getSourceRange(shiftAmountExpr));
         return true;
       }
@@ -15405,12 +16160,14 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         std::ostringstream reason;
         reason << "failed to resolve value bits (" << describeExpression(valueExpr)
                << ", target_width=" << lhsBits.size() << ")";
@@ -15419,8 +16176,8 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_shift_value",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
 
@@ -15520,12 +16277,14 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         std::ostringstream reason;
         reason << "failed to resolve value bits (" << describeExpression(valueExpr)
                << ", target_width=" << lhsBits.size() << ")";
@@ -15534,8 +16293,8 @@ endmodule
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_shift_value",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
       if (valueBits.empty()) {
@@ -15633,18 +16392,20 @@ endmodule
 
       std::vector<SNLBitNet*> valueBits;
       bool valueUsedUnknownFallback = false;
+      UnknownLiteralKinds valueUnknownKinds;
       if (!resolveExpressionBitsOrUnknownLiteralBitsAsZero(
             design,
             valueExpr,
             lhsBits.size(),
             valueBits,
-            valueUsedUnknownFallback)) {
+            valueUsedUnknownFallback,
+            &valueUnknownKinds)) {
         return false; // LCOV_EXCL_LINE
       }
       if (valueUsedUnknownFallback) {
         reportWarning(
-          "Unknown literal bits in shift value lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_shift_value",
+          formatUnknownLiteralWarning("shift value", valueUnknownKinds),
           sourceRange);
       }
 
@@ -17359,6 +18120,249 @@ endmodule
       return false;
     }
 
+    bool evaluateConfigurationConstant(
+      const Expression& expr,
+      int64_t& value) const {
+      if (getConstantInt64(expr, value)) {
+        return true;
+      }
+      if (activeForLoopConstants_.empty()) {
+        return false;
+      }
+
+      const auto* evalSymbol = getConstantEvalSymbol(expr);
+      if (!evalSymbol) {
+        return false;
+      }
+      slang::ast::EvalContext evalContext(*evalSymbol);
+      evalContext.pushEmptyFrame();
+      for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
+        if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
+        const auto& type = valueSymbol.getType().getCanonicalType();
+        if (!type.isIntegral() || type.getBitWidth() <= 0) {
+          return false; // LCOV_EXCL_LINE
+        }
+        slang::SVInt constant(
+          type.getBitWidth(),
+          static_cast<uint64_t>(loopValue),
+          type.isSigned());
+        if (!evalContext.createLocal(&valueSymbol, std::move(constant))) {
+          return false; // LCOV_EXCL_LINE
+        }
+      }
+
+      auto evaluated = expr.eval(evalContext);
+      if (!evaluated || !evaluated.isInteger() ||
+          evaluated.integer().hasUnknown()) {
+        return false;
+      }
+      return tryGetInt64FromSVInt(evaluated.integer(), value);
+    }
+
+    bool isNonStructuralConfigurationAssertionAction(const Statement& stmt) const {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !isNonStructuralConfigurationAssertionAction(*item)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind != slang::ast::StatementKind::ExpressionStatement) {
+        return false;
+      }
+      const auto* expr = stripConversions(
+        current->as<slang::ast::ExpressionStatement>().expr);
+      if (!expr || expr->kind != slang::ast::ExpressionKind::Call) {
+        return false;
+      }
+      const auto& call = expr->as<slang::ast::CallExpression>();
+      if (!call.isSystemCall()) {
+        return false;
+      }
+      const auto name = std::string(call.getSubroutineName());
+      return name == "$display" || name == "$write" || name == "$info" ||
+             name == "$warning" || name == "$error" || name == "$fatal" ||
+             name == "$finish" || name == "$stop";
+    }
+
+    bool analyzeConfigurationInitialStatement(
+      const Statement& stmt,
+      size_t& evaluatedIterations,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty) return true;
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !analyzeConfigurationInitialStatement(
+                *item, evaluatedIterations, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto* initializer =
+          current->as<slang::ast::VariableDeclStatement>().symbol.getInitializer();
+        if (!initializer) return true;
+        int64_t ignored = 0;
+        if (getConstantInt64(*initializer, ignored)) return true;
+        failureReason = "runtime variable initialization is not representable";
+        return false;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (conditional.conditions.size() != 1 || !conditional.conditions[0].expr) {
+          failureReason = "unsupported non-simple configuration condition"; // LCOV_EXCL_LINE
+          return false; // LCOV_EXCL_LINE
+        }
+        int64_t conditionValue = 0;
+        if (!evaluateConfigurationConstant(
+              *conditional.conditions[0].expr, conditionValue)) {
+          failureReason = "configuration condition is not statically decidable";
+          return false;
+        }
+        if (conditionValue != 0) {
+          return analyzeConfigurationInitialStatement(
+            conditional.ifTrue, evaluatedIterations, failureReason);
+        }
+        return !conditional.ifFalse || analyzeConfigurationInitialStatement(
+          *conditional.ifFalse, evaluatedIterations, failureReason);
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        const Symbol* loopSymbol = nullptr;
+        int64_t loopValue = 0;
+        if (!extractForLoopControl(loop, loopSymbol, loopValue, failureReason) ||
+            !loopSymbol || !loop.stopExpr || loop.steps.size() != 1 || !loop.steps.front()) {
+          if (failureReason.empty()) {
+            failureReason = "unsupported configuration-check for-loop control";
+          }
+          return false;
+        }
+        while (true) {
+          bool execute = false;
+          if (!evaluateForLoopStopCondition(
+                *loop.stopExpr, *loopSymbol, loopValue, execute, failureReason)) {
+            return false;
+          }
+          if (!execute) return true;
+          if (++evaluatedIterations > 1000000) {
+            failureReason = "configuration-check loop exceeds static evaluation limit"; // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
+          }
+          activeForLoopConstants_.push_back({loopSymbol, loopValue});
+          activeForLoopNameConstants_.push_back({std::string(loopSymbol->name), loopValue});
+          const auto bindingGuard = slang::ScopeGuard([&]() {
+            activeForLoopNameConstants_.pop_back();
+            activeForLoopConstants_.pop_back();
+          });
+          if (!analyzeConfigurationInitialStatement(
+                loop.body, evaluatedIterations, failureReason)) {
+            return false;
+          }
+          int64_t nextValue = loopValue;
+          if (!applyForLoopStepExpression(
+                *loop.steps.front(), *loopSymbol, nextValue, failureReason) ||
+              nextValue == loopValue) {
+            if (failureReason.empty()) {
+              failureReason = "configuration-check loop does not make progress";
+            }
+            return false;
+          }
+          loopValue = nextValue;
+        }
+      }
+      if (current->kind == slang::ast::StatementKind::ImmediateAssertion) {
+        const auto& assertion =
+          current->as<slang::ast::ImmediateAssertionStatement>();
+        if (assertion.assertionKind != slang::ast::AssertionKind::Assert ||
+            assertion.isDeferred || assertion.isFinal) {
+          failureReason =
+            "unsupported immediate assertion kind in configuration-check initial block";
+          return false;
+        }
+        int64_t conditionValue = 0;
+        if (!evaluateConfigurationConstant(assertion.cond, conditionValue)) {
+          const bool passActionIsNonStructural =
+            !assertion.ifTrue ||
+            isNonStructuralConfigurationAssertionAction(*assertion.ifTrue);
+          const bool failActionIsNonStructural =
+            !assertion.ifFalse ||
+            isNonStructuralConfigurationAssertionAction(*assertion.ifFalse);
+          if (passActionIsNonStructural && failActionIsNonStructural) {
+            reportUnsupportedWarning(
+              "discarded_configuration_check_runtime_assertion",
+              "discarding non-structural runtime immediate assertion in "
+              "configuration-check initial block",
+              getSourceRange(*current));
+            return true;
+          }
+          failureReason =
+            "immediate assertion condition is not statically decidable";
+          return false;
+        }
+        const Statement* reachableAction =
+          conditionValue != 0 ? assertion.ifTrue : assertion.ifFalse;
+        if (reachableAction) {
+          return analyzeConfigurationInitialStatement(
+            *reachableAction, evaluatedIterations, failureReason);
+        }
+        if (conditionValue == 0) {
+          failureReason =
+            "statically failed immediate assertion in configuration-check initial block";
+          return false;
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::ExpressionStatement) {
+        const auto* expr = stripConversions(
+          current->as<slang::ast::ExpressionStatement>().expr);
+        if (!expr || expr->kind != slang::ast::ExpressionKind::Call) {
+          failureReason = "arbitrary runtime expression is not representable";
+          return false;
+        }
+        const auto& call = expr->as<slang::ast::CallExpression>();
+        if (!call.isSystemCall()) {
+          failureReason = "user task or function call is not representable";
+          return false;
+        }
+        const auto name = std::string(call.getSubroutineName());
+        if (name == "$display" || name == "$write" || name == "$info" ||
+            name == "$warning") {
+          reportUnsupportedWarning(
+            "discarded_configuration_check_system_task_" + name.substr(1),
+            "discarding non-structural system task '" + name +
+              "' in configuration-check initial block",
+            getSourceRange(*current));
+          return true;
+        }
+        if (name == "$error" || name == "$fatal") {
+          failureReason = "statically reachable " + name +
+            " in configuration-check initial block";
+          return false;
+        }
+        if (name == "$finish" || name == "$stop") {
+          failureReason = "statically reachable " + name +
+            " in configuration-check initial block";
+          return false;
+        }
+        failureReason = "unsupported system task '" + name +
+          "' in configuration-check initial block";
+        return false;
+      }
+      failureReason =
+        "timing, event, or arbitrary runtime behavior in initial block is not representable";
+      return false;
+    }
+
     struct CombinationalSubtreeSummary {
       std::unordered_set<const slang::ast::ValueSymbol*> affectedSymbols {};
       bool mayBreak {false};
@@ -17897,7 +18901,7 @@ endmodule
         }
         reason << ", unsupported kind=" << unsupportedStatement->kind;
         reason << ")";
-        reportUnsupportedElement(
+        reportUnsupportedError(
           reason.str(),
           getSourceRange(*current));
         return nullptr;
@@ -17909,7 +18913,7 @@ endmodule
       reason << "Unsupported statement while extracting sequential timing control"
              << " (kind=" << current->kind
              << ", expected timed '@(...)' statement)";
-      reportUnsupportedElement(
+      reportUnsupportedError(
         reason.str(),
         getSourceRange(*current));
       return nullptr;
@@ -18055,7 +19059,7 @@ endmodule
         reason << "overflow";
       }
       reason << ", warning_threshold_bits=" << threshold << ")";
-      reportWarning(reason.str(), sourceRange);
+      reportWarning("large_uninferred_memory", reason.str(), sourceRange);
     }
 
     void warnLargeUninferredMemoryAssignments(
@@ -20169,6 +21173,138 @@ endmodule
         nextMasks |= static_cast<uint8_t>(1u << nextMask);
       }
       pathState[symbol] = nextMasks;
+      return true;
+    }
+
+    bool analyzeCombinationalNonBlockingSafety(
+      const Statement& stmt,
+      std::unordered_set<const slang::ast::ValueSymbol*>& pendingNonBlocking,
+      std::string& failureReason) const {
+      const auto rejectPendingRead = [this, &pendingNonBlocking, &failureReason](
+        const Expression& expr) {
+        std::unordered_set<const slang::ast::ValueSymbol*> reads;
+        collectExpressionRootValueSymbols(expr, reads);
+        for (const auto* pending : pendingNonBlocking) {
+          if (pending && reads.contains(pending)) {
+            failureReason =
+              "scheduling-sensitive combinational block reads '" +
+              std::string(pending->name) +
+              "' after an earlier non-blocking assignment on the same control-flow path";
+            return false;
+          }
+        }
+        return true;
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind == slang::ast::StatementKind::Empty ||
+          current->kind == slang::ast::StatementKind::VariableDeclaration ||
+          isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          if (item && !analyzeCombinationalNonBlockingSafety(
+                *item, pendingNonBlocking, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        for (const auto& condition : conditional.conditions) {
+          if (condition.expr && !rejectPendingRead(*condition.expr)) return false;
+        }
+        auto truePending = pendingNonBlocking;
+        if (!analyzeCombinationalNonBlockingSafety(
+              conditional.ifTrue, truePending, failureReason)) {
+          return false;
+        }
+        auto falsePending = pendingNonBlocking;
+        if (conditional.ifFalse && !analyzeCombinationalNonBlockingSafety(
+              *conditional.ifFalse, falsePending, failureReason)) {
+          return false;
+        }
+        truePending.insert(falsePending.begin(), falsePending.end());
+        pendingNonBlocking = std::move(truePending);
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        if (!rejectPendingRead(caseStmt.expr)) return false;
+        std::unordered_set<const slang::ast::ValueSymbol*> merged = pendingNonBlocking;
+        for (const auto& item : caseStmt.items) {
+          for (const auto* expr : item.expressions) {
+            if (expr && !rejectPendingRead(*expr)) return false;
+          }
+          auto branchPending = pendingNonBlocking;
+          if (item.stmt && !analyzeCombinationalNonBlockingSafety(
+                *item.stmt, branchPending, failureReason)) {
+            return false;
+          }
+          merged.insert(branchPending.begin(), branchPending.end());
+        }
+        if (caseStmt.defaultCase) {
+          auto branchPending = pendingNonBlocking;
+          if (!analyzeCombinationalNonBlockingSafety(
+                *caseStmt.defaultCase, branchPending, failureReason)) {
+            return false;
+          }
+          merged.insert(branchPending.begin(), branchPending.end());
+        }
+        pendingNonBlocking = std::move(merged);
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        if (loop.stopExpr && !rejectPendingRead(*loop.stopExpr)) return false;
+        ProceduralAssignmentSchedulingSummary bodySummary;
+        ProceduralSchedulingPathState bodyPathState;
+        std::string bodyFailureReason;
+        if (!analyzeProceduralAssignmentScheduling(
+              loop.body, bodySummary, bodyPathState, bodyFailureReason)) {
+          failureReason = bodyFailureReason; // LCOV_EXCL_LINE
+          return false; // LCOV_EXCL_LINE
+        }
+        if (bodySummary.hasNonBlocking) {
+          failureReason =
+            "scheduling-sensitive combinational non-blocking assignment inside a loop "
+            "has cyclic or iteration-order-dependent behavior";
+          return false;
+        }
+        return analyzeCombinationalNonBlockingSafety(
+          loop.body, pendingNonBlocking, failureReason);
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!extractAssignment(*current, lhs, action)) return true;
+      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+      if (lhs) tryGetRootValueSymbolReference(*lhs, lhsSymbol);
+      if (action.rhs && !rejectPendingRead(*action.rhs)) return false;
+      if (lhs) {
+        std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
+        collectExpressionRootValueSymbols(*lhs, lhsReads);
+        if (lhsSymbol) lhsReads.erase(lhsSymbol);
+        for (const auto* pending : pendingNonBlocking) {
+          if (pending && lhsReads.contains(pending)) {
+            failureReason =
+              "scheduling-sensitive combinational assignment uses '" +
+              std::string(pending->name) +
+              "' as an index after an earlier non-blocking assignment";
+            return false;
+          }
+        }
+      }
+      if (action.scheduling == ProceduralAssignmentScheduling::NonBlocking) {
+        if (!lhsSymbol) {
+          failureReason =
+            "scheduling-sensitive combinational non-blocking assignment has an ambiguous target";
+          return false;
+        }
+        pendingNonBlocking.insert(lhsSymbol);
+      }
       return true;
     }
 
@@ -22593,7 +23729,8 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits,
-      bool& usedUnknownFallback) {
+      bool& usedUnknownFallback,
+      UnknownLiteralKinds* unknownKinds = nullptr) {
       bits.clear();
       usedUnknownFallback = false;
       if (!targetWidth) {
@@ -22635,7 +23772,8 @@ endmodule
                 *args[0],
                 *argWidth,
                 argBits,
-                argUsedUnknownFallback) ||
+                argUsedUnknownFallback,
+                unknownKinds) ||
               argBits.size() != *argWidth ||
               !argUsedUnknownFallback) {
             return false;
@@ -22667,13 +23805,15 @@ endmodule
               binaryExpr.left(),
               targetWidth,
               leftBits,
-              leftUsedUnknownFallback) ||
+              leftUsedUnknownFallback,
+              unknownKinds) ||
             !resolveUnknownLiteralBitsAsZero(
               design,
               binaryExpr.right(),
               targetWidth,
               rightBits,
-              rightUsedUnknownFallback) ||
+              rightUsedUnknownFallback,
+              unknownKinds) ||
             leftBits.size() != targetWidth ||
             rightBits.size() != targetWidth ||
             (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
@@ -22701,7 +23841,8 @@ endmodule
             *knownSide,
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
         // Parser-backed unknown-literal fallback reaches ternaries only after
         // pattern conditions have been rejected and known-side folding has been
@@ -22723,7 +23864,8 @@ endmodule
             conditionalExpr.left(),
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
         if (selectBit == const0) {
           return resolveUnknownLiteralBitsAsZero(
@@ -22731,7 +23873,8 @@ endmodule
             conditionalExpr.right(),
             targetWidth,
             bits,
-            usedUnknownFallback);
+            usedUnknownFallback,
+            unknownKinds);
         }
 
         std::vector<SNLBitNet*> leftBits;
@@ -22743,13 +23886,15 @@ endmodule
               conditionalExpr.left(),
               targetWidth,
               leftBits,
-              leftUsedUnknownFallback) ||
+              leftUsedUnknownFallback,
+              unknownKinds) ||
             !resolveUnknownLiteralBitsAsZero(
               design,
               conditionalExpr.right(),
               targetWidth,
               rightBits,
-              rightUsedUnknownFallback) ||
+              rightUsedUnknownFallback,
+              unknownKinds) ||
             leftBits.size() != targetWidth ||
             rightBits.size() != targetWidth ||
             (!leftUsedUnknownFallback && !rightUsedUnknownFallback)) {
@@ -22800,6 +23945,9 @@ endmodule
         if (!value.isUnknown()) {
           return false; // LCOV_EXCL_LINE
         }
+        if (unknownKinds) {
+          unknownKinds->add(value);
+        }
         bits.assign(targetWidth, const0);
         usedUnknownFallback = true;
         return true;
@@ -22810,6 +23958,9 @@ endmodule
         const auto& literalValue = literal.getValue();
         if (!literalValue.hasUnknown()) {
           return false; // LCOV_EXCL_LINE
+        }
+        if (unknownKinds) {
+          unknownKinds->add(literalValue);
         }
         const auto integerWidth = static_cast<size_t>(literalValue.getBitWidth());
         bits.reserve(targetWidth);
@@ -22843,6 +23994,9 @@ endmodule
         const auto& intValue = constant->integer();
         if (!intValue.hasUnknown()) {
           return false; // LCOV_EXCL_LINE
+        }
+        if (unknownKinds) {
+          unknownKinds->add(intValue);
         }
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
@@ -22903,7 +24057,8 @@ endmodule
               replicationExpr.concat(),
               concatWidth,
               concatBits,
-              concatUsedUnknownFallback) ||
+              concatUsedUnknownFallback,
+              unknownKinds) ||
             concatBits.size() != concatWidth || !concatUsedUnknownFallback) {
           return false;
         }
@@ -22977,7 +24132,8 @@ endmodule
                 *operand,
                 operandWidthBits,
                 operandBits,
-                operandUsedUnknownFallback) ||
+                operandUsedUnknownFallback,
+                unknownKinds) ||
               operandBits.size() != operandWidthBits) {
             return false;
           }
@@ -23008,7 +24164,8 @@ endmodule
               *pattern.defaultSetter,
               targetWidth,
               bits,
-              defaultUsedUnknownFallback) ||
+              defaultUsedUnknownFallback,
+              unknownKinds) ||
             bits.size() != targetWidth ||
             !defaultUsedUnknownFallback) {
           return false;
@@ -23092,9 +24249,11 @@ endmodule
         const Expression* compoundRhsExpr = action.rhs;
         std::vector<SNLBitNet*> rhsBits;
         bool usedCompoundUnknownLiteralFallback = false;
+        UnknownLiteralKinds compoundUnknownKinds;
         const auto resolveCompoundRhs = [&](const Expression& rhsExpr) {
           rhsBits.clear();
           usedCompoundUnknownLiteralFallback = false;
+          compoundUnknownKinds = {};
           if (resolveExpressionBits(design, rhsExpr, targetWidth, rhsBits) &&
               rhsBits.size() == targetWidth) {
             return true;
@@ -23105,7 +24264,8 @@ endmodule
                 rhsExpr,
                 targetWidth,
                 rhsBits,
-                usedUnknownLiteralFallback) &&
+                usedUnknownLiteralFallback,
+                &compoundUnknownKinds) &&
               rhsBits.size() == targetWidth &&
               usedUnknownLiteralFallback) {
             usedCompoundUnknownLiteralFallback = true;
@@ -23208,8 +24368,10 @@ endmodule
         auto sourceRange = getSourceRange(*compoundRhsExpr);
         if (usedCompoundUnknownLiteralFallback) {
           reportWarning(
-            "Unknown literal bits in always_comb compound assignment RHS lowered as 0 in SNL "
-            "(X/Z distinction is not preserved)",
+            "unknown_literal_always_comb_compound_assignment_rhs",
+            formatUnknownLiteralWarning(
+              "always_comb compound assignment RHS",
+              compoundUnknownKinds),
             sourceRange);
         }
         if (*action.compoundOp == slang::ast::BinaryOperator::Add) {
@@ -23297,6 +24459,7 @@ endmodule
       }
 
       bool usedUnknownLiteralFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
           assignedBits.size() == targetWidth) {
         return true;
@@ -23312,14 +24475,15 @@ endmodule
              *action.rhs,
              targetWidth,
              assignedBits,
-             usedUnknownLiteralFallback) ||
+             usedUnknownLiteralFallback,
+             &unknownKinds) ||
            assignedBits.size() != targetWidth || !usedUnknownLiteralFallback)) {
         return failCombinationalRhsResolution();
       } // LCOV_EXCL_LINE
       if (usedUnknownLiteralFallback) {
         reportWarning(
-          "Unknown literal bits in always_comb assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_always_comb_assignment_rhs",
+          formatUnknownLiteralWarning("always_comb assignment RHS", unknownKinds),
           getSourceRange(*action.rhs));
       }
       return true;
@@ -26040,9 +27204,12 @@ endmodule
         return false; // LCOV_EXCL_LINE: scheduling-analysis failure propagation.
       }
       if (schedulingSummary.hasNonBlocking && !allowNonBlockingAssignments) {
-        failureReason =
-          "non-blocking assignments in combinational procedural blocks are unsupported";
-        return false;
+        std::unordered_set<const slang::ast::ValueSymbol*> pendingNonBlocking;
+        if (!analyzeCombinationalNonBlockingSafety(
+              stmt, pendingNonBlocking, failureReason)) {
+          return false;
+        }
+        allowNonBlockingAssignments = true;
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const auto designName = design->getName().getString();
@@ -28493,9 +29660,11 @@ endmodule
         const auto value =
           rhsExpr->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
         if (value.isUnknown()) {
+          UnknownLiteralKinds unknownKinds;
+          unknownKinds.add(value);
           reportWarning(
-            "Unbased unsized unknown literal in sequential assignment lowered as 0 in SNL "
-            "(X/Z distinction is not preserved)",
+            "unknown_literal_sequential_assignment_rhs",
+            formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
             sourceRange);
           auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
           return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
@@ -28507,7 +29676,7 @@ endmodule
           rhsExpr->as<slang::ast::SimpleAssignmentPatternExpression>();
         if (pattern.type &&
             pattern.type->getCanonicalType().isUnpackedArray()) {
-          reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
+          reportUnsupportedError("Unsupported RHS in sequential assignment", sourceRange);
           return {};
         }
       } // LCOV_EXCL_LINE
@@ -28553,7 +29722,7 @@ endmodule
             isInequalityBinaryOp(bin.op) ||
             isRelationalBinaryOp(bin.op);
           if (!supportedArithmeticOp) {
-            reportUnsupportedElement(
+            reportUnsupportedError(
               formatDescribedFailure(
                 "Unsupported binary operator in sequential assignment: ",
                 std::string(slang::ast::OpInfo::getText(bin.op))),
@@ -28582,17 +29751,19 @@ endmodule
 
       resolvedBits.clear();
       bool usedUnknownLiteralFallback = false;
+      UnknownLiteralKinds unknownKinds;
       if (resolveUnknownLiteralBitsAsZero(
             design,
             *rhsExpr,
             lhsBits.size(),
             resolvedBits,
-            usedUnknownLiteralFallback) &&
+            usedUnknownLiteralFallback,
+            &unknownKinds) &&
           resolvedBits.size() == lhsBits.size() &&
           usedUnknownLiteralFallback) {
         reportWarning(
-          "Unknown literal bits in sequential assignment RHS lowered as 0 in SNL "
-          "(X/Z distinction is not preserved)",
+          "unknown_literal_sequential_assignment_rhs",
+          formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
           sourceRange ? sourceRange : getSourceRange(*rhsExpr));
         return resolvedBits;
       }
@@ -28612,7 +29783,7 @@ endmodule
           auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
           return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
         }
-        reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
+        reportUnsupportedError("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }
       return {}; // LCOV_EXCL_LINE
@@ -28636,7 +29807,7 @@ endmodule
         // Non-edge signal events are diverted earlier through the explicit
         // combinational-timing path, so this sequential-only report is kept as
         // a defensive fallback.
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return nullptr;
@@ -28648,7 +29819,7 @@ endmodule
           if (!eventCtrl ||
               eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
             // LCOV_EXCL_START
-            reportUnsupportedElement(
+            reportUnsupportedError(
               "Unsupported sequential event list; only signal events are supported",
               getSourceRange(timing));
             return nullptr;
@@ -28672,7 +29843,7 @@ endmodule
             continue;
           }
 
-          reportUnsupportedElement(
+          reportUnsupportedError(
             "Unsupported sequential timing edge in event list; only posedge/negedge are supported",
             getSourceRange(*eventCtrl));
           return nullptr;
@@ -28681,12 +29852,12 @@ endmodule
           return clockExpr;
         }
 
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential event list; missing posedge clock event",
           getSourceRange(timing));
         return nullptr;
       }
-      reportUnsupportedElement(
+      reportUnsupportedError(
         "Unsupported sequential timing control",
         getSourceRange(timing));
       return nullptr;
@@ -28703,7 +29874,7 @@ endmodule
         // the sequential clock extractor, so preserve this only as defensive
         // reporting for unexpected AST shapes.
         // LCOV_EXCL_START
-        reportUnsupportedElement(
+        reportUnsupportedError(
           "Unsupported sequential timing edge; only posedge/negedge are supported",
           getSourceRange(timing));
         return std::nullopt;
@@ -29296,7 +30467,7 @@ endmodule
             if (!combFailureReason.empty()) {
               reason << ": " << combFailureReason;
             }
-            reportUnsupportedElement(reason.str(), blockSourceRange);
+            reportUnsupportedError(reason.str(), blockSourceRange);
             return false;
           }
           return true;
@@ -29580,8 +30751,21 @@ endmodule
           continue;
         }
 
-        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial &&
-            isIgnorableSequentialStatementTree(block.getBody())) {
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::Initial) {
+          if (handledInitialBlocks_.contains(&block)) {
+            continue;
+          }
+          size_t evaluatedIterations = 0;
+          std::string initialFailureReason;
+          if (!analyzeConfigurationInitialStatement(
+                block.getBody(), evaluatedIterations, initialFailureReason)) {
+            std::ostringstream reason;
+            reason << "Unsupported initial block in module '" << moduleName << "'";
+            if (!initialFailureReason.empty()) {
+              reason << ": " << initialFailureReason;
+            }
+            reportUnsupportedError(reason.str(), blockSourceRange);
+          }
           continue;
         }
 
@@ -29607,7 +30791,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported latch block in module '" << moduleName << "'";
               reason << ": " << latchFailureReason;
-              reportUnsupportedElement(reason.str(), latchSourceRange);
+              reportUnsupportedError(reason.str(), latchSourceRange);
             }
           }
           continue;
@@ -29619,7 +30803,7 @@ endmodule
           reason << "Unsupported procedural block in module '" << moduleName
                  << "': unsupported procedure kind " << block.procedureKind
                  << " (only always/always_ff/always_comb/always_latch are currently lowered)";
-          reportUnsupportedElement(reason.str(), blockSourceRange);
+          reportUnsupportedError(reason.str(), blockSourceRange); // LCOV_EXCL_LINE
           continue;
         }
         std::unordered_set<const slang::ast::ValueSymbol*> ignoredSequentialSymbols;
@@ -29695,7 +30879,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unsupported event list with multiple async events";
-              reportUnsupportedElement(reason.str(), blockSourceRange);
+              reportUnsupportedError(reason.str(), blockSourceRange);
               continue;
             }
             asyncResetEventExpr = asyncEvent.expr;
@@ -29709,7 +30893,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
                  << "': unable to resolve a single-bit clock net";
-          reportUnsupportedElement(reason.str(), blockSourceRange);
+          reportUnsupportedError(reason.str(), blockSourceRange);
           continue;
         }
 
@@ -29774,7 +30958,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': " << schedulingFailureReason;
-              reportUnsupportedElement(reason.str(), statementSourceRange);
+              reportUnsupportedError(reason.str(), statementSourceRange);
               continue;
             }
             case DirectSequentialConditionalLowering::NotApplicable:
@@ -29854,7 +31038,7 @@ endmodule
           if (!multiAssignFailureReason.empty()) {
             reason << " (" << multiAssignFailureReason << ")";
           }
-          reportUnsupportedElement(reason.str(), statementSourceRange);
+          reportUnsupportedError(reason.str(), statementSourceRange);
           continue;
         }
         if (shouldIgnoreTrackedLHS(chain.lhs, ignoredSequentialSymbolsPtr)) {
@@ -29894,7 +31078,7 @@ endmodule
             if (!lhsFailureReason.empty()) {
               reason << " (" << lhsFailureReason << ")";
             }
-            reportUnsupportedElement(reason.str(), statementSourceRange);
+            reportUnsupportedError(reason.str(), statementSourceRange);
             continue;
           }
           if (!lhsNet && lhsBits.size() == 1) {
@@ -30046,7 +31230,7 @@ endmodule
             std::ostringstream reason;
             reason << "Unsupported sequential block in module '" << moduleName
                    << "': unable to resolve enable condition net";
-            reportUnsupportedElement(reason.str(), enableSourceRange);
+            reportUnsupportedError(reason.str(), enableSourceRange);
             continue;
           }
           canUseEnablePrimitive =
@@ -30137,7 +31321,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported sequential block in module '" << moduleName
                        << "': unable to build enable mux";
-                reportUnsupportedElement(reason.str(), enableSourceRange);
+                reportUnsupportedError(reason.str(), enableSourceRange);
                 continue;
                 // LCOV_EXCL_STOP
               } // LCOV_EXCL_LINE
@@ -30165,7 +31349,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unable to resolve reset condition net";
-              reportUnsupportedElement(reason.str(), resetSourceRange);
+              reportUnsupportedError(reason.str(), resetSourceRange);
               continue;
             }
             std::vector<SNLBitNet*> rstBits;
@@ -30180,7 +31364,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported sequential block in module '" << moduleName
                      << "': unable to build reset mux";
-              reportUnsupportedElement(reason.str(), resetSourceRange);
+              reportUnsupportedError(reason.str(), resetSourceRange);
               continue;
               // LCOV_EXCL_STOP
             } // LCOV_EXCL_LINE
@@ -30451,7 +31635,7 @@ endmodule
             // representable lvalues that are diagnosed earlier during type/lhs resolution.
             std::ostringstream reason;
             reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           } // LCOV_EXCL_STOP
         }
@@ -30521,7 +31705,7 @@ endmodule
                 if (!shiftFailureReason.empty()) {
                   reason << " (" << shiftFailureReason << ")";
                 }
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30542,7 +31726,7 @@ endmodule
                 if (!shiftFailureReason.empty()) {
                   reason << " (" << shiftFailureReason << ")";
                 }
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30560,7 +31744,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
             }
             continue;
@@ -30591,7 +31775,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: +",
                   assignSourceRange);
               }
@@ -30605,7 +31789,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: *",
                   assignSourceRange);
               }
@@ -30619,7 +31803,7 @@ endmodule
                     binaryExpr.right(),
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
-                reportUnsupportedElement(
+                reportUnsupportedError(
                   "Unsupported binary expression in continuous assign: -",
                   assignSourceRange);
               }
@@ -30640,7 +31824,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30658,7 +31842,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30674,7 +31858,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30690,7 +31874,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary expression in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
               }
               continue;
             }
@@ -30712,7 +31896,7 @@ endmodule
               std::ostringstream reason;
               reason << "Unsupported binary operator in continuous assign: "
                      << slang::ast::OpInfo::getText(binaryExpr.op);
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+              reportUnsupportedError(reason.str(), assignSourceRange);
               continue;
             }
             collectBinaryOperands(*rhs, binaryExpr.op, operands);
@@ -30758,7 +31942,7 @@ endmodule
                 std::ostringstream reason;
                 reason << "Unsupported binary operator under bitwise not in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                reportUnsupportedElement(reason.str(), assignSourceRange);
+                reportUnsupportedError(reason.str(), assignSourceRange);
                 continue;
             }
             if (gateType) {
@@ -30796,10 +31980,10 @@ endmodule
                      << " (gate=" << gateType->getString()
                      << ", lhs_width=" << lhsGateBits.size();
               if (!gateFailureReason.empty()) {
-                reason << ", " << gateFailureReason;
-              }
-              reason << ")";
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+                reason << ", " << gateFailureReason; // LCOV_EXCL_LINE
+              } // LCOV_EXCL_LINE
+              reason << ")"; // LCOV_EXCL_LINE
+              reportUnsupportedError(reason.str(), assignSourceRange); // LCOV_EXCL_LINE
             } else if (!optimizedOrHandled && !createBitwiseGateAssign(
                   design,
                   *gateType,
@@ -30815,7 +31999,7 @@ endmodule
                 reason << ", " << gateFailureReason;
               }
               reason << ")";
-              reportUnsupportedElement(reason.str(), assignSourceRange);
+              reportUnsupportedError(reason.str(), assignSourceRange);
             }
             continue;
           }
@@ -30852,7 +32036,7 @@ endmodule
               reason << ", " << failedOperandReason;
             }
             reason << ")";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
 
@@ -30886,7 +32070,7 @@ endmodule
                    << ", input_count=" << inputNets.size()
                    << ", output_name=" << gateOutName
                    << ", reason=createGateInstance failed)";
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
             // LCOV_EXCL_STOP
           } // LCOV_EXCL_LINE
@@ -30904,25 +32088,27 @@ endmodule
 
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if ((!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
                rhsBits.size() != lhsAssignBits.size()) &&
               (!resolveUnknownLiteralBitsAsZero(
                  design,
                  *rhs,
                  lhsAssignBits.size(),
-               rhsBits,
-                 usedUnknownLiteralFallback) ||
+                 rhsBits,
+                 usedUnknownLiteralFallback,
+                 &unknownKinds) ||
                rhsBits.size() != lhsAssignBits.size() || !usedUnknownLiteralFallback)) {
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
                    << moduleName << "': " << describeExpression(*rhs);
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
-              "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-              "(X/Z distinction is not preserved)",
+              "unknown_literal_continuous_assign_rhs",
+              formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
           for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
@@ -30947,14 +32133,15 @@ endmodule
               !rhsIsResizableLiteral) {
             auto rhsWidth = getIntegralExpressionBitWidth(*rhs);
             if (!rhsWidth || !*rhsWidth) {
-              reportUnsupportedElement(
-                "Unsupported net compatibility in continuous assign",
-                assignSourceRange);
-              continue;
+              reportUnsupportedError( // LCOV_EXCL_LINE
+                "Unsupported net compatibility in continuous assign", // LCOV_EXCL_LINE
+                assignSourceRange); // LCOV_EXCL_LINE
+              continue; // LCOV_EXCL_LINE
             }
           }
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if ((!resolveExpressionBits(design, *rhs, rhsWidthBits, rhsBits) ||
                rhsBits.size() != lhsBits.size()) &&
               (!resolveUnknownLiteralBitsAsZero(
@@ -30962,18 +32149,19 @@ endmodule
                  *rhs,
                  rhsWidthBits,
                  rhsBits,
-                 usedUnknownLiteralFallback) ||
+                 usedUnknownLiteralFallback,
+                 &unknownKinds) ||
                rhsBits.size() != lhsBits.size() || !usedUnknownLiteralFallback)) {
             std::ostringstream reason;
             reason << "Unsupported RHS in continuous assign in module '"
                    << moduleName << "': " << describeExpression(*rhs);
-            reportUnsupportedElement(reason.str(), assignSourceRange);
+            reportUnsupportedError(reason.str(), assignSourceRange);
             continue;
           }
           if (usedUnknownLiteralFallback) {
             reportWarning(
-              "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-              "(X/Z distinction is not preserved)",
+              "unknown_literal_continuous_assign_rhs",
+              formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
               assignSourceRange);
           }
           for (size_t i = 0; i < lhsBits.size(); ++i) {
@@ -30989,6 +32177,7 @@ endmodule
         if (!rhsNet) {
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if (!lhsAssignBits.empty() &&
               ((resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
                 rhsBits.size() == lhsAssignBits.size()) ||
@@ -31002,15 +32191,16 @@ endmodule
                   *rhs,
                   lhsAssignBits.size(),
                   rhsBits,
-                  usedUnknownLiteralFallback) &&
+                  usedUnknownLiteralFallback,
+                  &unknownKinds) &&
                 rhsBits.size() == lhsAssignBits.size() && usedUnknownLiteralFallback)
                // LCOV_EXCL_STOP
                )) {
             // LCOV_EXCL_START
             if (usedUnknownLiteralFallback) {
               reportWarning(
-                "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-                "(X/Z distinction is not preserved)",
+                "unknown_literal_continuous_assign_rhs",
+                formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
             }
             // LCOV_EXCL_STOP
@@ -31022,12 +32212,13 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported RHS in continuous assign in module '"
                  << moduleName << "': " << describeExpression(*rhs);
-          reportUnsupportedElement(reason.str(), assignSourceRange);
+          reportUnsupportedError(reason.str(), assignSourceRange);
           continue;
         }
         if (!createDirectAssign(design, rhsNet, lhsNet, assignSourceRange)) {
           std::vector<SNLBitNet*> rhsBits;
           bool usedUnknownLiteralFallback = false;
+          UnknownLiteralKinds unknownKinds;
           if (!lhsAssignBits.empty() &&
               ((resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
                 rhsBits.size() == lhsAssignBits.size()) ||
@@ -31040,15 +32231,16 @@ endmodule
                   *rhs,
                   lhsAssignBits.size(),
                   rhsBits,
-                  usedUnknownLiteralFallback) &&
+                  usedUnknownLiteralFallback,
+                  &unknownKinds) &&
                 rhsBits.size() == lhsAssignBits.size() && usedUnknownLiteralFallback)
                // LCOV_EXCL_STOP
                )) {
             if (usedUnknownLiteralFallback) {
               // LCOV_EXCL_START
               reportWarning(
-                "Unknown literal bits in continuous assign RHS lowered as 0 in SNL "
-                "(X/Z distinction is not preserved)",
+                "unknown_literal_continuous_assign_rhs",
+                formatUnknownLiteralWarning("continuous assign RHS", unknownKinds),
                 assignSourceRange);
               // LCOV_EXCL_STOP
             } // LCOV_EXCL_LINE
@@ -31060,7 +32252,7 @@ endmodule
           // LCOV_EXCL_START
           // Remaining direct-connect failures after the bit-level resize fallbacks above are
           // currently diagnosed earlier by parser/type filtering in the parser-backed suite.
-          reportUnsupportedElement(
+          reportUnsupportedError(
             "Unsupported net compatibility in continuous assign",
             assignSourceRange);
           // LCOV_EXCL_STOP
@@ -31229,7 +32421,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection: missing term '" << portName
                  << "' on model '" << model->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), getSourceRange(instance));
+          reportUnsupportedError(reason.str(), getSourceRange(instance));
           continue; // LCOV_EXCL_LINE
         }
         const Expression* expr = conn->getExpression();
@@ -31246,7 +32438,7 @@ endmodule
           reason << "Unsupported instance connection for port '" << portName
                  << "' on instance '" << inst->getName().getString()
                  << "': " << failureReason;
-          reportUnsupportedElement(
+          reportUnsupportedError(
             formatReasonWithSourceExcerpt(reason.str(), exprSourceRange),
             exprSourceRange);
         };
@@ -31515,7 +32707,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection expression for port '" << portName
                  << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           continue;
         }
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
@@ -31542,7 +32734,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
                  << portName << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           continue;
         }
         std::string failureReason;
@@ -31583,7 +32775,7 @@ endmodule
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
                  << portName << "' on instance '" << inst->getName().getString() << "'";
-          reportUnsupportedElement(reason.str(), exprSourceRange);
+          reportUnsupportedError(reason.str(), exprSourceRange);
           // LCOV_EXCL_STOP
         }
       }
@@ -31591,7 +32783,6 @@ endmodule
 
   private:
     NLLibrary* library_ {nullptr};
-    SNLSVConstructor::Config config_ {};
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
@@ -31599,9 +32790,10 @@ endmodule
     std::unordered_map<const slang::ast::ValueSymbol*, size_t> inferredMemoryByStateSymbol_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
       inferredMemoryCombBlocks_ {};
-    std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>
+    std::unordered_map<const slang::ast::ProceduralBlockSymbol*, std::vector<size_t>>
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
+    std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};
@@ -31639,12 +32831,25 @@ endmodule
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;
-    std::string cachedCompilationDiagnosticsReport_;
+    std::ofstream diagnosticsReportStream_;
+    std::unordered_set<std::string> reportSections_;
+    std::unordered_map<std::string, size_t> slangSeverityCounts_;
+    size_t slangDiagnosticCount_ {0};
+    size_t elaborationWarningCount_ {0};
+    size_t unsupportedWarningCount_ {0};
+    size_t unsupportedErrorCount_ {0};
+    std::unordered_set<std::string> elaborationWarningCodes_;
+    std::unordered_set<std::string> unsupportedWarningCodes_;
+    std::unordered_set<std::string> unsupportedErrorCodes_;
+    bool warningPolicyNoticeEmitted_ {false};
+    bool diagnosticsReportFinalized_ {false};
     std::vector<std::string> warnings_;
     std::unordered_set<std::string> emittedWarnings_;
-    std::unordered_set<std::string> loggedWarningReasons_;
+    std::unordered_set<std::string> loggedWarningCodes_;
     std::vector<std::string> unsupportedElements_;
     std::vector<SNLSVUnsupportedElement> unsupportedElementDetails_;
+    std::vector<std::string> unsupportedWarnings_;
+    std::unordered_set<std::string> emittedUnsupportedWarnings_;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
     mutable SVPerfReport svPerfReport_ {};
 #endif
@@ -31688,9 +32893,8 @@ std::optional<std::string> testSVConstructorGetSourceExcerpt(
     end = slang::SourceLocation(alternateBuffer.id, *options.endOffset);
   }
 
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions constructOptions;
-  SNLSVConstructorImpl impl(nullptr, config, constructOptions);
+  SNLSVConstructorImpl impl(nullptr, constructOptions);
   return impl.testGetSourceExcerpt(
     std::move(compilation),
     slang::SourceRange(start, end),
@@ -31699,9 +32903,8 @@ std::optional<std::string> testSVConstructorGetSourceExcerpt(
 
 std::string testSVConstructorFormatReasonWithSourceExcerptNoRange(
   const std::string& reason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatReasonWithSourceExcerpt(reason, std::nullopt);
 }
 
@@ -31709,16 +32912,14 @@ bool testSVConstructorTryPowerInt64(
   int64_t base,
   int64_t exponent,
   int64_t& value) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testTryPowerInt64(base, exponent, value);
 }
 
 InferredMemoryGuardDefaults testSVConstructorDefaultInferredMemoryGuard() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testDefaultInferredMemoryGuardDefaults();
 }
 
@@ -31726,17 +32927,15 @@ std::optional<std::vector<int32_t>> testSVConstructorCollectIndexedRangeElementI
   int32_t startIndex,
   int32_t sliceWidth,
   bool indexedDown) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCollectIndexedRangeElementIndices(startIndex, sliceWidth, indexedDown);
 }
 
 std::optional<size_t> testSVConstructorResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveFixedUnpackedArraySelectionBitCountFromAssignRhs(sourceText);
 }
 
@@ -31744,18 +32943,16 @@ std::vector<bool> testSVConstructorEncodeUnsignedProductBits(
   uint64_t leftValue,
   uint64_t rightValue,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testEncodeUnsignedProductBits(leftValue, rightValue, targetWidth);
 }
 
 std::optional<std::string> testSVConstructorCreatePowerOfTwoBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCreatePowerOfTwoBitsFromAssignRhs(sourceText, targetWidth);
 }
 
@@ -31763,9 +32960,8 @@ std::optional<size_t> testSVConstructorResolveWildcardPatternWidthFallback(
   const std::optional<size_t>& directWidth,
   bool canonicalIntegral,
   int32_t bitWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveWildcardPatternWidthFallback(
     directWidth,
     canonicalIntegral,
@@ -31776,9 +32972,8 @@ std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAs
   const std::string& sourceText,
   size_t targetWidth,
   bool signExtend) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveWildcardCaseItemPatternFromAssignRhs(
     sourceText,
     targetWidth,
@@ -31788,27 +32983,24 @@ std::optional<std::string> testSVConstructorResolveWildcardCaseItemPatternFromAs
 std::optional<std::string> testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveUnknownLiteralBitsAsZeroFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<std::string> testSVConstructorResolveExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveExpressionBitsFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<size_t> testSVConstructorResolveAssignmentLHSBitsFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsFromAssignLhs(sourceText, allowConcatenation);
 }
 
@@ -31816,9 +33008,8 @@ std::optional<ResolveAssignmentLHSBitsTestResult>
 testSVConstructorResolveAssignmentLHSBitsResultFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsResultFromAssignLhs(
     sourceText,
     allowConcatenation);
@@ -31828,9 +33019,8 @@ std::optional<ResolveAssignmentLHSBitsTestResult>
 testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
   const std::string& sourceText,
   bool allowConcatenation) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
     sourceText,
     allowConcatenation);
@@ -31839,51 +33029,45 @@ testSVConstructorResolveAssignmentLHSBitsReportedFailureFromAssignLhs(
 std::optional<std::string> testSVConstructorResolveConstantExpressionBitsFromAssignRhs(
   const std::string& sourceText,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testResolveConstantExpressionBitsFromAssignRhs(sourceText, targetWidth);
 }
 
 std::optional<FindTimedStatementTestResult> testSVConstructorFindTimedStatementFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFindTimedStatementFromProceduralBlock(sourceText);
 }
 
 std::optional<CollectDirectAssignmentsTestResult>
 testSVConstructorCollectDirectAssignmentsFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testCollectDirectAssignmentsFromProceduralBlock(sourceText);
 }
 
 std::optional<SingleLHSFallbackPathMaxTestResult>
 testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(sourceText);
 }
 
 std::optional<ProceduralReplayEnvMergeTestResult>
 testSVConstructorMergeProceduralReplayEnvs() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testMergeProceduralReplayEnvs();
 }
 
 std::optional<ActiveForLoopConstantHelpersTestResult>
 testSVConstructorActiveForLoopConstantHelpers() {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testActiveForLoopConstantHelpers();
 }
 
@@ -31891,9 +33075,8 @@ std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromForLoop(
   const std::string& sourceText,
   int64_t initialLoopValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyForLoopStepExpressionFromForLoop(sourceText, initialLoopValue);
 }
 
@@ -31901,9 +33084,8 @@ std::optional<ForLoopStepExpressionTestResult>
 testSVConstructorApplyForLoopStepExpressionFromProceduralStatement(
   const std::string& sourceText,
   int64_t initialLoopValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyForLoopStepExpressionFromProceduralStatement(
     sourceText,
     initialLoopValue);
@@ -31914,43 +33096,38 @@ testSVConstructorApplyConstantCompoundForLoopOperator(
   const std::string& opText,
   int64_t initialLoopValue,
   int64_t rhsValue) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testApplyConstantCompoundForLoopOperator(opText, initialLoopValue, rhsValue);
 }
 
 std::optional<bool> testSVConstructorConvertConstantToIntegerFromAssignRhs(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testConvertConstantToIntegerFromAssignRhs(sourceText);
 }
 
 std::optional<std::string> testSVConstructorAppendSignedConstantBits(
   int64_t value,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testAppendSignedConstantBits(value, targetWidth);
 }
 
 std::optional<bool> testSVConstructorSameExpressionStructureFromContinuousAssignRhsPair(
   const std::string& sourceText) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testSameExpressionStructureFromContinuousAssignRhsPair(sourceText);
 }
 
 std::vector<bool> testSVConstructorEncodeSignedInt64ConstantBits(
   int64_t value,
   size_t targetWidth) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testEncodeSignedInt64ConstantBits(value, targetWidth);
 }
 
@@ -31958,9 +33135,8 @@ std::string testSVConstructorFormatAssignmentLHSResolutionFailureReason(
   bool hasLhsNet,
   const std::string& lhsDescription,
   const std::string& failureReason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatAssignmentLHSResolutionFailureReason(
     hasLhsNet,
     lhsDescription,
@@ -31970,9 +33146,8 @@ std::string testSVConstructorFormatAssignmentLHSResolutionFailureReason(
 std::string testSVConstructorFormatSequentialConcatLeafFailureReason(
   const std::string& lhsDescription,
   const std::string& leafFailureReason) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatSequentialConcatLeafFailureReason(
     lhsDescription,
     leafFailureReason);
@@ -31981,18 +33156,16 @@ std::string testSVConstructorFormatSequentialConcatLeafFailureReason(
 std::string testSVConstructorFormatDescribedFailure(
   const std::string& prefix,
   const std::string& description) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatDescribedFailure(prefix, description);
 }
 
 std::string testSVConstructorFormatQuotedDescriptionFailure(
   const std::string& prefix,
   const std::string& description) {
-  SNLSVConstructor::Config config;
   SNLSVConstructor::ConstructOptions options;
-  SNLSVConstructorImpl impl(nullptr, config, options);
+  SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
 }
 // LCOV_EXCL_STOP
@@ -32014,7 +33187,7 @@ void SNLSVConstructor::construct(const std::filesystem::path& path) {
 
 void SNLSVConstructor::construct(const Paths& paths, const ConstructOptions& options) {
   NajaPerf::Scope scope("SNLSVConstructor::construct");
-  SNLSVConstructorImpl impl(library_, config_, options);
+  SNLSVConstructorImpl impl(library_, options);
   impl.construct(paths);
 }
 

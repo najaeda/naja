@@ -648,6 +648,33 @@ cases:
           - "2000000"
       pass_regex: "CV32E40P_HWLP_SIM_PASS"
 
+  # The source list and simulator flow mirror tb/Makefile in the pinned Z-Core
+  # repository. Naja elaborates, dumps, lints, and simulates the complete SoC.
+  - name: zcore
+    repo: https://github.com/paudiaz99/Z-Core.git
+    commit: 4fae65b7bc3fa1efc4b83ffe868e0f490cc36201
+    top: z_core_top
+    flist: rtl/flist.vc
+    flist_format: fusesoc_vc
+    output: zcore_naja.v
+    dump:
+      rtl_infos_as_attributes: true
+    generate_timeout_seconds: 7200
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - TIMESCALEMOD
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_zcore_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_zcore_top_smoke.sv"
+      pass_regex: "ZCORE_TOP_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
+
   - name: axi
     repo: https://github.com/pulp-platform/axi.git
     commit: e286bb1a4aba6fc145f3cb41bd78665c5868e2a9

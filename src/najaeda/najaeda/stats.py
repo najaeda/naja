@@ -7,6 +7,8 @@ import json
 
 from najaeda import netlist
 
+logger = logging.getLogger(__name__)
+
 
 class InstancesStats:
     def __init__(self):
@@ -397,13 +399,13 @@ def dump_constants(design, analyzed_models):
             message = f"In design {design.getName()}, \
                     constant net {bitnet.getName()} \
                     of type {bitnet.getTypeAsString()}"
-            logging.info(message)
+            logger.info(message)
             if all(False for _ in bitnet.getComponents()):
-                logging.info(" with zero connections\n")
+                logger.info(" with zero connections\n")
             else:
-                logging.info(" connected to:\n")
+                logger.info(" connected to:\n")
                 for component in bitnet.getComponents():
-                    logging.info(str(component) + "\n")
+                    logger.info(str(component) + "\n")
 
     for ins in design.getInstances():
         model = ins.getModel()

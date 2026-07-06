@@ -29,10 +29,8 @@ void prepareDesignForConcurrentAccess(
   visitedDesigns.insert(design);
 
   if (design->isPrimitive()) {
-    // These DB0 primitives are modeled with dependency arcs, not truth tables.
-    if (NLDB0::isDivMod(design) or
-        NLDB0::isMemory(design) or
-        NLDB0::isTableSelect(design)) {
+    // These DB0 primitives do not expose combinational truth tables.
+    if (NLDB0::isDivMod(design) or NLDB0::isMemory(design)) {
       return;
     }
     for (auto term: design->getBitTerms()) {

@@ -101,6 +101,30 @@ std::string getPythonError() {
   return result;
 }
 
+void installNajaLoggingHandler() {
+  PyObject* modules = PyImport_GetModuleDict();  // borrowed reference
+  PyObject* najaModule = PyDict_GetItemString(modules, "naja");  // borrowed reference
+  if (!najaModule) {
+    return;
+  }
+  PyObjRef installer(PyObject_GetAttrString(najaModule, "installLoggingHandler"));
+  if (!installer) {
+    // Compatibility with older Naja Python modules.
+    PyErr_Clear();
+    return;
+  }
+  PyObjRef result(PyObject_CallNoArgs(installer.get()));
+  if (!result) {
+    std::string pythonError = getPythonError();
+    std::ostringstream reason;
+    reason << "Cannot install Naja Python logging handler";
+    if (!pythonError.empty()) {
+      reason << ": " << pythonError;
+    }
+    throw naja::NL::NLException(reason.str());
+  }
+}
+
 PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
@@ -124,6 +148,12 @@ PyObject* loadModule(const std::filesystem::path& path) {
       reason << ": " << pythonError;
     }
     throw naja::NL::NLException(reason.str());
+  }
+  try {
+    installNajaLoggingHandler();
+  } catch (...) {
+    Py_DECREF(module);
+    throw;
   }
   return module;
 }

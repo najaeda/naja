@@ -33,3 +33,4 @@ src/apps/naja_edit/examples/adder/verilator.done
 regress/liberty/
 regress/designs/verilog/megaboom/sources/
 graphify-out
+naja_sv_diagnostics.log

@@ -60,6 +60,24 @@ python3 regress/sv/sv_regress.py run \
 The generated Verilog and `load-dump.log` are written under each case artifact
 directory.
 
+## Z-Core Full Dump Verification
+
+The Z-Core case follows the pinned upstream `tb/Makefile` source-list and
+simulation model. It elaborates `z_core_top`, dumps the complete reachable
+design, lints that complete dump, and runs a top-level reset/execution smoke
+simulation against the same dump:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case zcore \
+  --stage load_dump \
+  --stage lint \
+  --stage github_sim
+```
+
+The simulation expects `ZCORE_TOP_SMOKE_PASS` after reset and 200 full-SoC
+clock cycles, and rejects unknown UART or GPIO outputs.
+
 ## Logic-Cone Signatures
 
 The `logic_cones` stage builds manifest-selected cones while the pinned external

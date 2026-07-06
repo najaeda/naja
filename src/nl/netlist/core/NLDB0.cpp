@@ -321,6 +321,8 @@ namespace {
        signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
         ? "1"
         : "0");
+    SNLParameter::create(
+      memory, NLName("INIT_ENABLE"), SNLParameter::Type::Decimal, "0");
     SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "1'b0");
 
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
