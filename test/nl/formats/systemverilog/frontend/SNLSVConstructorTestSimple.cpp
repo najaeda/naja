@@ -23449,6 +23449,45 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousWideMultiplyPlusNetInitializerSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_wide_multiply_plus_net_initializer_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_wide_multiply_plus_net_initializer_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_wide_multiply_plus_net_initializer_supported(
+  input  logic [32:0] a_i,
+  input  logic [32:0] b_i,
+  input  logic [64:0] c_i,
+  output logic [64:0] y_o
+);
+  wire [64:0] o_r = a_i * b_i + c_i;
+  assign y_o = o_r;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_wide_multiply_plus_net_initializer_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("o_r")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

@@ -13766,122 +13766,116 @@ endmodule
             // LCOV_EXCL_STOP
           } // LCOV_EXCL_LINE
 
-          const bool allowScaledMultiplyLowering =
-            targetWidth <= 64 || hasActiveForLoopContext();
-          if (!allowScaledMultiplyLowering) {
-            // Avoid broad datapath lowering blow-up; keep this fast path for selector-like widths.
-          } else {
-            uint64_t factor = 0;
-            const Expression* scaledExpr = nullptr;
-            if (rightIsConst) {
-              factor = rightConst;
-              scaledExpr = &binaryExpr.left();
-            } else if (leftIsConst) {
-              factor = leftConst;
-              scaledExpr = &binaryExpr.right();
+          uint64_t factor = 0;
+          const Expression* scaledExpr = nullptr;
+          if (rightIsConst) {
+            factor = rightConst;
+            scaledExpr = &binaryExpr.left();
+          } else if (leftIsConst) {
+            factor = leftConst;
+            scaledExpr = &binaryExpr.right();
+          }
+
+          if (scaledExpr) {
+            uint64_t scaledConst = 0;
+            bool scaledIsConst = getConstantUnsigned(*scaledExpr, scaledConst);
+            if (!scaledIsConst) {
+              if (auto loopValue = getActiveForLoopConstantFromSource(*scaledExpr)) {
+                if (*loopValue >= 0) {
+                  scaledConst = static_cast<uint64_t>(*loopValue);
+                  scaledIsConst = true;
+                }
+              }
+            }
+            if (!scaledIsConst) {
+              // Slang parser-backed operands keep their own source ranges, so
+              // normal tests exercise the operand-source lookup above. Keep
+              // this fallback for lowered forms that only retain source on the
+              // enclosing multiply expression.
+              // LCOV_EXCL_START
+              if (auto loopValue = getActiveForLoopConstantFromSource(*stripped)) {
+                if (*loopValue >= 0) {
+                  scaledConst = static_cast<uint64_t>(*loopValue);
+                  scaledIsConst = true;
+                }
+              }
+              // LCOV_EXCL_STOP
+            }
+            if (scaledIsConst &&
+                scaledConst != 0 &&
+                factor > std::numeric_limits<uint64_t>::max() / scaledConst) {
+              return false;
+            }
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            if (factor == 0) {
+              bits.assign(targetWidth, const0); // LCOV_EXCL_LINE
+              return true; // LCOV_EXCL_LINE
+            }
+            std::vector<SNLBitNet*> scaledBits;
+            if (!resolveExpressionBits(design, *scaledExpr, targetWidth, scaledBits) ||
+                scaledBits.size() != targetWidth) {
+              return false; // LCOV_EXCL_LINE
             }
 
-            if (scaledExpr) {
-              uint64_t scaledConst = 0;
-              bool scaledIsConst = getConstantUnsigned(*scaledExpr, scaledConst);
-              if (!scaledIsConst) {
-                if (auto loopValue = getActiveForLoopConstantFromSource(*scaledExpr)) {
-                  if (*loopValue >= 0) {
-                    scaledConst = static_cast<uint64_t>(*loopValue);
-                    scaledIsConst = true;
-                  }
-                }
-              }
-              if (!scaledIsConst) {
-                // Slang parser-backed operands keep their own source ranges, so
-                // normal tests exercise the operand-source lookup above. Keep
-                // this fallback for lowered forms that only retain source on the
-                // enclosing multiply expression.
-                // LCOV_EXCL_START
-                if (auto loopValue = getActiveForLoopConstantFromSource(*stripped)) {
-                  if (*loopValue >= 0) {
-                    scaledConst = static_cast<uint64_t>(*loopValue);
-                    scaledIsConst = true;
-                  }
-                }
-                // LCOV_EXCL_STOP
-              }
-              if (scaledIsConst &&
-                  scaledConst != 0 &&
-                  factor > std::numeric_limits<uint64_t>::max() / scaledConst) {
-                return false;
-              }
-              auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-              if (factor == 0) {
-                bits.assign(targetWidth, const0); // LCOV_EXCL_LINE
-                return true; // LCOV_EXCL_LINE
-              }
-              std::vector<SNLBitNet*> scaledBits;
-              if (!resolveExpressionBits(design, *scaledExpr, targetWidth, scaledBits) ||
-                  scaledBits.size() != targetWidth) {
-                return false; // LCOV_EXCL_LINE
-              }
-
-              if (factor == 1) {
-                bits = std::move(scaledBits);
-                return true;
-              }
-
-              bits.assign(targetWidth, const0);
-              bool hasAccumulated = false;
-              const auto sourceRange = getSourceRange(*stripped);
-              for (size_t shiftAmount = 0;
-                   factor && shiftAmount < targetWidth;
-                   ++shiftAmount, factor >>= 1) {
-                if (!(factor & 1ULL)) {
-                  continue;
-                }
-
-                std::vector<SNLBitNet*> partialBits(targetWidth, const0);
-                for (size_t bit = shiftAmount; bit < targetWidth; ++bit) {
-                  partialBits[bit] = scaledBits[bit - shiftAmount];
-                }
-
-                if (!hasAccumulated) {
-                  bits = std::move(partialBits);
-                  hasAccumulated = true;
-                  continue;
-                }
-
-                std::vector<SNLBitNet*> sumBits;
-                if (!addBitVectors(design, bits, partialBits, sumBits, sourceRange)) {
-                  return false; // LCOV_EXCL_LINE
-                }
-                bits = std::move(sumBits);
-              }
+            if (factor == 1) {
+              bits = std::move(scaledBits);
               return true;
             }
 
-            SNLNet* productNet = nullptr;
-            if (targetWidth == 1) {
-              // LCOV_EXCL_START
-              // Scalar multiply lowering is retained for completeness; current
-              // regressions exercise the vector product path.
-              productNet = SNLScalarNet::create(design);
-            } else {
-              // LCOV_EXCL_STOP
-              productNet = SNLBusNet::create(
-                design,
-                static_cast<NLID::Bit>(targetWidth - 1),
-                0);
+            bits.assign(targetWidth, const0);
+            bool hasAccumulated = false;
+            const auto sourceRange = getSourceRange(*stripped);
+            for (size_t shiftAmount = 0;
+                 factor && shiftAmount < targetWidth;
+                 ++shiftAmount, factor >>= 1) {
+              if (!(factor & 1ULL)) {
+                continue;
+              }
+
+              std::vector<SNLBitNet*> partialBits(targetWidth, const0);
+              for (size_t bit = shiftAmount; bit < targetWidth; ++bit) {
+                partialBits[bit] = scaledBits[bit - shiftAmount];
+              }
+
+              if (!hasAccumulated) {
+                bits = std::move(partialBits);
+                hasAccumulated = true;
+                continue;
+              }
+
+              std::vector<SNLBitNet*> sumBits;
+              if (!addBitVectors(design, bits, partialBits, sumBits, sourceRange)) {
+                return false; // LCOV_EXCL_LINE
+              }
+              bits = std::move(sumBits);
             }
-            annotateSourceInfo(productNet, getSourceRange(*stripped));
-            if (!createMultiplyAssign(
-                  design,
-                  productNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  getSourceRange(*stripped))) {
-              return false;
-            }
-            bits = collectBits(productNet);
-            return bits.size() == targetWidth;
+            return true;
           }
+
+          SNLNet* productNet = nullptr;
+          if (targetWidth == 1) {
+            // LCOV_EXCL_START
+            // Scalar multiply lowering is retained for completeness; current
+            // regressions exercise the vector product path.
+            productNet = SNLScalarNet::create(design);
+          } else {
+            // LCOV_EXCL_STOP
+            productNet = SNLBusNet::create(
+              design,
+              static_cast<NLID::Bit>(targetWidth - 1),
+              0);
+          }
+          annotateSourceInfo(productNet, getSourceRange(*stripped));
+          if (!createMultiplyAssign(
+                design,
+                productNet,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                getSourceRange(*stripped))) {
+            return false;
+          }
+          bits = collectBits(productNet);
+          return bits.size() == targetWidth;
         }
         if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
             binaryExpr.op == slang::ast::BinaryOperator::Mod) {

@@ -122,6 +122,15 @@ TEST_F(NLDB0Test, testAssign) {
   EXPECT_THROW(NLUniverse::get()->setTopDB(db0), NLException);
 }
 
+TEST_F(NLDB0Test, testDFFInitValueFormatting) {
+  EXPECT_EQ("4'b01xz", NLDB0::formatDFFInitValue(4, "01XZ"));
+  EXPECT_EQ("3'bxxx", NLDB0::getUndefinedDFFInitValue(3));
+
+  EXPECT_THROW(NLDB0::formatDFFInitValue(0, ""), NLException);
+  EXPECT_THROW(NLDB0::formatDFFInitValue(2, "0"), NLException);
+  EXPECT_THROW(NLDB0::formatDFFInitValue(1, "2"), NLException);
+}
+
 TEST_F(NLDB0Test, testPrimitiveTermRoles) {
   using Role = SNLDesignModeling::SNLTermRole;
   using Level = SNLDesignModeling::SNLActiveLevel;

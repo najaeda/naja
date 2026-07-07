@@ -1521,7 +1521,7 @@ SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
       return property->getModeling()->getTermRole_(term).activeLevel;
     }
   }
-  return SNLActiveLevel::NA;
+  return SNLActiveLevel::NA; // LCOV_EXCL_LINE defensive inconsistent role fallback
 }
 
 SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(

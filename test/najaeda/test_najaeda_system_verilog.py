@@ -215,6 +215,17 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 config=netlist.SystemVerilogConfig(keep_ast_link="true"),
             )
 
+    def test_load_system_verilog_with_invalid_blackbox_unknown_modules_raises(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        with self.assertRaisesRegex(
+                ValueError,
+                r"SystemVerilogConfig\.blackbox_unknown_modules "
+                r"must be a bool \(got str\)"):
+            netlist.load_system_verilog(
+                design_files,
+                config=netlist.SystemVerilogConfig(blackbox_unknown_modules="true"),
+            )
+
     def test_load_system_verilog_with_invalid_defines_raises(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         cases = [
