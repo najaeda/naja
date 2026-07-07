@@ -33307,6 +33307,55 @@ endmodule
   EXPECT_EQ("4'b1010", init->getValue());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseVariableDeclarationInitSetsDFFInitParameter) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "variable_declaration_init_sets_dff_init_parameter",
+    R"(module variable_declaration_init_sets_dff_init_parameter(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state = 4'b1010, state_next;
+  always_comb
+    state_next = d;
+  always_ff @(posedge clk) begin
+    if (rst)
+      state <= 4'b0000;
+    else
+      state <= state_next;
+  end
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("variable_declaration_init_sets_dff_init_parameter"));
+  ASSERT_NE(top, nullptr);
+  const SNLInstance* sequential = nullptr;
+  for (auto* inst : top->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model) {
+      continue;
+    }
+    if (NLDB0::isDFF(model) || NLDB0::isDFFN(model) ||
+        NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) ||
+        NLDB0::isDFFS(model) || NLDB0::isDFFE(model) ||
+        NLDB0::isDFFRE(model) || NLDB0::isDFFSE(model)) {
+      ASSERT_EQ(nullptr, sequential);
+      sequential = inst;
+    }
+  }
+  ASSERT_NE(sequential, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(sequential));
+  auto* init = sequential->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b1010", init->getValue());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUninitializedRegisterDFFInitDefaultsToX) {
   SNLSVConstructor constructor(library_);
   auto svPath = writeSVTestFile(

@@ -1343,6 +1343,7 @@ class SNLSVConstructorImpl {
       warnedUninferredMemorySymbols_.clear();
       handledInitialBlocks_.clear();
       loweredNetInitializers_.clear();
+      loweredVariableInitializers_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
@@ -4035,6 +4036,9 @@ endmodule
           const auto& variableSymbol = sym.as<slang::ast::VariableSymbol>();
           if (variableSymbol.getInitializer() &&
               !variableSymbol.flags.has(slang::ast::VariableFlags::Const)) {
+            if (loweredVariableInitializers_.contains(&variableSymbol)) {
+              continue;
+            }
             // An initializer on an otherwise unconnected variable has no
             // observable netlist behavior. This is a common lint idiom for
             // consuming intentionally unused inputs in a generate branch.
@@ -4595,6 +4599,7 @@ endmodule
     struct DFFInitBit {
       char digit {'x'};
       const slang::ast::ProceduralBlockSymbol* block {nullptr};
+      const slang::ast::VariableSymbol* variable {nullptr};
       bool consumed {false};
     };
 
@@ -4740,13 +4745,87 @@ endmodule
       for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
         dffInitDigitByOutputBit_.emplace(
           lhsBits[bit],
-          DFFInitBit{(*digits)[bit], &block, false});
+          DFFInitBit{(*digits)[bit], &block, nullptr, false});
       }
       reportUnsupportedWarning(
         "lowered_initial_register_init",
         "lowering constant initial register assignment as DFF INIT metadata",
         getSourceRange(block));
       return true;
+    }
+
+    void analyzeDFFDeclarationInitializers(SNLDesign* design, const InstanceBodySymbol& body) {
+      std::vector<const slang::ast::VariableSymbol*> variables;
+      auto collectVariable = [&](const Symbol& sym) {
+        if (sym.kind != SymbolKind::Variable) {
+          return;
+        }
+        const auto& variable = sym.as<slang::ast::VariableSymbol>();
+        if (variable.flags.has(slang::ast::VariableFlags::Const) ||
+            !variable.getInitializer()) {
+          return;
+        }
+        variables.push_back(&variable);
+      };
+      visitElaboratedNonGenerateMembers(body, collectVariable);
+
+      for (const auto* variable : variables) {
+        if (!variable) {
+          continue; // LCOV_EXCL_LINE
+        }
+        auto* net = getLoweredValueSymbolNet(design, *variable);
+        if (!net) {
+          continue;
+        }
+        auto bits = collectBits(net);
+        if (bits.empty()) {
+          continue;
+        }
+        auto digits = getConstantDFFInitDigits(
+          *variable->getInitializer(), *variable, bits.size());
+        if (!digits || digits->size() != bits.size()) {
+          continue;
+        }
+        bool hasConflict = false;
+        for (auto* bit : bits) {
+          if (dffInitDigitByOutputBit_.contains(bit)) {
+            hasConflict = true;
+            break;
+          }
+        }
+        if (hasConflict) {
+          continue;
+        }
+        for (size_t bit = 0; bit < bits.size(); ++bit) {
+          dffInitDigitByOutputBit_.emplace(
+            bits[bit],
+            DFFInitBit{(*digits)[bit], nullptr, variable, false});
+        }
+      }
+    }
+
+    void finalizeLoweredVariableDeclarationInitializers() {
+      std::unordered_map<const slang::ast::VariableSymbol*, bool> consumedByVariable;
+      for (const auto& [bit, initBit] : dffInitDigitByOutputBit_) {
+        (void)bit;
+        if (!initBit.variable) {
+          continue;
+        }
+        auto [it, inserted] = consumedByVariable.emplace(initBit.variable, true);
+        if (!inserted && !it->second) {
+          continue;
+        }
+        it->second = it->second && initBit.consumed;
+      }
+      for (const auto& [variable, consumed] : consumedByVariable) {
+        if (variable && consumed) {
+          loweredVariableInitializers_.insert(variable);
+          reportUnsupportedWarning(
+            "lowered_variable_declaration_init",
+            "lowering constant variable declaration initializer as DFF INIT metadata",
+            getSourceRange(*variable));
+        }
+      }
     }
 
     void connectBusNetBits(
@@ -30636,6 +30715,7 @@ endmodule
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
       dffInitDigitByOutputBit_.clear();
+      analyzeDFFDeclarationInitializers(design, body);
       const auto uninferredMemoryWarningThreshold =
         getUninferredMemoryWarningBitThreshold();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -31816,6 +31896,7 @@ endmodule
                << "': initial assignment target is not lowered as a register";
         reportUnsupportedError(reason.str(), getSourceRange(*initBit.block));
       }
+      finalizeLoweredVariableDeclarationInitializers();
     }
 
     void createContinuousAssigns(SNLDesign* design, const InstanceBodySymbol& body) {
@@ -33223,6 +33304,7 @@ endmodule
     std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
     std::unordered_map<SNLBitNet*, DFFInitBit> dffInitDigitByOutputBit_ {};
     std::unordered_set<const slang::ast::NetSymbol*> loweredNetInitializers_ {};
+    std::unordered_set<const slang::ast::VariableSymbol*> loweredVariableInitializers_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};
