@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -95,6 +96,22 @@ class ScopedEnvVar {
     std::optional<std::string> previous_;
 };
 #endif
+
+class ScopedCurrentPath {
+  public:
+    explicit ScopedCurrentPath(const std::filesystem::path& path):
+      previous_(std::filesystem::current_path()) {
+      std::filesystem::current_path(path);
+    }
+
+    ~ScopedCurrentPath() {
+      std::error_code ec;
+      std::filesystem::current_path(previous_, ec);
+    }
+
+  private:
+    std::filesystem::path previous_;
+};
 
 const SNLRTLInfos* getRTLInfos(const NLObject* object) {
   if (auto design = dynamic_cast<const SNLDesign*>(object)) {
@@ -230,6 +247,69 @@ SNLNet* traceSingleAssignInputDriving(SNLNet* net) {
   return inputTerm->getNet();
 }
 
+bool haveEquivalentFanIn(
+    SNLBitNet* lhs,
+    SNLBitNet* rhs,
+    std::set<std::pair<SNLBitNet*, SNLBitNet*>>& visited) {
+  if (!lhs || !rhs) {
+    return lhs == rhs;
+  }
+  lhs = dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(lhs));
+  rhs = dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(rhs));
+  if (!lhs || !rhs) {
+    return lhs == rhs;
+  }
+  if (lhs == rhs) {
+    return true;
+  }
+  if (lhs->isConstant() || rhs->isConstant()) {
+    return lhs->getType() == rhs->getType();
+  }
+  if (!visited.emplace(lhs, rhs).second) {
+    return true;
+  }
+
+  auto findDriver = [](SNLBitNet* net) -> SNLInstance* {
+    SNLInstance* driver = nullptr;
+    for (auto* instTerm : net->getInstTerms()) {
+      if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
+        continue;
+      }
+      if (driver && driver != instTerm->getInstance()) {
+        return nullptr;
+      }
+      driver = instTerm->getInstance();
+    }
+    return driver;
+  };
+
+  auto* lhsDriver = findDriver(lhs);
+  auto* rhsDriver = findDriver(rhs);
+  if (!lhsDriver || !rhsDriver || lhsDriver->getModel() != rhsDriver->getModel()) {
+    return false;
+  }
+  for (auto* lhsInput : lhsDriver->getInstTerms()) {
+    if (!lhsInput || lhsInput->getDirection() != SNLTerm::Direction::Input) {
+      continue;
+    }
+    auto* rhsInput = rhsDriver->getInstTerm(lhsInput->getBitTerm());
+    if (!rhsInput) {
+      return false;
+    }
+    auto* lhsInputNet = dynamic_cast<SNLBitNet*>(lhsInput->getNet());
+    auto* rhsInputNet = dynamic_cast<SNLBitNet*>(rhsInput->getNet());
+    if (!haveEquivalentFanIn(lhsInputNet, rhsInputNet, visited)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool haveEquivalentFanIn(SNLBitNet* lhs, SNLBitNet* rhs) {
+  std::set<std::pair<SNLBitNet*, SNLBitNet*>> visited;
+  return haveEquivalentFanIn(lhs, rhs, visited);
+}
+
 size_t getPrimitiveWidth(const SNLInstance* instance) {
   if (!instance) {
     return 0;
@@ -248,6 +328,24 @@ size_t getPrimitiveWidth(const SNLInstance* instance) {
 }
 
 using PrimitivePredicate = bool (*)(const SNLDesign*);
+
+const SNLInstance* findOnlyPrimitiveInstance(
+  const SNLDesign* design,
+  PrimitivePredicate predicate) {
+  const SNLInstance* found = nullptr;
+  for (auto* inst : design->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model || !predicate(model)) {
+      continue;
+    }
+    if (found) {
+      ADD_FAILURE() << "Found more than one matching primitive instance";
+      return found;
+    }
+    found = inst;
+  }
+  return found;
+}
 
 size_t countPrimitiveBits(
     const SNLDesign* design,
@@ -1037,6 +1135,190 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(dumpedWithVerboseRTLInfosText.find("naja_sv_src=\""), std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationBinaryInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_binary_initializer",
+    R"(module net_declaration_binary_initializer(
+  input logic a,
+  input logic b,
+  output logic y_decl,
+  output logic y_assign
+);
+  wire w_decl = a ^ b;
+  wire w_assign;
+  assign w_assign = a ^ b;
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("net_declaration_binary_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* wDecl = dynamic_cast<SNLBitNet*>(top->getNet(NLName("w_decl")));
+  auto* wAssign = dynamic_cast<SNLBitNet*>(top->getNet(NLName("w_assign")));
+  ASSERT_NE(nullptr, wDecl);
+  ASSERT_NE(nullptr, wAssign);
+  EXPECT_TRUE(haveEquivalentFanIn(wDecl, wAssign));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGeneratedPackedNetInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "generated_packed_net_initializer",
+    R"(module generated_packed_net_initializer(
+  input logic [3:0] a,
+  input logic [3:0] b,
+  output logic [3:0] y_decl,
+  output logic [3:0] y_assign
+);
+  if (1) begin : g
+    wire [3:0] w_decl = a & b;
+    wire [3:0] w_assign;
+    assign w_assign = a & b;
+    assign y_decl = w_decl;
+    assign y_assign = w_assign;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("generated_packed_net_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+  EXPECT_EQ(8u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationConstantInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_constant_initializer",
+    R"(module net_declaration_constant_initializer(
+  output logic [3:0] y_decl,
+  output logic [3:0] y_assign
+);
+  wire [3:0] w_decl = 4'b1010;
+  wire [3:0] w_assign;
+  assign w_assign = 4'b1010;
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("net_declaration_constant_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationConcatReductionInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_concat_reduction_initializer",
+    R"(module net_declaration_concat_reduction_initializer(
+  input logic [1:0] a,
+  input logic [3:0] b,
+  output logic [2:0] y_decl,
+  output logic [2:0] y_assign
+);
+  wire [2:0] w_decl = {a, ^b};
+  wire [2:0] w_assign;
+  assign w_assign = {a, ^b};
+  assign y_decl = w_decl;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("net_declaration_concat_reduction_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 3; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit))) << bit;
+  }
+  EXPECT_EQ(6u, countPrimitiveInstances(top, NLDB0::isGate));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedNetInitializerIsReported) {
+  const auto svPath = writeSVTestFile(
+    "unsupported_net_initializer",
+    R"(module unsupported_net_initializer(output logic y);
+  wire value = $urandom;
+  assign y = value;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign", "Call width=32"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseVariableDeclarationInitializerIsReported) {
+  const auto svPath = writeSVTestFile(
+    "unsupported_variable_declaration_initializer",
+    R"(module unsupported_variable_declaration_initializer(
+  input logic a,
+  output logic y
+);
+  logic state = a;
+  assign y = state;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported variable declaration initializer", "initial-time procedural semantics"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnusedGenerateVariableInitializerIsIgnored) {
+  const auto svPath = writeSVTestFile(
+    "unused_generate_variable_initializer",
+    R"(module unused_generate_variable_initializer(
+  input logic a,
+  input logic [1:0] b,
+  output logic y
+);
+  if (1) begin : gen_unused
+    logic unused_inputs = a & (|b);
+  end
+  assign y = a;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("unused_generate_variable_initializer"));
+  ASSERT_NE(nullptr, top);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseDistinctParameterizedInstanceBodiesUseDistinctModels) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -1196,6 +1478,136 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanB
   EXPECT_NE(unread->getScalarTerm(NLName("d_i")), nullptr);
   EXPECT_NE(unread->getScalarNet(NLName("d_i")), nullptr);
   EXPECT_EQ(unread, SNLUtils::findTop(library_));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnknownModuleAutoBlackboxWithNamedPorts) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_named_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_named_ports.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic       clk_i,
+  input  logic [3:0] data_i,
+  output logic [3:0] data_o
+);
+  missing_cell u_missing(
+    .clk(clk_i),
+    .din(data_i),
+    .dout(data_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_cell"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  ASSERT_NE(nullptr, dynamic_cast<SNLScalarTerm*>(model->getTerm(NLName("clk"))));
+  auto* din = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("din")));
+  auto* dout = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("dout")));
+  ASSERT_NE(nullptr, din);
+  ASSERT_NE(nullptr, dout);
+  EXPECT_EQ(3, din->getMSB());
+  EXPECT_EQ(0, din->getLSB());
+  EXPECT_EQ(3, dout->getMSB());
+  EXPECT_EQ(0, dout->getLSB());
+
+  auto* inst = top->getInstance(NLName("u_missing"));
+  ASSERT_NE(nullptr, inst);
+  auto* topClk = top->getScalarNet(NLName("clk_i"));
+  auto* topData0 = top->getBusNet(NLName("data_i"))->getBit(0);
+  auto* topDataO3 = top->getBusNet(NLName("data_o"))->getBit(3);
+  ASSERT_NE(nullptr, topClk);
+  ASSERT_NE(nullptr, topData0);
+  ASSERT_NE(nullptr, topDataO3);
+  EXPECT_EQ(topClk, inst->getInstTerm(model->getScalarTerm(NLName("clk")))->getNet());
+  EXPECT_EQ(topData0, inst->getInstTerm(din->getBit(0))->getNet());
+  EXPECT_EQ(topDataO3, inst->getInstTerm(dout->getBit(3))->getNet());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnknownModuleAutoBlackboxReusesOrderedModel) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_ordered_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_ordered_ports.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic [1:0] a_i,
+  input  logic       b_i,
+  output logic [1:0] y_o,
+  output logic       z_o
+);
+  missing_pair u0(a_i, y_o);
+  missing_pair u1(b_i, z_o);
+  missing_pair u2(a_i);
+  missing_pair u3(a_i, );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_pair"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  auto* p0 = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("p0")));
+  auto* p1 = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("p1")));
+  ASSERT_NE(nullptr, p0);
+  ASSERT_NE(nullptr, p1);
+  EXPECT_EQ(2, p0->getWidth());
+  EXPECT_EQ(2, p1->getWidth());
+
+  auto* u0 = top->getInstance(NLName("u0"));
+  auto* u1 = top->getInstance(NLName("u1"));
+  auto* u2 = top->getInstance(NLName("u2"));
+  auto* u3 = top->getInstance(NLName("u3"));
+  ASSERT_NE(nullptr, u0);
+  ASSERT_NE(nullptr, u1);
+  ASSERT_NE(nullptr, u2);
+  ASSERT_NE(nullptr, u3);
+  EXPECT_EQ(model, u0->getModel());
+  EXPECT_EQ(model, u1->getModel());
+  EXPECT_EQ(model, u2->getModel());
+  EXPECT_EQ(model, u3->getModel());
+  auto* a0 = top->getBusNet(NLName("a_i"))->getBit(0);
+  auto* y1 = top->getBusNet(NLName("y_o"))->getBit(1);
+  auto* b = top->getScalarNet(NLName("b_i"));
+  auto* z = top->getScalarNet(NLName("z_o"));
+  ASSERT_NE(nullptr, a0);
+  ASSERT_NE(nullptr, y1);
+  ASSERT_NE(nullptr, b);
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(a0, u0->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(y1, u0->getInstTerm(p1->getBit(1))->getNet());
+  EXPECT_EQ(b, u1->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(z, u1->getInstTerm(p1->getBit(0))->getNet());
+  EXPECT_EQ(a0, u2->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(nullptr, u2->getInstTerm(p1->getBit(0))->getNet());
+  EXPECT_EQ(a0, u3->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(nullptr, u3->getInstTerm(p1->getBit(0))->getNet());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoops) {
@@ -23183,6 +23595,45 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousWideMultiplyPlusNetInitializerSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_wide_multiply_plus_net_initializer_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_wide_multiply_plus_net_initializer_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_wide_multiply_plus_net_initializer_supported(
+  input  logic [32:0] a_i,
+  input  logic [32:0] b_i,
+  input  logic [64:0] c_i,
+  output logic [64:0] y_o
+);
+  wire [64:0] o_r = a_i * b_i + c_i;
+  assign y_o = o_r;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_wide_multiply_plus_net_initializer_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_FALSE(top->isBlackBox());
+  EXPECT_NE(top->getNet(NLName("o_r")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -31727,6 +32178,14 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
     std::filesystem::path("naja_sv_diagnostics.log"),
     options.diagnosticsReportPath);
 
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "default_diagnostics_report_path";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  const ScopedCurrentPath scopedCurrentPath(outPath);
+
   const auto reportPath = std::filesystem::current_path() / options.diagnosticsReportPath;
   std::error_code ec;
   std::filesystem::remove(reportPath, ec);
@@ -33007,6 +33466,255 @@ endmodule
   auto top = library_->getSNLDesign(NLName("initial_system_task_conditional_ignored_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitSetsDFFInitParameter) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_sets_dff_init_parameter",
+    R"(module initial_register_init_sets_dff_init_parameter(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state;
+  initial begin
+    state = 4'b1010;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_sets_dff_init_parameter"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(dff));
+  auto* init = dff->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b1010", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitZDigit) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_z_digit",
+    R"(module initial_register_init_z_digit(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q,
+  output logic       z_o
+);
+  logic [3:0] state;
+  logic       z_state;
+  initial begin
+    state = 4'b0010;
+  end
+  initial begin
+    z_state = 1'bz;
+  end
+  always_ff @(posedge clk) begin
+    state <= d;
+    z_state <= z_state;
+  end
+  assign q = state;
+  assign z_o = z_state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_z_digit"));
+  ASSERT_NE(top, nullptr);
+  bool sawBinaryInit = false;
+  bool sawZInit = false;
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFF(inst->getModel())) {
+      continue;
+    }
+    auto* init = inst->getInstParameter(NLName("INIT"));
+    ASSERT_NE(init, nullptr);
+    sawBinaryInit = sawBinaryInit || init->getValue() == "4'b0010";
+    sawZInit = sawZInit || init->getValue() == "1'bz";
+  }
+  EXPECT_TRUE(sawBinaryInit);
+  EXPECT_TRUE(sawZInit);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseVariableDeclarationInitSetsDFFInitParameter) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "variable_declaration_init_sets_dff_init_parameter",
+    R"(module variable_declaration_init_sets_dff_init_parameter(
+  input  logic       clk,
+  input  logic       rst,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state = 4'b1010, state_next;
+  always_comb
+    state_next = d;
+  always_ff @(posedge clk) begin
+    if (rst)
+      state <= 4'b0000;
+    else
+      state <= state_next;
+  end
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("variable_declaration_init_sets_dff_init_parameter"));
+  ASSERT_NE(top, nullptr);
+  const SNLInstance* sequential = nullptr;
+  for (auto* inst : top->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model) {
+      continue;
+    }
+    if (NLDB0::isDFF(model) || NLDB0::isDFFN(model) ||
+        NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) ||
+        NLDB0::isDFFS(model) || NLDB0::isDFFE(model) ||
+        NLDB0::isDFFRE(model) || NLDB0::isDFFSE(model)) {
+      ASSERT_EQ(nullptr, sequential);
+      sequential = inst;
+    }
+  }
+  ASSERT_NE(sequential, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(sequential));
+  auto* init = sequential->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b1010", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseDuplicateInitialRegisterInitUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "duplicate_initial_register_init_unsupported",
+    R"(module duplicate_initial_register_init_unsupported(
+  input  logic clk,
+  input  logic d,
+  output logic q
+);
+  logic state;
+  initial begin
+    state = 1'b0;
+  end
+  initial begin
+    state = 1'b1;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'duplicate_initial_register_init_unsupported'",
+     "arbitrary runtime expression is not representable"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitWithoutRegisterUseUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_without_register_use_unsupported",
+    R"(module initial_register_init_without_register_use_unsupported(
+  input  logic       clk,
+  input  logic [1:0] d,
+  output logic [1:0] q
+);
+  logic [1:0] state;
+  initial begin
+    state = 2'b10;
+  end
+  always_ff @(posedge clk)
+    q <= d;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'initial_register_init_without_register_use_unsupported'",
+     "initial assignment target is not lowered as a register"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUninitializedRegisterDFFInitDefaultsToX) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "uninitialized_register_dff_init_defaults_to_x",
+    R"(module uninitialized_register_dff_init_defaults_to_x(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  always_ff @(posedge clk)
+    q <= d;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("uninitialized_register_dff_init_defaults_to_x"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(dff));
+  EXPECT_EQ(nullptr, dff->getInstParameter(NLName("INIT")));
+  auto* init = dff->getModel()->getParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'bxxxx", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitPreservesXInDumper) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_preserves_x_in_dumper",
+    R"(module initial_register_init_preserves_x_in_dumper(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state;
+  initial begin
+    state = 4'b10x1;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_preserves_x_in_dumper"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  auto* init = dff->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b10x1", init->getValue());
+
+  auto verilogPath = dumpTopAndGetVerilogPath(
+    top,
+    "initial_register_init_preserves_x_in_dumper_out");
+  const auto dumped = readTextFile(verilogPath);
+  EXPECT_NE(std::string::npos, dumped.find(".INIT(4'b10x1)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationDisplayLoopIgnoredSupported) {

@@ -552,6 +552,27 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
   GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedOutputs, SNLDesign)
 }
 
+#define DESIGN_ROLE_TERMS(NAME)                                           \
+  static PyObject* PySNLDesign_##NAME(PySNLDesign* self) {                \
+    METHOD_HEAD("SNLDesign." #NAME "()")                                  \
+    TRY                                                                    \
+    auto* objects = new naja::NajaCollection<SNLBitTerm*>(                \
+        SNLDesignModeling::NAME(selfObject));                              \
+    auto* pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);     \
+    if (!pyObjects) { delete objects; return nullptr; }                    \
+    pyObjects->object_ = objects;                                          \
+    return reinterpret_cast<PyObject*>(pyObjects);                         \
+    NLCATCH                                                                \
+    return nullptr;                                                        \
+  }
+
+DESIGN_ROLE_TERMS(getClockTerms)
+DESIGN_ROLE_TERMS(getAsyncResetTerms)
+DESIGN_ROLE_TERMS(getAsyncSetTerms)
+DESIGN_ROLE_TERMS(getDataInputTerms)
+DESIGN_ROLE_TERMS(getOutputTerms)
+#undef DESIGN_ROLE_TERMS
+
 GetObjectMethod(SNLDesign, NLDB, getDB)
 GetObjectMethod(SNLDesign, NLLibrary, getLibrary)
 GetObjectByName(SNLDesign, SNLInstance, getInstance)
@@ -631,6 +652,16 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get inputs related to a clock"},
   { "getClockRelatedOutputs", (PyCFunction)PySNLDesign_getClockRelatedOutputs, METH_O|METH_STATIC,
     "get outputs related to a clock"},
+  { "getClockTerms", (PyCFunction)PySNLDesign_getClockTerms, METH_NOARGS,
+    "get primitive clock terms"},
+  { "getAsyncResetTerms", (PyCFunction)PySNLDesign_getAsyncResetTerms, METH_NOARGS,
+    "get primitive asynchronous reset terms"},
+  { "getAsyncSetTerms", (PyCFunction)PySNLDesign_getAsyncSetTerms, METH_NOARGS,
+    "get primitive asynchronous set terms"},
+  { "getDataInputTerms", (PyCFunction)PySNLDesign_getDataInputTerms, METH_NOARGS,
+    "get primitive data input terms"},
+  { "getOutputTerms", (PyCFunction)PySNLDesign_getOutputTerms, METH_NOARGS,
+    "get primitive data output terms"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
   { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,

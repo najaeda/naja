@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <map>
 #include <string>
+#include <string_view>
 #include "NLID.h"
 #include "SNLTruthTable.h"
 
@@ -42,6 +43,16 @@ class NLDB0 {
       SyncLow,
       SyncHigh
     };
+
+    /**
+     * \brief Format a canonical DFF INIT literal.
+     *
+     * The digit string is ordered MSB-to-LSB and may contain only 0, 1, x, X,
+     * z, or Z. Storage keeps this Verilog literal string because SNL nets are
+     * two-state while INIT is four-state metadata.
+     */
+    static std::string formatDFFInitValue(size_t width, std::string_view msbToLsbDigits);
+    static std::string getUndefinedDFFInitValue(size_t width);
 
     struct MemorySignature {
       size_t          width      {0};

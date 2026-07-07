@@ -122,6 +122,97 @@ TEST_F(NLDB0Test, testAssign) {
   EXPECT_THROW(NLUniverse::get()->setTopDB(db0), NLException);
 }
 
+TEST_F(NLDB0Test, testDFFInitValueFormatting) {
+  EXPECT_EQ("4'b01xz", NLDB0::formatDFFInitValue(4, "01XZ"));
+  EXPECT_EQ("3'bxxx", NLDB0::getUndefinedDFFInitValue(3));
+
+  EXPECT_THROW(NLDB0::formatDFFInitValue(0, ""), NLException);
+  EXPECT_THROW(NLDB0::formatDFFInitValue(2, "0"), NLException);
+  EXPECT_THROW(NLDB0::formatDFFInitValue(1, "2"), NLException);
+}
+
+TEST_F(NLDB0Test, testPrimitiveTermRoles) {
+  using Role = SNLDesignModeling::SNLTermRole;
+  using Level = SNLDesignModeling::SNLActiveLevel;
+  NLUniverse::create();
+
+  auto checkBasic = [](SNLDesign* design, SNLBitTerm* clock,
+                       SNLBitTerm* data, SNLBitTerm* output) {
+    EXPECT_EQ(Role::Clock, SNLDesignModeling::getTermRole(clock));
+    EXPECT_EQ(Role::DataInput, SNLDesignModeling::getTermRole(data));
+    EXPECT_EQ(Role::DataOutput, SNLDesignModeling::getTermRole(output));
+    EXPECT_EQ(1, SNLDesignModeling::getClockTerms(design).size());
+    EXPECT_EQ(1, SNLDesignModeling::getDataInputTerms(design).size());
+    EXPECT_EQ(1, SNLDesignModeling::getOutputTerms(design).size());
+  };
+
+  checkBasic(NLDB0::getDFF(), NLDB0::getDFFClock(),
+             NLDB0::getDFFData(), NLDB0::getDFFOutput());
+  checkBasic(NLDB0::getDFFN(), NLDB0::getDFFNClock(),
+             NLDB0::getDFFNData(), NLDB0::getDFFNOutput());
+  checkBasic(NLDB0::getDFFRN(), NLDB0::getDFFRNClock(),
+             NLDB0::getDFFRNData(), NLDB0::getDFFRNOutput());
+  checkBasic(NLDB0::getDFFR(), NLDB0::getDFFRClock(),
+             NLDB0::getDFFRData(), NLDB0::getDFFROutput());
+  checkBasic(NLDB0::getDFFS(), NLDB0::getDFFSClock(),
+             NLDB0::getDFFSData(), NLDB0::getDFFSOutput());
+  checkBasic(NLDB0::getDFFE(), NLDB0::getDFFEClock(),
+             NLDB0::getDFFEData(), NLDB0::getDFFEOutput());
+  checkBasic(NLDB0::getDFFRE(), NLDB0::getDFFREClock(),
+             NLDB0::getDFFREData(), NLDB0::getDFFREOutput());
+  checkBasic(NLDB0::getDFFSE(), NLDB0::getDFFSEClock(),
+             NLDB0::getDFFSEData(), NLDB0::getDFFSEOutput());
+
+  EXPECT_EQ(Role::AsyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFRNResetN()));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFRNResetN()));
+  EXPECT_EQ(Role::AsyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFRReset()));
+  EXPECT_EQ(Level::High,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFRReset()));
+  EXPECT_EQ(Role::AsyncSet,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSSet()));
+  EXPECT_EQ(Level::High,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFSSet()));
+  EXPECT_EQ(Role::Enable,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFEEnable()));
+  EXPECT_EQ(Role::Enable,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFREEnable()));
+  EXPECT_EQ(Role::AsyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFREReset()));
+  EXPECT_EQ(Role::Enable,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSEEnable()));
+  EXPECT_EQ(Role::AsyncSet,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSESet()));
+  EXPECT_TRUE(SNLDesignModeling::getAsyncResetTerms(NLDB0::getDFF()).empty());
+
+  NLDB0::MemorySignature signature;
+  signature.width = 4;
+  signature.depth = 8;
+  signature.abits = 3;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+  signature.resetMode = NLDB0::MemoryResetMode::AsyncLow;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  EXPECT_EQ(Role::Clock,
+            SNLDesignModeling::getTermRole(NLDB0::getMemoryClock(memory)));
+  EXPECT_EQ(Role::AsyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getMemoryReset(memory)));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getMemoryReset(memory)));
+  EXPECT_EQ(Role::MemoryReadAddress, SNLDesignModeling::getTermRole(
+      NLDB0::getMemoryReadAddress(memory)->getBit(0)));
+  EXPECT_EQ(Role::MemoryReadData, SNLDesignModeling::getTermRole(
+      NLDB0::getMemoryReadData(memory)->getBit(0)));
+  EXPECT_EQ(Role::MemoryWriteAddress, SNLDesignModeling::getTermRole(
+      NLDB0::getMemoryWriteAddress(memory)->getBit(0)));
+  EXPECT_EQ(Role::MemoryWriteData, SNLDesignModeling::getTermRole(
+      NLDB0::getMemoryWriteData(memory)->getBit(0)));
+  EXPECT_EQ(Role::MemoryWriteEnable, SNLDesignModeling::getTermRole(
+      NLDB0::getMemoryWriteEnable(memory)->getBit(0)));
+}
+
 TEST_F(NLDB0Test, testAND) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());

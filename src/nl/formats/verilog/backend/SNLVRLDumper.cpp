@@ -1853,11 +1853,19 @@ bool SNLVRLDumper::dumpInstance(
     if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
       widthValue = widthInstParam->getValue();
     }
+    const SNLInstParameter* initInstParam = instance->getInstParameter(NLName("INIT"));
+    const bool dumpInit =
+      initInstParam && shouldDumpInstParameter(instance, initInstParam);
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
     o << modelName << " ";
-    if (widthValue != "1") {
+    if (widthValue != "1" || dumpInit) {
       o << "#(" << '\n';
-      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << "  .WIDTH(" << widthValue << ")";
+      if (dumpInit) {
+        o << "," << '\n';
+        o << "  .INIT(" << initInstParam->getValue() << ")";
+      }
+      o << '\n';
       o << ") ";
     }
     o << dumpName(instanceName);

@@ -260,12 +260,12 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
 PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
-  int allow_unknown_designs = 0; // Default: false
+  int blackbox_unknown_modules = 0; // Default: false
   int preprocess_enabled = 0; // Default: false
   PyObject* conflicting_design_name_policy = nullptr; // Optional: string
 
   static const char* const kwords[] = {
-    "files", "keep_assigns", "allow_unknown_designs", "preprocess_enabled",
+    "files", "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled",
     "conflicting_design_name_policy",
     nullptr
   };
@@ -273,7 +273,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   if (not PyArg_ParseTupleAndKeywords(
     args, kwargs, "O|pppO:NLDB.loadVerilog",
     const_cast<char**>(kwords),
-    &files, &keep_assigns, &allow_unknown_designs, &preprocess_enabled,
+    &files, &keep_assigns, &blackbox_unknown_modules, &preprocess_enabled,
     &conflicting_design_name_policy)) {
     setError("malformed NLDB loadVerilog");
     return nullptr;
@@ -293,8 +293,8 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
   }
   SNLVRLConstructor constructor(designLibrary);
-  if (allow_unknown_designs) {
-    constructor.config_.allowUnknownDesigns_ = true;
+  if (blackbox_unknown_modules) {
+    constructor.config_.blackboxUnknownModules_ = true;
   }
   if (preprocess_enabled) {
     constructor.config_.preprocessEnabled_ = true;
@@ -378,21 +378,23 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* defines = nullptr;  // Optional: list of preprocessor defines
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
   int keep_ast_link = 0;  // Default: false
+  int blackbox_unknown_modules = 0;  // Default: false
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
     "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
+    "blackbox_unknown_modules",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOOOp:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOpp:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &defines, &suppress_warnings, &keep_ast_link)) {
+    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -416,6 +418,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   options.includeSourceInfoInElaboratedASTJson =
     include_source_info_in_elaborated_ast_json;
   options.keepASTLink = keep_ast_link;
+  options.blackboxUnknownModules = blackbox_unknown_modules;
 
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
@@ -626,7 +629,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "Args:\n"
     "  files (list[str]): input Verilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
-    "  allow_unknown_designs (bool, optional): create unknown modules as blackboxes (default False)\n"
+    "  blackbox_unknown_modules (bool, optional): create unknown modules as blackboxes (default False)\n"
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},

@@ -1447,6 +1447,176 @@ void SNLDesignModeling::setMemoryInterface(
   property->getModeling()->setMemoryInterface_(memInterface);
 }
 
+void SNLDesignModeling::setTermRole(
+    SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
+  if (!term || !term->getDesign()->isLeaf()) return;
+  auto property = getOrCreateProperty(term->getDesign(), NO_PARAMETER);
+  property->getModeling()->setTermRole_(term, role, activeLevel);
+}
+
+namespace {
+SNLDesignModeling::SNLTermRole getMemoryTermRole(
+    const SNLBitTerm* term,
+    const SNLDesignModeling::MemoryInterface& memory) {
+  using Role = SNLDesignModeling::SNLTermRole;
+  using ResetMode = SNLDesignModeling::MemoryResetMode;
+  if (term == memory.clock) return Role::Clock;
+  if (term == memory.reset &&
+      (memory.resetMode == ResetMode::AsyncLow ||
+       memory.resetMode == ResetMode::AsyncHigh)) {
+    return Role::AsyncReset;
+  }
+  auto contains = [term](const SNLDesignModeling::BitTerms& terms) {
+    return std::find(terms.begin(), terms.end(), term) != terms.end();
+  };
+  for (const auto& port : memory.readPorts) {
+    if (contains(port.address)) return Role::MemoryReadAddress;
+    if (contains(port.data)) return Role::MemoryReadData;
+    if (contains(port.enables)) return Role::Enable;
+  }
+  for (const auto& port : memory.writePorts) {
+    if (contains(port.address)) return Role::MemoryWriteAddress;
+    if (contains(port.data)) return Role::MemoryWriteData;
+    if (contains(port.mask) || contains(port.enables)) {
+      return Role::MemoryWriteEnable;
+    }
+  }
+  return Role::Other;
+}
+}
+
+SNLDesignModeling::SNLTermRole SNLDesignModeling::getTermRole(
+    const SNLBitTerm* term) {
+  if (!term) return SNLTermRole::Other;
+  auto* design = term->getDesign();
+  if (hasMemoryInterface(design)) {
+    return getMemoryTermRole(term, getMemoryInterface(design));
+  }
+  if (auto property = getProperty(design)) {
+    return property->getModeling()->getTermRole_(term).role;
+  }
+  return SNLTermRole::Other;
+}
+
+SNLDesignModeling::SNLTermRole SNLDesignModeling::getTermRole(
+    const SNLInstTerm* term) {
+  return term ? getTermRole(term->getBitTerm()) : SNLTermRole::Other;
+}
+
+SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
+    const SNLBitTerm* term) {
+  auto role = getTermRole(term);
+  if (role != SNLTermRole::AsyncReset && role != SNLTermRole::AsyncSet) {
+    return SNLActiveLevel::NA;
+  }
+  if (term && hasMemoryInterface(term->getDesign())) {
+    auto memory = getMemoryInterface(term->getDesign());
+    if (term == memory.reset) {
+      return memory.resetMode == MemoryResetMode::AsyncLow
+          ? SNLActiveLevel::Low : SNLActiveLevel::High;
+    }
+  }
+  if (term) {
+    if (auto property = getProperty(term->getDesign())) {
+      return property->getModeling()->getTermRole_(term).activeLevel;
+    }
+  }
+  return SNLActiveLevel::NA; // LCOV_EXCL_LINE defensive inconsistent role fallback
+}
+
+SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
+    const SNLInstTerm* term) {
+  return term ? getResetActiveLevel(term->getBitTerm()) : SNLActiveLevel::NA;
+}
+
+#define DEFINE_TERM_ROLE_PREDICATE(NAME, ROLE)                    \
+  bool SNLDesignModeling::NAME(const SNLBitTerm* term) {          \
+    return getTermRole(term) == SNLTermRole::ROLE;                \
+  }                                                               \
+  bool SNLDesignModeling::NAME(const SNLInstTerm* term) {         \
+    return getTermRole(term) == SNLTermRole::ROLE;                \
+  }
+
+DEFINE_TERM_ROLE_PREDICATE(isClock, Clock)
+DEFINE_TERM_ROLE_PREDICATE(isAsyncReset, AsyncReset)
+DEFINE_TERM_ROLE_PREDICATE(isAsyncSet, AsyncSet)
+DEFINE_TERM_ROLE_PREDICATE(isEnable, Enable)
+#undef DEFINE_TERM_ROLE_PREDICATE
+
+bool SNLDesignModeling::isReset(const SNLBitTerm* term) {
+  return isAsyncReset(term);
+}
+bool SNLDesignModeling::isReset(const SNLInstTerm* term) {
+  return isAsyncReset(term);
+}
+bool SNLDesignModeling::isDataInput(const SNLBitTerm* term) {
+  auto role = getTermRole(term);
+  return role == SNLTermRole::DataInput || role == SNLTermRole::MemoryWriteData;
+}
+bool SNLDesignModeling::isDataInput(const SNLInstTerm* term) {
+  return term && isDataInput(term->getBitTerm());
+}
+bool SNLDesignModeling::isDataOutput(const SNLBitTerm* term) {
+  auto role = getTermRole(term);
+  return role == SNLTermRole::DataOutput || role == SNLTermRole::MemoryReadData;
+}
+bool SNLDesignModeling::isDataOutput(const SNLInstTerm* term) {
+  return term && isDataOutput(term->getBitTerm());
+}
+
+namespace {
+NajaCollection<SNLBitTerm*> getTermsWithRole(
+    const SNLDesign* design, SNLDesignModeling::SNLTermRole role) {
+  if (!design) return NajaCollection<SNLBitTerm*>();
+  if (SNLDesignModeling::hasMemoryInterface(design)) {
+    auto memory = SNLDesignModeling::getMemoryInterface(design);
+    return design->getBitTerms().getSubCollection(
+        [role, memory = std::move(memory)](const SNLBitTerm* term) {
+          return getMemoryTermRole(term, memory) == role;
+        });
+  }
+  return design->getBitTerms().getSubCollection([role](const SNLBitTerm* term) {
+    return SNLDesignModeling::getTermRole(term) == role;
+  });
+}
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockTerms(const SNLDesign* design) {
+  return getTermsWithRole(design, SNLTermRole::Clock);
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getAsyncResetTerms(const SNLDesign* design) {
+  return getTermsWithRole(design, SNLTermRole::AsyncReset);
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getAsyncSetTerms(const SNLDesign* design) {
+  return getTermsWithRole(design, SNLTermRole::AsyncSet);
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getDataInputTerms(const SNLDesign* design) {
+  if (!design) return NajaCollection<SNLBitTerm*>();
+  if (hasMemoryInterface(design)) {
+    auto memory = getMemoryInterface(design);
+    return design->getBitTerms().getSubCollection(
+        [memory = std::move(memory)](const SNLBitTerm* term) {
+          return getMemoryTermRole(term, memory) == SNLTermRole::MemoryWriteData;
+        });
+  }
+  return design->getBitTerms().getSubCollection([](const SNLBitTerm* term) {
+    return SNLDesignModeling::isDataInput(term);
+  });
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputTerms(const SNLDesign* design) {
+  if (!design) return NajaCollection<SNLBitTerm*>();
+  if (hasMemoryInterface(design)) {
+    auto memory = getMemoryInterface(design);
+    return design->getBitTerms().getSubCollection(
+        [memory = std::move(memory)](const SNLBitTerm* term) {
+          return getMemoryTermRole(term, memory) == SNLTermRole::MemoryReadData;
+        });
+  }
+  return design->getBitTerms().getSubCollection([](const SNLBitTerm* term) {
+    return SNLDesignModeling::isDataOutput(term);
+  });
+}
+
 bool SNLDesignModeling::hasMemoryInterface(const SNLDesign* design) {
   if (!design) {
     return false;

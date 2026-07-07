@@ -17,6 +17,7 @@ class NajaNetlistTestSimple(unittest.TestCase):
         import najaeda
         version = najaeda.version()
         self.assertIsNotNone(version)
+        self.assertEqual(version, najaeda.__version__)
         hash = najaeda.git_hash()
         self.assertIsNotNone(hash)
 
