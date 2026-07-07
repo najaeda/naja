@@ -495,8 +495,15 @@ TEST_F(SNLVRLDumperTestParameters, testSequentialPrimitiveFileDump) {
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff #("));
+  EXPECT_NE(
+    std::string::npos,
+    primitiveDump.find("module naja_dff #(\n  parameter WIDTH = 1,\n  parameter INIT = {WIDTH{1'bx}}"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("initial Q = INIT;"));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
+  EXPECT_NE(
+    std::string::npos,
+    primitiveDump.find("module naja_dffn #(\n  parameter WIDTH = 1,\n  parameter INIT = {WIDTH{1'bx}}"));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
 }
 
