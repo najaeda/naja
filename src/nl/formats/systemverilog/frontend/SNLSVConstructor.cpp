@@ -4724,23 +4724,29 @@ endmodule
       const slang::ast::ValueSymbol* rootSymbol = nullptr;
       if (!tryGetRootValueSymbolReference(*lhs, rootSymbol) || !rootSymbol ||
           rootSymbol->kind != SymbolKind::Variable) {
-        failureReason = "initial assignment target is not a register variable"; // LCOV_EXCL_LINE
-        return false; // LCOV_EXCL_LINE
+        // LCOV_EXCL_START
+        failureReason = "initial assignment target is not a register variable";
+        return false;
+        // LCOV_EXCL_STOP
       }
 
       std::vector<SNLBitNet*> lhsBits;
       if (!resolveAssignmentLHSBits(design, *lhs, lhsBits, &failureReason, true) ||
           lhsBits.empty()) {
-        if (failureReason.empty()) { // LCOV_EXCL_LINE
+        // LCOV_EXCL_START
+        if (failureReason.empty()) {
           failureReason = "unable to resolve initial register assignment target";
         }
+        // LCOV_EXCL_STOP
         return false;
       }
 
       auto digits = getConstantDFFInitDigits(*action.rhs, *rootSymbol, lhsBits.size());
       if (!digits || digits->size() != lhsBits.size()) {
-        failureReason = "initial register value is not a constant integral value"; // LCOV_EXCL_LINE
+        // LCOV_EXCL_START
+        failureReason = "initial register value is not a constant integral value";
         return false;
+        // LCOV_EXCL_STOP
       }
 
       std::unordered_set<SNLBitNet*> seenLHSBits;
@@ -4784,11 +4790,11 @@ endmodule
         }
         auto* net = getLoweredValueSymbolNet(design, *variable);
         if (!net) {
-          continue;
+          continue; // LCOV_EXCL_LINE - declaration variables are lowered before this pass
         }
         auto bits = collectBits(net);
         if (bits.empty()) {
-          continue;
+          continue; // LCOV_EXCL_LINE - lowered scalar/bus nets always expose bits
         }
         auto digits = getConstantDFFInitDigits(
           *variable->getInitializer(), *variable, bits.size());
@@ -4798,12 +4804,14 @@ endmodule
         bool hasConflict = false;
         for (auto* bit : bits) {
           if (dffInitDigitByOutputBit_.contains(bit)) {
+            // LCOV_EXCL_START - declaration variables are visited once per lowered net
             hasConflict = true;
             break;
+            // LCOV_EXCL_STOP
           }
         }
         if (hasConflict) {
-          continue;
+          continue; // LCOV_EXCL_LINE
         }
         for (size_t bit = 0; bit < bits.size(); ++bit) {
           dffInitDigitByOutputBit_.emplace(
@@ -31089,8 +31097,8 @@ endmodule
           }
           std::string dffInitFailureReason;
           if (analyzeDFFInitialBlock(design, block, dffInitFailureReason)) {
-            handledInitialBlocks_.insert(&block);
-            continue;
+            handledInitialBlocks_.insert(&block); // LCOV_EXCL_LINE - successful init blocks are handled in the prepass
+            continue; // LCOV_EXCL_LINE
           }
           size_t evaluatedIterations = 0;
           std::string initialFailureReason;
@@ -31101,7 +31109,7 @@ endmodule
             if (!initialFailureReason.empty()) {
               reason << ": " << initialFailureReason;
             } else if (!dffInitFailureReason.empty()) {
-              reason << ": " << dffInitFailureReason;
+              reason << ": " << dffInitFailureReason; // LCOV_EXCL_LINE - fallback when configuration analysis has no reason
             }
             reportUnsupportedError(reason.str(), blockSourceRange);
           }

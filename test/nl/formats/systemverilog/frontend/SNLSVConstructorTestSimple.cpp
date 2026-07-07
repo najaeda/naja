@@ -97,6 +97,22 @@ class ScopedEnvVar {
 };
 #endif
 
+class ScopedCurrentPath {
+  public:
+    explicit ScopedCurrentPath(const std::filesystem::path& path):
+      previous_(std::filesystem::current_path()) {
+      std::filesystem::current_path(path);
+    }
+
+    ~ScopedCurrentPath() {
+      std::error_code ec;
+      std::filesystem::current_path(previous_, ec);
+    }
+
+  private:
+    std::filesystem::path previous_;
+};
+
 const SNLRTLInfos* getRTLInfos(const NLObject* object) {
   if (auto design = dynamic_cast<const SNLDesign*>(object)) {
     return design->getRTLInfos();
@@ -32162,6 +32178,14 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
     std::filesystem::path("naja_sv_diagnostics.log"),
     options.diagnosticsReportPath);
 
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "default_diagnostics_report_path";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  const ScopedCurrentPath scopedCurrentPath(outPath);
+
   const auto reportPath = std::filesystem::current_path() / options.diagnosticsReportPath;
   std::error_code ec;
   std::filesystem::remove(reportPath, ec);
@@ -33570,6 +33594,62 @@ endmodule
   auto* init = sequential->getInstParameter(NLName("INIT"));
   ASSERT_NE(init, nullptr);
   EXPECT_EQ("4'b1010", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseDuplicateInitialRegisterInitUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "duplicate_initial_register_init_unsupported",
+    R"(module duplicate_initial_register_init_unsupported(
+  input  logic clk,
+  input  logic d,
+  output logic q
+);
+  logic state;
+  initial begin
+    state = 1'b0;
+  end
+  initial begin
+    state = 1'b1;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'duplicate_initial_register_init_unsupported'",
+     "arbitrary runtime expression is not representable"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitWithoutRegisterUseUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_without_register_use_unsupported",
+    R"(module initial_register_init_without_register_use_unsupported(
+  input  logic       clk,
+  input  logic [1:0] d,
+  output logic [1:0] q
+);
+  logic [1:0] state;
+  initial begin
+    state = 2'b10;
+  end
+  always_ff @(posedge clk)
+    q <= d;
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported initial block in module "
+     "'initial_register_init_without_register_use_unsupported'",
+     "initial assignment target is not lowered as a register"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUninitializedRegisterDFFInitDefaultsToX) {
