@@ -4,6 +4,8 @@
 
 #include "gtest/gtest.h"
 
+#include <algorithm>
+
 #include "NLBitDependencies.h"
 #include "NLDB0.h"
 #include "NLUniverse.h"
@@ -43,6 +45,18 @@ TEST_F(NLLibraryTruthTablesTest, test) {
   EXPECT_EQ(NLLibraryTruthTables::LibraryTruthTables(), NLLibraryTruthTables::getTruthTables(primitives_));
 }
 
+TEST_F(NLLibraryTruthTablesTest, testConstructStandardLibraryReturnsEmpty) {
+  auto* standardLibrary =
+      NLLibrary::create(primitives_->getDB(), NLLibrary::Type::Standard, NLName("WORK"));
+
+  EXPECT_EQ(
+      NLLibraryTruthTables::LibraryTruthTables(),
+      NLLibraryTruthTables::construct(standardLibrary));
+  EXPECT_EQ(
+      NLLibraryTruthTables::LibraryTruthTables(),
+      NLLibraryTruthTables::getTruthTables(standardLibrary));
+}
+
 TEST_F(NLLibraryTruthTablesTest, testCanonicalizedLookupMatchesDB0GenericTables) {
   auto* gateLibrary = NLDB0::getOrCreateGateLibrary(NLDB0::GateType::Xor);
   auto* xor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 3);
@@ -80,4 +94,39 @@ TEST_F(NLLibraryTruthTablesTest, testCanonicalizedLookupMatchesSparseVectorTable
       SNLTruthTable(7, bits, SNLTruthTable::fullDependencies(7)));
   EXPECT_EQ(vector, vectorMatch);
   EXPECT_TRUE(vectorIndexes.empty());
+}
+
+TEST_F(NLLibraryTruthTablesTest, testDB0MemoryAndDivModAreSkipped) {
+  NLDB0::MemorySignature memorySignature;
+  memorySignature.width = 8;
+  memorySignature.depth = 16;
+  memorySignature.abits = 4;
+  memorySignature.readPorts = 1;
+  memorySignature.writePorts = 1;
+  auto* memory = NLDB0::getOrCreateMemory(memorySignature);
+  ASSERT_NE(nullptr, memory);
+  ASSERT_TRUE(NLDB0::isMemory(memory));
+
+  NLDB0::DivModSignature divModSignature;
+  divModSignature.width = 8;
+  auto* divMod = NLDB0::getOrCreateDivMod(divModSignature);
+  ASSERT_NE(nullptr, divMod);
+  ASSERT_TRUE(NLDB0::isDivMod(divMod));
+
+  auto* assign = NLDB0::getAssign();
+  ASSERT_NE(nullptr, assign);
+  auto assignTruthTable = NLDB0::getPrimitiveTruthTable(assign);
+  auto truthTables = NLLibraryTruthTables::construct(NLDB0::getDB0RootLibrary());
+
+  auto assignIt = truthTables.find(assignTruthTable);
+  ASSERT_NE(truthTables.end(), assignIt);
+  EXPECT_NE(
+      assignIt->second.end(),
+      std::find(assignIt->second.begin(), assignIt->second.end(), assign));
+
+  for (const auto& [truthTable, primitives]: truthTables) {
+    (void) truthTable;
+    EXPECT_EQ(primitives.end(), std::find(primitives.begin(), primitives.end(), memory));
+    EXPECT_EQ(primitives.end(), std::find(primitives.begin(), primitives.end(), divMod));
+  }
 }

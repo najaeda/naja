@@ -11,10 +11,12 @@ import sys
 import os
 import tempfile
 from enum import Enum
-from typing import Union, List, Iterator
+from typing import Union, List, Iterator, Optional
 from dataclasses import dataclass
 
 from najaeda import naja
+
+logger = logging.getLogger(__name__)
 
 
 def consistent_hash(obj):
@@ -90,6 +92,22 @@ class Attribute:
         :rtype: str
         """
         return self.snlAttribute.getValue()
+
+
+@dataclass(frozen=True)
+class SourceRange:
+    file: str
+    line: int
+    end_line: int
+    column: int
+    end_column: int
+
+
+def _source_range_from_snl_source_loc(source_loc):
+    if source_loc is None:
+        return None
+    file, line, column, end_line, end_column = source_loc
+    return SourceRange(file, line, end_line, column, end_column)
 
 
 class Equipotential:
@@ -532,6 +550,12 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def get_source_range(self) -> Optional[SourceRange]:
+        """Return the source range of this Net, if available."""
+        if hasattr(self, "net"):
+            return _source_range_from_snl_source_loc(self.net.getSourceLoc())
+        return None
+
     def count_attributes(self) -> int:
         """Count the attributes of this Net.
 
@@ -809,6 +833,10 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def get_source_range(self) -> Optional[SourceRange]:
+        """Return the source range of this Term, if available."""
+        return _source_range_from_snl_source_loc(self.get_snl_term().getSourceLoc())
 
     def count_attributes(self) -> int:
         """Count the attributes of this Term.
@@ -1517,6 +1545,12 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
+    def get_source_range(self) -> Optional[SourceRange]:
+        """Return the source range of this Instance, if available."""
+        return _source_range_from_snl_source_loc(
+            self.__get_leaf_snl_object().getSourceLoc()
+        )
+
     def count_attributes(self) -> int:
         """Count the attributes of this Instance.
 
@@ -1757,16 +1791,21 @@ class Instance:
         if config is None:
             config = VerilogDumpConfig()
         top_name = get_top().get_name()
-        logging.info(
+        logger.info(
             f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
+        dump_kwargs = {
+            "dumpRTLInfosAsAttributes": config.dumpRTLInfosAsAttributes,
+            "dumpAssignsAsInstances": config.dumpAssignsAsInstances,
+        }
+        if config.dumpRTLInfosAsAttributes:
+            dump_kwargs["rtlInfoDumpMode"] = config.rtlInfoDumpMode
         self.__get_snl_model().dumpVerilog(
             dir_path,
             os.path.basename(path),
-            dumpRTLInfosAsAttributes=config.dumpRTLInfosAsAttributes,
-            dumpAssignsAsInstances=config.dumpAssignsAsInstances)
+            **dump_kwargs)
         execution_time = time.time() - start_time
-        logging.info(
+        logger.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
             f"in {execution_time:.2f} seconds")
 
@@ -1875,19 +1914,31 @@ class VerilogConfig:
 @dataclass
 class VerilogDumpConfig:
     dumpRTLInfosAsAttributes: bool = False
+    rtlInfoDumpMode: str = "CompactAttribute"
     dumpAssignsAsInstances: bool = False
+
+    def __post_init__(self):
+        allowed = {"None", "VerboseAttributes", "CompactAttribute"}
+        if self.rtlInfoDumpMode not in allowed:
+            raise ValueError(
+                "Invalid rtlInfoDumpMode: "
+                f"{self.rtlInfoDumpMode!r}. "
+                "Expected one of: None, VerboseAttributes, CompactAttribute."
+            )
 
 
 @dataclass
 class SystemVerilogConfig:
     keep_assigns: bool = True
     elaborated_ast_json_path: str = None
-    diagnostics_report_path: str = None
+    diagnostics_report_path: str = "naja_sv_diagnostics.log"
     pretty_print_elaborated_ast_json: bool = True
     include_source_info_in_elaborated_ast_json: bool = True
     flist: str = None
     top: str = None
+    defines: list = None  # Slang preprocessor defines (e.g. ["SYNTHESIS", "WIDTH=32"])
     suppress_warnings: list = None  # Slang warning names to suppress (e.g. ["sign-conversion"])
+    keep_ast_link: bool = False  # Keep live Slang AST to SNL object links when supported.
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1906,7 +1957,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
-    logging.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
+    logger.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
@@ -1916,7 +1967,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     )
     execution_time = time.time() - start_time
     top = get_top()
-    logging.info(
+    logger.info(
         f"Gate-level Verilog loading done for top '{top.get_name()}' in "
         f"{execution_time:.2f} seconds")
     return top
@@ -1943,11 +1994,11 @@ def load_system_verilog(
         files = []
     start_time = time.time()
     if files:
-        logging.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
+        logger.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
     else:
-        logging.info(f"Starting SystemVerilog loading from flist: {config.flist}")
+        logger.info(f"Starting SystemVerilog loading from flist: {config.flist}")
     if config.top is not None:
-        logging.info(f"SystemVerilog loading top override requested: {config.top}")
+        logger.info(f"SystemVerilog loading top override requested: {config.top}")
 
     if config.top is not None and not isinstance(config.top, str):
         raise ValueError(
@@ -1955,12 +2006,29 @@ def load_system_verilog(
             f"(got {type(config.top).__name__})")
     if isinstance(config.top, str) and not config.top.strip():
         raise ValueError("SystemVerilogConfig.top must not be empty")
+    if not isinstance(config.keep_ast_link, bool):
+        raise ValueError(
+            "SystemVerilogConfig.keep_ast_link must be a bool "
+            f"(got {type(config.keep_ast_link).__name__})")
+    if config.defines is not None:
+        if not isinstance(config.defines, list):
+            raise ValueError(
+                "SystemVerilogConfig.defines must be a list "
+                f"(got {type(config.defines).__name__})")
+        for define in config.defines:
+            if not isinstance(define, str):
+                raise ValueError("SystemVerilogConfig.defines items must be strings")
+            if not define.strip():
+                raise ValueError("SystemVerilogConfig.defines items must not be empty")
+            if any(char.isspace() for char in define):
+                raise ValueError(
+                    "SystemVerilogConfig.defines items must not contain whitespace")
 
     effective_flist = config.flist
     temp_flist_path = None
     if config.top is not None:
         # Expose top selection at najaeda layer without changing the C++ API:
-        # build a temporary command file that injects slang --top.
+        # build a temporary slang command file.
         with tempfile.NamedTemporaryFile(
                 "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
             temp_flist_path = top_flist.name
@@ -1980,7 +2048,9 @@ def load_system_verilog(
             include_source_info_in_elaborated_ast_json=(
                 config.include_source_info_in_elaborated_ast_json),
             flist=effective_flist,
+            defines=config.defines,
             suppress_warnings=config.suppress_warnings,
+            keep_ast_link=config.keep_ast_link,
         )
     finally:
         if temp_flist_path and os.path.exists(temp_flist_path):
@@ -1988,7 +2058,7 @@ def load_system_verilog(
 
     execution_time = time.time() - start_time
     top = get_top()
-    logging.info(
+    logger.info(
         f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
     return top
 
@@ -2004,7 +2074,7 @@ def load_liberty(files: Union[str, List[str]]):
         files = [files]
     if not files or len(files) == 0:
         raise Exception("No liberty files provided")
-    logging.info(f"Loading liberty files: {', '.join(files)}")
+    logger.info(f"Loading liberty files: {', '.join(files)}")
     __get_top_db().loadLibertyPrimitives(files)
 
 
@@ -2035,7 +2105,7 @@ def load_primitives_from_file(file: str):
     :param str file: the path to the primitives library file.
     The file must define a function `load(db)`.
     """
-    logging.info(f"Loading primitives from file: {file}")
+    logger.info(f"Loading primitives from file: {file}")
     if not os.path.isfile(file):
         raise FileNotFoundError(f"Cannot load primitives from non existing file: {file}")
     import importlib.util
@@ -2055,7 +2125,7 @@ def load_naja_if(path: str):
     """Load the Naja IF from the given path."""
     if not os.path.isdir(path):
         raise FileNotFoundError(f"Cannot load Naja IF from non existing directory: {path}")
-    logging.info(f"Loading Naja IF from {path}")
+    logger.info(f"Loading Naja IF from {path}")
     naja.NLDB.loadNajaIF(path)
 
 

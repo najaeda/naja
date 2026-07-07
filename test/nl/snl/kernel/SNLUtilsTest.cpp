@@ -8,6 +8,7 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "NLLibrary.h"
 #include "NLException.h"
 
@@ -80,6 +81,35 @@ TEST_F(SNLUtilsTest, testDoubleHierarchy) {
   ));
 }
 
+TEST_F(SNLUtilsTest, testReachableInstanceCountNullTop) {
+  auto count = SNLUtils::countReachableInstances(nullptr);
+  EXPECT_EQ(0u, count.totalInstances);
+  EXPECT_EQ(0u, count.leafInstances);
+  EXPECT_EQ(0u, count.foldedTotalInstances);
+  EXPECT_EQ(0u, count.foldedLeafInstances);
+  EXPECT_EQ(0u, count.reachableModels);
+}
+
+TEST_F(SNLUtilsTest, testReachableInstanceCountSharedModel) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
+
+  auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("leaf"));
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto child = SNLDesign::create(library, NLName("child"));
+  SNLInstance::create(child, primitive, NLName("leaf"));
+  SNLInstance::create(top, child, NLName("child0"));
+  SNLInstance::create(top, child, NLName("child1"));
+
+  auto count = SNLUtils::countReachableInstances(top);
+  EXPECT_EQ(4u, count.totalInstances);
+  EXPECT_EQ(2u, count.leafInstances);
+  EXPECT_EQ(3u, count.foldedTotalInstances);
+  EXPECT_EQ(1u, count.foldedLeafInstances);
+  EXPECT_EQ(3u, count.reachableModels);
+}
+
 TEST_F(SNLUtilsTest, testPrepareForConcurrentAccess) {
   auto library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
@@ -96,4 +126,45 @@ TEST_F(SNLUtilsTest, testPrepareForConcurrentAccess) {
   SNLInstance::create(top, child, NLName("child"));
 
   EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
+}
+
+TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessTableSelect) {
+  auto library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto tableSelect = NLDB0::getOrCreateTableSelect({2, 2, 1});
+  ASSERT_NE(tableSelect, nullptr);
+  SNLInstance::create(top, tableSelect, NLName("select"));
+
+  EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(top));
+
+  size_t outputCount = 0;
+  for (auto* term: tableSelect->getBitTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Input) {
+      continue;
+    }
+    const auto truthTable =
+        SNLDesignModeling::getTruthTable(tableSelect, term->getOrderID());
+    EXPECT_TRUE(truthTable.isInitialized());
+    EXPECT_EQ(SNLTruthTable::GenericType::TABLE_SELECT,
+              truthTable.getGenericType());
+    EXPECT_EQ(3u, truthTable.size());
+    EXPECT_EQ(1u, truthTable.getTableSelectAddressSize());
+    EXPECT_EQ(2u, truthTable.getTableSelectDepth());
+    ++outputCount;
+  }
+  EXPECT_EQ(2u, outputCount);
+}
+
+TEST_F(SNLUtilsTest, testPrepareForConcurrentAccessMemory) {
+  NLDB0::MemorySignature signature;
+  signature.width = 8;
+  signature.depth = 16;
+  signature.abits = 4;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(memory, nullptr);
+
+  EXPECT_NO_THROW(SNLUtils::prepareForConcurrentAccess(memory));
 }

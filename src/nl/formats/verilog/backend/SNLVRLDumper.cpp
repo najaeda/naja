@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <unordered_set>
+#include <utility>
 
 #include "NajaLog.h"
 #include "NajaUtils.h"
@@ -120,6 +121,14 @@ bool isUnsignedDecimal(const std::string& value) {
     [](unsigned char c) { return std::isdigit(c) != 0; });
 }
 
+std::string getNajaPrimitiveModelName(const naja::NL::SNLDesign* model) {
+  auto* library = model->getLibrary();
+  if (naja::NL::NLDB0::isDivMod(model)) {
+    library = library->getParentLibrary();
+  }
+  return library->getName().getString();
+}
+
 std::string normalizeParameterValue(
   naja::NL::SNLParameter::Type type,
   const std::string& value) {
@@ -133,6 +142,47 @@ std::string normalizeParameterValue(
     return "1";
   }
   return value;
+}
+
+bool isZeroVerilogIntegerLiteral(const std::string& value) {
+  std::string compact;
+  compact.reserve(value.size());
+  for (char c : value) {
+    if (c != '_') {
+      compact += c;
+    }
+  }
+  if (compact == "0") {
+    return true;
+  }
+
+  const auto quote = compact.find('\'');
+  if (quote == std::string::npos || quote == 0) {
+    return false;
+  }
+  if (!std::all_of(compact.begin(), compact.begin() + quote, [](unsigned char c) {
+        return std::isdigit(c);
+      })) {
+    return false;
+  }
+
+  auto digits = quote + 1;
+  if (digits < compact.size() &&
+      (compact[digits] == 's' || compact[digits] == 'S')) {
+    ++digits;
+  }
+  if (digits == compact.size()) {
+    return false;
+  }
+  const char base = compact[digits++];
+  if (base != 'b' && base != 'B' && base != 'o' && base != 'O' &&
+      base != 'd' && base != 'D' && base != 'h' && base != 'H') {
+    return false;
+  }
+  return digits < compact.size() &&
+         std::all_of(compact.begin() + digits, compact.end(), [](char c) {
+           return c == '0';
+         });
 }
 
 std::string getEmittedDefaultParameterValue(
@@ -150,11 +200,27 @@ std::string getEmittedDefaultParameterValue(
     }
     if (parameterName == NLName("RST_ENABLE") ||
         parameterName == NLName("RST_ASYNC") ||
-        parameterName == NLName("RST_ACTIVE_LOW")) {
+        parameterName == NLName("RST_ACTIVE_LOW") ||
+        parameterName == NLName("INIT_ENABLE")) {
       return "0";
     }
     if (parameterName == NLName("INIT")) {
       return "1'b0";
+    }
+  }
+  if (NLDB0::isDivMod(instance->getModel())) {
+    if (parameterName == NLName("WIDTH")) {
+      return "1";
+    }
+    if (parameterName == NLName("SIGNED")) {
+      return "0";
+    }
+  }
+  if (NLDB0::isTableSelect(instance->getModel())) {
+    if (parameterName == NLName("WIDTH") ||
+        parameterName == NLName("DEPTH") ||
+        parameterName == NLName("ABITS")) {
+      return "1";
     }
   }
   return parameter->getValue();
@@ -164,6 +230,11 @@ bool shouldDumpInstParameter(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLInstParameter* instParameter) {
   const auto* parameter = instParameter->getParameter();
+  if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
+      parameter->getName() == naja::NL::NLName("INIT") &&
+      isZeroVerilogIntegerLiteral(instParameter->getValue())) {
+    return false;
+  }
   return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
          normalizeParameterValue(
            parameter->getType(),
@@ -1001,6 +1072,10 @@ void SNLVRLDumper::setDumpRTLInfosAsAttributes(bool mode) {
   configuration_.setDumpRTLInfosAsAttributes(mode);
 }
 
+void SNLVRLDumper::setRTLInfoDumpMode(RTLInfoDumpMode mode) {
+  configuration_.setRTLInfoDumpMode(mode);
+}
+
 void SNLVRLDumper::setDumpAssignsAsInstances(bool mode) {
   configuration_.setDumpAssignsAsInstances(mode);
 }
@@ -1174,14 +1249,30 @@ void SNLVRLDumper::dumpAttributes(
       rtlInfos = designObject->getRTLInfos();
     }
     std::chrono::steady_clock::time_point rtlInfosStart {};
-    if (perfActive) {
+    if (perfActive) { // LCOV_EXCL_LINE
       rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
     if (rtlInfos) {
-      for (const auto& info : rtlInfos->getInfos()) {
+      std::vector<std::pair<std::string, std::string>> attributes;
+      switch (configuration_.getRTLInfoDumpMode()) {
+        case RTLInfoDumpMode::None:
+          break; // LCOV_EXCL_LINE
+        case RTLInfoDumpMode::VerboseAttributes:
+          attributes = rtlInfos->getDumpAttributes();
+          break;
+        case RTLInfoDumpMode::CompactAttribute:
+          if (auto compactSourceLoc = rtlInfos->getCompactSourceLocAttribute()) {
+            attributes.push_back(std::move(*compactSourceLoc));
+          }
+          for (const auto& info : rtlInfos->getInfos()) {
+            attributes.emplace_back(info.first.getString(), info.second);
+          }
+          break;
+      }
+      for (const auto& info : attributes) {
         ++dumpedRTLInfos;
         o << "(* ";
-        o << info.first.getString();
+        o << info.first;
         if (!info.second.empty()) {
           o << "=";
           const bool valueIsNumber = isUnsignedDecimal(info.second);
@@ -1681,7 +1772,7 @@ bool SNLVRLDumper::dumpInstance(
       widthValue = widthInstParam->getValue();
     }
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
-    o << "naja_mux2 ";
+    o << getNajaPrimitiveModelName(instance->getModel()) << " ";
     if (widthValue != "1") {
       o << "#(" << '\n';
       o << "  .WIDTH(" << widthValue << ")" << '\n';
@@ -1709,12 +1800,73 @@ bool SNLVRLDumper::dumpInstance(
     o << ";" << '\n';
     return true;
   }
+  if (NLDB0::isTableSelect(instance->getModel())) {
+    emitNajaTableSelectModel_ = true;
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_table_select ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (NLDB0::isDivMod(instance->getModel())) {
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << getNajaPrimitiveModelName(instance->getModel()) << " ";
+    dumpInstParameters(instance, o);
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
   if (auto* model = instance->getModel();
-      NLDB0::isFA(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
-      NLDB0::isDFFRN(model) || NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
-      NLDB0::isDFFSE(model) ||
-      (model && NLDB0::isDB0Primitive(model) && !model->isUnnamed() &&
-       model->getName() == NLName("naja_dff"))) {
+      NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
+      NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) || NLDB0::isDFFS(model) ||
+      NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
+      NLDB0::isDFFSE(model)) {
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName;
+    if (instance->isUnnamed()) {
+      instanceName = createInstanceName(instance, naming);
+    } else {
+      instanceName = instance->getName().getString();
+    }
+    std::string modelName = getNajaPrimitiveModelName(model);
+    std::string widthValue = "1";
+    if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
+      widthValue = widthParam->getValue();
+    }
+    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+      widthValue = widthInstParam->getValue();
+    }
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << modelName << " ";
+    if (widthValue != "1") {
+      o << "#(" << '\n';
+      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << ") ";
+    }
+    o << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";" << '\n';
+    return true;
+  }
+  if (auto* model = instance->getModel();
+      NLDB0::isFA(model)) {
     emitNajaPrimitiveModels_ = true;
   }
   if (NLDB0::isGate(instance->getModel())) {
@@ -2146,11 +2298,41 @@ void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
   o << "endmodule //naja_mux2\n";
 }
 
+void SNLVRLDumper::dumpNajaTableSelectModel(std::ostream& o) {
+  o << "module naja_table_select #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter DEPTH = 1,\n";
+  o << "  parameter ABITS = 1\n";
+  o << ") (\n";
+  o << "  input [WIDTH*DEPTH-1:0] DATA,\n";
+  o << "  input [ABITS-1:0] ADDR,\n";
+  o << "  output [WIDTH-1:0] Y\n";
+  o << ");\n";
+  o << "  function [WIDTH-1:0] select_data;\n";
+  o << "    input [WIDTH*DEPTH-1:0] data;\n";
+  o << "    input [ABITS-1:0] addr;\n";
+  o << "    integer i;\n";
+  o << "    begin\n";
+  o << "      select_data = {WIDTH{1'b0}};\n";
+  o << "      for (i = 0; i < DEPTH; i = i + 1) begin\n";
+  o << "        if (addr == i[ABITS-1:0]) begin\n";
+  o << "          select_data = data[i*WIDTH +: WIDTH];\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end\n";
+  o << "  endfunction\n";
+  o << "\n";
+  o << "  assign Y = select_data(DATA, ADDR);\n";
+  o << "endmodule //naja_table_select\n";
+}
+
 void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
-  o << "module naja_dff(\n";
+  o << "module naja_dff #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C) begin\n";
   o << "    Q <= D;\n";
@@ -2159,10 +2341,12 @@ void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
-  o << "module naja_dlatch(\n";
+  o << "module naja_dlatch #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input E,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @* begin\n";
   o << "    if (E) Q = D;\n";
@@ -2171,10 +2355,12 @@ void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
-  o << "module naja_dffn(\n";
+  o << "module naja_dffn #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
-  o << "  output reg Q\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(negedge C) begin\n";
   o << "    Q <= D;\n";
@@ -2183,25 +2369,61 @@ void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFRNModel(std::ostream& o) {
-  o << "module naja_dffrn(\n";
+  o << "module naja_dffrn #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input RN,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or negedge RN) begin\n";
-  o << "    if (!RN) Q <= 1'b0;\n";
+  o << "    if (!RN) Q <= {WIDTH{1'b0}};\n";
   o << "    else Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffrn\n";
 }
 
-void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
-  o << "module naja_dffe(\n";
+void SNLVRLDumper::dumpNajaDFFRModel(std::ostream& o) {
+  o << "module naja_dffr #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  input R,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge R) begin\n";
+  o << "    if (R) Q <= {WIDTH{1'b0}};\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffr\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFSModel(std::ostream& o) {
+  o << "module naja_dffs #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input C,\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  o << "  input S,\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
+  o << ");\n";
+  o << "  always @(posedge C or posedge S) begin\n";
+  o << "    if (S) Q <= {WIDTH{1'b1}};\n";
+  o << "    else Q <= D;\n";
+  o << "  end\n";
+  o << "endmodule //naja_dffs\n";
+}
+
+void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
+  o << "module naja_dffe #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
+  o << "  input C,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C) begin\n";
   o << "    if (E) Q <= D;\n";
@@ -2210,33 +2432,52 @@ void SNLVRLDumper::dumpNajaDFFEModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDFFREModel(std::ostream& o) {
-  o << "module naja_dffre(\n";
+  o << "module naja_dffre #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
   o << "  input R,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or posedge R) begin\n";
-  o << "    if (R) Q <= 1'b0;\n";
+  o << "    if (R) Q <= {WIDTH{1'b0}};\n";
   o << "    else if (E) Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffre\n";
 }
 
 void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
-  o << "module naja_dffse(\n";
+  o << "module naja_dffse #(\n";
+  o << "  parameter WIDTH = 1\n";
+  o << ") (\n";
   o << "  input C,\n";
-  o << "  input D,\n";
+  o << "  input [WIDTH-1:0] D,\n";
   o << "  input E,\n";
   o << "  input S,\n";
-  o << "  output reg Q\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
   o << ");\n";
   o << "  always @(posedge C or posedge S) begin\n";
-  o << "    if (S) Q <= 1'b1;\n";
+  o << "    if (S) Q <= {WIDTH{1'b1}};\n";
   o << "    else if (E) Q <= D;\n";
   o << "  end\n";
   o << "endmodule //naja_dffse\n";
+}
+
+void SNLVRLDumper::dumpNajaDivModModel(std::ostream& o) {
+  o << "module naja_divmod #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter SIGNED = 0\n";
+  o << ") (\n";
+  o << "  input [WIDTH-1:0] A,\n";
+  o << "  input [WIDTH-1:0] B,\n";
+  o << "  output [WIDTH-1:0] Q,\n";
+  o << "  output [WIDTH-1:0] R\n";
+  o << ");\n";
+  o << "  assign Q = SIGNED ? $signed(A) / $signed(B) : A / B;\n";
+  o << "  assign R = SIGNED ? $signed(A) % $signed(B) : A % B;\n";
+  o << "endmodule //naja_divmod\n";
 }
 
 void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
@@ -2249,7 +2490,11 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  parameter RST_ENABLE = 0,\n";
   o << "  parameter RST_ASYNC = 0,\n";
   o << "  parameter RST_ACTIVE_LOW = 0,\n";
-  o << "  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}\n";
+  o << "  parameter INIT_ENABLE = 0,\n";
+  // Keep the disabled default scalar so large uninitialized memories do not
+  // force simulators to elaborate a WIDTH*DEPTH packed constant. A sized
+  // explicit override retains its own width when initialization is enabled.
+  o << "  parameter INIT = 1'b0\n";
   o << ") (\n";
   o << "  input CLK,\n";
   o << "  input RST,\n";
@@ -2267,8 +2512,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  task automatic load_init;\n";
   o << "    integer init_idx;\n";
   o << "    begin\n";
+  o << "      /* verilator lint_off SELRANGE */\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
   o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  task automatic write_ports;\n";
@@ -2292,6 +2539,10 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);\n\n";
+  o << "  initial begin\n";
+  o << "    if (INIT_ENABLE)\n";
+  o << "      load_init();\n";
+  o << "  end\n\n";
   o << "  always @* begin\n";
   o << "    for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin\n";
   o << "      addr_value = RADDR[rp*ABITS +: ABITS];\n";
@@ -2343,6 +2594,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_.dumpDesignStreamCalls);
   emitNajaMemModel_ = false;
   emitNajaMux2Model_ = false;
+  emitNajaTableSelectModel_ = false;
   emitNajaPrimitiveModels_ = false;
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
@@ -2373,6 +2625,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
     detailedPerfReport_.dumpLibraryStreamCalls);
   emitNajaMemModel_ = false;
   emitNajaMux2Model_ = false;
+  emitNajaTableSelectModel_ = false;
   emitNajaPrimitiveModels_ = false;
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
@@ -2423,6 +2676,8 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   outFile << '\n';
   dumpNajaMux2Model(outFile);
   outFile << '\n';
+  dumpNajaTableSelectModel(outFile);
+  outFile << '\n';
   dumpNajaDFFModel(outFile);
   outFile << '\n';
   dumpNajaDLatchModel(outFile);
@@ -2431,11 +2686,17 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   outFile << '\n';
   dumpNajaDFFRNModel(outFile);
   outFile << '\n';
+  dumpNajaDFFRModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSModel(outFile);
+  outFile << '\n';
   dumpNajaDFFEModel(outFile);
   outFile << '\n';
   dumpNajaDFFREModel(outFile);
   outFile << '\n';
   dumpNajaDFFSEModel(outFile);
+  outFile << '\n';
+  dumpNajaDivModModel(outFile);
   outFile << '\n';
   dumpNajaMemModel(outFile);
 }

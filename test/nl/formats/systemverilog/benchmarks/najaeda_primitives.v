@@ -26,10 +26,38 @@ module naja_mux2 #(
   assign Y = S ? B : A;
 endmodule
 
-module naja_dff(
+module naja_table_select #(
+  parameter WIDTH = 1,
+  parameter DEPTH = 1,
+  parameter ABITS = 1
+) (
+  input wire [WIDTH*DEPTH-1:0] DATA,
+  input wire [ABITS-1:0] ADDR,
+  output wire [WIDTH-1:0] Y
+);
+  function [WIDTH-1:0] select_data;
+    input [WIDTH*DEPTH-1:0] data;
+    input [ABITS-1:0] addr;
+    integer i;
+    begin
+      select_data = {WIDTH{1'b0}};
+      for (i = 0; i < DEPTH; i = i + 1) begin
+        if (addr == i[ABITS-1:0]) begin
+          select_data = data[i*WIDTH +: WIDTH];
+        end
+      end
+    end
+  endfunction
+
+  assign Y = select_data(DATA, ADDR);
+endmodule
+
+module naja_dff #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C) begin
     Q <= D;
@@ -37,10 +65,12 @@ module naja_dff(
 endmodule
 
 /* verilator lint_off LATCH */
-module naja_dlatch(
+module naja_dlatch #(
+  parameter WIDTH = 1
+) (
   input wire E,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @* begin
     if (E) Q = D;
@@ -48,61 +78,99 @@ module naja_dlatch(
 endmodule
 /* verilator lint_on LATCH */
 
-module naja_dffn(
+module naja_dffn #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
-  output reg Q
+  input wire [WIDTH-1:0] D,
+  output reg [WIDTH-1:0] Q
 );
   always @(negedge C) begin
     Q <= D;
   end
 endmodule
 
-module naja_dffrn(
+module naja_dffrn #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire RN,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or negedge RN) begin
-    if (!RN) Q <= 1'b0;
+    if (!RN) Q <= {WIDTH{1'b0}};
     else Q <= D;
   end
 endmodule
 
-module naja_dffe(
+module naja_dffr #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
+  input wire R,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge R) begin
+    if (R) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffs #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire S,
+  output reg [WIDTH-1:0] Q
+);
+  always @(posedge C or posedge S) begin
+    if (S) Q <= {WIDTH{1'b1}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffe #(
+  parameter WIDTH = 1
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
   input wire E,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C) begin
     if (E) Q <= D;
   end
 endmodule
 
-module naja_dffre(
+module naja_dffre #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire E,
   input wire R,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or posedge R) begin
-    if (R) Q <= 1'b0;
+    if (R) Q <= {WIDTH{1'b0}};
     else if (E) Q <= D;
   end
 endmodule
 
-module naja_dffse(
+module naja_dffse #(
+  parameter WIDTH = 1
+) (
   input wire C,
-  input wire D,
+  input wire [WIDTH-1:0] D,
   input wire E,
   input wire S,
-  output reg Q
+  output reg [WIDTH-1:0] Q
 );
   always @(posedge C or posedge S) begin
-    if (S) Q <= 1'b1;
+    if (S) Q <= {WIDTH{1'b1}};
     else if (E) Q <= D;
   end
 endmodule
@@ -116,7 +184,8 @@ module naja_mem #(
   parameter RST_ENABLE = 0,
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
-  parameter [WIDTH*DEPTH-1:0] INIT = {WIDTH*DEPTH{1'b0}}
+  parameter INIT_ENABLE = 0,
+  parameter INIT = 1'b0
 ) (
   input CLK,
   input RST,
@@ -135,8 +204,10 @@ module naja_mem #(
   task automatic load_init;
     integer init_idx;
     begin
+      /* verilator lint_off SELRANGE */
       for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)
         mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
+      /* verilator lint_on SELRANGE */
     end
   endtask
 
@@ -162,6 +233,11 @@ module naja_mem #(
   endtask
 
   wire reset_active = RST_ENABLE && (RST_ACTIVE_LOW ? ~RST : RST);
+
+  initial begin
+    if (INIT_ENABLE)
+      load_init();
+  end
 
   always @* begin
     for (rp = 0; rp < RD_PORTS; rp = rp + 1) begin

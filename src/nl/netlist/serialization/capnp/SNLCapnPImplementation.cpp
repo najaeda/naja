@@ -21,8 +21,12 @@
 #include "naja_nl_implementation.capnp.h"
 
 #include "NLUniverse.h"
+#include "NLDB0.h"
 #include "NLException.h"
 
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
+#include "SNLCapnPRTLInfos.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -79,6 +83,9 @@ void dumpInstance(
     auto instParameterBuilder = instParameters[id++];
     dumpInstParameter(instParameterBuilder, instParameter);
   }
+  if (snlInstance->hasRTLInfos()) {
+    dumpRTLInfos(instance.initRtlInfos(), snlInstance->getRTLInfos());
+  }
 }
 
 void dumpBitTermReference(DBImplementation::NetComponentReference::Builder& componentReference,
@@ -131,6 +138,9 @@ void dumpScalarNet(
       dumpNetComponentReference(componentRefBuilder, component);
     }
   }
+  if (scalarNet->hasRTLInfos()) {
+    dumpRTLInfos(scalarNetBuilder.initRtlInfos(), scalarNet->getRTLInfos());
+  }
 }
 
 void dumpBusNetBit(
@@ -150,6 +160,9 @@ void dumpBusNetBit(
         dumpNetComponentReference(componentRefBuilder, component);
       }
     }
+    if (busNetBit->hasRTLInfos()) {
+      dumpRTLInfos(bitBuilder.initRtlInfos(), busNetBit->getRTLInfos());
+    }
   } else {
     bitBuilder.setDestroyed(true);
   }
@@ -165,6 +178,9 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
+  if (busNet->hasRTLInfos()) {
+    dumpRTLInfos(busNetBuilder.initRtlInfos(), busNet->getRTLInfos());
+  }
   auto bits = busNetBuilder.initBits(busNet->getWidth());
   size_t id = 0;
   for (size_t i=0; i<busNet->getWidth(); i++) {
@@ -268,7 +284,26 @@ void loadInstance(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
-  auto model = NLUniverse::get()->getSNLDesign(snlModelReference);
+  SNLDesign* model = nullptr;
+  if (snlModelReference.dbID_ == NLID::DBID(0)) {
+    //DB0 primitives are canonical and may need lazy (re)creation: resolve the
+    //reference directly (libraryID selects the family, designID the size) instead
+    //of relying on them having been loaded. Multi-parameter primitives (memory,
+    //table select) are rebuilt from the instance parameters, which carry the
+    //full signature.
+    NLDB0::PrimitiveParameters parameters;
+    if (instance.hasInstParameters()) {
+      for (auto instParameter: instance.getInstParameters()) {
+        parameters.emplace(
+          std::string(instParameter.getName()), std::string(instParameter.getValue()));
+      }
+    }
+    model = NLDB0::getOrCreatePrimitive(
+      snlModelReference.libraryID_, snlModelReference.designID_, parameters);
+  }
+  if (not model) {
+    model = NLUniverse::get()->getSNLDesign(snlModelReference);
+  }
   //LCOV_EXCL_START
   if (not model) {
     std::ostringstream reason;
@@ -286,6 +321,9 @@ void loadInstance(
     for (auto instParameter: instance.getInstParameters()) {
       loadInstParameter(snlInstance, instParameter);
     }
+  }
+  if (instance.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(snlInstance), instance.getRtlInfos());
   }
 }
 
@@ -408,7 +446,13 @@ void loadBusNet(
           }
         }
       }
+      if (bitNet.hasRtlInfos()) {
+        loadRTLInfos(SNLRTLInfos::create(busNetBit), bitNet.getRtlInfos());
+      }
     }
+  }
+  if (net.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(busNet), net.getRtlInfos());
   }
 }
 
@@ -429,6 +473,9 @@ void loadScalarNet(
         loadTermReference(scalarNet, componentReference.getTermReference());
       }
     }
+  }
+  if (net.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(scalarNet), net.getRtlInfos());
   }
 }
 

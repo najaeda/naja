@@ -62,11 +62,22 @@ jobs:
       - name: Run external SV regress lint
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage lint
 
+      - name: Run Z-Core load, dump, lint, and simulation
+        run: >-
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run
+          --case zcore
+          --stage load_dump
+          --stage lint
+          --stage github_sim
+
       - name: Run AXI cut regress (lint + simulation)
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case axi
 
       - name: Run large external SV load and dump checks
-        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case black_parrot --case cva6 --stage load_dump
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case black_parrot --stage load_dump
+
+      - name: Run CVA6 load, dump, and logic-cone signatures
+        run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case cva6 --stage load_dump --stage logic_cones
 
       - name: Upload SV regress artifacts
         uses: actions/upload-artifact@v7

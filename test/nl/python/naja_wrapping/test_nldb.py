@@ -3,10 +3,55 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import gzip
+import shutil
 import tempfile
 import unittest
+import zipfile
 import naja
 import faulthandler 
+
+INTENT_MINI_SV = """\
+package mini_pkg;
+  typedef logic [7:0] byte_t;
+  typedef enum logic [1:0] {
+    ST_IDLE = 2'b00,
+    ST_RUN  = 2'b01,
+    ST_DONE = 2'b11
+  } state_e;
+  typedef struct packed {
+    logic   valid;
+    byte_t  data;
+    state_e state;
+  } payload_t;
+  typedef union packed {
+    logic [7:0] raw;
+    byte_t      data;
+  } overlay_t;
+  localparam int PLEN = (32 == 32) ? 34 : 56;
+endpackage
+
+module intent_mini #(
+    parameter int DEPTH = 4
+) (
+    input  logic clk,
+    input  logic rst_n
+);
+  import mini_pkg::*;
+  localparam int IDX_W = $clog2(DEPTH);
+
+  mini_pkg::state_e state_q;
+  byte_t             byte_q;
+  logic [3:0]        plain_q;
+  payload_t          payload_q;
+  overlay_t          overlay_q;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) state_q <= ST_IDLE;
+    else        state_q <= ST_RUN;
+  end
+endmodule
+"""
 
 class SNLDBTest(unittest.TestCase):
   def setUp(self):
@@ -41,6 +86,38 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog()
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
+
+  def testLoadLibertyPrimitivesRenamedFiles(self):
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    source = os.path.join(
+      formats_path,
+      "liberty",
+      "benchmarks",
+      "tests",
+      "small.lib")
+    self.assertTrue(os.path.exists(source))
+
+    with tempfile.TemporaryDirectory() as tempdir:
+      lib_suffix_path = os.path.join(tempdir, "small.lib_tt")
+      gzip_path = os.path.join(tempdir, "small.memory")
+      zip_path = os.path.join(tempdir, "small.bundle")
+
+      shutil.copyfile(source, lib_suffix_path)
+      with open(source, "rb") as input_file:
+        with gzip.open(gzip_path, "wb") as gzip_file:
+          shutil.copyfileobj(input_file, gzip_file)
+      with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(source, "memories/small.lib_tt")
+
+      for path in (lib_suffix_path, gzip_path, zip_path):
+        with self.subTest(path=path):
+          db = naja.NLDB.create(naja.NLUniverse.get())
+          db.loadLibertyPrimitives([path])
+          primitives = db.getLibrary("small_lib")
+          self.assertIsNotNone(primitives)
+          self.assertIsNotNone(primitives.getSNLDesign("and2"))
+          db.destroy()
 
   def testVerilogLoadingOptions(self):
     u = naja.NLUniverse.get()
@@ -126,6 +203,30 @@ class SNLDBTest(unittest.TestCase):
     db.loadVerilog(verilogs, keep_assigns=False)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, keep_assign=False)
 
+  def testAssignInstancePartition(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.NamedTemporaryFile("w", suffix=".v", delete=False) as source:
+      source.write("module child(input i, output o); assign o = i; endmodule\n")
+      source.write(
+        "module top(input i, output o); "
+        "wire n; child u_child(.i(i), .o(n)); assign o = n; endmodule\n")
+      source_path = source.name
+    try:
+      top = db.loadVerilog([source_path])
+      instances = list(top.getInstances())
+      non_assign_instances = list(top.getNonAssignInstances())
+      assign_instances = list(top.getAssignInstances())
+
+      self.assertEqual(
+        instances,
+        non_assign_instances + assign_instances)
+      self.assertTrue(all(not inst.getModel().isAssign() for inst in non_assign_instances))
+      self.assertTrue(all(inst.getModel().isAssign() for inst in assign_instances))
+      self.assertEqual(1, len(non_assign_instances))
+      self.assertEqual(1, len(assign_instances))
+    finally:
+      os.remove(source_path)
+
   def testVerilogPreprocessEnabled(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
@@ -170,10 +271,60 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
     self.assertEqual(3, sum(1 for _ in top.getTerms()))
+    self.assertTrue(top.hasSourceLoc())
+    source_loc = top.getSourceLoc()
+    self.assertIsInstance(source_loc, tuple)
+    self.assertEqual(5, len(source_loc))
+    self.assertTrue(source_loc[0].endswith("systemverilog/benchmarks/simple/simple.sv"))
+    self.assertGreaterEqual(source_loc[1], 1)
+    self.assertGreaterEqual(source_loc[2], 1)
+    self.assertGreaterEqual(source_loc[3], source_loc[1])
+    self.assertGreaterEqual(source_loc[4], 1)
+    term = top.getTerm("a")
+    self.assertIsNotNone(term)
+    self.assertTrue(term.hasSourceLoc())
+    self.assertTrue(term.getSourceLoc()[0].endswith("systemverilog/benchmarks/simple/simple.sv"))
+    net = top.getNet("y")
+    self.assertIsNotNone(net)
+    self.assertTrue(net.hasSourceLoc())
+    self.assertTrue(net.getSourceLoc()[0].endswith("systemverilog/benchmarks/simple/simple.sv"))
     self.assertTrue(os.path.exists(json_path))
     self.assertTrue(os.path.exists(diagnostics_path))
+    self.assertIsNone(naja.live_compilation())
+    self.assertIsNone(naja.ast_symbol_of(top))
+    with self.assertRaises(RuntimeError):
+      naja.ast_symbol_of(db)
+    with self.assertRaises(ValueError):
+      naja.snl_objects_of(object())
 
     db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+    self.assertIsNotNone(naja.live_compilation())
+    top_symbol = naja.ast_symbol_of(top)
+    self.assertIsNotNone(top_symbol)
+    self.assertIn(top, naja.snl_objects_of(top_symbol))
+    net_symbol = naja.ast_symbol_of(top.getNet("y"))
+    self.assertIsNotNone(net_symbol)
+    self.assertIn(top.getNet("y"), naja.snl_objects_of(net_symbol))
+    term_symbol = naja.ast_symbol_of(top.getTerm("a"))
+    self.assertIsNotNone(term_symbol)
+    self.assertIn(top.getTerm("a"), naja.snl_objects_of(term_symbol))
+
+    # A correctly named capsule whose pointer is unknown to the live registry
+    # is valid input and produces an empty result.
+    import ctypes
+    capsule_new = ctypes.pythonapi.PyCapsule_New
+    capsule_new.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
+    capsule_new.restype = ctypes.py_object
+    capsule_name = b"naja.frontend.Symbol"
+    unknown_symbol = capsule_new(ctypes.c_void_p(1), capsule_name, None)
+    self.assertEqual([], naja.snl_objects_of(unknown_symbol))
+
+    db.destroy()
+    self.assertIsNone(naja.live_compilation())
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_assigns=False)
     self.assertIsNotNone(top)
@@ -192,6 +343,217 @@ class SNLDBTest(unittest.TestCase):
     top = db.loadSystemVerilog([sv_file], suppress_warnings=["width-trunc"])
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with tempfile.NamedTemporaryFile("w", suffix=".sv", delete=False) as defineFile:
+      defineFile.write("`ifdef SYNTHESIS\n")
+      defineFile.write("module synth_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`else\n")
+      defineFile.write("module sim_top(input logic a, output logic y);\n")
+      defineFile.write("  assign y = ~a;\n")
+      defineFile.write("endmodule\n")
+      defineFile.write("`endif\n")
+      definePath = defineFile.name
+    try:
+      top = db.loadSystemVerilog([definePath], defines=["SYNTHESIS"])
+      self.assertIsNotNone(top)
+      self.assertEqual("synth_top", top.getName())
+    finally:
+      if os.path.exists(definePath):
+        os.remove(definePath)
+
+  def testSystemVerilogTypedExceptions(self):
+    self.assertTrue(issubclass(naja.SystemVerilogError, RuntimeError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogSyntaxError, naja.SystemVerilogError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogUnsupportedError, naja.SystemVerilogError))
+    self.assertTrue(issubclass(
+      naja.SystemVerilogInternalError, naja.SystemVerilogError))
+
+    u = naja.NLUniverse.get()
+    with tempfile.TemporaryDirectory() as tempdir:
+      syntax_path = os.path.join(tempdir, "typed_syntax_error.sv")
+      with open(syntax_path, "w", encoding="utf-8") as source:
+        source.write(
+          "module typed_syntax_error(input logic a, output logic y);\n"
+          "  assign y = a\n"
+          "endmodule\n")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogSyntaxError) as context:
+        db.loadSystemVerilog([syntax_path])
+      syntax_error = context.exception
+      self.assertIsInstance(syntax_error, RuntimeError)
+      self.assertIn("Error while parsing SystemVerilog: ", str(syntax_error))
+      self.assertTrue(syntax_error.diagnostics)
+      diagnostic = syntax_error.diagnostics[0]
+      self.assertEqual("error", diagnostic["severity"])
+      self.assertTrue(diagnostic["file"].endswith("typed_syntax_error.sv"))
+      self.assertGreater(diagnostic["line"], 0)
+      self.assertGreater(diagnostic["column"], 0)
+      self.assertTrue(diagnostic["message"])
+      db.destroy()
+
+      unsupported_path = os.path.join(tempdir, "typed_unsupported.sv")
+      with open(unsupported_path, "w", encoding="utf-8") as source:
+        source.write("""\
+module typed_unsupported(input logic a, output logic y);
+  task do_check(input logic value);
+  endtask
+  initial begin
+    do_check(a);
+  end
+  assign y = a;
+endmodule
+""")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogUnsupportedError) as context:
+        db.loadSystemVerilog([unsupported_path])
+      unsupported_error = context.exception
+      self.assertIsInstance(unsupported_error, RuntimeError)
+      self.assertIn("Unsupported SystemVerilog elements encountered", str(unsupported_error))
+      self.assertTrue(unsupported_error.unsupported_elements)
+      unsupported = unsupported_error.unsupported_elements[0]
+      self.assertIn("Unsupported initial block", unsupported["message"])
+      self.assertEqual(
+        "sv.unsupported.procedural_block",
+        unsupported["code"])
+      db.destroy()
+
+      valid_path = os.path.join(tempdir, "typed_internal.sv")
+      with open(valid_path, "w", encoding="utf-8") as source:
+        source.write("module typed_internal; endmodule\n")
+
+      db = naja.NLDB.create(u)
+      with self.assertRaises(naja.SystemVerilogInternalError) as context:
+        db.loadSystemVerilog([valid_path], diagnostics_report_path="")
+      self.assertIsInstance(context.exception, RuntimeError)
+      self.assertIn("Empty path for diagnostics report dump", str(context.exception))
+
+  def testSystemVerilogIntentAPI(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertFalse(naja.intent_available())
+    with self.assertRaises(RuntimeError):
+      naja.intent_type_of(db)
+    with self.assertRaises(RuntimeError):
+      naja.intent_parameters_of(db)
+    with self.assertRaises(RuntimeError):
+      naja.intent_package_member("mini_pkg")
+
+    with tempfile.TemporaryDirectory() as tempdir:
+      sv_file = os.path.join(tempdir, "intent_mini.sv")
+      with open(sv_file, "w", encoding="utf-8") as fixture:
+        fixture.write(INTENT_MINI_SV)
+
+      top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
+      self.assertIsNotNone(top)
+      self.assertTrue(naja.intent_available())
+
+      state_q = top.getNet("state_q")
+      self.assertIsNotNone(state_q)
+      type_rec = naja.intent_type_of(state_q)
+      self.assertEqual("mini_pkg::state_e", type_rec["type"])
+      self.assertEqual("enum", type_rec["canonical_kind"])
+      self.assertTrue(type_rec["src"].endswith("intent_mini.sv:29"))
+      enum = type_rec["enum"]
+      self.assertEqual(2, enum["width"])
+      self.assertTrue(enum["decl"].endswith("intent_mini.sv:3"))
+      self.assertEqual(
+        {"ST_IDLE": "2'b00", "ST_RUN": "2'b01", "ST_DONE": "2'b11"},
+        {m["name"]: m["encoding"] for m in enum["members"]})
+
+      clk_rec = naja.intent_type_of(top.getNet("clk"))
+      self.assertEqual("logic", clk_rec["type"])
+      self.assertEqual("scalar", clk_rec["canonical_kind"])
+      self.assertTrue(clk_rec["src"].endswith("intent_mini.sv:23"))
+      self.assertNotIn("enum", clk_rec)
+      self.assertNotIn("struct", clk_rec)
+      self.assertEqual(clk_rec, naja.intent_type_of(top.getTerm("clk")))
+
+      byte_rec = naja.intent_type_of(top.getNet("byte_q"))
+      self.assertEqual("mini_pkg::byte_t", byte_rec["type"])
+      self.assertEqual("packed_array", byte_rec["canonical_kind"])
+      self.assertTrue(byte_rec["src"].endswith("intent_mini.sv:30"))
+      self.assertNotIn("enum", byte_rec)
+      self.assertNotIn("struct", byte_rec)
+
+      plain_rec = naja.intent_type_of(top.getNet("plain_q"))
+      self.assertEqual("logic[3:0]", plain_rec["type"])
+      self.assertEqual("packed_array", plain_rec["canonical_kind"])
+      self.assertTrue(plain_rec["src"].endswith("intent_mini.sv:31"))
+      self.assertNotIn("enum", plain_rec)
+      self.assertNotIn("struct", plain_rec)
+
+      payload_rec = naja.intent_type_of(top.getNet("payload_q"))
+      self.assertEqual("mini_pkg::payload_t", payload_rec["type"])
+      self.assertEqual("packed_struct", payload_rec["canonical_kind"])
+      self.assertTrue(payload_rec["src"].endswith("intent_mini.sv:32"))
+      self.assertNotIn("enum", payload_rec)
+      payload = payload_rec["struct"]
+      self.assertEqual(11, payload["width"])
+      self.assertTrue(payload["decl"].endswith("intent_mini.sv:8"))
+      self.assertEqual([
+        {"name": "valid", "type": "logic", "msb": 10, "lsb": 10},
+        {"name": "data", "type": "mini_pkg::byte_t", "msb": 9, "lsb": 2},
+        {"name": "state", "type": "mini_pkg::state_e", "msb": 1, "lsb": 0},
+      ], payload["fields"])
+
+      overlay_rec = naja.intent_type_of(top.getNet("overlay_q"))
+      self.assertEqual("mini_pkg::overlay_t", overlay_rec["type"])
+      self.assertEqual("packed_union", overlay_rec["canonical_kind"])
+      self.assertEqual(8, overlay_rec["struct"]["width"])
+      self.assertTrue(overlay_rec["struct"]["decl"].endswith("intent_mini.sv:13"))
+      self.assertEqual([
+        {"name": "raw", "type": "logic[7:0]", "msb": 7, "lsb": 0},
+        {"name": "data", "type": "mini_pkg::byte_t", "msb": 7, "lsb": 0},
+      ], overlay_rec["struct"]["fields"])
+
+      synthetic = naja.SNLScalarNet.create(top, "synthetic")
+      self.assertIsNone(naja.intent_type_of(synthetic))
+      self.assertIsNone(naja.ast_symbol_of(synthetic))
+      self.assertIsNone(naja.intent_parameters_of(synthetic))
+
+      ff = next(
+        inst for inst in top.getInstances()
+        if inst.getModel().getName() == "naja_dffrn__w2")
+      self.assertEqual(type_rec, naja.intent_type_of(ff))
+
+      params = naja.intent_parameters_of(top)
+      self.assertEqual("intent_mini", params["module"])
+      self.assertEqual(2, params["count"])
+      by_name = {p["name"]: p for p in params["parameters"]}
+      self.assertFalse(by_name["DEPTH"]["localparam"])
+      self.assertEqual("4", by_name["DEPTH"]["value"])
+      self.assertEqual("4", by_name["DEPTH"]["expr"])
+      self.assertTrue(by_name["IDX_W"]["localparam"])
+      self.assertEqual("2", by_name["IDX_W"]["value"])
+      self.assertEqual("$clog2(DEPTH)", by_name["IDX_W"]["expr"])
+
+      plen = naja.intent_package_member("mini_pkg", "PLEN")
+      self.assertEqual("PLEN", plen["name"])
+      self.assertEqual("34", plen["value"])
+      self.assertEqual("(32 == 32) ? 34 : 56", plen["expr"])
+      self.assertTrue(plen["localparam"])
+
+      package_type = naja.intent_package_member("mini_pkg", "state_e")
+      self.assertEqual("mini_pkg::state_e", package_type["type"])
+      self.assertEqual("enum", package_type["canonical_kind"])
+      self.assertEqual(2, package_type["enum"]["width"])
+      self.assertIsNone(naja.intent_package_member("mini_pkg", "missing"))
+
+      state_sym = naja.ast_symbol_of(state_q)
+      linked_objects = naja.snl_objects_of(state_sym)
+      self.assertIn(state_q, linked_objects)
+      self.assertIn(ff, linked_objects)
+
+    db.destroy()
+    self.assertFalse(naja.intent_available())
 
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()
@@ -221,7 +583,38 @@ class SNLDBTest(unittest.TestCase):
         dumpRTLInfosAsAttributes=True)
       with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
         dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+      self.assertIn('naja_sv_src="', dumped_text)
+
+      with_verbose_rtl_infos = os.path.join(dump_dir, "simple_with_verbose_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(with_verbose_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="VerboseAttributes")
+      with open(with_verbose_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
       self.assertIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
+
+      none_rtl_infos = os.path.join(dump_dir, "simple_none_rtl_infos.v")
+      top.dumpVerilog(
+        path=dump_dir,
+        top_file_name=os.path.basename(none_rtl_infos),
+        dumpRTLInfosAsAttributes=True,
+        rtlInfoDumpMode="None")
+      with open(none_rtl_infos, "r", encoding="utf-8") as dumped_file:
+        dumped_text = dumped_file.read()
+      self.assertNotIn("sv_src_file", dumped_text)
+      self.assertNotIn('naja_sv_src="', dumped_text)
+
+      with self.assertRaises(RuntimeError) as context:
+        top.dumpVerilog(
+          path=dump_dir,
+          top_file_name="simple_invalid_rtl_infos.v",
+          dumpRTLInfosAsAttributes=True,
+          rtlInfoDumpMode="Invalid")
+      self.assertIn("invalid rtlInfoDumpMode", str(context.exception))
 
   def testDestroy(self):
     u = naja.NLUniverse.get()
@@ -229,6 +622,11 @@ class SNLDBTest(unittest.TestCase):
     db = naja.NLDB.create(u) 
     self.assertIsNotNone(db)
     db.destroy()
+
+    with self.assertRaisesRegex(
+        RuntimeError,
+        r"applying a destroy\(\) to a Python object with no Hurricane object attached"):
+      db.destroy()
 
   def testCreationError(self):
     u = naja.NLUniverse.get()
@@ -269,6 +667,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=1)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=[1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)

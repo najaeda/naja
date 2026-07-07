@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
+  PyNLID.cpp
   PyNLUniverse.cpp
   PyNLDB.cpp PyNLLibrary.cpp
   PyNLDBs.cpp PyNLLibraries.cpp
@@ -25,7 +26,7 @@ set(SOURCES
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLOccurrences.cpp
-  PySNLEquipotential.cpp PySNLUniquifier.cpp
+  PySNLEquipotential.cpp PyLogicCone.cpp PySNLUniquifier.cpp
   NajaPythonProperty.cpp
 )
 

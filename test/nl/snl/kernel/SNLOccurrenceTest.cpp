@@ -11,6 +11,7 @@ using ::testing::ElementsAre;
 
 #include "SNLPath.h"
 #include "SNLScalarTerm.h"
+#include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLOccurrence.h"
@@ -78,10 +79,13 @@ TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
   auto emptyPath = SNLPath();
   auto emptyOccurrence = SNLOccurrence();
   EXPECT_FALSE(emptyOccurrence.isValid());
+  EXPECT_EQ(nullptr, emptyOccurrence.getDesign());
   EXPECT_EQ(emptyOccurrence, emptyOccurrence);
   EXPECT_EQ(emptyOccurrence, SNLOccurrence());
   EXPECT_EQ(SNLOccurrence(), emptyOccurrence.getComponentBitNetOccurrence());
   EXPECT_EQ(nullptr, emptyOccurrence.getComponentBitNet());
+  EXPECT_FALSE(emptyOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(nullptr, emptyOccurrence.getInstance());
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
@@ -89,17 +93,25 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   ASSERT_NE(topITerm, nullptr);
   auto topITermOccurrence = SNLOccurrence(topITerm);
   EXPECT_TRUE(topITermOccurrence.getPath().empty());
+  EXPECT_EQ(topITerm->getDesign(), topITermOccurrence.getDesign());
   EXPECT_EQ(topITermOccurrence.getBitTerm(), topITerm);
   EXPECT_EQ(topITermOccurrence, SNLOccurrence(topITerm));
   EXPECT_EQ(SNLOccurrence(topITerm->getNet()), topITermOccurrence.getComponentBitNetOccurrence());
   EXPECT_EQ(topITerm->getNet(), topITermOccurrence.getComponentBitNet());
 
   ASSERT_NE(h0Instance_, nullptr);
+  auto h0InstanceOccurrence = SNLOccurrence(h0Instance_);
+  EXPECT_TRUE(h0InstanceOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(h0Instance_, h0InstanceOccurrence.getInstance());
+  EXPECT_EQ(nullptr, h0InstanceOccurrence.getInstTerm());
+  EXPECT_EQ(nullptr, h0InstanceOccurrence.getNetComponent());
+
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   auto iTerm = h0Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
   auto h0iTermOccurrence = SNLOccurrence(h0Path, iTerm);
   EXPECT_EQ(h0Path, h0iTermOccurrence.getPath());
+  EXPECT_EQ(h0Path.getDesign(), h0iTermOccurrence.getDesign());
   EXPECT_EQ(iTerm, h0iTermOccurrence.getBitTerm());
   EXPECT_EQ(iTerm->getNet(), h0iTermOccurrence.getComponentBitNet());
   EXPECT_EQ(SNLOccurrence(h0Path, iTerm->getNet()), h0iTermOccurrence.getComponentBitNetOccurrence());
@@ -113,7 +125,10 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   std::string h0IInstTermString = h0IInstTermOccurrence.getString();
   EXPECT_EQ(h0IInstTermOccurrence, SNLOccurrence(SNLPath(), h0IInstTerm));
   EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
+  EXPECT_EQ(h0IInstTerm->getDesign(), h0IInstTermOccurrence.getDesign());
   EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);
+  EXPECT_FALSE(h0IInstTermOccurrence.isInstanceOccurrence());
+  EXPECT_EQ(nullptr, h0IInstTermOccurrence.getInstance());
 }
 
 TEST_F(SNLOccurrenceTest, testh1Level) {

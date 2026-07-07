@@ -4,11 +4,13 @@
 
 set(SOURCES
   FanoutComputer.cpp
+  LogicCone.cpp
   LogicLevelComputer.cpp
 )
 
 set(naja_metrics_HEADERS
   FanoutComputer.h
+  LogicCone.h
   LogicLevelComputer.h
 )
 

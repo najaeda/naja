@@ -4,11 +4,13 @@
 
 set(SOURCES
   frontend/SNLSVConstructor.cpp
+  frontend/SNLSVIntent.cpp
 )
 
 set(HEADERS
   frontend/SNLSVConstructor.h
   frontend/SNLSVConstructorException.h
+  frontend/SNLSVIntent.h
 )
 
 add_library(naja_snl_systemverilog STATIC ${SOURCES})

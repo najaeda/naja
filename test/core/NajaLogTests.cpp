@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include <regex>
 #include <string>
 
 #include "NajaLog.h"
@@ -45,6 +46,22 @@ void unsetEnvVar(const char* name) {
 TEST(NajaLogTests, initAndGet) {
   log::init();
   EXPECT_NE(log::get(), nullptr);
+}
+
+TEST(NajaLogTests, defaultPatternIncludesTimestampAndSeverity) {
+  std::filesystem::path logPath(NAJA_CORE_TESTS_PATH);
+  auto filePath = logPath / "naja_log_test_default_pattern.log";
+
+  log::clearSinks();
+  log::addFileSink(filePath.string());
+  log::setLevel(spdlog::level::info);
+  NAJA_LOG_INFO("timestamped message");
+  log::get()->flush();
+
+  const auto contents = readFile(filePath);
+  const std::regex expected(
+    R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} \[naja\] \[info\] timestamped message)");
+  EXPECT_TRUE(std::regex_search(contents, expected));
 }
 
 TEST(NajaLogTests, fileSinkWrites) {

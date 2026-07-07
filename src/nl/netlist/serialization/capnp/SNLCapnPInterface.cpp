@@ -25,6 +25,9 @@
 #include "NLException.h"
 
 #include "SNLDesign.h"
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
+#include "SNLCapnPRTLInfos.h"
 #include "SNLScalarTerm.h"
 #include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
@@ -105,6 +108,9 @@ void dumpScalarTerm(
     scalarTermBuilder.setName(scalarTerm->getName().getString());
   }
   scalarTermBuilder.setDirection(SNLtoCapnPDirection(scalarTerm->getDirection()));
+  if (scalarTerm->hasRTLInfos()) {
+    dumpRTLInfos(scalarTermBuilder.initRtlInfos(), scalarTerm->getRTLInfos());
+  }
 }
 
 void dumpBusTerm(
@@ -118,6 +124,9 @@ void dumpBusTerm(
   busTermBuilder.setMsb(busTerm->getMSB());
   busTermBuilder.setLsb(busTerm->getLSB());
   busTermBuilder.setDirection(SNLtoCapnPDirection(busTerm->getDirection()));
+  if (busTerm->hasRTLInfos()) {
+    dumpRTLInfos(busTermBuilder.initRtlInfos(), busTerm->getRTLInfos());
+  }
 }
 
 void dumpParameter(
@@ -150,6 +159,9 @@ void dumpDesignInterface(
     designInterface.setName(snlDesign->getName().getString());
   }
   designInterface.setType(SNLtoCapNpDesignType(snlDesign->getType()));
+  if (snlDesign->hasRTLInfos()) {
+    dumpRTLInfos(designInterface.initRtlInfos(), snlDesign->getRTLInfos());
+  }
   auto lambda = [](SNLDesignInterface::Builder& builder, size_t nbProperties) {
     return builder.initProperties(nbProperties);
   };
@@ -300,7 +312,10 @@ void loadScalarTerm(
   if (term.hasName()) {
     snlName = NLName(term.getName());
   }
-  SNLScalarTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), snlName);
+  auto scalarTerm = SNLScalarTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), snlName);
+  if (term.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(scalarTerm), term.getRtlInfos());
+  }
 }
 
 void loadBusTerm(
@@ -314,7 +329,10 @@ void loadBusTerm(
   if (term.hasName()) {
     snlName = NLName(term.getName());
   }
-  SNLBusTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
+  auto busTerm = SNLBusTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
+  if (term.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(busTerm), term.getRtlInfos());
+  }
 }
 
 void loadDesignParameter(
@@ -336,6 +354,9 @@ void loadDesignInterface(
     snlName = NLName(designInterface.getName());
   }
   SNLDesign* snlDesign = SNLDesign::create(library, NLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
+  if (designInterface.hasRtlInfos()) {
+    loadRTLInfos(SNLRTLInfos::create(snlDesign), designInterface.getRtlInfos());
+  }
    if (designInterface.hasProperties()) {
     auto lambda = [](const SNLDesignInterface::Reader& reader) {
       return reader.getProperties();

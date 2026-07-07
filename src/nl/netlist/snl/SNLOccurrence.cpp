@@ -11,6 +11,7 @@
 #include "SNLDesign.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
+#include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 
@@ -79,8 +80,20 @@ SNLPath SNLOccurrence::getPath() const {
   return SNLPath();
 }
 
+SNLDesign* SNLOccurrence::getDesign() const {
+  auto path = getPath();
+  if (not path.empty()) {
+    return path.getDesign();
+  }
+  return object_ ? object_->getDesign() : nullptr;
+}
+
 bool SNLOccurrence::isNetComponentOccurrence() const {
   return dynamic_cast<SNLNetComponent*>(getObject()) != nullptr;
+}
+
+bool SNLOccurrence::isInstanceOccurrence() const {
+  return dynamic_cast<SNLInstance*>(getObject()) != nullptr;
 }
 
 SNLNetComponent* SNLOccurrence::getNetComponent() const {
@@ -89,6 +102,10 @@ SNLNetComponent* SNLOccurrence::getNetComponent() const {
 
 SNLInstTerm* SNLOccurrence::getInstTerm() const {
   return dynamic_cast<SNLInstTerm*>(getObject());
+}
+
+SNLInstance* SNLOccurrence::getInstance() const {
+  return dynamic_cast<SNLInstance*>(getObject());
 }
 
 SNLBitTerm* SNLOccurrence::getBitTerm() const {

@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import logging
+import sys
 import unittest
 import naja
 
@@ -15,11 +17,13 @@ class NajaLoggingTest(unittest.TestCase):
     self.assertTrue(os.path.isfile(log_path))
     naja.logWarn("warning")
     naja.logInfo("test")
+    naja.log("error", "generic error")
     naja.clearLogSinks()
     with open(log_path, "r", encoding="utf-8") as log_handle:
       contents = log_handle.read()
     self.assertIn("warning", contents)
     self.assertIn("test", contents)
+    self.assertIn("generic error", contents)
 
   def test_add_log_file_invalid_args(self):
     with self.assertRaises(RuntimeError):
@@ -70,6 +74,47 @@ class NajaLoggingTest(unittest.TestCase):
   def test_log_info_invalid_args(self):
     with self.assertRaises(RuntimeError):
       naja.logInfo()
+
+  def test_log_invalid_args(self):
+    with self.assertRaises(RuntimeError):
+      naja.log("info")
+
+  def test_log_invalid_level(self):
+    with self.assertRaises(RuntimeError):
+      naja.log("notalevel", "message")
+
+  def test_install_logging_handler_is_idempotent(self):
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    original_basic_config = logging.basicConfig
+    try:
+      naja.installLoggingHandler()
+      naja.installLoggingHandler()
+      native_handlers = [
+        handler for handler in root_logger.handlers
+        if getattr(handler, "_naja_native_handler", False)
+      ]
+      self.assertEqual(1, len(native_handlers))
+      self.assertTrue(
+        getattr(logging.basicConfig, "_naja_preserves_native_handler", False)
+      )
+    finally:
+      for handler in root_logger.handlers:
+        if handler not in original_handlers:
+          handler.close()
+      root_logger.handlers[:] = original_handlers
+      root_logger.setLevel(original_level)
+      logging.basicConfig = original_basic_config
+
+  def test_install_logging_handler_reports_script_failure(self):
+    original_logging_module = sys.modules.get("logging")
+    try:
+      sys.modules["logging"] = None
+      with self.assertRaises(ModuleNotFoundError):
+        naja.installLoggingHandler()
+    finally:
+      sys.modules["logging"] = original_logging_module
 
   def test_log_warn_invalid_args(self):
     with self.assertRaises(RuntimeError):

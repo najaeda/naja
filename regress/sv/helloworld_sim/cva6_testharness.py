@@ -13,17 +13,44 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 
 
 PASS_MARKER = "CVA6_HELLOWORLD_SIM_PASS"
 TARGET = "cv64a6_imafdc_sv39"
 ISA = "rv64gc_zba_zbb_zbs_zbc_zbkb_zbkx_zkne_zknd_zknh"
 MABI = "lp64d"
+PROGRAM_SOURCES = {
+    "hello_world": ["hello_world/hello_world.c"],
+    "corev_dhrystone": ["dhrystone/dhrystone_main.c", "dhrystone/dhrystone.c"],
+    "corev_return0": ["return0/return0.c"],
+    "corev_custom_template": ["hello_world/custom_test_template.S"],
+    "corev_isacov_branch_to_zero": ["isacov/branch_to_zero.S"],
+    "corev_isacov_jump": ["isacov/jump_test.S"],
+    "corev_isacov_isa": ["isacov/isa_test.S"],
+    "corev_isacov_seq_hazard": ["isacov/seq_hazard.S"],
+    "corev_pmp_exact_csrr": ["pmp/exact_csrr_test.S"],
+    "corev_pmp_granularity": ["pmp/granularity_test.S"],
+    "corev_pmp_lsu_tor": ["pmp/lsu_tor_test.S"],
+}
+PROGRAM_CFLAGS = {
+    "corev_dhrystone": [
+        "-std=gnu99",
+        "-Wno-error=implicit-function-declaration",
+        "-Wno-error=implicit-int",
+    ],
+}
+PROGRAMS = tuple(PROGRAM_SOURCES)
 
 
 def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
     print("$ " + (" ".join(args) if cwd is None else f"(cd {cwd} && {' '.join(args)})"), flush=True)
-    subprocess.run(args, cwd=str(cwd) if cwd else None, env=env, check=True)
+    started = time.monotonic()
+    try:
+        subprocess.run(args, cwd=str(cwd) if cwd else None, env=env, check=True)
+    finally:
+        elapsed = time.monotonic() - started
+        print(f"[cva6-sim] command elapsed_seconds={elapsed:.3f}", flush=True)
 
 
 def capture(args: list[str], *, cwd: Path | None = None) -> str:
@@ -47,6 +74,23 @@ def find_riscv_tool_prefix() -> str:
         "missing RISC-V toolchain: expected riscv64-unknown-elf, riscv-none-elf, "
         "or riscv32-unknown-elf gcc/objcopy/nm in PATH"
     )
+
+
+def default_jobs() -> str:
+    env_value = os.environ.get("NUM_JOBS")
+    if env_value:
+        return env_value
+    return str(min(2, os.cpu_count() or 1))
+
+
+def normalize_jobs(value: str) -> str:
+    try:
+        jobs = int(value)
+    except ValueError as exc:
+        raise SystemExit(f"--jobs must be a positive integer, got {value!r}") from exc
+    if jobs < 1:
+        raise SystemExit(f"--jobs must be a positive integer, got {value!r}")
+    return str(jobs)
 
 
 def tool_root(tool: str) -> Path | None:
@@ -103,18 +147,27 @@ def find_verilator_install_dir() -> Path:
     )
 
 
-def compile_hello_world(repo: Path, artifacts: Path, prefix: str) -> Path:
-    elf = artifacts / "cva6_hello_world.o"
+def compile_program(repo: Path, artifacts: Path, prefix: str, program: str) -> Path:
+    elf = artifacts / f"cva6_{program}.o"
     common = repo / "verif" / "tests" / "custom" / "common"
+    custom = repo / "verif" / "tests" / "custom"
     env_dir = repo / "verif" / "tests" / "custom" / "env"
     linker = repo / "config" / "gen_from_riscv_config" / "linker" / "link.ld"
+    if program not in PROGRAM_SOURCES:
+        valid = ", ".join(PROGRAMS)
+        raise SystemExit(f"unknown CVA6 program '{program}', valid programs: {valid}")
+    alloc_shim = write_baremetal_alloc_shim(artifacts)
+
     command = [
         prefix + "gcc",
-        str(repo / "verif" / "tests" / "custom" / "hello_world" / "hello_world.c"),
+        *(str(custom / source) for source in PROGRAM_SOURCES[program]),
+        str(alloc_shim),
         str(common / "syscalls.c"),
         str(common / "crt.S"),
         f"-I{env_dir}",
         f"-I{common}",
+        f"-I{custom / 'dhrystone'}",
+        *PROGRAM_CFLAGS.get(program, []),
         "-DNOPRINT=1",
         "-static",
         "-mcmodel=medany",
@@ -130,8 +183,46 @@ def compile_hello_world(repo: Path, artifacts: Path, prefix: str) -> Path:
         str(elf),
         "-lgcc",
     ]
+    print(f"[cva6-sim] compiling program={program} elf={elf}", flush=True)
     run(command, cwd=repo)
     return elf
+
+
+def write_baremetal_alloc_shim(artifacts: Path) -> Path:
+    path = artifacts / "cva6_baremetal_alloc.c"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        r'''#include <stddef.h>
+#include <stdint.h>
+
+#define NAJA_CVA6_HEAP_SIZE (64u * 1024u)
+
+static unsigned char naja_cva6_heap[NAJA_CVA6_HEAP_SIZE] __attribute__((aligned(16)));
+static uintptr_t naja_cva6_heap_offset;
+
+void *malloc(size_t size)
+{
+  if (size == 0)
+    size = 1;
+
+  size = (size + 15u) & ~(size_t)15u;
+  if (naja_cva6_heap_offset > NAJA_CVA6_HEAP_SIZE ||
+      size > NAJA_CVA6_HEAP_SIZE - naja_cva6_heap_offset)
+    return 0;
+
+  void *ptr = &naja_cva6_heap[naja_cva6_heap_offset];
+  naja_cva6_heap_offset += size;
+  return ptr;
+}
+
+void free(void *ptr)
+{
+  (void)ptr;
+}
+''',
+        encoding="utf-8",
+    )
+    return path
 
 
 def tohost_address(elf: Path, prefix: str) -> str:
@@ -1279,8 +1370,16 @@ def build_verilator_model(
         ldflags,
     ]
     run(command, cwd=repo)
-    run(["make", f"-j{jobs}", "-f", "Variane_testharness.mk"], cwd=obj_dir)
+    make_command = ["make", f"-j{jobs}", "-f", "Variane_testharness.mk"]
+    if shutil.which("ccache"):
+        make_command.append("CXX=ccache c++")
+    run(make_command, cwd=obj_dir)
     return obj_dir / "Variane_testharness"
+
+
+def prepend_library_path(env: dict[str, str], variable: str, path: Path) -> None:
+    existing = env.get(variable, "")
+    env[variable] = str(path) + (os.pathsep + existing if existing else "")
 
 
 def run_sim(
@@ -1292,8 +1391,8 @@ def run_sim(
     sim_plusargs: list[str],
 ) -> None:
     env = os.environ.copy()
-    existing = env.get("DYLD_LIBRARY_PATH", "")
-    env["DYLD_LIBRARY_PATH"] = str(spike_dir / "lib") + (os.pathsep + existing if existing else "")
+    prepend_library_path(env, "LD_LIBRARY_PATH", spike_dir / "lib")
+    prepend_library_path(env, "DYLD_LIBRARY_PATH", spike_dir / "lib")
     command = [
         str(executable),
         "--max-cycles",
@@ -1315,8 +1414,15 @@ def main() -> int:
     parser.add_argument("--generated", type=Path, required=True)
     parser.add_argument("--primitives", type=Path, required=True)
     parser.add_argument("--max-cycles", type=int, default=2_000_000)
+    parser.add_argument(
+        "--program",
+        action="append",
+        choices=PROGRAMS,
+        default=[],
+        help="Firmware program to compile and simulate. Repeat to run several programs.",
+    )
     parser.add_argument("--sim-plusarg", action="append", default=[])
-    parser.add_argument("--jobs", default=os.environ.get("NUM_JOBS", "1"))
+    parser.add_argument("--jobs", default=default_jobs())
     args = parser.parse_args()
 
     repo = args.repo.resolve()
@@ -1331,8 +1437,6 @@ def main() -> int:
     prefix = find_riscv_tool_prefix()
     spike_dir = find_spike_install_dir().resolve()
     verilator_dir = find_verilator_install_dir().resolve()
-    elf = compile_hello_world(repo, artifacts, prefix)
-    tohost = tohost_address(elf, prefix)
     executable = build_verilator_model(
         repo,
         artifacts,
@@ -1340,9 +1444,15 @@ def main() -> int:
         primitives,
         spike_dir,
         verilator_dir,
-        args.jobs,
+        normalize_jobs(args.jobs),
     )
-    run_sim(executable, elf, tohost, spike_dir, args.max_cycles, args.sim_plusarg)
+    programs = args.program or ["hello_world"]
+    for program in programs:
+        elf = compile_program(repo, artifacts, prefix, program)
+        tohost = tohost_address(elf, prefix)
+        print(f"[cva6-sim] running program={program}", flush=True)
+        run_sim(executable, elf, tohost, spike_dir, args.max_cycles, args.sim_plusarg)
+        print(f"[cva6-sim] program {program} passed", flush=True)
     print(PASS_MARKER)
     return 0
 

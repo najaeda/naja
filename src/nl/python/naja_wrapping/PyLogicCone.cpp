@@ -1,0 +1,290 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "PyLogicCone.h"
+
+#include <sstream>
+#include <string>
+
+#include "PyInterface.h"
+#include "PySNLOccurrence.h"
+#include "LogicCone.h"
+#include "SNLBusTerm.h"
+
+namespace PYNAJA {
+
+using namespace naja::NL;
+using naja::NAJA_METRICS::LogicCone;
+
+static const char* nodeKindString(LogicCone::NodeKind kind) {
+  switch (kind) {
+    case LogicCone::NodeKind::Root: return "root";
+    case LogicCone::NodeKind::Internal: return "internal";
+    case LogicCone::NodeKind::Flop: return "flop";
+    case LogicCone::NodeKind::Ports: return "ports";
+    case LogicCone::NodeKind::Blackbox: return "blackbox";
+  }
+  return "unknown"; // LCOV_EXCL_LINE defensive: all NodeKind values handled above
+}
+
+static bool parseDirection(
+  PyObject* object,
+  LogicCone::Direction& direction) {
+  if (PyLong_Check(object)) {
+    auto value = PyLong_AsLong(object);
+    if (value == static_cast<long>(LogicCone::Direction::FanIn)) {
+      direction = LogicCone::Direction::FanIn;
+      return true;
+    }
+    if (value == static_cast<long>(LogicCone::Direction::FanOut)) {
+      direction = LogicCone::Direction::FanOut;
+      return true;
+    }
+  } else if (PyUnicode_Check(object)) {
+    std::string value(PyUnicode_AsUTF8(object));
+    if (value == "fanin") {
+      direction = LogicCone::Direction::FanIn;
+      return true;
+    }
+    if (value == "fanout") {
+      direction = LogicCone::Direction::FanOut;
+      return true;
+    }
+  }
+  return false;
+}
+
+static int PyLogicCone_Init(
+  PyLogicCone* self,
+  PyObject* args,
+  PyObject* kwargs) {
+  PyObject* startsObject = nullptr;
+  PyObject* directionObject = nullptr;
+  static const char* keywords[] = {"start", "direction", nullptr};
+  if (not PyArg_ParseTupleAndKeywords(
+      args,
+      kwargs,
+      "OO:LogicCone",
+      const_cast<char**>(keywords),
+      &startsObject,
+      &directionObject)) {
+    setError("malformed LogicCone create method");
+    return -1;
+  }
+
+  LogicCone::Direction direction;
+  if (not parseDirection(directionObject, direction)) {
+    setError("LogicCone direction must be FanIn or FanOut");
+    return -1;
+  }
+
+  if (not IsPySNLOccurrence(startsObject)) {
+    setError("LogicCone start must be one SNLOccurrence");
+    return -1;
+  }
+  const auto& start = *PYSNLOccurrence_O(startsObject);
+  auto bus = dynamic_cast<SNLBusTerm*>(start.getObject());
+  if (not start.isValid() or
+      (not bus and not start.getBitTerm() and not start.getInstTerm())) {
+    setError(
+      "LogicCone start must be a valid single-bit "
+      "SNLNetComponent occurrence or a bus term occurrence");
+    return -1;
+  }
+
+  try {
+    self->object_ = new LogicCone(start, direction);
+  // The wrapper validates every public constructor precondition above.
+  // LCOV_EXCL_START
+  } catch (const NLException& exception) {
+    setError("Naja NL error: " + exception.getReason());
+    return -1;
+  } catch (const std::exception& exception) {
+    setError("Exception " + std::string(exception.what()));
+    return -1;
+  }
+  // LCOV_EXCL_STOP
+  return 0;
+}
+
+static void PyLogicCone_DeAlloc(PyLogicCone* self) {
+  delete self->object_;
+  PyObject_DEL(self);
+}
+
+static PyObject* PyLogicCone_Repr(PyLogicCone* self) {
+  std::ostringstream stream;
+  stream << "LogicCone(";
+  if (self->object_) {
+    stream << "nodes=" << self->object_->getNodeCount();
+  } else {
+    stream << "unbound";
+  }
+  stream << ")";
+  return PyUnicode_FromString(stream.str().c_str());
+}
+
+static PyObject* nodeIDsToTuple(
+  const std::vector<LogicCone::NodeID>& ids) {
+  auto tuple = PyTuple_New(static_cast<Py_ssize_t>(ids.size()));
+  if (not tuple) { // LCOV_EXCL_LINE allocation failure
+    return nullptr; // LCOV_EXCL_LINE
+  }
+  for (size_t i = 0; i < ids.size(); ++i) {
+    PyTuple_SET_ITEM(
+      tuple,
+      static_cast<Py_ssize_t>(i),
+      PyLong_FromUnsignedLong(ids[i]));
+  }
+  return tuple;
+}
+
+static PyObject* nodeToTuple(
+  LogicCone::NodeID id,
+  const LogicCone::Node& node) {
+  auto tuple = PyTuple_New(5);
+  // LCOV_EXCL_START
+  if (not tuple) {
+    return nullptr;
+  }
+  // LCOV_EXCL_STOP
+  PyTuple_SET_ITEM(tuple, 0, PyLong_FromUnsignedLong(id));
+  PyTuple_SET_ITEM(tuple, 1, PySNLOccurrence_Link(node.occurrence));
+  PyTuple_SET_ITEM(tuple, 2, PyUnicode_FromString(nodeKindString(node.kind)));
+  PyTuple_SET_ITEM(tuple, 3, nodeIDsToTuple(node.next));
+  PyTuple_SET_ITEM(tuple, 4, nodeIDsToTuple(node.prev));
+  return tuple;
+}
+
+static PyObject* nodesToTuple(
+  const LogicCone& cone,
+  const std::vector<LogicCone::NodeID>& ids) {
+  auto tuple = PyTuple_New(static_cast<Py_ssize_t>(ids.size()));
+  // LCOV_EXCL_START
+  if (not tuple) {
+    return nullptr;
+  }
+  // LCOV_EXCL_STOP
+  const auto& nodes = cone.getNodes();
+  for (size_t i = 0; i < ids.size(); ++i) {
+    PyTuple_SET_ITEM(
+      tuple,
+      static_cast<Py_ssize_t>(i),
+      nodeToTuple(ids[i], nodes[ids[i]]));
+  }
+  return tuple;
+}
+
+static PyObject* PyLogicCone_getNodes(PyLogicCone* self) {
+  if (not self->object_) {
+    setError("unbound LogicCone");
+    return nullptr;
+  }
+  const auto& nodes = self->object_->getNodes();
+  auto tuple = PyTuple_New(static_cast<Py_ssize_t>(nodes.size()));
+  // LCOV_EXCL_START
+  if (not tuple) {
+    return nullptr;
+  }
+  // LCOV_EXCL_STOP
+  for (size_t i = 0; i < nodes.size(); ++i) {
+    PyTuple_SET_ITEM(
+      tuple,
+      static_cast<Py_ssize_t>(i),
+      nodeToTuple(static_cast<LogicCone::NodeID>(i), nodes[i]));
+  }
+  return tuple;
+}
+
+static PyObject* PyLogicCone_getRoot(PyLogicCone* self) {
+  if (not self->object_) {
+    setError("unbound LogicCone");
+    return nullptr;
+  }
+  auto root = self->object_->getRoot();
+  return nodeToTuple(root, self->object_->getNodes()[root]);
+}
+
+static PyObject* PyLogicCone_getLeaves(PyLogicCone* self) {
+  if (not self->object_) {
+    setError("unbound LogicCone");
+    return nullptr;
+  }
+  return nodesToTuple(*self->object_, self->object_->getLeaves());
+}
+
+static PyObject* PyLogicCone_getDirection(PyLogicCone* self) {
+  if (not self->object_) {
+    setError("unbound LogicCone");
+    return nullptr;
+  }
+  return toPyLong(self->object_->getDirection());
+}
+
+static PyObject* PyLogicCone_getNodeCount(PyLogicCone* self) {
+  if (not self->object_) {
+    setError("unbound LogicCone");
+    return nullptr;
+  }
+  return PyLong_FromSize_t(self->object_->getNodeCount());
+}
+
+PyMethodDef PyLogicCone_Methods[] = {
+  {"get_nodes", (PyCFunction)PyLogicCone_getNodes, METH_NOARGS,
+    "Return all DAG nodes as (id, occurrence, kind, next_ids, prev_ids)."},
+  {"get_root", (PyCFunction)PyLogicCone_getRoot, METH_NOARGS,
+    "Return the root node."},
+  {"get_leaves", (PyCFunction)PyLogicCone_getLeaves, METH_NOARGS,
+    "Return frontier nodes."},
+  {"get_direction", (PyCFunction)PyLogicCone_getDirection, METH_NOARGS,
+    "Return the cone direction."},
+  {"get_node_count", (PyCFunction)PyLogicCone_getNodeCount, METH_NOARGS,
+    "Return the number of DAG nodes."},
+  {"getNodes", (PyCFunction)PyLogicCone_getNodes, METH_NOARGS, nullptr},
+  {"getRoot", (PyCFunction)PyLogicCone_getRoot, METH_NOARGS, nullptr},
+  {"getLeaves", (PyCFunction)PyLogicCone_getLeaves, METH_NOARGS, nullptr},
+  {"getDirection", (PyCFunction)PyLogicCone_getDirection, METH_NOARGS, nullptr},
+  {"getNodeCount", (PyCFunction)PyLogicCone_getNodeCount, METH_NOARGS, nullptr},
+  {nullptr, nullptr, 0, nullptr}
+};
+
+// Reserved C++-to-Python link helper; no public wrapper currently calls it.
+// LCOV_EXCL_START
+PyObject* PyLogicCone_Link(const LogicCone& logicalCone) {
+  auto pyObject = PyObject_NEW(PyLogicCone, &PyTypeLogicCone);
+  if (not pyObject) {
+    return nullptr;
+  }
+  pyObject->object_ = new LogicCone(logicalCone);
+  return reinterpret_cast<PyObject*>(pyObject);
+}
+// LCOV_EXCL_STOP
+
+void PyLogicCone_LinkPyType() {
+  PyTypeLogicCone.tp_dealloc =
+    reinterpret_cast<destructor>(PyLogicCone_DeAlloc);
+  PyTypeLogicCone.tp_repr =
+    reinterpret_cast<reprfunc>(PyLogicCone_Repr);
+  PyTypeLogicCone.tp_str =
+    reinterpret_cast<reprfunc>(PyLogicCone_Repr);
+  PyTypeLogicCone.tp_init =
+    reinterpret_cast<initproc>(PyLogicCone_Init);
+  PyTypeLogicCone.tp_methods = PyLogicCone_Methods;
+}
+
+void PyLogicCone_postModuleInit() {
+  PyObject* constant;
+  LoadObjectConstant(
+    PyTypeLogicCone.tp_dict,
+    LogicCone::Direction::FanIn,
+    "FanIn");
+  LoadObjectConstant(
+    PyTypeLogicCone.tp_dict,
+    LogicCone::Direction::FanOut,
+    "FanOut");
+}
+
+PyTypeObjectDefinitions(LogicCone)
+
+}  // namespace PYNAJA

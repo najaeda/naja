@@ -33,20 +33,16 @@ private:
 };
 
 // Initializes the Python interpreter if not already running.
-// Finalizes it on destruction only if this instance started it.
+// The naja extension owns static PyTypeObjects whose dictionaries are tied to
+// the active interpreter, so an embedded loader must not finalize and restart
+// Python in the same process.
 // Uses Py_InitializeEx(0) to avoid overriding the host's signal handlers.
 struct PythonInit {
-  PythonInit() : owned(!Py_IsInitialized()) {
-    if (owned) {
+  PythonInit() {
+    if (not Py_IsInitialized()) {
       Py_InitializeEx(0);
     }
   }
-  ~PythonInit() {
-    if (owned) {
-      Py_Finalize();
-    }
-  }
-  const bool owned;
 };
 
 std::string getPythonError() {
@@ -60,12 +56,23 @@ std::string getPythonError() {
 
   std::string result;
 
+  if (type) {
+    const char* typeName = PyExceptionClass_Name(type);
+    if (typeName) {
+      result = typeName;
+    }
+  }
+
   if (value) {
     PyObjRef strValue(PyObject_Str(value));
     if (strValue) {
       const char* c = PyUnicode_AsUTF8(strValue.get());
       if (c) {
-        result = c;
+        if (result.empty()) {
+          result = c; // LCOV_EXCL_LINE
+        } else { // LCOV_EXCL_LINE
+          result += std::string(": ") + c;
+        }
       }
     }
   }
@@ -94,6 +101,30 @@ std::string getPythonError() {
   return result;
 }
 
+void installNajaLoggingHandler() {
+  PyObject* modules = PyImport_GetModuleDict();  // borrowed reference
+  PyObject* najaModule = PyDict_GetItemString(modules, "naja");  // borrowed reference
+  if (!najaModule) {
+    return;
+  }
+  PyObjRef installer(PyObject_GetAttrString(najaModule, "installLoggingHandler"));
+  if (!installer) {
+    // Compatibility with older Naja Python modules.
+    PyErr_Clear();
+    return;
+  }
+  PyObjRef result(PyObject_CallNoArgs(installer.get()));
+  if (!result) {
+    std::string pythonError = getPythonError();
+    std::ostringstream reason;
+    reason << "Cannot install Naja Python logging handler";
+    if (!pythonError.empty()) {
+      reason << ": " << pythonError;
+    }
+    throw naja::NL::NLException(reason.str());
+  }
+}
+
 PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
@@ -117,6 +148,12 @@ PyObject* loadModule(const std::filesystem::path& path) {
       reason << ": " << pythonError;
     }
     throw naja::NL::NLException(reason.str());
+  }
+  try {
+    installNajaLoggingHandler();
+  } catch (...) {
+    Py_DECREF(module);
+    throw;
   }
   return module;
 }

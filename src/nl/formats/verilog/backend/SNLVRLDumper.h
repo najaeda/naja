@@ -52,6 +52,12 @@ class SNLVRLDumper {
   public:
     SNLVRLDumper();
 
+    enum class RTLInfoDumpMode {
+      None,
+      VerboseAttributes,
+      CompactAttribute
+    };
+
     class Configuration {
       public:
         Configuration() = default;
@@ -68,8 +74,14 @@ class SNLVRLDumper {
         bool hasLibraryFileName() const { return not libraryFileName_.empty(); }
         void setDumpHierarchy(bool mode) { dumpHierarchy_ = mode; }
         bool isDumpHierarchy() const { return dumpHierarchy_; }
-        void setDumpRTLInfosAsAttributes(bool mode) { dumpRTLInfosAsAttributes_ = mode; }
-        bool isDumpRTLInfosAsAttributes() const { return dumpRTLInfosAsAttributes_; }
+        void setDumpRTLInfosAsAttributes(bool mode) {
+          rtlInfoDumpMode_ = mode ? RTLInfoDumpMode::CompactAttribute : RTLInfoDumpMode::None;
+        }
+        bool isDumpRTLInfosAsAttributes() const {
+          return rtlInfoDumpMode_ != RTLInfoDumpMode::None;
+        }
+        void setRTLInfoDumpMode(RTLInfoDumpMode mode) { rtlInfoDumpMode_ = mode; }
+        RTLInfoDumpMode getRTLInfoDumpMode() const { return rtlInfoDumpMode_; }
         void setDumpAssignsAsInstances(bool mode) { dumpAssignsAsInstances_ = mode; }
         bool isDumpAssignsAsInstances() const { return dumpAssignsAsInstances_; }
       private:
@@ -77,7 +89,7 @@ class SNLVRLDumper {
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
-        bool        dumpRTLInfosAsAttributes_ {true};
+        RTLInfoDumpMode rtlInfoDumpMode_ {RTLInfoDumpMode::CompactAttribute};
         bool        dumpAssignsAsInstances_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
@@ -92,6 +104,7 @@ class SNLVRLDumper {
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
     void setDumpRTLInfosAsAttributes(bool mode);
+    void setRTLInfoDumpMode(RTLInfoDumpMode mode);
     void setDumpAssignsAsInstances(bool mode);
 
     /**
@@ -238,13 +251,17 @@ class SNLVRLDumper {
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpNajaFAModel(std::ostream& o);
     void dumpNajaMux2Model(std::ostream& o);
+    void dumpNajaTableSelectModel(std::ostream& o);
     void dumpNajaDFFModel(std::ostream& o);
     void dumpNajaDLatchModel(std::ostream& o);
     void dumpNajaDFFNModel(std::ostream& o);
     void dumpNajaDFFRNModel(std::ostream& o);
+    void dumpNajaDFFRModel(std::ostream& o);
+    void dumpNajaDFFSModel(std::ostream& o);
     void dumpNajaDFFEModel(std::ostream& o);
     void dumpNajaDFFREModel(std::ostream& o);
     void dumpNajaDFFSEModel(std::ostream& o);
+    void dumpNajaDivModModel(std::ostream& o);
     void dumpNajaMemModel(std::ostream& o);
     void dumpNajaPrimitiveFile(const std::filesystem::path& path);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
@@ -284,6 +301,7 @@ class SNLVRLDumper {
     DetailedPerfReport      detailedPerfReport_     {};
     bool                    emitNajaMemModel_       {false};
     bool                    emitNajaMux2Model_      {false};
+    bool                    emitNajaTableSelectModel_ {false};
     bool                    emitNajaPrimitiveModels_ {false};
 };
 

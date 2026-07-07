@@ -13,6 +13,7 @@ Verilator lint and simulation stages on the generated netlist.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,8 @@ import subprocess
 import sys
 import time
 from typing import Any
+
+from logic_cone_signature import validate_signatures
 
 try:
     import yaml
@@ -38,6 +41,9 @@ PRIMITIVES_PATH = REPO_ROOT / "test" / "nl" / "formats" / "systemverilog" / \
     "benchmarks" / "najaeda_primitives.v"
 DEFAULT_STAGES = ["lint", "github_sim"]
 CONFIGURED_COMMAND_SIM_STAGES = {
+    "cva6_extended_sim",
+    "cva6_full_sim",
+    "cva6_local_verif_sim",
     "cv32e40p_hwlp_sim",
     "helloworld_sim",
     "interrupt_sim",
@@ -48,12 +54,45 @@ CONFIGURED_COMMAND_SIM_STAGES = {
     "ibex_secure_dummy_instr_sim",
 }
 VALID_STAGES = {"load_dump", "lint", "github_sim", *CONFIGURED_COMMAND_SIM_STAGES}
+VALID_STAGES.add("logic_cones")
 VALID_LINT_RUNNERS = {"docker", "local"}
 VALID_SIM_RUNNERS = {"docker", "local"}
 
 
 class RegressError(RuntimeError):
     pass
+
+
+def timestamp_utc() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def format_duration(seconds: float) -> str:
+    rounded = int(seconds + 0.5)
+    hours, remainder = divmod(rounded, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m{secs:02d}s"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{seconds:.3f}s"
+
+
+def elapsed_record(start: float, started_at: str) -> dict[str, Any]:
+    elapsed = time.monotonic() - start
+    return {
+        "started_at": started_at,
+        "finished_at": timestamp_utc(),
+        "elapsed_seconds": round(elapsed, 3),
+        "elapsed": format_duration(elapsed),
+    }
+
+
+def named_timing(name: str, timing: dict[str, Any] | None) -> dict[str, Any]:
+    result = {"name": name}
+    if timing:
+        result.update(timing)
+    return result
 
 
 def load_manifest(path: Path) -> list[dict[str, Any]]:
@@ -139,13 +178,18 @@ def run_command(
     timeout: int | None = None,
     log_path: Path | None = None,
     append_log: bool = False,
-) -> None:
+) -> dict[str, Any]:
     print_command(args, cwd)
+    started_at = timestamp_utc()
+    start = time.monotonic()
+    print(f"[sv-regress] command started at {started_at}", flush=True)
     log_file = None
+    status = "failed"
     try:
         if log_path:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_file = log_path.open("a" if append_log else "w", encoding="utf-8")
+            log_file.write(f"[sv-regress] command started at {started_at}\n")
         process = subprocess.Popen(
             args,
             cwd=str(cwd) if cwd else None,
@@ -157,18 +201,29 @@ def run_command(
             errors="replace",
         )
         assert process.stdout is not None
-        start = time.monotonic()
         for line in process.stdout:
             sys.stdout.write(line)
             if log_file:
                 log_file.write(line)
             if timeout and time.monotonic() - start > timeout:
+                status = "timed_out"
                 process.kill()
+                process.wait()
                 raise RegressError(f"Command timed out after {timeout}s: {' '.join(args)}")
         return_code = process.wait()
         if return_code != 0:
             raise RegressError(f"Command failed with exit code {return_code}: {' '.join(args)}")
+        status = "passed"
+        return elapsed_record(start, started_at)
     finally:
+        timing = elapsed_record(start, started_at)
+        message = (
+            f"[sv-regress] command {status} in {timing['elapsed']} "
+            f"({timing['elapsed_seconds']:.3f}s), finished at {timing['finished_at']}"
+        )
+        print(message, flush=True)
+        if log_file:
+            log_file.write(message + "\n")
         if log_file:
             log_file.close()
 
@@ -272,6 +327,38 @@ def run_setup_commands(
         )
 
 
+def seed_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> bool:
+    seed_root_value = os.environ.get("SV_REGRESS_SEED_ROOT")
+    if not seed_root_value:
+        return False
+
+    seed_dir = Path(seed_root_value) / case["name"]
+    if not seed_dir.exists():
+        return False
+    if not (seed_dir / ".git").exists():
+        raise RegressError(f"SV_REGRESS_SEED_ROOT seed is not a git repository: {seed_dir}")
+
+    repo_dir.parent.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(seed_dir, repo_dir, symlinks=True)
+    (log_dir / "seed-checkout.log").write_text(
+        f"Seeded checkout for {case['name']} from {seed_dir}\n",
+        encoding="utf-8",
+    )
+    return True
+
+
+def repo_has_commit(repo_dir: Path, commit: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=str(repo_dir),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
 def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
     repo_url = case["repo"]
     commit = case["commit"]
@@ -279,15 +366,17 @@ def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
         if not (repo_dir / ".git").exists():
             raise RegressError(f"Existing checkout is not a git repository: {repo_dir}")
     else:
-        repo_dir.parent.mkdir(parents=True, exist_ok=True)
-        run_command(["git", "clone", repo_url, str(repo_dir)], log_path=log_dir / "git-clone.log")
+        if not seed_checkout(case, repo_dir, log_dir):
+            repo_dir.parent.mkdir(parents=True, exist_ok=True)
+            run_command(["git", "clone", repo_url, str(repo_dir)], log_path=log_dir / "git-clone.log")
 
     run_command(["git", "remote", "set-url", "origin", repo_url], cwd=repo_dir)
-    run_command(
-        ["git", "fetch", "origin", commit],
-        cwd=repo_dir,
-        log_path=log_dir / "git-fetch.log",
-    )
+    if not repo_has_commit(repo_dir, commit):
+        run_command(
+            ["git", "fetch", "origin", commit],
+            cwd=repo_dir,
+            log_path=log_dir / "git-fetch.log",
+        )
     run_command(
         ["git", "checkout", "--detach", commit],
         cwd=repo_dir,
@@ -304,8 +393,11 @@ def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
 
 GENERATOR = r'''
 import argparse
+import json
 import logging
 from najaeda import netlist
+from najaeda import naja
+from logic_cone_signature import build_signatures
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--top", required=True)
@@ -315,6 +407,8 @@ parser.add_argument("--diagnostics", required=True)
 parser.add_argument("--rtl-infos-as-attributes", action="store_true")
 parser.add_argument("--assigns-as-instances", action="store_true")
 parser.add_argument("--sv-suppress-warning", action="append", dest="sv_suppress_warnings", default=[])
+parser.add_argument("--logic-cones-config")
+parser.add_argument("--logic-cones-output")
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True)
@@ -326,6 +420,12 @@ svconfig = netlist.SystemVerilogConfig(
     suppress_warnings=args.sv_suppress_warnings or None,
 )
 top = netlist.load_system_verilog([], config=svconfig)
+if args.logic_cones_config:
+    probes = json.loads(args.logic_cones_config)
+    signatures = build_signatures(top, probes, naja)
+    with open(args.logic_cones_output, "w", encoding="utf-8") as stream:
+        json.dump({"top": args.top, "cones": signatures}, stream, indent=2, sort_keys=True)
+        stream.write("\n")
 dump_config = netlist.VerilogDumpConfig()
 dump_config.dumpRTLInfosAsAttributes = args.rtl_infos_as_attributes
 dump_config.dumpAssignsAsInstances = args.assigns_as_instances
@@ -342,6 +442,7 @@ def generate_verilog(
     artifacts_dir: Path,
     log_dir: Path,
     najaeda_path: Path,
+    build_logic_cones: bool = False,
 ) -> Path:
     if not najaeda_path.exists():
         raise RegressError(
@@ -363,7 +464,10 @@ def generate_verilog(
     flist_path = materialize_flist(case, repo_dir, case_dir, artifacts_dir)
 
     env = case_env(case, repo_dir, case_dir, artifacts_dir)
-    env["PYTHONPATH"] = f"{najaeda_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    env["PYTHONPATH"] = (
+        f"{najaeda_path}{os.pathsep}{REGRESS_SV_ROOT}{os.pathsep}"
+        f"{env.get('PYTHONPATH', '')}"
+    )
 
     dump = case.get("dump", {})
     args = [
@@ -384,6 +488,18 @@ def generate_verilog(
         args.append("--assigns-as-instances")
     for warning in case.get("sv_suppress_warnings", []):
         args.extend(["--sv-suppress-warning", str(warning)])
+    if build_logic_cones:
+        probes = case.get("logic_cones")
+        if not isinstance(probes, list) or not probes:
+            raise RegressError(
+                f"Case '{case['name']}' has no logic_cones probes configured"
+            )
+        args.extend([
+            "--logic-cones-config",
+            json.dumps(probes, separators=(",", ":")),
+            "--logic-cones-output",
+            str(artifacts_dir / "logic-cones.json"),
+        ])
 
     timeout = int(case.get("generate_timeout_seconds", 7200))
     run_command(args, cwd=repo_dir, env=env, timeout=timeout, log_path=log_dir / "generate.log")
@@ -618,8 +734,13 @@ def run_lint(
         encoding="utf-8",
     )
     timeout = int(verilator.get("timeout_seconds", 7200))
-    run_command(command, cwd=case_dir, timeout=timeout, log_path=log_dir / "verilator-lint.log")
-    return {"status": "passed", "log": str(log_dir / "verilator-lint.log")}
+    log_path = log_dir / "verilator-lint.log"
+    timing = run_command(command, cwd=case_dir, timeout=timeout, log_path=log_path)
+    return {
+        "status": "passed",
+        "log": str(log_path),
+        "commands": [named_timing("lint", timing)],
+    }
 
 
 def configured_stage(case: dict[str, Any], stage: str) -> dict[str, Any]:
@@ -754,15 +875,22 @@ def run_verilator_binary_stage(
 
     log_path = log_dir / f"{stage.replace('_', '-')}.log"
     timeout = int(config.get("timeout_seconds", case.get("verilator", {}).get("timeout_seconds", 7200)))
-    run_command(build_command, cwd=case_dir, timeout=timeout, log_path=log_path)
-    run_command(sim_command, cwd=case_dir, timeout=timeout, log_path=log_path, append_log=True)
+    build_timing = run_command(build_command, cwd=case_dir, timeout=timeout, log_path=log_path)
+    sim_timing = run_command(sim_command, cwd=case_dir, timeout=timeout, log_path=log_path, append_log=True)
 
     pass_regex = config.get("pass_regex")
     if pass_regex:
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
         if not re.search(str(pass_regex), log_text):
             raise RegressError(f"{stage} did not match pass_regex {pass_regex!r}")
-    return {"status": "passed", "log": str(log_path)}
+    return {
+        "status": "passed",
+        "log": str(log_path),
+        "commands": [
+            named_timing("build", build_timing),
+            named_timing("simulate", sim_timing),
+        ],
+    }
 
 
 def run_configured_command_sim(
@@ -827,6 +955,7 @@ def run_configured_command_sim(
     try:
         env = case_env(case, repo_dir, case_dir, artifacts_dir)
         timeout = int(config.get("timeout_seconds", 7200))
+        command_timings: list[dict[str, Any]] = []
         for index, command in enumerate(commands):
             if not isinstance(command, list):
                 raise RegressError(
@@ -843,7 +972,7 @@ def run_configured_command_sim(
                 json.dumps(formatted_command, indent=2) + "\n",
                 encoding="utf-8",
             )
-            run_command(
+            timing = run_command(
                 formatted_command,
                 cwd=repo_dir,
                 env=env,
@@ -851,6 +980,7 @@ def run_configured_command_sim(
                 log_path=log_path,
                 append_log=index > 0,
             )
+            command_timings.append(named_timing(f"command-{index}", timing))
 
         pass_regex = config.get("pass_regex")
         if pass_regex:
@@ -868,7 +998,7 @@ def run_configured_command_sim(
             hint += "; rerun with --allow-expected-failures to treat it as nonfatal)"
             raise RegressError(hint) from exc
         raise
-    return {"status": "passed", "log": str(log_path)}
+    return {"status": "passed", "log": str(log_path), "commands": command_timings}
 
 
 def run_helloworld_sim(
@@ -940,6 +1070,23 @@ def run_load_dump(
     }
 
 
+def run_logic_cones(case: dict[str, Any], *, artifacts_dir: Path) -> dict[str, Any]:
+    signature_path = artifacts_dir / "logic-cones.json"
+    if not signature_path.exists():
+        raise RegressError(f"logic_cones did not create signature file: {signature_path}")
+    with signature_path.open("r", encoding="utf-8") as stream:
+        signature = json.load(stream)
+    try:
+        validate_signatures(case["logic_cones"], signature["cones"])
+    except (KeyError, RuntimeError, ValueError) as exc:
+        raise RegressError(str(exc)) from exc
+    return {
+        "status": "passed",
+        "signature": str(signature_path),
+        "cones": signature["cones"],
+    }
+
+
 def run_case(
     case: dict[str, Any],
     work_dir: Path,
@@ -958,7 +1105,8 @@ def run_case(
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    started = time.time()
+    case_started_at = timestamp_utc()
+    case_start = time.monotonic()
     summary: dict[str, Any] = {
         "case": case_name,
         "repo": case["repo"],
@@ -966,68 +1114,124 @@ def run_case(
         "status": "failed",
         "artifacts": str(artifacts_dir),
         "stages": {},
+        "timings": {},
     }
     try:
-        actual_commit = ensure_checkout(case, repo_dir, log_dir)
+        phase_started_at = timestamp_utc()
+        phase_start = time.monotonic()
+        try:
+            actual_commit = ensure_checkout(case, repo_dir, log_dir)
+        finally:
+            summary["timings"]["checkout"] = elapsed_record(phase_start, phase_started_at)
         summary["actual_commit"] = actual_commit
-        generated_path = generate_verilog(
-            case,
-            repo_dir=repo_dir,
-            case_dir=case_dir,
-            artifacts_dir=artifacts_dir,
-            log_dir=log_dir,
-            najaeda_path=najaeda_path,
-        )
+        phase_started_at = timestamp_utc()
+        phase_start = time.monotonic()
+        try:
+            generated_path = generate_verilog(
+                case,
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
+                log_dir=log_dir,
+                najaeda_path=najaeda_path,
+                build_logic_cones="logic_cones" in stages,
+            )
+        finally:
+            summary["timings"]["generate"] = elapsed_record(phase_start, phase_started_at)
         summary["generated_verilog"] = str(generated_path)
+        verification_case = case
+        verification_path = generated_path
+        if case.get("verification_top") and any(
+            stage in {"lint", "github_sim"} for stage in stages
+        ):
+            verification_case = dict(case)
+            verification_case["top"] = str(case["verification_top"])
+            verification_case["output"] = str(
+                case.get("verification_output", f"{case['name']}_verification_naja.v")
+            )
+            verification_path = generate_verilog(
+                verification_case,
+                repo_dir=repo_dir,
+                case_dir=case_dir,
+                artifacts_dir=artifacts_dir,
+                log_dir=log_dir,
+                najaeda_path=najaeda_path,
+            )
+            summary["verification_top"] = verification_case["top"]
+            summary["verification_verilog"] = str(verification_path)
         for stage in stages:
             print(f"--- stage: {stage} ---", flush=True)
-            if stage == "load_dump":
-                result = run_load_dump(
-                    case,
-                    generated_path=generated_path,
-                    log_dir=log_dir,
+            stage_started_at = timestamp_utc()
+            stage_start = time.monotonic()
+            try:
+                if stage == "load_dump":
+                    result = run_load_dump(
+                        case,
+                        generated_path=generated_path,
+                        log_dir=log_dir,
+                    )
+                elif stage == "logic_cones":
+                    result = run_logic_cones(case, artifacts_dir=artifacts_dir)
+                elif stage == "lint":
+                    result = run_lint(
+                        verification_case,
+                        case_dir=case_dir,
+                        artifacts_dir=artifacts_dir,
+                        generated_path=verification_path,
+                        log_dir=log_dir,
+                        lint_runner=lint_runner,
+                    )
+                elif stage == "github_sim":
+                    result = run_verilator_binary_stage(
+                        verification_case,
+                        stage=stage,
+                        repo_dir=repo_dir,
+                        case_dir=case_dir,
+                        artifacts_dir=artifacts_dir,
+                        generated_path=verification_path,
+                        log_dir=log_dir,
+                    )
+                elif stage in CONFIGURED_COMMAND_SIM_STAGES:
+                    result = run_configured_firmware_sim(
+                        case,
+                        stage=stage,
+                        repo_dir=repo_dir,
+                        case_dir=case_dir,
+                        artifacts_dir=artifacts_dir,
+                        generated_path=generated_path,
+                        log_dir=log_dir,
+                        require_tools=require_firmware_sim_tools,
+                        allow_expected_failures=allow_expected_failures,
+                    )
+                else:  # pragma: no cover - guarded by select_stages.
+                    raise RegressError(f"Unhandled stage: {stage}")
+            except Exception as exc:
+                failed_result = {
+                    "status": "failed",
+                    "error": str(exc),
+                    **elapsed_record(stage_start, stage_started_at),
+                }
+                summary["stages"][stage] = failed_result
+                print(
+                    f"[sv-regress] stage {stage} failed in {failed_result['elapsed']} "
+                    f"({failed_result['elapsed_seconds']:.3f}s)",
+                    flush=True,
                 )
-            elif stage == "lint":
-                result = run_lint(
-                    case,
-                    case_dir=case_dir,
-                    artifacts_dir=artifacts_dir,
-                    generated_path=generated_path,
-                    log_dir=log_dir,
-                    lint_runner=lint_runner,
-                )
-            elif stage == "github_sim":
-                result = run_verilator_binary_stage(
-                    case,
-                    stage=stage,
-                    repo_dir=repo_dir,
-                    case_dir=case_dir,
-                    artifacts_dir=artifacts_dir,
-                    generated_path=generated_path,
-                    log_dir=log_dir,
-                )
-            elif stage in CONFIGURED_COMMAND_SIM_STAGES:
-                result = run_configured_firmware_sim(
-                    case,
-                    stage=stage,
-                    repo_dir=repo_dir,
-                    case_dir=case_dir,
-                    artifacts_dir=artifacts_dir,
-                    generated_path=generated_path,
-                    log_dir=log_dir,
-                    require_tools=require_firmware_sim_tools,
-                    allow_expected_failures=allow_expected_failures,
-                )
-            else:  # pragma: no cover - guarded by select_stages.
-                raise RegressError(f"Unhandled stage: {stage}")
+                raise
+            result.update(elapsed_record(stage_start, stage_started_at))
             summary["stages"][stage] = result
+            print(
+                f"[sv-regress] stage {stage} {result['status']} in {result['elapsed']} "
+                f"({result['elapsed_seconds']:.3f}s)",
+                flush=True,
+            )
         summary["status"] = "passed"
         return summary
     except Exception as exc:
         summary["error"] = str(exc)
         raise
     finally:
-        summary["elapsed_seconds"] = round(time.time() - started, 3)
+        summary.update(elapsed_record(case_start, case_started_at))
         (artifacts_dir / "summary.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

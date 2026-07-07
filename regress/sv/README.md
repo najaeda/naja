@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # SystemVerilog External Regress
 
-This regress checks out pinned external RTL repositories, generates a Naja
-Verilog netlist, then runs selected Verilator stages on that generated netlist.
+This regress checks out pinned external RTL repositories, loads them into Naja,
+and runs structural, Verilog generation, lint, or simulation checks.
 
 ## Prerequisites
 
@@ -59,6 +59,41 @@ python3 regress/sv/sv_regress.py run \
 
 The generated Verilog and `load-dump.log` are written under each case artifact
 directory.
+
+## Z-Core Full Dump Verification
+
+The Z-Core case follows the pinned upstream `tb/Makefile` source-list and
+simulation model. It elaborates `z_core_top`, dumps the complete reachable
+design, lints that complete dump, and runs a top-level reset/execution smoke
+simulation against the same dump:
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case zcore \
+  --stage load_dump \
+  --stage lint \
+  --stage github_sim
+```
+
+The simulation expects `ZCORE_TOP_SMOKE_PASS` after reset and 200 full-SoC
+clock cycles, and rejects unknown UART or GPIO outputs.
+
+## Logic-Cone Signatures
+
+The `logic_cones` stage builds manifest-selected cones while the pinned external
+design is loaded, before dumping Verilog. It checks stable structural counts:
+nodes, edges, leaves, roots, registers, ports, blackboxes, and internal nodes.
+
+```sh
+python3 regress/sv/sv_regress.py run \
+  --case cva6 \
+  --stage logic_cones
+```
+
+Probe roots and expected counts live under `logic_cones` in `cases.yml`. Actual
+results are always written to
+`build/sv-regress/<case>/artifacts/logic-cones.json`, including on a signature
+mismatch, so an intentional update can be reviewed rather than guessed.
 
 ## Ibex Smoke Simulation
 

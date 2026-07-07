@@ -29,6 +29,7 @@ void prepareDesignForConcurrentAccess(
   visitedDesigns.insert(design);
 
   if (design->isPrimitive()) {
+    // These DB0 primitives do not expose combinational truth tables.
     if (NLDB0::isDivMod(design) or NLDB0::isMemory(design)) {
       return;
     }
@@ -44,6 +45,34 @@ void prepareDesignForConcurrentAccess(
   for (auto instance: design->getInstances()) {
     prepareDesignForConcurrentAccess(instance->getModel(), visitedDesigns);
   }
+}
+
+void collectReachableInstanceCount(
+    const SNLDesign* design,
+    VisitedDesigns& visitedDesigns,
+    VisitedDesigns& activeDesigns,
+    SNLUtils::InstanceCount& count) {
+  if (design == nullptr or not activeDesigns.insert(design).second) {
+    return;
+  }
+  const bool firstVisit = visitedDesigns.insert(design).second;
+  if (firstVisit) {
+    ++count.reachableModels;
+  }
+  for (auto instance: design->getInstances()) {
+    ++count.totalInstances;
+    if (instance->isLeaf()) {
+      ++count.leafInstances;
+    }
+    if (firstVisit) {
+      ++count.foldedTotalInstances;
+      if (instance->isLeaf()) {
+        ++count.foldedLeafInstances;
+      }
+    }
+    collectReachableInstanceCount(instance->getModel(), visitedDesigns, activeDesigns, count);
+  }
+  activeDesigns.erase(design);
 }
 
 }  // namespace
@@ -85,6 +114,14 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
       return ldl.second < rdl.second;
     }
   );
+}
+
+SNLUtils::InstanceCount SNLUtils::countReachableInstances(const SNLDesign* top) {
+  InstanceCount count;
+  VisitedDesigns visitedDesigns;
+  VisitedDesigns activeDesigns;
+  collectReachableInstanceCount(top, visitedDesigns, activeDesigns, count);
+  return count;
 }
 
 NLID::Bit SNLUtils::getWidth(NLID::Bit msb, NLID::Bit lsb) {

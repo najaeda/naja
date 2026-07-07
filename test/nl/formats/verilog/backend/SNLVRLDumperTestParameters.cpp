@@ -22,6 +22,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLParameter.h"
+#include "SNLRTLInfos.h"
 
 using namespace naja::NL;
 
@@ -115,6 +116,56 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       ins->setTermNet(NLDB0::getMux2InputB(mux2), b);
       ins->setTermNet(NLDB0::getMux2Select(mux2), s);
       ins->setTermNet(NLDB0::getMux2Output(mux2), y);
+      return ins;
+    }
+
+    SNLInstance* createDivModInstance() {
+      NLDB0::DivModSignature signature;
+      signature.width = 8;
+      signature.isSigned = true;
+
+      auto* divmod = NLDB0::getOrCreateDivMod(signature);
+      if (nullptr == divmod) {
+        return nullptr;
+      }
+
+      auto* a = SNLBusNet::create(top_, 7, 0, NLName("div_a"));
+      auto* b = SNLBusNet::create(top_, 7, 0, NLName("div_b"));
+      auto* q = SNLBusNet::create(top_, 7, 0, NLName("div_q"));
+      auto* r = SNLBusNet::create(top_, 7, 0, NLName("div_r"));
+
+      auto* ins = SNLInstance::create(top_, divmod, NLName("div0"));
+      ins->setTermNet(NLDB0::getDivModDividend(divmod), a);
+      ins->setTermNet(NLDB0::getDivModDivisor(divmod), b);
+      ins->setTermNet(NLDB0::getDivModQuotient(divmod), q);
+      ins->setTermNet(NLDB0::getDivModRemainder(divmod), r);
+      SNLInstParameter::create(ins, divmod->getParameter(NLName("WIDTH")), "8");
+      SNLInstParameter::create(ins, divmod->getParameter(NLName("SIGNED")), "1");
+      return ins;
+    }
+
+    SNLInstance* createTableSelectInstance() {
+      NLDB0::TableSelectSignature signature;
+      signature.width = 4;
+      signature.depth = 3;
+      signature.abits = 2;
+
+      auto* tableSelect = NLDB0::getOrCreateTableSelect(signature);
+      if (nullptr == tableSelect) {
+        return nullptr;
+      }
+
+      auto* data = SNLBusNet::create(top_, 11, 0, NLName("select_data"));
+      auto* address = SNLBusNet::create(top_, 1, 0, NLName("select_address"));
+      auto* y = SNLBusNet::create(top_, 3, 0, NLName("select_y"));
+
+      auto* ins = SNLInstance::create(top_, tableSelect, NLName("select0"));
+      ins->setTermNet(NLDB0::getTableSelectData(tableSelect), data);
+      ins->setTermNet(NLDB0::getTableSelectAddress(tableSelect), address);
+      ins->setTermNet(NLDB0::getTableSelectOutput(tableSelect), y);
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("WIDTH")), "4");
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("DEPTH")), "3");
+      SNLInstParameter::create(ins, tableSelect->getParameter(NLName("ABITS")), "2");
       return ins;
     }
 
@@ -312,6 +363,64 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_index < DEPTH)"));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
+  auto* memoryInstance = createMemoryInstance();
+  ASSERT_NE(nullptr, memoryInstance);
+  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+  init->setValue("128'b" + std::string(128, '0'));
+  SNLInstParameter::create(
+    memoryInstance,
+    memoryInstance->getModel()->getParameter(NLName("INIT_ENABLE")),
+    "1");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".INIT_ENABLE(1)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testMemoryInitZeroLiteralClassification) {
+  auto* memoryInstance = createMemoryInstance();
+  ASSERT_NE(nullptr, memoryInstance);
+  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+
+  struct TestCase {
+    const char* value;
+    bool isZero;
+  };
+  const TestCase testCases[] = {
+    {"0", true},
+    {"not_a_literal", false},
+    {"x'b0", false},
+    {"1'sb0", true},
+    {"1's", false},
+    {"1'q0", false},
+  };
+
+  for (const auto& testCase : testCases) {
+    SCOPED_TRACE(testCase.value);
+    init->setValue(testCase.value);
+
+    std::ostringstream out;
+    SNLVRLDumper dumper;
+    dumper.dumpDesign(top_, out);
+    const auto dumped = out.str();
+
+    if (testCase.isZero) {
+      EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
+    } else {
+      EXPECT_NE(
+        std::string::npos,
+        dumped.find(std::string(".INIT(") + testCase.value + ")"));
+    }
+  }
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 
@@ -335,13 +444,15 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_fa("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffrn("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffrn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffr #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffs #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
@@ -378,14 +489,14 @@ TEST_F(SNLVRLDumperTestParameters, testSequentialPrimitiveFileDump) {
 
   const auto topDump = readTextFile(outPath / "top.v");
   EXPECT_NE(std::string::npos, topDump.find("naja_dff dff0 ("));
-  EXPECT_EQ(std::string::npos, topDump.find("module naja_dff("));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_dff #("));
 
   const auto primitivePath = outPath / "naja_primitives.v";
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dff #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dlatch #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffn #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
 }
 
@@ -401,6 +512,68 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".WIDTH(8)"));
   EXPECT_EQ(std::string::npos, dumped.find("naja_mux2__w8"));
   EXPECT_EQ(std::string::npos, dumped.find("module naja_mux2 #("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testDivModInstanceAndPrimitiveFileDump) {
+  ASSERT_NE(nullptr, createDivModInstance());
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testDivModInstanceAndPrimitiveFileDump";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.dumpDesign(top_, outPath);
+
+  const auto topDump = readTextFile(outPath / "top.v");
+  EXPECT_NE(std::string::npos, topDump.find("naja_divmod #("));
+  EXPECT_NE(std::string::npos, topDump.find(".SIGNED(1)"));
+  EXPECT_NE(std::string::npos, topDump.find(".WIDTH(8)"));
+  EXPECT_EQ(std::string::npos, topDump.find("naja_divmod__s_w8"));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_divmod #("));
+
+  const auto primitivePath = outPath / "naja_primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitivePath));
+  const auto primitiveDump = readTextFile(primitivePath);
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_divmod #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Q = SIGNED ?"));
+  EXPECT_EQ(std::string::npos, primitiveDump.find("naja_divmod__s_w8"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testTableSelectInstanceDump) {
+  ASSERT_NE(nullptr, createTableSelectInstance());
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("naja_table_select #("));
+  EXPECT_NE(std::string::npos, dumped.find(") select0 ("));
+  EXPECT_NE(std::string::npos, dumped.find(".DATA(select_data)"));
+  EXPECT_NE(std::string::npos, dumped.find(".ADDR(select_address)"));
+  EXPECT_NE(std::string::npos, dumped.find(".Y(select_y)"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_table_select__("));
+  EXPECT_EQ(std::string::npos, dumped.find("module naja_table_select #("));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testRTLInfoCompactAttributesDumpExtraInfos) {
+  ASSERT_TRUE(top_);
+  auto* infos = SNLRTLInfos::create(top_);
+  infos->setSourceLoc({NLName("top.sv"), 10, 12, 3, 9});
+  infos->setInfo(NLName("custom_info"), "value");
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find("(* naja_sv_src=\"top.sv:10:3-12:9\" *)"));
+  EXPECT_NE(std::string::npos, dumped.find("(* custom_info=\"value\" *)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
@@ -485,11 +658,12 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mux2 #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_mem #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_fa("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dff("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dlatch("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffn("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffrn("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre("));
-  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dff #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dlatch #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffrn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_divmod #("));
 }

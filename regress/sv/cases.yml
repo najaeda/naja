@@ -35,6 +35,44 @@ cases:
       TARGET_CFG: cv64a6_imafdc_sv39
     dump:
       rtl_infos_as_attributes: true
+    # Structural integration signatures are intentionally tied to the pinned
+    # CVA6 commit above. Update these counts only after reviewing the cone diff.
+    logic_cones:
+      - term: noc_req_o
+        direction: fanin
+        expected:
+          nodes: 18399
+          edges: 34041
+          leaves: 93
+          roots: 471
+          registers: 86
+          ports: 3
+          blackboxes: 4
+          internal: 17835
+      - term: noc_req_o
+        bit: 468
+        direction: fanin
+        expected:
+          nodes: 3
+          edges: 2
+          leaves: 0
+          roots: 1
+          registers: 0
+          ports: 0
+          blackboxes: 0
+          internal: 2
+      - term: noc_req_o
+        bit: 469
+        direction: fanin
+        expected:
+          nodes: 3
+          edges: 2
+          leaves: 0
+          roots: 1
+          registers: 0
+          ports: 0
+          blackboxes: 0
+          internal: 2
     verilator:
       image: verilator/verilator:v5.046
       timeout_seconds: 7200
@@ -105,6 +143,137 @@ cases:
           - "{artifacts}/cva6_testharness_naja.v"
           - "--primitives"
           - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
+    cva6_extended_sim:
+      timeout_seconds: 21600
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "hello_world"
+          - "--program"
+          - "corev_dhrystone"
+          - "--max-cycles"
+          - "10000000"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
+    cva6_local_verif_sim:
+      timeout_seconds: 21600
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "corev_return0"
+          - "--program"
+          - "corev_custom_template"
+          - "--program"
+          - "corev_isacov_branch_to_zero"
+          - "--program"
+          - "corev_isacov_jump"
+          - "--program"
+          - "corev_isacov_isa"
+          - "--program"
+          - "corev_isacov_seq_hazard"
+          - "--program"
+          - "corev_pmp_exact_csrr"
+          - "--program"
+          - "corev_pmp_granularity"
+          - "--program"
+          - "corev_pmp_lsu_tor"
+          - "--max-cycles"
+          - "10000000"
+      pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
+    cva6_full_sim:
+      timeout_seconds: 28800
+      tool_checks:
+        - verilator
+        - make
+        - spike
+        - - riscv64-unknown-elf-gcc
+          - riscv-none-elf-gcc
+          - riscv32-unknown-elf-gcc
+        - - riscv64-unknown-elf-objcopy
+          - riscv-none-elf-objcopy
+          - riscv32-unknown-elf-objcopy
+        - - riscv64-unknown-elf-nm
+          - riscv-none-elf-nm
+          - riscv32-unknown-elf-nm
+      commands:
+        - - python3
+          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--generated"
+          - "{artifacts}/cva6_testharness_naja.v"
+          - "--primitives"
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+          - "--program"
+          - "hello_world"
+          - "--program"
+          - "corev_dhrystone"
+          - "--program"
+          - "corev_return0"
+          - "--program"
+          - "corev_custom_template"
+          - "--program"
+          - "corev_isacov_branch_to_zero"
+          - "--program"
+          - "corev_isacov_jump"
+          - "--program"
+          - "corev_isacov_isa"
+          - "--program"
+          - "corev_isacov_seq_hazard"
+          - "--program"
+          - "corev_pmp_exact_csrr"
+          - "--program"
+          - "corev_pmp_granularity"
+          - "--program"
+          - "corev_pmp_lsu_tor"
+          - "--max-cycles"
+          - "10000000"
       pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
 
   - name: ibex
@@ -478,6 +647,33 @@ cases:
           - "--max-cycles"
           - "2000000"
       pass_regex: "CV32E40P_HWLP_SIM_PASS"
+
+  # The source list and simulator flow mirror tb/Makefile in the pinned Z-Core
+  # repository. Naja elaborates, dumps, lints, and simulates the complete SoC.
+  - name: zcore
+    repo: https://github.com/paudiaz99/Z-Core.git
+    commit: 4fae65b7bc3fa1efc4b83ffe868e0f490cc36201
+    top: z_core_top
+    flist: rtl/flist.vc
+    flist_format: fusesoc_vc
+    output: zcore_naja.v
+    dump:
+      rtl_infos_as_attributes: true
+    generate_timeout_seconds: 7200
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - TIMESCALEMOD
+    github_sim:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 900
+      top_module: tb_zcore_top_smoke
+      sources:
+        - "{naja}/regress/sv/smoke/tb_zcore_top_smoke.sv"
+      pass_regex: "ZCORE_TOP_SMOKE_PASS"
+      suppressions:
+        - TIMESCALEMOD
 
   - name: axi
     repo: https://github.com/pulp-platform/axi.git

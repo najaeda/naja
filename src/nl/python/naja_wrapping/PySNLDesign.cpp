@@ -33,15 +33,40 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "SNLRTLInfos.h"
 #include "NLBitDependencies.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
 #include "NetlistGraph.h"
 
+#include <optional>
+#include <string>
+
 namespace PYNAJA {
 
 using namespace naja::NL;
+
+namespace {
+
+std::optional<SNLVRLDumper::RTLInfoDumpMode> parseRTLInfoDumpMode(const char* mode) {
+  if (mode == nullptr) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  const std::string modeString(mode);
+  if (modeString == "None" || modeString == "none") {
+    return SNLVRLDumper::RTLInfoDumpMode::None;
+  }
+  if (modeString == "VerboseAttributes" || modeString == "verbose_attributes") {
+    return SNLVRLDumper::RTLInfoDumpMode::VerboseAttributes;
+  }
+  if (modeString == "CompactAttribute" || modeString == "compact_attribute") {
+    return SNLVRLDumper::RTLInfoDumpMode::CompactAttribute;
+  }
+  return std::nullopt;
+}
+
+}  // namespace
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, function)
 
@@ -117,16 +142,19 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   const char* topFileName = nullptr;
   int dumpRTLInfosAsAttributes = 0;
   int dumpAssignsAsInstances = 0;
+  const char* rtlInfoDumpMode = nullptr;
 
   static const char* const kwords[] = {
     "path", "top_file_name", "dumpRTLInfosAsAttributes", "dumpAssignsAsInstances",
+    "rtlInfoDumpMode",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|pp:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|pps:SNLDesign.dumpVerilog",
     const_cast<char**>(kwords),
-    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances)) {
+    &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances,
+    &rtlInfoDumpMode)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
@@ -135,6 +163,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   SNLVRLDumper dumper;
   dumper.setTopFileName(topFileName);
   dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
+  if (rtlInfoDumpMode) {
+    auto parsedMode = parseRTLInfoDumpMode(rtlInfoDumpMode);
+    if (not parsedMode) {
+      setError("invalid rtlInfoDumpMode: expected None, VerboseAttributes, or CompactAttribute");
+      return nullptr;
+    }
+    dumper.setRTLInfoDumpMode(*parsedMode);
+  }
   dumper.setDumpAssignsAsInstances(dumpAssignsAsInstances);
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
@@ -464,20 +500,6 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
   return PySNLInstance_Link(instance);
 }
 
-// Return list for NLID of the design
-// Function to be called from Python
-PyObject* PySNLDesign_getNLID(PySNLDesign* self) { 
-  PyObject* py_list = PyList_New(6); 
-  naja::NL::NLID id = self->object_->getNLID();
-  PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
-  PyList_SetItem(py_list, 1, PyLong_FromLong(id.libraryID_));
-  PyList_SetItem(py_list, 2, PyLong_FromLong(id.designID_));
-  PyList_SetItem(py_list, 3, PyLong_FromLong(id.designObjectID_));
-  PyList_SetItem(py_list, 4, PyLong_FromLong(id.instanceID_));
-  PyList_SetItem(py_list, 5, PyLong_FromLong(id.bit_));
-  return py_list;
-}
-
 static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
   METHOD_HEAD("SNLDesign.addAttribute()")
   PySNLAttribute* pyAttribute = nullptr;
@@ -489,6 +511,29 @@ static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
     return nullptr;
   }
   Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_hasSourceLoc(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.hasSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (rtlInfos and rtlInfos->hasSourceLoc()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
+static PyObject* PySNLDesign_getSourceLoc(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.getSourceLoc()")
+  auto* rtlInfos = selfObject->getRTLInfos();
+  if (not rtlInfos or not rtlInfos->hasSourceLoc()) {
+    Py_RETURN_NONE;
+  }
+  const auto& loc = *rtlInfos->getSourceLoc();
+  return Py_BuildValue(
+    "(sIIII)",
+    loc.file.getString().c_str(),
+    static_cast<unsigned int>(loc.line),
+    static_cast<unsigned int>(loc.column),
+    static_cast<unsigned int>(loc.endLine),
+    static_cast<unsigned int>(loc.endColumn));
 }
 
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
@@ -524,6 +569,7 @@ GetNameMethod(SNLDesign)
 SetNameMethod(SNLDesign)
 DirectGetNumericMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 DirectGetNumericMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
+DirectGetNLIDMethod(PySNLDesign_getNLID, PySNLDesign, SNLDesign)
 GetBoolAttribute(SNLDesign, isUnnamed)
 GetBoolAttribute(SNLDesign, isBlackBox)
 GetBoolAttribute(SNLDesign, isPrimitive)
@@ -549,6 +595,8 @@ GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
 GetContainerMethod(SNLDesign, SNLBitNet*, SNLBitNets, BitNets)
 HasElementsMethod(SNLDesign, hasInstances, getInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, NonAssignInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, AssignInstances)
 HasElementsMethod(SNLDesign, hasPrimitiveInstances, getPrimitiveInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, PrimitiveInstances)
 HasElementsMethod(SNLDesign, hasNonPrimitiveInstances, getNonPrimitiveInstances)
@@ -665,6 +713,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign has instances."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,
     "get a container of SNLInstances."},
+  { "getNonAssignInstances", (PyCFunction)PySNLDesign_getNonAssignInstances, METH_NOARGS,
+    "get instances excluding only assign glue."},
+  { "getAssignInstances", (PyCFunction)PySNLDesign_getAssignInstances, METH_NOARGS,
+    "get assign-glue instances."},
   { "hasPrimitiveInstances", (PyCFunction)PySNLDesign_hasPrimitiveInstances, METH_NOARGS,
     "Returns True if the SNLDesign has primitive instances."},
   { "getPrimitiveInstances", (PyCFunction)PySNLDesign_getPrimitiveInstances, METH_NOARGS,
@@ -699,6 +751,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "add an attribute to the design."},
   {"getAttributes", (PyCFunction)PySNLDesign_getAttributes, METH_NOARGS,
     "get a container of SNLAttributes."},
+  {"hasSourceLoc", (PyCFunction)PySNLDesign_hasSourceLoc, METH_NOARGS,
+    "Returns whether the SNLDesign has source location information."},
+  {"getSourceLoc", (PyCFunction)PySNLDesign_getSourceLoc, METH_NOARGS,
+    "Returns source location as (file, line, column, end_line, end_column), or None."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

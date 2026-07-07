@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+
+logger = logging.getLogger(__name__)
 try:
     from najaeda import naja
 except ImportError:  # pragma: no cover
@@ -546,6 +548,6 @@ def constructPrimitives(lib):
 
 
 def load(db):
-    logging.info("Loading Xilinx primitives")
+    logger.info("Loading Xilinx primitives")
     lib = naja.NLLibrary.createPrimitives(db, "xilinx")
     constructPrimitives(lib)

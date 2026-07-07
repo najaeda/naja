@@ -16,6 +16,7 @@
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLSVConstructor.h"
+#include "SNLSVConstructorException.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
@@ -29,6 +30,128 @@
 namespace PYNAJA {
 
 using namespace naja::NL;
+
+namespace {
+
+PyObject* PySystemVerilogError = nullptr;
+PyObject* PySystemVerilogSyntaxError = nullptr;
+PyObject* PySystemVerilogUnsupportedError = nullptr;
+PyObject* PySystemVerilogInternalError = nullptr;
+
+PyObject* buildDiagnostics(const std::vector<SNLSVDiagnostic>& diagnostics) {
+  PyObject* result = PyList_New(static_cast<Py_ssize_t>(diagnostics.size()));
+  if (!result) {
+    return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+  }
+  for (size_t index = 0; index < diagnostics.size(); ++index) {
+    const auto& diagnostic = diagnostics[index];
+    PyObject* item = Py_BuildValue(
+      "{s:s,s:s,s:K,s:K,s:s}",
+      "severity", diagnostic.severity.c_str(),
+      "file", diagnostic.file.c_str(),
+      "line", static_cast<unsigned long long>(diagnostic.line),
+      "column", static_cast<unsigned long long>(diagnostic.column),
+      "message", diagnostic.message.c_str());
+    if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
+      Py_DECREF(result);
+      return nullptr;
+      // LCOV_EXCL_STOP
+    }
+    PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
+  }
+  return result;
+}
+
+PyObject* buildUnsupportedElements(
+  const std::vector<SNLSVUnsupportedElement>& unsupportedElements) {
+  PyObject* result = PyList_New(static_cast<Py_ssize_t>(unsupportedElements.size()));
+  if (!result) {
+    return nullptr; // LCOV_EXCL_LINE CPython allocation failure
+  }
+  for (size_t index = 0; index < unsupportedElements.size(); ++index) {
+    const auto& unsupported = unsupportedElements[index];
+    PyObject* item = Py_BuildValue(
+      "{s:s,s:s}",
+      "message", unsupported.message.c_str(),
+      "code", unsupported.code.c_str());
+    if (!item) {
+      // LCOV_EXCL_START CPython allocation failure cleanup
+      Py_DECREF(result);
+      return nullptr;
+      // LCOV_EXCL_STOP
+    }
+    PyList_SET_ITEM(result, static_cast<Py_ssize_t>(index), item);
+  }
+  return result;
+}
+
+void raiseSystemVerilogError(
+  PyObject* exceptionType,
+  const std::string& message,
+  const char* attributeName = nullptr,
+  PyObject* attributeValue = nullptr) {
+  if (attributeName && !attributeValue) {
+    return; // LCOV_EXCL_LINE CPython allocation failure already set an exception
+  }
+  PyObject* exception = PyObject_CallFunction(exceptionType, "s", message.c_str());
+  if (!exception) {
+    // LCOV_EXCL_START CPython allocation failure cleanup
+    Py_XDECREF(attributeValue);
+    return;
+    // LCOV_EXCL_STOP
+  }
+  if (attributeName && attributeValue) {
+    if (PyObject_SetAttrString(exception, attributeName, attributeValue) < 0) {
+      // LCOV_EXCL_START CPython attribute failure cleanup
+      Py_DECREF(attributeValue);
+      Py_DECREF(exception);
+      return;
+      // LCOV_EXCL_STOP
+    }
+    Py_DECREF(attributeValue);
+  }
+  PyErr_SetObject(exceptionType, exception);
+  Py_DECREF(exception);
+}
+
+}  // namespace
+
+int PyNLDB_addSystemVerilogExceptions(PyObject* module) {
+  auto addException = [module](
+    const char* qualifiedName, const char* moduleName, PyObject* base, PyObject*& result) {
+    result = PyErr_NewException(qualifiedName, base, nullptr);
+    if (!result) {
+      return -1; // LCOV_EXCL_LINE CPython allocation failure
+    }
+    Py_INCREF(result);
+    if (PyModule_AddObject(module, moduleName, result) < 0) {
+      // LCOV_EXCL_START CPython module failure cleanup
+      Py_DECREF(result);
+      Py_DECREF(result);
+      result = nullptr;
+      return -1;
+      // LCOV_EXCL_STOP
+    }
+    return 0;
+  };
+
+  if (addException(
+        "naja.SystemVerilogError", "SystemVerilogError",
+        PyExc_RuntimeError, PySystemVerilogError) < 0 ||
+      addException(
+        "naja.SystemVerilogSyntaxError", "SystemVerilogSyntaxError",
+        PySystemVerilogError, PySystemVerilogSyntaxError) < 0 ||
+      addException(
+        "naja.SystemVerilogUnsupportedError", "SystemVerilogUnsupportedError",
+        PySystemVerilogError, PySystemVerilogUnsupportedError) < 0 ||
+      addException(
+        "naja.SystemVerilogInternalError", "SystemVerilogInternalError",
+        PySystemVerilogError, PySystemVerilogInternalError) < 0) {
+    return -1; // LCOV_EXCL_LINE CPython exception registration failure
+  }
+  return 0;
+}
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLDB, function)
 
@@ -250,24 +373,26 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* elaborated_ast_json_path = nullptr;  // Optional: string
   int pretty_print_elaborated_ast_json = 1;  // Default: true
   int include_source_info_in_elaborated_ast_json = 1;  // Default: true
-  PyObject* flist = nullptr;  // Optional: string path passed as slang -f
+  PyObject* flist = nullptr;  // Optional: string path passed as a frontend file list
   PyObject* diagnostics_report_path = nullptr;  // Optional: string
+  PyObject* defines = nullptr;  // Optional: list of preprocessor defines
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
+  int keep_ast_link = 0;  // Default: false
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
-    "diagnostics_report_path", "suppress_warnings",
+    "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOO:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOp:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &suppress_warnings)) {
+    &defines, &suppress_warnings, &keep_ast_link)) {
     setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
@@ -290,6 +415,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   options.prettyPrintElaboratedASTJson = pretty_print_elaborated_ast_json;
   options.includeSourceInfoInElaboratedASTJson =
     include_source_info_in_elaborated_ast_json;
+  options.keepASTLink = keep_ast_link;
 
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
@@ -334,6 +460,24 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     }
   }
 
+  if (defines != nullptr && defines != Py_None) {
+    if (not PyList_Check(defines)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadSystemVerilog: defines must be a list, got: "
+          << getStringForPyObject(defines);
+      setError(oss.str());
+      return nullptr;
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(defines); ++i) {
+      PyObject* item = PyList_GetItem(defines, i);
+      if (not PyUnicode_Check(item)) {
+        setError("NLDB.loadSystemVerilog: defines items must be strings");
+        return nullptr;
+      }
+      options.preprocessorDefines.push_back(PyUnicode_AsUTF8(item));
+    }
+  }
+
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
   if (flist != nullptr && flist != Py_None) {
@@ -363,7 +507,23 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   } catch (const std::exception& e) {
     std::ostringstream error;
     error << "Error while parsing SystemVerilog: ";
-    setError(error.str() + e.what());
+    const auto message = error.str() + e.what();
+    if (const auto* syntaxError = dynamic_cast<const SNLSVSyntaxError*>(&e)) {
+      raiseSystemVerilogError(
+        PySystemVerilogSyntaxError,
+        message,
+        "diagnostics",
+        buildDiagnostics(syntaxError->getDiagnostics()));
+    } else if (const auto* unsupportedError =
+                 dynamic_cast<const SNLSVUnsupportedConstructError*>(&e)) {
+      raiseSystemVerilogError(
+        PySystemVerilogUnsupportedError,
+        message,
+        "unsupported_elements",
+        buildUnsupportedElements(unsupportedError->getUnsupportedElements()));
+    } else {
+      raiseSystemVerilogError(PySystemVerilogInternalError, message);
+    }
     return nullptr;
   }
 
@@ -416,6 +576,7 @@ PyObject* PyNLDB_getLibrary(PyNLDB* self, PyObject* arg) {
 }
 
 DirectGetNumericMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
+DirectGetNLIDMethod(PyNLDB_getNLID, PyNLDB, NLDB)
 
 GetBoolAttribute(NLDB, isTopDB)
 GetObjectMethod(NLDB, SNLDesign, getTopDesign)
@@ -424,13 +585,32 @@ GetContainerMethod(NLDB, NLLibrary*, NLLibraries, Libraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, GlobalLibraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, PrimitiveLibraries)
 
-DBoDestroyAttribute(PyNLDB_destroy, PyNLDB)
+static PyObject* PyNLDB_destroy(PyNLDB* self) {
+  TRY
+  if (self->object_ == nullptr) {
+    setError("applying a destroy() to a Python object with no Hurricane object attached");
+    return nullptr;
+  }
+  naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>(
+    self->object_->getProperty(naja::NajaPythonProperty::getPropertyName()));
+  if (proxy == nullptr) { // Defensive: PyNLDB_Link always installs the proxy.
+    setError("Trying to destroy() a Hurricane object of with no Proxy attached "); // LCOV_EXCL_LINE
+    return nullptr; // LCOV_EXCL_LINE
+  }
+  SNLSVLiveASTLinkRegistry::clear(self->object_);
+  self->object_->destroy();
+  self->object_ = nullptr;
+  NLCATCH
+  Py_RETURN_NONE;
+}
 
 PyMethodDef PyNLDB_Methods[] = {
   { "create", (PyCFunction)PyNLDB_create, METH_VARARGS | METH_STATIC,
     "create a NLDB."},
   { "getID", (PyCFunction)PyNLDB_getID, METH_NOARGS,
     "get the NLDB ID."},
+  { "getNLID", (PyCFunction)PyNLDB_getNLID, METH_NOARGS,
+    "get the NLID."},
   { "isTopDB", (PyCFunction)PyNLDB_isTopDB, METH_NOARGS,
     "Returns True if the NLDB is the top DB."},
   { "getTopDesign", (PyCFunction)PyNLDB_getTopDesign, METH_NOARGS,
@@ -457,11 +637,16 @@ PyMethodDef PyNLDB_Methods[] = {
     "Args:\n"
     "  files (list[str]): input SystemVerilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
-    "  elaborated_ast_json_path (str, optional): dump Slang elaborated AST JSON to this path\n"
+    "  elaborated_ast_json_path (str, optional): dump elaborated frontend AST JSON to this path\n"
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
     "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
-    "  flist (str, optional): slang -f command file path\n"
-    "  diagnostics_report_path (str, optional): dump Slang diagnostics (warnings/errors) to this path."},
+    "  flist (str, optional): frontend file-list command path\n"
+    "  diagnostics_report_path (str, optional): incremental frontend diagnostics report path "
+    "(default naja_sv_diagnostics.log)\n"
+    "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
+    "  suppress_warnings (list[str], optional): frontend warning names to suppress\n"
+    "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "
+    "(default False)."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

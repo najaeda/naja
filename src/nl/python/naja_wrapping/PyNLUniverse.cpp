@@ -5,11 +5,29 @@
 #include "PyNLUniverse.h"
 
 #include "PyInterface.h"
+#include "PyNLID.h"
 #include "PyNLDB.h"
 #include "PyNLDBs.h"
+#include "PyNLLibrary.h"
 #include "PySNLDesign.h"
+#include "PySNLInstance.h"
+#include "PySNLInstTerm.h"
+#include "PySNLBitNet.h"
+#include "PySNLBitTerm.h"
 
+#include "NajaLog.h"
+#include "DNL.h"
 #include "NLUniverse.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
+#include "NLObject.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
+#include "SNLDesign.h"
+#include "SNLInstance.h"
+#include "SNLInstTerm.h"
+#include "SNLUtils.h"
+#include "SNLSVConstructor.h"
 #include "RemoveLoadlessLogic.h"
 #include "ConstantPropagation.h"
 #include "FanoutComputer.h"
@@ -23,6 +41,45 @@ using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 using namespace naja::NAJA_METRICS;
 
+namespace {
+
+long long getCountDelta(size_t before, size_t after) {
+  return static_cast<long long>(after) - static_cast<long long>(before);
+}
+
+SNLUtils::InstanceCount countTopDesignInstances() {
+  auto universe = NLUniverse::get();
+  return SNLUtils::countReachableInstances(
+      universe == nullptr ? nullptr : universe->getTopDesign());
+}
+
+void logInstanceCountDelta(
+    const char* label,
+    const SNLUtils::InstanceCount& before,
+    const SNLUtils::InstanceCount& after) {
+  NAJA_LOG_INFO(
+      "{} instance count:\n"
+      "  unfolded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  folded: total {} -> {} (delta {}), leaf {} -> {} (delta {})\n"
+      "  reachable models: {} -> {}",
+      label,
+      before.totalInstances,
+      after.totalInstances,
+      getCountDelta(before.totalInstances, after.totalInstances),
+      before.leafInstances,
+      after.leafInstances,
+      getCountDelta(before.leafInstances, after.leafInstances),
+      before.foldedTotalInstances,
+      after.foldedTotalInstances,
+      getCountDelta(before.foldedTotalInstances, after.foldedTotalInstances),
+      before.foldedLeafInstances,
+      after.foldedLeafInstances,
+      getCountDelta(before.foldedLeafInstances, after.foldedLeafInstances),
+      before.reachableModels,
+      after.reachableModels);
+}
+
+}  // namespace
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLUniverse, function)
 
@@ -40,9 +97,12 @@ static PyObject* PyNLUniverse_get() {
 }
 
 static PyObject* PyNLUniverse_applyDLE() {
+  const auto beforeInstanceCount = countTopDesignInstances();
   LoadlessLogicRemover remover;
   remover.setNormalizedUniquification(true);
   remover.process();
+  const auto afterInstanceCount = countTopDesignInstances();
+  logInstanceCountDelta("DLE optimization", beforeInstanceCount, afterInstanceCount);
   Py_RETURN_NONE;
 }
 
@@ -116,9 +176,13 @@ static PyObject* PyNLUniverse_getMaxLogicLevel() {
 }
 
 static PyObject* PyNLUniverse_applyConstantPropagation() {
+  const auto beforeInstanceCount = countTopDesignInstances();
   ConstantPropagation cp;
   cp.setTruthTableEngine(true);
   cp.run();
+  const auto afterInstanceCount = countTopDesignInstances();
+  logInstanceCountDelta(
+      "Constant propagation", beforeInstanceCount, afterInstanceCount);
   Py_RETURN_NONE;
 }
 
@@ -183,12 +247,65 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
   return PySNLDesign_Link(design);
 }
 
+static PyObject* PyNLUniverse_getObject(PyNLUniverse* self, PyObject* arg) {
+  METHOD_HEAD("NLUniverse.getObject()")
+  if (not IsPyNLID(arg)) {
+    setError("NLUniverse.getObject expects an NLID argument");
+    return nullptr;
+  }
+
+  NLObject* object = selfObject->getObject(PYNLID_O(arg));
+  if (not object) {
+    Py_RETURN_NONE;
+  }
+  if (auto db = dynamic_cast<NLDB*>(object)) {
+    return PyNLDB_Link(db);
+  }
+  if (auto library = dynamic_cast<NLLibrary*>(object)) {
+    return PyNLLibrary_Link(library);
+  }
+  if (auto design = dynamic_cast<SNLDesign*>(object)) {
+    return PySNLDesign_Link(design);
+  }
+  if (auto instance = dynamic_cast<SNLInstance*>(object)) {
+    return PySNLInstance_Link(instance);
+  }
+  if (auto instTerm = dynamic_cast<SNLInstTerm*>(object)) {
+    return PySNLInstTerm_Link(instTerm);
+  }
+  if (auto bitNet = dynamic_cast<SNLBitNet*>(object)) {
+    return PySNLBitNet_Link(bitNet);
+  }
+  if (auto bitTerm = dynamic_cast<SNLBitTerm*>(object)) {
+    return PySNLBitTerm_Link(bitTerm);
+  }
+  Py_RETURN_NONE;
+}
+
 GetObjectMethod(NLUniverse, SNLDesign, getTopDesign)
 GetObjectMethod(NLUniverse, NLDB, getTopDB)
 GetObjectByIndex(NLUniverse, NLDB, DB)
 GetContainerMethod(NLUniverse, NLDB*, NLDBs, UserDBs)
 
-DBoDestroyAttribute(PyNLUniverse_destroy, PyNLUniverse)
+static PyObject* PyNLUniverse_destroy(PyNLUniverse* self) {
+  TRY
+  if (self->object_ == nullptr) {
+    setError("applying a destroy() to a Python object with no Hurricane object attached");
+    return nullptr;
+  }
+  naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>(
+    self->object_->getProperty(naja::NajaPythonProperty::getPropertyName()));
+  if (proxy == nullptr) { // Defensive: PyNLUniverse_Link always installs the proxy.
+    setError("Trying to destroy() a Hurricane object of with no Proxy attached "); // LCOV_EXCL_LINE
+    return nullptr; // LCOV_EXCL_LINE
+  }
+  SNLSVLiveASTLinkRegistry::clearAll();
+  naja::DNL::destroy();
+  self->object_->destroy();
+  self->object_ = nullptr;
+  NLCATCH
+  Py_RETURN_NONE;
+}
 
 PyMethodDef PyNLUniverse_Methods[] = {
   { "create", (PyCFunction)PyNLUniverse_create, METH_NOARGS|METH_STATIC,
@@ -203,6 +320,8 @@ PyMethodDef PyNLUniverse_Methods[] = {
     "set the top SNLDesign"},
   { "getSNLDesign", (PyCFunction)pyNLUniverse_getSNLDesign, METH_VARARGS,
     "get the SNLDesign with the given name or NLID::DesignReference (dbID, libID, designID)"},
+  { "getObject", (PyCFunction)PyNLUniverse_getObject, METH_O,
+    "get the object with the given NLID"},
   { "setTopDB", (PyCFunction)PyNLUniverse_setTopDB, METH_O,
     "set the top NLDB"},
   { "getTopDB", (PyCFunction)PyNLUniverse_getTopDB, METH_NOARGS,

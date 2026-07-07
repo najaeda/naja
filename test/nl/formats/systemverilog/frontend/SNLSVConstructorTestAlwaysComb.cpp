@@ -159,6 +159,175 @@ class SNLSVConstructorTestAlwaysComb: public ::testing::Test {
     NLLibrary* library_ {nullptr};
 };
 
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombIndependentNonBlockingAssignmentsSupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath =
+      createTestDirectory("always_comb_independent_nonblocking_assignments_supported");
+
+  const auto svPath =
+      outPath / "always_comb_independent_nonblocking_assignments_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_independent_nonblocking_assignments_supported(
+  input  logic       sel0_i,
+  input  logic       sel1_i,
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] y0_o,
+  output logic [7:0] y1_o,
+  output logic [1:0] flags_o
+);
+  always_comb begin
+    if (sel0_i)
+      y0_o <= a_i;
+    else
+      y0_o <= b_i;
+    case (sel1_i)
+      1'b0: y1_o <= b_i;
+      default: y1_o <= a_i;
+    endcase
+    for (int i = 0; i < 2; i++)
+      flags_o[i] = a_i[i];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_independent_nonblocking_assignments_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_NE(nullptr, top->getNet(NLName("y0_o")));
+  EXPECT_NE(nullptr, top->getNet(NLName("y1_o")));
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombNonBlockingReadAfterWriteUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_nonblocking_read_after_write_unsupported");
+  const auto svPath = outPath / "always_comb_nonblocking_read_after_write_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_nonblocking_read_after_write_unsupported(
+  input logic a_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_comb begin
+    q_o <= a_i;
+    r_o <= q_o;
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"scheduling-sensitive", "reads 'q_o' after an earlier non-blocking assignment"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombMixedBlockingNonBlockingSameTargetUnsupported) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_mixed_blocking_nonblocking_same_target_unsupported");
+  const auto svPath =
+    outPath / "always_comb_mixed_blocking_nonblocking_same_target_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_mixed_blocking_nonblocking_same_target_unsupported(
+  input logic a_i,
+  input logic b_i,
+  output logic q_o
+);
+  always_comb begin
+    q_o = a_i;
+    q_o <= b_i;
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"mixed blocking and non-blocking assignments", "same control-flow path"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb,
+       parseAlwaysCombSchedulingSafetyBranchDiagnosticsCovered) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory(
+    "always_comb_scheduling_safety_branch_diagnostics_covered");
+  const auto svPath =
+    outPath / "always_comb_scheduling_safety_branch_diagnostics_covered.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module always_comb_scheduling_safety_branch_diagnostics_covered(
+  input logic a_i, input logic sel_i,
+  output logic q0_o, output logic r0_o,
+  output logic q1_o, output logic r1_o,
+  output logic q2_o, output logic r2_o,
+  output logic q3_o, output logic r3_o,
+  output logic q4_o, output logic r4_o,
+  output logic q5_o, output logic r5_o,
+  output logic q6_o, output logic r6_o,
+  output logic idx_o, output logic indexed_o
+);
+  logic [1:0] indexed;
+  always_comb begin
+    q0_o <= a_i;
+    if (sel_i) r0_o <= q0_o; else r0_o <= a_i;
+  end
+  always_comb begin
+    q1_o <= a_i;
+    if (sel_i) r1_o <= a_i; else r1_o <= q1_o;
+  end
+  always_comb begin
+    q2_o <= a_i;
+    case (sel_i)
+      1'b0: r2_o <= q2_o;
+      default: r2_o <= a_i;
+    endcase
+  end
+  always_comb begin
+    q3_o <= a_i;
+    case (sel_i)
+      1'b0: r3_o <= a_i;
+      default: r3_o <= q3_o;
+    endcase
+  end
+  always_comb begin
+    q4_o = a_i;
+    for (int i = 0; i < 2; i++)
+      r4_o <= q4_o;
+  end
+  always_comb begin
+    for (int i = 0; i < 1; i++) begin
+      q5_o = a_i;
+      q5_o <= a_i;
+    end
+    r5_o = q5_o;
+  end
+  always_comb begin
+    {q6_o, r6_o} <= {a_i, sel_i};
+  end
+  always_comb begin
+    idx_o <= sel_i;
+    indexed = '0;
+    indexed[idx_o] = a_i;
+    indexed_o = indexed[0];
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"scheduling-sensitive"});
+}
+
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
   parseAlwaysCombConstantFalseShortCircuitSkipsUnsupportedBranch) {

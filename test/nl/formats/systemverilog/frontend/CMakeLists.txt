@@ -8,6 +8,7 @@ set(snl_sv_constructor_tests
     SNLSVConstructorTestAlwaysComb.cpp
     SNLSVConstructorTestSequentialOverlap.cpp
     SNLSVConstructorTestElab.cpp
+    SNLSVIntentTest.cpp
 )
 add_executable(snlSVConstructorTests ${snl_sv_constructor_tests})
 target_compile_definitions(snlSVConstructorTests PRIVATE
@@ -22,6 +23,7 @@ target_link_libraries(snlSVConstructorTests
   naja_snl_systemverilog_test
   naja_snl_verilog
   naja_dnl
+  naja_metrics
   gmock
   gtest_main)
 gtest_discover_tests(snlSVConstructorTests

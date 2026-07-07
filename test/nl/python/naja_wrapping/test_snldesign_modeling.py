@@ -172,6 +172,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.SNLDesign.addCombinatorialArcs(design, o)
     with self.assertRaises(RuntimeError) as context: naja.SNLDesign.addCombinatorialArcs(i0, design)
     with self.assertRaises(RuntimeError) as context: naja.SNLDesign.addCombinatorialArcs([design, i0], [o, design])
+    with self.assertRaises(RuntimeError) as context: naja.SNLDesign.addCombinatorialArcs([i0], [o, design])
 
   def testSeqErrors(self):
     design = naja.SNLDesign.createPrimitive(self.primitives, "design")

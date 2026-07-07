@@ -13,6 +13,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "DNL.h"
@@ -153,6 +154,23 @@ size_t getMux2Width(const SNLInstance* instance) {
     return 0;
   }
   return static_cast<size_t>(std::stoull(widthParam->getValue()));
+}
+
+size_t getPrimitiveWidth(const SNLInstance* instance) {
+  if (!instance) {
+    return 0;
+  }
+  if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthInstParam->getValue()));
+  }
+  auto* model = instance->getModel();
+  if (!model) {
+    return 0;
+  }
+  if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
+    return static_cast<size_t>(std::stoull(widthParam->getValue()));
+  }
+  return 1;
 }
 
 size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
@@ -333,6 +351,66 @@ std::vector<naja::DNL::DNLID> collectCombinationalInputTermIDs(
   std::sort(termIDs.begin(), termIDs.end());
   termIDs.erase(std::unique(termIDs.begin(), termIDs.end()), termIDs.end());
   return termIDs;
+}
+
+std::unordered_set<std::string> collectMemoryInputSupportNames(
+    SNLDesign* top,
+    SNLInstance* memoryInst,
+    SNLBusTerm* memoryInput) {
+  std::unordered_set<std::string> supportNames;
+  if (!top || !memoryInst || !memoryInput) {
+    return supportNames;
+  }
+
+  auto* universe = NLUniverse::get();
+  if (!universe) {
+    return supportNames;
+  }
+  universe->setTopDesign(top);
+  naja::DNL::destroy();
+  auto* dnl = naja::DNL::get();
+  std::unordered_set<naja::DNL::DNLID> visited;
+  std::vector<naja::DNL::DNLID> pending;
+  for (auto* bitTerm : memoryInput->getBits()) {
+    if (auto* instTerm = memoryInst->getInstTerm(bitTerm)) {
+      const auto& term = dnl->getTop().getChildInstance(memoryInst).getTerminal(instTerm);
+      if (!term.isNull()) {
+        pending.push_back(term.getID());
+      }
+    }
+  }
+
+  while (!pending.empty()) {
+    const auto termID = pending.back();
+    pending.pop_back();
+    if (termID == naja::DNL::DNLID_MAX || !visited.insert(termID).second) {
+      continue;
+    }
+    const auto& term = dnl->getDNLTerminalFromID(termID);
+    if (term.isNull()) {
+      continue;
+    }
+    if (term.isTopPort()) {
+      supportNames.insert(term.getSnlBitTerm()->getName().getString());
+      continue;
+    }
+    const auto isoID = term.getIsoID();
+    if (isoID == naja::DNL::DNLID_MAX) {
+      continue;
+    }
+    const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(isoID);
+    for (const auto driverID : iso.getDrivers()) {
+      const auto& driver = dnl->getDNLTerminalFromID(driverID);
+      if (driver.isTopPort()) {
+        supportNames.insert(driver.getSnlBitTerm()->getName().getString());
+        continue;
+      }
+      const auto inputs = collectCombinationalInputTermIDs(driver);
+      pending.insert(pending.end(), inputs.begin(), inputs.end());
+    }
+  }
+  naja::DNL::destroy();
+  return supportNames;
 }
 
 bool collectMemoryBoundaryConeIssue(
@@ -745,7 +823,9 @@ endmodule
   EXPECT_EQ(std::string::npos, dumpedText.find("naja_mux2"));
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSharedSequentialKeepsScalarFlops) {
+TEST_F(
+    SNLSVConstructorTestMemoryInference,
+    parseQDMemoryInferenceSharedSequentialKeepsVectorizedSideRegisterFlops) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "qd_memory_inference_shared_sequential_keeps_scalar_flops";
@@ -812,20 +892,21 @@ endmodule
     NLName("qd_memory_inference_shared_sequential_keeps_scalar_flops"));
   ASSERT_NE(top, nullptr);
 
-  auto dffrnModel = NLDB0::getDFFRN();
-  ASSERT_NE(dffrnModel, nullptr);
   size_t memoryCount = 0;
-  size_t dffrnCount = 0;
+  size_t dffrnBitCount = 0;
+  size_t dffrnInstanceCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isMemory(inst->getModel())) {
       ++memoryCount;
     }
-    if (inst->getModel() == dffrnModel) {
-      ++dffrnCount;
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnBitCount += getPrimitiveWidth(inst);
+      ++dffrnInstanceCount;
     }
   }
   EXPECT_EQ(1u, memoryCount);
-  EXPECT_EQ(5u, dffrnCount);
+  EXPECT_EQ(5u, dffrnBitCount);
+  EXPECT_EQ(2u, dffrnInstanceCount);
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceWriteOnlySupported) {
@@ -1288,7 +1369,7 @@ endmodule
   }
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSyncLogicalNotResetFallback) {
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSyncLogicalNotResetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "qd_memory_inference_sync_logical_not_reset_fallback";
@@ -1330,13 +1411,23 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported sequential array assignment after sync logical-not reset";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("qd_memory_inference_sync_logical_not_reset_fallback"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
   }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ("1", memoryInst->getInstParameter(NLName("RST_ENABLE"))->getValue());
+  EXPECT_EQ("0", memoryInst->getInstParameter(NLName("RST_ASYNC"))->getValue());
+  EXPECT_EQ("1", memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+  EXPECT_EQ(
+    "32'b00110011001000100001000100000000",
+    memoryInst->getInstParameter(NLName("INIT"))->getValue());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitUnknownBitsFallback) {
@@ -3524,7 +3615,125 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestMemoryInference,
-  warnLargeUninferredDirectSequentialMemoryFallback) {
+  parseDirectSequentialMultipleMemoriesPreservesResetAndWriteBranches) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "direct_sequential_multiple_memories_preserve_branches";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "direct_sequential_multiple_memories_preserve_branches.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module direct_sequential_multiple_memories_preserve_branches(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       write_a0_i,
+  input  logic       write_a1_i,
+  input  logic       write_b_i,
+  input  logic [1:0] addr_a0_i,
+  input  logic [1:0] addr_a1_i,
+  input  logic [1:0] addr_b_i,
+  input  logic [7:0] data_a0_i,
+  input  logic [7:0] data_a1_i,
+  input  logic [7:0] data_b_i,
+  input  logic [1:0] read_addr_i,
+  output logic [7:0] read_a_o,
+  output logic [7:0] read_b_o,
+  output logic       side_o
+);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+  always @(posedge clk_i) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i = i + 1) begin
+        mem_a[i] <= 8'h11;
+        mem_b[i] <= 8'h22;
+      end
+      side_o <= 1'b0;
+    end else begin
+      if (write_a0_i)
+        mem_a[addr_a0_i] <= data_a0_i;
+      if (write_b_i)
+        mem_b[addr_b_i] <= data_b_i;
+      if (write_a1_i)
+        mem_a[addr_a1_i] <= data_a1_i;
+      side_o <= write_a0_i | write_b_i | write_a1_i;
+    end
+  end
+
+  assign read_a_o = mem_a[read_addr_i];
+  assign read_b_o = mem_b[read_addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("direct_sequential_multiple_memories_preserve_branches"));
+  ASSERT_NE(nullptr, top);
+  std::unordered_map<std::string, SNLInstance*> memories;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      memories.emplace(inst->getName().getString(), inst);
+    }
+  }
+  ASSERT_EQ(2u, memories.size());
+  ASSERT_TRUE(memories.contains("mem_a_mem"));
+  ASSERT_TRUE(memories.contains("mem_b_mem"));
+
+  auto verifyMemory = [&](const char* instanceName,
+                          const char* expectedInit,
+                          const char* expectedWritePorts,
+                          std::initializer_list<const char*> expectedDataInputs) {
+    auto* inst = memories.at(instanceName);
+    auto* init = inst->getInstParameter(NLName("INIT"));
+    auto* resetEnable = inst->getInstParameter(NLName("RST_ENABLE"));
+    auto* resetAsync = inst->getInstParameter(NLName("RST_ASYNC"));
+    auto* resetActiveLow = inst->getInstParameter(NLName("RST_ACTIVE_LOW"));
+    auto* writePorts = inst->getInstParameter(NLName("WR_PORTS"));
+    ASSERT_NE(nullptr, init);
+    ASSERT_NE(nullptr, resetEnable);
+    ASSERT_NE(nullptr, resetAsync);
+    ASSERT_NE(nullptr, resetActiveLow);
+    ASSERT_NE(nullptr, writePorts);
+    EXPECT_EQ(expectedInit, init->getValue());
+    EXPECT_EQ("1", resetEnable->getValue());
+    EXPECT_EQ("0", resetAsync->getValue());
+    EXPECT_EQ("1", resetActiveLow->getValue());
+    EXPECT_EQ(expectedWritePorts, writePorts->getValue());
+
+    const auto support = collectMemoryInputSupportNames(
+      top,
+      inst,
+      NLDB0::getMemoryWriteData(inst->getModel()));
+    for (const auto* expectedInput : expectedDataInputs) {
+      EXPECT_TRUE(support.contains(expectedInput))
+        << instanceName << " WDATA does not depend on " << expectedInput;
+    }
+  };
+
+  verifyMemory(
+    "mem_a_mem",
+    "32'b00010001000100010001000100010001",
+    "2",
+    {"data_a0_i", "data_a1_i"});
+  verifyMemory(
+    "mem_b_mem",
+    "32'b00100010001000100010001000100010",
+    "1",
+    {"data_b_i"});
+  EXPECT_NE(nullptr, top->getNet(NLName("side_o")));
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  doNotWarnSuccessfullyInferredMultipleDirectSequentialMemories) {
   SNLSVConstructor constructor(library_);
   ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
 
@@ -3574,24 +3783,137 @@ endmodule
   const std::string output =
     testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
 
-  EXPECT_NE(
-    std::string::npos,
-    output.find("Fixed unpacked array 'mem_a'"))
-    << output;
-  EXPECT_NE(
-    std::string::npos,
-    output.find("Fixed unpacked array 'mem_b'"))
-    << output;
-  EXPECT_NE(
-    std::string::npos,
-    output.find("was not inferred as naja_mem"))
-    << output;
+  EXPECT_EQ(std::string::npos, output.find("was not inferred as naja_mem")) << output;
 
   auto top = library_->getSNLDesign(
     NLName("large_uninferred_direct_sequential_memory_warning"));
   ASSERT_NE(top, nullptr);
+  size_t memoryCount = 0;
   for (auto inst : top->getInstances()) {
-    EXPECT_FALSE(NLDB0::isMemory(inst->getModel()));
+    memoryCount += NLDB0::isMemory(inst->getModel()) ? 1 : 0;
+  }
+  EXPECT_EQ(2u, memoryCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  rejectUnsupportedDirectMemoryCandidateWithoutPartialInferenceAndWarnOnce) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_direct_memory_candidate_is_transactional";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "unsupported_direct_memory_candidate_is_transactional.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module unsupported_direct_memory_candidate_is_transactional(
+  input logic clk_i, input logic we_i, input logic clear_i,
+  input logic [1:0] addr_i, input logic [7:0] data_i,
+  output logic [7:0] good_o, output logic [7:0] bad_o);
+  logic [7:0] good_mem [0:3];
+  logic [7:0] bad_mem [0:3];
+  always_ff @(posedge clk_i) begin
+    if (we_i) begin
+      good_mem[addr_i] <= data_i;
+      bad_mem[addr_i] <= data_i;
+    end
+    if (clear_i)
+      bad_mem[addr_i] += 8'h01;
+  end
+  assign good_o = good_mem[addr_i];
+  assign bad_o = bad_mem[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  std::string unsupportedReason;
+  try {
+    constructor.construct(svPath);
+  } catch (const SNLSVConstructorException& e) {
+    unsupportedReason = e.what();
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+  EXPECT_EQ(1u, countSubstring(output, "Memory 'bad_mem' was not inferred as naja_mem"))
+    << output;
+  EXPECT_NE(std::string::npos, output.find("unsupported direct inferred memory assignment action"))
+    << output;
+  EXPECT_NE(
+    std::string::npos,
+    unsupportedReason.find("mixed blocking and non-blocking assignments to procedural target 'bad_mem'"))
+    << unsupportedReason;
+
+  auto* top = library_->getSNLDesign(
+    NLName("unsupported_direct_memory_candidate_is_transactional"));
+  ASSERT_NE(nullptr, top);
+  size_t memoryCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isMemory(inst->getModel())) {
+      continue;
+    }
+    ++memoryCount;
+    EXPECT_EQ("good_mem_mem", inst->getName().getString());
+  }
+  EXPECT_EQ(1u, memoryCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseMultipleDirectMemoriesMaskedReadModifyWriteSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "multiple_direct_memories_masked_read_modify_write";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "multiple_direct_memories_masked_read_modify_write.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module multiple_direct_memories_masked_read_modify_write(
+  input logic clk_i, input logic we_a_i, input logic we_b_i,
+  input logic [1:0] addr_i, input logic [7:0] data_a_i, input logic [7:0] data_b_i,
+  input logic [7:0] mask_a_i, input logic [7:0] mask_b_i,
+  output logic [7:0] data_a_o, output logic [7:0] data_b_o);
+  logic [7:0] mem_a [0:3];
+  logic [7:0] mem_b [0:3];
+  always_ff @(posedge clk_i) begin
+    if (we_a_i)
+      mem_a[addr_i] <= (mem_a[addr_i] & ~mask_a_i) | (data_a_i & mask_a_i);
+    if (we_b_i)
+      mem_b[addr_i] <= (mem_b[addr_i] & ~mask_b_i) | (data_b_i & mask_b_i);
+  end
+  assign data_a_o = mem_a[addr_i];
+  assign data_b_o = mem_b[addr_i];
+endmodule
+)";
+  svFile.close();
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("multiple_direct_memories_masked_read_modify_write"));
+  ASSERT_NE(nullptr, top);
+  std::unordered_map<std::string, SNLInstance*> memories;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      memories.emplace(inst->getName().getString(), inst);
+    }
+  }
+  ASSERT_EQ(2u, memories.size());
+  for (const auto& [name, dataInput] :
+       std::array<std::pair<const char*, const char*>, 2>{{
+         {"mem_a_mem", "data_a_i"}, {"mem_b_mem", "data_b_i"}}}) {
+    ASSERT_TRUE(memories.contains(name));
+    const auto support = collectMemoryInputSupportNames(
+      top,
+      memories.at(name),
+      NLDB0::getMemoryWriteData(memories.at(name)->getModel()));
+    EXPECT_TRUE(support.contains(dataInput));
   }
 }
 
@@ -3729,6 +4051,7 @@ TEST_F(
     << R"(module large_uninferred_memory_warning_dedup(
   input  logic       clk_i,
   input  logic       we_i,
+  input  logic       mode_i,
   input  logic [1:0] addr_i,
   input  logic [7:0] data_i,
   output logic [7:0] data_o
@@ -3738,9 +4061,16 @@ TEST_F(
 
   always_ff @(posedge clk_i) begin
     if (we_i) begin
-      mem_a[addr_i] <= data_i;
-      mem_a[addr_i] <= data_i ^ 8'hff;
-      mem_b[addr_i] <= data_i;
+      case (mode_i)
+        1'b0: begin
+          mem_a[addr_i] <= data_i;
+          mem_b[addr_i] <= data_i;
+        end
+        1'b1: begin
+          mem_a[addr_i] <= data_i ^ 8'hff;
+          mem_b[addr_i] <= data_i ^ 8'h55;
+        end
+      endcase
     end
   end
 
@@ -3749,10 +4079,14 @@ endmodule
 )";
   svFile.close();
 
+  const auto reportPath = outPath / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
   testing::internal::CaptureStdout();
   testing::internal::CaptureStderr();
   try {
-    constructor.construct(svPath);
+    constructor.construct(svPath, options);
   } catch (...) {
     (void)testing::internal::GetCapturedStdout();
     (void)testing::internal::GetCapturedStderr();
@@ -3763,12 +4097,24 @@ endmodule
 
   EXPECT_EQ(
     1,
-    countSubstring(output, "Fixed unpacked array 'mem_a'"))
+    countSubstring(output, "Memory 'mem_a' was not inferred as naja_mem"))
     << output;
   EXPECT_EQ(
-    1,
-    countSubstring(output, "Fixed unpacked array 'mem_b'"))
+    0,
+    countSubstring(output, "Memory 'mem_b' was not inferred as naja_mem"))
     << output;
+  const auto report = readTextFile(reportPath);
+  EXPECT_EQ(
+    1u,
+    countSubstring(report, "Memory 'mem_a' was not inferred as naja_mem"));
+  EXPECT_EQ(
+    1u,
+    countSubstring(report, "Memory 'mem_b' was not inferred as naja_mem"));
+  EXPECT_EQ(
+    2u,
+    countSubstring(
+      report,
+      "code=\"uninferred_memory_generic_sequential_lowering\""));
 }
 
 TEST_F(
@@ -11096,4 +11442,302 @@ endmodule
     constructor,
     svPath,
     {"Unsupported sequential event list; missing posedge clock event"});
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseLargeDirectMemoryDoesNotMaterializeRawStorage) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "large_direct_memory_does_not_materialize_raw_storage";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "large_direct_memory_does_not_materialize_raw_storage.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module large_direct_memory_does_not_materialize_raw_storage(
+  input  logic        clk_i,
+  input  logic        write_i,
+  input  logic [9:0]  addr_i,
+  input  logic [31:0] data_i,
+  output logic [31:0] data_o
+);
+  logic [31:0] mem [0:1023];
+
+  always_ff @(posedge clk_i) begin
+    if (write_i)
+      mem[addr_i] <= data_i;
+    data_o <= mem[addr_i];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("large_direct_memory_does_not_materialize_raw_storage"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ("1024", memoryInst->getInstParameter(NLName("DEPTH"))->getValue());
+  EXPECT_EQ(nullptr, top->getNet(NLName("mem")));
+  EXPECT_EQ(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemorySeparateUniformInitialFillSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_separate_uniform_initial_fill_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_separate_uniform_initial_fill_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_separate_uniform_initial_fill_supported(
+  input logic clk_i, input logic we_i,
+  input logic [1:0] addr_i, input logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem [0:3];
+  integer i;
+  initial begin
+    integer unused;
+    for (i = 0; i < 4; i = i + 1)
+      mem[i] = 8'h5a;
+  end
+  always_ff @(posedge clk_i) begin
+    if (we_i) mem[addr_i] <= data_i;
+  end
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_separate_uniform_initial_fill_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT_ENABLE")));
+  EXPECT_EQ("1", memoryInst->getInstParameter(NLName("INIT_ENABLE"))->getValue());
+  EXPECT_EQ("32'b01011010010110100101101001011010",
+            memoryInst->getInstParameter(NLName("INIT"))->getValue());
+  const auto dumpedPath = dumpTopAndGetVerilogPath(
+    top, "direct_memory_separate_uniform_initial_fill_supported_dump");
+  auto dumped = readTextFile(dumpedPath);
+  EXPECT_NE(std::string::npos,
+            dumped.find(".INIT(32'b01011010010110100101101001011010)"));
+  EXPECT_NE(std::string::npos, dumped.find(".INIT_ENABLE(1)"));
+  const auto primitiveDump = readTextFile(
+    dumpedPath.parent_path() / "naja_primitives.v");
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (INIT_ENABLE)"));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryNestedLargeSymbolicInitialFillSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_nested_large_symbolic_initial_fill_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_nested_large_symbolic_initial_fill_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_nested_large_symbolic_initial_fill_supported #(
+  parameter int ABITS = 16,
+  parameter int DEPTH = 2**ABITS,
+  parameter int CHUNK = 2**(ABITS/2)
+) (input logic clk_i, input logic we_i,
+   input logic [ABITS-1:0] addr_i, input logic data_i, output logic data_o);
+  logic mem [0:DEPTH-1];
+  integer i, j;
+  initial begin
+    for (i = 0; i < DEPTH; i = i + CHUNK)
+      for (j = i - 0; j < i - (-CHUNK); j = j + 1)
+        mem[j] = 1'b1;
+  end
+  always_ff @(posedge clk_i)
+    if (we_i) mem[addr_i] <= data_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_nested_large_symbolic_initial_fill_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  auto* init = memoryInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(nullptr, init);
+  EXPECT_TRUE(init->getValue().starts_with("65536'b"));
+  EXPECT_EQ(65536u + std::string("65536'b").size(), init->getValue().size());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryPartialInitialFillUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_partial_initial_fill_unsupported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_partial_initial_fill_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_partial_initial_fill_unsupported(
+  input logic clk_i, input logic we_i,
+  input logic [1:0] addr_i, input logic [7:0] data_i, output logic [7:0] data_o);
+  logic [7:0] mem [0:3];
+  integer i;
+  initial begin
+    for (i = 1; i < 4; i = i + 1)
+      mem[i] = 8'h00;
+  end
+  always_ff @(posedge clk_i)
+    if (we_i) mem[addr_i] <= data_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported initial memory initialization", "does not fully cover memory 'mem'"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryInitialFillValidationBranchesCovered) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_initial_fill_validation_branches_covered";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_initial_fill_validation_branches_covered.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(
+module init_two_statements(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) begin mem[i]=0; mem[i]=1; end
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_negative_step(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=3; i>=0; i=i-1) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonlinear_step(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i=i+i+1) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_affine(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i, j;
+  initial for (i=0; i<4; i=i+2) for (j=i*1; j<i+2; j++) mem[j]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_nested_affine(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i, j;
+  initial for (i=0; i<4; i=i+2) for (j=i+(i*1); j<i+2; j++) mem[j]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_bad_bound(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<=3; i++) mem[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonblocking(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i] <= 0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_wrong_target(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; logic other [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[0]=0;
+  initial for (i=0; i<4; i++) other[i]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_nonconstant(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i]=d;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_not_loop(input logic clk, we, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  initial mem[0]=0;
+  always_ff @(posedge clk) if (we) mem[a] <= d;
+endmodule
+module init_multiple_memories(input logic clk, we, input logic [1:0] a, input logic d);
+  logic m0 [0:3]; logic m1 [0:3]; integer i;
+  initial for (i=0; i<4; i++) begin m0[i]=0; m1[i]=0; end
+  always_ff @(posedge clk) if (we) begin m0[a] <= d; m1[a] <= d; end
+endmodule
+module init_not_inferred(input logic clk, input logic [1:0] a);
+  logic mem [0:3]; integer i;
+  initial for (i=0; i<4; i++) mem[i]=0;
+  always_ff @(posedge clk) mem[0] <= mem[1];
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported initial memory initialization"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryUnsupportedCandidateDiagnosticsCovered) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_unsupported_candidate_diagnostics_covered";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_unsupported_candidate_diagnostics_covered.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(
+module direct_memory_multiple_async_events(
+  input logic clk, rst_n, set_i, we, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk or negedge rst_n or posedge set_i) begin
+    if (!rst_n) mem[0] <= 0;
+    else if (set_i) mem[0] <= 1;
+    else if (we) mem[a] <= d;
+  end
+endmodule
+module direct_memory_without_indexed_write(
+  input logic clk, input logic [1:0] a, output logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk) d <= mem[a];
+endmodule
+module direct_memory_constant_false_write(
+  input logic clk, input logic [1:0] a, input logic d);
+  logic mem [0:3];
+  always_ff @(posedge clk)
+    if (1'b0) mem[a] <= d;
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"multiple async events"});
 }

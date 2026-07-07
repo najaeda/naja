@@ -10,6 +10,7 @@
 
 #include "NLBitDependencies.h"
 #include "NLException.h"
+#include "NLName.h"
 #include "NajaDumpableProperty.h"
 #include "NajaPrivateProperty.h"
 
@@ -44,9 +45,11 @@ namespace {
 bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
   return design &&
          (naja::NL::NLDB0::isDLatch(design) ||
-          design == naja::NL::NLDB0::getDFF() ||
+          naja::NL::NLDB0::isDFF(design) ||
           naja::NL::NLDB0::isDFFN(design) ||
           naja::NL::NLDB0::isDFFRN(design) ||
+          naja::NL::NLDB0::isDFFR(design) ||
+          naja::NL::NLDB0::isDFFS(design) ||
           naja::NL::NLDB0::isDFFE(design) ||
           naja::NL::NLDB0::isDFFRE(design) ||
           naja::NL::NLDB0::isDFFSE(design));
@@ -54,25 +57,17 @@ bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
 
 naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* design) {
   if (naja::NL::NLDB0::isDLatch(design)) {
-    return naja::NL::NLDB0::getDLatchEnable();
+    return design->getScalarTerm(naja::NL::NLName("E"));
   }
-  if (design == naja::NL::NLDB0::getDFF()) {
-    return naja::NL::NLDB0::getDFFClock();
-  }
-  if (naja::NL::NLDB0::isDFFN(design)) {
-    return naja::NL::NLDB0::getDFFNClock();
-  }
-  if (naja::NL::NLDB0::isDFFRN(design)) {
-    return naja::NL::NLDB0::getDFFRNClock();
-  }
-  if (naja::NL::NLDB0::isDFFE(design)) {
-    return naja::NL::NLDB0::getDFFEClock();
-  }
-  if (naja::NL::NLDB0::isDFFRE(design)) {
-    return naja::NL::NLDB0::getDFFREClock();
-  }
-  if (naja::NL::NLDB0::isDFFSE(design)) {
-    return naja::NL::NLDB0::getDFFSEClock();
+  if (naja::NL::NLDB0::isDFF(design) ||
+      naja::NL::NLDB0::isDFFN(design) ||
+      naja::NL::NLDB0::isDFFRN(design) ||
+      naja::NL::NLDB0::isDFFR(design) ||
+      naja::NL::NLDB0::isDFFS(design) ||
+      naja::NL::NLDB0::isDFFE(design) ||
+      naja::NL::NLDB0::isDFFRE(design) ||
+      naja::NL::NLDB0::isDFFSE(design)) {
+    return design->getScalarTerm(naja::NL::NLName("C"));
   }
   return nullptr;  // LCOV_EXCL_LINE
 }
@@ -1609,7 +1604,7 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
     }
-    if (NLDB0::isMux2(design)) {
+    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design)) {
       size_t tableCount = 0;
       for (const auto* term : design->getBitTerms()) {
         if (term->getDirection() != SNLTerm::Direction::Input) {
@@ -1668,6 +1663,21 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return SNLTruthTable();
+    }
+    if (NLDB0::isTableSelect(design)) {
+      const SNLBitTerm* outputTerm = nullptr;
+      for (auto* term : design->getBitTerms()) {
+        if (term->getDirection() != SNLTerm::Direction::Input) {
+          if (outputTerm != nullptr) {
+            throw NLException(
+                "SNLDesignModeling::getTruthTable: table select has per-output truth tables");
+          }
+          outputTerm = term;
+        }
+      }
+      return outputTerm ? NLDB0::getTableSelectTruthTable(
+                              design, outputTerm->getOrderID())
+                        : SNLTruthTable();
     }
     return NLDB0::getPrimitiveTruthTable(design);
   }
@@ -1799,6 +1809,15 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
       return NLDB0::getPrimitiveTruthTable(design);
+    } else if (NLDB0::isTableSelect(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in table select design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getTableSelectTruthTable(design, flatTermID);
     } else {
       if (outputCount != 1) {
         std::ostringstream reason;

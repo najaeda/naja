@@ -10,11 +10,13 @@ namespace naja::NL {
 
 class SNLPath;
 class SNLSharedPath;
+class SNLDesign;
 class SNLDesignObject;
 class SNLBitNet;
 class SNLNetComponent;
 class SNLBitTerm;
 class SNLInstTerm;
+class SNLInstance;
 
 /**
  * \brief SNLOccurrence is the representation of a SNLDesignObject in a specific hierarchical context.
@@ -41,12 +43,16 @@ class SNLOccurrence {
 
     /// \return this SNLOccurrence path.
     SNLPath getPath() const;
+    /// \return this SNLOccurrence design context.
+    SNLDesign* getDesign() const;
     /// \return this SNLOccurrence referenced SNLDesignObject.
     SNLDesignObject* getObject() const { return object_; }
     /// \return true if this SNLOccurrence is valid.
     bool isValid() const { return object_ != nullptr; }
     /// \return true if this SNLOccurrence references a SNLNetComponent.
     bool isNetComponentOccurrence() const;
+    /// \return true if this SNLOccurrence references a SNLInstance.
+    bool isInstanceOccurrence() const;
 
     /// \return the corresponding SNLOccurrence of the SNLBitNet referenced by this SNLOccurrence.
     SNLOccurrence getComponentBitNetOccurrence() const;
@@ -56,6 +62,8 @@ class SNLOccurrence {
     SNLNetComponent* getNetComponent() const;
     /// \return the SNLInstTerm referenced by this SNLOccurrence if the object is a SNLInstTerm.
     SNLInstTerm* getInstTerm() const;
+    /// \return the SNLInstance referenced by this SNLOccurrence if the object is a SNLInstance.
+    SNLInstance* getInstance() const;
     /// \return the SNLBitTerm referenced by this SNLOccurrence if the object is a SNLBitTerm.
     SNLBitTerm* getBitTerm() const;
 

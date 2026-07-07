@@ -12,7 +12,9 @@
 #include <Python.h>
 
 #include "NLException.h"
+#include "NLID.h"
 #include "NajaPythonProperty.h"
+#include "PyNLID.h"
 
 namespace PYNAJA {
 
@@ -99,6 +101,10 @@ PyObject* toPyLong(T value) {
   } else {
     return PyLong_FromUnsignedLongLong(static_cast<unsigned long long>(value));
   }
+}
+
+inline PyObject* toPyNLID(const naja::NL::NLID& id) {
+  return PyNLID_Link(id);
 }
 
 }
@@ -191,6 +197,12 @@ PyObject* toPyLong(T value) {
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
     GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
     return PYNAJA::toPyLong(selfObject->FUNC_NAME()); \
+  }
+
+#define DirectGetNLIDMethod(PY_FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self) { \
+    GENERIC_METHOD_HEAD(SELF_TYPE, "getNLID()") \
+    return PYNAJA::toPyNLID(selfObject->getNLID()); \
   }
 
 // -------------------------------------------------------------------

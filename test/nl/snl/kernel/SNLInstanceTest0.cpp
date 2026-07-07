@@ -9,6 +9,7 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "NLException.h"
 
 #include "SNLDesign.h"
@@ -30,6 +31,35 @@ class SNLInstanceTest0: public ::testing::Test {
     }
     NLDB* db_;
 };
+
+TEST_F(SNLInstanceTest0, testAssignInstancePartition) {
+  auto library = NLLibrary::create(db_);
+  auto primitiveLibrary = NLLibrary::create(db_, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(library);
+  auto model = SNLDesign::create(library);
+  auto primitiveModel =
+    SNLDesign::create(primitiveLibrary, SNLDesign::Type::Primitive);
+  auto nonAssign = SNLInstance::create(design, model, NLName("non_assign"));
+  auto primitive = SNLInstance::create(design, primitiveModel, NLName("primitive"));
+  auto assign = SNLInstance::create(design, NLDB0::getAssign());
+
+  EXPECT_THAT(
+    std::vector(design->getInstances().begin(), design->getInstances().end()),
+    ElementsAre(nonAssign, primitive, assign));
+  EXPECT_THAT(
+    std::vector(
+      design->getNonAssignInstances().begin(),
+      design->getNonAssignInstances().end()),
+    ElementsAre(nonAssign, primitive));
+  EXPECT_THAT(
+    std::vector(
+      design->getAssignInstances().begin(),
+      design->getAssignInstances().end()),
+    ElementsAre(assign));
+  EXPECT_EQ(
+    design->getInstances().size(),
+    design->getNonAssignInstances().size() + design->getAssignInstances().size());
+}
 
 TEST_F(SNLInstanceTest0, testCreation) {
   NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));

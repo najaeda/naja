@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+
+logger = logging.getLogger(__name__)
 try:
     from najaeda import naja
 except ImportError:  # pragma: no cover
@@ -293,6 +295,6 @@ def constructPrimitives(lib):
 
 
 def load(db):
-    logging.info("Loading Yosys primitives")
+    logger.info("Loading Yosys primitives")
     lib = naja.NLLibrary.createPrimitives(db, "yosys")
     constructPrimitives(lib)
