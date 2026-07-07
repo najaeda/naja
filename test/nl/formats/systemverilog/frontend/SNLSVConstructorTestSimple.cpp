@@ -1464,6 +1464,136 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyPortOnlyModuleBlackboxDetectionCanB
   EXPECT_EQ(unread, SNLUtils::findTop(library_));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseUnknownModuleAutoBlackboxWithNamedPorts) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_named_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_named_ports.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic       clk_i,
+  input  logic [3:0] data_i,
+  output logic [3:0] data_o
+);
+  missing_cell u_missing(
+    .clk(clk_i),
+    .din(data_i),
+    .dout(data_o)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_cell"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  ASSERT_NE(nullptr, dynamic_cast<SNLScalarTerm*>(model->getTerm(NLName("clk"))));
+  auto* din = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("din")));
+  auto* dout = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("dout")));
+  ASSERT_NE(nullptr, din);
+  ASSERT_NE(nullptr, dout);
+  EXPECT_EQ(3, din->getMSB());
+  EXPECT_EQ(0, din->getLSB());
+  EXPECT_EQ(3, dout->getMSB());
+  EXPECT_EQ(0, dout->getLSB());
+
+  auto* inst = top->getInstance(NLName("u_missing"));
+  ASSERT_NE(nullptr, inst);
+  auto* topClk = top->getScalarNet(NLName("clk_i"));
+  auto* topData0 = top->getBusNet(NLName("data_i"))->getBit(0);
+  auto* topDataO3 = top->getBusNet(NLName("data_o"))->getBit(3);
+  ASSERT_NE(nullptr, topClk);
+  ASSERT_NE(nullptr, topData0);
+  ASSERT_NE(nullptr, topDataO3);
+  EXPECT_EQ(topClk, inst->getInstTerm(model->getScalarTerm(NLName("clk")))->getNet());
+  EXPECT_EQ(topData0, inst->getInstTerm(din->getBit(0))->getNet());
+  EXPECT_EQ(topDataO3, inst->getInstTerm(dout->getBit(3))->getNet());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnknownModuleAutoBlackboxReusesOrderedModel) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_ordered_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_ordered_ports.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic [1:0] a_i,
+  input  logic       b_i,
+  output logic [1:0] y_o,
+  output logic       z_o
+);
+  missing_pair u0(a_i, y_o);
+  missing_pair u1(b_i, z_o);
+  missing_pair u2(a_i);
+  missing_pair u3(a_i, );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_pair"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  auto* p0 = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("p0")));
+  auto* p1 = dynamic_cast<SNLBusTerm*>(model->getTerm(NLName("p1")));
+  ASSERT_NE(nullptr, p0);
+  ASSERT_NE(nullptr, p1);
+  EXPECT_EQ(2, p0->getWidth());
+  EXPECT_EQ(2, p1->getWidth());
+
+  auto* u0 = top->getInstance(NLName("u0"));
+  auto* u1 = top->getInstance(NLName("u1"));
+  auto* u2 = top->getInstance(NLName("u2"));
+  auto* u3 = top->getInstance(NLName("u3"));
+  ASSERT_NE(nullptr, u0);
+  ASSERT_NE(nullptr, u1);
+  ASSERT_NE(nullptr, u2);
+  ASSERT_NE(nullptr, u3);
+  EXPECT_EQ(model, u0->getModel());
+  EXPECT_EQ(model, u1->getModel());
+  EXPECT_EQ(model, u2->getModel());
+  EXPECT_EQ(model, u3->getModel());
+  auto* a0 = top->getBusNet(NLName("a_i"))->getBit(0);
+  auto* y1 = top->getBusNet(NLName("y_o"))->getBit(1);
+  auto* b = top->getScalarNet(NLName("b_i"));
+  auto* z = top->getScalarNet(NLName("z_o"));
+  ASSERT_NE(nullptr, a0);
+  ASSERT_NE(nullptr, y1);
+  ASSERT_NE(nullptr, b);
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(a0, u0->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(y1, u0->getInstTerm(p1->getBit(1))->getNet());
+  EXPECT_EQ(b, u1->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(z, u1->getInstTerm(p1->getBit(0))->getNet());
+  EXPECT_EQ(a0, u2->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(nullptr, u2->getInstTerm(p1->getBit(0))->getNet());
+  EXPECT_EQ(a0, u3->getInstTerm(p0->getBit(0))->getNet());
+  EXPECT_EQ(nullptr, u3->getInstTerm(p1->getBit(0))->getNet());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoops) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -33344,6 +33474,53 @@ endmodule
   auto* init = dff->getInstParameter(NLName("INIT"));
   ASSERT_NE(init, nullptr);
   EXPECT_EQ("4'b1010", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitZDigit) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_z_digit",
+    R"(module initial_register_init_z_digit(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q,
+  output logic       z_o
+);
+  logic [3:0] state;
+  logic       z_state;
+  initial begin
+    state = 4'b0010;
+  end
+  initial begin
+    z_state = 1'bz;
+  end
+  always_ff @(posedge clk) begin
+    state <= d;
+    z_state <= z_state;
+  end
+  assign q = state;
+  assign z_o = z_state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_z_digit"));
+  ASSERT_NE(top, nullptr);
+  bool sawBinaryInit = false;
+  bool sawZInit = false;
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFF(inst->getModel())) {
+      continue;
+    }
+    auto* init = inst->getInstParameter(NLName("INIT"));
+    ASSERT_NE(init, nullptr);
+    sawBinaryInit = sawBinaryInit || init->getValue() == "4'b0010";
+    sawZInit = sawZInit || init->getValue() == "1'bz";
+  }
+  EXPECT_TRUE(sawBinaryInit);
+  EXPECT_TRUE(sawZInit);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseVariableDeclarationInitSetsDFFInitParameter) {
