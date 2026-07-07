@@ -298,6 +298,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install source build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq libboost-dev capnproto libcapnp-dev libtbb-dev ninja-build
+
       - name: Download parser-generated sources
         uses: actions/download-artifact@v8
         with:
@@ -318,8 +323,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)"
-          tar -tzf dist/*.tar.gz | grep -q 'thirdparty/naja-verilog/src/generated/VerilogParser.cpp'
-          tar -tzf dist/*.tar.gz | grep -q 'thirdparty/naja-verilog/src/generated/VerilogScanner.cpp'
+          python -m pip wheel --no-deps --wheel-dir sdist-wheel dist/*.tar.gz
+          python -m pip install --force-reinstall sdist-wheel/*.whl
+          python ci/check_wheel_import.py
 
       - uses: actions/upload-artifact@v7
         with:
