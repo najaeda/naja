@@ -313,6 +313,24 @@ size_t getPrimitiveWidth(const SNLInstance* instance) {
 
 using PrimitivePredicate = bool (*)(const SNLDesign*);
 
+const SNLInstance* findOnlyPrimitiveInstance(
+  const SNLDesign* design,
+  PrimitivePredicate predicate) {
+  const SNLInstance* found = nullptr;
+  for (auto* inst : design->getInstances()) {
+    auto* model = inst ? inst->getModel() : nullptr;
+    if (!model || !predicate(model)) {
+      continue;
+    }
+    if (found) {
+      ADD_FAILURE() << "Found more than one matching primitive instance";
+      return found;
+    }
+    found = inst;
+  }
+  return found;
+}
+
 size_t countPrimitiveBits(
     const SNLDesign* design,
     std::initializer_list<PrimitivePredicate> predicates) {
@@ -33255,6 +33273,103 @@ endmodule
   auto top = library_->getSNLDesign(NLName("initial_system_task_conditional_ignored_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitSetsDFFInitParameter) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_sets_dff_init_parameter",
+    R"(module initial_register_init_sets_dff_init_parameter(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state;
+  initial begin
+    state = 4'b1010;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_sets_dff_init_parameter"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(dff));
+  auto* init = dff->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b1010", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUninitializedRegisterDFFInitDefaultsToX) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "uninitialized_register_dff_init_defaults_to_x",
+    R"(module uninitialized_register_dff_init_defaults_to_x(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  always_ff @(posedge clk)
+    q <= d;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("uninitialized_register_dff_init_defaults_to_x"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  ASSERT_EQ(4u, getPrimitiveWidth(dff));
+  EXPECT_EQ(nullptr, dff->getInstParameter(NLName("INIT")));
+  auto* init = dff->getModel()->getParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'bxxxx", init->getValue());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitPreservesXInDumper) {
+  SNLSVConstructor constructor(library_);
+  auto svPath = writeSVTestFile(
+    "initial_register_init_preserves_x_in_dumper",
+    R"(module initial_register_init_preserves_x_in_dumper(
+  input  logic       clk,
+  input  logic [3:0] d,
+  output logic [3:0] q
+);
+  logic [3:0] state;
+  initial begin
+    state = 4'b10x1;
+  end
+  always_ff @(posedge clk)
+    state <= d;
+  assign q = state;
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("initial_register_init_preserves_x_in_dumper"));
+  ASSERT_NE(top, nullptr);
+  const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(dff, nullptr);
+  auto* init = dff->getInstParameter(NLName("INIT"));
+  ASSERT_NE(init, nullptr);
+  EXPECT_EQ("4'b10x1", init->getValue());
+
+  auto verilogPath = dumpTopAndGetVerilogPath(
+    top,
+    "initial_register_init_preserves_x_in_dumper_out");
+  const auto dumped = readTextFile(verilogPath);
+  EXPECT_NE(std::string::npos, dumped.find(".INIT(4'b10x1)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialConfigurationDisplayLoopIgnoredSupported) {

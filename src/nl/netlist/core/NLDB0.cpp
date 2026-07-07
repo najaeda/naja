@@ -17,6 +17,7 @@
 #include "SNLDesignModeling.h"
 
 #include <cstdint>
+#include <cctype>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -113,6 +114,14 @@ namespace {
     std::ostringstream name;
     name << prefix << width;
     return name.str();
+  }
+
+  void addDFFInitParameter(naja::NL::SNLDesign* design, size_t width) {
+    naja::NL::SNLParameter::create(
+      design,
+      naja::NL::NLName("INIT"),
+      naja::NL::SNLParameter::Type::Binary,
+      naja::NL::NLDB0::getUndefinedDFFInitValue(width));
   }
 
   std::string getDivModInternalName(const naja::NL::NLDB0::DivModSignature& signature) {
@@ -487,6 +496,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFName));
     SNLParameter::create(dff, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dff, 1);
     auto dffClock = SNLScalarTerm::create(dff, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffData = SNLScalarTerm::create(dff, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffOutput = SNLScalarTerm::create(dff, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
@@ -523,6 +533,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFNName));
     SNLParameter::create(dffn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffn, 1);
     auto dffnClock = SNLScalarTerm::create(dffn, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffnData = SNLScalarTerm::create(dffn, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffnOutput = SNLScalarTerm::create(dffn, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
@@ -541,6 +552,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFRNName));
     SNLParameter::create(dffrn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffrn, 1);
     auto dffrnClock = SNLScalarTerm::create(dffrn, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffrnData = SNLScalarTerm::create(dffrn, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffrnResetN = SNLScalarTerm::create(dffrn, Term2ID, SNLTerm::Direction::Input, NLName("RN"));
@@ -561,6 +573,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFRName));
     SNLParameter::create(dffr, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffr, 1);
     auto dffrClock = SNLScalarTerm::create(dffr, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffrData = SNLScalarTerm::create(dffr, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffrReset = SNLScalarTerm::create(dffr, Term2ID, SNLTerm::Direction::Input, NLName("R"));
@@ -581,6 +594,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFSName));
     SNLParameter::create(dffs, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffs, 1);
     auto dffsClock = SNLScalarTerm::create(dffs, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffsData = SNLScalarTerm::create(dffs, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffsSet = SNLScalarTerm::create(dffs, Term2ID, SNLTerm::Direction::Input, NLName("S"));
@@ -601,6 +615,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFEName));
     SNLParameter::create(dffe, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffe, 1);
     auto dffeClock = SNLScalarTerm::create(dffe, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffeData = SNLScalarTerm::create(dffe, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffeEnable = SNLScalarTerm::create(dffe, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -621,6 +636,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFREName));
     SNLParameter::create(dffre, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffre, 1);
     auto dffreClock = SNLScalarTerm::create(dffre, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffreData = SNLScalarTerm::create(dffre, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffreEnable = SNLScalarTerm::create(dffre, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -643,6 +659,7 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFSEName));
     SNLParameter::create(dffse, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
+    addDFFInitParameter(dffse, 1);
     auto dffseClock = SNLScalarTerm::create(dffse, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffseData = SNLScalarTerm::create(dffse, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffseEnable = SNLScalarTerm::create(dffse, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -675,6 +692,7 @@ namespace {
       NLName(getWidthInternalName(prefix, width)));
     SNLParameter::create(
       seq, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
+    addDFFInitParameter(seq, width);
     auto clock = SNLScalarTerm::create(seq, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto data = SNLBusTerm::create(
       seq, Term1ID, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("D"));
@@ -1024,6 +1042,30 @@ std::string NLDB0::GateType::getString() const {
       return "UNKNOWN";
   }
   return "Bug"; //LCOV_EXCL_LINE
+}
+
+std::string NLDB0::formatDFFInitValue(
+  size_t width,
+  std::string_view msbToLsbDigits) {
+  if (width == 0 || msbToLsbDigits.size() != width) {
+    throw NLException("NLDB0::formatDFFInitValue: invalid DFF INIT width");
+  }
+  std::ostringstream literal;
+  literal << width << "'b";
+  for (char digit : msbToLsbDigits) {
+    const char normalized = static_cast<char>(
+      std::tolower(static_cast<unsigned char>(digit)));
+    if (normalized != '0' && normalized != '1' &&
+        normalized != 'x' && normalized != 'z') {
+      throw NLException("NLDB0::formatDFFInitValue: invalid DFF INIT digit");
+    }
+    literal << normalized;
+  }
+  return literal.str();
+}
+
+std::string NLDB0::getUndefinedDFFInitValue(size_t width) {
+  return formatDFFInitValue(width, std::string(width, 'x'));
 }
 
 NLDB* NLDB0::create(NLUniverse* universe) {

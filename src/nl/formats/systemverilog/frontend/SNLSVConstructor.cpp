@@ -4592,6 +4592,163 @@ endmodule
       return encoded;
     }
 
+    struct DFFInitBit {
+      char digit {'x'};
+      const slang::ast::ProceduralBlockSymbol* block {nullptr};
+      bool consumed {false};
+    };
+
+    std::optional<std::vector<char>> getConstantDFFInitDigits(
+      const Expression& expr,
+      const Symbol& evalSymbol,
+      size_t totalWidth) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || totalWidth == 0) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+
+      const slang::ConstantValue* value = stripped->getConstant();
+      slang::ConstantValue evaluatedValue;
+      if (!value) {
+        slang::ast::EvalContext evalContext(evalSymbol);
+        evaluatedValue = stripped->eval(evalContext);
+        if (evaluatedValue) {
+          value = &evaluatedValue;
+        }
+      }
+      if (!value) {
+        return std::nullopt;
+      }
+
+      slang::ConstantValue convertedValue;
+      if (!value->isInteger()) {
+        convertedValue = value->convertToInt();
+        if (!convertedValue || !convertedValue.isInteger()) {
+          return std::nullopt;
+        }
+        value = &convertedValue;
+      }
+
+      const auto resized = value->integer().resize(
+        static_cast<slang::bitwidth_t>(totalWidth));
+      std::vector<char> digits;
+      digits.reserve(totalWidth);
+      for (size_t bit = 0; bit < totalWidth; ++bit) {
+        const auto bitValue = resized[static_cast<slang::bitwidth_t>(bit)];
+        if (exactlyEqual(bitValue, slang::logic_t::x)) {
+          digits.push_back('x');
+        } else if (exactlyEqual(bitValue, slang::logic_t::z)) {
+          digits.push_back('z');
+        } else {
+          digits.push_back(static_cast<bool>(bitValue) ? '1' : '0');
+        }
+      }
+      return digits;
+    }
+
+    std::optional<std::string> getDFFInitValueForOutputBits(
+      const std::vector<SNLBitNet*>& outputBits) {
+      if (outputBits.empty()) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+      bool hasExplicitInit = false;
+      std::string msbDigits;
+      msbDigits.reserve(outputBits.size());
+      for (auto it = outputBits.rbegin(); it != outputBits.rend(); ++it) {
+        char digit = 'x';
+        if (auto found = dffInitDigitByOutputBit_.find(*it);
+            found != dffInitDigitByOutputBit_.end()) {
+          digit = found->second.digit;
+          hasExplicitInit = true;
+        }
+        msbDigits.push_back(digit);
+      }
+      if (!hasExplicitInit) {
+        return std::nullopt;
+      }
+      return NLDB0::formatDFFInitValue(outputBits.size(), msbDigits);
+    }
+
+    void attachDFFInitParameter(
+      SNLInstance* inst,
+      const std::vector<SNLBitNet*>& outputBits) {
+      if (!inst) {
+        return; // LCOV_EXCL_LINE
+      }
+      auto* model = inst->getModel();
+      auto* initParam = model ? model->getParameter(NLName("INIT")) : nullptr;
+      if (!initParam) {
+        return;
+      }
+      auto initValue = getDFFInitValueForOutputBits(outputBits);
+      if (!initValue) {
+        return;
+      }
+      for (auto* bit : outputBits) {
+        if (auto found = dffInitDigitByOutputBit_.find(bit);
+            found != dffInitDigitByOutputBit_.end()) {
+          found->second.consumed = true;
+        }
+      }
+      SNLInstParameter::create(inst, initParam, *initValue);
+    }
+
+    bool analyzeDFFInitialBlock(
+      SNLDesign* design,
+      const slang::ast::ProceduralBlockSymbol& block,
+      std::string& failureReason) {
+      const Statement* stmt = getOnlyInitialStatement(block.getBody());
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!stmt || !extractAssignment(*stmt, lhs, action) || !lhs || !action.rhs ||
+          action.scheduling != ProceduralAssignmentScheduling::Blocking ||
+          action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "initial block is not a single blocking constant register assignment";
+        return false;
+      }
+
+      const slang::ast::ValueSymbol* rootSymbol = nullptr;
+      if (!tryGetRootValueSymbolReference(*lhs, rootSymbol) || !rootSymbol ||
+          rootSymbol->kind != SymbolKind::Variable) {
+        failureReason = "initial assignment target is not a register variable";
+        return false;
+      }
+
+      std::vector<SNLBitNet*> lhsBits;
+      if (!resolveAssignmentLHSBits(design, *lhs, lhsBits, &failureReason, true) ||
+          lhsBits.empty()) {
+        if (failureReason.empty()) {
+          failureReason = "unable to resolve initial register assignment target";
+        }
+        return false;
+      }
+
+      auto digits = getConstantDFFInitDigits(*action.rhs, *rootSymbol, lhsBits.size());
+      if (!digits || digits->size() != lhsBits.size()) {
+        failureReason = "initial register value is not a constant integral value";
+        return false;
+      }
+
+      std::unordered_set<SNLBitNet*> seenLHSBits;
+      for (auto* bit : lhsBits) {
+        if (!seenLHSBits.insert(bit).second ||
+            dffInitDigitByOutputBit_.contains(bit)) {
+          failureReason = "multiple initial register assignments target the same bit";
+          return false;
+        }
+      }
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        dffInitDigitByOutputBit_.emplace(
+          lhsBits[bit],
+          DFFInitBit{(*digits)[bit], &block, false});
+      }
+      reportUnsupportedWarning(
+        "lowered_initial_register_init",
+        "lowering constant initial register assignment as DFF INIT metadata",
+        getSourceRange(block));
+      return true;
+    }
+
     void connectBusNetBits(
       SNLDesign* design,
       SNLBusNet* busNet,
@@ -30092,6 +30249,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDLatchInstance(
@@ -30158,6 +30316,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFRNInstance(
@@ -30198,6 +30357,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFRInstance(
@@ -30238,6 +30398,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFSInstance(
@@ -30278,6 +30439,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFEInstance(
@@ -30318,6 +30480,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFREInstance(
@@ -30365,6 +30528,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFSEInstance(
@@ -30412,6 +30576,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     bool createVectorSequentialInstance(
@@ -30464,11 +30629,13 @@ endmodule
       }
       inst->setTermNet(dTerm, dataRef.net, dataRef.msb, dataRef.lsb);
       inst->setTermNet(qTerm, outputRef.net, outputRef.msb, outputRef.lsb);
+      attachDFFInitParameter(inst, outputBits);
       return true;
     }
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
+      dffInitDigitByOutputBit_.clear();
       const auto uninferredMemoryWarningThreshold =
         getUninferredMemoryWarningBitThreshold();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -30494,6 +30661,17 @@ endmodule
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
+      for (const auto* blockPtr : proceduralBlocks) {
+        if (!blockPtr ||
+            blockPtr->procedureKind != slang::ast::ProceduralBlockKind::Initial ||
+            handledInitialBlocks_.contains(blockPtr)) {
+          continue;
+        }
+        std::string ignoredFailureReason;
+        if (analyzeDFFInitialBlock(design, *blockPtr, ignoredFailureReason)) {
+          handledInitialBlocks_.insert(blockPtr);
+        }
+      }
       for (const auto* blockPtr : proceduralBlocks) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.proceduralBlocksVisited;
@@ -30826,6 +31004,11 @@ endmodule
           if (handledInitialBlocks_.contains(&block)) {
             continue;
           }
+          std::string dffInitFailureReason;
+          if (analyzeDFFInitialBlock(design, block, dffInitFailureReason)) {
+            handledInitialBlocks_.insert(&block);
+            continue;
+          }
           size_t evaluatedIterations = 0;
           std::string initialFailureReason;
           if (!analyzeConfigurationInitialStatement(
@@ -30834,6 +31017,8 @@ endmodule
             reason << "Unsupported initial block in module '" << moduleName << "'";
             if (!initialFailureReason.empty()) {
               reason << ": " << initialFailureReason;
+            } else if (!dffInitFailureReason.empty()) {
+              reason << ": " << dffInitFailureReason;
             }
             reportUnsupportedError(reason.str(), blockSourceRange);
           }
@@ -31617,6 +31802,19 @@ endmodule
         ++svPerfReport_.sequentialBlocksLowered;
         noteSVPerfProgress();
 #endif
+      }
+      std::unordered_set<const slang::ast::ProceduralBlockSymbol*> reportedUnconsumedInitBlocks;
+      for (const auto& [bit, initBit] : dffInitDigitByOutputBit_) {
+        (void)bit;
+        if (initBit.consumed || !initBit.block ||
+            reportedUnconsumedInitBlocks.contains(initBit.block)) {
+          continue;
+        }
+        reportedUnconsumedInitBlocks.insert(initBit.block);
+        std::ostringstream reason;
+        reason << "Unsupported initial block in module '" << moduleName
+               << "': initial assignment target is not lowered as a register";
+        reportUnsupportedError(reason.str(), getSourceRange(*initBit.block));
       }
     }
 
@@ -33023,6 +33221,7 @@ endmodule
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
+    std::unordered_map<SNLBitNet*, DFFInitBit> dffInitDigitByOutputBit_ {};
     std::unordered_set<const slang::ast::NetSymbol*> loweredNetInitializers_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
