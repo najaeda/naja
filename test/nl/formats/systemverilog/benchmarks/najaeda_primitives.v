@@ -53,12 +53,14 @@ module naja_table_select #(
 endmodule
 
 module naja_dff #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C) begin
     Q <= D;
   end
@@ -79,25 +81,29 @@ endmodule
 /* verilator lint_on LATCH */
 
 module naja_dffn #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(negedge C) begin
     Q <= D;
   end
 endmodule
 
 module naja_dffrn #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   input wire RN,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C or negedge RN) begin
     if (!RN) Q <= {WIDTH{1'b0}};
     else Q <= D;
@@ -105,13 +111,15 @@ module naja_dffrn #(
 endmodule
 
 module naja_dffr #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   input wire R,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C or posedge R) begin
     if (R) Q <= {WIDTH{1'b0}};
     else Q <= D;
@@ -119,13 +127,15 @@ module naja_dffr #(
 endmodule
 
 module naja_dffs #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   input wire S,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C or posedge S) begin
     if (S) Q <= {WIDTH{1'b1}};
     else Q <= D;
@@ -133,20 +143,23 @@ module naja_dffs #(
 endmodule
 
 module naja_dffe #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
   input wire E,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C) begin
     if (E) Q <= D;
   end
 endmodule
 
 module naja_dffre #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
@@ -154,6 +167,7 @@ module naja_dffre #(
   input wire R,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C or posedge R) begin
     if (R) Q <= {WIDTH{1'b0}};
     else if (E) Q <= D;
@@ -161,7 +175,8 @@ module naja_dffre #(
 endmodule
 
 module naja_dffse #(
-  parameter WIDTH = 1
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
 ) (
   input wire C,
   input wire [WIDTH-1:0] D,
@@ -169,6 +184,7 @@ module naja_dffse #(
   input wire S,
   output reg [WIDTH-1:0] Q
 );
+  initial Q = INIT;
   always @(posedge C or posedge S) begin
     if (S) Q <= {WIDTH{1'b1}};
     else if (E) Q <= D;

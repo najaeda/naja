@@ -121,6 +121,14 @@ cases:
         self.assertIn("parameter INIT = 1'b0", primitives)
         self.assertNotIn("parameter [WIDTH*DEPTH-1:0] INIT", primitives)
 
+    def test_sequential_primitives_accept_init_parameter(self):
+        primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("module naja_dff #(\n  parameter WIDTH = 1,\n  parameter INIT = {WIDTH{1'bx}}", primitives)
+        self.assertIn("module naja_dffn #(\n  parameter WIDTH = 1,\n  parameter INIT = {WIDTH{1'bx}}", primitives)
+        self.assertIn("module naja_dffre #(\n  parameter WIDTH = 1,\n  parameter INIT = {WIDTH{1'bx}}", primitives)
+        self.assertIn("initial Q = INIT;", primitives)
+
     def test_parser_accepts_local_lint_runner(self):
         parser = sv_regress.build_parser()
         args = parser.parse_args(["run", "--lint-runner", "local"])
