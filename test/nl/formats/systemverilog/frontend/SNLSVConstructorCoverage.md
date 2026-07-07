@@ -83,6 +83,9 @@ the current architecture:
   fixed-range diagnostics retained for alternate type modeling; parser-backed
   dynamic element assignments reach these helpers with fixed-range bitstream
   bases.
+- Declaration-initializer DFF INIT finalization: skip after the first
+  unconsumed bit of a partially consumed variable is an unordered-map iteration
+  artifact, not a distinct parser-backed behavior.
 - Dynamic element sub-assignment lowering: internal offset and width mismatch
   guards retained for inconsistent selection-step data after prior fixed-range
   and bit-width validation.

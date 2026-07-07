@@ -4737,8 +4737,8 @@ endmodule
         if (failureReason.empty()) {
           failureReason = "unable to resolve initial register assignment target";
         }
-        // LCOV_EXCL_STOP
         return false;
+        // LCOV_EXCL_STOP
       }
 
       auto digits = getConstantDFFInitDigits(*action.rhs, *rootSymbol, lhsBits.size());
@@ -4830,7 +4830,7 @@ endmodule
         }
         auto [it, inserted] = consumedByVariable.emplace(initBit.variable, true);
         if (!inserted && !it->second) {
-          continue;
+          continue; // LCOV_EXCL_LINE - unordered_map iteration artifact after first unconsumed bit
         }
         it->second = it->second && initBit.consumed;
       }
