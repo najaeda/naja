@@ -63,6 +63,8 @@ TEST_F(SNLGateTruthTableTest, testAndGate) {
     ASSERT_NE(and2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(and2);
     expectGenericGate(and2, tt, 2, SNLTruthTable::GenericType::AND);
+    EXPECT_TRUE(SNLDesignModeling::isAnd(and2));
+    EXPECT_FALSE(SNLDesignModeling::isXor(and2));
 
     auto and4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 4);
     ASSERT_NE(and4, nullptr);
@@ -80,6 +82,8 @@ TEST_F(SNLGateTruthTableTest, testNandGate) {
     ASSERT_NE(nand2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(nand2);
     expectGenericGate(nand2, tt, 2, SNLTruthTable::GenericType::NAND);
+    EXPECT_TRUE(SNLDesignModeling::isNand(nand2));
+    EXPECT_FALSE(SNLDesignModeling::isAnd(nand2));
 
     auto nand6 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nand, 6);
     ASSERT_NE(nand6, nullptr);
@@ -92,6 +96,8 @@ TEST_F(SNLGateTruthTableTest, testOrGate) {
     ASSERT_NE(or2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(or2);
     expectGenericGate(or2, tt, 2, SNLTruthTable::GenericType::OR);
+    EXPECT_TRUE(SNLDesignModeling::isOr(or2));
+    EXPECT_FALSE(SNLDesignModeling::isNor(or2));
 
     auto or4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 4);
     ASSERT_NE(or4, nullptr);
@@ -116,6 +122,8 @@ TEST_F(SNLGateTruthTableTest, testNorGate) {
     ASSERT_NE(nor, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(nor);
     expectGenericGate(nor, tt, 2, SNLTruthTable::GenericType::NOR);
+    EXPECT_TRUE(SNLDesignModeling::isNor(nor));
+    EXPECT_FALSE(SNLDesignModeling::isOr(nor));
 
     auto nor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Nor, 3);
     ASSERT_NE(nor3, nullptr);
@@ -133,6 +141,8 @@ TEST_F(SNLGateTruthTableTest, testXorGate) {
     ASSERT_NE(xor2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(xor2);
     expectGenericGate(xor2, tt, 2, SNLTruthTable::GenericType::XOR);
+    EXPECT_TRUE(SNLDesignModeling::isXor(xor2));
+    EXPECT_FALSE(SNLDesignModeling::isXnor(xor2));
 
     auto xor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 3);
     ASSERT_NE(xor3, nullptr);
@@ -150,6 +160,8 @@ TEST_F(SNLGateTruthTableTest, testXnorGate) {
     ASSERT_NE(xnor2, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(xnor2);
     expectGenericGate(xnor2, tt, 2, SNLTruthTable::GenericType::XNOR);
+    EXPECT_TRUE(SNLDesignModeling::isXnor(xnor2));
+    EXPECT_FALSE(SNLDesignModeling::isXor(xnor2));
 
     auto xnor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 3);
     ASSERT_NE(xnor3, nullptr);

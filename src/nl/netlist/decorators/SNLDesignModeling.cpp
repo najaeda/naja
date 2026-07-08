@@ -2158,4 +2158,41 @@ bool SNLDesignModeling::isBuf(const SNLDesign* design) {
          static_cast<uint64_t>(truthTable.bits()) == 0b10;
 }
 
+namespace {
+bool isTruthTableFamily(
+    const SNLDesign* design,
+    bool (SNLTruthTable::*predicate)() const) {
+  try {
+    auto truthTable = SNLDesignModeling::getTruthTable(design);
+    return truthTable.isInitialized() && (truthTable.*predicate)();
+  } catch (const NLException&) {
+    return false;
+  }
+}
+}  // namespace
+
+bool SNLDesignModeling::isAnd(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isAnd);
+}
+
+bool SNLDesignModeling::isNand(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isNand);
+}
+
+bool SNLDesignModeling::isOr(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isOr);
+}
+
+bool SNLDesignModeling::isNor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isNor);
+}
+
+bool SNLDesignModeling::isXor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isXor);
+}
+
+bool SNLDesignModeling::isXnor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isXnor);
+}
+
 }  // namespace naja::NL

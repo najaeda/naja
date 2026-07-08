@@ -128,6 +128,31 @@ TEST(SNLTruthTableTest, testConstants) {
   EXPECT_NE(tt2, SNLTruthTable::Logic1());
 }
 
+TEST(SNLTruthTableTest, testGateFamilyPredicates) {
+  const auto deps2 = SNLTruthTable::fullDependencies(2);
+  EXPECT_TRUE(SNLTruthTable(2, 0x8, deps2).isAnd());
+  EXPECT_TRUE(SNLTruthTable(2, 0x7, deps2).isNand());
+  EXPECT_TRUE(SNLTruthTable(2, 0xE, deps2).isOr());
+  EXPECT_TRUE(SNLTruthTable(2, 0x1, deps2).isNor());
+  EXPECT_TRUE(SNLTruthTable(2, 0x6, deps2).isXor());
+  EXPECT_TRUE(SNLTruthTable(2, 0x9, deps2).isXnor());
+
+  EXPECT_FALSE(SNLTruthTable(2, 0x8, deps2).isXor());
+  EXPECT_FALSE(SNLTruthTable::Buf().isAnd());
+  EXPECT_FALSE(SNLTruthTable::Inv().isNand());
+
+  EXPECT_TRUE(
+      SNLTruthTable(7,
+                    SNLTruthTable::GenericType::XOR,
+                    SNLTruthTable::fullDependencies(7))
+          .isXor());
+  EXPECT_TRUE(
+      SNLTruthTable(7,
+                    SNLTruthTable::GenericType::AND,
+                    SNLTruthTable::fullDependencies(7))
+          .isAnd());
+}
+
 TEST(SNLTruthTableTest, testGenericReduction) {
   SNLTruthTable and2(
       2, SNLTruthTable::GenericType::AND, SNLTruthTable::fullDependencies(2));

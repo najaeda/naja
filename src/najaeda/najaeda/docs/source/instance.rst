@@ -43,6 +43,11 @@ In this model:
 
 All terminals in these generic instances are **unnamed** (see :py:attr:`najaeda.netlist.Instance.is_unnamed`).
 
+Use :py:meth:`najaeda.netlist.Instance.is_and`, :py:meth:`~najaeda.netlist.Instance.is_nand`,
+:py:meth:`~najaeda.netlist.Instance.is_or`, :py:meth:`~najaeda.netlist.Instance.is_nor`,
+:py:meth:`~najaeda.netlist.Instance.is_xor`, and :py:meth:`~najaeda.netlist.Instance.is_xnor`
+to identify n-input gate families without decoding raw truth-table masks.
+
 Instance Attributes
 -------------------
 

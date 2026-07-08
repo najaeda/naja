@@ -1237,6 +1237,48 @@ class Instance:
         """
         return self.__get_snl_model().isInv()
 
+    def is_and(self) -> bool:
+        """
+        :return: True if this is an AND gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isAnd()
+
+    def is_nand(self) -> bool:
+        """
+        :return: True if this is a NAND gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isNand()
+
+    def is_or(self) -> bool:
+        """
+        :return: True if this is an OR gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isOr()
+
+    def is_nor(self) -> bool:
+        """
+        :return: True if this is a NOR gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isNor()
+
+    def is_xor(self) -> bool:
+        """
+        :return: True if this is an XOR gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isXor()
+
+    def is_xnor(self) -> bool:
+        """
+        :return: True if this is an XNOR gate.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isXnor()
+
     def __get_snl_model(self):
         if self.is_top():
             return naja.NLUniverse.get().getTopDesign()

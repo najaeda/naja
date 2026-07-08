@@ -12,6 +12,7 @@
 #include "PySNLInstance.h"
 #include "PySNLInstTerm.h"
 #include "SNLDesignObject.h"
+#include "SNLInstance.h"
 #include "SNLPath.h"
 #include "SNLOccurrence.h"
 
