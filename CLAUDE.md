@@ -22,7 +22,7 @@ This is a large codebase (~1500 files). A graphify knowledge graph makes orienti
 
 ## What Naja is
 
-Open-source EDA framework for gate-level netlists — SystemVerilog/Verilog parsing through analysis, optimization, and transformation. Usable from C++ and Python (`najaeda`). See [README.md](README.md) for the public overview.
+Open-source EDA framework for hardware design loading and transformation — from Verilog and SystemVerilog RTL elaboration through structural netlist analysis, optimization, and editing. Usable from C++ and Python (`najaeda`). See [README.md](README.md) for the public overview.
 
 Two complementary C++ APIs:
 - **SNL** (Structured Netlist) — full read/write netlist representation.
@@ -59,6 +59,34 @@ make && make test && make install
 - The SystemVerilog frontend is built on **slang**; sequential lowering and always-block handling live in `SNLSVConstructor` and the "Sequential Assignment Lowering" community — query the graph before touching them.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
+
+## najaeda Python API documentation
+
+When changing either Python API level exposed by the `najaeda` package, update the package documentation in `src/najaeda/najaeda/docs/source/` in the same change. This includes both the high-level `najaeda.netlist` API and the raw compiled `najaeda.naja` / `naja.so` API.
+
+This applies to:
+- the high-level API in `src/najaeda/najaeda/netlist.py`;
+- Python helper modules such as `instance_visitor.py`, `net_visitor.py`, `stats.py`, and `pandas_stats.py`;
+- raw Python bindings under `src/nl/python/naja_wrapping/`, including exported module functions, exception types, classes, constructors, enum-like values, and public methods;
+- changes in underlying SNL/NL C++ APIs when they alter what the raw Python bindings expose or how raw Python users should call them.
+
+Documentation expectations:
+- High-level API changes should update `api.rst`, the relevant class guide page, or the user guide pages (`concepts.rst`, `quickstart.rst`, `loading.rst`, `editing.rst`).
+- Raw `najaeda.naja` / `naja.so` API changes should update `raw_api.rst`, including the expert reference table when public raw classes, module functions, exceptions, enum-like values, constructors, or methods change.
+- If a raw binding change makes a new native feature usable from Python, document when experts should use the raw API directly and whether a high-level `najaeda.netlist` wrapper should also be added.
+- Workflow or example changes should update `examples.rst.in` or the relevant guide page.
+
+Before finishing a documentation-impacting change, run a Sphinx build when the local environment supports it:
+
+```bash
+sphinx-build -b html src/najaeda/najaeda/docs/source /tmp/najaeda-docs-check
+```
+
+If `sphinx_rtd_theme` is not installed locally, use the built-in theme override:
+
+```bash
+sphinx-build -b html -D html_theme=alabaster src/najaeda/najaeda/docs/source /tmp/najaeda-docs-check
+```
 
 ## Git
 

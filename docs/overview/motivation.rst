@@ -3,7 +3,8 @@ Why Naja?
 
 Naja is an EDA (Electronic Design Automation) project aiming at
 offering open source data structures and APIs for the development of
-post logic synthesis EDA algorithms such as:
+EDA algorithms and tools from RTL elaboration through structural netlist
+analysis, optimization, and transformation, such as:
 netlist simplification (constant and dead logic propagation),
 logic replication, netlist partitioning, ASIC and FPGA place and route, ...
 

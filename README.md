@@ -14,9 +14,9 @@ https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebo
 
 ## What is Naja?
 
-Naja is an open source EDA framework for working with gate-level netlists — from SystemVerilog parsing through analysis, optimization, and transformation. It is usable from Python or C++.
+Naja is an open source EDA framework for loading, elaborating, analyzing, optimizing, and transforming hardware designs from RTL SystemVerilog through structural netlists. It is usable from Python or C++.
 
-- **SV/Verilog frontend** — parse and elaborate gate-level designs
+- **SV/Verilog frontend** — parse Verilog and elaborate SystemVerilog RTL into a browsable design model
 - **Netlist analysis** — hierarchy, connectivity, equipotentials
 - **Logic optimization** — dead logic elimination, constant propagation
 - **ECO transformations** — direct netlist editing
@@ -33,6 +33,13 @@ pip install najaeda
 ```
 
 Full documentation: [najaeda.readthedocs.io](https://najaeda.readthedocs.io/en/latest/)
+
+For AI-assisted design exploration, [`naja-scope`](https://github.com/najaeda/naja-scope)
+is a najaeda-based MCP server that gives MCP-compatible assistants a precise,
+structured view of elaborated SystemVerilog designs. Instead of pasting large
+RTL files into chat, agents can ask targeted questions — what drives a signal,
+what is inside a module, where a net comes from — and get small, exact answers
+with file-and-line references.
 
 ### Tutorials
 

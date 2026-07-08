@@ -1793,7 +1793,7 @@ class Instance:
             config = VerilogDumpConfig()
         top_name = get_top().get_name()
         logger.info(
-            f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
+            f"Starting structural Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
         dump_kwargs = {
             "dumpRTLInfosAsAttributes": config.dumpRTLInfosAsAttributes,
@@ -1976,7 +1976,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
-    logger.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
+    logger.info(f"Starting structural Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
@@ -2109,6 +2109,7 @@ def load_primitives(name: str):
 
     - xilinx
     - yosys
+
     :param str name: the name of the primitives library to load.
     :raises ValueError: if the name is not recognized.
     :rtype: None
@@ -2127,7 +2128,8 @@ def load_primitives_from_file(file: str):
     """Loads a primitives library from a file.
 
     :param str file: the path to the primitives library file.
-    The file must define a function `load(db)`.
+
+    The file must define a function ``load(db)``.
     """
     logger.info(f"Loading primitives from file: {file}")
     if not os.path.isfile(file):
