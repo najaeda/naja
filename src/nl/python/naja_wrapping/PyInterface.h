@@ -107,6 +107,27 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
   return PyNLID_Link(id);
 }
 
+inline void combinePyHash(Py_uhash_t& seed, Py_uhash_t value) {
+  seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+}
+
+inline Py_uhash_t hashNLID(const naja::NL::NLID& id) {
+  Py_uhash_t seed = 0;
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.type_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.dbID_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.libraryID_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.designID_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.designObjectID_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.instanceID_));
+  combinePyHash(seed, static_cast<Py_uhash_t>(id.bit_));
+  return seed;
+}
+
+inline Py_hash_t finishPyHash(Py_uhash_t hash) {
+  auto pyHash = static_cast<Py_hash_t>(hash);
+  return pyHash == -1 ? -2 : pyHash;
+}
+
 }
 
 // This macro must be redefined in derived classes.
@@ -188,9 +209,14 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
     return richCompare(*selfObject, *otherObject, op); \
   }
      
-#define DirectHashMethod(PY_FUNC_NAME,PY_SELF_TYPE)                          \
-  static int PY_FUNC_NAME(PY_SELF_TYPE *self) {                              \
-    return (long)self->ACCESS_OBJECT;                                        \
+#define DirectHashByNLIDMethod(PY_FUNC_NAME,PY_SELF_TYPE)                    \
+  static Py_hash_t PY_FUNC_NAME(PY_SELF_TYPE *self) {                        \
+    if (not self->ACCESS_OBJECT) {                                           \
+      setError("Attempt to hash an unbound object");                         \
+      return -1;                                                             \
+    }                                                                        \
+    return PYNAJA::finishPyHash(                                             \
+      PYNAJA::hashNLID(self->ACCESS_OBJECT->getNLID()));                     \
   }
 
 #define DirectGetNumericMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
@@ -268,7 +294,7 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
   DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
   DirectStrMethod(Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
   DirectCmpByNLIDMethod(Py##SELF_TYPE##_Cmp, Py##SELF_TYPE) \
-  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
+  DirectHashByNLIDMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
   extern void Py##SELF_TYPE##_LinkPyType() { \
     PyType##SELF_TYPE.tp_richcompare = (richcmpfunc)Py##SELF_TYPE##_Cmp; \
     PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
@@ -281,7 +307,7 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
   DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
   DirectStrMethod(Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
   DirectCmpByNLIDMethod(Py##SELF_TYPE##_Cmp, Py##SELF_TYPE) \
-  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
+  DirectHashByNLIDMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
   extern void Py##SELF_TYPE##_LinkPyType() { \
     PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
     PyType##SELF_TYPE.tp_richcompare = (richcmpfunc)Py##SELF_TYPE##_Cmp; \
@@ -295,13 +321,12 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
   DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
   DirectStrMethod (Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
   DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
-  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
   extern void  Py##SELF_TYPE##_LinkPyType() { \
     PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
     PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp; \
     PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
     PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
-    PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
+    PyType##SELF_TYPE.tp_hash = PyObject_HashNotImplemented; \
     PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
   }
 
@@ -314,6 +339,21 @@ inline PyObject* toPyNLID(const naja::NL::NLID& id) {
     PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp; \
     PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
     PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = PyObject_HashNotImplemented; \
+    PyType##SELF_TYPE.tp_init = (initproc)Py##SELF_TYPE##_Init; \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
+  }
+
+#define PyTypeManagedNLObjectWithoutNLIDLinkPyTypeWithHash(SELF_TYPE, HASH_FUNC) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
+  DirectStrMethod (Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
+  DirectCmpByObjectMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
+  extern void  Py##SELF_TYPE##_LinkPyType() { \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp; \
+    PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
+    PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = (hashfunc)HASH_FUNC; \
     PyType##SELF_TYPE.tp_init = (initproc)Py##SELF_TYPE##_Init; \
     PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
   }

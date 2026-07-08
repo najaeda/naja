@@ -55,6 +55,32 @@ ManagedTypeLinkCreateMethod(SNLOccurrence)
 //LCOV_EXCL_STOP
 ManagedTypeDeallocMethod(SNLOccurrence)
 
+static Py_uhash_t hashSNLPathForOccurrence(const SNLPath& path) {
+  Py_uhash_t seed = 0;
+  for (auto instance: path.getInstances()) {
+    PYNAJA::combinePyHash(seed, PYNAJA::hashNLID(instance->getNLID()));
+  }
+  return seed;
+}
+
+static Py_uhash_t hashSNLOccurrence(const SNLOccurrence& occurrence) {
+  Py_uhash_t seed = 0;
+  auto object = occurrence.getObject();
+  if (object) {
+    PYNAJA::combinePyHash(seed, PYNAJA::hashNLID(object->getNLID()));
+  }
+  PYNAJA::combinePyHash(seed, hashSNLPathForOccurrence(occurrence.getPath()));
+  return seed;
+}
+
+static Py_hash_t PySNLOccurrence_Hash(PySNLOccurrence* self) {
+  if (not self->ACCESS_OBJECT) {
+    setError("Attempt to call SNLOccurrence.__hash__() on an unbound object");
+    return -1;
+  }
+  return PYNAJA::finishPyHash(hashSNLOccurrence(*self->ACCESS_OBJECT));
+}
+
 GetObjectMethod(SNLOccurrence, SNLNetComponent, getNetComponent)
 GetObjectMethod(SNLOccurrence, SNLInstTerm, getInstTerm)
 GetObjectMethod(SNLOccurrence, SNLInstance, getInstance)
@@ -78,7 +104,7 @@ PyMethodDef PySNLOccurrence_Methods[] = {
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 
-PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLOccurrence)
+PyTypeManagedNLObjectWithoutNLIDLinkPyTypeWithHash(SNLOccurrence, PySNLOccurrence_Hash)
 PyTypeObjectDefinitions(SNLOccurrence)
 
 }  // namespace PYNAJA

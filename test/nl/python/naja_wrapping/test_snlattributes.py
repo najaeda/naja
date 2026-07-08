@@ -36,6 +36,8 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("pragma2", pragma2.getName())
     self.assertEqual("", pragma2.getValue())
     self.assertFalse(pragma2.hasValue())
+    with self.assertRaises(TypeError):
+      hash(pragma0)
 
   def testAttributesErrors(self):
     with self.assertRaises(RuntimeError) as context: naja.SNLAttribute("pragma0", "value0", "value1")

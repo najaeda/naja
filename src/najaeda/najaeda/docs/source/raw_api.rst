@@ -43,6 +43,18 @@ Some development and test layouts also place the extension on ``PYTHONPATH``
 as top-level ``naja``.  Prefer ``from najaeda import naja`` in documentation
 and reusable scripts because it works with bundled package layouts too.
 
+Object identity and hashing
+---------------------------
+
+Raw SNL objects returned by repeated accessor calls are not guaranteed to be
+the same Python wrapper object.  Do not use ``id(obj)`` to identify nets,
+terms, instances, paths, occurrences, or other wrapped SNL objects across
+calls.  Use ``==`` for equality and use the wrapped object itself as a
+``dict`` key or ``set`` element when the object is hashable.  Objects with a
+native ``NLID`` hash from that ``NLID``.  ``SNLPath`` and ``SNLOccurrence``
+are hashable by composing the ``NLID`` values of their referenced objects.
+Raw value wrappers without an ``NLID`` are intentionally unhashable.
+
 Relationship to high-level wrappers
 -----------------------------------
 
