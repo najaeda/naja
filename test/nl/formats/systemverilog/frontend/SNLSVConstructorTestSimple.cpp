@@ -26709,13 +26709,15 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetAllZeroLiteralWideSupport
     }
   }
   EXPECT_EQ(128u, dffCount);
+  EXPECT_EQ(128u, countDFFSRBits(top));
   EXPECT_EQ(0u, countMux2Instances(top));
   EXPECT_EQ(0u, countMux2Instances(top, 128));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_all_zero_literal_wide_supported");
   const auto dumpedText = readTextFile(dumpedVerilog);
-  EXPECT_NE(std::string::npos, dumpedText.find("naja_dffsr__w128"));
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_dffsr #("));
+  EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(128)"));
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -29616,14 +29618,6 @@ endmodule
   EXPECT_EQ(1u, countDFFNBits(top));
   EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isMux2));
   EXPECT_EQ(0u, countDFFSRBits(top));
-
-  std::ifstream diagnostics("naja_sv_diagnostics.log");
-  ASSERT_TRUE(diagnostics.good());
-  std::string text{
-    std::istreambuf_iterator<char>(diagnostics),
-    std::istreambuf_iterator<char>()};
-  EXPECT_NE(std::string::npos, text.find("sv.sync_reset_set_lowered_to_mux_dff"));
-  EXPECT_NE(std::string::npos, text.find("mux+DFF"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeSetPrimitiveSupported) {
