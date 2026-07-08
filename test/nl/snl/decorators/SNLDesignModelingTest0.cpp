@@ -206,6 +206,8 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   auto* data = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("DIN"));
   auto* reset = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("RESET_B"));
   auto* set = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("SET"));
+  auto* syncReset = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("SYNC_RESET"));
+  auto* syncSet = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("SYNC_SET_B"));
   auto* output = SNLScalarTerm::create(reg, SNLTerm::Direction::Output, NLName("DOUT"));
   auto* other = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("UNMODELED"));
 
@@ -213,15 +215,22 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   SNLDesignModeling::setTermRole(data, Role::DataInput);
   SNLDesignModeling::setTermRole(reset, Role::AsyncReset, Level::Low);
   SNLDesignModeling::setTermRole(set, Role::AsyncSet, Level::High);
+  SNLDesignModeling::setTermRole(syncReset, Role::SyncReset, Level::High);
+  SNLDesignModeling::setTermRole(syncSet, Role::SyncSet, Level::Low);
   SNLDesignModeling::setTermRole(output, Role::DataOutput);
 
   EXPECT_TRUE(SNLDesignModeling::isClock(clock));
   EXPECT_TRUE(SNLDesignModeling::isDataInput(data));
   EXPECT_TRUE(SNLDesignModeling::isAsyncReset(reset));
   EXPECT_TRUE(SNLDesignModeling::isAsyncSet(set));
+  EXPECT_TRUE(SNLDesignModeling::isSyncReset(syncReset));
+  EXPECT_TRUE(SNLDesignModeling::isSyncSet(syncSet));
   EXPECT_TRUE(SNLDesignModeling::isReset(reset));
+  EXPECT_TRUE(SNLDesignModeling::isReset(syncReset));
   EXPECT_EQ(Level::Low, SNLDesignModeling::getResetActiveLevel(reset));
   EXPECT_EQ(Level::High, SNLDesignModeling::getResetActiveLevel(set));
+  EXPECT_EQ(Level::High, SNLDesignModeling::getResetActiveLevel(syncReset));
+  EXPECT_EQ(Level::Low, SNLDesignModeling::getResetActiveLevel(syncSet));
   EXPECT_TRUE(SNLDesignModeling::isDataOutput(output));
   EXPECT_EQ(Role::Other, SNLDesignModeling::getTermRole(other));
   EXPECT_EQ(Level::NA, SNLDesignModeling::getResetActiveLevel(other));
@@ -235,6 +244,12 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   EXPECT_THAT(std::vector(SNLDesignModeling::getAsyncSetTerms(reg).begin(),
                           SNLDesignModeling::getAsyncSetTerms(reg).end()),
               ElementsAre(set));
+  EXPECT_THAT(std::vector(SNLDesignModeling::getSyncResetTerms(reg).begin(),
+                          SNLDesignModeling::getSyncResetTerms(reg).end()),
+              ElementsAre(syncReset));
+  EXPECT_THAT(std::vector(SNLDesignModeling::getSyncSetTerms(reg).begin(),
+                          SNLDesignModeling::getSyncSetTerms(reg).end()),
+              ElementsAre(syncSet));
   EXPECT_THAT(std::vector(SNLDesignModeling::getDataInputTerms(reg).begin(),
                           SNLDesignModeling::getDataInputTerms(reg).end()),
               ElementsAre(data));
@@ -246,7 +261,10 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   EXPECT_TRUE(SNLDesignModeling::isClock(instance->getInstTerm(clock)));
   EXPECT_TRUE(SNLDesignModeling::isAsyncReset(instance->getInstTerm(reset)));
   EXPECT_TRUE(SNLDesignModeling::isAsyncSet(instance->getInstTerm(set)));
+  EXPECT_TRUE(SNLDesignModeling::isSyncReset(instance->getInstTerm(syncReset)));
+  EXPECT_TRUE(SNLDesignModeling::isSyncSet(instance->getInstTerm(syncSet)));
   EXPECT_TRUE(SNLDesignModeling::isReset(instance->getInstTerm(reset)));
+  EXPECT_TRUE(SNLDesignModeling::isReset(instance->getInstTerm(syncReset)));
   EXPECT_TRUE(SNLDesignModeling::isDataInput(instance->getInstTerm(data)));
   EXPECT_TRUE(SNLDesignModeling::isDataOutput(instance->getInstTerm(output)));
   EXPECT_EQ(Level::Low,
@@ -257,6 +275,8 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   EXPECT_EQ(Role::Other, SNLDesignModeling::getTermRole(gateInput));
   EXPECT_TRUE(SNLDesignModeling::getClockTerms(gate).empty());
   EXPECT_TRUE(SNLDesignModeling::getAsyncResetTerms(gate).empty());
+  EXPECT_TRUE(SNLDesignModeling::getSyncResetTerms(gate).empty());
+  EXPECT_TRUE(SNLDesignModeling::getSyncSetTerms(gate).empty());
   EXPECT_TRUE(SNLDesignModeling::getDataInputTerms(gate).empty());
   EXPECT_TRUE(SNLDesignModeling::getOutputTerms(gate).empty());
 }

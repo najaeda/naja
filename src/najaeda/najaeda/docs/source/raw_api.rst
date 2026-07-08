@@ -155,7 +155,7 @@ semantic source of truth.
    * - ``NLLibrary``
      - ``create``, ``createPrimitives``, ``getDB``, ``getID``, ``getNLID``, ``getName``, ``setName``, ``isStandard``, ``isPrimitives``, ``getSNLDesign``, ``getSNLDesigns``, ``getLibrary``
    * - ``SNLDesign``
-     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``setTruthTable``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
+     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``getClockTerms``, ``getAsyncResetTerms``, ``getAsyncSetTerms``, ``getSyncResetTerms``, ``getSyncSetTerms``, ``getDataInputTerms``, ``getOutputTerms``, ``setTruthTable``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
    * - ``SNLInstance``
      - ``create``, ``destroy``, ``getName``, ``setName``, ``getID``, ``getNLID``, ``getDesign``, ``getModel``, ``getInstTerm``, ``getInstTerms``, ``getInstParameter``, ``getInstParameters``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``
    * - ``SNLTerm`` and term subclasses
@@ -163,7 +163,9 @@ semantic source of truth.
    * - ``SNLNet`` and net subclasses
      - ``Type``, ``getName``, ``setName``, ``getDesign``, ``getBits``, ``getWidth``, ``getType``, ``setType``, ``getTypeAsString``, ``isConstant``, ``isConstant0``, ``isConstant1``, ``getComponents``, ``getInstTerms``, ``getBitTerms``
    * - ``SNLInstTerm``
-     - ``getInstance``, ``getBitTerm``, ``getNet``, ``setNet``, ``getDirection``, ``getRole``, ``getResetActiveLevel``
+     - ``getInstance``, ``getBitTerm``, ``getNet``, ``setNet``, ``getDirection``, ``getRole``, ``getResetActiveLevel``, ``is_clock``, ``is_async_reset``, ``is_async_set``, ``is_sync_reset``, ``is_sync_set``, ``is_reset``, ``is_enable``, ``is_data``, ``is_data_input``, ``is_data_output``
+   * - ``SNLTermRole``
+     - ``Clock``, ``DataInput``, ``DataOutput``, ``AsyncReset``, ``AsyncSet``, ``SyncReset``, ``SyncSet``, ``Enable``, ``MemoryReadAddress``, ``MemoryReadData``, ``MemoryWriteAddress``, ``MemoryWriteData``, ``MemoryWriteEnable``, ``Other``
    * - ``SNLPath``
      - ``empty``, ``size``, ``getInstances``, ``getInstanceIDs``, ``getHeadInstance``, ``getTailInstance``, ``getHeadPath``, ``getTailPath``, ``getDesign``, ``getModel``
    * - ``SNLOccurrence``

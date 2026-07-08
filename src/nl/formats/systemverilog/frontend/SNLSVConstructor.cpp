@@ -30308,6 +30308,19 @@ endmodule
       return sameLhs(condition, &resetSignalExpr);
     }
 
+    const Expression* getActiveLowControlSignal(const Expression& conditionExpr) const {
+      const auto* condition = stripConversions(conditionExpr);
+      if (!condition || condition->kind != slang::ast::ExpressionKind::UnaryOp) {
+        return nullptr;
+      }
+      const auto& unaryExpr = condition->as<slang::ast::UnaryExpression>();
+      if (unaryExpr.op != slang::ast::UnaryOperator::LogicalNot &&
+          unaryExpr.op != slang::ast::UnaryOperator::BitwiseNot) {
+        return nullptr;
+      }
+      return &unaryExpr.operand();
+    }
+
     void createDFFInstance(
       SNLDesign* design,
       SNLNet* clkNet,
@@ -30721,6 +30734,45 @@ endmodule
       inst->setTermNet(qTerm, outputRef.net, outputRef.msb, outputRef.lsb);
       attachDFFInitParameter(inst, outputBits);
       return true;
+    }
+
+    void createScalarSequentialInstance(
+      SNLDesign* design,
+      SNLDesign* model,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      SNLNet* extraControl0 = nullptr,
+      const char* extraControl0TermName = nullptr,
+      SNLNet* extraControl1 = nullptr,
+      const char* extraControl1TermName = nullptr,
+      const Symbol* astSymbol = nullptr) {
+      auto inst = SNLInstance::create(design, model);
+      annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
+      if (auto* term = model->getScalarTerm(NLName("C"))) {
+        inst->setTermNet(term, clkNet);
+      }
+      if (auto* term = model->getScalarTerm(NLName("D"))) {
+        inst->setTermNet(term, dNet);
+      }
+      if (extraControl0 && extraControl0TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl0TermName))) {
+          inst->setTermNet(term, extraControl0);
+        }
+      }
+      if (extraControl1 && extraControl1TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl1TermName))) {
+          inst->setTermNet(term, extraControl1);
+        }
+      }
+      if (auto* term = model->getScalarTerm(NLName("Q"))) {
+        inst->setTermNet(term, qNet);
+      }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
@@ -31591,12 +31643,24 @@ endmodule
         bool useAsyncResetDFFS = false;
         bool useAsyncResetDFFRE = false;
         bool useAsyncResetDFFSE = false;
+        bool useSyncResetDFFSR = false;
+        bool useSyncResetDFFSRN = false;
+        bool useSyncSetDFFSS = false;
+        bool useSyncSetDFFSSN = false;
+        bool useSyncResetDFFSRE = false;
+        bool useSyncResetDFFSRNE = false;
+        bool useSyncSetDFFSSE = false;
+        bool useSyncSetDFFSSNE = false;
+        bool recognizedSyncResetSetIntent = false;
         SNLBitNet* asyncResetControlNet = nullptr;
-        if (chain.resetCond && asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
-          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
-          auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-          bool resetToZero = true;
-          bool resetToOne = true;
+        SNLBitNet* syncResetControlNet = nullptr;
+        auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        bool resetToZero = false;
+        bool resetToOne = false;
+        if (chain.resetCond && !resetBits.empty()) {
+          resetToZero = true;
+          resetToOne = true;
           for (auto* bit : resetBits) {
             if (bit != constZero) {
               resetToZero = false;
@@ -31608,6 +31672,8 @@ endmodule
               break;
             }
           }
+        }
+        if (chain.resetCond && asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
           auto* candidateResetNet =
             getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
           if (candidateResetNet) {
@@ -31640,10 +31706,59 @@ endmodule
             }
           }
         }
+        if (chain.resetCond &&
+            !asyncResetEventExpr &&
+            !useAsyncResetDFFRN &&
+            !useAsyncResetDFFR &&
+            !useAsyncResetDFFS &&
+            !useAsyncResetDFFRE &&
+            !useAsyncResetDFFSE &&
+            !resetBits.empty()) {
+          const Expression* syncControlExpr = nullptr;
+          const char* activeLowControlTerm = nullptr;
+          bool activeLow = false;
+          if (const auto* lowExpr = getActiveLowControlSignal(*chain.resetCond)) {
+            syncControlExpr = lowExpr;
+            activeLow = true;
+            activeLowControlTerm = resetToZero ? "RN" : "SN";
+          } else {
+            syncControlExpr = stripConversions(*chain.resetCond);
+          }
+          auto* candidateResetNet = syncControlExpr
+            ? getSingleBitNet(resolveExpressionNet(design, *syncControlExpr))
+            : nullptr;
+          if (candidateResetNet && (resetToZero || resetToOne)) {
+            recognizedSyncResetSetIntent = true;
+            syncResetControlNet = candidateResetNet;
+            const bool hasUsableEnable = chain.enableCond && canUseEnablePrimitive;
+            if (clockEdge == slang::ast::EdgeKind::PosEdge) {
+              if (resetToZero && activeLow && hasUsableEnable && NLDB0::getDFFSRNE()) {
+                useSyncResetDFFSRNE = true;
+              } else if (resetToZero && !activeLow && hasUsableEnable && NLDB0::getDFFSRE()) {
+                useSyncResetDFFSRE = true;
+              } else if (resetToOne && activeLow && hasUsableEnable && NLDB0::getDFFSSNE()) {
+                useSyncSetDFFSSNE = true;
+              } else if (resetToOne && !activeLow && hasUsableEnable && NLDB0::getDFFSSE()) {
+                useSyncSetDFFSSE = true;
+              } else if (resetToZero && activeLow && NLDB0::getDFFSRN()) {
+                useSyncResetDFFSRN = true;
+              } else if (resetToZero && !activeLow && NLDB0::getDFFSR()) {
+                useSyncResetDFFSR = true;
+              } else if (resetToOne && activeLow && NLDB0::getDFFSSN()) {
+                useSyncSetDFFSSN = true;
+              } else if (resetToOne && !activeLow && NLDB0::getDFFSS()) {
+                useSyncSetDFFSS = true;
+              }
+            }
+          }
+          (void)activeLowControlTerm;
+        }
 
         bool useClockEnablePrimitive = false;
         if (chain.enableCond && canUseEnablePrimitive) {
-          if (!chain.resetCond || useAsyncResetDFFRE || useAsyncResetDFFSE) {
+          if (!chain.resetCond || useAsyncResetDFFRE || useAsyncResetDFFSE ||
+              useSyncResetDFFSRE || useSyncResetDFFSRNE ||
+              useSyncSetDFFSSE || useSyncSetDFFSSNE) {
             useClockEnablePrimitive = true;
           }
         }
@@ -31682,7 +31797,24 @@ endmodule
             !useAsyncResetDFFR &&
             !useAsyncResetDFFS &&
             !useAsyncResetDFFRE &&
-            !useAsyncResetDFFSE) {
+            !useAsyncResetDFFSE &&
+            !useSyncResetDFFSR &&
+            !useSyncResetDFFSRN &&
+            !useSyncSetDFFSS &&
+            !useSyncSetDFFSSN &&
+            !useSyncResetDFFSRE &&
+            !useSyncResetDFFSRNE &&
+            !useSyncSetDFFSSE &&
+            !useSyncSetDFFSSNE) {
+          if (recognizedSyncResetSetIntent) {
+            std::ostringstream reason;
+            reason << "Sequential sync reset/set intent in module '" << moduleName
+                   << "' was lowered to mux+DFF because no matching DB0 primitive is available";
+            reportUnsupportedWarning(
+              "sv.sync_reset_set_lowered_to_mux_dff",
+              formatReasonWithSourceExcerpt(reason.str(), resetSourceRange),
+              resetSourceRange);
+          }
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeSequentialPerfScopeName("buildResetMux"));
@@ -31786,6 +31918,42 @@ endmodule
                 "E",
                 asyncResetControlNet,
                 "S");
+            } else if (useSyncResetDFFSR) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSR(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "R");
+            } else if (useSyncResetDFFSRN) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRN(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "RN");
+            } else if (useSyncSetDFFSS) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSS(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "S");
+            } else if (useSyncSetDFFSSN) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSN(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "SN");
+            } else if (useSyncResetDFFSRE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "R");
+            } else if (useSyncResetDFFSRNE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRNE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "RN");
+            } else if (useSyncSetDFFSSE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "S");
+            } else if (useSyncSetDFFSSNE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSNE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "SN");
             } else if (useClockEnablePrimitive) {
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
@@ -31861,6 +32029,38 @@ endmodule
                   asyncResetControlNet,
                   lhsBits[i],
                   statementSourceRange);
+              } else if (useSyncResetDFFSR) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSR(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "R");
+              } else if (useSyncResetDFFSRN) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRN(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "RN");
+              } else if (useSyncSetDFFSS) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSS(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "S");
+              } else if (useSyncSetDFFSSN) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSN(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "SN");
+              } else if (useSyncResetDFFSRE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "R");
+              } else if (useSyncResetDFFSRNE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRNE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "RN");
+              } else if (useSyncSetDFFSSE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "S");
+              } else if (useSyncSetDFFSSNE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSNE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "SN");
               } else if (useClockEnablePrimitive) {
                 createDFFEInstance(
                   design,

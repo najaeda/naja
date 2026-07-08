@@ -569,6 +569,8 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
 DESIGN_ROLE_TERMS(getClockTerms)
 DESIGN_ROLE_TERMS(getAsyncResetTerms)
 DESIGN_ROLE_TERMS(getAsyncSetTerms)
+DESIGN_ROLE_TERMS(getSyncResetTerms)
+DESIGN_ROLE_TERMS(getSyncSetTerms)
 DESIGN_ROLE_TERMS(getDataInputTerms)
 DESIGN_ROLE_TERMS(getOutputTerms)
 #undef DESIGN_ROLE_TERMS
@@ -664,6 +666,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get primitive asynchronous reset terms"},
   { "getAsyncSetTerms", (PyCFunction)PySNLDesign_getAsyncSetTerms, METH_NOARGS,
     "get primitive asynchronous set terms"},
+  { "getSyncResetTerms", (PyCFunction)PySNLDesign_getSyncResetTerms, METH_NOARGS,
+    "get primitive synchronous reset terms"},
+  { "getSyncSetTerms", (PyCFunction)PySNLDesign_getSyncSetTerms, METH_NOARGS,
+    "get primitive synchronous set terms"},
   { "getDataInputTerms", (PyCFunction)PySNLDesign_getDataInputTerms, METH_NOARGS,
     "get primitive data input terms"},
   { "getOutputTerms", (PyCFunction)PySNLDesign_getOutputTerms, METH_NOARGS,

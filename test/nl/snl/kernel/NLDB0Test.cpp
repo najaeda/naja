@@ -162,6 +162,14 @@ TEST_F(NLDB0Test, testPrimitiveTermRoles) {
              NLDB0::getDFFREData(), NLDB0::getDFFREOutput());
   checkBasic(NLDB0::getDFFSE(), NLDB0::getDFFSEClock(),
              NLDB0::getDFFSEData(), NLDB0::getDFFSEOutput());
+  checkBasic(NLDB0::getDFFSR(), NLDB0::getDFFSRClock(),
+             NLDB0::getDFFSRData(), NLDB0::getDFFSROutput());
+  checkBasic(NLDB0::getDFFSRN(), NLDB0::getDFFSRNClock(),
+             NLDB0::getDFFSRNData(), NLDB0::getDFFSRNOutput());
+  checkBasic(NLDB0::getDFFSS(), NLDB0::getDFFSSClock(),
+             NLDB0::getDFFSSData(), NLDB0::getDFFSSOutput());
+  checkBasic(NLDB0::getDFFSSN(), NLDB0::getDFFSSNClock(),
+             NLDB0::getDFFSSNData(), NLDB0::getDFFSSNOutput());
 
   EXPECT_EQ(Role::AsyncReset,
             SNLDesignModeling::getTermRole(NLDB0::getDFFRNResetN()));
@@ -185,7 +193,25 @@ TEST_F(NLDB0Test, testPrimitiveTermRoles) {
             SNLDesignModeling::getTermRole(NLDB0::getDFFSEEnable()));
   EXPECT_EQ(Role::AsyncSet,
             SNLDesignModeling::getTermRole(NLDB0::getDFFSESet()));
+  EXPECT_EQ(Role::SyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSRReset()));
+  EXPECT_EQ(Level::High,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFSRReset()));
+  EXPECT_EQ(Role::SyncReset,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSRNResetN()));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFSRNResetN()));
+  EXPECT_EQ(Role::SyncSet,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSSSet()));
+  EXPECT_EQ(Level::High,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFSSSet()));
+  EXPECT_EQ(Role::SyncSet,
+            SNLDesignModeling::getTermRole(NLDB0::getDFFSSNSetN()));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(NLDB0::getDFFSSNSetN()));
   EXPECT_TRUE(SNLDesignModeling::getAsyncResetTerms(NLDB0::getDFF()).empty());
+  EXPECT_EQ(1, SNLDesignModeling::getSyncResetTerms(NLDB0::getDFFSR()).size());
+  EXPECT_EQ(1, SNLDesignModeling::getSyncSetTerms(NLDB0::getDFFSS()).size());
 
   NLDB0::MemorySignature signature;
   signature.width = 4;
@@ -1620,6 +1646,47 @@ TEST_F(NLDB0Test, testDFFE_DFFRE_DFFSE) {
   EXPECT_EQ(NLName("E"), NLDB0::getDFFSEEnable()->getName());
   EXPECT_EQ(NLName("S"), NLDB0::getDFFSESet()->getName());
   EXPECT_EQ(NLName("Q"), NLDB0::getDFFSEOutput()->getName());
+}
+
+TEST_F(NLDB0Test, testSyncDFFWidthPrimitives) {
+  NLUniverse::create();
+  using Role = SNLDesignModeling::SNLTermRole;
+  using Level = SNLDesignModeling::SNLActiveLevel;
+
+  auto* dffsr4 = NLDB0::getOrCreateDFFSR(4);
+  ASSERT_NE(nullptr, dffsr4);
+  EXPECT_TRUE(NLDB0::isDFFSR(dffsr4));
+  EXPECT_EQ(NLName("naja_dffsr__w4"), dffsr4->getName());
+  EXPECT_EQ(NLName("C"), dffsr4->getScalarTerm(NLName("C"))->getName());
+  EXPECT_EQ(NLName("D"), dffsr4->getBusTerm(NLName("D"))->getName());
+  EXPECT_EQ(NLName("R"), dffsr4->getScalarTerm(NLName("R"))->getName());
+  EXPECT_EQ(NLName("Q"), dffsr4->getBusTerm(NLName("Q"))->getName());
+  EXPECT_EQ(Role::SyncReset,
+            SNLDesignModeling::getTermRole(dffsr4->getScalarTerm(NLName("R"))));
+  EXPECT_EQ(Level::High,
+            SNLDesignModeling::getResetActiveLevel(dffsr4->getScalarTerm(NLName("R"))));
+
+  auto* dffsrne4 = NLDB0::getOrCreateDFFSRNE(4);
+  ASSERT_NE(nullptr, dffsrne4);
+  EXPECT_TRUE(NLDB0::isDFFSRNE(dffsrne4));
+  EXPECT_EQ(NLName("naja_dffsrne__w4"), dffsrne4->getName());
+  EXPECT_EQ(NLName("E"), dffsrne4->getScalarTerm(NLName("E"))->getName());
+  EXPECT_EQ(NLName("RN"), dffsrne4->getScalarTerm(NLName("RN"))->getName());
+  EXPECT_EQ(Role::Enable,
+            SNLDesignModeling::getTermRole(dffsrne4->getScalarTerm(NLName("E"))));
+  EXPECT_EQ(Role::SyncReset,
+            SNLDesignModeling::getTermRole(dffsrne4->getScalarTerm(NLName("RN"))));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(dffsrne4->getScalarTerm(NLName("RN"))));
+
+  auto* dffssne2 = NLDB0::getOrCreateDFFSSNE(2);
+  ASSERT_NE(nullptr, dffssne2);
+  EXPECT_TRUE(NLDB0::isDFFSSNE(dffssne2));
+  EXPECT_EQ(NLName("SN"), dffssne2->getScalarTerm(NLName("SN"))->getName());
+  EXPECT_EQ(Role::SyncSet,
+            SNLDesignModeling::getTermRole(dffssne2->getScalarTerm(NLName("SN"))));
+  EXPECT_EQ(Level::Low,
+            SNLDesignModeling::getResetActiveLevel(dffssne2->getScalarTerm(NLName("SN"))));
 }
 
 TEST_F(NLDB0Test, testNULLUniverse) {

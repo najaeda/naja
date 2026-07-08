@@ -42,6 +42,8 @@ static PyObject* PySNLBitTerm_getResetActiveLevel(PySNLBitTerm* self) {
 TERM_ROLE_PREDICATE(is_clock, isClock)
 TERM_ROLE_PREDICATE(is_async_reset, isAsyncReset)
 TERM_ROLE_PREDICATE(is_async_set, isAsyncSet)
+TERM_ROLE_PREDICATE(is_sync_reset, isSyncReset)
+TERM_ROLE_PREDICATE(is_sync_set, isSyncSet)
 TERM_ROLE_PREDICATE(is_reset, isReset)
 TERM_ROLE_PREDICATE(is_enable, isEnable)
 TERM_ROLE_PREDICATE(is_data_input, isDataInput)
@@ -62,6 +64,8 @@ PyMethodDef PySNLBitTerm_Methods[] = {
   {"is_clock", (PyCFunction)PySNLBitTerm_is_clock, METH_NOARGS, "whether this term is a clock."},
   {"is_async_reset", (PyCFunction)PySNLBitTerm_is_async_reset, METH_NOARGS, "whether this term is an asynchronous reset."},
   {"is_async_set", (PyCFunction)PySNLBitTerm_is_async_set, METH_NOARGS, "whether this term is an asynchronous set."},
+  {"is_sync_reset", (PyCFunction)PySNLBitTerm_is_sync_reset, METH_NOARGS, "whether this term is a synchronous reset."},
+  {"is_sync_set", (PyCFunction)PySNLBitTerm_is_sync_set, METH_NOARGS, "whether this term is a synchronous set."},
   {"is_reset", (PyCFunction)PySNLBitTerm_is_reset, METH_NOARGS, "whether this term is a reset."},
   {"is_enable", (PyCFunction)PySNLBitTerm_is_enable, METH_NOARGS, "whether this term is an enable."},
   {"is_data", (PyCFunction)PySNLBitTerm_is_data, METH_NOARGS, "whether this term carries data."},

@@ -423,6 +423,22 @@ size_t countDFFSEBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFSE);
 }
 
+size_t countDFFSRBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSR);
+}
+
+size_t countDFFSRNBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSRN);
+}
+
+size_t countDFFSSBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSS);
+}
+
+size_t countDFFSREBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSRE);
+}
+
 size_t countDLatchBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDLatch);
 }
@@ -29460,6 +29476,141 @@ endmodule
   EXPECT_EQ(0u, dffCount);
   EXPECT_EQ(1u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveHighResetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_high_reset_primitive",
+    R"(module sequential_sync_active_high_reset_primitive(
+  input logic clk,
+  input logic rst,
+  input logic [3:0] d,
+  output logic [3:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 4'b0000;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_high_reset_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(4u, countDFFSRBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSR));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveLowResetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_low_reset_primitive",
+    R"(module sequential_sync_active_low_reset_primitive(
+  input logic clk,
+  input logic rst_n,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (!rst_n) q <= 2'b00;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_low_reset_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSRNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRN));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveHighSetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_high_set_primitive",
+    R"(module sequential_sync_active_high_set_primitive(
+  input logic clk,
+  input logic set,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 1'b1;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_high_set_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSSBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSS));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncResetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_reset_enable_primitive",
+    R"(module sequential_sync_reset_enable_primitive(
+  input logic clk,
+  input logic rst,
+  input logic en,
+  input logic [2:0] d,
+  output logic [2:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 3'b000;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_reset_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(3u, countDFFSREBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFEBits(top));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncResetNegedgeFallbackWarning) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_reset_negedge_fallback_warning",
+    R"(module sequential_sync_reset_negedge_fallback_warning(
+  input logic clk,
+  input logic rst,
+  input logic d,
+  output logic q
+);
+  always_ff @(negedge clk) begin
+    if (rst) q <= 1'b0;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_reset_negedge_fallback_warning"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFSRBits(top));
+
+  std::ifstream diagnostics("naja_sv_diagnostics.log");
+  ASSERT_TRUE(diagnostics.good());
+  std::string text{
+    std::istreambuf_iterator<char>(diagnostics),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(std::string::npos, text.find("sv.sync_reset_set_lowered_to_mux_dff"));
+  EXPECT_NE(std::string::npos, text.find("mux+DFF"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeSetPrimitiveSupported) {

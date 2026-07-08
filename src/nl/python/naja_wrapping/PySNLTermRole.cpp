@@ -16,6 +16,8 @@ void PySNLTermRole_postModuleInit() {
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::DataOutput, "DataOutput");
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::AsyncReset, "AsyncReset");
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::AsyncSet, "AsyncSet");
+  LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::SyncReset, "SyncReset");
+  LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::SyncSet, "SyncSet");
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::Enable, "Enable");
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::MemoryReadAddress, "MemoryReadAddress");
   LoadObjectConstant(PyTypeSNLTermRole.tp_dict, Role::MemoryReadData, "MemoryReadData");
