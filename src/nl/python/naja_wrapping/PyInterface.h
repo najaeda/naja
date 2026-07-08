@@ -111,6 +111,15 @@ inline void combinePyHash(Py_uhash_t& seed, Py_uhash_t value) {
   seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
 }
 
+inline Py_uhash_t hashString(const std::string& value) {
+  Py_uhash_t hash = 1469598103934665603ULL;
+  for (unsigned char c: value) {
+    hash ^= c;
+    hash *= 1099511628211ULL;
+  }
+  return hash;
+}
+
 inline Py_uhash_t hashNLID(const naja::NL::NLID& id) {
   Py_uhash_t seed = 0;
   combinePyHash(seed, static_cast<Py_uhash_t>(id.type_));

@@ -53,7 +53,8 @@ calls.  Use ``==`` for equality and use the wrapped object itself as a
 ``dict`` key or ``set`` element when the object is hashable.  Objects with a
 native ``NLID`` hash from that ``NLID``.  ``SNLPath`` and ``SNLOccurrence``
 are hashable by composing the ``NLID`` values of their referenced objects.
-Raw value wrappers without an ``NLID`` are intentionally unhashable.
+``SNLAttribute`` is hashable from its name and typed value.  Other raw value
+wrappers without an ``NLID`` are intentionally unhashable.
 
 Relationship to high-level wrappers
 -----------------------------------

@@ -36,8 +36,11 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("pragma2", pragma2.getName())
     self.assertEqual("", pragma2.getValue())
     self.assertFalse(pragma2.hasValue())
-    with self.assertRaises(TypeError):
-      hash(pragma0)
+    self.assertEqual(hash(pragma0), hash(naja.SNLAttribute("pragma0", "value0")))
+    self.assertEqual(1, len({pragma0, naja.SNLAttribute("pragma0", "value0")}))
+    self.assertEqual("pragma0", {pragma0: "pragma0"}[naja.SNLAttribute("pragma0", "value0")])
+    self.assertNotEqual(naja.SNLAttribute("pragma1", "10"), pragma1)
+    self.assertEqual(2, len({pragma1, naja.SNLAttribute("pragma1", "10")}))
 
   def testAttributesErrors(self):
     with self.assertRaises(RuntimeError) as context: naja.SNLAttribute("pragma0", "value0", "value1")
