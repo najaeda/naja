@@ -541,7 +541,7 @@ class SNLTruthTable {
         return oddParity;
       case GenericType::XNOR:
         return !oddParity;
-      default:
+      default:  // LCOV_EXCL_LINE
         return false;
     }
   }
