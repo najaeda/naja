@@ -1933,7 +1933,15 @@ TEST_F(NLDB0Test, testGetOrCreatePrimitiveDispatch) {
     NLDB0::getOrCreateDFFS(4),
     NLDB0::getOrCreateDFFE(4),
     NLDB0::getOrCreateDFFRE(4),
-    NLDB0::getOrCreateDFFSE(4)
+    NLDB0::getOrCreateDFFSE(4),
+    NLDB0::getOrCreateDFFSR(4),
+    NLDB0::getOrCreateDFFSRN(4),
+    NLDB0::getOrCreateDFFSS(4),
+    NLDB0::getOrCreateDFFSSN(4),
+    NLDB0::getOrCreateDFFSRE(4),
+    NLDB0::getOrCreateDFFSRNE(4),
+    NLDB0::getOrCreateDFFSSE(4),
+    NLDB0::getOrCreateDFFSSNE(4)
   };
   for (auto* primitive: widthPrimitives) {
     ASSERT_NE(nullptr, primitive);

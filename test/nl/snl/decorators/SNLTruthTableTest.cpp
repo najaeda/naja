@@ -140,6 +140,9 @@ TEST(SNLTruthTableTest, testGateFamilyPredicates) {
   EXPECT_FALSE(SNLTruthTable(2, 0x8, deps2).isXor());
   EXPECT_FALSE(SNLTruthTable::Buf().isAnd());
   EXPECT_FALSE(SNLTruthTable::Inv().isNand());
+  EXPECT_THROW(
+      SNLTruthTable::Buf().getTableSelectAddressSize(),
+      NLException);
 
   EXPECT_TRUE(
       SNLTruthTable(7,
