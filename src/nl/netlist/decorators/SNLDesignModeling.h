@@ -28,7 +28,7 @@ class SNLDesign;
 class SNLDesignModeling {
   public:
     enum class SNLTermRole {
-      Clock, DataInput, DataOutput, AsyncReset, AsyncSet, Enable,
+      Clock, DataInput, DataOutput, AsyncReset, AsyncSet, SyncReset, SyncSet, Enable,
       MemoryReadAddress, MemoryReadData, MemoryWriteAddress,
       MemoryWriteData, MemoryWriteEnable, Other
     };
@@ -126,6 +126,10 @@ class SNLDesignModeling {
     static bool isAsyncReset(const SNLInstTerm* term);
     static bool isAsyncSet(const SNLBitTerm* term);
     static bool isAsyncSet(const SNLInstTerm* term);
+    static bool isSyncReset(const SNLBitTerm* term);
+    static bool isSyncReset(const SNLInstTerm* term);
+    static bool isSyncSet(const SNLBitTerm* term);
+    static bool isSyncSet(const SNLInstTerm* term);
     static bool isReset(const SNLBitTerm* term);
     static bool isReset(const SNLInstTerm* term);
     static bool isEnable(const SNLBitTerm* term);
@@ -137,6 +141,8 @@ class SNLDesignModeling {
     static NajaCollection<SNLBitTerm*> getClockTerms(const SNLDesign* design);
     static NajaCollection<SNLBitTerm*> getAsyncResetTerms(const SNLDesign* design);
     static NajaCollection<SNLBitTerm*> getAsyncSetTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getSyncResetTerms(const SNLDesign* design);
+    static NajaCollection<SNLBitTerm*> getSyncSetTerms(const SNLDesign* design);
     static NajaCollection<SNLBitTerm*> getDataInputTerms(const SNLDesign* design);
     static NajaCollection<SNLBitTerm*> getOutputTerms(const SNLDesign* design);
     // Attach or query a memory interface on a primitive design. For DB0 memory
@@ -158,6 +164,12 @@ class SNLDesignModeling {
     static bool isConst(const SNLDesign* design);
     static bool isInv(const SNLDesign* design);
     static bool isBuf(const SNLDesign* design);
+    static bool isAnd(const SNLDesign* design);
+    static bool isNand(const SNLDesign* design);
+    static bool isOr(const SNLDesign* design);
+    static bool isNor(const SNLDesign* design);
+    static bool isXor(const SNLDesign* design);
+    static bool isXnor(const SNLDesign* design);
     static size_t getTruthTableCount(const SNLDesign* design);
     static bool areDependenciesDefined(const SNLBitTerm* term);
     SNLDesignModeling(Type type);

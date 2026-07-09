@@ -64,6 +64,20 @@ static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* k
 ManagedTypeLinkCreateMethod(SNLAttribute) 
 ManagedTypeDeallocMethod(SNLAttribute)
 
+static Py_hash_t PySNLAttribute_Hash(PySNLAttribute* self) {
+  if (not self->ACCESS_OBJECT) {
+    setError("Attempt to call SNLAttribute.__hash__() on an unbound object");
+    return -1;
+  }
+  auto value = self->ACCESS_OBJECT->getValue();
+  Py_uhash_t seed = 0;
+  PYNAJA::combinePyHash(
+    seed, PYNAJA::hashString(self->ACCESS_OBJECT->getName().getString()));
+  PYNAJA::combinePyHash(seed, value.isString() ? 1 : 0);
+  PYNAJA::combinePyHash(seed, PYNAJA::hashString(value.getString()));
+  return PYNAJA::finishPyHash(seed);
+}
+
 GetNameMethod(SNLAttribute)
 GetBoolAttribute(SNLAttribute, hasValue)
 
@@ -82,7 +96,7 @@ PyMethodDef PySNLAttribute_Methods[] = {
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 
-PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLAttribute)
+PyTypeManagedNLObjectWithoutNLIDLinkPyTypeWithHash(SNLAttribute, PySNLAttribute_Hash)
 PyTypeObjectDefinitions(SNLAttribute)
 
 }  // namespace PYNAJA

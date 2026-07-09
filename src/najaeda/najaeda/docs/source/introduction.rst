@@ -1,32 +1,32 @@
 Introduction
 ============
-**najaeda** is a an Electronic Design Automation (EDA) Python package
-that provides open source data structures and APIs for the development
-of post logic synthesis EDA algorithms
-such as: netlist simplification (constant and dead logic propagation),
-logic replication, netlist partitioning, ASIC and FPGA place and route, ...
 
-**najaeda** provides a powerful yet simple framework designed
-to help software **AND** hardware developers efficiently navigate and
-manipulate electronic design automation (EDA) workflows.
+``najaeda`` is an Electronic Design Automation (EDA) Python package for
+loading, elaborating, navigating, analyzing, and editing hardware designs from
+RTL SystemVerilog through structural netlists.  It gives Python users access
+to Naja's SNL database: designs, libraries, instances, terms, nets,
+attributes, hierarchical paths, occurrences, and equipotentials.
 
-With **najaeda**, it is possible to:
+Typical use cases include:
 
-* **Explore Netlists with Ease**:
-    * Navigate netlist hierarchy and connectivity effortlessly.
-    * Browse at multiple levels of detail:
-        * Bit-level or bus-level granularity.
-        * Instance-by-instance exploration or flattened views at the primitives level.
-        * Localized per-instance connections or comprehensive equipotential views.
-* **Perform ECO (Engineering Change Order) Transformations**:
-    * Seamlessly apply and manage changes to your designs.
-* **Prototype EDA Ideas Quickly**:
-    * Use an intuitive API to experiment with new EDA concepts and workflows.
-* **Develop Custom EDA Tools**:
-    * Build fast, tailored tools for solving specific challenges without relying on costly, proprietary EDA software.
+* loading Verilog, elaborated SystemVerilog, Liberty, primitive libraries, and
+  Naja interchange files;
+* exploring hierarchy, ports, nets, instance terminals, and flat connectivity;
+* writing netlist analysis passes such as fanout, logic-level, and design
+  inventory reports;
+* applying ECO-style edits such as renaming, reconnecting, deleting, and
+  uniquifying designs as needed;
+* exporting data to text, JSON, pandas, DOT, Verilog, or Naja interchange for
+  downstream tooling.
 
-**najaeda** empowers developers to innovate, adapt, and accelerate
-their EDA processes with minimal overhead.
+The recommended API entry point is :mod:`najaeda.netlist`.  It keeps object
+identity stable across hierarchy, converts native C++ objects into Python
+wrappers, and performs automatic uniquification before edits that would
+otherwise affect shared models.
+
+An expert raw API is also available as :mod:`najaeda.naja`.  It exposes the
+compiled ``naja`` extension module and mirrors the underlying SNL C++ model
+more closely.  See :doc:`raw_api` when you need this lower level.
 
 Information about the **najaeda** PyPI package is available at https://pypi.org/project/najaeda .
 
@@ -36,11 +36,13 @@ please visit the **naja** GitHub repository at https://github.com/najaeda/naja .
 Quick Start
 ===========
 
-To get started with **najaeda**, try out the interactive notebook in Google Colab:
+To get started quickly, try the interactive notebook in Google Colab:
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/najaeda/najaeda-tutorials/blob/main/notebooks/01_getting_started.ipynb
    :alt: Open in Colab
+
+For a local script-oriented introduction, see :doc:`quickstart`.
 
 Installation
 ------------

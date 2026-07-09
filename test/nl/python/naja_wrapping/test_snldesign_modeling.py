@@ -164,6 +164,86 @@ endmodule
       term.getRole() != naja.SNLTermRole.AsyncReset
       for term in dff.getBitTerms()))
 
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".sv", delete=False) as sync_reset_file:
+      sync_reset_file.write("""
+module py_sync_reset_role_coverage(
+  input logic clk,
+  input logic rst,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 2'b00;
+    else q <= d;
+  end
+endmodule
+""")
+      sync_reset_path = sync_reset_file.name
+    try:
+      sync_reset_db = naja.NLDB.create(naja.NLUniverse.get())
+      sync_reset_top = sync_reset_db.loadSystemVerilog([sync_reset_path])
+      dffsr_inst = next(
+        inst for inst in sync_reset_top.getPrimitiveInstances()
+        if inst.getModel().getName().startswith("naja_dffsr"))
+      dffsr = dffsr_inst.getModel()
+      sync_resets = list(dffsr.getSyncResetTerms())
+      self.assertEqual(1, len(sync_resets))
+      self.assertEqual(naja.SNLTermRole.SyncReset, sync_resets[0].getRole())
+      self.assertEqual(
+        naja.SNLActiveLevel.High, sync_resets[0].getResetActiveLevel())
+      self.assertTrue(sync_resets[0].is_sync_reset())
+      self.assertTrue(sync_resets[0].is_reset())
+      self.assertEqual([], list(dffsr.getAsyncResetTerms()))
+      sync_reset_inst_term = next(
+        term for term in dffsr_inst.getInstTerms() if term.is_sync_reset())
+      self.assertEqual(naja.SNLTermRole.SyncReset, sync_reset_inst_term.getRole())
+      self.assertTrue(sync_reset_inst_term.is_reset())
+      self.assertFalse(sync_reset_inst_term.is_async_reset())
+    finally:
+      os.remove(sync_reset_path)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".sv", delete=False) as sync_set_file:
+      sync_set_file.write("""
+module py_sync_set_role_coverage(
+  input logic clk,
+  input logic set,
+  input logic en,
+  input logic [2:0] d,
+  output logic [2:0] q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 3'b111;
+    else if (en) q <= d;
+  end
+endmodule
+""")
+      sync_set_path = sync_set_file.name
+    try:
+      sync_set_db = naja.NLDB.create(naja.NLUniverse.get())
+      sync_set_top = sync_set_db.loadSystemVerilog([sync_set_path])
+      dffsse_inst = next(
+        inst for inst in sync_set_top.getPrimitiveInstances()
+        if inst.getModel().getName().startswith("naja_dffsse"))
+      dffsse = dffsse_inst.getModel()
+      sync_sets = list(dffsse.getSyncSetTerms())
+      self.assertEqual(1, len(sync_sets))
+      self.assertEqual(naja.SNLTermRole.SyncSet, sync_sets[0].getRole())
+      self.assertEqual(
+        naja.SNLActiveLevel.High, sync_sets[0].getResetActiveLevel())
+      self.assertTrue(sync_sets[0].is_sync_set())
+      self.assertFalse(sync_sets[0].is_reset())
+      self.assertFalse(sync_sets[0].is_sync_reset())
+      sync_set_inst_term = next(
+        term for term in dffsse_inst.getInstTerms() if term.is_sync_set())
+      self.assertEqual(naja.SNLTermRole.SyncSet, sync_set_inst_term.getRole())
+      self.assertTrue(sync_set_inst_term.is_sync_set())
+      self.assertFalse(sync_set_inst_term.is_reset())
+      self.assertFalse(sync_set_inst_term.is_sync_reset())
+    finally:
+      os.remove(sync_set_path)
+
   def testCombi(self):
     design = naja.SNLDesign.createPrimitive(self.primitives, "DESIGN")
     i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")

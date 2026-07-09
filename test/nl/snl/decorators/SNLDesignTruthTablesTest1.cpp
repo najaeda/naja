@@ -351,6 +351,20 @@ TEST_F(SNLDesignTruthTablesTest1, SingleGetAfterMultiTableInstallationThrows) {
   );
 }
 
+TEST_F(SNLDesignTruthTablesTest1, PredicateReturnsFalseWhenSingleGetThrows) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("predicate_error"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("J"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
+
+  SNLTruthTable t0(2, 0b1000, SNLTruthTable::fullDependencies(2));
+  SNLTruthTable t1(2, 0b1110, SNLTruthTable::fullDependencies(2));
+  SNLDesignModeling::setTruthTables(D, {t0, t1});
+
+  EXPECT_FALSE(SNLDesignModeling::isAnd(D));
+}
+
 // Test error for out of range id in getTruthTable
 TEST_F(SNLDesignTruthTablesTest1, GetTruthTableOutOfRangeID) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("out_of_range"));

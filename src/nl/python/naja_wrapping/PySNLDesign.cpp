@@ -569,6 +569,8 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
 DESIGN_ROLE_TERMS(getClockTerms)
 DESIGN_ROLE_TERMS(getAsyncResetTerms)
 DESIGN_ROLE_TERMS(getAsyncSetTerms)
+DESIGN_ROLE_TERMS(getSyncResetTerms)
+DESIGN_ROLE_TERMS(getSyncSetTerms)
 DESIGN_ROLE_TERMS(getDataInputTerms)
 DESIGN_ROLE_TERMS(getOutputTerms)
 #undef DESIGN_ROLE_TERMS
@@ -603,6 +605,12 @@ GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignModeling::isConst1)
 GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
 GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
 GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
+GetBoolAttributeWithFunction(SNLDesign, isAnd, SNLDesignModeling::isAnd)
+GetBoolAttributeWithFunction(SNLDesign, isNand, SNLDesignModeling::isNand)
+GetBoolAttributeWithFunction(SNLDesign, isOr, SNLDesignModeling::isOr)
+GetBoolAttributeWithFunction(SNLDesign, isNor, SNLDesignModeling::isNor)
+GetBoolAttributeWithFunction(SNLDesign, isXor, SNLDesignModeling::isXor)
+GetBoolAttributeWithFunction(SNLDesign, isXnor, SNLDesignModeling::isXnor)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
@@ -658,6 +666,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get primitive asynchronous reset terms"},
   { "getAsyncSetTerms", (PyCFunction)PySNLDesign_getAsyncSetTerms, METH_NOARGS,
     "get primitive asynchronous set terms"},
+  { "getSyncResetTerms", (PyCFunction)PySNLDesign_getSyncResetTerms, METH_NOARGS,
+    "get primitive synchronous reset terms"},
+  { "getSyncSetTerms", (PyCFunction)PySNLDesign_getSyncSetTerms, METH_NOARGS,
+    "get primitive synchronous set terms"},
   { "getDataInputTerms", (PyCFunction)PySNLDesign_getDataInputTerms, METH_NOARGS,
     "get primitive data input terms"},
   { "getOutputTerms", (PyCFunction)PySNLDesign_getOutputTerms, METH_NOARGS,
@@ -675,7 +687,19 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
     "Returns True if this design is a buffer primitive"},
   { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
-    "Returns True if this design is an inverter primitive"},  
+    "Returns True if this design is an inverter primitive"},
+  { "isAnd", (PyCFunction)PySNLDesign_isAnd, METH_NOARGS,
+    "Returns True if this design is an AND primitive"},
+  { "isNand", (PyCFunction)PySNLDesign_isNand, METH_NOARGS,
+    "Returns True if this design is a NAND primitive"},
+  { "isOr", (PyCFunction)PySNLDesign_isOr, METH_NOARGS,
+    "Returns True if this design is an OR primitive"},
+  { "isNor", (PyCFunction)PySNLDesign_isNor, METH_NOARGS,
+    "Returns True if this design is a NOR primitive"},
+  { "isXor", (PyCFunction)PySNLDesign_isXor, METH_NOARGS,
+    "Returns True if this design is an XOR primitive"},
+  { "isXnor", (PyCFunction)PySNLDesign_isXnor, METH_NOARGS,
+    "Returns True if this design is an XNOR primitive"},
   { "isTopDesign", (PyCFunction)PySNLDesign_isTopDesign, METH_NOARGS,
     "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,

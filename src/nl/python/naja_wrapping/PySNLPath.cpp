@@ -69,6 +69,18 @@ PyObject* PySNLPath_getInstances(PySNLPath* self, PyObject* args) {
   return py_list;
 }
 
+static Py_hash_t PySNLPath_Hash(PySNLPath* self) {
+  if (not self->ACCESS_OBJECT) {
+    setError("Attempt to call SNLPath.__hash__() on an unbound object");
+    return -1;
+  }
+  Py_uhash_t seed = 0;
+  for (auto instance: self->ACCESS_OBJECT->getInstances()) {
+    PYNAJA::combinePyHash(seed, PYNAJA::hashNLID(instance->getNLID()));
+  }
+  return PYNAJA::finishPyHash(seed);
+}
+
 ManagedTypeLinkCreateMethod(SNLPath) 
 ManagedTypeDeallocMethod(SNLPath)
 
@@ -105,7 +117,7 @@ PyMethodDef PySNLPath_Methods[] = {
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 
-PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLPath)
+PyTypeManagedNLObjectWithoutNLIDLinkPyTypeWithHash(SNLPath, PySNLPath_Hash)
 PyTypeObjectDefinitions(SNLPath)
 
 }  // namespace PYNAJA

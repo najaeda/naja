@@ -20,6 +20,34 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         and2_ins = top.create_child_instance('$_AND_', 'and2_ins')
         or2_ins = top.create_child_instance('$_OR_', 'or2_ins')
 
+    def test_gate_family_predicates(self):
+        top = netlist.create_top('Top')
+        primitives = naja.NLLibrary.createPrimitives(
+            naja.NLUniverse.get().getTopDB(), "gate_primitives")
+
+        def create_gate(name, mask):
+            prim = naja.SNLDesign.createPrimitive(primitives, name)
+            naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "A")
+            naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "B")
+            naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "Y")
+            prim.setTruthTable(mask)
+            return top.create_child_instance(name, f"{name.lower()}_ins")
+
+        and2_ins = create_gate("AND2", 0x8)
+        nand2_ins = create_gate("NAND2", 0x7)
+        or2_ins = create_gate("OR2", 0xE)
+        nor2_ins = create_gate("NOR2", 0x1)
+        xor2_ins = create_gate("XOR2", 0x6)
+        xnor2_ins = create_gate("XNOR2", 0x9)
+
+        self.assertTrue(and2_ins.is_and())
+        self.assertFalse(and2_ins.is_nand())
+        self.assertTrue(nand2_ins.is_nand())
+        self.assertTrue(or2_ins.is_or())
+        self.assertTrue(nor2_ins.is_nor())
+        self.assertTrue(xor2_ins.is_xor())
+        self.assertTrue(xnor2_ins.is_xnor())
+
     def test_xilinx_primitives(self):
         top = netlist.create_top('Top')
         i = top.create_input_term("I")

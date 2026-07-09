@@ -423,6 +423,53 @@ size_t countDFFSEBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFSE);
 }
 
+size_t countDFFSRBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSR);
+}
+
+size_t countDFFSRNBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSRN);
+}
+
+size_t countDFFSSBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSS);
+}
+
+size_t countDFFSSNBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSSN);
+}
+
+size_t countDFFSREBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSRE);
+}
+
+size_t countDFFSRNEBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSRNE);
+}
+
+size_t countDFFSSEBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSSE);
+}
+
+size_t countDFFSSNEBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, NLDB0::isDFFSSNE);
+}
+
+bool isSequentialDFFPrimitive(const SNLDesign* design) {
+  return NLDB0::isDFF(design) || NLDB0::isDFFN(design) ||
+         NLDB0::isDFFRN(design) || NLDB0::isDFFR(design) ||
+         NLDB0::isDFFS(design) || NLDB0::isDFFE(design) ||
+         NLDB0::isDFFRE(design) || NLDB0::isDFFSE(design) ||
+         NLDB0::isDFFSR(design) || NLDB0::isDFFSRN(design) ||
+         NLDB0::isDFFSS(design) || NLDB0::isDFFSSN(design) ||
+         NLDB0::isDFFSRE(design) || NLDB0::isDFFSRNE(design) ||
+         NLDB0::isDFFSSE(design) || NLDB0::isDFFSSNE(design);
+}
+
+size_t countSequentialDFFBits(const SNLDesign* design) {
+  return countPrimitiveBits(design, isSequentialDFFPrimitive);
+}
+
 size_t countDLatchBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDLatch);
 }
@@ -23796,14 +23843,12 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   EXPECT_NE(top->getNet(NLName("clk")), nullptr);
   EXPECT_NE(top->getNet(NLName("reset")), nullptr);
 
-  auto dffModel = NLDB0::getDFF();
-  ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   size_t gateCount = 0;
   bool dffHasSource = false;
   for (auto inst : top->getInstances()) {
     auto model = inst->getModel();
-    if (NLDB0::isDFF(model)) {
+    if (isSequentialDFFPrimitive(model)) {
       dffCount += getPrimitiveWidth(inst);
       if (hasRTLInfo(inst, "sv_src_line")) {
         dffHasSource = true;
@@ -23848,7 +23893,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddOutPlusOne) {
     if (NLDB0::isFA(inst->getModel())) {
       ++faCount;
     }
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -24161,7 +24206,7 @@ endmodule
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -24186,7 +24231,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -26300,7 +26345,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -26541,7 +26586,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Supported) {
   size_t dffCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) &&
@@ -26567,7 +26612,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialPreincrementSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -26595,7 +26640,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -26651,7 +26696,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -26675,17 +26720,19 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetAllZeroLiteralWideSupport
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(128u, dffCount);
-  EXPECT_EQ(1u, countMux2Instances(top));
-  EXPECT_EQ(1u, countMux2Instances(top, 128));
+  EXPECT_EQ(128u, countDFFSRBits(top));
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(0u, countMux2Instances(top, 128));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_all_zero_literal_wide_supported");
   const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_NE(std::string::npos, dumpedText.find("naja_dffsr #("));
   EXPECT_NE(std::string::npos, dumpedText.find(".WIDTH(128)"));
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
@@ -26781,13 +26828,13 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalpar
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(128u, dffCount);
-  EXPECT_EQ(1u, countMux2Instances(top));
-  EXPECT_EQ(1u, countMux2Instances(top, 128));
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(0u, countMux2Instances(top, 128));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
 }
 
@@ -27290,7 +27337,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySupported) {
   size_t dffCount = 0;
   size_t xorGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) &&
@@ -28223,7 +28270,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryNotSupported) {
   size_t dffCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     } else if (NLDB0::isGate(inst->getModel()) &&
                NLDB0::getGateName(inst->getModel()) == "not") {
@@ -28231,10 +28278,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryNotSupported) {
     }
   }
   EXPECT_EQ(16u, dffCount);
-  EXPECT_EQ(4u, countMux2Instances(top));
-  EXPECT_EQ(4u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(0u, countMux2Instances(top, 8));
   EXPECT_EQ(0u, countMux2Instances(top, 1));
-  EXPECT_EQ(4u, notGateCount);
+  EXPECT_EQ(2u, notGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_cond_unary_not_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -28470,7 +28517,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleWrapperSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -28493,7 +28540,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialNestedBeginWrapperSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -28517,7 +28564,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryAndSupported) {
 
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -28568,7 +28615,7 @@ endmodule
   size_t dffCount = 0;
   size_t otherInstCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     } else {
       ++otherInstCount;
@@ -28732,13 +28779,13 @@ endmodule
   size_t dffCount = 0;
   size_t dffnCount = 0;
   for (auto inst : top->getInstances()) {
-    if (inst->getModel() == NLDB0::getDFF()) {
+    if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
-    } else if (inst->getModel() == NLDB0::getDFFN()) {
+    } else if (NLDB0::isDFFN(inst->getModel())) {
       dffnCount += getPrimitiveWidth(inst);
     }
   }
-  EXPECT_EQ(1u, dffCount);
+  EXPECT_EQ(0u, dffCount);
   EXPECT_EQ(0u, dffnCount);
 }
 
@@ -28773,7 +28820,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListTimedAssertionSuppor
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -28833,7 +28880,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialConcurrentAssertionIgnoredSupp
 
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -29460,6 +29507,491 @@ endmodule
   EXPECT_EQ(0u, dffCount);
   EXPECT_EQ(1u, dffrCount);
   EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveHighResetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_high_reset_primitive",
+    R"(module sequential_sync_active_high_reset_primitive(
+  input logic clk,
+  input logic rst,
+  input logic [3:0] d,
+  output logic [3:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 4'b0000;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_high_reset_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(4u, countDFFSRBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSR));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveLowResetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_low_reset_primitive",
+    R"(module sequential_sync_active_low_reset_primitive(
+  input logic clk,
+  input logic rst_n,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (!rst_n) q <= 2'b00;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_low_reset_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSRNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRN));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarSyncActiveLowResetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_active_low_reset_primitive",
+    R"(module sequential_scalar_sync_active_low_reset_primitive(
+  input logic clk,
+  input logic rst_n,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (!rst_n) q <= 1'b0;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_scalar_sync_active_low_reset_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSRNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRN));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveHighSetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_high_set_primitive",
+    R"(module sequential_sync_active_high_set_primitive(
+  input logic clk,
+  input logic set,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 1'b1;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_high_set_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSSBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSS));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveHighSetVectorPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_high_set_vector_primitive",
+    R"(module sequential_sync_active_high_set_vector_primitive(
+  input logic clk,
+  input logic set,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 2'b11;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_sync_active_high_set_vector_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSSBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSS));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncActiveLowSetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_low_set_primitive",
+    R"(module sequential_sync_active_low_set_primitive(
+  input logic clk,
+  input logic set_n,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (~set_n) q <= 2'b11;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_active_low_set_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSSNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSN));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarSyncActiveLowSetPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_active_low_set_primitive",
+    R"(module sequential_scalar_sync_active_low_set_primitive(
+  input logic clk,
+  input logic set_n,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (!set_n) q <= 1'b1;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_scalar_sync_active_low_set_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSSNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSN));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncResetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_reset_enable_primitive",
+    R"(module sequential_sync_reset_enable_primitive(
+  input logic clk,
+  input logic rst,
+  input logic en,
+  input logic [2:0] d,
+  output logic [2:0] q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 3'b000;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_reset_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(3u, countDFFSREBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFEBits(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSyncActiveLowResetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_low_reset_enable_primitive",
+    R"(module sequential_sync_active_low_reset_enable_primitive(
+  input logic clk,
+  input logic rst_n,
+  input logic en,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (!rst_n) q <= 2'b00;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_sync_active_low_reset_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSRNEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRNE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFEBits(top));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncSetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_set_enable_primitive",
+    R"(module sequential_sync_set_enable_primitive(
+  input logic clk,
+  input logic set,
+  input logic en,
+  input logic [2:0] d,
+  output logic [2:0] q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 3'b111;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_set_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(3u, countDFFSSEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFEBits(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSyncActiveLowSetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_active_low_set_enable_primitive",
+    R"(module sequential_sync_active_low_set_enable_primitive(
+  input logic clk,
+  input logic set_n,
+  input logic en,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk) begin
+    if (!set_n) q <= 2'b11;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_sync_active_low_set_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSSNEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSNE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFEBits(top));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialScalarSyncResetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_reset_enable_primitive",
+    R"(module sequential_scalar_sync_reset_enable_primitive(
+  input logic clk,
+  input logic rst,
+  input logic en,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 1'b0;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_scalar_sync_reset_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSREBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialScalarSyncActiveLowResetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_active_low_reset_enable_primitive",
+    R"(module sequential_scalar_sync_active_low_reset_enable_primitive(
+  input logic clk,
+  input logic rst_n,
+  input logic en,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (~rst_n) q <= 1'b0;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_scalar_sync_active_low_reset_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSRNEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSRNE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarSyncSetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_set_enable_primitive",
+    R"(module sequential_scalar_sync_set_enable_primitive(
+  input logic clk,
+  input logic set,
+  input logic en,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (set) q <= 1'b1;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_scalar_sync_set_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSSEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialScalarSyncActiveLowSetEnablePrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_scalar_sync_active_low_set_enable_primitive",
+    R"(module sequential_scalar_sync_active_low_set_enable_primitive(
+  input logic clk,
+  input logic set_n,
+  input logic en,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (~set_n) q <= 1'b1;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_scalar_sync_active_low_set_enable_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFSSNEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSSNE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialSyncUnaryPlusResetFallsBackToMuxSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_unary_plus_reset_falls_back_to_mux",
+    R"(module sequential_sync_unary_plus_reset_falls_back_to_mux(
+  input logic clk,
+  input logic rst,
+  input logic d,
+  output logic q
+);
+  always_ff @(posedge clk) begin
+    if (+rst) q <= 1'b0;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_sync_unary_plus_reset_falls_back_to_mux"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFSRBits(top));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAsyncSetEnableVectorPrimitiveSupported) {
+  const auto svPath = writeSVTestFile(
+    "sequential_async_set_enable_vector_primitive",
+    R"(module sequential_async_set_enable_vector_primitive(
+  input logic clk,
+  input logic set,
+  input logic en,
+  input logic [1:0] d,
+  output logic [1:0] q
+);
+  always_ff @(posedge clk or posedge set) begin
+    if (set) q <= 2'b11;
+    else if (en) q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_async_set_enable_vector_primitive"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFSEBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDFFSE));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isMux2));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSyncResetNegedgeFallbackWarning) {
+  const auto svPath = writeSVTestFile(
+    "sequential_sync_reset_negedge_fallback_warning",
+    R"(module sequential_sync_reset_negedge_fallback_warning(
+  input logic clk,
+  input logic rst,
+  input logic d,
+  output logic q
+);
+  always_ff @(negedge clk) begin
+    if (rst) q <= 1'b0;
+    else q <= d;
+  end
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("sequential_sync_reset_negedge_fallback_warning"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countDFFNBits(top));
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isMux2));
+  EXPECT_EQ(0u, countDFFSRBits(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialScalarPosedgeSetPrimitiveSupported) {
@@ -30164,7 +30696,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableActionSupported) {
   size_t faCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30216,7 +30748,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30296,7 +30828,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30381,7 +30913,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupporte
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30433,7 +30965,7 @@ endmodule
   size_t faCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30490,7 +31022,7 @@ endmodule
   ASSERT_NE(dffreModel, nullptr);
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
   }
@@ -30585,7 +31117,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
   size_t faCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -30609,7 +31141,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnaryNotSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -30629,7 +31161,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWidthMismatchSupported) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
@@ -30650,7 +31182,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
   size_t dffCount = 0;
   size_t faCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isFA(inst->getModel())) {
@@ -31535,13 +32067,13 @@ endmodule
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
+    if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_EQ(2u, countMux2Instances(top));
-  EXPECT_EQ(2u, countMux2Instances(top, 8));
+  EXPECT_EQ(0u, countMux2Instances(top));
+  EXPECT_EQ(0u, countMux2Instances(top, 8));
 }
 
 TEST_F(
@@ -33581,10 +34113,7 @@ endmodule
     if (!model) {
       continue;
     }
-    if (NLDB0::isDFF(model) || NLDB0::isDFFN(model) ||
-        NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) ||
-        NLDB0::isDFFS(model) || NLDB0::isDFFE(model) ||
-        NLDB0::isDFFRE(model) || NLDB0::isDFFSE(model)) {
+    if (isSequentialDFFPrimitive(model)) {
       ASSERT_EQ(nullptr, sequential);
       sequential = inst;
     }

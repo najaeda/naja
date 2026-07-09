@@ -204,6 +204,30 @@ class SNLTruthTable {
     return genericType_;
   }
 
+  bool isAnd() const {
+    return isGenericOrEquivalent(GenericType::AND);
+  }
+
+  bool isNand() const {
+    return isGenericOrEquivalent(GenericType::NAND);
+  }
+
+  bool isOr() const {
+    return isGenericOrEquivalent(GenericType::OR);
+  }
+
+  bool isNor() const {
+    return isGenericOrEquivalent(GenericType::NOR);
+  }
+
+  bool isXor() const {
+    return isGenericOrEquivalent(GenericType::XOR);
+  }
+
+  bool isXnor() const {
+    return isGenericOrEquivalent(GenericType::XNOR);
+  }
+
   uint32_t getTableSelectAddressSize() const {
     if (genericType_ != GenericType::TABLE_SELECT) {
       throw NLException("Truth table is not a table select generic");
@@ -478,6 +502,50 @@ class SNLTruthTable {
   }
 
  private:
+  bool isGenericOrEquivalent(GenericType type) const {
+    if (genericType_ == type) {
+      return true;
+    }
+    if (genericType_ != GenericType::NONE || !isInitialized() || size_ < 2) {
+      return false;
+    }
+    for (size_t idx = 0; idx < bits_.size(); ++idx) {
+      if (bits_.bit(idx) != expectedGenericValue(type, idx)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool expectedGenericValue(GenericType type, size_t idx) const {
+    bool hasZero = false;
+    bool hasOne = false;
+    bool oddParity = false;
+    for (uint32_t bit = 0; bit < size_; ++bit) {
+      const bool value =
+          bit < sizeof(size_t) * 8 ? ((idx >> bit) & 1u) != 0 : false;
+      hasZero |= !value;
+      hasOne |= value;
+      oddParity ^= value;
+    }
+    switch (type) {
+      case GenericType::AND:
+        return !hasZero;
+      case GenericType::NAND:
+        return hasZero;
+      case GenericType::OR:
+        return hasOne;
+      case GenericType::NOR:
+        return !hasOne;
+      case GenericType::XOR:
+        return oddParity;
+      case GenericType::XNOR:
+        return !oddParity;
+      default:  // LCOV_EXCL_LINE
+        return false;
+    }
+  }
+
   void validateGenericMetadata() const {
     if (genericType_ == GenericType::TABLE_SELECT) {
       if (tableSelectAddressSize_ == 0 || tableSelectDepth_ == 0 ||

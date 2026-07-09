@@ -52,7 +52,15 @@ bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
           naja::NL::NLDB0::isDFFS(design) ||
           naja::NL::NLDB0::isDFFE(design) ||
           naja::NL::NLDB0::isDFFRE(design) ||
-          naja::NL::NLDB0::isDFFSE(design));
+          naja::NL::NLDB0::isDFFSE(design) ||
+          naja::NL::NLDB0::isDFFSR(design) ||
+          naja::NL::NLDB0::isDFFSRN(design) ||
+          naja::NL::NLDB0::isDFFSS(design) ||
+          naja::NL::NLDB0::isDFFSSN(design) ||
+          naja::NL::NLDB0::isDFFSRE(design) ||
+          naja::NL::NLDB0::isDFFSRNE(design) ||
+          naja::NL::NLDB0::isDFFSSE(design) ||
+          naja::NL::NLDB0::isDFFSSNE(design));
 }
 
 naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* design) {
@@ -66,7 +74,15 @@ naja::NL::SNLScalarTerm* getDB0SequentialClockTerm(const naja::NL::SNLDesign* de
       naja::NL::NLDB0::isDFFS(design) ||
       naja::NL::NLDB0::isDFFE(design) ||
       naja::NL::NLDB0::isDFFRE(design) ||
-      naja::NL::NLDB0::isDFFSE(design)) {
+      naja::NL::NLDB0::isDFFSE(design) ||
+      naja::NL::NLDB0::isDFFSR(design) ||
+      naja::NL::NLDB0::isDFFSRN(design) ||
+      naja::NL::NLDB0::isDFFSS(design) ||
+      naja::NL::NLDB0::isDFFSSN(design) ||
+      naja::NL::NLDB0::isDFFSRE(design) ||
+      naja::NL::NLDB0::isDFFSRNE(design) ||
+      naja::NL::NLDB0::isDFFSSE(design) ||
+      naja::NL::NLDB0::isDFFSSNE(design)) {
     return design->getScalarTerm(naja::NL::NLName("C"));
   }
   return nullptr;  // LCOV_EXCL_LINE
@@ -1506,7 +1522,8 @@ SNLDesignModeling::SNLTermRole SNLDesignModeling::getTermRole(
 SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
     const SNLBitTerm* term) {
   auto role = getTermRole(term);
-  if (role != SNLTermRole::AsyncReset && role != SNLTermRole::AsyncSet) {
+  if (role != SNLTermRole::AsyncReset && role != SNLTermRole::AsyncSet &&
+      role != SNLTermRole::SyncReset && role != SNLTermRole::SyncSet) {
     return SNLActiveLevel::NA;
   }
   if (term && hasMemoryInterface(term->getDesign())) {
@@ -1540,14 +1557,16 @@ SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
 DEFINE_TERM_ROLE_PREDICATE(isClock, Clock)
 DEFINE_TERM_ROLE_PREDICATE(isAsyncReset, AsyncReset)
 DEFINE_TERM_ROLE_PREDICATE(isAsyncSet, AsyncSet)
+DEFINE_TERM_ROLE_PREDICATE(isSyncReset, SyncReset)
+DEFINE_TERM_ROLE_PREDICATE(isSyncSet, SyncSet)
 DEFINE_TERM_ROLE_PREDICATE(isEnable, Enable)
 #undef DEFINE_TERM_ROLE_PREDICATE
 
 bool SNLDesignModeling::isReset(const SNLBitTerm* term) {
-  return isAsyncReset(term);
+  return isAsyncReset(term) || isSyncReset(term);
 }
 bool SNLDesignModeling::isReset(const SNLInstTerm* term) {
-  return isAsyncReset(term);
+  return isAsyncReset(term) || isSyncReset(term);
 }
 bool SNLDesignModeling::isDataInput(const SNLBitTerm* term) {
   auto role = getTermRole(term);
@@ -1589,6 +1608,12 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getAsyncResetTerms(const SNLDesig
 }
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getAsyncSetTerms(const SNLDesign* design) {
   return getTermsWithRole(design, SNLTermRole::AsyncSet);
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getSyncResetTerms(const SNLDesign* design) {
+  return getTermsWithRole(design, SNLTermRole::SyncReset);
+}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getSyncSetTerms(const SNLDesign* design) {
+  return getTermsWithRole(design, SNLTermRole::SyncSet);
 }
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getDataInputTerms(const SNLDesign* design) {
   if (!design) return NajaCollection<SNLBitTerm*>();
@@ -2156,6 +2181,43 @@ bool SNLDesignModeling::isBuf(const SNLDesign* design) {
   return truthTable.isInitialized() && !truthTable.isGeneric() &&
          truthTable.size() == 1 && truthTable.bits().size() == 2 &&
          static_cast<uint64_t>(truthTable.bits()) == 0b10;
+}
+
+namespace {
+bool isTruthTableFamily(
+    const SNLDesign* design,
+    bool (SNLTruthTable::*predicate)() const) {
+  try {
+    auto truthTable = SNLDesignModeling::getTruthTable(design);
+    return truthTable.isInitialized() && (truthTable.*predicate)();
+  } catch (const NLException&) {
+    return false;
+  }
+}
+}  // namespace
+
+bool SNLDesignModeling::isAnd(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isAnd);
+}
+
+bool SNLDesignModeling::isNand(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isNand);
+}
+
+bool SNLDesignModeling::isOr(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isOr);
+}
+
+bool SNLDesignModeling::isNor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isNor);
+}
+
+bool SNLDesignModeling::isXor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isXor);
+}
+
+bool SNLDesignModeling::isXnor(const SNLDesign* design) {
+  return isTruthTableFamily(design, &SNLTruthTable::isXnor);
 }
 
 }  // namespace naja::NL

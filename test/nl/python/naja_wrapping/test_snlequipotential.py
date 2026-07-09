@@ -60,6 +60,9 @@ class SNLEquiTest(unittest.TestCase):
     self.assertListEqual([netcomponentoccurrence1], insttermoccurrences)
 
     equi1 = naja.SNLEquipotential(self.top_out)
+    self.assertEqual(equi0, equi1)
+    with self.assertRaises(TypeError):
+      hash(equi0)
     topTerms = [t for t in equi1.getTerms()]
     self.assertListEqual([self.top_out], topTerms)
     insttermoccurrences = [i for i in equi1.getInstTermOccurrences()]
