@@ -41,6 +41,11 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("pragma0", {pragma0: "pragma0"}[naja.SNLAttribute("pragma0", "value0")])
     self.assertNotEqual(naja.SNLAttribute("pragma1", "10"), pragma1)
     self.assertEqual(2, len({pragma1, naja.SNLAttribute("pragma1", "10")}))
+    unbound = naja.SNLAttribute.__new__(naja.SNLAttribute)
+    with self.assertRaisesRegex(
+      RuntimeError,
+      r"Attempt to call SNLAttribute\.__hash__\(\) on an unbound object"):
+      hash(unbound)
 
   def testAttributesErrors(self):
     with self.assertRaises(RuntimeError) as context: naja.SNLAttribute("pragma0", "value0", "value1")

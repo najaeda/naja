@@ -55,10 +55,16 @@ class SNLOccurrenceTest(unittest.TestCase):
     self.assertEqual(ins2, occurrence.getInstance())
     self.assertIsNone(occurrence.getInstTerm())
     self.assertIsNone(occurrence.getNetComponent())
+    self.assertIsInstance(hash(occurrence), int)
     self.assertTrue(occurrence2.isInstanceOccurrence())
     self.assertEqual(ins1, occurrence2.getInstance())
     self.assertFalse(occurrence3.isInstanceOccurrence())
     self.assertIsNone(occurrence3.getInstance())
+    unbound = naja.SNLOccurrence.__new__(naja.SNLOccurrence)
+    with self.assertRaisesRegex(
+      RuntimeError,
+      r"Attempt to call SNLOccurrence\.__hash__\(\) on an unbound object"):
+      hash(unbound)
 
     instTerms = tuple(ins1.getInstTerms())
 
