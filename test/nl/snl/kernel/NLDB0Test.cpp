@@ -69,6 +69,30 @@ NLID::LibraryID expectedSequentialLibraryID(const NLName& name) {
   if (name == NLName("naja_dlatch")) {
     return NLID::LibraryID(11);
   }
+  if (name == NLName("naja_dffsr")) {
+    return NLID::LibraryID(17);
+  }
+  if (name == NLName("naja_dffsrn")) {
+    return NLID::LibraryID(18);
+  }
+  if (name == NLName("naja_dffss")) {
+    return NLID::LibraryID(19);
+  }
+  if (name == NLName("naja_dffssn")) {
+    return NLID::LibraryID(20);
+  }
+  if (name == NLName("naja_dffsre")) {
+    return NLID::LibraryID(21);
+  }
+  if (name == NLName("naja_dffsrne")) {
+    return NLID::LibraryID(22);
+  }
+  if (name == NLName("naja_dffsse")) {
+    return NLID::LibraryID(23);
+  }
+  if (name == NLName("naja_dffssne")) {
+    return NLID::LibraryID(24);
+  }
   return NLID::LibraryID(0);
 }
 
@@ -1337,6 +1361,70 @@ TEST_F(NLDB0Test, testSequentialPrimitiveModeling) {
       NLDB0::getDFFSEClock(),
       {NLDB0::getDFFSEData(), NLDB0::getDFFSEEnable(), NLDB0::getDFFSESet()},
       {NLDB0::getDFFSEOutput()},
+    },
+    {
+      NLDB0::getDFFSR(),
+      NLDB0::getDFFSRClock(),
+      {NLDB0::getDFFSRData(), NLDB0::getDFFSRReset()},
+      {NLDB0::getDFFSROutput()},
+    },
+    {
+      NLDB0::getDFFSRN(),
+      NLDB0::getDFFSRNClock(),
+      {NLDB0::getDFFSRNData(), NLDB0::getDFFSRNResetN()},
+      {NLDB0::getDFFSRNOutput()},
+    },
+    {
+      NLDB0::getDFFSS(),
+      NLDB0::getDFFSSClock(),
+      {NLDB0::getDFFSSData(), NLDB0::getDFFSSSet()},
+      {NLDB0::getDFFSSOutput()},
+    },
+    {
+      NLDB0::getDFFSSN(),
+      NLDB0::getDFFSSNClock(),
+      {NLDB0::getDFFSSNData(), NLDB0::getDFFSSNSetN()},
+      {NLDB0::getDFFSSNOutput()},
+    },
+    {
+      NLDB0::getDFFSRE(),
+      NLDB0::getDFFSRE()->getScalarTerm(NLID::DesignObjectID(0)),
+      {
+        NLDB0::getDFFSRE()->getScalarTerm(NLID::DesignObjectID(1)),
+        NLDB0::getDFFSRE()->getScalarTerm(NLID::DesignObjectID(2)),
+        NLDB0::getDFFSRE()->getScalarTerm(NLID::DesignObjectID(3)),
+      },
+      {NLDB0::getDFFSRE()->getScalarTerm(NLID::DesignObjectID(4))},
+    },
+    {
+      NLDB0::getDFFSRNE(),
+      NLDB0::getDFFSRNE()->getScalarTerm(NLID::DesignObjectID(0)),
+      {
+        NLDB0::getDFFSRNE()->getScalarTerm(NLID::DesignObjectID(1)),
+        NLDB0::getDFFSRNE()->getScalarTerm(NLID::DesignObjectID(2)),
+        NLDB0::getDFFSRNE()->getScalarTerm(NLID::DesignObjectID(3)),
+      },
+      {NLDB0::getDFFSRNE()->getScalarTerm(NLID::DesignObjectID(4))},
+    },
+    {
+      NLDB0::getDFFSSE(),
+      NLDB0::getDFFSSE()->getScalarTerm(NLID::DesignObjectID(0)),
+      {
+        NLDB0::getDFFSSE()->getScalarTerm(NLID::DesignObjectID(1)),
+        NLDB0::getDFFSSE()->getScalarTerm(NLID::DesignObjectID(2)),
+        NLDB0::getDFFSSE()->getScalarTerm(NLID::DesignObjectID(3)),
+      },
+      {NLDB0::getDFFSSE()->getScalarTerm(NLID::DesignObjectID(4))},
+    },
+    {
+      NLDB0::getDFFSSNE(),
+      NLDB0::getDFFSSNE()->getScalarTerm(NLID::DesignObjectID(0)),
+      {
+        NLDB0::getDFFSSNE()->getScalarTerm(NLID::DesignObjectID(1)),
+        NLDB0::getDFFSSNE()->getScalarTerm(NLID::DesignObjectID(2)),
+        NLDB0::getDFFSSNE()->getScalarTerm(NLID::DesignObjectID(3)),
+      },
+      {NLDB0::getDFFSSNE()->getScalarTerm(NLID::DesignObjectID(4))},
     },
   };
 
