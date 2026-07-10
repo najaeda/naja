@@ -34689,3 +34689,74 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q")), nullptr);
 }
+
+TEST_F(SNLSVConstructorTestSimple, parsePackedArrayAssignmentPatternInContinuousAssign) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "packed_array_assignment_pattern";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "packed_array_assignment_pattern.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module packed_array_assignment_pattern_top(
+  input  logic [63:0]  s0,
+  input  logic [63:0]  s1,
+  output logic [127:0] o
+);
+  logic [1:0][63:0] v;
+  assign v = '{s1, s0};
+  assign o = v;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("packed_array_assignment_pattern_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseStructPatternWithPackedArrayMember) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "struct_pattern_with_packed_array_member";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "struct_pattern_with_packed_array_member.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module struct_pattern_with_packed_array_member_top(
+  input  logic [63:0]  w0,
+  input  logic [63:0]  w1,
+  input  logic [4:0]   t,
+  output logic [132:0] o
+);
+  typedef struct packed {
+    logic [4:0]       tag;
+    logic [1:0][63:0] words;
+  } entry_t;
+  entry_t packed_entry;
+  assign packed_entry = '{ words: '{w1, w0}, tag: t };
+  assign o = packed_entry;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("struct_pattern_with_packed_array_member_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+}
