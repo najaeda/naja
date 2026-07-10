@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783696740784,
+  "lastUpdate": 1783705778026,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -8874,6 +8874,108 @@ window.BENCHMARK_DATA = {
             "value": 359229.69301837496,
             "unit": "ns/iter",
             "extra": "iterations: 1948\ncpu: 359103.5349076325 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michael@rogenmoser.us",
+            "name": "Michael Rogenmoser",
+            "username": "micprog"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "30f65197f51c04dc3ec0ddd0143bb3b8f5e6db90",
+          "message": "sv frontend: lower $countones as an adder-fold popcount (#407)\n\n$countones(x) on a runtime operand is not constant-foldable, so it reached\nresolveExpressionBits as an unresolved system Call and was rejected with\n\"Unsupported RHS in continuous assign ... Call\". It appears throughout\nissue-queue / freelist style RTL (population counts of valid/request vectors),\nincluding as an operand of relational comparisons and inside struct/sequential\nassignments.\n\nLower it structurally: resolve the operand's bits, then sum them with an\nadder-fold over addBitVectors into a bit_width(N)-wide accumulator (so the\nrunning sum cannot overflow), and resize to the requested target width.\n\nTests:\n- parseCountOnesInContinuousAssign (new) — previously threw\n  SNLSVUnsupportedConstructError.\n- parseAlwaysCombStructuredAssignmentPatternMemberSetterExprResolveFailureUnsupported\n  used $countones purely as a stand-in \"unresolvable\" member-setter expression;\n  since it is now supported, switch that negative test to the existing\n  bad_cond() case-inside-with-x-range idiom so it still exercises the\n  member-setter-resolve-failure path.\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-10T19:47:04+02:00",
+          "tree_id": "44cd46ec235efa6a8b55dac8f4d775f96b93716a",
+          "url": "https://github.com/najaeda/naja/commit/30f65197f51c04dc3ec0ddd0143bb3b8f5e6db90"
+        },
+        "date": 1783705776394,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 200664.17986424136,
+            "unit": "ns/iter",
+            "extra": "iterations: 3536\ncpu: 200659.27121040729 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 303012.29526341317,
+            "unit": "ns/iter",
+            "extra": "iterations: 2259\ncpu: 302992.9362549801 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1887013.3526315899,
+            "unit": "ns/iter",
+            "extra": "iterations: 380\ncpu: 1886943.8657894747 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 18462727.05263106,
+            "unit": "ns/iter",
+            "extra": "iterations: 38\ncpu: 18461614.921052627 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1457.6421812768824,
+            "unit": "ns/iter",
+            "extra": "iterations: 481076\ncpu: 1457.5029143004426 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 14369.58351467934,
+            "unit": "ns/iter",
+            "extra": "iterations: 48710\ncpu: 14367.558550605623 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 211383.60158151074,
+            "unit": "ns/iter",
+            "extra": "iterations: 3288\ncpu: 211366.37317518253 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 465497.7785904407,
+            "unit": "ns/iter",
+            "extra": "iterations: 1504\ncpu: 465449.90558510646 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 408612.5657277056,
+            "unit": "ns/iter",
+            "extra": "iterations: 1704\ncpu: 408611.90669014136 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 331299.8508522695,
+            "unit": "ns/iter",
+            "extra": "iterations: 2112\ncpu: 331278.1273674244 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 72983426.24999776,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 72980845.24999982 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 21870.60668284428,
+            "unit": "ns/iter",
+            "extra": "iterations: 32142\ncpu: 21868.518542716698 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 362147.2152563006,
+            "unit": "ns/iter",
+            "extra": "iterations: 1914\ncpu: 361951.0292580756 ns\nthreads: 1"
           }
         ]
       }
