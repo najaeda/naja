@@ -9934,6 +9934,68 @@ endmodule
           }
           return true;
         }
+        if (canonical.isPackedArray() && canonical.hasFixedRange()) {
+          // Packed-array assignment pattern, e.g. `logic [1:0][63:0] v = '{a, b}`.
+          // Element bit layout mirrors the unpacked case above: pattern element
+          // k corresponds to declared array index (arrayRange.left + k*step), and
+          // its bits land at translateIndex(index) * elementWidth.
+          if (pattern.elements().empty()) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto* elementType = canonical.getArrayElementType();
+          if (!elementType) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto& elementCanonical = elementType->getCanonicalType();
+          if (!elementCanonical.isIntegral()) {
+            return std::nullopt;
+          }
+          const auto rawElementWidth = elementCanonical.getBitWidth();
+          if (rawElementWidth <= 0) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto elementWidthBits = static_cast<size_t>(rawElementWidth);
+
+          const auto arrayRange = canonical.getFixedRange();
+          const auto arrayWidth = static_cast<size_t>(arrayRange.width());
+          if (arrayWidth != pattern.elements().size() ||
+              arrayWidth * elementWidthBits != targetWidth) {
+            return std::nullopt; // LCOV_EXCL_LINE: slang type checking rejects this shape.
+          }
+
+          bits.assign(targetWidth, nullptr);
+          int32_t index = arrayRange.left;
+          const int32_t end = arrayRange.right;
+          const int32_t step = index <= end ? 1 : -1;
+          size_t patternIndex = 0;
+          while (index != end + step) {
+            std::vector<SNLBitNet*> elementBits;
+            if (!resolveExpressionBits(
+                  design,
+                  *pattern.elements()[patternIndex],
+                  elementWidthBits,
+                  elementBits) ||
+                elementBits.size() != elementWidthBits) {
+              return std::nullopt;
+            }
+            const auto translated = arrayRange.translateIndex(index);
+            if (translated < 0 ||
+                translated >= static_cast<int32_t>(arrayWidth)) {
+              return std::nullopt; // LCOV_EXCL_LINE
+            }
+            const auto offset = static_cast<size_t>(translated) * elementWidthBits;
+            std::copy(elementBits.begin(), elementBits.end(), bits.begin() + offset);
+            index += step;
+            ++patternIndex;
+          }
+
+          if (std::any_of(bits.begin(), bits.end(), [](const SNLBitNet* bit) {
+                return bit == nullptr;
+              })) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          return true;
+        }
         if (canonical.kind == SymbolKind::PackedStructType) {
           std::vector<const slang::ast::FieldSymbol*> fields;
           for (const auto& sym : canonical.as<slang::ast::PackedStructType>().members()) {
