@@ -560,6 +560,10 @@ bool SNLDesign::isAssign() const {
   return NLDB0::isAssign(this);
 }
 
+bool SNLDesign::isMux() const {
+  return SNLDesignModeling::isMux(this);
+}
+
 bool SNLDesign::deepCompare(
   const SNLDesign* other,
   std::string& reason,

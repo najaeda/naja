@@ -674,6 +674,8 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
+  { "snapshot_manifest", PyNLDB_snapshotManifest, METH_VARARGS,
+    "read a NajaIF snapshot manifest without loading the snapshot" },
   { "log", logMessage, METH_VARARGS, "log a message at the requested level" },
   { "installLoggingHandler", installLoggingHandler, METH_NOARGS,
     "route standard Python logging through the native Naja logger" },

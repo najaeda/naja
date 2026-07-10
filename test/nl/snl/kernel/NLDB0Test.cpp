@@ -520,6 +520,8 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
 
   auto tt = NLDB0::getPrimitiveTruthTable(mux2);
   EXPECT_EQ(tt, SNLDesignModeling::getTruthTable(mux2));
+  EXPECT_TRUE(SNLDesignModeling::isMux(mux2));
+  EXPECT_TRUE(mux2->isMux());
   EXPECT_EQ(1u, SNLDesignModeling::getTruthTableCount(mux2));
   EXPECT_EQ(3u, tt.size());
   EXPECT_EQ(
@@ -553,6 +555,8 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   EXPECT_EQ(mux2->getLibrary(), mux232->getLibrary());
   EXPECT_EQ(mux232, mux232->getLibrary()->getSNLDesign(NLID::DesignID(32)));
   EXPECT_EQ(tt, NLDB0::getPrimitiveTruthTable(mux232));
+  EXPECT_TRUE(SNLDesignModeling::isMux(mux232));
+  EXPECT_TRUE(mux232->isMux());
   EXPECT_EQ(32u, SNLDesignModeling::getTruthTableCount(mux232));
   EXPECT_EQ(tt, SNLDesignModeling::getTruthTable(mux232));
   auto* mux232A = NLDB0::getMux2InputA(mux232);

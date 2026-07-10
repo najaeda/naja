@@ -23,6 +23,8 @@ using ::testing::Property;
 #include "NajaException.h"
 
 #include "SNLCapnP.h"
+#include "SNLDumpException.h"
+#include "SNLDumpManifest.h"
 
 using namespace naja;
 using namespace naja::NL;
@@ -335,4 +337,22 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
     EXPECT_EQ(scalarNet2, scalarTerm1->getNet());
   }
+}
+
+TEST_F(SNLCapNpTest0, incompatibleManifestVersionThrows) {
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapNpTest0_incompatibleManifestVersionThrows.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
+  SNLCapnP::dump(db_, outPath);
+  {
+    std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
+    ASSERT_TRUE(manifest.is_open());
+    manifest << "V 999 0 0\n";
+    manifest << "P test-producer test-hash\n";
+  }
+
+  EXPECT_THROW(SNLCapnP::load(outPath), SNLDumpException);
 }

@@ -2220,4 +2220,9 @@ bool SNLDesignModeling::isXnor(const SNLDesign* design) {
   return isTruthTableFamily(design, &SNLTruthTable::isXnor);
 }
 
+bool SNLDesignModeling::isMux(const SNLDesign* design) {
+  return NLDB0::isMux2(design) ||
+         isTruthTableFamily(design, &SNLTruthTable::isMux);
+}
+
 }  // namespace naja::NL

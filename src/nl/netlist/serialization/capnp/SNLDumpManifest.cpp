@@ -10,6 +10,7 @@
 #include <iterator>
 
 #include "NajaUtils.h"
+#include "NajaVersion.h"
 #include "SNLDump.h"
 #include "SNLDumpException.h"
 
@@ -43,6 +44,10 @@ void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
     << " " << SNLDump::getVersion().getMinor()
     << " " << SNLDump::getVersion().getRevision()
     << std::endl;
+  stream << "P"
+    << " " << naja::NAJA_VERSION
+    << " " << naja::NAJA_GIT_HASH
+    << std::endl;
 }
 
 SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
@@ -70,6 +75,12 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
           manifest.version_.major_ = static_cast<unsigned>(std::stoi(tokens[1]));
           manifest.version_.minor_ = static_cast<unsigned>(std::stoi(tokens[2]));
           manifest.version_.revision_ = static_cast<unsigned>(std::stoi(tokens[3]));
+        } else if (command == "P") {
+          if (tokens.size() != 3) {
+            throw SNLDumpException("Wrong formatting of producer"); //LCOV_EXCL_LINE
+          }
+          manifest.producerVersion_ = tokens[1];
+          manifest.producerGitHash_ = tokens[2];
         }
       }
     }

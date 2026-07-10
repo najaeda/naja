@@ -5,10 +5,41 @@
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
 #include "NLDB.h"
+#include "SNLDump.h"
+#include "SNLDumpException.h"
+
+#include <sstream>
 
 //using boost::asio::ip::tcp;
 
 namespace naja::NL {
+
+namespace {
+
+void checkManifestCompatibility(const SNLDumpManifest& manifest) {
+  const auto manifestVersion = manifest.getSchemaVersion();
+  const auto expectedVersion = SNLDump::getVersion();
+  if (manifestVersion == expectedVersion) {
+    return;
+  }
+  std::ostringstream reason;
+  reason << "Incompatible SNL snapshot schema version: manifest has "
+    << manifestVersion.getMajor() << "." << manifestVersion.getMinor()
+    << "." << manifestVersion.getRevision()
+    << ", reader expects "
+    << expectedVersion.getMajor() << "." << expectedVersion.getMinor()
+    << "." << expectedVersion.getRevision();
+  if (not manifest.getProducerVersion().empty()) {
+    reason << " (producer naja version " << manifest.getProducerVersion();
+    if (not manifest.getProducerGitHash().empty()) {
+      reason << ", git hash " << manifest.getProducerGitHash();
+    }
+    reason << ")";
+  }
+  throw SNLDumpException(reason.str());
+}
+
+}
 
 void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
@@ -36,6 +67,7 @@ void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
 NLDB* SNLCapnP::load(
   const std::filesystem::path& path,
   LoadingConfiguration loadingConfiguration) {
+  checkManifestCompatibility(SNLDumpManifest::load(path));
   loadInterface(path/InterfaceName, loadingConfiguration);
   NLDB* db = loadImplementation(path/ImplementationName, loadingConfiguration);
   return db;

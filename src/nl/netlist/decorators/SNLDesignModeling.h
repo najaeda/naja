@@ -170,6 +170,7 @@ class SNLDesignModeling {
     static bool isNor(const SNLDesign* design);
     static bool isXor(const SNLDesign* design);
     static bool isXnor(const SNLDesign* design);
+    static bool isMux(const SNLDesign* design);
     static size_t getTruthTableCount(const SNLDesign* design);
     static bool areDependenciesDefined(const SNLBitTerm* term);
     SNLDesignModeling(Type type);

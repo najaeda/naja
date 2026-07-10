@@ -611,6 +611,7 @@ GetBoolAttributeWithFunction(SNLDesign, isOr, SNLDesignModeling::isOr)
 GetBoolAttributeWithFunction(SNLDesign, isNor, SNLDesignModeling::isNor)
 GetBoolAttributeWithFunction(SNLDesign, isXor, SNLDesignModeling::isXor)
 GetBoolAttributeWithFunction(SNLDesign, isXnor, SNLDesignModeling::isXnor)
+GetBoolAttribute(SNLDesign, isMux)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
@@ -700,6 +701,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if this design is an XOR primitive"},
   { "isXnor", (PyCFunction)PySNLDesign_isXnor, METH_NOARGS,
     "Returns True if this design is an XNOR primitive"},
+  { "isMux", (PyCFunction)PySNLDesign_isMux, METH_NOARGS,
+    "Returns True if this design is a mux primitive"},
   { "isTopDesign", (PyCFunction)PySNLDesign_isTopDesign, METH_NOARGS,
     "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,

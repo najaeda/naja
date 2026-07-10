@@ -274,6 +274,8 @@ class SNLDesign final: public NLObject {
     bool isPrimitive() const { return type_ == Type::Primitive; }
     ///\return true if this SNLDesign is the Assign primitive (in verilog: assign net1 = net0).
     bool isAssign() const;
+    ///\return true if this SNLDesign is a mux primitive.
+    bool isMux() const;
     ///\return true if this SNLDesign is a hierarchy leaf (blackbox or primitive).
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
     ///\return true if this SNLDesign is a top design.

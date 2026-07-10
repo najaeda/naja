@@ -42,6 +42,15 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
     prim.setTruthTable(0b01)
     self.assertTrue(prim.isInv())
 
+    prim = naja.SNLDesign.createPrimitive(self.primitives, "MUX2")
+    naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "A")
+    naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "B")
+    naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "S")
+    naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "Y")
+    prim.setTruthTable(0xCA)
+    self.assertTrue(prim.isMux())
+    self.assertFalse(prim.isXor())
+
   def testGateFamilyPredicates(self):
     def create_gate(name, mask):
       prim = naja.SNLDesign.createPrimitive(self.primitives, name)
@@ -74,6 +83,7 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
     xnor2 = create_gate("XNOR2", 0x9)
     self.assertTrue(xnor2.isXnor())
     self.assertFalse(xnor2.isXor())
+    self.assertFalse(xnor2.isMux())
 
   def testPrimitiveTruthTableErrors(self):
     prim = naja.SNLDesign.createPrimitive(self.primitives, "AND2")
