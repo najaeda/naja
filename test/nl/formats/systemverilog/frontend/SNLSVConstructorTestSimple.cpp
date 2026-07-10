@@ -14246,10 +14246,17 @@ TEST_F(
     << R"(module always_comb_structured_assignment_pattern_member_setter_expr_resolve_failure_unsupported(
   input  logic [3:0] a_i,
   input  logic [3:0] b_i,
-  output logic [7:0] out_o
+  output logic [4:0] out_o
 );
+  function automatic logic bad_cond(input logic [3:0] op_i);
+    case (op_i) inside
+      [4'bxxxx : 4'd7]: bad_cond = 1'b1;
+      default:          bad_cond = 1'b0;
+    endcase
+  endfunction
+
   typedef struct packed {
-    logic [3:0] a;
+    logic       a;
     logic [3:0] b;
   } pair_t;
 
@@ -14257,7 +14264,7 @@ TEST_F(
   assign out_o = pair_n;
 
   always_comb begin
-    pair_n = '{a: $countones(a_i), b: b_i};
+    pair_n = '{a: bad_cond(a_i), b: b_i};
   end
 endmodule
 )";
@@ -34757,6 +34764,36 @@ endmodule
 
   auto top =
     library_->getSNLDesign(NLName("struct_pattern_with_packed_array_member_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCountOnesInContinuousAssign) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "countones_continuous_assign";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "countones_continuous_assign.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module countones_continuous_assign_top(
+  input  logic [3:0] x,
+  output logic [2:0] o
+);
+  assign o = $countones(x);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("countones_continuous_assign_top"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("o")), nullptr);
 }
