@@ -13214,6 +13214,44 @@ endmodule
           return true;
         }
 
+        if (subroutineName == "$countones") {
+          // $countones(x): population count = sum of x's bits. Lower to an
+          // adder-fold over the resolved operand bits. Sum width is bit_width(N)
+          // (2^w - 1 >= N, so no overflow); addBitVectors keeps operand width
+          // and drops the carry, hence the pre-sized accumulator.
+          auto args = callExpr.arguments();
+          if (args.size() != 1 || !args[0]) {
+            return false; // LCOV_EXCL_LINE
+          }
+          auto argWidth = getIntegralExpressionBitWidth(*args[0]);
+          if (!argWidth || !*argWidth) {
+            return false; // LCOV_EXCL_LINE
+          }
+          std::vector<SNLBitNet*> argBits;
+          if (!resolveExpressionBits(design, *args[0], *argWidth, argBits) ||
+              argBits.size() != *argWidth) {
+            return false;
+          }
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          size_t sumWidth = 1;
+          for (size_t t = argBits.size(), w = 0; t; t >>= 1) {
+            sumWidth = ++w;
+          }
+          std::vector<SNLBitNet*> accBits(sumWidth, const0);
+          for (auto* argBit : argBits) {
+            std::vector<SNLBitNet*> addendBits(sumWidth, const0);
+            addendBits[0] = argBit;
+            std::vector<SNLBitNet*> sumBits;
+            if (!addBitVectors(design, accBits, addendBits, sumBits, getSourceRange(*stripped))) {
+              return false; // LCOV_EXCL_LINE
+            }
+            accBits = std::move(sumBits);
+          }
+          bits = std::move(accBits);
+          resizeBitsToWidth(bits, targetWidth, const0);
+          return true;
+        }
+
         SNLBitNet* callBit = nullptr;
         if (resolveSimpleCaseInsideFunctionCallBit(
               design,
