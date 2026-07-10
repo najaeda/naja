@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783590402505,
+  "lastUpdate": 1783696740784,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -8772,6 +8772,108 @@ window.BENCHMARK_DATA = {
             "value": 350821.61472902447,
             "unit": "ns/iter",
             "extra": "iterations: 1996\ncpu: 350678.01603207685 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michael@rogenmoser.us",
+            "name": "Michael Rogenmoser",
+            "username": "micprog"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2fa82d9e89b11d7f271356e9a75401ce5008be51",
+          "message": "sv frontend: lower packed-array assignment patterns (#406)\n\nresolveUnbasedOrStructuredPatternBits handled '{...} assignment patterns for\nunpacked arrays and packed structs, but not packed arrays (e.g.\n`logic [1:0][63:0] v = '{a, b}`). Such a pattern fell through to nullopt, so any\ncontinuous-assign RHS containing one — directly, or nested inside a '{...}\nstruct pattern via a member setter — was rejected with\n\"Unsupported RHS in continuous assign ... StructuredAssignmentPattern\".\n\nAdd a packed-array case that mirrors the existing unpacked-array element\nplacement, deriving element width from the packed element type and mapping each\npattern element to its bit offset via the array's fixed range\n(translateIndex(index) * elementWidth).\n\nTests: parsePackedArrayAssignmentPatternInContinuousAssign (bare packed array)\nand parseStructPatternWithPackedArrayMember (packed array nested in a packed\nstruct pattern), both previously threw SNLSVUnsupportedConstructError.\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-10T17:06:35+02:00",
+          "tree_id": "6b4ea1753a396f0eed74f2e6e18ccd47fe6831c3",
+          "url": "https://github.com/najaeda/naja/commit/2fa82d9e89b11d7f271356e9a75401ce5008be51"
+        },
+        "date": 1783696739296,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 194312.7004137907,
+            "unit": "ns/iter",
+            "extra": "iterations: 3625\ncpu: 194287.95448275865 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 297123.27896081784,
+            "unit": "ns/iter",
+            "extra": "iterations: 2348\ncpu: 297094.0374787054 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1892163.1769437492,
+            "unit": "ns/iter",
+            "extra": "iterations: 373\ncpu: 1892081.0402144778 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 18242233.605263893,
+            "unit": "ns/iter",
+            "extra": "iterations: 38\ncpu: 18242156.973684203 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1455.455376539079,
+            "unit": "ns/iter",
+            "extra": "iterations: 479658\ncpu: 1455.3918187541951 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 14350.337894780147,
+            "unit": "ns/iter",
+            "extra": "iterations: 48888\ncpu: 14349.163352970056 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 214345.158484858,
+            "unit": "ns/iter",
+            "extra": "iterations: 3300\ncpu: 214326.97999999995 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 465596.244337678,
+            "unit": "ns/iter",
+            "extra": "iterations: 1457\ncpu: 465589.7158544957 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 412221.3936358318,
+            "unit": "ns/iter",
+            "extra": "iterations: 1697\ncpu: 412207.9770182677 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 333098.7728136977,
+            "unit": "ns/iter",
+            "extra": "iterations: 2104\ncpu: 333097.0128326994 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 72805145.25000115,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 72802086.50000009 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 21641.36063648924,
+            "unit": "ns/iter",
+            "extra": "iterations: 32365\ncpu: 21640.459137957696 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 359229.69301837496,
+            "unit": "ns/iter",
+            "extra": "iterations: 1948\ncpu: 359103.5349076325 ns\nthreads: 1"
           }
         ]
       }
