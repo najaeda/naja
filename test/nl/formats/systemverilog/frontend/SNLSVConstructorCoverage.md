@@ -36,6 +36,8 @@ are still expected in real designs:
   `resolveExpressionBits` fallback failures in continuous assign for unknown
   integer constants, call-cast recursion, nested binary recursion,
   concatenation recursion, and member-access base resolution.
+- `parseCountOnesOperandResolveFailureUnsupported`: `$countones` operand
+  bit-resolution failure after the operand width has been established.
 - Diagnostics report option paths are covered with explicit tests for:
   no-diagnostics content, non-empty diagnostics content, and empty report-path
   validation.

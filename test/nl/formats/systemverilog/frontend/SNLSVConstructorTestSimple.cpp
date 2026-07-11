@@ -34727,7 +34727,28 @@ endmodule
   auto top =
     library_->getSNLDesign(NLName("packed_array_assignment_pattern_top"));
   ASSERT_NE(top, nullptr);
-  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+  auto* s0 = top->getBusNet(NLName("s0"));
+  auto* s1 = top->getBusNet(NLName("s1"));
+  auto* o = top->getBusNet(NLName("o"));
+  ASSERT_NE(s0, nullptr);
+  ASSERT_NE(s1, nullptr);
+  ASSERT_NE(o, nullptr);
+  EXPECT_EQ(128, o->getWidth());
+
+  auto* oBit0 = dynamic_cast<SNLBitNet*>(o->getBit(0));
+  auto* oBit63 = dynamic_cast<SNLBitNet*>(o->getBit(63));
+  auto* oBit64 = dynamic_cast<SNLBitNet*>(o->getBit(64));
+  auto* oBit127 = dynamic_cast<SNLBitNet*>(o->getBit(127));
+  ASSERT_NE(oBit0, nullptr);
+  ASSERT_NE(oBit63, nullptr);
+  ASSERT_NE(oBit64, nullptr);
+  ASSERT_NE(oBit127, nullptr);
+  EXPECT_TRUE(netDependsOn(oBit0, s0->getBit(0)));
+  EXPECT_TRUE(netDependsOn(oBit63, s0->getBit(63)));
+  EXPECT_TRUE(netDependsOn(oBit64, s1->getBit(0)));
+  EXPECT_TRUE(netDependsOn(oBit127, s1->getBit(63)));
+  EXPECT_FALSE(netDependsOn(oBit0, s1->getBit(0)));
+  EXPECT_FALSE(netDependsOn(oBit64, s0->getBit(0)));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseStructPatternWithPackedArrayMember) {
@@ -34765,7 +34786,36 @@ endmodule
   auto top =
     library_->getSNLDesign(NLName("struct_pattern_with_packed_array_member_top"));
   ASSERT_NE(top, nullptr);
-  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+  auto* w0 = top->getBusNet(NLName("w0"));
+  auto* w1 = top->getBusNet(NLName("w1"));
+  auto* t = top->getBusNet(NLName("t"));
+  auto* o = top->getBusNet(NLName("o"));
+  ASSERT_NE(w0, nullptr);
+  ASSERT_NE(w1, nullptr);
+  ASSERT_NE(t, nullptr);
+  ASSERT_NE(o, nullptr);
+  EXPECT_EQ(133, o->getWidth());
+
+  auto* oBit0 = dynamic_cast<SNLBitNet*>(o->getBit(0));
+  auto* oBit63 = dynamic_cast<SNLBitNet*>(o->getBit(63));
+  auto* oBit64 = dynamic_cast<SNLBitNet*>(o->getBit(64));
+  auto* oBit127 = dynamic_cast<SNLBitNet*>(o->getBit(127));
+  auto* oBit128 = dynamic_cast<SNLBitNet*>(o->getBit(128));
+  auto* oBit132 = dynamic_cast<SNLBitNet*>(o->getBit(132));
+  ASSERT_NE(oBit0, nullptr);
+  ASSERT_NE(oBit63, nullptr);
+  ASSERT_NE(oBit64, nullptr);
+  ASSERT_NE(oBit127, nullptr);
+  ASSERT_NE(oBit128, nullptr);
+  ASSERT_NE(oBit132, nullptr);
+  EXPECT_TRUE(netDependsOn(oBit0, w0->getBit(0)));
+  EXPECT_TRUE(netDependsOn(oBit63, w0->getBit(63)));
+  EXPECT_TRUE(netDependsOn(oBit64, w1->getBit(0)));
+  EXPECT_TRUE(netDependsOn(oBit127, w1->getBit(63)));
+  EXPECT_TRUE(netDependsOn(oBit128, t->getBit(0)));
+  EXPECT_TRUE(netDependsOn(oBit132, t->getBit(4)));
+  EXPECT_FALSE(netDependsOn(oBit0, w1->getBit(0)));
+  EXPECT_FALSE(netDependsOn(oBit64, w0->getBit(0)));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseCountOnesInContinuousAssign) {
@@ -34783,7 +34833,7 @@ TEST_F(SNLSVConstructorTestSimple, parseCountOnesInContinuousAssign) {
   svFile
     << R"(module countones_continuous_assign_top(
   input  logic [3:0] x,
-  output logic [2:0] o
+  output logic [4:0] o
 );
   assign o = $countones(x);
 endmodule
@@ -34795,5 +34845,69 @@ endmodule
   auto top =
     library_->getSNLDesign(NLName("countones_continuous_assign_top"));
   ASSERT_NE(top, nullptr);
-  EXPECT_NE(top->getNet(NLName("o")), nullptr);
+  auto* x = top->getBusNet(NLName("x"));
+  auto* o = top->getBusNet(NLName("o"));
+  ASSERT_NE(x, nullptr);
+  ASSERT_NE(o, nullptr);
+  EXPECT_EQ(5, o->getWidth());
+  EXPECT_GT(countFAInstances(top), 0u);
+
+  for (size_t outBit = 0; outBit < 3; ++outBit) {
+    auto* oBit = dynamic_cast<SNLBitNet*>(o->getBit(outBit));
+    ASSERT_NE(oBit, nullptr);
+    for (size_t inBit = 0; inBit < 4; ++inBit) {
+      EXPECT_TRUE(netDependsOn(oBit, x->getBit(inBit)))
+        << "o[" << outBit << "] should depend on x[" << inBit << "]";
+    }
+  }
+
+  auto* oBit3 = dynamic_cast<SNLBitNet*>(o->getBit(3));
+  auto* oBit4 = dynamic_cast<SNLBitNet*>(o->getBit(4));
+  ASSERT_NE(oBit3, nullptr);
+  ASSERT_NE(oBit4, nullptr);
+  auto* oBit3Driver =
+    dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(oBit3));
+  auto* oBit4Driver =
+    dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(oBit4));
+  ASSERT_NE(oBit3Driver, nullptr);
+  ASSERT_NE(oBit4Driver, nullptr);
+  EXPECT_TRUE(oBit3Driver->isAssign0());
+  EXPECT_TRUE(oBit4Driver->isAssign0());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCountOnesOperandResolveFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "countones_operand_resolve_failure_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "countones_operand_resolve_failure_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module countones_operand_resolve_failure_unsupported(
+  input  logic [3:0] x,
+  output logic [2:0] o
+);
+  function automatic logic [3:0] bad_fn(input logic [3:0] value);
+    case (value) inside
+      [4'bxxxx : 4'd7]: bad_fn = 4'hf;
+      default:          bad_fn = 4'h0;
+    endcase
+  endfunction
+
+  assign o = $countones(bad_fn(x));
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported RHS in continuous assign in module "
+     "'countones_operand_resolve_failure_unsupported'",
+     "Call width=3"});
 }
