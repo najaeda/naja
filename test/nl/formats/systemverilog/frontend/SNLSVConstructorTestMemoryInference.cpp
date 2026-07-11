@@ -1020,7 +1020,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unsupported statement pattern for sequential lowering"});
+    {"Unsupported SystemVerilog type not representable in SNL for symbol: mem_q"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitSupported) {
