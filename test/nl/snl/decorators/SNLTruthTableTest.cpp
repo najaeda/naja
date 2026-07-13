@@ -136,8 +136,10 @@ TEST(SNLTruthTableTest, testGateFamilyPredicates) {
   EXPECT_TRUE(SNLTruthTable(2, 0x1, deps2).isNor());
   EXPECT_TRUE(SNLTruthTable(2, 0x6, deps2).isXor());
   EXPECT_TRUE(SNLTruthTable(2, 0x9, deps2).isXnor());
+  EXPECT_TRUE(SNLTruthTable(3, 0xCA, SNLTruthTable::fullDependencies(3)).isMux());
 
   EXPECT_FALSE(SNLTruthTable(2, 0x8, deps2).isXor());
+  EXPECT_FALSE(SNLTruthTable(3, 0xD8, SNLTruthTable::fullDependencies(3)).isMux());
   EXPECT_FALSE(SNLTruthTable::Buf().isAnd());
   EXPECT_FALSE(SNLTruthTable::Inv().isNand());
   EXPECT_THROW(

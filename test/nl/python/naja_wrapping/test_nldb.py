@@ -179,8 +179,16 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(naja_path)
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
+    manifest = naja.snapshot_manifest(naja_dir)
+    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertEqual(manifest["producer_version"], naja.getVersion())
+    self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
+
+    manifest = naja.snapshot_manifest(naja_dir)
+    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertIsNone(naja.NLUniverse.get())
 
     #load NajaIF
     naja.NLDB.loadNajaIF(naja_dir)
@@ -190,6 +198,22 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(db)
     self.assertEqual(db.getID(), 1)
 
+    with open(os.path.join(naja_dir, "snl.mf"), "w", encoding="utf-8") as manifest_file:
+      manifest_file.write("V 0 1 0\n")
+      manifest_file.write("P test-producer test-hash\n")
+    naja.NLUniverse.get().destroy()
+    with self.assertRaises(RuntimeError) as context:
+      naja.NLDB.loadNajaIF(naja_dir)
+    self.assertIn("Incompatible SNL snapshot producer", str(context.exception))
+
+  def testSnapshotManifestInvalidArguments(self):
+    with self.assertRaisesRegex(
+        RuntimeError, "malformed naja snapshot_manifest"):
+      naja.snapshot_manifest()
+
+    with self.assertRaisesRegex(
+        RuntimeError, "snapshot_manifest argument should be a file path"):
+      naja.snapshot_manifest(42)
   
   def testVerilogNoAssigns(self):
     u = naja.NLUniverse.get()

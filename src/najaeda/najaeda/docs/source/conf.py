@@ -35,6 +35,7 @@ release = read_naja_release()
 
 extensions = [
     'sphinx.ext.autodoc',       # Enables the automodule directive
+    'sphinx.ext.autosummary',   # Enables compact raw API indexes
     'sphinx.ext.napoleon',      # (Optional) Supports Google and NumPy-style docstrings
     'sphinx.ext.viewcode',      # (Optional) Links to source code in docs
     'sphinx.ext.todo',          # (Optional) For TODOs in the documentation

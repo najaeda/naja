@@ -23,6 +23,7 @@ NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDB;
 extern PyObject*    PyNLDB_Link(naja::NL::NLDB* u);
 extern void         PyNLDB_LinkPyType();
 extern int          PyNLDB_addSystemVerilogExceptions(PyObject* module);
+extern PyObject*    PyNLDB_snapshotManifest(PyObject*, PyObject* args);
 
 #define IsPyNLDB(v) (PyObject_TypeCheck(v, &PyTypeNLDB))
 #define PYNLDB(v)   ((PyNLDB*)(v))

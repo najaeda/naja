@@ -33,6 +33,7 @@ class SNLDump {
       std::string getString();
     };
 
+    // NajaIF capnp schema revision this build writes and accepts.
     static const Version  version_;
     static Version getVersion() { return version_; }
     //static constexpr std::string_view DesignDBName = "design.db";

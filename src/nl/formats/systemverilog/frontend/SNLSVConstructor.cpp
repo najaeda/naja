@@ -3414,7 +3414,8 @@ endmodule
     struct InferredMemoryGuard {
       enum class Kind {
         Condition,
-        CaseItemMatch
+        CaseItemMatch,
+        SelectorEqualsConstant
       };
 
       Kind kind {Kind::Condition};
@@ -3424,6 +3425,7 @@ endmodule
       const slang::ast::CaseStatement* caseStmt {nullptr};
       const slang::ast::CaseStatement::ItemGroup* caseItem {nullptr};
       std::optional<slang::SourceRange> sourceRange {};
+      std::optional<int32_t> selectorIndex {};
     };
 
     static InferredMemoryGuard makeInferredMemoryConditionGuard(
@@ -3451,6 +3453,13 @@ endmodule
       std::vector<InferredMemoryGuard> guards {};
       std::vector<std::pair<const Symbol*, int64_t>> loopConstantBindings {};
       std::optional<slang::SourceRange> sourceRange {};
+    };
+
+    struct InferredMemoryDynamicTarget {
+      const slang::ast::Expression* selectorExpr {nullptr};
+      int32_t selectorIndex {0};
+      size_t bitOffset {0};
+      size_t bitWidth {0};
     };
 
     // LCOV_EXCL_START
@@ -3515,6 +3524,8 @@ endmodule
       std::vector<bool> initBits {};
       std::map<int32_t, std::vector<InferredMemoryCommitAction>> commitActionsByIndex {};
       std::vector<InferredMemoryWriteAction> directWriteActions {};
+      std::vector<InferredMemoryGuard> shadowCommitGuards {};
+      std::vector<InferredMemoryWriteAction> sequentialOverrideActions {};
       std::vector<InferredMemoryWritePort> writePorts {};
       std::vector<InferredMemoryReadPort> readPorts {};
       std::unordered_map<const slang::ast::Expression*, size_t> readPortBySelectorExpr {};
@@ -5044,10 +5055,12 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      auto widthBits = getIntegralExpressionBitWidth(*stripped);
+      auto widthBits = getExpressionBitstreamWidth(*stripped);
       if (!widthBits || !*widthBits) {
-        failureReason = "unsupported inferred memory write target without integral width";
+        // LCOV_EXCL_START
+        failureReason = "unsupported inferred memory write target without bitstream width";
         return false;
+        // LCOV_EXCL_STOP
       }
       bitWidth = *widthBits;
 
@@ -5214,6 +5227,103 @@ endmodule
       return false;
     }
 
+    bool tryExpandInferredMemoryDynamicElementTarget(
+      const Expression& lhsExpr,
+      const slang::ast::ValueSymbol& entrySymbol,
+      size_t entryWidth,
+      const slang::ast::Expression*& memorySelectorExpr,
+      std::vector<InferredMemoryDynamicTarget>& targets) const {
+      // An inner fixed array is part of one memory word. Expand its dynamic
+      // selector into guarded writes at each statically known bit offset.
+      const auto* current = stripConversions(lhsExpr);
+      auto selectedWidth = getExpressionBitstreamWidth(lhsExpr);
+      if (!current || !selectedWidth || !*selectedWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      size_t commonOffset = 0;
+      const slang::ast::Expression* dynamicSelectorExpr = nullptr;
+      std::vector<std::pair<int32_t, size_t>> dynamicOffsets;
+      while (current) {
+        if (current->kind == slang::ast::ExpressionKind::MemberAccess) {
+          const auto& memberExpr = current->as<slang::ast::MemberAccessExpression>();
+          if (memberExpr.member.kind != SymbolKind::Field) {
+            return false; // LCOV_EXCL_LINE
+          }
+          commonOffset += static_cast<size_t>(
+            memberExpr.member.as<slang::ast::FieldSymbol>().bitOffset);
+          current = stripConversions(memberExpr.value());
+          continue;
+        }
+
+        if (current->kind != slang::ast::ExpressionKind::ElementSelect) {
+          return false;
+        }
+        const auto& elementExpr = current->as<slang::ast::ElementSelectExpression>();
+        if (isValueSymbolReference(elementExpr.value(), entrySymbol)) {
+          memorySelectorExpr = &elementExpr.selector();
+          if (!dynamicSelectorExpr || dynamicOffsets.empty()) {
+            return false; // LCOV_EXCL_LINE
+          }
+          targets.clear();
+          for (const auto& [selectorIndex, dynamicOffset] : dynamicOffsets) {
+            const auto bitOffset = commonOffset + dynamicOffset;
+            if (bitOffset + *selectedWidth > entryWidth) {
+              return false; // LCOV_EXCL_LINE
+            }
+            targets.push_back({
+              dynamicSelectorExpr,
+              selectorIndex,
+              bitOffset,
+              *selectedWidth});
+          }
+          return true;
+        }
+
+        const auto* baseExpr = stripConversions(elementExpr.value());
+        if (!baseExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& baseType = baseExpr->type->getCanonicalType();
+        if (!baseType.hasFixedRange()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        auto elementWidth = getExpressionBitstreamWidth(elementExpr);
+        if (!elementWidth || !*elementWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        int32_t constantIndex = 0;
+        if (getConstantInt32(elementExpr.selector(), constantIndex)) {
+          const auto translated = baseType.getFixedRange().translateIndex(constantIndex);
+          if (translated < 0 ||
+              translated >= static_cast<int32_t>(baseType.getFixedRange().width())) {
+            return false; // LCOV_EXCL_LINE
+          }
+          commonOffset += static_cast<size_t>(translated) * *elementWidth;
+        } else {
+          if (dynamicSelectorExpr) {
+            return false;
+          }
+          dynamicSelectorExpr = &elementExpr.selector();
+          const auto range = baseType.getFixedRange();
+          const auto first = std::min(range.left, range.right);
+          const auto last = std::max(range.left, range.right);
+          for (int32_t index = first; index <= last; ++index) {
+            const auto translated = range.translateIndex(index);
+            if (translated < 0) {
+              return false; // LCOV_EXCL_LINE
+            }
+            dynamicOffsets.emplace_back(
+              index,
+              static_cast<size_t>(translated) * *elementWidth);
+          }
+        }
+        current = baseExpr;
+      }
+      return false; // LCOV_EXCL_LINE
+    }
+
     bool tryExtractInferredMemoryWriteTarget(
       const Expression& lhsExpr,
       const InferredMemory& memory,
@@ -5237,7 +5347,10 @@ endmodule
       const NLDB0::MemorySignature& signature,
       std::vector<InferredMemoryGuard>& guards,
       std::vector<InferredMemoryWriteAction>& actions,
-      std::string& failureReason) const {
+      std::string& failureReason,
+      const slang::ast::ValueSymbol* shadowSymbol = nullptr,
+      bool* sawShadowCommit = nullptr,
+      std::vector<InferredMemoryGuard>* shadowCommitGuards = nullptr) const {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -5259,7 +5372,10 @@ endmodule
                 signature,
                 guards,
                 actions,
-                failureReason)) {
+                failureReason,
+                shadowSymbol,
+                sawShadowCommit,
+                shadowCommitGuards)) {
             return false;
           }
         }
@@ -5277,7 +5393,10 @@ endmodule
               signature,
               guards,
               actions,
-              failureReason);
+              failureReason,
+              shadowSymbol,
+              sawShadowCommit,
+              shadowCommitGuards);
           },
           failureReason);
       }
@@ -5296,7 +5415,10 @@ endmodule
             signature,
             guards,
             actions,
-            failureReason);
+            failureReason,
+            shadowSymbol,
+            sawShadowCommit,
+            shadowCommitGuards);
         }
 
         const size_t baseGuardCount = guards.size();
@@ -5314,7 +5436,10 @@ endmodule
               signature,
               guards,
               actions,
-              failureReason)) {
+              failureReason,
+              shadowSymbol,
+              sawShadowCommit,
+              shadowCommitGuards)) {
           return false;
         }
         guards.resize(baseGuardCount);
@@ -5334,7 +5459,10 @@ endmodule
                 signature,
                 guards,
                 actions,
-                failureReason)) {
+                failureReason,
+                shadowSymbol,
+                sawShadowCommit,
+                shadowCommitGuards)) {
             return false;
           }
           guards.resize(baseGuardCount);
@@ -5367,6 +5495,23 @@ endmodule
         return false;
       }
 
+      if (isValueSymbolReference(*lhsExpr, stateSymbol)) {
+        if (!shadowSymbol ||
+            !isValueSymbolReference(*action.rhs, *shadowSymbol) ||
+            !sawShadowCommit ||
+            !shadowCommitGuards) {
+          failureReason = "unsupported inferred memory whole-array sequential assignment";
+          return false;
+        }
+        if (*sawShadowCommit) {
+          failureReason = "multiple inferred memory shadow commits in sequential block";
+          return false;
+        }
+        *sawShadowCommit = true;
+        *shadowCommitGuards = guards;
+        return true;
+      }
+
       const slang::ast::Expression* selectorExpr = nullptr;
       size_t bitOffset = 0;
       size_t bitWidth = 0;
@@ -5378,7 +5523,36 @@ endmodule
             bitOffset,
             bitWidth,
             failureReason)) {
-        return false;
+        std::vector<InferredMemoryDynamicTarget> dynamicTargets;
+        if (!tryExpandInferredMemoryDynamicElementTarget(
+              *lhsExpr,
+              stateSymbol,
+              signature.width,
+              selectorExpr,
+              dynamicTargets)) {
+          return false;
+        }
+        for (const auto& target : dynamicTargets) {
+          InferredMemoryWriteAction writeAction;
+          writeAction.lhsExpr = lhsExpr;
+          writeAction.selectorExpr = selectorExpr;
+          writeAction.rhsExpr = action.rhs;
+          writeAction.stepDelta = action.stepDelta;
+          writeAction.compoundOp = action.compoundOp;
+          writeAction.bitOffset = target.bitOffset;
+          writeAction.bitWidth = target.bitWidth;
+          writeAction.guards = guards;
+          InferredMemoryGuard selectorGuard;
+          selectorGuard.kind = InferredMemoryGuard::Kind::SelectorEqualsConstant;
+          selectorGuard.expr = target.selectorExpr;
+          selectorGuard.selectorIndex = target.selectorIndex;
+          selectorGuard.sourceRange = getSourceRange(*target.selectorExpr);
+          writeAction.guards.push_back(std::move(selectorGuard));
+          writeAction.loopConstantBindings = captureActiveForLoopConstants();
+          writeAction.sourceRange = getSourceRange(*lhsExpr);
+          actions.push_back(std::move(writeAction));
+        }
+        return true;
       }
 
       InferredMemoryWriteAction writeAction;
@@ -5964,25 +6138,49 @@ endmodule
             stateSymbol,
             defaultStmt,
             foundDefault,
-            searchFailureReason) ||
-          !foundDefault) {
+            searchFailureReason)) {
         return false;
       }
-      const Expression* defaultLhs = nullptr;
-      AssignAction defaultAction;
-      if (!defaultStmt || !extractAssignment(*defaultStmt, defaultLhs, defaultAction)) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (!defaultAction.rhs || defaultAction.stepDelta != 0 || defaultAction.compoundOp) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (!tryResolveInferredMemoryCommitTarget(
-            stateSymbol,
-            shadowSymbol,
-            combinationalBlocks,
-            *defaultAction.rhs,
-            memory)) {
-        return false;
+      if (foundDefault) {
+        const Expression* defaultLhs = nullptr;
+        AssignAction defaultAction;
+        if (!defaultStmt || !extractAssignment(*defaultStmt, defaultLhs, defaultAction)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (!defaultAction.rhs || defaultAction.stepDelta != 0 || defaultAction.compoundOp) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (!tryResolveInferredMemoryCommitTarget(
+              stateSymbol,
+              shadowSymbol,
+              combinationalBlocks,
+              *defaultAction.rhs,
+              memory)) {
+          return false;
+        }
+      } else {
+        // A nested commit branch can override selected state entries before
+        // falling through to the ordinary whole-array shadow commit.
+        std::vector<InferredMemoryGuard> guards;
+        std::vector<InferredMemoryWriteAction> overrideActions;
+        std::vector<InferredMemoryGuard> commitGuards;
+        bool sawShadowCommit = false;
+        std::string overrideFailureReason;
+        if (!analyzeDirectSequentialMemoryWriteStatement(
+              *topCond.ifFalse,
+              stateSymbol,
+              memory.signature,
+              guards,
+              overrideActions,
+              overrideFailureReason,
+              &shadowSymbol,
+              &sawShadowCommit,
+              &commitGuards) ||
+            !sawShadowCommit) {
+          return false;
+        }
+        memory.shadowCommitGuards = std::move(commitGuards);
+        memory.sequentialOverrideActions = std::move(overrideActions);
       }
 
       std::vector<bool> initBits;
@@ -6646,7 +6844,36 @@ endmodule
             bitOffset,
             bitWidth,
             failureReason)) {
-        return false;
+        std::vector<InferredMemoryDynamicTarget> dynamicTargets;
+        if (!tryExpandInferredMemoryDynamicElementTarget(
+              *lhsExpr,
+              *memory.shadowSymbol,
+              memory.signature.width,
+              selectorExpr,
+              dynamicTargets)) {
+          return false;
+        }
+        for (const auto& target : dynamicTargets) {
+          InferredMemoryWriteAction writeAction;
+          writeAction.lhsExpr = lhsExpr;
+          writeAction.selectorExpr = selectorExpr;
+          writeAction.rhsExpr = action.rhs;
+          writeAction.stepDelta = action.stepDelta;
+          writeAction.compoundOp = action.compoundOp;
+          writeAction.bitOffset = target.bitOffset;
+          writeAction.bitWidth = target.bitWidth;
+          writeAction.guards = guards;
+          InferredMemoryGuard selectorGuard;
+          selectorGuard.kind = InferredMemoryGuard::Kind::SelectorEqualsConstant;
+          selectorGuard.expr = target.selectorExpr;
+          selectorGuard.selectorIndex = target.selectorIndex;
+          selectorGuard.sourceRange = getSourceRange(*target.selectorExpr);
+          writeAction.guards.push_back(std::move(selectorGuard));
+          writeAction.loopConstantBindings = captureActiveForLoopConstants();
+          writeAction.sourceRange = getSourceRange(*lhsExpr);
+          actions.push_back(std::move(writeAction));
+        }
+        return true;
       }
 
       InferredMemoryWriteAction writeAction;
@@ -8236,7 +8463,7 @@ endmodule
                     : conditionFailureReason;
                   return false;
                 }
-              } else {
+              } else if (guard.kind == InferredMemoryGuard::Kind::CaseItemMatch) {
                 std::string caseFailureReason;
                 guardBit = buildCaseItemMatchBit(
                   design,
@@ -8251,6 +8478,39 @@ endmodule
                     : caseFailureReason;
                   // LCOV_EXCL_STOP
                   return false;
+                }
+              } else {
+                if (!guard.expr || !guard.selectorIndex) {
+                  // Expansion always creates selector guards with both fields.
+                  // LCOV_EXCL_START
+                  failureReason = "invalid inferred memory selector guard";
+                  return false;
+                  // LCOV_EXCL_STOP
+                }
+                auto selectorWidth = getIntegralExpressionBitWidth(*guard.expr);
+                std::vector<SNLBitNet*> selectorBits;
+                if (!selectorWidth ||
+                    !resolveExpressionBits(
+                      design,
+                      *guard.expr,
+                      *selectorWidth,
+                      selectorBits) ||
+                    selectorBits.size() != *selectorWidth) {
+                  failureReason = "unable to resolve inferred memory selector guard";
+                  return false;
+                }
+                guardBit = buildSelectorEqualsIndexBit(
+                  design,
+                  selectorBits,
+                  *guard.selectorIndex,
+                  guard.sourceRange);
+                if (!guardBit) {
+                  // Selector bits and widths were validated above; only an
+                  // internal primitive construction failure can reach this.
+                  // LCOV_EXCL_START
+                  failureReason = "failed to build inferred memory selector guard";
+                  return false;
+                  // LCOV_EXCL_STOP
                 }
               }
               if (!guard.polarity) {
@@ -8426,6 +8686,18 @@ endmodule
         return false;
         // LCOV_EXCL_STOP
       }
+      if (!memory.shadowCommitGuards.empty()) {
+        for (auto& writeAction : writeActions) {
+          writeAction.guards.insert(
+            writeAction.guards.begin(),
+            memory.shadowCommitGuards.begin(),
+            memory.shadowCommitGuards.end());
+        }
+      }
+      writeActions.insert(
+        writeActions.end(),
+        memory.sequentialOverrideActions.begin(),
+        memory.sequentialOverrideActions.end());
       return lowerInferredMemoryCombinationalBlock(design, memory, writeActions, failureReason);
     }
 

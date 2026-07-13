@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include <filesystem>
 
+#include "NajaVersion.h"
 #include "SNLDumpManifest.h"
 #include "NLException.h"
 using namespace naja::NL;
@@ -56,6 +57,9 @@ TEST_F(SNLDumpManifestTest, test0) {
   EXPECT_EQ(SNLDump::getVersion().getMinor(), manifest.getVersion().getMinor());
   EXPECT_EQ(SNLDump::getVersion().getRevision(), manifest.getVersion().getRevision());
   EXPECT_EQ(SNLDump::getVersion(), manifest.getVersion());
+  EXPECT_EQ(SNLDump::getVersion(), manifest.getSchemaVersion());
+  EXPECT_EQ(naja::NAJA_VERSION, manifest.getProducerVersion());
+  EXPECT_EQ(naja::NAJA_GIT_HASH, manifest.getProducerGitHash());
 }
 
 TEST_F(SNLDumpManifestTest, testErrors) {

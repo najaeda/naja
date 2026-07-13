@@ -14,6 +14,7 @@
 #include "NLUniverse.h"
 #include "NLDB.h"
 #include "SNLCapnP.h"
+#include "SNLDumpManifest.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLSVConstructor.h"
 #include "SNLSVConstructorException.h"
@@ -200,6 +201,38 @@ static PyObject* PyNLDB_loadNajaIF(PyObject*, PyObject* args) {
   NLUniverse::get()->setTopDesign(db->getTopDesign());
   NLCATCH
   return PyNLDB_Link(db);
+}
+
+PyObject* PyNLDB_snapshotManifest(PyObject*, PyObject* args) {
+  PyObject* arg = nullptr;
+  if (not PyArg_ParseTuple(args, "O:naja.snapshot_manifest", &arg)) {
+    setError("malformed naja snapshot_manifest");
+    return nullptr;
+  }
+  if (not PyUnicode_Check(arg)) {
+    std::ostringstream oss;
+    oss << "naja snapshot_manifest argument should be a file path, got: "
+      << getStringForPyObject(arg);
+    setError(oss.str());
+    return nullptr;
+  }
+  const std::filesystem::path path(PyUnicode_AsUTF8(arg));
+  PyObject* result = nullptr;
+  TRY
+  auto manifest = SNLDumpManifest::load(path);
+  auto schemaVersion = manifest.getSchemaVersion();
+  result = Py_BuildValue(
+    "{s:(III),s:s,s:s}",
+    "schema_version",
+    schemaVersion.getMajor(),
+    schemaVersion.getMinor(),
+    schemaVersion.getRevision(),
+    "producer_version",
+    manifest.getProducerVersion().c_str(),
+    "producer_git_hash",
+    manifest.getProducerGitHash().c_str());
+  NLCATCH
+  return result;
 }
 
 PyObject* PyNLDB_dumpNajaIF(PyNLDB* self, PyObject* args) {

@@ -5,10 +5,60 @@
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
 #include "NLDB.h"
+#include "SNLDump.h"
+#include "SNLDumpException.h"
+#include "NajaVersion.h"
+
+#include <sstream>
 
 //using boost::asio::ip::tcp;
 
 namespace naja::NL {
+
+namespace {
+
+void checkManifestCompatibility(const SNLDumpManifest& manifest) {
+  const auto manifestVersion = manifest.getSchemaVersion();
+  const auto expectedVersion = SNLDump::getVersion();
+  if (manifestVersion == expectedVersion) {
+    return;
+  }
+  std::ostringstream reason;
+  reason << "Incompatible SNL snapshot schema version: manifest has "
+    << manifestVersion.getMajor() << "." << manifestVersion.getMinor()
+    << "." << manifestVersion.getRevision()
+    << ", reader expects "
+    << expectedVersion.getMajor() << "." << expectedVersion.getMinor()
+    << "." << expectedVersion.getRevision();
+  if (not manifest.getProducerVersion().empty()) {
+    reason << " (producer naja version " << manifest.getProducerVersion();
+    if (not manifest.getProducerGitHash().empty()) {
+      reason << ", git hash " << manifest.getProducerGitHash();
+    }
+    reason << ")";
+  }
+  throw SNLDumpException(reason.str());
+}
+
+void checkManifestProducer(const SNLDumpManifest& manifest) {
+  if (manifest.getProducerVersion() == naja::NAJA_VERSION
+      and manifest.getProducerGitHash() == naja::NAJA_GIT_HASH) {
+    return;
+  }
+  std::ostringstream reason;
+  reason << "Incompatible SNL snapshot producer: snapshot was built by naja "
+    << "version "
+    << (manifest.getProducerVersion().empty()
+          ? "<missing>" : manifest.getProducerVersion())
+    << ", git hash "
+    << (manifest.getProducerGitHash().empty()
+          ? "<missing>" : manifest.getProducerGitHash())
+    << "; reader is naja version " << naja::NAJA_VERSION
+    << ", git hash " << naja::NAJA_GIT_HASH;
+  throw SNLDumpException(reason.str());
+}
+
+}
 
 void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
@@ -36,6 +86,9 @@ void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
 NLDB* SNLCapnP::load(
   const std::filesystem::path& path,
   LoadingConfiguration loadingConfiguration) {
+  const auto manifest = SNLDumpManifest::load(path);
+  checkManifestCompatibility(manifest);
+  checkManifestProducer(manifest);
   loadInterface(path/InterfaceName, loadingConfiguration);
   NLDB* db = loadImplementation(path/ImplementationName, loadingConfiguration);
   return db;

@@ -228,6 +228,12 @@ class SNLTruthTable {
     return isGenericOrEquivalent(GenericType::XNOR);
   }
 
+  bool isMux() const {
+    return genericType_ == GenericType::NONE && isInitialized() &&
+           !isGeneric() && size_ == 3 && bits_.size() == 8 &&
+           static_cast<uint64_t>(bits_) == 0xCA;
+  }
+
   uint32_t getTableSelectAddressSize() const {
     if (genericType_ != GenericType::TABLE_SELECT) {
       throw NLException("Truth table is not a table select generic");
