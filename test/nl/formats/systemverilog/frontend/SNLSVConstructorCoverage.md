@@ -38,6 +38,9 @@ are still expected in real designs:
   concatenation recursion, and member-access base resolution.
 - `parseCountOnesOperandResolveFailureUnsupported`: `$countones` operand
   bit-resolution failure after the operand width has been established.
+- Direct inferred-memory write coverage includes constant conditional writes,
+  nested packed constant-plus-dynamic selectors, two-dynamic-selector fallback,
+  unresolved system-call selectors, and nested duplicate shadow commits.
 - Diagnostics report option paths are covered with explicit tests for:
   no-diagnostics content, non-empty diagnostics content, and empty report-path
   validation.
@@ -85,6 +88,12 @@ the current architecture:
   fixed-range diagnostics retained for alternate type modeling; parser-backed
   dynamic element assignments reach these helpers with fixed-range bitstream
   bases.
+- Inferred-memory write-target extraction: missing bitstream width after a
+  supported memory signature, and dynamic-target expansion reaching the memory
+  root without first collecting a dynamic selector, are defensive fallbacks.
+- Inferred-memory selector guards: expansion always supplies an expression and
+  selector index; after their width and resolved bits are validated, failure to
+  build the equality guard requires an internal primitive-construction failure.
 - Declaration-initializer DFF INIT finalization: skip after the first
   unconsumed bit of a partially consumed variable is an unordered-map iteration
   artifact, not a distinct parser-backed behavior.

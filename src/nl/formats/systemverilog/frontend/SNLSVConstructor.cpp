@@ -5057,8 +5057,10 @@ endmodule
 
       auto widthBits = getExpressionBitstreamWidth(*stripped);
       if (!widthBits || !*widthBits) {
+        // LCOV_EXCL_START
         failureReason = "unsupported inferred memory write target without bitstream width";
         return false;
+        // LCOV_EXCL_STOP
       }
       bitWidth = *widthBits;
 
@@ -5261,7 +5263,7 @@ endmodule
         if (isValueSymbolReference(elementExpr.value(), entrySymbol)) {
           memorySelectorExpr = &elementExpr.selector();
           if (!dynamicSelectorExpr || dynamicOffsets.empty()) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
           targets.clear();
           for (const auto& [selectorIndex, dynamicOffset] : dynamicOffsets) {
@@ -8479,8 +8481,11 @@ endmodule
                 }
               } else {
                 if (!guard.expr || !guard.selectorIndex) {
+                  // Expansion always creates selector guards with both fields.
+                  // LCOV_EXCL_START
                   failureReason = "invalid inferred memory selector guard";
-                  return false; // LCOV_EXCL_LINE
+                  return false;
+                  // LCOV_EXCL_STOP
                 }
                 auto selectorWidth = getIntegralExpressionBitWidth(*guard.expr);
                 std::vector<SNLBitNet*> selectorBits;
@@ -8500,8 +8505,12 @@ endmodule
                   *guard.selectorIndex,
                   guard.sourceRange);
                 if (!guardBit) {
+                  // Selector bits and widths were validated above; only an
+                  // internal primitive construction failure can reach this.
+                  // LCOV_EXCL_START
                   failureReason = "failed to build inferred memory selector guard";
-                  return false; // LCOV_EXCL_LINE
+                  return false;
+                  // LCOV_EXCL_STOP
                 }
               }
               if (!guard.polarity) {
