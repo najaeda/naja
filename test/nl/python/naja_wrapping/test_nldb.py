@@ -205,6 +205,15 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context:
       naja.NLDB.loadNajaIF(naja_dir)
     self.assertIn("Incompatible SNL snapshot schema version", str(context.exception))
+
+  def testSnapshotManifestInvalidArguments(self):
+    with self.assertRaisesRegex(
+        RuntimeError, "malformed naja snapshot_manifest"):
+      naja.snapshot_manifest()
+
+    with self.assertRaisesRegex(
+        RuntimeError, "snapshot_manifest argument should be a file path"):
+      naja.snapshot_manifest(42)
   
   def testVerilogNoAssigns(self):
     u = naja.NLUniverse.get()
