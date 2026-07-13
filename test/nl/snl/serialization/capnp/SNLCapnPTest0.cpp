@@ -359,3 +359,31 @@ TEST_F(SNLCapNpTest0, incompatibleManifestProducerThrows) {
 
   EXPECT_THROW(SNLCapnP::load(outPath), SNLDumpException);
 }
+
+TEST_F(SNLCapNpTest0, incompatibleManifestSchemaThrows) {
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapNpTest0_incompatibleManifestSchemaThrows.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
+  SNLCapnP::dump(db_, outPath);
+  {
+    std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
+    ASSERT_TRUE(manifest.is_open());
+    manifest << "V " << SNLDump::getVersion().getMajor()
+      << " " << SNLDump::getVersion().getMinor()
+      << " " << SNLDump::getVersion().getRevision() + 1 << "\n";
+    manifest << "P test-producer test-hash\n";
+  }
+
+  try {
+    SNLCapnP::load(outPath);
+    FAIL() << "Expected incompatible manifest schema to throw";
+  } catch (const SNLDumpException& exception) {
+    EXPECT_THAT(exception.what(),
+      ::testing::HasSubstr("Incompatible SNL snapshot schema version"));
+    EXPECT_THAT(exception.what(),
+      ::testing::HasSubstr("producer naja version test-producer, git hash test-hash"));
+  }
+}
