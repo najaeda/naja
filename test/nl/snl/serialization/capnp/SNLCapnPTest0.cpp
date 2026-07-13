@@ -24,6 +24,7 @@ using ::testing::Property;
 
 #include "SNLCapnP.h"
 #include "SNLDumpException.h"
+#include "SNLDump.h"
 #include "SNLDumpManifest.h"
 
 using namespace naja;
@@ -339,9 +340,9 @@ TEST_F(SNLCapNpTest0, test0) {
   }
 }
 
-TEST_F(SNLCapNpTest0, incompatibleManifestVersionThrows) {
+TEST_F(SNLCapNpTest0, incompatibleManifestProducerThrows) {
   std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
-  outPath /= "SNLCapNpTest0_incompatibleManifestVersionThrows.snl";
+  outPath /= "SNLCapNpTest0_incompatibleManifestProducerThrows.snl";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
@@ -350,7 +351,9 @@ TEST_F(SNLCapNpTest0, incompatibleManifestVersionThrows) {
   {
     std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
     ASSERT_TRUE(manifest.is_open());
-    manifest << "V 999 0 0\n";
+    manifest << "V " << SNLDump::getVersion().getMajor()
+      << " " << SNLDump::getVersion().getMinor()
+      << " " << SNLDump::getVersion().getRevision() << "\n";
     manifest << "P test-producer test-hash\n";
   }
 

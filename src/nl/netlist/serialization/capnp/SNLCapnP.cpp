@@ -7,6 +7,7 @@
 #include "NLDB.h"
 #include "SNLDump.h"
 #include "SNLDumpException.h"
+#include "NajaVersion.h"
 
 #include <sstream>
 
@@ -39,6 +40,24 @@ void checkManifestCompatibility(const SNLDumpManifest& manifest) {
   throw SNLDumpException(reason.str());
 }
 
+void checkManifestProducer(const SNLDumpManifest& manifest) {
+  if (manifest.getProducerVersion() == naja::NAJA_VERSION
+      and manifest.getProducerGitHash() == naja::NAJA_GIT_HASH) {
+    return;
+  }
+  std::ostringstream reason;
+  reason << "Incompatible SNL snapshot producer: snapshot was built by naja "
+    << "version "
+    << (manifest.getProducerVersion().empty()
+          ? "<missing>" : manifest.getProducerVersion())
+    << ", git hash "
+    << (manifest.getProducerGitHash().empty()
+          ? "<missing>" : manifest.getProducerGitHash())
+    << "; reader is naja version " << naja::NAJA_VERSION
+    << ", git hash " << naja::NAJA_GIT_HASH;
+  throw SNLDumpException(reason.str());
+}
+
 }
 
 void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
@@ -67,7 +86,9 @@ void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
 NLDB* SNLCapnP::load(
   const std::filesystem::path& path,
   LoadingConfiguration loadingConfiguration) {
-  checkManifestCompatibility(SNLDumpManifest::load(path));
+  const auto manifest = SNLDumpManifest::load(path);
+  checkManifestCompatibility(manifest);
+  checkManifestProducer(manifest);
   loadInterface(path/InterfaceName, loadingConfiguration);
   NLDB* db = loadImplementation(path/ImplementationName, loadingConfiguration);
   return db;

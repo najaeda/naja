@@ -40,6 +40,31 @@ Two complementary C++ APIs:
 - `src/{bne,core,metrics,optimization}/` — supporting libraries (logic opt: DLE, constant propagation).
 - `primitives/` — primitive/standard-cell libraries. `test/` mirrors `src/`. `tutorials/` — the six Colab notebooks.
 
+## NajaIF snapshot compatibility — current status
+
+NajaIF snapshots carry a small `snl.mf` manifest. The immediate objective is
+to prevent a snapshot written by a different Naja build from being silently
+deserialized into a truncated or otherwise incorrect netlist.
+
+- The manifest writes `V <major> <minor> <revision>` (the legacy format/schema
+  revision) and `P <naja-version> <git-hash>` (the producer identity).
+- `SNLCapnP::load()` reads this manifest before either Cap'n Proto payload.
+  It retains the strict `V` check and, for now, also requires an exact match
+  of both producer values with `naja::NAJA_VERSION` and
+  `naja::NAJA_GIT_HASH`. A mismatch, or a legacy manifest without `P`, throws
+  `SNLDumpException`; callers must regenerate the snapshot.
+- `naja.snapshot_manifest(path)` reads only `snl.mf` and returns
+  `schema_version`, `producer_version`, and `producer_git_hash`, without
+  creating an `NLUniverse` or loading payloads.
+- This exact-build producer gate is deliberately temporary and conservative.
+  The remaining design work is to define and maintain a schema version owned
+  by `thirdparty/naja-if`, then use that version as the durable compatibility
+  contract so compatible Naja builds can exchange snapshots.
+
+Relevant implementation: `SNLCapnP.cpp`, `SNLDumpManifest.cpp`, and
+`PyNLDB.cpp`; focused tests live under `test/nl/snl/serialization/capnp/` and
+`test/nl/python/naja_wrapping/test_nldb.py`.
+
 ## Build & test
 
 ```bash

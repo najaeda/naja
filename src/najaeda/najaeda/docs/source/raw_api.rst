@@ -404,6 +404,13 @@ expert reference above.
 
    .. autofunction:: najaeda.naja.getVersion
    .. autofunction:: najaeda.naja.getGitHash
+
+   ``snapshot_manifest(path)`` reads only a snapshot's ``snl.mf`` manifest;
+   it does not load the Cap'n Proto payload or create an ``NLUniverse``.  It
+   returns the schema version and the Naja producer version / Git hash.  At
+   present, loading a snapshot requires an exact match of both producer
+   values with the reader build; regenerate snapshots after changing builds.
+
    .. autofunction:: najaeda.naja.snapshot_manifest
    .. autofunction:: najaeda.naja.setLogLevel
    .. autofunction:: najaeda.naja.addLogFile

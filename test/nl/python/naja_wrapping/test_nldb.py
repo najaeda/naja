@@ -199,12 +199,12 @@ class SNLDBTest(unittest.TestCase):
     self.assertEqual(db.getID(), 1)
 
     with open(os.path.join(naja_dir, "snl.mf"), "w", encoding="utf-8") as manifest_file:
-      manifest_file.write("V 999 0 0\n")
+      manifest_file.write("V 0 1 0\n")
       manifest_file.write("P test-producer test-hash\n")
     naja.NLUniverse.get().destroy()
     with self.assertRaises(RuntimeError) as context:
       naja.NLDB.loadNajaIF(naja_dir)
-    self.assertIn("Incompatible SNL snapshot schema version", str(context.exception))
+    self.assertIn("Incompatible SNL snapshot producer", str(context.exception))
 
   def testSnapshotManifestInvalidArguments(self):
     with self.assertRaisesRegex(

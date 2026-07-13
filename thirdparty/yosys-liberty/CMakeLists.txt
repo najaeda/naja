@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(src)
-if (NOT BUILD_EMSCRIPTEN)
+if (NOT BUILD_EMSCRIPTEN AND NOT BUILD_NAJA_PYTHON)
   add_subdirectory(test)
-endif(NOT BUILD_EMSCRIPTEN)
+endif()
