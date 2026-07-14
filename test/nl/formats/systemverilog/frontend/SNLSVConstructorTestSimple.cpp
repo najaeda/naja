@@ -1246,6 +1246,38 @@ endmodule
   EXPECT_EQ(8u, countPrimitiveInstances(top, NLDB0::isGate));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationSubtractionInitializerMatchesAssign) {
+  const auto svPath = writeSVTestFile(
+    "net_declaration_subtraction_initializer",
+    R"(module net_declaration_subtraction_initializer(
+  input logic [3:0] ptr,
+  output logic [3:0] y_decl,
+  output logic [3:0] y_assign
+);
+  wire [3:0] _T = ptr - 4'h2;
+  wire [3:0] w_assign;
+  assign w_assign = ptr - 4'h2;
+  assign y_decl = _T;
+  assign y_assign = w_assign;
+endmodule
+)");
+
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+
+  auto* top =
+    library_->getSNLDesign(NLName("net_declaration_subtraction_initializer"));
+  ASSERT_NE(nullptr, top);
+  auto* yDecl = top->getBusNet(NLName("y_decl"));
+  auto* yAssign = top->getBusNet(NLName("y_assign"));
+  ASSERT_NE(nullptr, yDecl);
+  ASSERT_NE(nullptr, yAssign);
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(yDecl->getBit(bit), yAssign->getBit(bit)))
+      << bit;
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseNetDeclarationConstantInitializerMatchesAssign) {
   const auto svPath = writeSVTestFile(
     "net_declaration_constant_initializer",
