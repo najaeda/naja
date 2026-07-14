@@ -58,10 +58,6 @@ jobs:
         include:
           # Linux wheels: use manylinux_2_28 for a modern C++20 toolchain
           - os: ubuntu-latest
-            python: 39
-            platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
-          - os: ubuntu-latest
             python: 310
             platform_id: manylinux_x86_64
             manylinux_image: manylinux_2_28
@@ -78,11 +74,6 @@ jobs:
             platform_id: manylinux_x86_64
             manylinux_image: manylinux_2_28
           - os: ubuntu-latest
-            python: 313t
-            platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
-            free_threaded_support: True
-          - os: ubuntu-latest
             python: 314
             platform_id: manylinux_x86_64
             manylinux_image: manylinux_2_28
@@ -90,7 +81,10 @@ jobs:
             python: 314t
             platform_id: manylinux_x86_64
             manylinux_image: manylinux_2_28
-            free_threaded_support: True
+          - os: ubuntu-latest
+            python: 315
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux_2_28
 
           - os: ubuntu-24.04-arm
             python: 310
@@ -114,15 +108,17 @@ jobs:
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 314
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux_2_28
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 315
             platform_id: manylinux_aarch64
             manylinux_image: manylinux_2_28
             cibw_arch: aarch64
 
           # MacOS arm64
           - os: macos-15
-            python: 39
-            platform_id: macosx_arm64
-          - os: macos-15
             python: 310
             platform_id: macosx_arm64
           - os: macos-15
@@ -135,16 +131,14 @@ jobs:
             python: 313
             platform_id: macosx_arm64
           - os: macos-15
-            python: 313t
-            platform_id: macosx_arm64
-            free_threaded_support: True
-          - os: macos-15
             python: 314
             platform_id: macosx_arm64
           - os: macos-15
             python: 314t
             platform_id: macosx_arm64
-            free_threaded_support: True
+          - os: macos-15
+            python: 315
+            platform_id: macosx_arm64
 
           # Windows x86_64 wheels
           - os: windows-latest
@@ -161,6 +155,9 @@ jobs:
             platform_id: win_amd64
           - os: windows-latest
             python: 314
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 315
             platform_id: win_amd64
 
     steps:
@@ -191,10 +188,11 @@ jobs:
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
-        run: python -m pip install cibuildwheel==3.4.1 delvewheel
+        run: python -m pip install cibuildwheel==4.1.0 delvewheel
       - name: Build wheels
         env:
-          CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
+          # Python 3.15 remains in beta and is not selected without this opt-in.
+          CIBW_ENABLE: cpython-prerelease
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
           CIBW_ENVIRONMENT_MACOS: >-
             SKLEARN_SKIP_NETWORK_TESTS=1
