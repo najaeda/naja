@@ -58,7 +58,7 @@ Installation
 
     pip install najaeda
 
-Requires Python 3.8+. Wheels are published for Linux, macOS, and Windows.
+Requires Python 3.10+. Wheels are published for Linux, macOS, and Windows.
 
 Tutorials
 ---------
