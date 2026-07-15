@@ -10,6 +10,24 @@ of an instance in its hierarchical context.
 When an **Instance** is modified through editing methods,
 **najaeda** will automatically manage the necessary uniquification.
 
+Use instances to navigate hierarchy, inspect the model represented by an
+occurrence, enumerate child instances, access terms and nets, and apply
+localized edits.
+
+Common tasks
+------------
+
+.. code-block:: python
+
+   top = netlist.get_top()
+
+   for child in top.get_child_instances():
+       print(child.get_name(), child.get_model_name())
+
+   alu = top.get_child_instance("u_alu")
+   for leaf in alu.get_leaf_instances():
+       print(leaf.get_name())
+
 Generic Gates (and, or, etc.)
 -----------------------------
 
@@ -25,6 +43,11 @@ In this model:
 
 All terminals in these generic instances are **unnamed** (see :py:attr:`najaeda.netlist.Instance.is_unnamed`).
 
+Use :py:meth:`najaeda.netlist.Instance.is_and`, :py:meth:`~najaeda.netlist.Instance.is_nand`,
+:py:meth:`~najaeda.netlist.Instance.is_or`, :py:meth:`~najaeda.netlist.Instance.is_nor`,
+:py:meth:`~najaeda.netlist.Instance.is_xor`, and :py:meth:`~najaeda.netlist.Instance.is_xnor`
+to identify n-input gate families without decoding raw truth-table masks.
+
 Instance Attributes
 -------------------
 
@@ -32,3 +55,4 @@ Instance Attributes
     :members:
     :undoc-members:
     :show-inheritance:
+    :no-index:

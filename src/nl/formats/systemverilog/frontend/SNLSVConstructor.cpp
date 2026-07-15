@@ -65,6 +65,7 @@
 #include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/TimingControl.h"
+#include "slang/ast/expressions/AssertionExpr.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/expressions/ConversionExpression.h"
@@ -87,6 +88,7 @@
 #include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/DiagnosticClient.h"
 #include "slang/diagnostics/Diagnostics.h"
+#include "slang/diagnostics/DeclarationsDiags.h"
 #include "slang/driver/Driver.h"
 #include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxTree.h"
@@ -333,16 +335,26 @@ struct CompilationFailureDetails {
 };
 
 std::optional<CompilationFailureDetails> getCompilationFailureDetails(
-  slang::ast::Compilation& compilation) {
+  slang::ast::Compilation& compilation,
+  bool ignoreUnknownModules = false) {
   const auto& diags = compilation.getAllDiagnostics();
   // Collect only error-level (and above) diagnostics so the failure message
   // is actionable.  Warnings are reported separately via the diagnostics
   // report dump and should not pollute the exception text.
   slang::Diagnostics errors;
   for (const auto& diag : diags) {
-    if (diag.isError()) {
-      errors.push_back(diag);
+    if (not diag.isError()) {
+      continue;
     }
+    // When blackboxing unknown modules, an unresolved instantiation is expected:
+    // slang still reports UnknownModule/UnknownPrimitive, but the constructor
+    // materializes an AutoBlackBox for it, so these must not be fatal.
+    if (ignoreUnknownModules and
+        (diag.code == slang::diag::UnknownModule or
+         diag.code == slang::diag::UnknownPrimitive)) { // LCOV_EXCL_LINE
+      continue;
+    }
+    errors.push_back(diag);
   }
   if (errors.empty()) {
     return std::nullopt;
@@ -1330,6 +1342,8 @@ class SNLSVConstructorImpl {
       diagnosticsReportFinalized_ = false;
       warnedUninferredMemorySymbols_.clear();
       handledInitialBlocks_.clear();
+      loweredNetInitializers_.clear();
+      loweredVariableInitializers_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       initializeDiagnosticsReport();
@@ -1364,7 +1378,8 @@ class SNLSVConstructorImpl {
           recordSlangDiagnostics(getStructuredDiagnostics(
             *sourceManager, compilation_->getAllDiagnostics()));
         }
-        if (auto failure = getCompilationFailureDetails(*compilation_)) {
+        if (auto failure = getCompilationFailureDetails(
+              *compilation_, options_.blackboxUnknownModules)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           const SVPerfProgressLabelGuard progress(
             svPerfReport_,
@@ -3369,7 +3384,8 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
 #endif
-      validateLoweringCoverage(body, defName, LoweringCoverageScope::ModuleBody);
+      validateLoweringCoverage(
+        design, body, defName, LoweringCoverageScope::ModuleBody);
 
       if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -3398,7 +3414,8 @@ endmodule
     struct InferredMemoryGuard {
       enum class Kind {
         Condition,
-        CaseItemMatch
+        CaseItemMatch,
+        SelectorEqualsConstant
       };
 
       Kind kind {Kind::Condition};
@@ -3408,6 +3425,7 @@ endmodule
       const slang::ast::CaseStatement* caseStmt {nullptr};
       const slang::ast::CaseStatement::ItemGroup* caseItem {nullptr};
       std::optional<slang::SourceRange> sourceRange {};
+      std::optional<int32_t> selectorIndex {};
     };
 
     static InferredMemoryGuard makeInferredMemoryConditionGuard(
@@ -3435,6 +3453,13 @@ endmodule
       std::vector<InferredMemoryGuard> guards {};
       std::vector<std::pair<const Symbol*, int64_t>> loopConstantBindings {};
       std::optional<slang::SourceRange> sourceRange {};
+    };
+
+    struct InferredMemoryDynamicTarget {
+      const slang::ast::Expression* selectorExpr {nullptr};
+      int32_t selectorIndex {0};
+      size_t bitOffset {0};
+      size_t bitWidth {0};
     };
 
     // LCOV_EXCL_START
@@ -3499,6 +3524,8 @@ endmodule
       std::vector<bool> initBits {};
       std::map<int32_t, std::vector<InferredMemoryCommitAction>> commitActionsByIndex {};
       std::vector<InferredMemoryWriteAction> directWriteActions {};
+      std::vector<InferredMemoryGuard> shadowCommitGuards {};
+      std::vector<InferredMemoryWriteAction> sequentialOverrideActions {};
       std::vector<InferredMemoryWritePort> writePorts {};
       std::vector<InferredMemoryReadPort> readPorts {};
       std::unordered_map<const slang::ast::Expression*, size_t> readPortBySelectorExpr {};
@@ -3966,6 +3993,7 @@ endmodule
     }
 
     void validateLoweringCoverage(
+      SNLDesign* design,
       const slang::ast::Scope& scope,
       const std::string& moduleName,
       LoweringCoverageScope coverageScope) {
@@ -3978,6 +4006,7 @@ endmodule
           const auto& generateBlock = sym.as<slang::ast::GenerateBlockSymbol>();
           if (!generateBlock.isUninstantiated) {
             validateLoweringCoverage(
+              design,
               generateBlock,
               moduleName,
               LoweringCoverageScope::GenerateBody);
@@ -3991,6 +4020,7 @@ endmodule
           for (const auto* entry : generateBlockArray.entries) {
             if (entry && !entry->isUninstantiated) {
               validateLoweringCoverage(
+                design,
                 *entry,
                 moduleName,
                 LoweringCoverageScope::GenerateBody);
@@ -3999,7 +4029,67 @@ endmodule
           continue;
         }
 
+        if (sym.kind == SymbolKind::Net) {
+          const auto& netSymbol = sym.as<slang::ast::NetSymbol>();
+          if (netSymbol.getInitializer() &&
+              !loweredNetInitializers_.contains(&netSymbol)) {
+            // LCOV_EXCL_START
+            // Parser-backed flows report unsupported net initializers during
+            // continuous-assignment lowering; this remains a validation backstop.
+            std::ostringstream reason;
+            reason << "Unsupported net declaration initializer in "
+                   << getLoweringCoverageScopeLabel(coverageScope)
+                   << " of module '" << moduleName << "': '" << netSymbol.name
+                   << "' was not visited by continuous-assignment lowering";
+            reportUnsupportedError(reason.str(), getSourceRange(netSymbol));
+            continue;
+            // LCOV_EXCL_STOP
+          }
+        }
+
+        if (sym.kind == SymbolKind::Variable) {
+          const auto& variableSymbol = sym.as<slang::ast::VariableSymbol>();
+          if (variableSymbol.getInitializer() &&
+              !variableSymbol.flags.has(slang::ast::VariableFlags::Const)) {
+            if (loweredVariableInitializers_.contains(&variableSymbol)) {
+              continue;
+            }
+            // An initializer on an otherwise unconnected variable has no
+            // observable netlist behavior. This is a common lint idiom for
+            // consuming intentionally unused inputs in a generate branch.
+            // Keep rejecting initializers whose value is consumed because
+            // those require the declaration's initial-time semantics.
+            if (auto* net = getLoweredValueSymbolNet(design, variableSymbol)) {
+              bool unconnected = true;
+              for (auto* bit : net->getBits()) {
+                if (!bit->getComponents().empty()) {
+                  unconnected = false;
+                  break;
+                }
+              }
+              if (unconnected) {
+                continue;
+              }
+            }
+            std::ostringstream reason;
+            reason << "Unsupported variable declaration initializer in "
+                   << getLoweringCoverageScopeLabel(coverageScope)
+                   << " of module '" << moduleName << "': '"
+                   << variableSymbol.name
+                   << "' requires initial-time procedural semantics";
+            reportUnsupportedError(reason.str(), getSourceRange(variableSymbol));
+            continue;
+          }
+        }
+
         if (isLoweredInCoverageScope(sym.kind, coverageScope)) {
+          continue;
+        }
+
+        // Unresolved instantiations are lowered to AutoBlackBox instances when
+        // blackboxUnknownModules is enabled, so they are covered.
+        if (sym.kind == SymbolKind::UninstantiatedDef and
+            options_.blackboxUnknownModules) {
           continue;
         }
 
@@ -4521,6 +4611,251 @@ endmodule
       return encoded;
     }
 
+    struct DFFInitBit {
+      char digit {'x'};
+      const slang::ast::ProceduralBlockSymbol* block {nullptr};
+      const slang::ast::VariableSymbol* variable {nullptr};
+      bool consumed {false};
+    };
+
+    std::optional<std::vector<char>> getConstantDFFInitDigits(
+      const Expression& expr,
+      const Symbol& evalSymbol,
+      size_t totalWidth) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || totalWidth == 0) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+
+      const slang::ConstantValue* value = stripped->getConstant();
+      slang::ConstantValue evaluatedValue;
+      if (!value) {
+        slang::ast::EvalContext evalContext(evalSymbol);
+        evaluatedValue = stripped->eval(evalContext);
+        if (evaluatedValue) {
+          value = &evaluatedValue;
+        }
+      }
+      if (!value) {
+        return std::nullopt;
+      }
+
+      slang::ConstantValue convertedValue;
+      if (!value->isInteger()) {
+        // LCOV_EXCL_START
+        // Parser-backed initial-register flows reject non-integral runtime
+        // expressions before DFF INIT metadata is produced. Keep this fallback
+        // for direct constant-evaluation callers.
+        convertedValue = value->convertToInt();
+        if (!convertedValue || !convertedValue.isInteger()) {
+          return std::nullopt;
+        }
+        value = &convertedValue;
+        // LCOV_EXCL_STOP
+      }
+
+      const auto resized = value->integer().resize(
+        static_cast<slang::bitwidth_t>(totalWidth));
+      std::vector<char> digits;
+      digits.reserve(totalWidth);
+      for (size_t bit = 0; bit < totalWidth; ++bit) {
+        const auto bitValue = resized[static_cast<slang::bitwidth_t>(bit)];
+        if (exactlyEqual(bitValue, slang::logic_t::x)) {
+          digits.push_back('x');
+        } else if (exactlyEqual(bitValue, slang::logic_t::z)) {
+          digits.push_back('z');
+        } else {
+          digits.push_back(static_cast<bool>(bitValue) ? '1' : '0');
+        }
+      }
+      return digits;
+    }
+
+    std::optional<std::string> getDFFInitValueForOutputBits(
+      const std::vector<SNLBitNet*>& outputBits) {
+      if (outputBits.empty()) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+      bool hasExplicitInit = false;
+      std::string msbDigits;
+      msbDigits.reserve(outputBits.size());
+      for (auto it = outputBits.rbegin(); it != outputBits.rend(); ++it) {
+        char digit = 'x';
+        if (auto found = dffInitDigitByOutputBit_.find(*it);
+            found != dffInitDigitByOutputBit_.end()) {
+          digit = found->second.digit;
+          hasExplicitInit = true;
+        }
+        msbDigits.push_back(digit);
+      }
+      if (!hasExplicitInit) {
+        return std::nullopt;
+      }
+      return NLDB0::formatDFFInitValue(outputBits.size(), msbDigits);
+    }
+
+    void attachDFFInitParameter(
+      SNLInstance* inst,
+      const std::vector<SNLBitNet*>& outputBits) {
+      if (!inst) {
+        return; // LCOV_EXCL_LINE
+      }
+      auto* model = inst->getModel();
+      auto* initParam = model ? model->getParameter(NLName("INIT")) : nullptr;
+      if (!initParam) {
+        return;
+      }
+      auto initValue = getDFFInitValueForOutputBits(outputBits);
+      if (!initValue) {
+        return;
+      }
+      for (auto* bit : outputBits) {
+        if (auto found = dffInitDigitByOutputBit_.find(bit);
+            found != dffInitDigitByOutputBit_.end()) {
+          found->second.consumed = true;
+        }
+      }
+      SNLInstParameter::create(inst, initParam, *initValue);
+    }
+
+    bool analyzeDFFInitialBlock(
+      SNLDesign* design,
+      const slang::ast::ProceduralBlockSymbol& block,
+      std::string& failureReason) {
+      const Statement* stmt = getOnlyInitialStatement(block.getBody());
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (!stmt || !extractAssignment(*stmt, lhs, action) || !lhs || !action.rhs ||
+          action.scheduling != ProceduralAssignmentScheduling::Blocking ||
+          action.stepDelta != 0 || action.compoundOp) {
+        failureReason = "initial block is not a single blocking constant register assignment";
+        return false;
+      }
+
+      const slang::ast::ValueSymbol* rootSymbol = nullptr;
+      if (!tryGetRootValueSymbolReference(*lhs, rootSymbol) || !rootSymbol ||
+          rootSymbol->kind != SymbolKind::Variable) {
+        // LCOV_EXCL_START
+        failureReason = "initial assignment target is not a register variable";
+        return false;
+        // LCOV_EXCL_STOP
+      }
+
+      std::vector<SNLBitNet*> lhsBits;
+      if (!resolveAssignmentLHSBits(design, *lhs, lhsBits, &failureReason, true) ||
+          lhsBits.empty()) {
+        // LCOV_EXCL_START
+        if (failureReason.empty()) {
+          failureReason = "unable to resolve initial register assignment target";
+        }
+        return false;
+        // LCOV_EXCL_STOP
+      }
+
+      auto digits = getConstantDFFInitDigits(*action.rhs, *rootSymbol, lhsBits.size());
+      if (!digits || digits->size() != lhsBits.size()) {
+        // LCOV_EXCL_START
+        failureReason = "initial register value is not a constant integral value";
+        return false;
+        // LCOV_EXCL_STOP
+      }
+
+      std::unordered_set<SNLBitNet*> seenLHSBits;
+      for (auto* bit : lhsBits) {
+        if (!seenLHSBits.insert(bit).second ||
+            dffInitDigitByOutputBit_.contains(bit)) {
+          failureReason = "multiple initial register assignments target the same bit";
+          return false;
+        }
+      }
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        dffInitDigitByOutputBit_.emplace(
+          lhsBits[bit],
+          DFFInitBit{(*digits)[bit], &block, nullptr, false});
+      }
+      reportUnsupportedWarning(
+        "lowered_initial_register_init",
+        "lowering constant initial register assignment as DFF INIT metadata",
+        getSourceRange(block));
+      return true;
+    }
+
+    void analyzeDFFDeclarationInitializers(SNLDesign* design, const InstanceBodySymbol& body) {
+      std::vector<const slang::ast::VariableSymbol*> variables;
+      auto collectVariable = [&](const Symbol& sym) {
+        if (sym.kind != SymbolKind::Variable) {
+          return;
+        }
+        const auto& variable = sym.as<slang::ast::VariableSymbol>();
+        if (variable.flags.has(slang::ast::VariableFlags::Const) ||
+            !variable.getInitializer()) {
+          return;
+        }
+        variables.push_back(&variable);
+      };
+      visitElaboratedNonGenerateMembers(body, collectVariable);
+
+      for (const auto* variable : variables) {
+        if (!variable) {
+          continue; // LCOV_EXCL_LINE
+        }
+        auto* net = getLoweredValueSymbolNet(design, *variable);
+        if (!net) {
+          continue; // LCOV_EXCL_LINE - declaration variables are lowered before this pass
+        }
+        auto bits = collectBits(net);
+        if (bits.empty()) {
+          continue; // LCOV_EXCL_LINE - lowered scalar/bus nets always expose bits
+        }
+        auto digits = getConstantDFFInitDigits(
+          *variable->getInitializer(), *variable, bits.size());
+        if (!digits || digits->size() != bits.size()) {
+          continue;
+        }
+        bool hasConflict = false;
+        for (auto* bit : bits) {
+          if (dffInitDigitByOutputBit_.contains(bit)) {
+            // LCOV_EXCL_START - declaration variables are visited once per lowered net
+            hasConflict = true;
+            break;
+            // LCOV_EXCL_STOP
+          }
+        }
+        if (hasConflict) {
+          continue; // LCOV_EXCL_LINE
+        }
+        for (size_t bit = 0; bit < bits.size(); ++bit) {
+          dffInitDigitByOutputBit_.emplace(
+            bits[bit],
+            DFFInitBit{(*digits)[bit], nullptr, variable, false});
+        }
+      }
+    }
+
+    void finalizeLoweredVariableDeclarationInitializers() {
+      std::unordered_map<const slang::ast::VariableSymbol*, bool> consumedByVariable;
+      for (const auto& [bit, initBit] : dffInitDigitByOutputBit_) {
+        (void)bit;
+        if (!initBit.variable) {
+          continue;
+        }
+        auto [it, inserted] = consumedByVariable.emplace(initBit.variable, true);
+        if (!inserted && !it->second) {
+          continue; // LCOV_EXCL_LINE - unordered_map iteration artifact after first unconsumed bit
+        }
+        it->second = it->second && initBit.consumed;
+      }
+      for (const auto& [variable, consumed] : consumedByVariable) {
+        if (variable && consumed) {
+          loweredVariableInitializers_.insert(variable);
+          reportUnsupportedWarning(
+            "lowered_variable_declaration_init",
+            "lowering constant variable declaration initializer as DFF INIT metadata",
+            getSourceRange(*variable));
+        }
+      }
+    }
+
     void connectBusNetBits(
       SNLDesign* design,
       SNLBusNet* busNet,
@@ -4720,10 +5055,12 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      auto widthBits = getIntegralExpressionBitWidth(*stripped);
+      auto widthBits = getExpressionBitstreamWidth(*stripped);
       if (!widthBits || !*widthBits) {
-        failureReason = "unsupported inferred memory write target without integral width";
+        // LCOV_EXCL_START
+        failureReason = "unsupported inferred memory write target without bitstream width";
         return false;
+        // LCOV_EXCL_STOP
       }
       bitWidth = *widthBits;
 
@@ -4890,6 +5227,103 @@ endmodule
       return false;
     }
 
+    bool tryExpandInferredMemoryDynamicElementTarget(
+      const Expression& lhsExpr,
+      const slang::ast::ValueSymbol& entrySymbol,
+      size_t entryWidth,
+      const slang::ast::Expression*& memorySelectorExpr,
+      std::vector<InferredMemoryDynamicTarget>& targets) const {
+      // An inner fixed array is part of one memory word. Expand its dynamic
+      // selector into guarded writes at each statically known bit offset.
+      const auto* current = stripConversions(lhsExpr);
+      auto selectedWidth = getExpressionBitstreamWidth(lhsExpr);
+      if (!current || !selectedWidth || !*selectedWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      size_t commonOffset = 0;
+      const slang::ast::Expression* dynamicSelectorExpr = nullptr;
+      std::vector<std::pair<int32_t, size_t>> dynamicOffsets;
+      while (current) {
+        if (current->kind == slang::ast::ExpressionKind::MemberAccess) {
+          const auto& memberExpr = current->as<slang::ast::MemberAccessExpression>();
+          if (memberExpr.member.kind != SymbolKind::Field) {
+            return false; // LCOV_EXCL_LINE
+          }
+          commonOffset += static_cast<size_t>(
+            memberExpr.member.as<slang::ast::FieldSymbol>().bitOffset);
+          current = stripConversions(memberExpr.value());
+          continue;
+        }
+
+        if (current->kind != slang::ast::ExpressionKind::ElementSelect) {
+          return false;
+        }
+        const auto& elementExpr = current->as<slang::ast::ElementSelectExpression>();
+        if (isValueSymbolReference(elementExpr.value(), entrySymbol)) {
+          memorySelectorExpr = &elementExpr.selector();
+          if (!dynamicSelectorExpr || dynamicOffsets.empty()) {
+            return false; // LCOV_EXCL_LINE
+          }
+          targets.clear();
+          for (const auto& [selectorIndex, dynamicOffset] : dynamicOffsets) {
+            const auto bitOffset = commonOffset + dynamicOffset;
+            if (bitOffset + *selectedWidth > entryWidth) {
+              return false; // LCOV_EXCL_LINE
+            }
+            targets.push_back({
+              dynamicSelectorExpr,
+              selectorIndex,
+              bitOffset,
+              *selectedWidth});
+          }
+          return true;
+        }
+
+        const auto* baseExpr = stripConversions(elementExpr.value());
+        if (!baseExpr) {
+          return false; // LCOV_EXCL_LINE
+        }
+        const auto& baseType = baseExpr->type->getCanonicalType();
+        if (!baseType.hasFixedRange()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        auto elementWidth = getExpressionBitstreamWidth(elementExpr);
+        if (!elementWidth || !*elementWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        int32_t constantIndex = 0;
+        if (getConstantInt32(elementExpr.selector(), constantIndex)) {
+          const auto translated = baseType.getFixedRange().translateIndex(constantIndex);
+          if (translated < 0 ||
+              translated >= static_cast<int32_t>(baseType.getFixedRange().width())) {
+            return false; // LCOV_EXCL_LINE
+          }
+          commonOffset += static_cast<size_t>(translated) * *elementWidth;
+        } else {
+          if (dynamicSelectorExpr) {
+            return false;
+          }
+          dynamicSelectorExpr = &elementExpr.selector();
+          const auto range = baseType.getFixedRange();
+          const auto first = std::min(range.left, range.right);
+          const auto last = std::max(range.left, range.right);
+          for (int32_t index = first; index <= last; ++index) {
+            const auto translated = range.translateIndex(index);
+            if (translated < 0) {
+              return false; // LCOV_EXCL_LINE
+            }
+            dynamicOffsets.emplace_back(
+              index,
+              static_cast<size_t>(translated) * *elementWidth);
+          }
+        }
+        current = baseExpr;
+      }
+      return false; // LCOV_EXCL_LINE
+    }
+
     bool tryExtractInferredMemoryWriteTarget(
       const Expression& lhsExpr,
       const InferredMemory& memory,
@@ -4913,7 +5347,10 @@ endmodule
       const NLDB0::MemorySignature& signature,
       std::vector<InferredMemoryGuard>& guards,
       std::vector<InferredMemoryWriteAction>& actions,
-      std::string& failureReason) const {
+      std::string& failureReason,
+      const slang::ast::ValueSymbol* shadowSymbol = nullptr,
+      bool* sawShadowCommit = nullptr,
+      std::vector<InferredMemoryGuard>* shadowCommitGuards = nullptr) const {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return true; // LCOV_EXCL_LINE
@@ -4935,7 +5372,10 @@ endmodule
                 signature,
                 guards,
                 actions,
-                failureReason)) {
+                failureReason,
+                shadowSymbol,
+                sawShadowCommit,
+                shadowCommitGuards)) {
             return false;
           }
         }
@@ -4953,7 +5393,10 @@ endmodule
               signature,
               guards,
               actions,
-              failureReason);
+              failureReason,
+              shadowSymbol,
+              sawShadowCommit,
+              shadowCommitGuards);
           },
           failureReason);
       }
@@ -4972,7 +5415,10 @@ endmodule
             signature,
             guards,
             actions,
-            failureReason);
+            failureReason,
+            shadowSymbol,
+            sawShadowCommit,
+            shadowCommitGuards);
         }
 
         const size_t baseGuardCount = guards.size();
@@ -4990,7 +5436,10 @@ endmodule
               signature,
               guards,
               actions,
-              failureReason)) {
+              failureReason,
+              shadowSymbol,
+              sawShadowCommit,
+              shadowCommitGuards)) {
           return false;
         }
         guards.resize(baseGuardCount);
@@ -5010,7 +5459,10 @@ endmodule
                 signature,
                 guards,
                 actions,
-                failureReason)) {
+                failureReason,
+                shadowSymbol,
+                sawShadowCommit,
+                shadowCommitGuards)) {
             return false;
           }
           guards.resize(baseGuardCount);
@@ -5043,6 +5495,23 @@ endmodule
         return false;
       }
 
+      if (isValueSymbolReference(*lhsExpr, stateSymbol)) {
+        if (!shadowSymbol ||
+            !isValueSymbolReference(*action.rhs, *shadowSymbol) ||
+            !sawShadowCommit ||
+            !shadowCommitGuards) {
+          failureReason = "unsupported inferred memory whole-array sequential assignment";
+          return false;
+        }
+        if (*sawShadowCommit) {
+          failureReason = "multiple inferred memory shadow commits in sequential block";
+          return false;
+        }
+        *sawShadowCommit = true;
+        *shadowCommitGuards = guards;
+        return true;
+      }
+
       const slang::ast::Expression* selectorExpr = nullptr;
       size_t bitOffset = 0;
       size_t bitWidth = 0;
@@ -5054,7 +5523,36 @@ endmodule
             bitOffset,
             bitWidth,
             failureReason)) {
-        return false;
+        std::vector<InferredMemoryDynamicTarget> dynamicTargets;
+        if (!tryExpandInferredMemoryDynamicElementTarget(
+              *lhsExpr,
+              stateSymbol,
+              signature.width,
+              selectorExpr,
+              dynamicTargets)) {
+          return false;
+        }
+        for (const auto& target : dynamicTargets) {
+          InferredMemoryWriteAction writeAction;
+          writeAction.lhsExpr = lhsExpr;
+          writeAction.selectorExpr = selectorExpr;
+          writeAction.rhsExpr = action.rhs;
+          writeAction.stepDelta = action.stepDelta;
+          writeAction.compoundOp = action.compoundOp;
+          writeAction.bitOffset = target.bitOffset;
+          writeAction.bitWidth = target.bitWidth;
+          writeAction.guards = guards;
+          InferredMemoryGuard selectorGuard;
+          selectorGuard.kind = InferredMemoryGuard::Kind::SelectorEqualsConstant;
+          selectorGuard.expr = target.selectorExpr;
+          selectorGuard.selectorIndex = target.selectorIndex;
+          selectorGuard.sourceRange = getSourceRange(*target.selectorExpr);
+          writeAction.guards.push_back(std::move(selectorGuard));
+          writeAction.loopConstantBindings = captureActiveForLoopConstants();
+          writeAction.sourceRange = getSourceRange(*lhsExpr);
+          actions.push_back(std::move(writeAction));
+        }
+        return true;
       }
 
       InferredMemoryWriteAction writeAction;
@@ -5640,25 +6138,49 @@ endmodule
             stateSymbol,
             defaultStmt,
             foundDefault,
-            searchFailureReason) ||
-          !foundDefault) {
+            searchFailureReason)) {
         return false;
       }
-      const Expression* defaultLhs = nullptr;
-      AssignAction defaultAction;
-      if (!defaultStmt || !extractAssignment(*defaultStmt, defaultLhs, defaultAction)) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (!defaultAction.rhs || defaultAction.stepDelta != 0 || defaultAction.compoundOp) {
-        return false; // LCOV_EXCL_LINE
-      }
-      if (!tryResolveInferredMemoryCommitTarget(
-            stateSymbol,
-            shadowSymbol,
-            combinationalBlocks,
-            *defaultAction.rhs,
-            memory)) {
-        return false;
+      if (foundDefault) {
+        const Expression* defaultLhs = nullptr;
+        AssignAction defaultAction;
+        if (!defaultStmt || !extractAssignment(*defaultStmt, defaultLhs, defaultAction)) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (!defaultAction.rhs || defaultAction.stepDelta != 0 || defaultAction.compoundOp) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (!tryResolveInferredMemoryCommitTarget(
+              stateSymbol,
+              shadowSymbol,
+              combinationalBlocks,
+              *defaultAction.rhs,
+              memory)) {
+          return false;
+        }
+      } else {
+        // A nested commit branch can override selected state entries before
+        // falling through to the ordinary whole-array shadow commit.
+        std::vector<InferredMemoryGuard> guards;
+        std::vector<InferredMemoryWriteAction> overrideActions;
+        std::vector<InferredMemoryGuard> commitGuards;
+        bool sawShadowCommit = false;
+        std::string overrideFailureReason;
+        if (!analyzeDirectSequentialMemoryWriteStatement(
+              *topCond.ifFalse,
+              stateSymbol,
+              memory.signature,
+              guards,
+              overrideActions,
+              overrideFailureReason,
+              &shadowSymbol,
+              &sawShadowCommit,
+              &commitGuards) ||
+            !sawShadowCommit) {
+          return false;
+        }
+        memory.shadowCommitGuards = std::move(commitGuards);
+        memory.sequentialOverrideActions = std::move(overrideActions);
       }
 
       std::vector<bool> initBits;
@@ -6322,7 +6844,36 @@ endmodule
             bitOffset,
             bitWidth,
             failureReason)) {
-        return false;
+        std::vector<InferredMemoryDynamicTarget> dynamicTargets;
+        if (!tryExpandInferredMemoryDynamicElementTarget(
+              *lhsExpr,
+              *memory.shadowSymbol,
+              memory.signature.width,
+              selectorExpr,
+              dynamicTargets)) {
+          return false;
+        }
+        for (const auto& target : dynamicTargets) {
+          InferredMemoryWriteAction writeAction;
+          writeAction.lhsExpr = lhsExpr;
+          writeAction.selectorExpr = selectorExpr;
+          writeAction.rhsExpr = action.rhs;
+          writeAction.stepDelta = action.stepDelta;
+          writeAction.compoundOp = action.compoundOp;
+          writeAction.bitOffset = target.bitOffset;
+          writeAction.bitWidth = target.bitWidth;
+          writeAction.guards = guards;
+          InferredMemoryGuard selectorGuard;
+          selectorGuard.kind = InferredMemoryGuard::Kind::SelectorEqualsConstant;
+          selectorGuard.expr = target.selectorExpr;
+          selectorGuard.selectorIndex = target.selectorIndex;
+          selectorGuard.sourceRange = getSourceRange(*target.selectorExpr);
+          writeAction.guards.push_back(std::move(selectorGuard));
+          writeAction.loopConstantBindings = captureActiveForLoopConstants();
+          writeAction.sourceRange = getSourceRange(*lhsExpr);
+          actions.push_back(std::move(writeAction));
+        }
+        return true;
       }
 
       InferredMemoryWriteAction writeAction;
@@ -7912,7 +8463,7 @@ endmodule
                     : conditionFailureReason;
                   return false;
                 }
-              } else {
+              } else if (guard.kind == InferredMemoryGuard::Kind::CaseItemMatch) {
                 std::string caseFailureReason;
                 guardBit = buildCaseItemMatchBit(
                   design,
@@ -7927,6 +8478,39 @@ endmodule
                     : caseFailureReason;
                   // LCOV_EXCL_STOP
                   return false;
+                }
+              } else {
+                if (!guard.expr || !guard.selectorIndex) {
+                  // Expansion always creates selector guards with both fields.
+                  // LCOV_EXCL_START
+                  failureReason = "invalid inferred memory selector guard";
+                  return false;
+                  // LCOV_EXCL_STOP
+                }
+                auto selectorWidth = getIntegralExpressionBitWidth(*guard.expr);
+                std::vector<SNLBitNet*> selectorBits;
+                if (!selectorWidth ||
+                    !resolveExpressionBits(
+                      design,
+                      *guard.expr,
+                      *selectorWidth,
+                      selectorBits) ||
+                    selectorBits.size() != *selectorWidth) {
+                  failureReason = "unable to resolve inferred memory selector guard";
+                  return false;
+                }
+                guardBit = buildSelectorEqualsIndexBit(
+                  design,
+                  selectorBits,
+                  *guard.selectorIndex,
+                  guard.sourceRange);
+                if (!guardBit) {
+                  // Selector bits and widths were validated above; only an
+                  // internal primitive construction failure can reach this.
+                  // LCOV_EXCL_START
+                  failureReason = "failed to build inferred memory selector guard";
+                  return false;
+                  // LCOV_EXCL_STOP
                 }
               }
               if (!guard.polarity) {
@@ -8102,6 +8686,18 @@ endmodule
         return false;
         // LCOV_EXCL_STOP
       }
+      if (!memory.shadowCommitGuards.empty()) {
+        for (auto& writeAction : writeActions) {
+          writeAction.guards.insert(
+            writeAction.guards.begin(),
+            memory.shadowCommitGuards.begin(),
+            memory.shadowCommitGuards.end());
+        }
+      }
+      writeActions.insert(
+        writeActions.end(),
+        memory.sequentialOverrideActions.begin(),
+        memory.sequentialOverrideActions.end());
       return lowerInferredMemoryCombinationalBlock(design, memory, writeActions, failureReason);
     }
 
@@ -9598,6 +10194,68 @@ endmodule
               return std::nullopt; // LCOV_EXCL_LINE
             }
             const auto offset = static_cast<size_t>(translated) * *elementWidthBits;
+            std::copy(elementBits.begin(), elementBits.end(), bits.begin() + offset);
+            index += step;
+            ++patternIndex;
+          }
+
+          if (std::any_of(bits.begin(), bits.end(), [](const SNLBitNet* bit) {
+                return bit == nullptr;
+              })) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          return true;
+        }
+        if (canonical.isPackedArray() && canonical.hasFixedRange()) {
+          // Packed-array assignment pattern, e.g. `logic [1:0][63:0] v = '{a, b}`.
+          // Element bit layout mirrors the unpacked case above: pattern element
+          // k corresponds to declared array index (arrayRange.left + k*step), and
+          // its bits land at translateIndex(index) * elementWidth.
+          if (pattern.elements().empty()) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto* elementType = canonical.getArrayElementType();
+          if (!elementType) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto& elementCanonical = elementType->getCanonicalType();
+          if (!elementCanonical.isIntegral()) {
+            return std::nullopt;
+          }
+          const auto rawElementWidth = elementCanonical.getBitWidth();
+          if (rawElementWidth <= 0) {
+            return std::nullopt; // LCOV_EXCL_LINE
+          }
+          const auto elementWidthBits = static_cast<size_t>(rawElementWidth);
+
+          const auto arrayRange = canonical.getFixedRange();
+          const auto arrayWidth = static_cast<size_t>(arrayRange.width());
+          if (arrayWidth != pattern.elements().size() ||
+              arrayWidth * elementWidthBits != targetWidth) {
+            return std::nullopt; // LCOV_EXCL_LINE: slang type checking rejects this shape.
+          }
+
+          bits.assign(targetWidth, nullptr);
+          int32_t index = arrayRange.left;
+          const int32_t end = arrayRange.right;
+          const int32_t step = index <= end ? 1 : -1;
+          size_t patternIndex = 0;
+          while (index != end + step) {
+            std::vector<SNLBitNet*> elementBits;
+            if (!resolveExpressionBits(
+                  design,
+                  *pattern.elements()[patternIndex],
+                  elementWidthBits,
+                  elementBits) ||
+                elementBits.size() != elementWidthBits) {
+              return std::nullopt;
+            }
+            const auto translated = arrayRange.translateIndex(index);
+            if (translated < 0 ||
+                translated >= static_cast<int32_t>(arrayWidth)) {
+              return std::nullopt; // LCOV_EXCL_LINE
+            }
+            const auto offset = static_cast<size_t>(translated) * elementWidthBits;
             std::copy(elementBits.begin(), elementBits.end(), bits.begin() + offset);
             index += step;
             ++patternIndex;
@@ -12828,6 +13486,44 @@ endmodule
           return true;
         }
 
+        if (subroutineName == "$countones") {
+          // $countones(x): population count = sum of x's bits. Lower to an
+          // adder-fold over the resolved operand bits. Sum width is bit_width(N)
+          // (2^w - 1 >= N, so no overflow); addBitVectors keeps operand width
+          // and drops the carry, hence the pre-sized accumulator.
+          auto args = callExpr.arguments();
+          if (args.size() != 1 || !args[0]) {
+            return false; // LCOV_EXCL_LINE
+          }
+          auto argWidth = getIntegralExpressionBitWidth(*args[0]);
+          if (!argWidth || !*argWidth) {
+            return false; // LCOV_EXCL_LINE
+          }
+          std::vector<SNLBitNet*> argBits;
+          if (!resolveExpressionBits(design, *args[0], *argWidth, argBits) ||
+              argBits.size() != *argWidth) {
+            return false;
+          }
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          size_t sumWidth = 1;
+          for (size_t t = argBits.size(), w = 0; t; t >>= 1) {
+            sumWidth = ++w;
+          }
+          std::vector<SNLBitNet*> accBits(sumWidth, const0);
+          for (auto* argBit : argBits) {
+            std::vector<SNLBitNet*> addendBits(sumWidth, const0);
+            addendBits[0] = argBit;
+            std::vector<SNLBitNet*> sumBits;
+            if (!addBitVectors(design, accBits, addendBits, sumBits, getSourceRange(*stripped))) {
+              return false; // LCOV_EXCL_LINE
+            }
+            accBits = std::move(sumBits);
+          }
+          bits = std::move(accBits);
+          resizeBitsToWidth(bits, targetWidth, const0);
+          return true;
+        }
+
         SNLBitNet* callBit = nullptr;
         if (resolveSimpleCaseInsideFunctionCallBit(
               design,
@@ -13459,122 +14155,116 @@ endmodule
             // LCOV_EXCL_STOP
           } // LCOV_EXCL_LINE
 
-          const bool allowScaledMultiplyLowering =
-            targetWidth <= 64 || hasActiveForLoopContext();
-          if (!allowScaledMultiplyLowering) {
-            // Avoid broad datapath lowering blow-up; keep this fast path for selector-like widths.
-          } else {
-            uint64_t factor = 0;
-            const Expression* scaledExpr = nullptr;
-            if (rightIsConst) {
-              factor = rightConst;
-              scaledExpr = &binaryExpr.left();
-            } else if (leftIsConst) {
-              factor = leftConst;
-              scaledExpr = &binaryExpr.right();
+          uint64_t factor = 0;
+          const Expression* scaledExpr = nullptr;
+          if (rightIsConst) {
+            factor = rightConst;
+            scaledExpr = &binaryExpr.left();
+          } else if (leftIsConst) {
+            factor = leftConst;
+            scaledExpr = &binaryExpr.right();
+          }
+
+          if (scaledExpr) {
+            uint64_t scaledConst = 0;
+            bool scaledIsConst = getConstantUnsigned(*scaledExpr, scaledConst);
+            if (!scaledIsConst) {
+              if (auto loopValue = getActiveForLoopConstantFromSource(*scaledExpr)) {
+                if (*loopValue >= 0) {
+                  scaledConst = static_cast<uint64_t>(*loopValue);
+                  scaledIsConst = true;
+                }
+              }
+            }
+            if (!scaledIsConst) {
+              // Slang parser-backed operands keep their own source ranges, so
+              // normal tests exercise the operand-source lookup above. Keep
+              // this fallback for lowered forms that only retain source on the
+              // enclosing multiply expression.
+              // LCOV_EXCL_START
+              if (auto loopValue = getActiveForLoopConstantFromSource(*stripped)) {
+                if (*loopValue >= 0) {
+                  scaledConst = static_cast<uint64_t>(*loopValue);
+                  scaledIsConst = true;
+                }
+              }
+              // LCOV_EXCL_STOP
+            }
+            if (scaledIsConst &&
+                scaledConst != 0 &&
+                factor > std::numeric_limits<uint64_t>::max() / scaledConst) {
+              return false;
+            }
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            if (factor == 0) {
+              bits.assign(targetWidth, const0); // LCOV_EXCL_LINE
+              return true; // LCOV_EXCL_LINE
+            }
+            std::vector<SNLBitNet*> scaledBits;
+            if (!resolveExpressionBits(design, *scaledExpr, targetWidth, scaledBits) ||
+                scaledBits.size() != targetWidth) {
+              return false; // LCOV_EXCL_LINE
             }
 
-            if (scaledExpr) {
-              uint64_t scaledConst = 0;
-              bool scaledIsConst = getConstantUnsigned(*scaledExpr, scaledConst);
-              if (!scaledIsConst) {
-                if (auto loopValue = getActiveForLoopConstantFromSource(*scaledExpr)) {
-                  if (*loopValue >= 0) {
-                    scaledConst = static_cast<uint64_t>(*loopValue);
-                    scaledIsConst = true;
-                  }
-                }
-              }
-              if (!scaledIsConst) {
-                // Slang parser-backed operands keep their own source ranges, so
-                // normal tests exercise the operand-source lookup above. Keep
-                // this fallback for lowered forms that only retain source on the
-                // enclosing multiply expression.
-                // LCOV_EXCL_START
-                if (auto loopValue = getActiveForLoopConstantFromSource(*stripped)) {
-                  if (*loopValue >= 0) {
-                    scaledConst = static_cast<uint64_t>(*loopValue);
-                    scaledIsConst = true;
-                  }
-                }
-                // LCOV_EXCL_STOP
-              }
-              if (scaledIsConst &&
-                  scaledConst != 0 &&
-                  factor > std::numeric_limits<uint64_t>::max() / scaledConst) {
-                return false;
-              }
-              auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-              if (factor == 0) {
-                bits.assign(targetWidth, const0); // LCOV_EXCL_LINE
-                return true; // LCOV_EXCL_LINE
-              }
-              std::vector<SNLBitNet*> scaledBits;
-              if (!resolveExpressionBits(design, *scaledExpr, targetWidth, scaledBits) ||
-                  scaledBits.size() != targetWidth) {
-                return false; // LCOV_EXCL_LINE
-              }
-
-              if (factor == 1) {
-                bits = std::move(scaledBits);
-                return true;
-              }
-
-              bits.assign(targetWidth, const0);
-              bool hasAccumulated = false;
-              const auto sourceRange = getSourceRange(*stripped);
-              for (size_t shiftAmount = 0;
-                   factor && shiftAmount < targetWidth;
-                   ++shiftAmount, factor >>= 1) {
-                if (!(factor & 1ULL)) {
-                  continue;
-                }
-
-                std::vector<SNLBitNet*> partialBits(targetWidth, const0);
-                for (size_t bit = shiftAmount; bit < targetWidth; ++bit) {
-                  partialBits[bit] = scaledBits[bit - shiftAmount];
-                }
-
-                if (!hasAccumulated) {
-                  bits = std::move(partialBits);
-                  hasAccumulated = true;
-                  continue;
-                }
-
-                std::vector<SNLBitNet*> sumBits;
-                if (!addBitVectors(design, bits, partialBits, sumBits, sourceRange)) {
-                  return false; // LCOV_EXCL_LINE
-                }
-                bits = std::move(sumBits);
-              }
+            if (factor == 1) {
+              bits = std::move(scaledBits);
               return true;
             }
 
-            SNLNet* productNet = nullptr;
-            if (targetWidth == 1) {
-              // LCOV_EXCL_START
-              // Scalar multiply lowering is retained for completeness; current
-              // regressions exercise the vector product path.
-              productNet = SNLScalarNet::create(design);
-            } else {
-              // LCOV_EXCL_STOP
-              productNet = SNLBusNet::create(
-                design,
-                static_cast<NLID::Bit>(targetWidth - 1),
-                0);
+            bits.assign(targetWidth, const0);
+            bool hasAccumulated = false;
+            const auto sourceRange = getSourceRange(*stripped);
+            for (size_t shiftAmount = 0;
+                 factor && shiftAmount < targetWidth;
+                 ++shiftAmount, factor >>= 1) {
+              if (!(factor & 1ULL)) {
+                continue;
+              }
+
+              std::vector<SNLBitNet*> partialBits(targetWidth, const0);
+              for (size_t bit = shiftAmount; bit < targetWidth; ++bit) {
+                partialBits[bit] = scaledBits[bit - shiftAmount];
+              }
+
+              if (!hasAccumulated) {
+                bits = std::move(partialBits);
+                hasAccumulated = true;
+                continue;
+              }
+
+              std::vector<SNLBitNet*> sumBits;
+              if (!addBitVectors(design, bits, partialBits, sumBits, sourceRange)) {
+                return false; // LCOV_EXCL_LINE
+              }
+              bits = std::move(sumBits);
             }
-            annotateSourceInfo(productNet, getSourceRange(*stripped));
-            if (!createMultiplyAssign(
-                  design,
-                  productNet,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  getSourceRange(*stripped))) {
-              return false;
-            }
-            bits = collectBits(productNet);
-            return bits.size() == targetWidth;
+            return true;
           }
+
+          SNLNet* productNet = nullptr;
+          if (targetWidth == 1) {
+            // LCOV_EXCL_START
+            // Scalar multiply lowering is retained for completeness; current
+            // regressions exercise the vector product path.
+            productNet = SNLScalarNet::create(design);
+          } else {
+            // LCOV_EXCL_STOP
+            productNet = SNLBusNet::create(
+              design,
+              static_cast<NLID::Bit>(targetWidth - 1),
+              0);
+          }
+          annotateSourceInfo(productNet, getSourceRange(*stripped));
+          if (!createMultiplyAssign(
+                design,
+                productNet,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                getSourceRange(*stripped))) {
+            return false;
+          }
+          bits = collectBits(productNet);
+          return bits.size() == targetWidth;
         }
         if (binaryExpr.op == slang::ast::BinaryOperator::Divide ||
             binaryExpr.op == slang::ast::BinaryOperator::Mod) {
@@ -29990,6 +30680,19 @@ endmodule
       return sameLhs(condition, &resetSignalExpr);
     }
 
+    const Expression* getActiveLowControlSignal(const Expression& conditionExpr) const {
+      const auto* condition = stripConversions(conditionExpr);
+      if (!condition || condition->kind != slang::ast::ExpressionKind::UnaryOp) {
+        return nullptr;
+      }
+      const auto& unaryExpr = condition->as<slang::ast::UnaryExpression>();
+      if (unaryExpr.op != slang::ast::UnaryOperator::LogicalNot &&
+          unaryExpr.op != slang::ast::UnaryOperator::BitwiseNot) {
+        return nullptr;
+      }
+      return &unaryExpr.operand();
+    }
+
     void createDFFInstance(
       SNLDesign* design,
       SNLNet* clkNet,
@@ -30021,6 +30724,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDLatchInstance(
@@ -30087,6 +30791,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFRNInstance(
@@ -30127,6 +30832,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFRInstance(
@@ -30167,6 +30873,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFSInstance(
@@ -30207,6 +30914,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFEInstance(
@@ -30247,6 +30955,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFREInstance(
@@ -30294,6 +31003,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createDFFSEInstance(
@@ -30341,6 +31051,7 @@ endmodule
           instTerm->setNet(qNet);
         }
       }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     bool createVectorSequentialInstance(
@@ -30393,11 +31104,53 @@ endmodule
       }
       inst->setTermNet(dTerm, dataRef.net, dataRef.msb, dataRef.lsb);
       inst->setTermNet(qTerm, outputRef.net, outputRef.msb, outputRef.lsb);
+      attachDFFInitParameter(inst, outputBits);
       return true;
+    }
+
+    void createScalarSequentialInstance(
+      SNLDesign* design,
+      SNLDesign* model,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      SNLNet* extraControl0 = nullptr,
+      const char* extraControl0TermName = nullptr,
+      SNLNet* extraControl1 = nullptr,
+      const char* extraControl1TermName = nullptr,
+      const Symbol* astSymbol = nullptr) {
+      auto inst = SNLInstance::create(design, model);
+      annotateSourceInfo(inst, sourceRange);
+      if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
+        bindLiveASTLink(inst, *effectiveASTSymbol);
+      }
+      if (auto* term = model->getScalarTerm(NLName("C"))) {
+        inst->setTermNet(term, clkNet);
+      }
+      if (auto* term = model->getScalarTerm(NLName("D"))) {
+        inst->setTermNet(term, dNet);
+      }
+      if (extraControl0 && extraControl0TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl0TermName))) {
+          inst->setTermNet(term, extraControl0);
+        }
+      }
+      if (extraControl1 && extraControl1TermName) {
+        if (auto* term = model->getScalarTerm(NLName(extraControl1TermName))) {
+          inst->setTermNet(term, extraControl1);
+        }
+      }
+      if (auto* term = model->getScalarTerm(NLName("Q"))) {
+        inst->setTermNet(term, qNet);
+      }
+      attachDFFInitParameter(inst, collectBits(qNet));
     }
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
       const auto moduleName = design->getName().getString();
+      dffInitDigitByOutputBit_.clear();
+      analyzeDFFDeclarationInitializers(design, body);
       const auto uninferredMemoryWarningThreshold =
         getUninferredMemoryWarningBitThreshold();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -30423,6 +31176,17 @@ endmodule
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
+      for (const auto* blockPtr : proceduralBlocks) {
+        if (!blockPtr ||
+            blockPtr->procedureKind != slang::ast::ProceduralBlockKind::Initial ||
+            handledInitialBlocks_.contains(blockPtr)) {
+          continue;
+        }
+        std::string ignoredFailureReason;
+        if (analyzeDFFInitialBlock(design, *blockPtr, ignoredFailureReason)) {
+          handledInitialBlocks_.insert(blockPtr);
+        }
+      }
       for (const auto* blockPtr : proceduralBlocks) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.proceduralBlocksVisited;
@@ -30755,6 +31519,11 @@ endmodule
           if (handledInitialBlocks_.contains(&block)) {
             continue;
           }
+          std::string dffInitFailureReason;
+          if (analyzeDFFInitialBlock(design, block, dffInitFailureReason)) {
+            handledInitialBlocks_.insert(&block); // LCOV_EXCL_LINE - successful init blocks are handled in the prepass
+            continue; // LCOV_EXCL_LINE
+          }
           size_t evaluatedIterations = 0;
           std::string initialFailureReason;
           if (!analyzeConfigurationInitialStatement(
@@ -30763,6 +31532,8 @@ endmodule
             reason << "Unsupported initial block in module '" << moduleName << "'";
             if (!initialFailureReason.empty()) {
               reason << ": " << initialFailureReason;
+            } else if (!dffInitFailureReason.empty()) {
+              reason << ": " << dffInitFailureReason; // LCOV_EXCL_LINE - fallback when configuration analysis has no reason
             }
             reportUnsupportedError(reason.str(), blockSourceRange);
           }
@@ -31244,12 +32015,24 @@ endmodule
         bool useAsyncResetDFFS = false;
         bool useAsyncResetDFFRE = false;
         bool useAsyncResetDFFSE = false;
+        bool useSyncResetDFFSR = false;
+        bool useSyncResetDFFSRN = false;
+        bool useSyncSetDFFSS = false;
+        bool useSyncSetDFFSSN = false;
+        bool useSyncResetDFFSRE = false;
+        bool useSyncResetDFFSRNE = false;
+        bool useSyncSetDFFSSE = false;
+        bool useSyncSetDFFSSNE = false;
+        bool recognizedSyncResetSetIntent = false;
         SNLBitNet* asyncResetControlNet = nullptr;
-        if (chain.resetCond && asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
-          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
-          auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
-          bool resetToZero = true;
-          bool resetToOne = true;
+        SNLBitNet* syncResetControlNet = nullptr;
+        auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        bool resetToZero = false;
+        bool resetToOne = false;
+        if (chain.resetCond && !resetBits.empty()) {
+          resetToZero = true;
+          resetToOne = true;
           for (auto* bit : resetBits) {
             if (bit != constZero) {
               resetToZero = false;
@@ -31261,6 +32044,8 @@ endmodule
               break;
             }
           }
+        }
+        if (chain.resetCond && asyncResetEventExpr && asyncResetEventEdge && !resetBits.empty()) {
           auto* candidateResetNet =
             getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
           if (candidateResetNet) {
@@ -31293,10 +32078,59 @@ endmodule
             }
           }
         }
+        if (chain.resetCond &&
+            !asyncResetEventExpr &&
+            !useAsyncResetDFFRN &&
+            !useAsyncResetDFFR &&
+            !useAsyncResetDFFS &&
+            !useAsyncResetDFFRE &&
+            !useAsyncResetDFFSE &&
+            !resetBits.empty()) {
+          const Expression* syncControlExpr = nullptr;
+          const char* activeLowControlTerm = nullptr;
+          bool activeLow = false;
+          if (const auto* lowExpr = getActiveLowControlSignal(*chain.resetCond)) {
+            syncControlExpr = lowExpr;
+            activeLow = true;
+            activeLowControlTerm = resetToZero ? "RN" : "SN";
+          } else {
+            syncControlExpr = stripConversions(*chain.resetCond);
+          }
+          auto* candidateResetNet = syncControlExpr
+            ? getSingleBitNet(resolveExpressionNet(design, *syncControlExpr))
+            : nullptr;
+          if (candidateResetNet && (resetToZero || resetToOne)) {
+            recognizedSyncResetSetIntent = true;
+            syncResetControlNet = candidateResetNet;
+            const bool hasUsableEnable = chain.enableCond && canUseEnablePrimitive;
+            if (clockEdge == slang::ast::EdgeKind::PosEdge) {
+              if (resetToZero && activeLow && hasUsableEnable && NLDB0::getDFFSRNE()) {
+                useSyncResetDFFSRNE = true;
+              } else if (resetToZero && !activeLow && hasUsableEnable && NLDB0::getDFFSRE()) {
+                useSyncResetDFFSRE = true;
+              } else if (resetToOne && activeLow && hasUsableEnable && NLDB0::getDFFSSNE()) {
+                useSyncSetDFFSSNE = true;
+              } else if (resetToOne && !activeLow && hasUsableEnable && NLDB0::getDFFSSE()) {
+                useSyncSetDFFSSE = true;
+              } else if (resetToZero && activeLow && NLDB0::getDFFSRN()) {
+                useSyncResetDFFSRN = true;
+              } else if (resetToZero && !activeLow && NLDB0::getDFFSR()) {
+                useSyncResetDFFSR = true;
+              } else if (resetToOne && activeLow && NLDB0::getDFFSSN()) {
+                useSyncSetDFFSSN = true;
+              } else if (resetToOne && !activeLow && NLDB0::getDFFSS()) {
+                useSyncSetDFFSS = true;
+              }
+            }
+          }
+          (void)activeLowControlTerm;
+        }
 
         bool useClockEnablePrimitive = false;
         if (chain.enableCond && canUseEnablePrimitive) {
-          if (!chain.resetCond || useAsyncResetDFFRE || useAsyncResetDFFSE) {
+          if (!chain.resetCond || useAsyncResetDFFRE || useAsyncResetDFFSE ||
+              useSyncResetDFFSRE || useSyncResetDFFSRNE ||
+              useSyncSetDFFSSE || useSyncSetDFFSSNE) {
             useClockEnablePrimitive = true;
           }
         }
@@ -31335,7 +32169,24 @@ endmodule
             !useAsyncResetDFFR &&
             !useAsyncResetDFFS &&
             !useAsyncResetDFFRE &&
-            !useAsyncResetDFFSE) {
+            !useAsyncResetDFFSE &&
+            !useSyncResetDFFSR &&
+            !useSyncResetDFFSRN &&
+            !useSyncSetDFFSS &&
+            !useSyncSetDFFSSN &&
+            !useSyncResetDFFSRE &&
+            !useSyncResetDFFSRNE &&
+            !useSyncSetDFFSSE &&
+            !useSyncSetDFFSSNE) {
+          if (recognizedSyncResetSetIntent) {
+            std::ostringstream reason;
+            reason << "Sequential sync reset/set intent in module '" << moduleName
+                   << "' was lowered to mux+DFF because no matching DB0 primitive is available";
+            reportUnsupportedWarning(
+              "sv.sync_reset_set_lowered_to_mux_dff",
+              formatReasonWithSourceExcerpt(reason.str(), resetSourceRange),
+              resetSourceRange);
+          }
           {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
             NajaPerf::Scope scope(makeSequentialPerfScopeName("buildResetMux"));
@@ -31439,6 +32290,42 @@ endmodule
                 "E",
                 asyncResetControlNet,
                 "S");
+            } else if (useSyncResetDFFSR) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSR(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "R");
+            } else if (useSyncResetDFFSRN) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRN(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "RN");
+            } else if (useSyncSetDFFSS) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSS(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "S");
+            } else if (useSyncSetDFFSSN) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSN(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, syncResetControlNet, "SN");
+            } else if (useSyncResetDFFSRE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "R");
+            } else if (useSyncResetDFFSRNE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSRNE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "RN");
+            } else if (useSyncSetDFFSSE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "S");
+            } else if (useSyncSetDFFSSNE) {
+              emittedVectorSequential = createVectorSequentialInstance(
+                design, NLDB0::getOrCreateDFFSSNE(width), clkNet, "C",
+                dataBits, lhsBits, statementSourceRange, enableNet, "E",
+                syncResetControlNet, "SN");
             } else if (useClockEnablePrimitive) {
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
@@ -31514,6 +32401,38 @@ endmodule
                   asyncResetControlNet,
                   lhsBits[i],
                   statementSourceRange);
+              } else if (useSyncResetDFFSR) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSR(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "R");
+              } else if (useSyncResetDFFSRN) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRN(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "RN");
+              } else if (useSyncSetDFFSS) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSS(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "S");
+              } else if (useSyncSetDFFSSN) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSN(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, syncResetControlNet, "SN");
+              } else if (useSyncResetDFFSRE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "R");
+              } else if (useSyncResetDFFSRNE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSRNE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "RN");
+              } else if (useSyncSetDFFSSE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "S");
+              } else if (useSyncSetDFFSSNE) {
+                createScalarSequentialInstance(
+                  design, NLDB0::getDFFSSNE(), clkNet, dataBits[i], lhsBits[i],
+                  statementSourceRange, enableNet, "E", syncResetControlNet, "SN");
               } else if (useClockEnablePrimitive) {
                 createDFFEInstance(
                   design,
@@ -31547,6 +32466,20 @@ endmodule
         noteSVPerfProgress();
 #endif
       }
+      std::unordered_set<const slang::ast::ProceduralBlockSymbol*> reportedUnconsumedInitBlocks;
+      for (const auto& [bit, initBit] : dffInitDigitByOutputBit_) {
+        (void)bit;
+        if (initBit.consumed || !initBit.block ||
+            reportedUnconsumedInitBlocks.contains(initBit.block)) {
+          continue;
+        }
+        reportedUnconsumedInitBlocks.insert(initBit.block);
+        std::ostringstream reason;
+        reason << "Unsupported initial block in module '" << moduleName
+               << "': initial assignment target is not lowered as a register";
+        reportUnsupportedError(reason.str(), getSourceRange(*initBit.block));
+      }
+      finalizeLoweredVariableDeclarationInitializers();
     }
 
     void createContinuousAssigns(SNLDesign* design, const InstanceBodySymbol& body) {
@@ -31571,24 +32504,46 @@ endmodule
             }
             continue;
           }
-          if (sym.kind != SymbolKind::ContinuousAssign) {
+          std::optional<slang::ast::NamedValueExpression> netInitializerLhs;
+          const Expression* lhsExpression = nullptr;
+          const Expression* rhsExpression = nullptr;
+          std::optional<slang::SourceRange> assignSourceRange;
+          if (sym.kind == SymbolKind::ContinuousAssign) {
+            const auto& continuousAssign =
+              sym.as<slang::ast::ContinuousAssignSymbol>();
+            const auto& assignment = continuousAssign.getAssignment();
+            const auto& assignExpr =
+              assignment.as<slang::ast::AssignmentExpression>();
+            lhsExpression = &assignExpr.left();
+            rhsExpression = &assignExpr.right();
+            assignSourceRange = getSourceRange(assignExpr);
+          } else if (sym.kind == SymbolKind::Net) {
+            const auto& netSymbol = sym.as<slang::ast::NetSymbol>();
+            rhsExpression = netSymbol.getInitializer();
+            if (!rhsExpression) {
+              continue;
+            }
+            loweredNetInitializers_.insert(&netSymbol);
+            const auto lhsRange = slang::SourceRange{
+              netSymbol.location,
+              netSymbol.location + netSymbol.name.length()};
+            netInitializerLhs.emplace(netSymbol, lhsRange);
+            lhsExpression = &*netInitializerLhs;
+            assignSourceRange = getSourceRange(*rhsExpression);
+          } else {
             continue;
           }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.continuousAssignsVisited;
           noteSVPerfProgress();
 #endif
-        const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
-        const auto& assignment = continuousAssign.getAssignment();
-        const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
-        auto assignSourceRange = getSourceRange(assignExpr);
-        auto lhsNet = resolveExpressionNet(design, assignExpr.left());
+        auto lhsNet = resolveExpressionNet(design, *lhsExpression);
         std::vector<SNLBitNet*> lhsBits;
         bool lhsResolvedAsBitSlice = false;
         bool lhsResolvedAsPackedMemberSlice = false;
         bool lhsResolvedAsPackedArrayElement = false;
         if (!lhsNet) {
-          const auto* lhsExpr = stripConversions(assignExpr.left());
+          const auto* lhsExpr = stripConversions(*lhsExpression);
           const bool lhsIsSupportedSlice =
             lhsExpr &&
             (lhsExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
@@ -31596,10 +32551,10 @@ endmodule
              lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess ||
              lhsExpr->kind == slang::ast::ExpressionKind::Concatenation);
           if (lhsIsSupportedSlice) {
-            auto lhsWidth = getIntegralExpressionBitWidth(assignExpr.left());
+            auto lhsWidth = getIntegralExpressionBitWidth(*lhsExpression);
             if (lhsWidth && *lhsWidth) {
               const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
-              if (resolveExpressionBits(design, assignExpr.left(), lhsWidthBits, lhsBits) &&
+              if (resolveExpressionBits(design, *lhsExpression, lhsWidthBits, lhsBits) &&
                   lhsBits.size() == lhsWidthBits &&
                   !lhsBits.empty()) {
                 lhsResolvedAsBitSlice = true;
@@ -31640,7 +32595,7 @@ endmodule
           } // LCOV_EXCL_STOP
         }
 
-        const auto* rhs = stripConversions(assignExpr.right());
+        const auto* rhs = stripConversions(*rhsExpression);
 
         auto unwrapSignedUnsignedCastCall = [&](const Expression* exprPtr) -> const Expression* {
           const Expression* current = exprPtr;
@@ -32041,7 +32996,7 @@ endmodule
           }
 
           SNLNet* gateOutNet = nullptr;
-          std::string baseName = getExpressionBaseName(assignExpr.left());
+          std::string baseName = getExpressionBaseName(*lhsExpression);
           std::string gateOutName = joinName(gateType->getString(), baseName);
           if (gateType->isNOutput()) {
             gateOutNet = getOrCreateNamedNet(
@@ -32304,6 +33259,15 @@ endmodule
             }
             continue;
           }
+          if (sym.kind == SymbolKind::UninstantiatedDef) {
+            // Unresolved module/primitive instantiation. When enabled, model it
+            // as an AutoBlackBox instead of letting the load fail.
+            if (options_.blackboxUnknownModules) {
+              createUnknownModuleBlackbox(
+                design, sym.as<slang::ast::UninstantiatedDefSymbol>());
+            }
+            continue;
+          }
           if (sym.kind != SymbolKind::Instance) {
             continue;
           }
@@ -32328,6 +33292,137 @@ endmodule
         }
       };
       visitScope(body);
+    }
+
+    // Unwrap the self-determined port expression carried by an unknown
+    // instantiation (slang wraps plain port actuals in a SimpleAssertionExpr).
+    static const Expression* getUninstantiatedPortExpr(
+      const slang::ast::AssertionExpr* ae) {
+      if (ae == nullptr) {
+        return nullptr; // LCOV_EXCL_LINE defensive: slang omits absent actuals instead
+      }
+      if (ae->kind == slang::ast::AssertionExprKind::Simple) {
+        return &ae->as<slang::ast::SimpleAssertionExpr>().expr;
+      }
+      return nullptr; // LCOV_EXCL_LINE defensive: port actuals are simple expressions
+    }
+
+    // Materialize (or reuse) an AutoBlackBox model for an unresolved module and
+    // instantiate it. Port terms are inferred from the instantiation: names come
+    // from named connections, widths from the connected expression, and the
+    // direction defaults to InOut since it cannot be known from the actual.
+    void createUnknownModuleBlackbox(
+      SNLDesign* design,
+      const slang::ast::UninstantiatedDefSymbol& uninst) {
+      std::string modelName(uninst.definitionName);
+      if (modelName.empty()) {
+        return; // LCOV_EXCL_LINE
+      }
+      const auto portNames = uninst.getPortNames();
+      const auto portConns = uninst.getPortConnections();
+
+      SNLDesign* model = nullptr;
+      auto it = unknownBlackboxes_.find(modelName);
+      if (it != unknownBlackboxes_.end()) {
+        model = it->second;
+      } else {
+        model = SNLDesign::create(library_, NLName(modelName));
+        model->setType(SNLDesign::Type::AutoBlackBox);
+        for (size_t i = 0; i < portNames.size(); ++i) {
+          std::string portName(portNames[i]);
+          if (portName.empty()) {
+            // Ordered/unnamed connection: synthesize a positional name.
+            portName = "p" + std::to_string(i);
+          }
+          if (model->getTerm(NLName(portName))) {
+            continue; // LCOV_EXCL_LINE
+          }
+          size_t width = 1;
+          if (i < portConns.size()) {
+            if (const auto* expr = getUninstantiatedPortExpr(portConns[i])) {
+              if (expr->type) {
+                const auto bw = expr->type->getBitWidth();
+                if (bw > 0) {
+                  width = bw;
+                }
+              }
+            }
+          }
+          if (width > 1) {
+            SNLBusTerm::create(
+              model, SNLTerm::Direction::InOut,
+              static_cast<NLID::Bit>(width - 1), 0, NLName(portName));
+          } else {
+            SNLScalarTerm::create(
+              model, SNLTerm::Direction::InOut, NLName(portName));
+          }
+        }
+        unknownBlackboxes_.emplace(modelName, model);
+      }
+
+      auto inst = SNLInstance::create(
+        design, model, NLName(std::string(uninst.name)));
+      annotateSourceInfo(inst, getSourceRange(uninst));
+
+      // Wire the connections we can resolve; unresolved actuals are left
+      // dangling rather than failing the load.
+      for (size_t i = 0; i < portNames.size(); ++i) {
+        std::string portName(portNames[i]);
+        if (portName.empty()) {
+          portName = "p" + std::to_string(i);
+        }
+        auto* term = model->getTerm(NLName(portName));
+        if (!term || i >= portConns.size()) {
+          continue; // LCOV_EXCL_LINE defensive: slang omits absent actuals in this flow
+        }
+        const auto* expr = getUninstantiatedPortExpr(portConns[i]);
+        if (!expr) {
+          continue; // LCOV_EXCL_LINE defensive: port actuals are simple expressions
+        }
+        // Resolve the actual to per-bit nets. resolveExpressionBits handles
+        // whole nets as well as bit/part-selects and concatenations, so it
+        // covers the connection forms vendor cells use.
+        auto* st = dynamic_cast<SNLScalarTerm*>(term);
+        auto* bt = dynamic_cast<SNLBusTerm*>(term);
+        const size_t termWidth =
+          bt ? static_cast<size_t>(
+                 (bt->getMSB() >= bt->getLSB()
+                    ? bt->getMSB() - bt->getLSB()
+                    : bt->getLSB() - bt->getMSB()) + 1)
+             : 1u;
+        std::vector<SNLBitNet*> bits;
+        if (!resolveExpressionBits(inst->getDesign(), *expr, termWidth, bits)) {
+          // LCOV_EXCL_START
+          // Kept for unusual self-determined actuals; current supported unknown
+          // blackbox connections resolve through resolveExpressionBits.
+          // Fallback: whole-net reference of possibly different width.
+          if (auto* net = resolveExpressionNet(inst->getDesign(), *expr)) {
+            bits = collectBits(net);
+          }
+          // LCOV_EXCL_STOP
+        } // LCOV_EXCL_LINE
+        if (bits.empty()) {
+          continue; // LCOV_EXCL_LINE
+        }
+        if (st) {
+          auto* si = inst->getInstTerm(st);
+          if (si && bits.front()) {
+            si->setNet(bits.front());
+          }
+        } else if (bt) {
+          auto msb = bt->getMSB(), lsb = bt->getLSB();
+          auto step = lsb <= msb ? 1 : -1;
+          size_t idx = 0;
+          for (auto b = lsb; b != msb + step && idx < bits.size();
+               b += step, ++idx) {
+            auto* bb = bt->getBit(b);
+            auto* si = bb ? inst->getInstTerm(bb) : nullptr;
+            if (si && bits[idx]) {
+              si->setNet(bits[idx]);
+            }
+          }
+        }
+      }
     }
 
     void connectInstance(SNLInstance* inst, const InstanceSymbol& instance) {
@@ -32794,6 +33889,9 @@ endmodule
       inferredMemorySequentialBlocks_ {};
     std::unordered_set<const slang::ast::ValueSymbol*> warnedUninferredMemorySymbols_ {};
     std::unordered_set<const slang::ast::ProceduralBlockSymbol*> handledInitialBlocks_ {};
+    std::unordered_map<SNLBitNet*, DFFInitBit> dffInitDigitByOutputBit_ {};
+    std::unordered_set<const slang::ast::NetSymbol*> loweredNetInitializers_ {};
+    std::unordered_set<const slang::ast::VariableSymbol*> loweredVariableInitializers_ {};
     const std::unordered_set<const slang::ast::ValueSymbol*>*
       suppressedSequentialFallbackBaseTrackingSymbols_ {nullptr};
     std::vector<ActiveInferredMemoryLocalContext> activeInferredMemoryLocalContexts_ {};
@@ -32828,6 +33926,10 @@ endmodule
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
     std::unique_ptr<SNLSVLiveASTLink> liveASTLink_;
     std::unordered_map<const InstanceBodySymbol*, SNLDesign*> bodyToDesign_;
+    // AutoBlackBox models materialized for unresolved (unknown) module
+    // instantiations, keyed by the unknown definition name so repeated
+    // instantiations share a single model.
+    std::unordered_map<std::string, SNLDesign*> unknownBlackboxes_;
     std::unordered_map<const slang::ast::DefinitionSymbol*, std::vector<const InstanceBodySymbol*>>
       representativeBodiesByDefinition_;
     std::unordered_map<std::string, size_t> elaboratedDesignOrdinals_;

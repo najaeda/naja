@@ -85,6 +85,12 @@ class SNLSVConstructor {
       std::vector<std::string> preprocessorDefines {};
       /// SystemVerilog frontend warning names to suppress.
       std::vector<std::string> suppressWarnings {};
+      /// Treat instantiations of unresolved (unknown) modules as auto-blackboxes
+      /// instead of failing the load. Slang's UnknownModule/UnknownPrimitive
+      /// errors are demoted, and each unknown instance gets an AutoBlackBox model
+      /// whose terms are inferred from the instantiation's port connections
+      /// (direction defaults to InOut, width to the connected expression width).
+      bool blackboxUnknownModules {false};
     };
 
     SNLSVConstructor() = delete;

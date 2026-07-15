@@ -191,6 +191,138 @@ module naja_dffse #(
   end
 endmodule
 
+module naja_dffsr #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire R,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (R) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffsrn #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire RN,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (!RN) Q <= {WIDTH{1'b0}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffss #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire S,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (S) Q <= {WIDTH{1'b1}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffssn #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire SN,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (!SN) Q <= {WIDTH{1'b1}};
+    else Q <= D;
+  end
+endmodule
+
+module naja_dffsre #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire E,
+  input wire R,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (R) Q <= {WIDTH{1'b0}};
+    else if (E) Q <= D;
+  end
+endmodule
+
+module naja_dffsrne #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire E,
+  input wire RN,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (!RN) Q <= {WIDTH{1'b0}};
+    else if (E) Q <= D;
+  end
+endmodule
+
+module naja_dffsse #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire E,
+  input wire S,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (S) Q <= {WIDTH{1'b1}};
+    else if (E) Q <= D;
+  end
+endmodule
+
+module naja_dffssne #(
+  parameter WIDTH = 1,
+  parameter INIT = {WIDTH{1'bx}}
+) (
+  input wire C,
+  input wire [WIDTH-1:0] D,
+  input wire E,
+  input wire SN,
+  output reg [WIDTH-1:0] Q
+);
+  initial Q = INIT;
+  always @(posedge C) begin
+    if (!SN) Q <= {WIDTH{1'b1}};
+    else if (E) Q <= D;
+  end
+endmodule
+
 module naja_mem #(
   parameter WIDTH = 1,
   parameter DEPTH = 1,

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: CC0-1.0
+# graphify-specific ignore file (gitignore syntax).
+# Falls back from .gitignore is NOT merged - this file replaces it for graphify's
+# own scan, so repo build/venv excludes are carried over here too.
+
+*~
+*.swp
+*.DS_Store
+build
+build-*
+install
+venv
+.venv-sv-regress
+.vscode
+__pycache__
+graphify-src-test
+graphify-out
+naja_sv_diagnostics.log
+naja_perf.log
+sv_constructor_perf.log
+dump_if
+
+# regress: fetched external content
+regress
+
+# thirdparty: only naja-if and naja-verilog are ours to analyze; everything
+# else under thirdparty/ is vendored (cpptrace, googletest, lefdef, spdlog,
+# yosys-liberty) and adds noise without adding signal to the graph.
+thirdparty/*
+!thirdparty/naja-if
+!thirdparty/naja-verilog
+!thirdparty/slang
+!thirdparty/yosys-liberty

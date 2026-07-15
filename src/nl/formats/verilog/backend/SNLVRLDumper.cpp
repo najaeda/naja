@@ -1837,7 +1837,11 @@ bool SNLVRLDumper::dumpInstance(
       NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
       NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) || NLDB0::isDFFS(model) ||
       NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
-      NLDB0::isDFFSE(model)) {
+      NLDB0::isDFFSE(model) ||
+      NLDB0::isDFFSR(model) || NLDB0::isDFFSRN(model) ||
+      NLDB0::isDFFSS(model) || NLDB0::isDFFSSN(model) ||
+      NLDB0::isDFFSRE(model) || NLDB0::isDFFSRNE(model) ||
+      NLDB0::isDFFSSE(model) || NLDB0::isDFFSSNE(model)) {
     emitNajaPrimitiveModels_ = true;
     std::string instanceName;
     if (instance->isUnnamed()) {
@@ -1853,11 +1857,19 @@ bool SNLVRLDumper::dumpInstance(
     if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
       widthValue = widthInstParam->getValue();
     }
+    const SNLInstParameter* initInstParam = instance->getInstParameter(NLName("INIT"));
+    const bool dumpInit =
+      initInstParam && shouldDumpInstParameter(instance, initInstParam);
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
     o << modelName << " ";
-    if (widthValue != "1") {
+    if (widthValue != "1" || dumpInit) {
       o << "#(" << '\n';
-      o << "  .WIDTH(" << widthValue << ")" << '\n';
+      o << "  .WIDTH(" << widthValue << ")";
+      if (dumpInit) {
+        o << "," << '\n';
+        o << "  .INIT(" << initInstParam->getValue() << ")";
+      }
+      o << '\n';
       o << ") ";
     }
     o << dumpName(instanceName);
@@ -2481,6 +2493,72 @@ void SNLVRLDumper::dumpNajaDFFSEModel(std::ostream& o) {
   o << "endmodule //naja_dffse\n";
 }
 
+namespace {
+void dumpNajaSyncDFFModel(
+  std::ostream& o,
+  const char* moduleName,
+  const char* controlName,
+  bool controlActiveLow,
+  bool controlSets,
+  bool enableControl) {
+  o << "module " << moduleName << " #(\n";
+  o << "  parameter WIDTH = 1,\n";
+  o << "  parameter INIT = {WIDTH{1'bx}}\n";
+  o << ") (\n";
+  o << "  input C,\n";
+  o << "  input [WIDTH-1:0] D,\n";
+  if (enableControl) {
+    o << "  input E,\n";
+  }
+  o << "  input " << controlName << ",\n";
+  o << "  output reg [WIDTH-1:0] Q\n";
+  o << ");\n";
+  o << "  initial Q = INIT;\n";
+  o << "  always @(posedge C) begin\n";
+  o << "    if (" << (controlActiveLow ? "!" : "") << controlName << ") Q <= {WIDTH{1'b"
+    << (controlSets ? "1" : "0") << "}};\n";
+  if (enableControl) {
+    o << "    else if (E) Q <= D;\n";
+  } else {
+    o << "    else Q <= D;\n";
+  }
+  o << "  end\n";
+  o << "endmodule //" << moduleName << "\n";
+}
+} // namespace
+
+void SNLVRLDumper::dumpNajaDFFSRModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffsr", "R", false, false, false);
+}
+
+void SNLVRLDumper::dumpNajaDFFSRNModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffsrn", "RN", true, false, false);
+}
+
+void SNLVRLDumper::dumpNajaDFFSSModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffss", "S", false, true, false);
+}
+
+void SNLVRLDumper::dumpNajaDFFSSNModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffssn", "SN", true, true, false);
+}
+
+void SNLVRLDumper::dumpNajaDFFSREModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffsre", "R", false, false, true);
+}
+
+void SNLVRLDumper::dumpNajaDFFSRNEModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffsrne", "RN", true, false, true);
+}
+
+void SNLVRLDumper::dumpNajaDFFSSEModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffsse", "S", false, true, true);
+}
+
+void SNLVRLDumper::dumpNajaDFFSSNEModel(std::ostream& o) {
+  dumpNajaSyncDFFModel(o, "naja_dffssne", "SN", true, true, true);
+}
+
 void SNLVRLDumper::dumpNajaDivModModel(std::ostream& o) {
   o << "module naja_divmod #(\n";
   o << "  parameter WIDTH = 1,\n";
@@ -2711,6 +2789,22 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   dumpNajaDFFREModel(outFile);
   outFile << '\n';
   dumpNajaDFFSEModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSRModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSRNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSSModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSSNModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSREModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSRNEModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSSEModel(outFile);
+  outFile << '\n';
+  dumpNajaDFFSSNEModel(outFile);
   outFile << '\n';
   dumpNajaDivModModel(outFile);
   outFile << '\n';

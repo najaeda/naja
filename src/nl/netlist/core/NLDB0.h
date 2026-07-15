@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <map>
 #include <string>
+#include <string_view>
 #include "NLID.h"
 #include "SNLTruthTable.h"
 
@@ -42,6 +43,16 @@ class NLDB0 {
       SyncLow,
       SyncHigh
     };
+
+    /**
+     * \brief Format a canonical DFF INIT literal.
+     *
+     * The digit string is ordered MSB-to-LSB and may contain only 0, 1, x, X,
+     * z, or Z. Storage keeps this Verilog literal string because SNL nets are
+     * two-state while INIT is four-state metadata.
+     */
+    static std::string formatDFFInitValue(size_t width, std::string_view msbToLsbDigits);
+    static std::string getUndefinedDFFInitValue(size_t width);
 
     struct MemorySignature {
       size_t          width      {0};
@@ -261,6 +272,54 @@ class NLDB0 {
     static SNLScalarTerm* getDFFSData();
     static SNLScalarTerm* getDFFSSet();
     static SNLScalarTerm* getDFFSOutput();
+    /// \brief Positive-edge D flip-flop with active-high synchronous reset.
+    /// Pins: C (clock), D (data), R (sync reset high active), Q (output).
+    static SNLDesign* getDFFSR();
+    static SNLDesign* getOrCreateDFFSR(size_t width);
+    static bool isDFFSR(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSRClock();
+    static SNLScalarTerm* getDFFSRData();
+    static SNLScalarTerm* getDFFSRReset();
+    static SNLScalarTerm* getDFFSROutput();
+    /// \brief Positive-edge D flip-flop with active-low synchronous reset.
+    /// Pins: C (clock), D (data), RN (sync reset low active), Q (output).
+    static SNLDesign* getDFFSRN();
+    static SNLDesign* getOrCreateDFFSRN(size_t width);
+    static bool isDFFSRN(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSRNClock();
+    static SNLScalarTerm* getDFFSRNData();
+    static SNLScalarTerm* getDFFSRNResetN();
+    static SNLScalarTerm* getDFFSRNOutput();
+    /// \brief Positive-edge D flip-flop with active-high synchronous set.
+    /// Pins: C (clock), D (data), S (sync set high active), Q (output).
+    static SNLDesign* getDFFSS();
+    static SNLDesign* getOrCreateDFFSS(size_t width);
+    static bool isDFFSS(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSSClock();
+    static SNLScalarTerm* getDFFSSData();
+    static SNLScalarTerm* getDFFSSSet();
+    static SNLScalarTerm* getDFFSSOutput();
+    /// \brief Positive-edge D flip-flop with active-low synchronous set.
+    /// Pins: C (clock), D (data), SN (sync set low active), Q (output).
+    static SNLDesign* getDFFSSN();
+    static SNLDesign* getOrCreateDFFSSN(size_t width);
+    static bool isDFFSSN(const SNLDesign* design);
+    static SNLScalarTerm* getDFFSSNClock();
+    static SNLScalarTerm* getDFFSSNData();
+    static SNLScalarTerm* getDFFSSNSetN();
+    static SNLScalarTerm* getDFFSSNOutput();
+    static SNLDesign* getDFFSRE();
+    static SNLDesign* getOrCreateDFFSRE(size_t width);
+    static bool isDFFSRE(const SNLDesign* design);
+    static SNLDesign* getDFFSRNE();
+    static SNLDesign* getOrCreateDFFSRNE(size_t width);
+    static bool isDFFSRNE(const SNLDesign* design);
+    static SNLDesign* getDFFSSE();
+    static SNLDesign* getOrCreateDFFSSE(size_t width);
+    static bool isDFFSSE(const SNLDesign* design);
+    static SNLDesign* getDFFSSNE();
+    static SNLDesign* getOrCreateDFFSSNE(size_t width);
+    static bool isDFFSSNE(const SNLDesign* design);
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);

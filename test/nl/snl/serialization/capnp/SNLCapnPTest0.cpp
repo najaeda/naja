@@ -23,6 +23,9 @@ using ::testing::Property;
 #include "NajaException.h"
 
 #include "SNLCapnP.h"
+#include "SNLDumpException.h"
+#include "SNLDump.h"
+#include "SNLDumpManifest.h"
 
 using namespace naja;
 using namespace naja::NL;
@@ -334,5 +337,53 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(NLName("o2"), scalarTerm1->getName());
     EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
     EXPECT_EQ(scalarNet2, scalarTerm1->getNet());
+  }
+}
+
+TEST_F(SNLCapNpTest0, incompatibleManifestProducerThrows) {
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapNpTest0_incompatibleManifestProducerThrows.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
+  SNLCapnP::dump(db_, outPath);
+  {
+    std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
+    ASSERT_TRUE(manifest.is_open());
+    manifest << "V " << SNLDump::getVersion().getMajor()
+      << " " << SNLDump::getVersion().getMinor()
+      << " " << SNLDump::getVersion().getRevision() << "\n";
+    manifest << "P test-producer test-hash\n";
+  }
+
+  EXPECT_THROW(SNLCapnP::load(outPath), SNLDumpException);
+}
+
+TEST_F(SNLCapNpTest0, incompatibleManifestSchemaThrows) {
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapNpTest0_incompatibleManifestSchemaThrows.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
+  SNLCapnP::dump(db_, outPath);
+  {
+    std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
+    ASSERT_TRUE(manifest.is_open());
+    manifest << "V " << SNLDump::getVersion().getMajor()
+      << " " << SNLDump::getVersion().getMinor()
+      << " " << SNLDump::getVersion().getRevision() + 1 << "\n";
+    manifest << "P test-producer test-hash\n";
+  }
+
+  try {
+    SNLCapnP::load(outPath);
+    FAIL() << "Expected incompatible manifest schema to throw";
+  } catch (const SNLDumpException& exception) {
+    EXPECT_THAT(exception.what(),
+      ::testing::HasSubstr("Incompatible SNL snapshot schema version"));
+    EXPECT_THAT(exception.what(),
+      ::testing::HasSubstr("producer naja version test-producer, git hash test-hash"));
   }
 }

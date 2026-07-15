@@ -13,6 +13,8 @@ class RSTSnippetInserter:
     def extract_snippets(self):
         snippets = {}
         for file in self.source_dir.rglob("*.py"):
+            if any(part in {"venv", ".venv", "__pycache__"} for part in file.parts):
+                continue
             with file.open("r") as f:
                 print(f"Extracting snippets from {file}")
                 content = f.read()

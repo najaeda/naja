@@ -15,5 +15,8 @@ if "site-packages" not in p.replace("\\", "/"):
         f"(loaded from {p})"
     )
 
-print("najaeda version:", getattr(najaeda, "__version__", "unknown"))
+package_version = getattr(najaeda, "__version__", None)
+if package_version is None and hasattr(najaeda, "version"):
+    package_version = najaeda.version()
+print("najaeda version:", package_version or "unknown")
 print("Basic wheel import check: OK")

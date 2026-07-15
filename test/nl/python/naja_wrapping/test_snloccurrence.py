@@ -55,10 +55,16 @@ class SNLOccurrenceTest(unittest.TestCase):
     self.assertEqual(ins2, occurrence.getInstance())
     self.assertIsNone(occurrence.getInstTerm())
     self.assertIsNone(occurrence.getNetComponent())
+    self.assertIsInstance(hash(occurrence), int)
     self.assertTrue(occurrence2.isInstanceOccurrence())
     self.assertEqual(ins1, occurrence2.getInstance())
     self.assertFalse(occurrence3.isInstanceOccurrence())
     self.assertIsNone(occurrence3.getInstance())
+    unbound = naja.SNLOccurrence.__new__(naja.SNLOccurrence)
+    with self.assertRaisesRegex(
+      RuntimeError,
+      r"Attempt to call SNLOccurrence\.__hash__\(\) on an unbound object"):
+      hash(unbound)
 
     instTerms = tuple(ins1.getInstTerms())
 
@@ -69,6 +75,10 @@ class SNLOccurrenceTest(unittest.TestCase):
 
     insttermoccurrence1 = naja.SNLOccurrence(path0, instTerms[0])
     insttermoccurrence2 = naja.SNLOccurrence(instTerms[0])
+    self.assertEqual(insttermoccurrence1, insttermoccurrence2)
+    self.assertEqual(hash(insttermoccurrence1), hash(insttermoccurrence2))
+    self.assertEqual(1, len({insttermoccurrence1, insttermoccurrence2}))
+    self.assertEqual("instterm", {insttermoccurrence1: "instterm"}[insttermoccurrence2])
 
     instTerm = insttermoccurrence1.getInstTerm()
     self.assertIsNotNone(instTerm)
@@ -76,6 +86,8 @@ class SNLOccurrenceTest(unittest.TestCase):
     self.assertIsNone(insttermoccurrence1.getInstance())
     
     uniq = naja.SNLUniquifier(insttermoccurrence1.getPath())
+    with self.assertRaises(TypeError):
+      hash(uniq)
     uniqPath = uniq.getPathUniqCollection()
 
     with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1)

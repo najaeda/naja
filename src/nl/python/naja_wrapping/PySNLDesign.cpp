@@ -552,6 +552,29 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
   GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedOutputs, SNLDesign)
 }
 
+#define DESIGN_ROLE_TERMS(NAME)                                           \
+  static PyObject* PySNLDesign_##NAME(PySNLDesign* self) {                \
+    METHOD_HEAD("SNLDesign." #NAME "()")                                  \
+    TRY                                                                    \
+    auto* objects = new naja::NajaCollection<SNLBitTerm*>(                \
+        SNLDesignModeling::NAME(selfObject));                              \
+    auto* pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);     \
+    if (!pyObjects) { delete objects; return nullptr; }                    \
+    pyObjects->object_ = objects;                                          \
+    return reinterpret_cast<PyObject*>(pyObjects);                         \
+    NLCATCH                                                                \
+    return nullptr;                                                        \
+  }
+
+DESIGN_ROLE_TERMS(getClockTerms)
+DESIGN_ROLE_TERMS(getAsyncResetTerms)
+DESIGN_ROLE_TERMS(getAsyncSetTerms)
+DESIGN_ROLE_TERMS(getSyncResetTerms)
+DESIGN_ROLE_TERMS(getSyncSetTerms)
+DESIGN_ROLE_TERMS(getDataInputTerms)
+DESIGN_ROLE_TERMS(getOutputTerms)
+#undef DESIGN_ROLE_TERMS
+
 GetObjectMethod(SNLDesign, NLDB, getDB)
 GetObjectMethod(SNLDesign, NLLibrary, getLibrary)
 GetObjectByName(SNLDesign, SNLInstance, getInstance)
@@ -582,6 +605,13 @@ GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignModeling::isConst1)
 GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
 GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
 GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
+GetBoolAttributeWithFunction(SNLDesign, isAnd, SNLDesignModeling::isAnd)
+GetBoolAttributeWithFunction(SNLDesign, isNand, SNLDesignModeling::isNand)
+GetBoolAttributeWithFunction(SNLDesign, isOr, SNLDesignModeling::isOr)
+GetBoolAttributeWithFunction(SNLDesign, isNor, SNLDesignModeling::isNor)
+GetBoolAttributeWithFunction(SNLDesign, isXor, SNLDesignModeling::isXor)
+GetBoolAttributeWithFunction(SNLDesign, isXnor, SNLDesignModeling::isXnor)
+GetBoolAttribute(SNLDesign, isMux)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
@@ -631,6 +661,20 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get inputs related to a clock"},
   { "getClockRelatedOutputs", (PyCFunction)PySNLDesign_getClockRelatedOutputs, METH_O|METH_STATIC,
     "get outputs related to a clock"},
+  { "getClockTerms", (PyCFunction)PySNLDesign_getClockTerms, METH_NOARGS,
+    "get primitive clock terms"},
+  { "getAsyncResetTerms", (PyCFunction)PySNLDesign_getAsyncResetTerms, METH_NOARGS,
+    "get primitive asynchronous reset terms"},
+  { "getAsyncSetTerms", (PyCFunction)PySNLDesign_getAsyncSetTerms, METH_NOARGS,
+    "get primitive asynchronous set terms"},
+  { "getSyncResetTerms", (PyCFunction)PySNLDesign_getSyncResetTerms, METH_NOARGS,
+    "get primitive synchronous reset terms"},
+  { "getSyncSetTerms", (PyCFunction)PySNLDesign_getSyncSetTerms, METH_NOARGS,
+    "get primitive synchronous set terms"},
+  { "getDataInputTerms", (PyCFunction)PySNLDesign_getDataInputTerms, METH_NOARGS,
+    "get primitive data input terms"},
+  { "getOutputTerms", (PyCFunction)PySNLDesign_getOutputTerms, METH_NOARGS,
+    "get primitive data output terms"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
   { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,
@@ -644,7 +688,21 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
     "Returns True if this design is a buffer primitive"},
   { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
-    "Returns True if this design is an inverter primitive"},  
+    "Returns True if this design is an inverter primitive"},
+  { "isAnd", (PyCFunction)PySNLDesign_isAnd, METH_NOARGS,
+    "Returns True if this design is an AND primitive"},
+  { "isNand", (PyCFunction)PySNLDesign_isNand, METH_NOARGS,
+    "Returns True if this design is a NAND primitive"},
+  { "isOr", (PyCFunction)PySNLDesign_isOr, METH_NOARGS,
+    "Returns True if this design is an OR primitive"},
+  { "isNor", (PyCFunction)PySNLDesign_isNor, METH_NOARGS,
+    "Returns True if this design is a NOR primitive"},
+  { "isXor", (PyCFunction)PySNLDesign_isXor, METH_NOARGS,
+    "Returns True if this design is an XOR primitive"},
+  { "isXnor", (PyCFunction)PySNLDesign_isXnor, METH_NOARGS,
+    "Returns True if this design is an XNOR primitive"},
+  { "isMux", (PyCFunction)PySNLDesign_isMux, METH_NOARGS,
+    "Returns True if this design is a mux primitive"},
   { "isTopDesign", (PyCFunction)PySNLDesign_isTopDesign, METH_NOARGS,
     "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,

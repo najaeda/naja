@@ -15,6 +15,8 @@ except ModuleNotFoundError:
 from ._version import version, git_hash
 from ._logging import configure_native_logging
 
+__version__ = version()
+
 configure_native_logging()
 
-__all__ = ["naja", "version", "git_hash", "configure_native_logging"]
+__all__ = ["naja", "version", "git_hash", "__version__", "configure_native_logging"]

@@ -15,9 +15,9 @@ najaeda
 
 ----
 
-**najaeda** is a Python package for working with gate-level netlists —
-load, navigate, edit, and analyse designs from simple Verilog files to
-large SystemVerilog cores.
+**najaeda** is a Python package for loading, elaborating, navigating, editing,
+and analysing hardware designs from simple Verilog netlists to large
+SystemVerilog RTL cores.
 
 .. code-block:: python
 
@@ -42,7 +42,7 @@ large SystemVerilog cores.
 What you can do
 ---------------
 
-- **Load** structural Verilog and SystemVerilog designs, with or without
+- **Load** Verilog and elaborated SystemVerilog designs, with or without
   Liberty standard-cell libraries
 - **Navigate** hierarchy, nets, and ports at any level of detail —
   instance-by-instance or flat via equipotentials
@@ -58,7 +58,7 @@ Installation
 
     pip install najaeda
 
-Requires Python 3.8+. Wheels are published for Linux, macOS, and Windows.
+Requires Python 3.10+. Wheels are published for Linux, macOS, and Windows.
 
 Tutorials
 ---------

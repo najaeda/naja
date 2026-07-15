@@ -717,6 +717,14 @@ void expectUnsupportedConstruct(
   }
 }
 
+size_t countMemoryInstances(SNLDesign* design) {
+  size_t count = 0;
+  for (auto* inst : design->getInstances()) {
+    count += NLDB0::isMemory(inst->getModel()) ? 1 : 0;
+  }
+  return count;
+}
+
 }
 
 class SNLSVConstructorTestMemoryInference: public ::testing::Test {
@@ -1020,7 +1028,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unsupported statement pattern for sequential lowering"});
+    {"Unsupported SystemVerilog type not representable in SNL for symbol: mem_q"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitSupported) {
@@ -3405,6 +3413,98 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
+}
+
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceUnpackedArrayEntrySupported) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "qd_memory_inference_unpacked_array_entry_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "qd_memory_inference_unpacked_array_entry_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module qd_memory_inference_unpacked_array_entry_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       flush_i,
+  input  logic       we_i,
+  input  logic [1:0] waddr_i,
+  input  logic       wlane_i,
+  input  logic [7:0] target_i,
+  input  logic [1:0] raddr_i,
+  input  logic       rlane_i,
+  output logic       valid_o,
+  output logic [7:0] target_o
+);
+  typedef struct packed {
+    logic       valid;
+    logic [7:0] target;
+  } entry_t;
+
+  entry_t mem_d [0:3][0:1];
+  entry_t mem_q [0:3][0:1];
+
+  always_comb begin
+    mem_d = mem_q;
+    if (we_i) begin
+      mem_d[waddr_i][wlane_i].valid = 1'b1;
+      mem_d[waddr_i][wlane_i].target = target_i;
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++)
+        mem_q[i] <= '{default: 0};
+    end else if (flush_i) begin
+      for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 2; j++)
+          mem_q[i][j].valid <= 1'b0;
+    end else begin
+      mem_q <= mem_d;
+    end
+  end
+
+  assign valid_o = mem_q[raddr_i][rlane_i].valid;
+  assign target_o = mem_q[raddr_i][rlane_i].target;
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  testing::internal::CaptureStderr();
+  try {
+    constructor.construct(svPath);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStdout();
+    (void)testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string output =
+    testing::internal::GetCapturedStdout() + testing::internal::GetCapturedStderr();
+  EXPECT_EQ(std::string::npos, output.find("was not inferred as naja_mem")) << output;
+
+  auto* top = library_->getSNLDesign(
+    NLName("qd_memory_inference_unpacked_array_entry_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ("18", memoryInst->getInstParameter(NLName("WIDTH"))->getValue());
+  EXPECT_EQ("4", memoryInst->getInstParameter(NLName("DEPTH"))->getValue());
 }
 
 TEST_F(
@@ -8456,21 +8556,23 @@ endmodule
   EXPECT_EQ("8", widthParam->getValue());
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceDynamicPackedElementWriteFallback) {
+TEST_F(
+  SNLSVConstructorTestMemoryInference,
+  parseQDMemoryInferenceDynamicPackedElementWriteSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "qd_memory_inference_dynamic_packed_element_write_fallback";
+  outPath = outPath / "qd_memory_inference_dynamic_packed_element_write_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
   const auto svPath =
-    outPath / "qd_memory_inference_dynamic_packed_element_write_fallback.sv";
+    outPath / "qd_memory_inference_dynamic_packed_element_write_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module qd_memory_inference_dynamic_packed_element_write_fallback(
+    << R"(module qd_memory_inference_dynamic_packed_element_write_supported(
   input  logic       clk_i,
   input  logic [1:0] addr_i,
   input  logic [2:0] bit_sel_i,
@@ -8494,15 +8596,23 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported dynamic packed element shadow write";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("unsupported statement pattern for sequential lowering"));
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("qd_memory_inference_dynamic_packed_element_write_supported"));
+  ASSERT_NE(nullptr, top);
+
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
   }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ("8", memoryInst->getInstParameter(NLName("WIDTH"))->getValue());
+  EXPECT_EQ("4", memoryInst->getInstParameter(NLName("DEPTH"))->getValue());
+  EXPECT_EQ("8", memoryInst->getInstParameter(NLName("WR_PORTS"))->getValue());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceOutOfRangePackedElementWriteFallback) {
@@ -11740,4 +11850,194 @@ endmodule
     constructor,
     svPath,
     {"multiple async events"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryConstantConditionalWriteSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_constant_conditional_write_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_constant_conditional_write_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_constant_conditional_write_supported(
+  input logic clk_i,
+  input logic [1:0] addr_i,
+  input logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem [0:3];
+  always_ff @(posedge clk_i) begin
+    if (1'b1)
+      mem[addr_i] <= data_i;
+  end
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_constant_conditional_write_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countMemoryInstances(top));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryNestedPackedDynamicElementWriteSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_nested_packed_dynamic_element_write_supported";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath =
+    outPath / "direct_memory_nested_packed_dynamic_element_write_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_nested_packed_dynamic_element_write_supported(
+  input logic clk_i,
+  input logic [1:0] addr_i,
+  input logic [1:0] bit_sel_i,
+  input logic bit_i,
+  output logic [7:0] data_o
+);
+  logic [1:0][3:0] mem [0:3];
+  always_ff @(posedge clk_i)
+    mem[addr_i][1][bit_sel_i] <= bit_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_nested_packed_dynamic_element_write_supported"));
+  ASSERT_NE(nullptr, top);
+  SNLInstance* memoryInst = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isMemory(inst->getModel())) {
+      ASSERT_EQ(nullptr, memoryInst);
+      memoryInst = inst;
+    }
+  }
+  ASSERT_NE(nullptr, memoryInst);
+  EXPECT_EQ("8", memoryInst->getInstParameter(NLName("WIDTH"))->getValue());
+  EXPECT_EQ("4", memoryInst->getInstParameter(NLName("WR_PORTS"))->getValue());
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryTwoDynamicPackedSelectorsFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_two_dynamic_packed_selectors_fallback";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_two_dynamic_packed_selectors_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_two_dynamic_packed_selectors_fallback(
+  input logic clk_i,
+  input logic [1:0] addr_i,
+  input logic lane_sel_i,
+  input logic [1:0] bit_sel_i,
+  input logic bit_i,
+  output logic [7:0] data_o
+);
+  logic [1:0][3:0] mem [0:3];
+  always_ff @(posedge clk_i)
+    mem[addr_i][lane_sel_i][bit_sel_i] <= bit_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_two_dynamic_packed_selectors_fallback"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countMemoryInstances(top));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseDirectMemoryDynamicSystemCallSelectorFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "direct_memory_dynamic_system_call_selector_fallback";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath = outPath / "direct_memory_dynamic_system_call_selector_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module direct_memory_dynamic_system_call_selector_fallback(
+  input logic clk_i,
+  input logic [1:0] addr_i,
+  input logic bit_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem [0:3];
+  always_ff @(posedge clk_i)
+    mem[addr_i][$urandom_range(7, 0)] <= bit_i;
+  assign data_o = mem[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("direct_memory_dynamic_system_call_selector_fallback"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countMemoryInstances(top));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference,
+       parseSharedSequentialNestedDuplicateShadowCommitsFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "shared_sequential_nested_duplicate_shadow_commits_fallback";
+  std::filesystem::remove_all(outPath);
+  std::filesystem::create_directory(outPath);
+  const auto svPath =
+    outPath / "shared_sequential_nested_duplicate_shadow_commits_fallback.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module shared_sequential_nested_duplicate_shadow_commits_fallback(
+  input logic clk_i,
+  input logic rst_ni,
+  input logic en_i,
+  input logic [1:0] addr_i,
+  input logic [7:0] data_i,
+  output logic [7:0] data_o
+);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr_i] = data_i;
+  end
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      for (int i = 0; i < 4; i++)
+        mem_q[i] <= '0;
+    end else begin
+      if (en_i)
+        mem_q <= mem_d;
+      else
+        mem_q <= mem_d;
+    end
+  end
+  assign data_o = mem_q[addr_i];
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"unsupported statement pattern for sequential lowering"});
 }

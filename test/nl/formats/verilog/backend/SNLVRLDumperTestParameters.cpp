@@ -453,6 +453,14 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffe #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffre #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffse #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffsr #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffsrn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffss #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffssn #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffsre #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffsrne #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffsse #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_dffssne #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
@@ -672,5 +680,13 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffe #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffre #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffse #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffsr #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffsrn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffss #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffssn #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffsre #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffsrne #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffsse #("));
+  EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffssne #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_divmod #("));
 }
