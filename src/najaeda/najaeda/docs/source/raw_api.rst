@@ -218,6 +218,10 @@ expert reference above.
       :members:
       :undoc-members:
 
+``NLDB.loadSystemVerilog`` writes incremental frontend diagnostics to
+``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
+to disable the report file and keep diagnostics console-only.
+
    .. autoclass:: najaeda.naja.NLLibrary
       :members:
       :undoc-members:
