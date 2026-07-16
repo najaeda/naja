@@ -75,6 +75,9 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ("87", instParam2->getValue());
   EXPECT_EQ(instParam1, instance->getInstParameter(NLName("PARAM1")));
   EXPECT_EQ(instParam2, instance->getInstParameter(NLName("PARAM2")));
+  EXPECT_EQ("73", instance->getEffectiveParameterValue(NLName("PARAM1")));
+  EXPECT_EQ("87", instance->getEffectiveParameterValue(NLName("PARAM2")));
+  EXPECT_FALSE(instance->getEffectiveParameterValue(NLName("MISSING")));
 
   //Change value
   instParam1->setValue("99");
@@ -84,6 +87,7 @@ TEST_F(SNLParameterTest, test) {
   instParam1->destroy();
   EXPECT_EQ(1, instance->getInstParameters().size());
   EXPECT_EQ(nullptr, instance->getInstParameter(NLName("PARAM1")));
+  EXPECT_EQ("45", instance->getEffectiveParameterValue(NLName("PARAM1")));
 
   using ParamsVector = std::vector<SNLParameter*>;
   ParamsVector paramsVector(design_->getParameters().begin(), design_->getParameters().end());

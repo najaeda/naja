@@ -67,8 +67,10 @@ TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
 
   auto* childInputNet = SNLScalarNet::create(child, NLName("childInputNet"));
   ASSERT_NE(nullptr, childInputNet);
-  childInputNet->setType(SNLNet::Type::Assign1);
   childInput->setNet(childInputNet);
+  auto* pureConstantNet = SNLScalarNet::create(child, NLName("pureConstantNet"));
+  SNLDesignModeling::createConstantDriver(
+    pureConstantNet, NLLogicValue::One, NLConstantDriverKind::Assign);
 
   DNLFull* dnl = get();
   ASSERT_NE(nullptr, dnl);
@@ -82,30 +84,32 @@ TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
 
   DNLIsoDBBuilder<DNLInstanceFull, DNLTerminalFull> builder(scratchIsoDB, *dnl);
   visited visitedDB;
+  auto handleConstant = [dnl](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net) {
+        if (net == nullptr) {
+          return;
+        }
+        if (iso.isConstant1() && SNLDesignModeling::isConstant(net, NLLogicValue::Zero)) {
+          db.removeConstant1Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (iso.isConstant0() && SNLDesignModeling::isConstant(net, NLLogicValue::One)) {
+          db.removeConstant0Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+        } else if (SNLDesignModeling::isConstant(net, NLLogicValue::One)) {
+          db.addConstant1Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::CONST1);
+        } else if (SNLDesignModeling::isConstant(net, NLLogicValue::Zero)) {
+          db.addConstant0Iso(iso.getIsoID());
+          iso.setIsoType(DNLIso::IsoType::CONST0);
+        }
+      };
   builder.treatDriver(
       childInputTerminal,
       ambiguousIso,
       visitedDB,
       [](DNLIso&, DNLID) {},
       [](DNLIso&, DNLID) {},
-      [dnl](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net) {
-        if (net == nullptr) {
-          return;
-        }
-        if (iso.isConstant1() && net->isConstant0()) {
-          db.removeConstant1Iso(iso.getIsoID());
-          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
-        } else if (iso.isConstant0() && net->isConstant1()) {
-          db.removeConstant0Iso(iso.getIsoID());
-          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
-        } else if (net->isConstant1()) {
-          db.addConstant1Iso(iso.getIsoID());
-          iso.setIsoType(DNLIso::IsoType::CONST1);
-        } else if (net->isConstant0()) {
-          db.addConstant0Iso(iso.getIsoID());
-          iso.setIsoType(DNLIso::IsoType::CONST0);
-        }
-      });
+      handleConstant);
+  handleConstant(ambiguousIso, scratchIsoDB, pureConstantNet);
   EXPECT_EQ(DNLIso::IsoType::AMBIGUOUS, ambiguousIso.getType());
   EXPECT_EQ(0u, scratchIsoDB.getConstant0Isos().count(ambiguousIso.getIsoID()));
 
@@ -367,23 +371,23 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
   // Connect the output of the second sub module to the output of the first sub
   // module
   auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
-  subOutNet->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(subOutNet, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   suboutTerm->setNet(subOutNet);
   subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
   // Connect the output of the first sub module to the input of the top module
   auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
-  outNet->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(outNet, NLLogicValue::One, NLConstantDriverKind::Assign);
   outTerm->setNet(outNet);
   subinst->getInstTerm(suboutTerm)->setNet(outNet);
   // Connect the input of the second sub module to the input of the first
   // submodule module
   auto subsInNet = SNLScalarNet::create(submod);
-  subsInNet->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(subsInNet, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   subinTerm->setNet(subsInNet);
   subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
   // Connect the input of the first sub module to the input of the top module
   auto inNet = SNLScalarNet::create(mod);
-  inNet->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(inNet, NLLogicValue::One, NLConstantDriverKind::Assign);
   inTerm->setNet(inNet);
   subinst->getInstTerm(subinTerm)->setNet(inNet);
   // Create a DNL on top of the SNL
@@ -426,9 +430,9 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
   EXPECT_EQ(submodID, 1);
   EXPECT_EQ(subinTermID, 2);
   EXPECT_EQ(suboutTermID, 3);
-  EXPECT_EQ(subsubmodID, 2);
-  EXPECT_EQ(subsubinTermID, 4);
-  EXPECT_EQ(subsuboutTermID, 5);
+  EXPECT_EQ(subsubmodID, 4);
+  EXPECT_EQ(subsubinTermID, 6);
+  EXPECT_EQ(subsuboutTermID, 7);
   // Validate the iso db
   EXPECT_EQ(dnl->getDNLIsoDB().getNumNonEmptyIsos(), 2);
   DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
@@ -457,8 +461,8 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
   EXPECT_EQ(suboutIsoID, subsubOutIsoID);
   const DNLIso& isoIn = dnl->getDNLIsoDB().getIsoFromIsoIDconst(inIsoID);
   const DNLIso& isoOut = dnl->getDNLIsoDB().getIsoFromIsoIDconst(outIsoID);
-  EXPECT_EQ(isoIn.getDrivers().size(), 1);
-  EXPECT_EQ(isoOut.getDrivers().size(), 1);
+  EXPECT_EQ(isoIn.getDrivers().size(), 3);
+  EXPECT_EQ(isoOut.getDrivers().size(), 3);
   EXPECT_EQ(isoIn.getReaders().size(), 1);
   EXPECT_EQ(isoOut.getReaders().size(), 1);
   EXPECT_EQ(dnl->isInstanceChild(0, 1), true);
@@ -468,12 +472,12 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
   EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
   DNLComplexIso complexIso0;
   dnl->getCustomIso(inIsoID, complexIso0);
-  EXPECT_EQ(complexIso0.getDrivers().size(), 1);
+  EXPECT_EQ(complexIso0.getDrivers().size(), 3);
   EXPECT_EQ(complexIso0.getReaders().size(), 1);
   EXPECT_EQ(complexIso0.getHierTerms().size(), 1);
   DNLComplexIso complexIso1;
   dnl->getCustomIso(outIsoID, complexIso1);
-  EXPECT_EQ(complexIso1.getDrivers().size(), 1);
+  EXPECT_EQ(complexIso1.getDrivers().size(), 3);
   EXPECT_EQ(complexIso1.getReaders().size(), 1);
   EXPECT_EQ(complexIso1.getHierTerms().size(), 1);
   dnl->display();
@@ -840,12 +844,12 @@ TEST_F(DNLTests,
   // Connect the output of the second sub module to the output of the first sub
   // module
   auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
-  subOutNet->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(subOutNet, NLLogicValue::One, NLConstantDriverKind::Assign);
   suboutTerm->setNet(subOutNet);
   subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
   // Connect the output of the first sub module to the input of the top module
   auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
-  outNet->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(outNet, NLLogicValue::One, NLConstantDriverKind::Assign);
   outTerm->setNet(outNet);
   subinst->getInstTerm(suboutTerm)->setNet(outNet);
   // Connect the input of the second sub module to the input of the first
@@ -856,7 +860,7 @@ TEST_F(DNLTests,
   subsubinst2->getInstTerm(subsubinTerm)->setNet(subOutNet);
   // Connect the input of the first sub module to the input of the top module
   auto inNet = SNLScalarNet::create(mod);
-  inNet->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(inNet, NLLogicValue::One, NLConstantDriverKind::Assign);
   inTerm->setNet(inNet);
   inTerm2->setNet(inNet);
   subinst->getInstTerm(subinTerm)->setNet(inNet);
@@ -966,8 +970,8 @@ TEST_F(DNLTests,
   EXPECT_EQ(suboutIsoID, subsubOutIsoID);
   const DNLIso& isoIn = dnl->getDNLIsoDB().getIsoFromIsoIDconst(inIsoID);
   const DNLIso& isoOut = dnl->getDNLIsoDB().getIsoFromIsoIDconst(outIsoID);
-  EXPECT_EQ(isoIn.getDrivers().size(), 4);
-  EXPECT_EQ(isoOut.getDrivers().size(), 4);
+  EXPECT_EQ(isoIn.getDrivers().size(), 8);
+  EXPECT_EQ(isoOut.getDrivers().size(), 8);
   EXPECT_EQ(isoIn.getReaders().size(), 5);
   EXPECT_EQ(isoOut.getReaders().size(), 5);
   EXPECT_EQ(dnl->isInstanceChild(0, 1), true);
@@ -977,12 +981,12 @@ TEST_F(DNLTests,
   EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
   DNLComplexIso complexIso0;
   dnl->getCustomIso(inIsoID, complexIso0);
-  EXPECT_EQ(complexIso0.getDrivers().size(), 4);
+  EXPECT_EQ(complexIso0.getDrivers().size(), 8);
   EXPECT_EQ(complexIso0.getReaders().size(), 5);
   EXPECT_EQ(complexIso0.getHierTerms().size(), 6);
   DNLComplexIso complexIso1;
   dnl->getCustomIso(outIsoID, complexIso1);
-  EXPECT_EQ(complexIso1.getDrivers().size(), 4);
+  EXPECT_EQ(complexIso1.getDrivers().size(), 8);
   EXPECT_EQ(complexIso1.getReaders().size(), 5);
   EXPECT_EQ(complexIso1.getHierTerms().size(), 6);
   dnl->display();

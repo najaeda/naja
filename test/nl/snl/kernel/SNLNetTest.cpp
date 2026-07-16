@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
@@ -137,14 +138,11 @@ TEST_F(SNLNetTest, testCreation) {
   i1Term->setNet(i1Net);
   EXPECT_EQ(i1Net, i1Term->getNet());
 
-  EXPECT_EQ(SNLNet::Type::Standard ,i0Net->getType());
-  i0Net->setType(SNLBitNet::Type::Assign0);
-  EXPECT_EQ(SNLNet::Type::Assign0 ,i0Net->getType());
-  EXPECT_TRUE(i0Net->isConstant0());
-  i0Net->setType(SNLBitNet::Type::Supply1);
-  EXPECT_EQ(SNLNet::Type::Supply1 ,i0Net->getType());
-  EXPECT_FALSE(i0Net->isSupply0());
-  EXPECT_TRUE(i0Net->isSupply1());
+  SNLDesignModeling::createConstantDriver(i0Net, NLLogicValue::Zero, NLConstantDriverKind::Assign);
+  EXPECT_FALSE(SNLDesignModeling::isConstant(i0Net, NLLogicValue::Zero));
+  SNLDesignModeling::createConstantDriver(i0Net, NLLogicValue::One, NLConstantDriverKind::Supply);
+  EXPECT_FALSE(SNLDesignModeling::isConstant(i0Net, NLLogicValue::Zero));
+  EXPECT_FALSE(SNLDesignModeling::isConstant(i0Net, NLLogicValue::One));
 
   auto instance0 = SNLInstance::create(design_, primitive, NLName("instance0"));
   auto instance1 = SNLInstance::create(design_, primitive, NLName("instance1"));
@@ -237,11 +235,9 @@ TEST_F(SNLNetTest, testCreation) {
 
   NLID::Bit bitNumber = 31;
   for (auto bit: net0->getBusBits()) {
-    EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
     EXPECT_EQ(net0, bit->getBus());
     EXPECT_EQ(net0->getID(), bit->getID());
     EXPECT_EQ(design_, bit->getDesign());
-    EXPECT_FALSE(bit->getType().isDriving());
     EXPECT_FALSE(bit->isUnnamed());
     EXPECT_EQ(bit->getName(), bit->getBus()->getName());
     EXPECT_EQ(NLID(NLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getNLID());
@@ -250,22 +246,17 @@ TEST_F(SNLNetTest, testCreation) {
   }
   EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::NetBit, 1, 1, 0, 2, 0, 32)));
 
-  net0->setType(SNLBitNet::Type::Supply1);
-  EXPECT_FALSE(net0->isSupply0());
-  EXPECT_TRUE(net0->isSupply1());
+  SNLDesignModeling::createConstantDriver(net0, NLLogicValue::One, NLConstantDriverKind::Supply);
+  EXPECT_FALSE(SNLDesignModeling::isConstant(net0, NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(net0, NLLogicValue::One));
   for (auto bit: net0->getBits()) {
-    EXPECT_EQ(SNLNet::Type::Supply1, bit->getType());
-    EXPECT_TRUE(bit->getType().isSupply());
-    EXPECT_TRUE(bit->getType().isDriving());
-    EXPECT_TRUE(bit->isConstant1());
+    EXPECT_TRUE(SNLDesignModeling::isConstant(bit, NLLogicValue::One));
   }
-  net0->setType(SNLBitNet::Type::Assign0);
-  EXPECT_FALSE(net0->isSupply0());
-  (net0->isSupply1());
+  SNLDesignModeling::createConstantDriver(net0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
+  EXPECT_FALSE(SNLDesignModeling::isConstant(net0, NLLogicValue::Zero));
+  EXPECT_FALSE(SNLDesignModeling::isConstant(net0, NLLogicValue::One));
   for (auto bit: net0->getBits()) {
-    EXPECT_EQ(SNLNet::Type::Assign0, bit->getType());
-    EXPECT_TRUE(bit->getType().isDriving());
-    EXPECT_TRUE(bit->isConstant0());
+    EXPECT_FALSE(SNLDesignModeling::isConstant(bit, NLLogicValue::Zero));
   }
 
   net0->destroy();
@@ -456,18 +447,6 @@ TEST_F(SNLNetTest, testResizeBusNetInvalidLSB) {
 TEST_F(SNLNetTest, testResizeBusNetInvalidMSB) {
   auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
   EXPECT_THROW(net0->setMSB(-1), NLException);
-}
-
-TEST_F(SNLNetTest, testNetType) {
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isAssign());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isAssign());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isSupply());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isSupply());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isDriving());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isDriving());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isDriving());
-  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isDriving());
-  EXPECT_FALSE(SNLNet::Type(SNLNet::Type::Standard).isDriving());
 }
 
 TEST_F(SNLNetTest, testErrors) {

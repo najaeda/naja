@@ -627,6 +627,9 @@ HasElementsMethod(SNLDesign, hasInstances, getInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, NonAssignInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, AssignInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, RegularInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, ConstantDriverInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, HelperInstances)
 HasElementsMethod(SNLDesign, hasPrimitiveInstances, getPrimitiveInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, PrimitiveInstances)
 HasElementsMethod(SNLDesign, hasNonPrimitiveInstances, getNonPrimitiveInstances)
@@ -775,6 +778,12 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get instances excluding only assign glue."},
   { "getAssignInstances", (PyCFunction)PySNLDesign_getAssignInstances, METH_NOARGS,
     "get assign-glue instances."},
+  { "getRegularInstances", (PyCFunction)PySNLDesign_getRegularInstances, METH_NOARGS,
+    "get instances that are neither assign glue nor constant drivers."},
+  { "getConstantDriverInstances", (PyCFunction)PySNLDesign_getConstantDriverInstances, METH_NOARGS,
+    "get constant-driver instances."},
+  { "getHelperInstances", (PyCFunction)PySNLDesign_getHelperInstances, METH_NOARGS,
+    "get assign-glue and constant-driver instances."},
   { "hasPrimitiveInstances", (PyCFunction)PySNLDesign_hasPrimitiveInstances, METH_NOARGS,
     "Returns True if the SNLDesign has primitive instances."},
   { "getPrimitiveInstances", (PyCFunction)PySNLDesign_getPrimitiveInstances, METH_NOARGS,

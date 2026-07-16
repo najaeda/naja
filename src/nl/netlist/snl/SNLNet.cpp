@@ -8,10 +8,6 @@
 
 namespace naja::NL {
 
-SNLNet::Type::Type(const TypeEnum& typeEnum):
-  typeEnum_(typeEnum) 
-{}
-
 void SNLNet::preCreate() {
   super::preCreate();
 }
@@ -23,19 +19,6 @@ void SNLNet::postCreate() {
 void SNLNet::preDestroy() {
   super::preDestroy();
 }
-
-//LCOV_EXCL_START
-std::string SNLNet::Type::getString() const {
-  switch (typeEnum_) {
-    case Type::Standard: return "Standard";
-    case Type::Assign0:  return "Assign0";
-    case Type::Assign1:  return "Assign1";
-    case Type::Supply0:  return "Supply0";
-    case Type::Supply1:  return "Supply1";
-  }
-  return "Unknown";
-}
-//LCOV_EXCL_STOP
 
 NLID::DesignObjectReference SNLNet::getReference() const {
   return NLID::DesignObjectReference(getDesign()->getReference(), getID());

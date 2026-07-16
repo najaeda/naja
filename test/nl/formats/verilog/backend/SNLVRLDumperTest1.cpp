@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 
 #include <filesystem>
 #include <fstream>
@@ -315,7 +316,7 @@ TEST_F(SNLVRLDumperTest1, test5) {
   auto i0BusTerm = model->getBusTerm(NLName("i0"));
   ASSERT_NE(nullptr, i0BusTerm);
   auto assign0Bus = SNLBusNet::create(top, 4, 0);
-  assign0Bus->setType(naja::NL::SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(assign0Bus, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   instance1->setTermNet(i0BusTerm, assign0Bus);
   
   auto param0 = instance1->getModel()->getParameter(NLName("PARAM0"));
@@ -334,15 +335,15 @@ TEST_F(SNLVRLDumperTest1, test5) {
   SNLInstance::Nets nets;
   {
     auto n0 = SNLScalarNet::create(top);
-    n0->setType(naja::NL::SNLNet::Type::Assign1);
+    SNLDesignModeling::createConstantDriver(n0, NLLogicValue::One, NLConstantDriverKind::Assign);
     auto n1 = SNLScalarNet::create(top);
-    n1->setType(naja::NL::SNLNet::Type::Assign0);
+    SNLDesignModeling::createConstantDriver(n1, NLLogicValue::Zero, NLConstantDriverKind::Assign);
     auto n2 = SNLScalarNet::create(top);
-    n2->setType(naja::NL::SNLNet::Type::Assign0);
+    SNLDesignModeling::createConstantDriver(n2, NLLogicValue::Zero, NLConstantDriverKind::Assign);
     auto n3 = SNLScalarNet::create(top);
-    n3->setType(naja::NL::SNLNet::Type::Assign1);
+    SNLDesignModeling::createConstantDriver(n3, NLLogicValue::One, NLConstantDriverKind::Assign);
     auto n4 = SNLScalarNet::create(top);
-    n4->setType(naja::NL::SNLNet::Type::Assign1);
+    SNLDesignModeling::createConstantDriver(n4, NLLogicValue::One, NLConstantDriverKind::Assign);
     nets = {n0, n1, n2, n3, n4};
   }
   SNLInstance::Terms terms(i0BusTerm->getBits().begin(), i0BusTerm->getBits().end()); 
@@ -355,9 +356,9 @@ TEST_F(SNLVRLDumperTest1, test5) {
   terms = SNLInstance::Terms(i1BusTerm->getBits().begin(), i1BusTerm->getBits().end());
   {
     auto n0 = SNLScalarNet::create(top);
-    n0->setType(naja::NL::SNLNet::Type::Assign0);
+    SNLDesignModeling::createConstantDriver(n0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
     auto n1 = SNLScalarNet::create(top);
-    n1->setType(naja::NL::SNLNet::Type::Assign1);
+    SNLDesignModeling::createConstantDriver(n1, NLLogicValue::One, NLConstantDriverKind::Assign);
     auto n2 = SNLScalarNet::create(top, NLName("n2"));
     auto n3 = SNLScalarNet::create(top, NLName("n3"));
     auto n4 = SNLScalarNet::create(top, NLName("n4"));

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 
 #include <filesystem>
 #include <fstream>
@@ -105,9 +106,9 @@ TEST_F(SNLVRLDumperTestGate0, testGatePinsWithUnusedWiresAndAssignConstants) {
   ASSERT_TRUE(top);
 
   auto assign0 = SNLScalarNet::create(top, NLName("assign0"));
-  assign0->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(assign0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   auto assign1 = SNLScalarNet::create(top, NLName("assign1"));
-  assign1->setType(SNLNet::Type::Assign1);
+  SNLDesignModeling::createConstantDriver(assign1, NLLogicValue::One, NLConstantDriverKind::Assign);
   auto gateOut = SNLScalarNet::create(top, NLName("mixedOut"));
 
   auto and3 = SNLInstance::create(

@@ -18,6 +18,7 @@ using ::testing::ElementsAre;
 #include "SNLBusTermBit.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLDesignModeling.h"
 using namespace naja::NL;
 
 class SNLInstanceTest0: public ::testing::Test {
@@ -32,7 +33,7 @@ class SNLInstanceTest0: public ::testing::Test {
     NLDB* db_;
 };
 
-TEST_F(SNLInstanceTest0, testAssignInstancePartition) {
+TEST_F(SNLInstanceTest0, testInstancePartition) {
   auto library = NLLibrary::create(db_);
   auto primitiveLibrary = NLLibrary::create(db_, NLLibrary::Type::Primitives);
   auto design = SNLDesign::create(library);
@@ -42,23 +43,63 @@ TEST_F(SNLInstanceTest0, testAssignInstancePartition) {
   auto nonAssign = SNLInstance::create(design, model, NLName("non_assign"));
   auto primitive = SNLInstance::create(design, primitiveModel, NLName("primitive"));
   auto assign = SNLInstance::create(design, NLDB0::getAssign());
+  auto constant = SNLDesignModeling::createConstantDriver(
+    design,
+    NLLogicVector::filled(1, NLLogicValue::Zero),
+    NLConstantDriverKind::Assign,
+    NLName("constant"));
+
+  EXPECT_TRUE(nonAssign->isRegular());
+  EXPECT_FALSE(nonAssign->isAssign());
+  EXPECT_FALSE(nonAssign->isConstantDriver());
+  EXPECT_TRUE(primitive->isRegular());
+  EXPECT_TRUE(assign->isAssign());
+  EXPECT_FALSE(assign->isConstantDriver());
+  EXPECT_FALSE(assign->isRegular());
+  EXPECT_TRUE(constant->isConstantDriver());
+  EXPECT_FALSE(constant->isAssign());
+  EXPECT_FALSE(constant->isRegular());
 
   EXPECT_THAT(
     std::vector(design->getInstances().begin(), design->getInstances().end()),
-    ElementsAre(nonAssign, primitive, assign));
+    ElementsAre(nonAssign, primitive, assign, constant));
   EXPECT_THAT(
     std::vector(
       design->getNonAssignInstances().begin(),
       design->getNonAssignInstances().end()),
-    ElementsAre(nonAssign, primitive));
+    ElementsAre(nonAssign, primitive, constant));
   EXPECT_THAT(
     std::vector(
       design->getAssignInstances().begin(),
       design->getAssignInstances().end()),
     ElementsAre(assign));
+  EXPECT_THAT(
+    std::vector(
+      design->getRegularInstances().begin(),
+      design->getRegularInstances().end()),
+    ElementsAre(nonAssign, primitive));
+  EXPECT_THAT(
+    std::vector(
+      design->getConstantDriverInstances().begin(),
+      design->getConstantDriverInstances().end()),
+    ElementsAre(constant));
+  EXPECT_THAT(
+    std::vector(
+      design->getHelperInstances().begin(),
+      design->getHelperInstances().end()),
+    ElementsAre(assign, constant));
   EXPECT_EQ(
     design->getInstances().size(),
     design->getNonAssignInstances().size() + design->getAssignInstances().size());
+  EXPECT_EQ(
+    design->getInstances().size(),
+    design->getRegularInstances().size() +
+      design->getAssignInstances().size() +
+      design->getConstantDriverInstances().size());
+  EXPECT_EQ(
+    design->getHelperInstances().size(),
+    design->getAssignInstances().size() +
+      design->getConstantDriverInstances().size());
 }
 
 TEST_F(SNLInstanceTest0, testCreation) {

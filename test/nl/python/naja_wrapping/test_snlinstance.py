@@ -59,6 +59,9 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertFalse(self.model.hasNonPrimitiveInstances())
     self.assertFalse(self.model.hasPrimitiveInstances())
     self.assertTrue(self.model.hasTerms())
+    self.assertFalse(ins1.hasInit())
+    self.assertIsNone(ins1.getInitValue())
+    self.assertIsNone(ins1.getResetValue())
   
   def testDestroyInstance(self):
     ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")
@@ -106,6 +109,10 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertIsNotNone(p0)
     p1 = self.model.getParameter("INIT")
     self.assertIsNotNone(p1)
+    self.assertEqual("16'b0000000000000000", p1.getValue())
+    self.assertEqual(1, p1.getType())
+    with self.assertRaises(RuntimeError):
+      naja.SNLParameter.create_binary(self.model, "TOO_NARROW", 3, 8)
     inst_p0 = naja.SNLInstParameter.create(ins1, p0, '58')
     self.assertIsNotNone(inst_p0)
     self.assertEqual(p0.getName(), inst_p0.getName())

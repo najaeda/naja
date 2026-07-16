@@ -28,30 +28,7 @@ GetContainerMethod(SNLBitNet, SNLNetComponent*, SNLNetComponents, Components)
 GetContainerMethod(SNLBitNet, SNLInstTerm*, SNLInstTerms, InstTerms)
 GetContainerMethod(SNLBitNet, SNLBitTerm*, SNLBitTerms, BitTerms)
 
-static PyObject* PySNLBitNet_getType(PySNLBitNet* self) {
-  METHOD_HEAD("Net.getType()")
-  return PyLong_FromLong((long)selfObject->getType());
-}
-
-//LCOV_EXCL_START
-static PyObject* PySNLBitNet_getTypeAsString(PySNLBitNet* self) {
-  METHOD_HEAD("Net.getTypeAsString()")
-  switch (selfObject->getType()) {
-    case SNLNet::Type::Standard: return PyUnicode_FromString("Standard");
-    case SNLNet::Type::Assign0: return PyUnicode_FromString("Assign0");
-    case SNLNet::Type::Assign1: return PyUnicode_FromString("Assign1");
-    case SNLNet::Type::Supply0: return PyUnicode_FromString("Supply0");
-    case SNLNet::Type::Supply1: return PyUnicode_FromString("Supply1");
-    default: return PyUnicode_FromString("Unknown");
-  }
-}
-//LCOV_EXCL_STOP
-
 PyMethodDef PySNLBitNet_Methods[] = {
-  { "getType", (PyCFunction)PySNLBitNet_getType, METH_NOARGS,
-    "get the type of this Net."},
-  { "getTypeAsString", (PyCFunction)PySNLBitNet_getTypeAsString, METH_NOARGS,
-    "get the type of this Net as a string."},
   { "getComponents", (PyCFunction)PySNLBitNet_getComponents, METH_NOARGS,
     "get a container of Net Components."},
   { "getInstTerms", (PyCFunction)PySNLBitNet_getInstTerms, METH_NOARGS,

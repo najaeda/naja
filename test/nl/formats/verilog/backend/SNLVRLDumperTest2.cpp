@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 
 #include <filesystem>
 #include <fstream>
@@ -42,9 +43,9 @@ class SNLVRLDumperTest2: public ::testing::Test {
       SNLDesign* top = SNLDesign::create(library, NLName("top"));
 
       auto const0 = SNLScalarNet::create(top);
-      const0->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(const0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto const1 = SNLScalarNet::create(top);
-      const1->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto bus = SNLBusNet::create(top, -2, 2, NLName("bus"));
       auto scalar = SNLScalarNet::create(top, NLName("scalar"));
 
@@ -109,7 +110,7 @@ class SNLVRLDumperTest2: public ::testing::Test {
       auto sinkBusConstantOverride =
         SNLBusNet::create(topBusAssignConstantOverride, 3, 0, NLName("sink_bus"));
       auto const1ConstantOverride = SNLScalarNet::create(topBusAssignConstantOverride);
-      const1ConstantOverride->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1ConstantOverride, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto constantOverrideAssign0 = SNLInstance::create(topBusAssignConstantOverride, NLDB0::getAssign());
       constantOverrideAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusConstantOverride->getBit(0));
       constantOverrideAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstantOverride->getBit(0));
@@ -125,9 +126,9 @@ class SNLVRLDumperTest2: public ::testing::Test {
 
       SNLDesign* topConstAssignCompression = SNLDesign::create(library, NLName("top_const_assign_compression"));
       auto const0Compression = SNLScalarNet::create(topConstAssignCompression);
-      const0Compression->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(const0Compression, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto const1Compression = SNLScalarNet::create(topConstAssignCompression);
-      const1Compression->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1Compression, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto sinkBusConstCompression = SNLBusNet::create(topConstAssignCompression, 3, 0, NLName("sink_bus"));
       for (int outputBit = 3; outputBit >= 0; --outputBit) {
         auto assign = SNLInstance::create(topConstAssignCompression, NLDB0::getAssign());
@@ -138,9 +139,9 @@ class SNLVRLDumperTest2: public ::testing::Test {
 
       SNLDesign* topConstAssignNonContiguous = SNLDesign::create(library, NLName("top_const_assign_non_contiguous"));
       auto const0NonContiguous = SNLScalarNet::create(topConstAssignNonContiguous);
-      const0NonContiguous->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(const0NonContiguous, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto const1NonContiguous = SNLScalarNet::create(topConstAssignNonContiguous);
-      const1NonContiguous->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1NonContiguous, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto sinkBusConstNonContiguous = SNLBusNet::create(topConstAssignNonContiguous, 5, 0, NLName("sink_bus"));
       for (auto outputBit: {5, 4, 2, 1, 0}) {
         auto assign = SNLInstance::create(topConstAssignNonContiguous, NLDB0::getAssign());
@@ -151,9 +152,9 @@ class SNLVRLDumperTest2: public ::testing::Test {
 
       SNLDesign* topConstAssignReversed = SNLDesign::create(library, NLName("top_const_assign_reversed"));
       auto const0Reversed = SNLScalarNet::create(topConstAssignReversed);
-      const0Reversed->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(const0Reversed, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto const1Reversed = SNLScalarNet::create(topConstAssignReversed);
-      const1Reversed->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1Reversed, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto sinkBusConstReversed = SNLBusNet::create(topConstAssignReversed, 3, 0, NLName("sink_bus"));
       for (int outputBit = 0; outputBit <= 3; ++outputBit) {
         auto assign = SNLInstance::create(topConstAssignReversed, NLDB0::getAssign());

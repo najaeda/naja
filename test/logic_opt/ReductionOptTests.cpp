@@ -346,7 +346,6 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     // connect logic0 to mux
     
     // connect logic1 to mux
-    // net2->setType(naja::SNL::SNLNet::Type::Assign1);
     (*logic0Inst->getInstTerms().begin())->setNet(net2mod);
     (*logic1Inst->getInstTerms().begin())->setNet(net5mod);
 
@@ -817,7 +816,6 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
     // connect logic0 to mux
     
     // connect logic1 to mux
-    // net2->setType(naja::SNL::SNLNet::Type::Assign1);
     (*logic0Inst->getInstTerms().begin())->setNet(net2mod);
     (*logic1Inst->getInstTerms().begin())->setNet(net5mod);
 

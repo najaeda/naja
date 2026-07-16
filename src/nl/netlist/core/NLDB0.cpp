@@ -27,34 +27,35 @@
 namespace {
   constexpr naja::NL::NLID::LibraryID RootLibraryID = 0;
   constexpr naja::NL::NLID::LibraryID AssignLibraryID = 1;
-  constexpr naja::NL::NLID::LibraryID Mux2LibraryID = 2;
-  //All DFF primitive families share one contiguous canonical ID range [3, 10].
-  constexpr naja::NL::NLID::LibraryID DFFLibraryID = 3;
-  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 4;
-  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 5;
-  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 6;
-  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 7;
-  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 8;
-  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 9;
-  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 10;
-  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 11;
-  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 12;
-  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 13;
-  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 14;
-  constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 15;
-  constexpr naja::NL::NLID::LibraryID MemoryLibraryID = 16;
-  constexpr naja::NL::NLID::LibraryID DFFSRLibraryID = 17;
-  constexpr naja::NL::NLID::LibraryID DFFSRNLibraryID = 18;
-  constexpr naja::NL::NLID::LibraryID DFFSSLibraryID = 19;
-  constexpr naja::NL::NLID::LibraryID DFFSSNLibraryID = 20;
-  constexpr naja::NL::NLID::LibraryID DFFSRELibraryID = 21;
-  constexpr naja::NL::NLID::LibraryID DFFSRNELibraryID = 22;
-  constexpr naja::NL::NLID::LibraryID DFFSSELibraryID = 23;
-  constexpr naja::NL::NLID::LibraryID DFFSSNELibraryID = 24;
-  //Gate libraries get one reserved canonical ID per GateType so that a model
-  //reference into DB0 is self-describing: libraryID = GateLibraryIDBase + GateType,
+  constexpr naja::NL::NLID::LibraryID ConstLibraryID = 2;
+  constexpr naja::NL::NLID::LibraryID Mux2LibraryID = 3;
+  //All DFF primitive families share one contiguous canonical ID range [4, 11].
+  constexpr naja::NL::NLID::LibraryID DFFLibraryID = 4;
+  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 5;
+  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 6;
+  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 7;
+  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 8;
+  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 9;
+  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 10;
+  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 11;
+  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 12;
+  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 13;
+  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 14;
+  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 15;
+  constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 16;
+  constexpr naja::NL::NLID::LibraryID MemoryLibraryID = 17;
+  constexpr naja::NL::NLID::LibraryID DFFSRLibraryID = 18;
+  constexpr naja::NL::NLID::LibraryID DFFSRNLibraryID = 19;
+  constexpr naja::NL::NLID::LibraryID DFFSSLibraryID = 20;
+  constexpr naja::NL::NLID::LibraryID DFFSSNLibraryID = 21;
+  constexpr naja::NL::NLID::LibraryID DFFSRELibraryID = 22;
+  constexpr naja::NL::NLID::LibraryID DFFSRNELibraryID = 23;
+  constexpr naja::NL::NLID::LibraryID DFFSSELibraryID = 24;
+  constexpr naja::NL::NLID::LibraryID DFFSSNELibraryID = 25;
+  //Gate libraries are the final canonical ID block, with one ID per GateType.
+  //A model reference into DB0 is self-describing: libraryID = GateLibraryIDBase + GateType,
   //designID = gate fan-in (N-input) or fan-out (N-output).
-  constexpr naja::NL::NLID::LibraryID GateLibraryIDBase = 25;
+  constexpr naja::NL::NLID::LibraryID GateLibraryIDBase = 26;
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -66,6 +67,8 @@ namespace {
   constexpr naja::NL::NLID::DesignObjectID Term4ID = 4;
 
   constexpr const char* AssignName = "assign";
+  constexpr const char* ConstName = "naja_const";
+  constexpr const char* ConstPrefix = "naja_const__w";
   constexpr const char* FAName = "naja_fa";
   constexpr const char* MemoryPrefix = "naja_mem__";
   constexpr const char* MemoryLibraryName = "MEMORY";
@@ -138,14 +141,6 @@ namespace {
     std::ostringstream name;
     name << prefix << width;
     return name.str();
-  }
-
-  void addDFFInitParameter(naja::NL::SNLDesign* design, size_t width) {
-    naja::NL::SNLParameter::create(
-      design,
-      naja::NL::NLName("INIT"),
-      naja::NL::SNLParameter::Type::Binary,
-      naja::NL::NLDB0::getUndefinedDFFInitValue(width));
   }
 
   std::string getDivModInternalName(const naja::NL::NLDB0::DivModSignature& signature) {
@@ -354,10 +349,6 @@ namespace {
        signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
         ? "1"
         : "0");
-    SNLParameter::create(
-      memory, NLName("INIT_ENABLE"), SNLParameter::Type::Decimal, "0");
-    SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "1'b0");
-
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
     SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1), 0, NLName("RADDR"));
@@ -500,6 +491,29 @@ namespace {
     SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
   }
 
+  void createConstPrimitive(naja::NL::NLLibrary* library, size_t width) {
+    using namespace naja::NL;
+    auto* constant = SNLDesign::create(
+      library,
+      NLID::DesignID(width),
+      SNLDesign::Type::Primitive,
+      NLName(width == 1 ? ConstName : getWidthInternalName(ConstPrefix, width)));
+    SNLParameter::create(
+      constant, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
+    if (width == 1) {
+      SNLScalarTerm::create(
+        constant, Term0ID, SNLTerm::Direction::Output, NLName("Y"));
+    } else {
+      SNLBusTerm::create(
+        constant,
+        Term0ID,
+        SNLTerm::Direction::Output,
+        static_cast<NLID::Bit>(width - 1),
+        0,
+        NLName("Y"));
+    }
+  }
+
   void createFAPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto fa = SNLDesign::create(
@@ -520,7 +534,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFName));
     SNLParameter::create(dff, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dff, 1);
     auto dffClock = SNLScalarTerm::create(dff, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffData = SNLScalarTerm::create(dff, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffOutput = SNLScalarTerm::create(dff, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
@@ -557,7 +570,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFNName));
     SNLParameter::create(dffn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffn, 1);
     auto dffnClock = SNLScalarTerm::create(dffn, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffnData = SNLScalarTerm::create(dffn, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffnOutput = SNLScalarTerm::create(dffn, Term2ID, SNLTerm::Direction::Output, NLName("Q"));
@@ -576,7 +588,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFRNName));
     SNLParameter::create(dffrn, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffrn, 1);
     auto dffrnClock = SNLScalarTerm::create(dffrn, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffrnData = SNLScalarTerm::create(dffrn, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffrnResetN = SNLScalarTerm::create(dffrn, Term2ID, SNLTerm::Direction::Input, NLName("RN"));
@@ -597,7 +608,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFRName));
     SNLParameter::create(dffr, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffr, 1);
     auto dffrClock = SNLScalarTerm::create(dffr, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffrData = SNLScalarTerm::create(dffr, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffrReset = SNLScalarTerm::create(dffr, Term2ID, SNLTerm::Direction::Input, NLName("R"));
@@ -618,7 +628,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFSName));
     SNLParameter::create(dffs, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffs, 1);
     auto dffsClock = SNLScalarTerm::create(dffs, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffsData = SNLScalarTerm::create(dffs, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffsSet = SNLScalarTerm::create(dffs, Term2ID, SNLTerm::Direction::Input, NLName("S"));
@@ -639,7 +648,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFEName));
     SNLParameter::create(dffe, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffe, 1);
     auto dffeClock = SNLScalarTerm::create(dffe, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffeData = SNLScalarTerm::create(dffe, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffeEnable = SNLScalarTerm::create(dffe, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -660,7 +668,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFREName));
     SNLParameter::create(dffre, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffre, 1);
     auto dffreClock = SNLScalarTerm::create(dffre, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffreData = SNLScalarTerm::create(dffre, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffreEnable = SNLScalarTerm::create(dffre, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -683,7 +690,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(DFFSEName));
     SNLParameter::create(dffse, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(dffse, 1);
     auto dffseClock = SNLScalarTerm::create(dffse, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto dffseData = SNLScalarTerm::create(dffse, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     auto dffseEnable = SNLScalarTerm::create(dffse, Term2ID, SNLTerm::Direction::Input, NLName("E"));
@@ -716,7 +722,6 @@ namespace {
       NLName(getWidthInternalName(prefix, width)));
     SNLParameter::create(
       seq, NLName("WIDTH"), SNLParameter::Type::Decimal, std::to_string(width));
-    addDFFInitParameter(seq, width);
     auto clock = SNLScalarTerm::create(seq, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto data = SNLBusTerm::create(
       seq, Term1ID, SNLTerm::Direction::Input, static_cast<NLID::Bit>(width - 1), 0, NLName("D"));
@@ -781,7 +786,6 @@ namespace {
       SNLDesign::Type::Primitive,
       NLName(name));
     SNLParameter::create(seq, NLName("WIDTH"), SNLParameter::Type::Decimal, "1");
-    addDFFInitParameter(seq, 1);
     auto clock = SNLScalarTerm::create(seq, Term0ID, SNLTerm::Direction::Input, NLName("C"));
     auto data = SNLScalarTerm::create(seq, Term1ID, SNLTerm::Direction::Input, NLName("D"));
     SNLScalarTerm* enable = nullptr;
@@ -1134,10 +1138,6 @@ std::string NLDB0::formatDFFInitValue(
   return literal.str();
 }
 
-std::string NLDB0::getUndefinedDFFInitValue(size_t width) {
-  return formatDFFInitValue(width, std::string(width, 'x'));
-}
-
 NLDB* NLDB0::create(NLUniverse* universe) {
   NLDB* db = NLDB::create(universe);
   assert(db->getID() == 0);
@@ -1147,6 +1147,8 @@ NLDB* NLDB0::create(NLUniverse* universe) {
 
   auto assignLibrary =
     NLLibrary::create(rootLibrary, AssignLibraryID, NLLibrary::Type::Primitives, NLName(AssignName));
+  auto constLibrary =
+    NLLibrary::create(rootLibrary, ConstLibraryID, NLLibrary::Type::Primitives, NLName(ConstName));
   auto mux2Library =
     NLLibrary::create(rootLibrary, Mux2LibraryID, NLLibrary::Type::Primitives, NLName(Mux2Name));
   auto dffLibrary =
@@ -1193,6 +1195,7 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     divModLibrary, DivModSignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModSignedLibraryName));
 
   createAssignPrimitive(assignLibrary);
+  createConstPrimitive(constLibrary, 1);
   createFAPrimitive(rootLibrary);
   createMux2Primitive(mux2Library, 1);
   createDFFPrimitive(dffLibrary);
@@ -1527,6 +1530,10 @@ SNLBusTerm* NLDB0::getDivModRemainder(const SNLDesign* design) {
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isConst(design)) {
+    throw NLException(
+      "NLDB0::getPrimitiveTruthTable: parameterized constant primitive has no model-level truth table");
+  }
   if (isMemory(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
   }
@@ -1693,6 +1700,32 @@ SNLScalarTerm* NLDB0::getAssignOutput() {
     return assign->getScalarTerm(Term1ID);
   }
   return nullptr;
+}
+
+SNLDesign* NLDB0::getOrCreateConst(size_t width) {
+  return getOrCreateWidthPrimitive(
+    ConstLibraryID,
+    ConstName,
+    ConstName,
+    ConstPrefix,
+    width,
+    [](NLLibrary* primitives, size_t primitiveWidth) {
+      createConstPrimitive(primitives, primitiveWidth);
+    });
+}
+
+bool NLDB0::isConst(const SNLDesign* design) {
+  return isWidthPrimitive(design, ConstLibraryID, ConstName, ConstPrefix);
+}
+
+SNLTerm* NLDB0::getConstOutput(const SNLDesign* design) {
+  if (!isConst(design)) {
+    return nullptr;
+  }
+  if (design->getID() == ScalarPrimitiveDesignID) {
+    return design->getScalarTerm(Term0ID);
+  }
+  return design->getBusTerm(Term0ID);
 }
 
 SNLDesign* NLDB0::getFA() {
@@ -2584,6 +2617,8 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
       return (designID == FADesignID) ? getFA() : nullptr;
     case AssignLibraryID:
       return getAssign();
+    case ConstLibraryID:
+      return getOrCreateConst(designID);
     case Mux2LibraryID:
       return getOrCreateMux2(designID);
     case DFFLibraryID:

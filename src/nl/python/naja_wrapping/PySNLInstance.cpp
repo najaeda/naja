@@ -6,6 +6,8 @@
 
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLNet.h"
+#include "NLDB0.h"
 
 #include "PyInterface.h"
 
@@ -15,6 +17,7 @@
 #include "PySNLBitTerm.h"
 #include "PySNLInstTerms.h"
 #include "PySNLInstParameters.h"
+#include "PySNLNet.h"
 
 #include "SNLDesignModeling.h"
 
@@ -52,6 +55,45 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
     return nullptr;
   }
   instance = SNLInstance::create(PYSNLDesign_O(arg0), PYSNLDesign_O(arg1), name);
+  NLCATCH
+  return PySNLInstance_Link(instance);
+}
+
+static PyObject* PySNLInstance_createConstantDriver(PyObject*, PyObject* args) {
+  PyObject* netArg = nullptr;
+  const char* valueArg = nullptr;
+  const char* kindArg = "assign";
+  const char* nameArg = nullptr;
+  if (not PyArg_ParseTuple(
+        args, "Os|ss:SNLInstance.createConstantDriver",
+        &netArg, &valueArg, &kindArg, &nameArg)) {
+    setError("malformed SNLInstance.createConstantDriver method");
+    return nullptr;
+  }
+  if (not IsPySNLNet(netArg)) {
+    setError("SNLInstance.createConstantDriver needs an SNLNet as first argument");
+    return nullptr;
+  }
+  NLConstantDriverKind kind;
+  const std::string kindString(kindArg);
+  if (kindString == "assign") {
+    kind = NLConstantDriverKind::Assign;
+  } else if (kindString == "supply") {
+    kind = NLConstantDriverKind::Supply;
+  } else {
+    setError("constant driver kind must be 'assign' or 'supply'");
+    return nullptr;
+  }
+  SNLInstance* instance = nullptr;
+  TRY
+  auto* net = PYSNLNet_O(netArg);
+  auto value = NLLogicVector::fromVerilogBinary(valueArg);
+  if (value.getWidth() != net->getWidth()) {
+    throw NLException("constant driver value width does not match net width");
+  }
+  instance = SNLDesignModeling::createConstantDriver(
+    net->getDesign(), value, kind, nameArg ? NLName(nameArg) : NLName());
+  instance->setTermNet(NLDB0::getConstOutput(instance->getModel()), net);
   NLCATCH
   return PySNLInstance_Link(instance);
 }
@@ -120,10 +162,46 @@ GetContainerMethod(SNLInstance, SNLInstTerm*, SNLInstTerms, InstTerms)
 GetContainerMethod(SNLInstance, SNLInstParameter*, SNLInstParameters, InstParameters)
 
 DirectGetNumericMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
+GetBoolAttribute(SNLInstance, isAssign)
+GetBoolAttribute(SNLInstance, isConstantDriver)
+GetBoolAttribute(SNLInstance, isRegular)
+
+static PyObject* PySNLInstance_hasInit(PySNLInstance* self) {
+  METHOD_HEAD("SNLInstance.hasInit()")
+  bool result = false;
+  TRY
+  result = SNLDesignModeling::hasInit(selfObject);
+  NLCATCH
+  if (result) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
+static PyObject* PySNLInstance_getInitValue(PySNLInstance* self) {
+  METHOD_HEAD("SNLInstance.getInitValue()")
+  std::optional<NLLogicVector> value;
+  TRY
+  value = SNLDesignModeling::getInitValue(selfObject);
+  NLCATCH
+  if (!value) Py_RETURN_NONE;
+  return PyUnicode_FromString(value->toVerilogBinary().c_str());
+}
+
+static PyObject* PySNLInstance_getResetValue(PySNLInstance* self) {
+  METHOD_HEAD("SNLInstance.getResetValue()")
+  std::optional<NLLogicVector> value;
+  TRY
+  value = SNLDesignModeling::getResetValue(selfObject);
+  NLCATCH
+  if (!value) Py_RETURN_NONE;
+  return PyUnicode_FromString(value->toVerilogBinary().c_str());
+}
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
+  { "createConstantDriver", (PyCFunction)PySNLInstance_createConstantDriver,
+    METH_VARARGS|METH_STATIC,
+    "create and connect a typed constant driver to an SNLNet"},
   { "getName", (PyCFunction)PySNLInstance_getName, METH_NOARGS,
     "get SNLInstance name"},
   { "getID", (PyCFunction)PySNLInstance_getID, METH_NOARGS,
@@ -138,6 +216,18 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get a container of SNLInstTerms."},
   {"getInstParameters", (PyCFunction)PySNLInstance_getInstParameters, METH_NOARGS,
     "get a container of SNLInstParameters."},
+  {"hasInit", (PyCFunction)PySNLInstance_hasInit, METH_NOARGS,
+    "whether this state element has explicit power-up initialization."},
+  {"getInitValue", (PyCFunction)PySNLInstance_getInitValue, METH_NOARGS,
+    "get explicit power-up initialization as a canonical binary literal, or None."},
+  {"getResetValue", (PyCFunction)PySNLInstance_getResetValue, METH_NOARGS,
+    "get reset value as a canonical binary literal, or None."},
+  { "isAssign", (PyCFunction)PySNLInstance_isAssign, METH_NOARGS,
+    "whether this is an assign-glue instance."},
+  { "isConstantDriver", (PyCFunction)PySNLInstance_isConstantDriver, METH_NOARGS,
+    "whether this is a constant-driver instance."},
+  { "isRegular", (PyCFunction)PySNLInstance_isRegular, METH_NOARGS,
+    "whether this is neither assign glue nor a constant driver."},
   { "getCombinatorialInputs", (PyCFunction)PySNLInstance_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of an instance term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLInstance_getCombinatorialOutputs, METH_O|METH_STATIC,

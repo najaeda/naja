@@ -18,6 +18,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLNet.h"
@@ -601,7 +602,7 @@ endmodule
   auto* y1Driver = getSingleAssignInputDriving(y->getBit(1));
   ASSERT_NE(y1Driver, nullptr);
   EXPECT_NE(a->getBit(1), y1Driver);
-  EXPECT_TRUE(y1Driver->isAssign1());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(y1Driver, NLLogicValue::One));
 }
 
 TEST_F(

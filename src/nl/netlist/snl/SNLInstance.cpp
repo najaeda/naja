@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include "NajaLog.h"
+#include "NLDB0.h"
 #include "NLException.h"
 
 #include "SNLDesign.h"
@@ -18,7 +19,9 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLParameter.h"
 #include "SNLAttributes.h"
+#include "SNLDesignModeling.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
@@ -190,6 +193,9 @@ bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) con
   }
   //FIXME compare models: same library id, same id
   DEEP_COMPARE_MEMBER(InstParameters, this, other)
+  if (!SNLDesignModeling::compareInstanceModeling(this, other, reason)) {
+    return false;
+  }
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 
@@ -226,6 +232,7 @@ SNLInstance* SNLInstance::clone(SNLDesign* design) const {
     },
     [](SNLInstParameter*){} //LCOV_EXCL_LINE
   );
+  SNLDesignModeling::cloneInstanceModeling(this, newInstance);
   SNLAttributes::cloneAttributes(this, newInstance);
   return newInstance;
 }
@@ -419,6 +426,18 @@ bool SNLInstance::isLeaf() const {
   return getModel()->isLeaf();
 }
 
+bool SNLInstance::isAssign() const {
+  return getModel()->isAssign();
+}
+
+bool SNLInstance::isConstantDriver() const {
+  return NLDB0::isConst(getModel());
+}
+
+bool SNLInstance::isRegular() const {
+  return not isAssign() and not isConstantDriver();
+}
+
 SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
   if (bitTerm == nullptr) {
     std::string reason = "SNLInstance::getInsTerm error in "
@@ -498,6 +517,19 @@ NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&instParameters_));
 }
 
+std::optional<std::string> SNLInstance::getEffectiveParameterValue(
+    const NLName& name) const {
+  if (auto* instParameter = getInstParameter(name)) {
+    return instParameter->getValue();
+  }
+  if (model_) {
+    if (auto* parameter = model_->getParameter(name)) {
+      return parameter->getValue();
+    }
+  }
+  return std::nullopt;
+}
+
 //support only strict mode for the moment
 //previous and new interface should have same size.
 //bus terms should have same msb/lsb
@@ -575,6 +607,8 @@ void SNLInstance::setModel(SNLDesign* model) {
     }
     parameterMap[currentParameter] = newParameter;
   }
+
+  SNLDesignModeling::validateInstanceModelingForModel(this, model);
 
   for (auto instTerm: instTerms_) {
     if (not instTerm) {

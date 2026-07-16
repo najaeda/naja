@@ -20,6 +20,7 @@
 #include "DNL.h"
 #include "NLUniverse.h"
 #include "NLDB0.h"
+#include "NLLogicValue.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
@@ -30,6 +31,7 @@
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLDesignObject.h"
 #include "SNLRTLInfos.h"
 #include "SNLScalarNet.h"
@@ -262,8 +264,10 @@ bool haveEquivalentFanIn(
   if (lhs == rhs) {
     return true;
   }
-  if (lhs->isConstant() || rhs->isConstant()) {
-    return lhs->getType() == rhs->getType();
+  auto lhsConstant = SNLDesignModeling::getConstantValue(lhs);
+  auto rhsConstant = SNLDesignModeling::getConstantValue(rhs);
+  if (lhsConstant || rhsConstant) {
+    return lhsConstant == rhsConstant;
   }
   if (!visited.emplace(lhs, rhs).second) {
     return true;
@@ -8612,7 +8616,7 @@ endmodule
   ASSERT_NE(instTerm, nullptr);
   auto net = instTerm->getNet();
   ASSERT_NE(net, nullptr);
-  EXPECT_EQ(SNLNet::Type::Assign0, net->getType());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(net, NLLogicValue::Zero));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEmptyMeshEdgeNoConstantLHSAssign) {
@@ -8686,7 +8690,7 @@ endmodule
     ASSERT_NE(outputTerm, nullptr);
     auto outputNet = outputTerm->getNet();
     ASSERT_NE(outputNet, nullptr);
-    if (outputNet->isAssignConstant()) {
+    if (SNLDesignModeling::isConstant(outputNet)) {
       ++constantLHSAssigns;
     }
   }
@@ -8694,12 +8698,15 @@ endmodule
 
   size_t outputPortConstantConnections = 0;
   for (auto inst : top->getInstances()) {
+    if (SNLDesignModeling::isConstantDriver(inst)) {
+      continue;
+    }
     for (auto instTerm : inst->getInstTerms()) {
       if (instTerm->getDirection() == SNLTerm::Direction::Input) {
         continue;
       }
       auto net = instTerm->getNet();
-      if (net && net->isAssignConstant()) {
+      if (net && SNLDesignModeling::isConstant(net)) {
         ++outputPortConstantConnections;
       }
     }
@@ -9641,7 +9648,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  resolveUnknownLiteralBitsAsZeroPackedStructAndConcatZeroRepeatSupported) {
+  resolveUnknownLiteralBitsPreservedPackedStructAndConcatZeroRepeatSupported) {
   const auto packedBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [2:0] y);
   typedef struct packed {
@@ -9653,7 +9660,7 @@ endmodule
 )",
     3);
   ASSERT_TRUE(packedBits.has_value());
-  EXPECT_EQ("001", *packedBits);
+  EXPECT_EQ("?01", *packedBits);
 
   const auto concatBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [1:0] y);
@@ -9666,12 +9673,12 @@ endmodule
 )",
     2);
   ASSERT_TRUE(concatBits.has_value());
-  EXPECT_EQ("01", *concatBits);
+  EXPECT_EQ("?1", *concatBits);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  resolveUnknownLiteralBitsAsZeroConcatNamedZeroRepeatPackedStructSupported) {
+  resolveUnknownLiteralBitsPreservedConcatNamedZeroRepeatPackedStructSupported) {
   const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [1:0] y);
   localparam int ZERO = 0;
@@ -9684,12 +9691,12 @@ endmodule
 )",
     2);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("01", *bits);
+  EXPECT_EQ("?1", *bits);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  resolveUnknownLiteralBitsAsZeroSkipsZeroRepeatNonIntegralOperand) {
+  resolveUnknownLiteralBitsPreservedSkipsZeroRepeatNonIntegralOperand) {
   const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic y);
   localparam string P = "z";
@@ -9698,12 +9705,12 @@ endmodule
 )",
     1);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("0", *bits);
+  EXPECT_EQ("?", *bits);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  resolveUnknownLiteralBitsAsZeroConditionalShortcutUsesConstantConditionNet) {
+  resolveUnknownLiteralBitsPreservedConditionalShortcutUsesConstantConditionNet) {
   const auto constTrueBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(input logic sel, output logic [1:0] y);
   assign y = (sel || 1'b1) ? 2'b1x : 2'b00;
@@ -9711,7 +9718,7 @@ endmodule
 )",
     2);
   ASSERT_TRUE(constTrueBits.has_value());
-  EXPECT_EQ("01", *constTrueBits);
+  EXPECT_EQ("?1", *constTrueBits);
 
   const auto constFalseBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(input logic sel, output logic [1:0] y);
@@ -9720,12 +9727,12 @@ endmodule
 )",
     2);
   ASSERT_TRUE(constFalseBits.has_value());
-  EXPECT_EQ("10", *constFalseBits);
+  EXPECT_EQ("1?", *constFalseBits);
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  resolveUnknownLiteralBitsAsZeroEnumTypedLocalparamSupported) {
+  resolveUnknownLiteralBitsPreservedEnumTypedLocalparamSupported) {
   const auto bits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [2:0] y);
   typedef enum logic [2:0] { Value = 3'b10x } value_t;
@@ -9735,7 +9742,7 @@ endmodule
 )",
     3);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("001", *bits);
+  EXPECT_EQ("?01", *bits);
 }
 
 TEST_F(
@@ -10604,7 +10611,12 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   size_t xnorGateCount = 0;
   size_t otherGateCount = 0;
   size_t assignCount = 0;
+  size_t constantDriverCount = 0;
   for (auto inst : top->getInstances()) {
+    if (SNLDesignModeling::isConstantDriver(inst)) {
+      ++constantDriverCount;
+      continue;
+    }
     if (NLDB0::isAssign(inst->getModel())) {
       ++assignCount;
       continue;
@@ -10632,7 +10644,8 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   EXPECT_EQ(1u, xnorGateCount);
   EXPECT_EQ(0u, otherGateCount);
   EXPECT_EQ(10u, assignCount);
-  EXPECT_EQ(16u, top->getInstances().size());
+  EXPECT_EQ(1u, constantDriverCount);
+  EXPECT_EQ(17u, top->getInstances().size());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -14510,7 +14523,7 @@ endmodule
   ASSERT_NE(done, nullptr);
   auto* doneDriver = getSingleAssignInputDriving(done);
   ASSERT_NE(doneDriver, nullptr);
-  EXPECT_TRUE(doneDriver->isAssign1());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(doneDriver, NLLogicValue::One));
 }
 
 TEST_F(
@@ -21692,7 +21705,7 @@ endmodule
       dependsOnWriteAddress || netDependsOn(dec0Reg8, waddr->getBit(bit));
   }
   EXPECT_TRUE(dependsOnWriteAddress);
-  EXPECT_FALSE(dec0Reg8->isAssign0());
+  EXPECT_FALSE(SNLDesignModeling::isConstant(dec0Reg8, NLLogicValue::Zero));
 }
 
 TEST_F(
@@ -23036,12 +23049,12 @@ endmodule
   ASSERT_NE(qUnbased0Data, nullptr);
   ASSERT_NE(qUnbased1Data, nullptr);
 
-  EXPECT_TRUE(qBased0Data->isAssign1());
-  EXPECT_TRUE(qBased1Data->isAssign0());
-  EXPECT_TRUE(qSized0Data->isAssign1());
-  EXPECT_TRUE(qSized1Data->isAssign0());
-  EXPECT_TRUE(qUnbased0Data->isAssign1());
-  EXPECT_TRUE(qUnbased1Data->isAssign1());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qBased0Data, NLLogicValue::One));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qBased1Data, NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qSized0Data, NLLogicValue::One));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qSized1Data, NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qUnbased0Data, NLLogicValue::One));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(qUnbased1Data, NLLogicValue::One));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
@@ -25221,18 +25234,18 @@ endmodule
       auto* resetEnable = inst->getInstParameter(NLName("RST_ENABLE"));
       auto* resetAsync = inst->getInstParameter(NLName("RST_ASYNC"));
       auto* resetActiveLow = inst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-      auto* init = inst->getInstParameter(NLName("INIT"));
+      auto init = SNLDesignModeling::getResetValue(inst);
       ASSERT_NE(nullptr, resetEnable);
       ASSERT_NE(nullptr, resetAsync);
       ASSERT_NE(nullptr, resetActiveLow);
-      ASSERT_NE(nullptr, init);
+      ASSERT_TRUE(init);
       EXPECT_EQ("1", resetEnable->getValue());
       EXPECT_EQ("1", resetAsync->getValue());
       EXPECT_EQ("1", resetActiveLow->getValue());
       if (inst->getName() == NLName("q_mem")) {
-        EXPECT_EQ("16'b0000001000000001", init->getValue());
+        EXPECT_EQ("16'b0000001000000001", init->toVerilogBinary());
       } else if (inst->getName() == NLName("r_mem")) {
-        EXPECT_EQ("16'b0010000000010000", init->getValue());
+        EXPECT_EQ("16'b0010000000010000", init->toVerilogBinary());
       } else {
         ADD_FAILURE() << "Unexpected inferred memory " << inst->getName().getString();
       }
@@ -30923,15 +30936,21 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSuppo
   auto top = library_->getSNLDesign(NLName("seq_reset_struct_default_unknown_supported"));
   ASSERT_NE(top, nullptr);
 
-  auto dffrnModel = NLDB0::getDFFRN();
-  ASSERT_NE(dffrnModel, nullptr);
-  size_t dffrnCount = 0;
+  size_t dffCount = 0;
+  size_t xDriverCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFFRN(inst->getModel())) {
-      dffrnCount += getPrimitiveWidth(inst);
+    if (NLDB0::isDFF(inst->getModel())) {
+      dffCount += getPrimitiveWidth(inst);
+    }
+    if (SNLDesignModeling::isConstantDriver(inst) &&
+        SNLDesignModeling::getConstantDriverValue(inst).isAll(NLLogicValue::X)) {
+      ++xDriverCount;
     }
   }
-  EXPECT_EQ(12u, dffrnCount);
+  // An asynchronous reset to X cannot use the reset-to-zero DFFRN model. It
+  // is represented exactly as an X-driven reset mux in front of a plain DFF.
+  EXPECT_EQ(12u, dffCount);
+  EXPECT_EQ(1u, xDriverCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupported) {
@@ -32799,18 +32818,41 @@ endmodule
   EXPECT_NE(
     std::string::npos,
     report.find(
-      "X literal bits in always_comb assignment RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
+      "X literal bits in always_comb assignment RHS preserved as four-state "
+      "constant drivers; downstream operator semantics remain conservative"));
   EXPECT_NE(
     std::string::npos,
     report.find(
-      "Z literal bits in continuous assign RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
+      "Z literal bits in continuous assign RHS preserved as four-state constant "
+      "drivers; downstream operator semantics remain conservative"));
   EXPECT_NE(
     std::string::npos,
     report.find(
-      "X and Z literal bits in continuous assign RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
+      "X and Z literal bits in continuous assign RHS preserved as four-state "
+      "constant drivers; downstream operator semantics remain conservative"));
+
+  auto* top = library_->getSNLDesign(
+    NLName("unknown_literal_diagnostics_identify_x_and_z"));
+  ASSERT_NE(nullptr, top);
+  bool foundX = false;
+  bool foundZ = false;
+  for (auto* instance : top->getInstances()) {
+    if (!SNLDesignModeling::isConstantDriver(instance)) {
+      continue;
+    }
+    const auto value = SNLDesignModeling::getConstantDriverValue(instance);
+    foundX = foundX || value.isAll(NLLogicValue::X);
+    foundZ = foundZ || value.isAll(NLLogicValue::Z);
+  }
+  EXPECT_TRUE(foundX);
+  EXPECT_TRUE(foundZ);
+
+  const auto dumpedPath = dumpTopAndGetVerilogPath(
+    top, "unknown_literal_diagnostics_identify_x_and_z_dump");
+  const auto dumped = readTextFile(dumpedPath);
+  EXPECT_NE(std::string::npos, dumped.find("4'b10x1"));
+  EXPECT_NE(std::string::npos, dumped.find("4'b10z1"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_const"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElaborationWarningsDedupStdoutAndDumpDiagnosticsReport) {
@@ -34066,9 +34108,9 @@ endmodule
   const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
   ASSERT_NE(dff, nullptr);
   ASSERT_EQ(4u, getPrimitiveWidth(dff));
-  auto* init = dff->getInstParameter(NLName("INIT"));
-  ASSERT_NE(init, nullptr);
-  EXPECT_EQ("4'b1010", init->getValue());
+  auto init = SNLDesignModeling::getInitValue(dff);
+  ASSERT_TRUE(init);
+  EXPECT_EQ("4'b1010", init->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitZDigit) {
@@ -34109,10 +34151,10 @@ endmodule
     if (!NLDB0::isDFF(inst->getModel())) {
       continue;
     }
-    auto* init = inst->getInstParameter(NLName("INIT"));
-    ASSERT_NE(init, nullptr);
-    sawBinaryInit = sawBinaryInit || init->getValue() == "4'b0010";
-    sawZInit = sawZInit || init->getValue() == "1'bz";
+    auto init = SNLDesignModeling::getInitValue(inst);
+    ASSERT_TRUE(init);
+    sawBinaryInit = sawBinaryInit || init->toVerilogBinary() == "4'b0010";
+    sawZInit = sawZInit || init->toVerilogBinary() == "1'bz";
   }
   EXPECT_TRUE(sawBinaryInit);
   EXPECT_TRUE(sawZInit);
@@ -34159,9 +34201,9 @@ endmodule
   }
   ASSERT_NE(sequential, nullptr);
   ASSERT_EQ(4u, getPrimitiveWidth(sequential));
-  auto* init = sequential->getInstParameter(NLName("INIT"));
-  ASSERT_NE(init, nullptr);
-  EXPECT_EQ("4'b1010", init->getValue());
+  auto init = SNLDesignModeling::getInitValue(sequential);
+  ASSERT_TRUE(init);
+  EXPECT_EQ("4'b1010", init->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDuplicateInitialRegisterInitUnsupported) {
@@ -34242,10 +34284,8 @@ endmodule
   const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
   ASSERT_NE(dff, nullptr);
   ASSERT_EQ(4u, getPrimitiveWidth(dff));
-  EXPECT_EQ(nullptr, dff->getInstParameter(NLName("INIT")));
-  auto* init = dff->getModel()->getParameter(NLName("INIT"));
-  ASSERT_NE(init, nullptr);
-  EXPECT_EQ("4'bxxxx", init->getValue());
+  EXPECT_FALSE(SNLDesignModeling::getInitValue(dff));
+  EXPECT_EQ(nullptr, dff->getModel()->getParameter(NLName("INIT")));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInitialRegisterInitPreservesXInDumper) {
@@ -34274,9 +34314,9 @@ endmodule
   ASSERT_NE(top, nullptr);
   const auto* dff = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
   ASSERT_NE(dff, nullptr);
-  auto* init = dff->getInstParameter(NLName("INIT"));
-  ASSERT_NE(init, nullptr);
-  EXPECT_EQ("4'b10x1", init->getValue());
+  auto init = SNLDesignModeling::getInitValue(dff);
+  ASSERT_TRUE(init);
+  EXPECT_EQ("4'b10x1", init->toVerilogBinary());
 
   auto verilogPath = dumpTopAndGetVerilogPath(
     top,
@@ -34903,8 +34943,8 @@ endmodule
     dynamic_cast<SNLBitNet*>(traceSingleAssignInputDriving(oBit4));
   ASSERT_NE(oBit3Driver, nullptr);
   ASSERT_NE(oBit4Driver, nullptr);
-  EXPECT_TRUE(oBit3Driver->isAssign0());
-  EXPECT_TRUE(oBit4Driver->isAssign0());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(oBit3Driver, NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(oBit4Driver, NLLogicValue::Zero));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseCountOnesOperandResolveFailureUnsupported) {

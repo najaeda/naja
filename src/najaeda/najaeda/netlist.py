@@ -104,6 +104,89 @@ class SourceRange:
     end_column: int
 
 
+class LogicValue(Enum):
+    """One bit of four-state logic."""
+
+    ZERO = "0"
+    ONE = "1"
+    X = "x"
+    Z = "z"
+
+
+class ConstantDriverKind(Enum):
+    """Structural origin of a constant driver."""
+
+    ASSIGN = "assign"
+    SUPPLY = "supply"
+
+
+class LogicVector:
+    """Immutable, width-exact four-state logic vector.
+
+    Integer indexes are LSB-first, matching the C++ ``NLLogicVector`` API.
+    String formatting uses canonical MSB-to-LSB Verilog binary notation.
+    """
+
+    def __init__(self, literal: str):
+        if not isinstance(literal, str):
+            raise TypeError("LogicVector requires a Verilog binary literal")
+        try:
+            width_text, digits = literal.split("'", 1)
+            width = int(width_text)
+        except (ValueError, TypeError):
+            raise ValueError("expected a width-qualified binary literal") from None
+        if width <= 0 or len(digits) < 2 or digits[0].lower() != "b":
+            raise ValueError("expected a width-qualified binary literal")
+        digits = digits[1:]
+        if digits.startswith("_") or digits.endswith("_") or "__" in digits:
+            raise ValueError("underscores must separate binary digits")
+        digits = digits.replace("_", "").lower()
+        if len(digits) != width or any(bit not in "01xz" for bit in digits):
+            raise ValueError("binary literal width or digits are invalid")
+        self._digits = digits
+
+    def __len__(self) -> int:
+        return len(self._digits)
+
+    def __getitem__(self, lsb_index: int) -> LogicValue:
+        if not isinstance(lsb_index, int):
+            raise TypeError("logic-vector index must be an integer")
+        if lsb_index < 0:
+            lsb_index += len(self)
+        if lsb_index < 0 or lsb_index >= len(self):
+            raise IndexError("logic-vector index out of range")
+        return LogicValue(self._digits[len(self) - lsb_index - 1])
+
+    def __str__(self) -> str:
+        return f"{len(self)}'b{self._digits}"
+
+    def __repr__(self) -> str:
+        return f"LogicVector(\"{self}\")"
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, LogicVector):
+            return NotImplemented
+        return self._digits == other._digits
+
+    def __hash__(self) -> int:
+        return hash(self._digits)
+
+    def __int__(self) -> int:
+        if not self.is_fully_known():
+            raise ValueError("cannot convert a vector containing X or Z to int")
+        return int(self._digits, 2)
+
+    def is_fully_known(self) -> bool:
+        """Return ``True`` when every bit is zero or one."""
+        return "x" not in self._digits and "z" not in self._digits
+
+    def contains_x(self) -> bool:
+        return "x" in self._digits
+
+    def contains_z(self) -> bool:
+        return "z" in self._digits
+
+
 def _source_range_from_snl_source_loc(source_loc):
     if source_loc is None:
         return None
@@ -225,13 +308,6 @@ class Equipotential:
 
 
 class Net:
-    class Type(Enum):
-        STANDARD = naja.SNLNet.Type.Standard
-        ASSIGN0 = naja.SNLNet.Type.Assign0
-        ASSIGN1 = naja.SNLNet.Type.Assign1
-        SUPPLY0 = naja.SNLNet.Type.Supply0
-        SUPPLY1 = naja.SNLNet.Type.Supply1
-
     def __init__(self, path, net=None, net_concat=None):
         if net is not None and net_concat is not None:
             raise ValueError(
@@ -437,15 +513,34 @@ class Net:
         else:
             return all(net.isConstant1() for net in self.net_concat)
 
-    def set_type(self, net_type: Type):
+    def set_constant(
+        self,
+        value: Union[LogicValue, LogicVector],
+        kind: ConstantDriverKind = ConstantDriverKind.ASSIGN,
+    ):
+        """Connect a typed constant driver to this net.
+
+        ``LogicValue`` fills the entire net. ``LogicVector`` must match its
+        exact width. Concatenated nets receive one scalar driver per bit.
         """
-        :param Type net_type: the type of the net.
-        """
-        if hasattr(self, "net"):
-            self.net.setType(net_type.value)
+        if not isinstance(kind, ConstantDriverKind):
+            raise TypeError("kind must be a ConstantDriverKind")
+        if isinstance(value, LogicValue):
+            vector = LogicVector(f"{self.get_width()}'b{value.value * self.get_width()}")
+        elif isinstance(value, LogicVector):
+            vector = value
         else:
-            for net in self.net_concat:
-                net.setType(net_type.value)
+            raise TypeError("value must be a LogicValue or LogicVector")
+        if len(vector) != self.get_width():
+            raise ValueError("constant value width does not match net width")
+        if hasattr(self, "net"):
+            return naja.SNLInstance.createConstantDriver(
+                self.net, str(vector), kind.value)
+        drivers = []
+        for index, net in enumerate(self.net_concat):
+            drivers.append(naja.SNLInstance.createConstantDriver(
+                net, f"1'b{vector[index].value}", kind.value))
+        return tuple(drivers)
 
     def get_width(self) -> int:
         """
@@ -1188,6 +1283,24 @@ class Instance:
         """
         return self.__get_snl_model().isAssign()
 
+    def is_constant_driver(self) -> bool:
+        """Return whether this occurrence is a constant driver.
+
+        Constant-driver kind ``assign`` describes HDL provenance; it does not
+        make the occurrence assign glue. Use :meth:`is_assign` for assign glue.
+
+        :return: True if this is a constant-driver instance.
+        :rtype: bool
+        """
+        return not self.is_top() and self.__get_leaf_snl_object().isConstantDriver()
+
+    def is_regular(self) -> bool:
+        """
+        :return: True if this is neither assign glue nor a constant driver.
+        :rtype: bool
+        """
+        return not self.is_top() and self.__get_leaf_snl_object().isRegular()
+
     def is_blackbox(self) -> bool:
         """
         :return: True if this is a blackbox.
@@ -1355,18 +1468,54 @@ class Instance:
             model = childInst.getModel()
         return Instance(path)
 
-    def get_child_instances(self):
-        """Iterate over the child instances of this instance.
-        Equivalent to go down one level in hierarchy.
-
-        :return: an iterator over the child instances of this instance.
-        :rtype: Iterator[Instance]
-        """
+    def __get_child_instances(self, snl_instances):
         path = get_snl_path_from_id_list(self.pathIDs)
-        for inst in self.__get_snl_model().getInstances():
+        for inst in snl_instances:
             path_child = naja.SNLPath(path, inst)
             yield Instance(path_child)
-            # path.pop()
+
+    def get_child_instances(self):
+        """Iterate over every child instance, including helper instances.
+        Equivalent to go down one level in hierarchy. This is the lossless
+        view; use one of the category-specific iterators when appropriate.
+
+        :return: an iterator over all child instances of this instance.
+        :rtype: Iterator[Instance]
+        """
+        return self.__get_child_instances(self.__get_snl_model().getInstances())
+
+    def get_regular_child_instances(self):
+        """Iterate over children that are neither assign glue nor constant drivers.
+
+        :return: an iterator over regular child instances.
+        :rtype: Iterator[Instance]
+        """
+        return self.__get_child_instances(self.__get_snl_model().getRegularInstances())
+
+    def get_assign_child_instances(self):
+        """Iterate over assign-glue children.
+
+        :return: an iterator over assign-glue child instances.
+        :rtype: Iterator[Instance]
+        """
+        return self.__get_child_instances(self.__get_snl_model().getAssignInstances())
+
+    def get_constant_driver_child_instances(self):
+        """Iterate over constant-driver children.
+
+        :return: an iterator over constant-driver child instances.
+        :rtype: Iterator[Instance]
+        """
+        return self.__get_child_instances(
+            self.__get_snl_model().getConstantDriverInstances())
+
+    def get_helper_child_instances(self):
+        """Iterate over assign-glue and constant-driver children.
+
+        :return: an iterator over helper child instances.
+        :rtype: Iterator[Instance]
+        """
+        return self.__get_child_instances(self.__get_snl_model().getHelperInstances())
 
     def count_child_instances(self) -> int:
         """
@@ -1437,6 +1586,31 @@ class Instance:
         :rtype: bool
         """
         return self.__get_snl_model().isSequential()
+
+    def has_init(self) -> bool:
+        """Return whether this state element has explicit power-up initialization.
+
+        An explicit all-``X`` initializer returns ``True``. An uninitialized
+        state element returns ``False`` even if its effective time-zero value
+        is unknown.
+        """
+        if self.is_top():
+            return False
+        return get_snl_instance_from_id_list(self.pathIDs).hasInit()
+
+    def get_init_value(self) -> Optional[LogicVector]:
+        """Return explicit power-up initialization, or ``None``."""
+        if self.is_top():
+            return None
+        literal = get_snl_instance_from_id_list(self.pathIDs).getInitValue()
+        return LogicVector(literal) if literal is not None else None
+
+    def get_reset_value(self) -> Optional[LogicVector]:
+        """Return the modeled reset value, or ``None``."""
+        if self.is_top():
+            return None
+        literal = get_snl_instance_from_id_list(self.pathIDs).getResetValue()
+        return LogicVector(literal) if literal is not None else None
 
     def has_modeling(self) -> bool:
         """

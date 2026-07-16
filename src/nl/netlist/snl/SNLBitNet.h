@@ -19,15 +19,7 @@ class SNLBitNet: public SNLNet {
     friend class SNLBitTerm;
     using super = SNLNet;
     
-    void setType(const Type& type) override { type_ = type; }
-    ///\return this SNLBitNet Type.
-    Type getType() const { return type_; }
     NLID::Bit getWidth() const override { return 1; }
-
-    bool isAssign0() const override { return type_.isAssign0(); } 
-    bool isAssign1() const override { return type_.isAssign1(); } 
-    bool isSupply0() const override { return type_.isSupply0(); } 
-    bool isSupply1() const override { return type_.isSupply1(); } 
 
     ///\return the collection of SNLComponent ot this SNLBitNet
     NajaCollection<SNLNetComponent*> getComponents() const;
@@ -55,7 +47,6 @@ class SNLBitNet: public SNLNet {
       boost::intrusive::member_hook<SNLNetComponent, boost::intrusive::set_member_hook<>, &SNLNetComponent::netComponentsHook_>;
     using SNLBitNetComponents = boost::intrusive::set<SNLNetComponent, SNLBitNetComponentsHook>;
 
-    Type                type_       { Type::Standard };
     SNLBitNetComponents components_ {};
 };
 

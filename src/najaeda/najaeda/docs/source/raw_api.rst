@@ -157,13 +157,13 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLLibrary`
      - ``create``, ``createPrimitives``, ``getDB``, ``getID``, ``getNLID``, ``getName``, ``setName``, ``isStandard``, ``isPrimitives``, ``getSNLDesign``, ``getSNLDesigns``, ``getLibrary``
    * - :class:`najaeda.naja.SNLDesign`
-     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``getClockTerms``, ``getAsyncResetTerms``, ``getAsyncSetTerms``, ``getSyncResetTerms``, ``getSyncSetTerms``, ``getDataInputTerms``, ``getOutputTerms``, ``setTruthTable``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``isMux``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
+     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getNonAssignInstances``, ``getAssignInstances``, ``getRegularInstances``, ``getConstantDriverInstances``, ``getHelperInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``getClockTerms``, ``getAsyncResetTerms``, ``getAsyncSetTerms``, ``getSyncResetTerms``, ``getSyncSetTerms``, ``getDataInputTerms``, ``getOutputTerms``, ``setTruthTable``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``isMux``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
    * - :class:`najaeda.naja.SNLInstance`
-     - ``create``, ``destroy``, ``getName``, ``setName``, ``getID``, ``getNLID``, ``getDesign``, ``getModel``, ``getInstTerm``, ``getInstTerms``, ``getInstParameter``, ``getInstParameters``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``
+     - ``create``, ``createConstantDriver``, ``destroy``, ``getName``, ``setName``, ``getID``, ``getNLID``, ``getDesign``, ``getModel``, ``isAssign``, ``isConstantDriver``, ``isRegular``, ``getInstTerm``, ``getInstTerms``, ``getInstParameter``, ``getInstParameters``, ``hasInit``, ``getInitValue``, ``getResetValue``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``
    * - :class:`najaeda.naja.SNLTerm` and term subclasses
      - ``Direction``, ``getName``, ``setName``, ``getDirection``, ``getDesign``, ``getNet``, ``setNet``, ``getBits``, ``getWidth``, ``getNLID``, ``getSourceLoc``, ``hasSourceLoc``
    * - :class:`najaeda.naja.SNLNet` and net subclasses
-     - ``Type``, ``getName``, ``setName``, ``getDesign``, ``getBits``, ``getWidth``, ``getType``, ``setType``, ``getTypeAsString``, ``isConstant``, ``isConstant0``, ``isConstant1``, ``getComponents``, ``getInstTerms``, ``getBitTerms``
+     - ``getName``, ``setName``, ``getDesign``, ``getBits``, ``getWidth``, ``isConstant``, ``isConstant0``, ``isConstant1``, ``getComponents``, ``getInstTerms``, ``getBitTerms``
    * - :class:`najaeda.naja.SNLInstTerm`
      - ``getInstance``, ``getBitTerm``, ``getNet``, ``setNet``, ``getDirection``, ``getRole``, ``getResetActiveLevel``, ``is_clock``, ``is_async_reset``, ``is_async_set``, ``is_sync_reset``, ``is_sync_set``, ``is_reset``, ``is_enable``, ``is_data``, ``is_data_input``, ``is_data_output``
    * - :class:`najaeda.naja.SNLTermRole`
@@ -251,6 +251,16 @@ expert reference above.
       :members:
       :undoc-members:
 
+      ``hasInit()`` distinguishes absent initialization from an explicit
+      all-unknown value. ``getInitValue()`` and ``getResetValue()`` return
+      canonical width-qualified binary strings (including ``x`` and ``z``),
+      or ``None``. Prefer :class:`najaeda.netlist.Instance` for typed
+      :class:`najaeda.netlist.LogicVector` results.
+
+      ``createConstantDriver(net, value, kind='assign', name='')`` accepts a
+      canonical binary literal whose width matches ``net`` and returns the
+      connected typed constant-driver instance.
+
    .. autoclass:: najaeda.naja.SNLTerm
       :members:
       :undoc-members:
@@ -284,6 +294,10 @@ expert reference above.
       :members:
       :undoc-members:
 
+      Nets carry connectivity only. Constant values are derived from connected
+      drivers; ``isConstant()``, ``isConstant0()``, and ``isConstant1()``
+      inspect that topology.
+
    .. autoclass:: najaeda.naja.SNLScalarNet
       :members:
       :undoc-members:
@@ -311,6 +325,9 @@ expert reference above.
    .. autoclass:: najaeda.naja.SNLParameter
       :members:
       :undoc-members:
+
+      Model parameters expose their transport representation through
+      ``getValue()`` and their native type tag through ``getType()``.
 
    .. autoclass:: najaeda.naja.SNLAttribute
       :members:
@@ -358,15 +375,10 @@ expert reference above.
    .. autosummary::
 
       SNLTerm.Direction
-      SNLNet.Type
       SNLTermRole
       SNLActiveLevel
 
    .. autoclass:: najaeda.naja.SNLTerm.Direction
-      :members:
-      :undoc-members:
-
-   .. autoclass:: najaeda.naja.SNLNet.Type
       :members:
       :undoc-members:
 

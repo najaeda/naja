@@ -25,6 +25,7 @@
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
+#include "SNLDesignModeling.h"
 #include "SNLAttributes.h"
 #include "SNLExceptions.h"
 
@@ -140,7 +141,7 @@ void createPortNet(naja::NL::SNLDesign* design, const naja::verilog::Port& port)
 
 bool allNetsArePortNets(naja::NL::SNLDesign* design) {
   for (auto net: design->getBitNets()) {
-    if (net->isAssignConstant()) {
+    if (naja::NL::SNLDesignModeling::getConstantValue(net)) {
       continue;
     }
     if (net->getBitTerms().empty()) {
@@ -285,29 +286,9 @@ SNLVRLConstructor::VRLDirectionToSNLDirection(const naja::verilog::Port::Directi
   return naja::NL::SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
-SNLNet::Type
-SNLVRLConstructor::VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
-  switch(type) {
-    case naja::verilog::Net::Type::Wire:
-      return naja::NL::SNLNet::Type::Standard;
-    case naja::verilog::Net::Type::Supply0:
-      return naja::NL::SNLNet::Type::Supply0;
-    case naja::verilog::Net::Type::Supply1:
-      return naja::NL::SNLNet::Type::Supply1;
-    case naja::verilog::Net::Type::Unknown: {
-      std::ostringstream reason;
-      reason << "Unsupported verilog net type";
-      throw naja::NL::SNLVRLConstructorException(reason.str());
-    }
-  }
-  return naja::NL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
-}
-
 void SNLVRLConstructor::createCurrentModuleAssignNets() {
-  currentModuleAssign0_ = naja::NL::SNLScalarNet::create(currentModule_);
-  currentModuleAssign0_->setType(naja::NL::SNLNet::Type::Assign0);
-  currentModuleAssign1_ = naja::NL::SNLScalarNet::create(currentModule_);
-  currentModuleAssign1_->setType(naja::NL::SNLNet::Type::Assign1);
+  currentModuleConstant0_ = nullptr;
+  currentModuleConstant1_ = nullptr;
 } 
 
 void SNLVRLConstructor::createConstantNets(
@@ -330,11 +311,15 @@ void SNLVRLConstructor::createConstantNets(
   }
   //LCOV_EXCL_STOP
   for (int i=bits.size()-1; i>=0; i--) {
-    if (bits[i]) {
-      nets.push_back(currentModuleAssign1_);
-    } else {
-      nets.push_back(currentModuleAssign0_);
+    auto*& net = bits[i] ? currentModuleConstant1_ : currentModuleConstant0_;
+    if (!net) {
+      net = SNLScalarNet::create(currentModule_);
+      SNLDesignModeling::createConstantDriver(
+        net,
+        bits[i] ? NLLogicValue::One : NLLogicValue::Zero,
+        NLConstantDriverKind::Assign);
     }
+    nets.push_back(net);
   }
 }
 
@@ -384,8 +369,8 @@ void SNLVRLConstructor::resetPerModuleState() {
   currentGateInstance_.reset();
   currentInstance_ = nullptr;
   currentInstanceParameterValues_.clear();
-  currentModuleAssign0_ = nullptr;
-  currentModuleAssign1_ = nullptr;
+  currentModuleConstant0_ = nullptr;
+  currentModuleConstant1_ = nullptr;
   nextObjectAttributes_.clear();
   skipCurrentModule_ = false;
 }
@@ -585,13 +570,24 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
       }
     }
     try {
+      if (net.type_ == naja::verilog::Net::Type::Unknown) {
+        throw SNLVRLConstructorException("Unsupported verilog net type");
+      }
       SNLNet* snlNet = nullptr;
       if (net.isBus()) {
         snlNet = SNLBusNet::create(currentModule_, net.range_.msb_, net.range_.lsb_, NLName(net.identifier_.name_));
       } else {
         snlNet = SNLScalarNet::create(currentModule_, NLName(net.identifier_.name_));
       }
-      snlNet->setType(VRLTypeToSNLType(net.type_));
+      if (net.type_ == naja::verilog::Net::Type::Supply0 ||
+          net.type_ == naja::verilog::Net::Type::Supply1) {
+        const auto value = net.type_ == naja::verilog::Net::Type::Supply0
+          ? NLLogicValue::Zero : NLLogicValue::One;
+        auto* driver = SNLDesignModeling::createConstantDriver(
+          currentModule_, NLLogicVector::filled(snlNet->getWidth(), value),
+          NLConstantDriverKind::Supply);
+        driver->setTermNet(NLDB0::getConstOutput(driver->getModel()), snlNet);
+      }
       collectAttributes(snlNet, nextObjectAttributes_);
     //LCOV_EXCL_START
     } catch (const NLException& exception) {
@@ -1066,7 +1062,7 @@ void SNLVRLConstructor::endModule() {
                 auto instanceTerm = instance->getInstTerm(scalarTerm);
                 if (instanceTerm) {
                   auto net = instanceTerm->getNet();
-                  if (net and net->isConstant()) {
+                  if (net and SNLDesignModeling::getConstantValue(net)) {
                     scalarTerm->setDirection(SNLTerm::Direction::Input);
                   }
                 }

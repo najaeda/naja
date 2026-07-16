@@ -45,14 +45,12 @@ TEST_F(SNLVRLConstructorTestImplicitNets, test0) {
 
   ASSERT_NE(test0, nullptr);
   EXPECT_TRUE(test0->getBusNets().empty());
-  EXPECT_EQ(6, test0->getNets().size()); // 1'b0, 1'b1, a, b, c, y
-  EXPECT_EQ(6, test0->getScalarNets().size()); // 1'b0, 1'b1, a, b, c, y
+  EXPECT_EQ(4, test0->getNets().size());
+  EXPECT_EQ(4, test0->getScalarNets().size());
   using ScalarNets = std::vector<SNLScalarNet*>;
   ScalarNets scalarNets(test0->getScalarNets().begin(), test0->getScalarNets().end());
   EXPECT_THAT(scalarNets,
     ElementsAre(
-      test0->getScalarNet(0),
-      test0->getScalarNet(1),
       test0->getScalarNet(NLName("a")),
       test0->getScalarNet(NLName("b")),
       test0->getScalarNet(NLName("y")),

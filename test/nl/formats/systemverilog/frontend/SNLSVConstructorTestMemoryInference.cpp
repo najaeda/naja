@@ -1053,6 +1053,12 @@ TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitSuppo
 );
   logic [7:0] mem_q [0:3];
   logic [7:0] mem_d [0:3];
+  integer i;
+
+  initial begin
+    for (i = 0; i < 4; i = i + 1)
+      mem_q[i] = 8'h5a;
+  end
 
   always_comb begin
     mem_d = mem_q;
@@ -1089,15 +1095,18 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto initValue = SNLDesignModeling::getInitValue(memoryInst);
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(initValue);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("1", rstAsyncParam->getValue());
   EXPECT_EQ("1", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b00110011001000100001000100000000", initParam->getValue());
+  EXPECT_EQ("32'b01011010010110100101101001011010", initValue->toVerilogBinary());
+  EXPECT_EQ("32'b00110011001000100001000100000000", resetValue->toVerilogBinary());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "qd_memory_inference_reset_init_supported");
   std::string dumpedText = readTextFile(dumpedVerilog);
@@ -1106,15 +1115,21 @@ endmodule
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ASYNC(1)"));
   EXPECT_NE(std::string::npos, dumpedText.find(".RST_ACTIVE_LOW(1)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".INIT_ENABLE(1)"));
   EXPECT_NE(
     std::string::npos,
-    dumpedText.find(".INIT(32'b00110011001000100001000100000000)"));
+    dumpedText.find(".INIT(32'b01011010010110100101101001011010)"));
+  EXPECT_NE(
+    std::string::npos,
+    dumpedText.find(".RESET_VALUE(32'b00110011001000100001000100000000)"));
 
   const auto primitiveDumpPath = dumpedVerilog.parent_path() / "naja_primitives.v";
   ASSERT_TRUE(std::filesystem::exists(primitiveDumpPath));
   std::string primitiveDump = readTextFile(primitiveDumpPath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_mem #("));
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("task automatic load_init;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("task automatic load_reset;"));
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceAsyncHighResetInitSupported) {
@@ -1175,15 +1190,15 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("1", rstAsyncParam->getValue());
   EXPECT_EQ("0", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b11010011110000101011000110100000", initParam->getValue());
+  EXPECT_EQ("32'b11010011110000101011000110100000", resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSyncHighResetInitSupported) {
@@ -1244,15 +1259,15 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("0", rstAsyncParam->getValue());
   EXPECT_EQ("0", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b01000011001100100010000100010000", initParam->getValue());
+  EXPECT_EQ("32'b01000011001100100010000100010000", resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceSyncLowBitwiseResetInitSupported) {
@@ -1315,15 +1330,15 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("0", rstAsyncParam->getValue());
   EXPECT_EQ("1", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b10001000011101110110011001010101", initParam->getValue());
+  EXPECT_EQ("32'b10001000011101110110011001010101", resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceAsyncResetConditionMismatchFallback) {
@@ -1435,7 +1450,7 @@ endmodule
   EXPECT_EQ("1", memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"))->getValue());
   EXPECT_EQ(
     "32'b00110011001000100001000100000000",
-    memoryInst->getInstParameter(NLName("INIT"))->getValue());
+    SNLDesignModeling::getResetValue(memoryInst)->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitUnknownBitsFallback) {
@@ -1609,9 +1624,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b00000100000000110000001000000001", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b00000100000000110000001000000001",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceResetInitOversizedEntryFallback) {
@@ -1738,8 +1754,8 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
 
   const std::array<uint64_t, 4> values{0, 1, 2, 3};
   std::string expectedInit = "256'b";
@@ -1748,7 +1764,7 @@ endmodule
       expectedInit += ((*it >> bit) & 1ULL) ? '1' : '0';
     }
   }
-  EXPECT_EQ(expectedInit, initParam->getValue());
+  EXPECT_EQ(expectedInit, resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -1819,7 +1835,7 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
-  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  ASSERT_TRUE(SNLDesignModeling::getResetValue(memoryInst));
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -1898,7 +1914,7 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
-  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  ASSERT_TRUE(SNLDesignModeling::getResetValue(memoryInst));
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -1967,7 +1983,7 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
-  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  ASSERT_TRUE(SNLDesignModeling::getResetValue(memoryInst));
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2034,9 +2050,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b10101010101010100001000100010001", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b10101010101010100001000100010001",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2101,9 +2118,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b10100101101001011010010110100101", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b10100101101001011010010110100101",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2170,9 +2188,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b10101010101010100001000100010001", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b10101010101010100001000100010001",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2298,9 +2317,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b10100000101000001011000011000000", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b10100000101000001011000011000000",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2367,9 +2387,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b11010000110100001110000111010000", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b11010000110100001110000111010000",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -2436,9 +2457,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b00010001000100011010101010101010", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b00010001000100011010101010101010",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDMemoryInferenceConditionalSideLogicSupported) {
@@ -3316,15 +3338,16 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("1", rstAsyncParam->getValue());
   EXPECT_EQ("1", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b00000000000000000010001000010001", initParam->getValue());
+  EXPECT_EQ("32'b00000000000000000010001000010001",
+            resetValue->toVerilogBinary());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top, "qd_memory_inference_shared_sequential_reset_loop_supported");
@@ -3333,7 +3356,7 @@ endmodule
   EXPECT_EQ(std::string::npos, dumpedText.find("module naja_mem #("));
   EXPECT_NE(
     std::string::npos,
-    dumpedText.find(".INIT(32'b00000000000000000010001000010001)"));
+    dumpedText.find(".RESET_VALUE(32'b00000000000000000010001000010001)"));
 }
 
 TEST_F(
@@ -3792,17 +3815,17 @@ endmodule
                           const char* expectedWritePorts,
                           std::initializer_list<const char*> expectedDataInputs) {
     auto* inst = memories.at(instanceName);
-    auto* init = inst->getInstParameter(NLName("INIT"));
+    auto resetValue = SNLDesignModeling::getResetValue(inst);
     auto* resetEnable = inst->getInstParameter(NLName("RST_ENABLE"));
     auto* resetAsync = inst->getInstParameter(NLName("RST_ASYNC"));
     auto* resetActiveLow = inst->getInstParameter(NLName("RST_ACTIVE_LOW"));
     auto* writePorts = inst->getInstParameter(NLName("WR_PORTS"));
-    ASSERT_NE(nullptr, init);
+    ASSERT_TRUE(resetValue);
     ASSERT_NE(nullptr, resetEnable);
     ASSERT_NE(nullptr, resetAsync);
     ASSERT_NE(nullptr, resetActiveLow);
     ASSERT_NE(nullptr, writePorts);
-    EXPECT_EQ(expectedInit, init->getValue());
+    EXPECT_EQ(expectedInit, resetValue->toVerilogBinary());
     EXPECT_EQ("1", resetEnable->getValue());
     EXPECT_EQ("0", resetAsync->getValue());
     EXPECT_EQ("1", resetActiveLow->getValue());
@@ -4278,15 +4301,16 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("1", rstAsyncParam->getValue());
   EXPECT_EQ("1", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b00000000000000000000000000000000", initParam->getValue());
+  EXPECT_EQ("32'b00000000000000000000000000000000",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(
@@ -4579,15 +4603,16 @@ endmodule
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
   auto* rstActiveLowParam = memoryInst->getInstParameter(NLName("RST_ACTIVE_LOW"));
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
   ASSERT_NE(nullptr, rstEnableParam);
   ASSERT_NE(nullptr, rstAsyncParam);
   ASSERT_NE(nullptr, rstActiveLowParam);
-  ASSERT_NE(nullptr, initParam);
+  ASSERT_TRUE(resetValue);
   EXPECT_EQ("1", rstEnableParam->getValue());
   EXPECT_EQ("1", rstAsyncParam->getValue());
   EXPECT_EQ("1", rstActiveLowParam->getValue());
-  EXPECT_EQ("32'b01000100001100110010001000010001", initParam->getValue());
+  EXPECT_EQ("32'b01000100001100110010001000010001",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(
@@ -4666,9 +4691,10 @@ endmodule
   }
   ASSERT_NE(nullptr, memoryInst);
 
-  auto* initParam = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, initParam);
-  EXPECT_EQ("32'b00000000000000000000000000000000", initParam->getValue());
+  auto resetValue = SNLDesignModeling::getResetValue(memoryInst);
+  ASSERT_TRUE(resetValue);
+  EXPECT_EQ("32'b00000000000000000000000000000000",
+            resetValue->toVerilogBinary());
 }
 
 TEST_F(
@@ -11601,7 +11627,7 @@ endmodule
   ASSERT_NE(nullptr, memoryInst);
   EXPECT_EQ("1024", memoryInst->getInstParameter(NLName("DEPTH"))->getValue());
   EXPECT_EQ(nullptr, top->getNet(NLName("mem")));
-  EXPECT_EQ(nullptr, memoryInst->getInstParameter(NLName("INIT")));
+  EXPECT_FALSE(SNLDesignModeling::getInitValue(memoryInst));
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
@@ -11642,11 +11668,10 @@ endmodule
     if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
   }
   ASSERT_NE(nullptr, memoryInst);
-  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT")));
-  ASSERT_NE(nullptr, memoryInst->getInstParameter(NLName("INIT_ENABLE")));
-  EXPECT_EQ("1", memoryInst->getInstParameter(NLName("INIT_ENABLE"))->getValue());
+  auto initValue = SNLDesignModeling::getInitValue(memoryInst);
+  ASSERT_TRUE(initValue);
   EXPECT_EQ("32'b01011010010110100101101001011010",
-            memoryInst->getInstParameter(NLName("INIT"))->getValue());
+            initValue->toVerilogBinary());
   const auto dumpedPath = dumpTopAndGetVerilogPath(
     top, "direct_memory_separate_uniform_initial_fill_supported_dump");
   auto dumped = readTextFile(dumpedPath);
@@ -11696,10 +11721,11 @@ endmodule
     if (NLDB0::isMemory(inst->getModel())) memoryInst = inst;
   }
   ASSERT_NE(nullptr, memoryInst);
-  auto* init = memoryInst->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, init);
-  EXPECT_TRUE(init->getValue().starts_with("65536'b"));
-  EXPECT_EQ(65536u + std::string("65536'b").size(), init->getValue().size());
+  auto init = SNLDesignModeling::getInitValue(memoryInst);
+  ASSERT_TRUE(init);
+  const auto literal = init->toVerilogBinary();
+  EXPECT_TRUE(literal.starts_with("65536'b"));
+  EXPECT_EQ(65536u + std::string("65536'b").size(), literal.size());
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,

@@ -9,6 +9,7 @@
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
+#include "SNLDesignModeling.h"
 #include <sstream>  
 
 namespace {
@@ -19,10 +20,10 @@ struct SNLEquipotentialExtractor {
   explicit SNLEquipotentialExtractor(
     SNLEquipotential::InstTermOccurrences& instTermOccurrences,
     SNLEquipotential::Terms& terms,
-    SNLNet::Type& type
+    std::optional<NLLogicValue>& constantValue
   ): instTermOccurrences_(instTermOccurrences),
     terms_(terms),
-    type_(type)
+    constantValue_(constantValue)
   {}
 
   void extractNetComponentsFromNetOccurrence(
@@ -36,8 +37,13 @@ struct SNLEquipotentialExtractor {
     }
     visitedNetOccurrences_.insert(netOccurrence);
     auto net = dynamic_cast<const SNLBitNet*>(netOccurrence.getObject());
-    if (net->getType() != SNLNet::Type::Standard) {
-      type_ = net->getType();
+    if (auto value = SNLDesignModeling::getConstantValue(net)) {
+      if (constantValue_ && constantValue_ != value) {
+        ambiguous_ = true;
+        constantValue_.reset();
+      } else if (!ambiguous_) {
+        constantValue_ = value;
+      }
     }
     auto path = netOccurrence.getPath();
     for (auto component: net->getComponents()) {
@@ -122,7 +128,8 @@ struct SNLEquipotentialExtractor {
   private:
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
-    SNLNet::Type&                           type_;
+    std::optional<NLLogicValue>&            constantValue_;
+    bool                                    ambiguous_ {false};
     using NetOccurrences = std::set<SNLOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
 };
@@ -136,22 +143,13 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 {}
 
 SNLEquipotential::SNLEquipotential(const SNLOccurrence& netComponentOccurrence) {
-  SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_, type_);
+  SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_, constantValue_);
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
-}
-
-bool SNLEquipotential::isConst0() const {
-  return type_.isConst0();
-}
-
-bool SNLEquipotential::isConst1() const {
-  return type_.isConst1();
 }
 
 std::string SNLEquipotential::getString() const {
   std::ostringstream stream;
-  stream << "SNLEquipotential: " << type_.getString() << ", ";
-  stream << "InstTermOccurrences: [";
+  stream << "SNLEquipotential: InstTermOccurrences: [";
   bool first = true;
   for (const auto& instTermOccurrence: instTermOccurrences_) {
     if (not first) {

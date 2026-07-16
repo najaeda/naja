@@ -70,15 +70,25 @@ class SNLEquiTest(unittest.TestCase):
     self.assertListEqual([netcomponentoccurrence1], insttermoccurrences)
 
   def testConstant0TopTerm(self):
+    logic0 = naja.SNLDesign.createPrimitive(self.primitives, "logic0")
+    output = naja.SNLScalarTerm.create(
+      logic0, naja.SNLTerm.Direction.Output, "O")
+    logic0.setTruthTable(0)
     i0Net = naja.SNLScalarNet.create(self.top, "I0")
-    i0Net.setType(naja.SNLNet.Type.Assign0)
+    driver = naja.SNLInstance.create(self.top, logic0, "constant0")
+    driver.getInstTerm(output).setNet(i0Net)
     self.top_out.setNet(i0Net)
     equi = naja.SNLEquipotential(self.top_out)
     self.assertTrue(equi.isConst0())
 
   def testConstant1TopTerm(self):
+    logic1 = naja.SNLDesign.createPrimitive(self.primitives, "logic1")
+    output = naja.SNLScalarTerm.create(
+      logic1, naja.SNLTerm.Direction.Output, "O")
+    logic1.setTruthTable(1)
     i0Net = naja.SNLScalarNet.create(self.top, "I0")
-    i0Net.setType(naja.SNLNet.Type.Assign1)
+    driver = naja.SNLInstance.create(self.top, logic1, "constant1")
+    driver.getInstTerm(output).setNet(i0Net)
     self.top_out.setNet(i0Net)
     equi = naja.SNLEquipotential(self.top_out)
     self.assertTrue(equi.isConst1())

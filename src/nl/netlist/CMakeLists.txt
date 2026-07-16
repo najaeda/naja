@@ -7,6 +7,7 @@ add_subdirectory(visual)
 
 set(NL_SOURCES
   core/NLName.cpp
+  core/NLLogicValue.cpp
   core/NLObject.cpp
   core/NLUniverse.cpp
   core/NLDB.cpp core/NLDB0.cpp
@@ -59,6 +60,7 @@ set(DECORATOR_SOURCES
 
 set(HEADERS
   core/NLName.h
+  core/NLLogicValue.h
   core/NLID.h
   core/NLObject.h
   core/NLLibrary.h

@@ -23,6 +23,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLDesignModeling.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
@@ -101,18 +102,17 @@ TEST_F(SNLVRLConstructorTest1, test) {
   constructor.parse(benchmarksPath/"test0.v");
 
   EXPECT_TRUE(mod0->isBlackBox());
-  EXPECT_EQ(4, mod0->getNets().size());
+  EXPECT_EQ(2, mod0->getNets().size());
   {
     auto i0Net = mod0->getNet(NLName("i0"));
     ASSERT_NE(i0Net, nullptr);
     auto i0ScalarNet = dynamic_cast<SNLScalarNet*>(i0Net);
-    EXPECT_EQ(SNLNet::Type::Standard, i0ScalarNet->getType());
     EXPECT_FALSE(i0ScalarNet->getBitTerms().empty());
     EXPECT_EQ(1, i0ScalarNet->getBitTerms().size());
     EXPECT_EQ(mod0i0, *(i0ScalarNet->getBitTerms().begin()));
   }
   EXPECT_TRUE(mod1->isBlackBox());
-  EXPECT_EQ(4, mod1->getNets().size());
+  EXPECT_EQ(2, mod1->getNets().size());
   
   auto top = SNLUtils::findTop(library_);
   EXPECT_EQ(top, test);
@@ -120,6 +120,12 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_EQ(12, test->getNets().size());
   using Nets = std::vector<SNLNet*>;
   Nets nets(test->getNets().begin(), test->getNets().end());
+  std::stable_sort(nets.begin(), nets.end(), [](const SNLNet* lhs, const SNLNet* rhs) {
+    if (lhs->isUnnamed() != rhs->isUnnamed()) return lhs->isUnnamed();
+    if (!lhs->isUnnamed()) return false;
+    return SNLDesignModeling::isConstant(lhs, NLLogicValue::Zero) &&
+      !SNLDesignModeling::isConstant(rhs, NLLogicValue::Zero);
+  });
   ASSERT_EQ(12, nets.size());
   EXPECT_TRUE(nets[0]->isUnnamed());
   EXPECT_TRUE(nets[1]->isUnnamed());
@@ -128,58 +134,54 @@ TEST_F(SNLVRLConstructorTest1, test) {
   }
 
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[0]));
-  EXPECT_EQ(SNLNet::Type::Assign0, dynamic_cast<SNLScalarNet*>(nets[0])->getType());
+  EXPECT_EQ(NLLogicValue::Zero,
+    SNLDesignModeling::getConstantValue(dynamic_cast<SNLScalarNet*>(nets[0])));
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[1]));
-  EXPECT_EQ(SNLNet::Type::Assign1, dynamic_cast<SNLScalarNet*>(nets[1])->getType());
+  EXPECT_EQ(NLLogicValue::One,
+    SNLDesignModeling::getConstantValue(dynamic_cast<SNLScalarNet*>(nets[1])));
 
   EXPECT_EQ("i", nets[2]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[2]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[2])->getType());
 
   EXPECT_EQ("o", nets[3]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[3]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[3])->getType());
 
   EXPECT_EQ("io", nets[4]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[4]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[4])->getType());
 
   EXPECT_EQ("net0", nets[5]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[5]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[5])->getType());
 
   EXPECT_EQ("net1", nets[6]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
 
   EXPECT_EQ("net2", nets[7]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[7]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[7])->getType());
 
   EXPECT_EQ("net3", nets[8]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[8]));
-  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[8])->getType());
 
   EXPECT_EQ("net4", nets[9]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLBusNet*>(nets[9]));
   EXPECT_EQ(3, dynamic_cast<SNLBusNet*>(nets[9])->getMSB());
   EXPECT_EQ(-1, dynamic_cast<SNLBusNet*>(nets[9])->getLSB());
-  for (auto bit: dynamic_cast<SNLBusNet*>(nets[9])->getBits()) {
-    EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
-  }
-
   EXPECT_EQ("constant0", nets[10]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[10]));
-  EXPECT_EQ(SNLNet::Type::Supply0, dynamic_cast<SNLScalarNet*>(nets[10])->getType());
+  EXPECT_EQ(NLLogicValue::Zero,
+    SNLDesignModeling::getConstantValue(dynamic_cast<SNLScalarNet*>(nets[10])));
 
   EXPECT_EQ("constant1", nets[11]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[11]));
-  EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[11])->getType());
+  EXPECT_EQ(NLLogicValue::One,
+    SNLDesignModeling::getConstantValue(dynamic_cast<SNLScalarNet*>(nets[11])));
 
-  ASSERT_EQ(4, test->getInstances().size());
+  ASSERT_EQ(8, test->getInstances().size());
 
   using Instances = std::vector<SNLInstance*>;
-  Instances instances(test->getInstances().begin(), test->getInstances().end());
+  Instances instances;
+  for (auto* instance: test->getInstances()) {
+    if (!SNLDesignModeling::isConstantDriver(instance)) instances.push_back(instance);
+  }
   ASSERT_EQ(4, instances.size());
   EXPECT_EQ("inst0", instances[0]->getName().getString());
   EXPECT_EQ("inst1", instances[1]->getName().getString());

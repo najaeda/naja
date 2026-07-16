@@ -180,14 +180,14 @@ class SNLDBTest(unittest.TestCase):
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
     manifest = naja.snapshot_manifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertEqual(manifest["schema_version"], (0, 1, 1))
     self.assertEqual(manifest["producer_version"], naja.getVersion())
     self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
 
     manifest = naja.snapshot_manifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertEqual(manifest["schema_version"], (0, 1, 1))
     self.assertIsNone(naja.NLUniverse.get())
 
     #load NajaIF
@@ -199,7 +199,7 @@ class SNLDBTest(unittest.TestCase):
     self.assertEqual(db.getID(), 1)
 
     with open(os.path.join(naja_dir, "snl.mf"), "w", encoding="utf-8") as manifest_file:
-      manifest_file.write("V 0 1 0\n")
+      manifest_file.write("V 0 1 1\n")
       manifest_file.write("P test-producer test-hash\n")
     naja.NLUniverse.get().destroy()
     with self.assertRaises(RuntimeError) as context:
@@ -237,17 +237,33 @@ class SNLDBTest(unittest.TestCase):
       source_path = source.name
     try:
       top = db.loadVerilog([source_path])
+      constant_net = naja.SNLScalarNet.create(top, "constant_net")
+      constant = naja.SNLInstance.createConstantDriver(
+        constant_net, "1'b0", "assign", "constant")
       instances = list(top.getInstances())
       non_assign_instances = list(top.getNonAssignInstances())
       assign_instances = list(top.getAssignInstances())
+      regular_instances = list(top.getRegularInstances())
+      constant_driver_instances = list(top.getConstantDriverInstances())
+      helper_instances = list(top.getHelperInstances())
 
+      self.assertEqual(len(instances), len(non_assign_instances) + len(assign_instances))
+      self.assertTrue(all(not inst.isAssign() for inst in non_assign_instances))
+      self.assertTrue(all(inst.isAssign() for inst in assign_instances))
+      self.assertTrue(all(inst.isRegular() for inst in regular_instances))
+      self.assertTrue(all(inst.isConstantDriver() for inst in constant_driver_instances))
       self.assertEqual(
-        instances,
-        non_assign_instances + assign_instances)
-      self.assertTrue(all(not inst.getModel().isAssign() for inst in non_assign_instances))
-      self.assertTrue(all(inst.getModel().isAssign() for inst in assign_instances))
-      self.assertEqual(1, len(non_assign_instances))
+        len(instances),
+        len(regular_instances) + len(assign_instances) + len(constant_driver_instances))
+      self.assertEqual(
+        len(helper_instances), len(assign_instances) + len(constant_driver_instances))
+      self.assertEqual(2, len(non_assign_instances))
       self.assertEqual(1, len(assign_instances))
+      self.assertEqual(1, len(regular_instances))
+      self.assertEqual([constant], constant_driver_instances)
+      self.assertEqual(assign_instances + constant_driver_instances, helper_instances)
+      self.assertFalse(constant.isAssign())
+      self.assertFalse(constant.isRegular())
     finally:
       os.remove(source_path)
 

@@ -9,6 +9,7 @@
 #include "NLUniverse.h"
 #include "NLDB.h"
 #include "NLDB0.h"
+#include "NLLogicValue.h"
 #include "NLLibrary.h"
 
 #include "SNLDesign.h"
@@ -21,6 +22,7 @@
 #include "SNLInstance.h"
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
+#include "SNLDesignModeling.h"
 
 #include "SNLCapnP.h"
 
@@ -182,7 +184,7 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testMemoryRoundTrip) {
   signature.abits = 3;
   signature.readPorts = 1;
   signature.writePorts = 1;
-  signature.resetMode = NLDB0::MemoryResetMode::None;
+  signature.resetMode = NLDB0::MemoryResetMode::AsyncHigh;
   auto memory = NLDB0::getOrCreateMemory(signature);
   ASSERT_NE(nullptr, memory);
 
@@ -195,9 +197,15 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testMemoryRoundTrip) {
   addInstParam("ABITS", "3");
   addInstParam("RD_PORTS", "1");
   addInstParam("WR_PORTS", "1");
-  addInstParam("RST_ENABLE", "0");
-  addInstParam("RST_ASYNC", "0");
+  addInstParam("RST_ENABLE", "1");
+  addInstParam("RST_ASYNC", "1");
   addInstParam("RST_ACTIVE_LOW", "0");
+  const auto initValue = NLLogicVector::fromVerilogBinary(
+    "32'b00010010001101000101011001111000");
+  const auto resetValue = NLLogicVector::fromVerilogBinary(
+    "32'b10000111011001010100001100100001");
+  SNLDesignModeling::setInitValue(mem, initValue);
+  SNLDesignModeling::setResetValue(mem, resetValue);
   mem->getInstTerm(NLDB0::getMemoryClock(memory))->setNet(top->getScalarNet(NLName("clk")));
 
   std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
@@ -222,4 +230,36 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testMemoryRoundTrip) {
   EXPECT_EQ(NLDB0::getOrCreateMemory(signature), reloadedMem->getModel());
   // The signature was rebuilt from the round-tripped instance parameters.
   EXPECT_EQ(signature, NLDB0::getMemorySignature(reloadedMem));
+  EXPECT_EQ(initValue, SNLDesignModeling::getInitValue(reloadedMem));
+  EXPECT_EQ(resetValue, SNLDesignModeling::getResetValue(reloadedMem));
+}
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testConstantDriverRoundTrip) {
+  auto* top = db_->getTopDesign();
+  ASSERT_NE(nullptr, top);
+  auto value = NLLogicVector::fromVerilogBinary("4'b10xz");
+  auto* driver = SNLDesignModeling::createConstantDriver(
+    top, value, NLConstantDriverKind::Assign, NLName("constant"));
+  auto* net = SNLBusNet::create(top, 3, 0, NLName("constant_net"));
+  driver->setTermNet(NLDB0::getConstOutput(driver->getModel()), net);
+
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapnPDB0PrimitivesTest_testConstantDriverRoundTrip";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  SNLCapnP::dump(db_, outPath);
+
+  NLUniverse::get()->destroy();
+  db_ = nullptr;
+  db_ = SNLCapnP::load(outPath);
+  ASSERT_TRUE(db_);
+
+  auto* reloaded = db_->getTopDesign()->getInstance(NLName("constant"));
+  ASSERT_NE(nullptr, reloaded);
+  EXPECT_TRUE(NLDB0::isConst(reloaded->getModel()));
+  EXPECT_EQ(NLDB0::getOrCreateConst(4), reloaded->getModel());
+  EXPECT_EQ(value, SNLDesignModeling::getConstantDriverValue(reloaded));
+  EXPECT_EQ(NLConstantDriverKind::Assign,
+            SNLDesignModeling::getConstantDriverKind(reloaded));
 }
