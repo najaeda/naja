@@ -32882,6 +32882,30 @@ endmodule
     std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseElaborationWarningsConsoleOnly) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "elaboration_warning_console_only",
+    R"(module elaboration_warning_console_only(
+  input logic a,
+  input logic b,
+  output logic y
+);
+  assign y = a === b;
+endmodule
+)");
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+
+  testing::internal::CaptureStdout();
+  EXPECT_NO_THROW(constructor.construct(svPath, options));
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+
+  EXPECT_NE(
+    std::string::npos,
+    stdoutOutput.find("diagnostics reporting is console-only"));
+}
+
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleWritesPeriodicSVConstructorPerfReport) {
   ScopedEnvVar reportEnv("NAJA_SV_CONSTRUCTOR_REPORT");
@@ -32992,6 +33016,25 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDeta
   EXPECT_NE(report.find("summary.status=failed"), std::string::npos);
   EXPECT_NE(report.find("count.slang.total=1"), std::string::npos);
   EXPECT_NE(report.find("count.slang.error=1"), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorConsoleOnlyDiagnostics) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "syntax_error_console_only_diagnostics",
+    R"(module syntax_error_console_only_diagnostics(input logic a, output logic y)
+  assign y = a;
+endmodule
+)");
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+
+  testing::internal::CaptureStdout();
+  EXPECT_THROW(constructor.construct(svPath, options), SNLSVConstructorException);
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+
+  EXPECT_NE(stdoutOutput.find("Slang emitted 1 diagnostic(s)"), std::string::npos);
+  EXPECT_NE(stdoutOutput.find("console-only"), std::string::npos);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseEmptyDiagnosticsReportPathThrows) {
