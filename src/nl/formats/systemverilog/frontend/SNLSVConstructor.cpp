@@ -4226,7 +4226,9 @@ endmodule
       }
     }
 
-    const Expression* stripConnectionLValueArgConversions(const Expression& expr) const {
+    const Expression* stripConnectionLValueArgConversions(
+      const Expression& expr,
+      bool acceptImplicitLValueArgWrapper = false) const {
       const Expression* current = &expr;
       while (current) {
         if (current->kind == slang::ast::ExpressionKind::Conversion) {
@@ -4235,7 +4237,13 @@ endmodule
         }
         if (current->kind == slang::ast::ExpressionKind::Assignment) {
           const auto& assign = current->as<slang::ast::AssignmentExpression>();
-          if (assign.isLValueArg()) {
+          // Slang represents an output argument as an implicit assignment to
+          // the actual. DPI imports can retain the wrapper after elaboration
+          // even when the empty-argument marker is no longer exposed through
+          // isLValueArg(). Restrict that compatibility path to callers which
+          // know they are handling an output actual, so an ordinary assignment
+          // expression used as a value is never mistaken for a connection.
+          if (assign.isLValueArg() || acceptImplicitLValueArgWrapper) {
             current = &assign.left();
             continue;
           }
@@ -19274,7 +19282,7 @@ endmodule
               continue; // LCOV_EXCL_LINE
             }
             if (isOutputLikeArgumentDirection(formalArg->direction)) {
-              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg)) {
+              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true)) {
                 collectExpressionRootValueSymbols(*actualLhs, callSymbols);
               }
             } else {
@@ -19289,7 +19297,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -19526,7 +19534,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -20848,6 +20856,10 @@ endmodule
              direction == ArgumentDirection::Ref;
     }
 
+    bool isDPIImport(const slang::ast::SubroutineSymbol& subroutine) const {
+      return subroutine.flags.has(slang::ast::MethodFlags::DPIImport);
+    }
+
     const slang::ast::CallExpression* getOutputFunctionCallExpression(
       const Statement& stmt,
       const slang::ast::SubroutineSymbol*& subroutine) const {
@@ -20908,7 +20920,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg);
+        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg, true);
         if (trackAlwaysCombDynamicLHS) {
           lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
         } else if (trackSequentialFallbackLHS) {
@@ -26889,7 +26901,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
         if (!actualLhs) {
           continue; // LCOV_EXCL_LINE
         }
@@ -26905,6 +26917,56 @@ endmodule
         return true;
       }
       handled = true;
+
+      if (isDPIImport(*subroutine)) {
+        for (const auto& outputActual : outputActuals) {
+          if (!outputActual.actual) {
+            continue; // LCOV_EXCL_LINE
+          }
+          const auto* trackedActual = getTrackedAlwaysCombLHS(outputActual.actual);
+          if (!sameLhs(trackedActual, &lhsExpr) &&
+              !sameLhs(outputActual.actual, &lhsExpr) &&
+              !isTrackedSelectionSubLhsOf(outputActual.actual, &lhsExpr)) {
+            continue;
+          }
+          const auto width = getRepresentableExpressionBitWidth(*outputActual.actual);
+          if (!width || !*width) {
+            failureReason = "unable to resolve DPI output actual width";
+            return false;
+          }
+          std::vector<SNLBitNet*> abstractBits;
+          abstractBits.reserve(*width);
+          for (size_t bit = 0; bit < *width; ++bit) {
+            auto* abstractBit = SNLScalarNet::create(design);
+            annotateSourceInfo(abstractBit, getSourceRange(*outputActual.actual));
+            abstractBits.push_back(abstractBit);
+          }
+          bool applied = false;
+          if (!tryApplyOutputActualBitsForLhs(
+                design,
+                *outputActual.actual,
+                lhsExpr,
+                abstractBits,
+                lhsBits,
+                dataBits,
+                failureReason,
+                applied)) {
+            return false;
+          }
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (applied &&
+              activeProceduralReplayEnv_ &&
+              tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+            (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+          }
+        }
+        reportUnsupportedWarning(
+          "abstracted_dpi_output",
+          "abstracting output arguments of DPI import '" +
+            std::string(subroutine->name) + "' as unconstrained values",
+          getSourceRange(stmt));
+        return true;
+      }
 
       std::unordered_map<const Symbol*, SNLNet*> argumentNets;
       argumentNets.reserve(formalArgs.size());
@@ -26929,7 +26991,7 @@ endmodule
             getSourceRange(*callArg));
           if (formalArg->direction == ArgumentDirection::InOut ||
               formalArg->direction == ArgumentDirection::Ref) {
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             auto width = actualLhs
               ? getRepresentableExpressionBitWidth(*actualLhs)
               : std::nullopt;

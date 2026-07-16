@@ -1848,6 +1848,54 @@ endmodule
     });
 }
 
+TEST_F(SNLSVConstructorTestAlwaysComb, parseAlwaysCombDpiOutputIsAbstracted) {
+  SNLSVConstructor constructor(library_);
+  auto outPath = createTestDirectory("always_comb_dpi_output_abstracted");
+
+  const auto svPath = outPath / "always_comb_dpi_output_abstracted.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(import "DPI-C" context function void ext_lookup(
+  input longint addr,
+  output longint data
+);
+
+module always_comb_dpi_output_abstracted(
+  input  logic [63:0] addr_i,
+  input  logic        en_i,
+  output logic [63:0] data_o
+);
+  logic [63:0] lookup;
+
+  always_comb begin
+    if (en_i)
+      ext_lookup(addr_i, lookup);
+    else
+      lookup = 64'bx;
+  end
+
+  assign data_o = lookup;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(NLName("always_comb_dpi_output_abstracted"));
+  ASSERT_NE(top, nullptr);
+  auto* lookup = top->getBusNet(NLName("lookup"));
+  ASSERT_NE(lookup, nullptr);
+  ASSERT_EQ(64, lookup->getWidth());
+  for (auto* bit : lookup->getBits()) {
+    ASSERT_NE(bit, nullptr);
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+  auto* data = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(data, nullptr);
+  ASSERT_EQ(64, data->getWidth());
+}
+
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
   parseFunctionDirectReturnLocalAssignmentsSupported) {
