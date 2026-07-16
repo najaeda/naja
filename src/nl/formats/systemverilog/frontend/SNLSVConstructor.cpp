@@ -2921,8 +2921,8 @@ endmodule
 
     void appendDiagnosticsReport(std::string_view text) {
       // Test-detail helpers exercise warning construction without running the
-      // full construct() lifecycle. Production construction always opens the
-      // mandatory report before any diagnostic can be recorded.
+      // full construct() lifecycle. Production construction opens the report,
+      // when enabled, before any diagnostic can be recorded.
       if (!diagnosticsReportStream_.is_open()) {
         return;
       }
@@ -2932,7 +2932,7 @@ endmodule
       if (!diagnosticsReportStream_.good()) {
         std::ostringstream reason;
         reason << "Failed to write diagnostics report file: "
-               << options_.diagnosticsReportPath.string();
+               << diagnosticsReportDestination();
         throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
@@ -2970,7 +2970,10 @@ endmodule
     }
 
     void initializeDiagnosticsReport() {
-      const auto& reportPath = options_.diagnosticsReportPath;
+      if (!options_.diagnosticsReportPath) {
+        return;
+      }
+      const auto& reportPath = *options_.diagnosticsReportPath;
       if (reportPath.empty()) {
         throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
@@ -3027,12 +3030,15 @@ endmodule
           diagnostic.column,
           diagnostic.message);
       }
-      NAJA_LOG_WARN(
-        "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
-        diagnostics.size(),
-        warningCount,
-        errorCount,
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
+          diagnostics.size(), warningCount, errorCount, diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); console-only",
+          diagnostics.size(), warningCount, errorCount);
+      }
     }
 
     void emitWarningPolicyNotice() {
@@ -3040,10 +3046,16 @@ endmodule
         return;
       }
       warningPolicyNoticeEmitted_ = true;
-      NAJA_LOG_WARN(
-        "Only the first occurrence of each SystemVerilog warning code is emitted on the "
-        "console; all occurrences are written to '{}'",
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; all occurrences are written to '{}'",
+          diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; diagnostics reporting is console-only");
+      }
     }
 
     void finalizeDiagnosticsReport(bool success, std::string_view failureReason) {
@@ -3080,7 +3092,7 @@ endmodule
               << "count.naja_unsupported_error.codes="
               << unsupportedErrorCodes_.size() << "\n"
               << "report.path=\""
-              << escapeDiagnosticValue(options_.diagnosticsReportPath.string()) << "\"\n";
+              << escapeDiagnosticValue(diagnosticsReportDestination()) << "\"\n";
       if (!failureReason.empty()) {
         summary << "failure.reason=\"" << escapeDiagnosticValue(failureReason) << "\"\n";
       }
@@ -3105,13 +3117,19 @@ endmodule
           unsupportedWarningCodes_.size(),
           unsupportedErrorCount_,
           unsupportedErrorCodes_.size(),
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       } else {
         NAJA_LOG_INFO(
           "SystemVerilog diagnostics summary: status={}, no diagnostics; report='{}'",
           success ? "success" : "failed",
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       }
+    }
+
+    std::string diagnosticsReportDestination() const {
+      return options_.diagnosticsReportPath
+        ? options_.diagnosticsReportPath->string()
+        : "console-only";
     }
 
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
@@ -26931,8 +26949,8 @@ endmodule
           }
           const auto width = getRepresentableExpressionBitWidth(*outputActual.actual);
           if (!width || !*width) {
-            failureReason = "unable to resolve DPI output actual width";
-            return false;
+            failureReason = "unable to resolve DPI output actual width"; // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
           }
           std::vector<SNLBitNet*> abstractBits;
           abstractBits.reserve(*width);
@@ -26951,7 +26969,7 @@ endmodule
                 dataBits,
                 failureReason,
                 applied)) {
-            return false;
+            return false; // LCOV_EXCL_LINE
           }
           const slang::ast::ValueSymbol* trackedSymbol = nullptr;
           if (applied &&
@@ -26994,7 +27012,7 @@ endmodule
             const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             auto width = actualLhs
               ? getRepresentableExpressionBitWidth(*actualLhs)
-              : std::nullopt;
+              : std::nullopt; // LCOV_EXCL_LINE
             if (!width || !*width) {
               failureReason = "unable to resolve output function inout argument width";
               return false;

@@ -32745,9 +32745,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagn
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReportPath) {
   SNLSVConstructor::ConstructOptions options;
+  ASSERT_TRUE(options.diagnosticsReportPath);
   EXPECT_EQ(
     std::filesystem::path("naja_sv_diagnostics.log"),
-    options.diagnosticsReportPath);
+    *options.diagnosticsReportPath);
 
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "default_diagnostics_report_path";
@@ -32757,7 +32758,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
   std::filesystem::create_directory(outPath);
   const ScopedCurrentPath scopedCurrentPath(outPath);
 
-  const auto reportPath = std::filesystem::current_path() / options.diagnosticsReportPath;
+  const auto reportPath = std::filesystem::current_path() / *options.diagnosticsReportPath;
   std::error_code ec;
   std::filesystem::remove(reportPath, ec);
 
@@ -32770,6 +32771,24 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
   EXPECT_NE(report.find("report.path=\"naja_sv_diagnostics.log\""), std::string::npos);
   EXPECT_NE(report.find("summary.status=success"), std::string::npos);
   std::filesystem::remove(reportPath, ec);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleCanDisableDiagnosticsReport) {
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "disabled_diagnostics_report";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  const ScopedCurrentPath scopedCurrentPath(outPath);
+
+  SNLSVConstructor constructor(library_);
+  const std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  EXPECT_NO_THROW(constructor.construct(benchmarksPath / "simple" / "simple.sv", options));
+  EXPECT_FALSE(std::filesystem::exists(outPath / "naja_sv_diagnostics.log"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnknownLiteralDiagnosticsIdentifyXAndZ) {

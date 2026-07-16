@@ -459,6 +459,23 @@ endmodule
       self.assertIsInstance(context.exception, RuntimeError)
       self.assertIn("Empty path for diagnostics report dump", str(context.exception))
 
+  def testSystemVerilogDiagnosticsReportCanBeDisabled(self):
+    u = naja.NLUniverse.get()
+    with tempfile.TemporaryDirectory() as tempdir:
+      sv_path = os.path.join(tempdir, "console_only.sv")
+      with open(sv_path, "w", encoding="utf-8") as source:
+        source.write("module console_only; endmodule\n")
+      original_cwd = os.getcwd()
+      try:
+        os.chdir(tempdir)
+        db = naja.NLDB.create(u)
+        top = db.loadSystemVerilog([sv_path], diagnostics_report_path=None)
+        self.assertIsNotNone(top)
+        self.assertFalse(os.path.exists("naja_sv_diagnostics.log"))
+        db.destroy()
+      finally:
+        os.chdir(original_cwd)
+
   def testSystemVerilogIntentAPI(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)

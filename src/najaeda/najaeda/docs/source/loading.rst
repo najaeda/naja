@@ -45,6 +45,11 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+By default, an incremental diagnostics report is written to
+``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
+:class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain
+console diagnostics only.
+
 Liberty and primitive libraries
 -------------------------------
 
