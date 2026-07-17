@@ -333,7 +333,8 @@ module naja_mem #(
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
   parameter INIT_ENABLE = 0,
-  parameter INIT = 1'b0
+  parameter INIT = 1'b0,
+  parameter RESET_VALUE = INIT
 ) (
   input CLK,
   input RST,
@@ -356,6 +357,14 @@ module naja_mem #(
       for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)
         mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
       /* verilator lint_on SELRANGE */
+    end
+  endtask
+
+  task automatic load_reset;
+    integer reset_idx;
+    begin
+      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1)
+        mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];
     end
   endtask
 
@@ -402,21 +411,21 @@ module naja_mem #(
     if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset
       always @(posedge CLK or negedge RST) begin
         if (!RST)
-          load_init();
+          load_reset();
         else
           write_ports();
       end
     end else if (RST_ENABLE && RST_ASYNC) begin : async_high_reset
       always @(posedge CLK or posedge RST) begin
         if (RST)
-          load_init();
+          load_reset();
         else
           write_ports();
       end
     end else if (RST_ENABLE) begin : sync_reset
       always @(posedge CLK) begin
         if (reset_active)
-          load_init();
+          load_reset();
         else
           write_ports();
       end
