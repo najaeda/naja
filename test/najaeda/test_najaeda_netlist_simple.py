@@ -3,9 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import unittest
 import faulthandler
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
 
+import najaeda
 from najaeda import netlist
 from najaeda import naja
 
@@ -14,12 +20,44 @@ class NajaNetlistTestSimple(unittest.TestCase):
         netlist.reset()
 
     def test_versioning(self):
-        import najaeda
         version = najaeda.version()
         self.assertIsNotNone(version)
         self.assertEqual(version, najaeda.__version__)
         hash = najaeda.git_hash()
         self.assertIsNotNone(hash)
+
+    def test_local_naja_module_does_not_shadow_native_extension(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            Path(temp_dir, "naja.py").write_text(
+                'raise RuntimeError("local naja.py must not be imported")\n',
+                encoding="utf-8",
+            )
+            environment = os.environ.copy()
+            package_parent = str(Path(najaeda.__file__).resolve().parent.parent)
+            current_pythonpath = environment.get("PYTHONPATH")
+            environment["PYTHONPATH"] = os.pathsep.join(
+                filter(None, (package_parent, current_pythonpath))
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from najaeda import naja; "
+                        "assert naja.__name__ == 'najaeda.naja', naja.__name__; "
+                        "assert naja.getVersion()"
+                    ),
+                ],
+                cwd=temp_dir,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                result.returncode,
+                0,
+                f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+            )
 
     def test_terms(self):
         top = netlist.create_top('Top')

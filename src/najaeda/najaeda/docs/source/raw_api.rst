@@ -41,7 +41,9 @@ Use the package export in user code:
 
 Some development and test layouts also place the extension on ``PYTHONPATH``
 as top-level ``naja``.  Prefer ``from najaeda import naja`` in documentation
-and reusable scripts because it works with bundled package layouts too.
+and reusable scripts because it works with bundled package layouts too.  The
+package-local extension takes precedence over a top-level module with the same
+name, so an application file such as ``naja.py`` cannot shadow it.
 
 Importing the native module does not write a performance report by default.
 Set ``NAJA_PERF=1`` to write ``naja_perf.log``, or set ``NAJA_PERF`` to a file

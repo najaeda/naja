@@ -6,11 +6,12 @@
 import importlib
 
 try:
-    naja = importlib.import_module("naja")
-except ModuleNotFoundError:
-    # Test and bundled package layouts place the extension module inside the
-    # najaeda package rather than on PYTHONPATH as a top-level module.
     naja = importlib.import_module(".naja", __name__)
+except ModuleNotFoundError as error:
+    if error.name != f"{__name__}.naja":
+        raise
+    # Some development layouts expose the extension directly on PYTHONPATH.
+    naja = importlib.import_module("naja")
 
 from ._version import version, git_hash
 from ._logging import configure_native_logging
