@@ -2512,6 +2512,11 @@ std::optional<NLLogicValue> SNLDesignModeling::getConstantValue(
       }
       candidate = value.getBit(bit);
     } else {
+      // Hierarchical outputs are resolved by equipotential traversal in their
+      // model.  Only leaf models can directly describe a legacy constant.
+      if (!instance->isLeaf()) {
+        return std::nullopt;
+      }
       try {
         if (isConst0(instance->getModel())) {
           candidate = NLLogicValue::Zero;
