@@ -91,7 +91,7 @@ NajaPerf::Scope::~Scope() {
   }
 }
 
-std::filesystem::path NajaPerf::getLogPathFromEnv(
+NajaPerf::LogPath NajaPerf::getLogPathFromEnv(
   const char* envVarName,
   const std::filesystem::path& defaultLogPath) {
   if (envVarName == nullptr || *envVarName == '\0') {
@@ -99,16 +99,20 @@ std::filesystem::path NajaPerf::getLogPathFromEnv(
   }
   if (const char* envValue = std::getenv(envVarName)) {
     std::string logPath(envValue);
-    if (!logPath.empty() && logPath != "1") {
+    if (logPath == "1") {
+      return defaultLogPath;
+    }
+    if (!logPath.empty()) {
       return logPath;
     }
+    return std::nullopt;
   }
-  return defaultLogPath;
+  return std::nullopt;
 }
 
-NajaPerf* NajaPerf::create(const std::filesystem::path& logPath, const std::string& topName) {
-  if (singleton_ == nullptr) {
-    singleton_ = new NajaPerf(logPath, topName);
+NajaPerf* NajaPerf::create(const LogPath& logPath, const std::string& topName) {
+  if (singleton_ == nullptr && logPath) {
+    singleton_ = new NajaPerf(*logPath, topName);
     registerDestructor(); // Register atexit cleanup
     //start top scope
     new Scope(topName);

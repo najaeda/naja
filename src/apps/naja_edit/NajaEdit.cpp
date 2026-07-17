@@ -163,6 +163,9 @@ int main(int argc, char* argv[]) {
   }
 
   auto statsPath = naja::NajaPerf::getLogPathFromEnv("NAJA_PERF", "naja_perf.log");
+  if (!statsPath) {
+    statsPath = "naja_perf.log";
+  }
   if (program.is_used("--stats")) {
     statsPath = program.get<std::string>("--stats");
   }

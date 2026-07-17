@@ -711,9 +711,11 @@ static struct PyModuleDef najaModule = {
 
 PyMODINIT_FUNC PyInit_naja(void) {
   naja::log::initFromEnv();
-  naja::NajaPerf::create(
-    naja::NajaPerf::getLogPathFromEnv("NAJA_PERF", "naja_perf.log"),
-    "naja_python");
+  // Embedders opt in with NAJA_PERF=1 or an explicit path; absent and empty
+  // values leave the performance singleton disabled.
+  auto perfLogPath =
+    naja::NajaPerf::getLogPathFromEnv("NAJA_PERF", "naja_perf.log");
+  naja::NajaPerf::create(perfLogPath, "naja_python");
 
   PyNLUniverse_LinkPyType();
   PyNLID_LinkPyType();

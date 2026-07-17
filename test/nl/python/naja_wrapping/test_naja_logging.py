@@ -4,11 +4,48 @@
 
 import os
 import logging
+import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
 import naja
 
 class NajaLoggingTest(unittest.TestCase):
+  def test_perf_log_import_policy(self):
+    with tempfile.TemporaryDirectory() as tempdir:
+      temp_path = pathlib.Path(tempdir)
+      for env_value in (None, ""):
+        env = os.environ.copy()
+        if env_value is None:
+          env.pop("NAJA_PERF", None)
+        else:
+          env["NAJA_PERF"] = env_value
+        subprocess.run(
+          [sys.executable, "-c", "import naja"],
+          cwd=tempdir,
+          env=env,
+          check=True)
+        self.assertFalse((temp_path / "naja_perf.log").exists())
+
+      explicit_log = temp_path / "explicit_perf.log"
+      env = os.environ.copy()
+      env["NAJA_PERF"] = str(explicit_log)
+      subprocess.run(
+        [sys.executable, "-c", "import naja"],
+        cwd=tempdir,
+        env=env,
+        check=True)
+      self.assertTrue(explicit_log.is_file())
+
+      env["NAJA_PERF"] = "1"
+      subprocess.run(
+        [sys.executable, "-c", "import naja"],
+        cwd=tempdir,
+        env=env,
+        check=True)
+      self.assertTrue((temp_path / "naja_perf.log").is_file())
+
   def test0(self):
     log_file = os.environ.get('SNL_WRAPPING_TEST_PATH')
     self.assertIsNotNone(log_file)

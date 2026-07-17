@@ -465,8 +465,9 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     options.elaboratedASTJsonPath =
       std::filesystem::path(PyUnicode_AsUTF8(elaborated_ast_json_path));
   }
-  if (diagnostics_report_path != nullptr &&
-      diagnostics_report_path != Py_None) {
+  if (diagnostics_report_path == Py_None) {
+    options.diagnosticsReportPath.reset();
+  } else if (diagnostics_report_path != nullptr) {
     if (not PyUnicode_Check(diagnostics_report_path)) {
       std::ostringstream oss;
       oss << "NLDB.loadSystemVerilog: diagnostics_report_path must be a str, got: "
@@ -677,8 +678,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"
     "  include_source_info_in_elaborated_ast_json (bool, optional): include source info in AST JSON (default True)\n"
     "  flist (str, optional): frontend file-list command path\n"
-    "  diagnostics_report_path (str, optional): incremental frontend diagnostics report path "
-    "(default naja_sv_diagnostics.log)\n"
+    "  diagnostics_report_path (str | None, optional): incremental frontend diagnostics report path "
+    "(default naja_sv_diagnostics.log; None disables the report file)\n"
     "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
     "  suppress_warnings (list[str], optional): frontend warning names to suppress\n"
     "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "

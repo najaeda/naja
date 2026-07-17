@@ -33,31 +33,36 @@ void unsetEnvVar(const char* name) {
 }
 }  // namespace
 
-TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultWhenUnset) {
+TEST(NajaPerfTests, getLogPathFromEnvDisablesWhenUnset) {
   unsetEnvVar("NAJA_PERF_TEST_PATH");
   EXPECT_EQ(
-    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
-    std::filesystem::path("naja_perf.log"));
+    std::nullopt,
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"));
 }
 
 TEST(NajaPerfTests, getLogPathFromEnvUsesEnvValue) {
   setEnvVar("NAJA_PERF_TEST_PATH", "custom_perf.log");
-  EXPECT_EQ(
-    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
-    std::filesystem::path("custom_perf.log"));
+  auto logPath =
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log");
+  ASSERT_TRUE(logPath);
+  EXPECT_EQ(*logPath, std::filesystem::path("custom_perf.log"));
   unsetEnvVar("NAJA_PERF_TEST_PATH");
 }
 
-TEST(NajaPerfTests, getLogPathFromEnvFallsBackForEmptyAndLegacyEnable) {
+TEST(NajaPerfTests, getLogPathFromEnvDisablesForEmptyValue) {
   setEnvVar("NAJA_PERF_TEST_PATH", "");
   EXPECT_EQ(
-    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
-    std::filesystem::path("naja_perf.log"));
+    std::nullopt,
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"));
+  unsetEnvVar("NAJA_PERF_TEST_PATH");
+}
 
+TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultForLegacyEnable) {
   setEnvVar("NAJA_PERF_TEST_PATH", "1");
-  EXPECT_EQ(
-    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log"),
-    std::filesystem::path("naja_perf.log"));
+  auto logPath =
+    NajaPerf::getLogPathFromEnv("NAJA_PERF_TEST_PATH", "naja_perf.log");
+  ASSERT_TRUE(logPath);
+  EXPECT_EQ(*logPath, std::filesystem::path("naja_perf.log"));
   unsetEnvVar("NAJA_PERF_TEST_PATH");
 }
 
@@ -72,6 +77,12 @@ TEST(NajaPerfTests, getLogPathFromEnvUsesDefaultForNullOrEmptyEnvVarName) {
 
 TEST(NajaPerfTests, test0) {
   std::filesystem::path logPath(NAJA_CORE_TESTS_PATH);
+  EXPECT_EQ(nullptr, NajaPerf::create(std::nullopt, "disabled"));
+  {
+    NajaPerf::Scope disabledScope("disabled_scope");
+    EXPECT_EQ(nullptr, NajaPerf::get());
+  }
+
   NajaPerf::create(logPath/"naja_perf_test0.log", "top");
   auto perf = NajaPerf::get();
   EXPECT_EQ(1, perf->getStack().size());
