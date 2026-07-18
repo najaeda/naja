@@ -2,3 +2,15 @@
 race:tbb::detail::d1::dynamic_grainsize_mode
 race:tbb::detail::d1::adaptive_mode
 race:tbb::detail::d1::start_for
+
+# oneTBB's fold_tree/partitioner ref-count bookkeeping racing against its
+# own concurrent_unordered_set insert path -- same scheduler-internal noise
+# as above, just a different pair of frames (both inside TBB, unrelated to
+# any naja-owned data: see LoadlessLogicRemover::getTracedIsos, which only
+# ever inserts into each thread's own tracedIsos.local() before merging
+# serially). Only observed under Bazel's cc_test, which runs every TEST_F
+# in a binary sequentially within one process -- unlike CTest's
+# --gtest_filter-per-test isolation, that gives TBB's global scheduler far
+# more sustained activity within a single process to ever hit this window.
+race:tbb::detail::d1::concurrent_unordered_base
+race:tbb::detail::d1::fold_tree

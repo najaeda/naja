@@ -9,14 +9,20 @@ name: asan-build
 # toolchain on these runners is gcc, unlike the CMake job which passes
 # -DCMAKE_C_COMPILER=clang explicitly) -- specifically the *newest* clang-N
 # already present on the runner image, not the bare `clang` alias. Found via
-# live CI: Ubuntu 22.04's default `clang` package is Clang 14, and slang's
-# use of std::source_location (source/../include/slang/util/Util.h) doesn't
-# compile under Clang 14 + libstdc++ ("no type named 'source_location' in
-# namespace std") -- a known Clang/libstdc++ compatibility gap for that
-# C++20 library feature, fixed in later Clang releases. The plain CMake
-# build never hit this because it never forces clang for slang's *own*
-# nested build the way rules_foreign_cc's cmake() action here does (that
-# nested build otherwise inherits whatever compiler Bazel is using).
+# live CI, in two rounds: Ubuntu 22.04's bare `clang` package is Clang 14,
+# under which slang's use of std::source_location doesn't compile against
+# libstdc++ ("no type named 'source_location' in namespace std"); the
+# newest clang-N 22.04 actually has -- clang-15 -- gets past that but then
+# hits a second, similar Clang/libstdc++ gap in slang's use of
+# std::ranges::view_interface ("no matching function for call to
+# '__begin'"). Both are known Clang-vs-libstdc++ C++20-library-feature
+# compatibility gaps, not code bugs, and Ubuntu 22.04 doesn't package any
+# newer clang-N via plain apt to try next. Moved this job to ubuntu-24.04
+# instead of chasing that further -- matches tsan-build.yml/coverage.yml,
+# whose default clang (18) is new enough that neither hit this. The plain
+# CMake build never hit either gap because it never forces clang for
+# slang's *own* nested build the way rules_foreign_cc's cmake() action here
+# does (that nested build otherwise inherits whatever compiler Bazel uses).
 #
 # najaPythonPropertyTests (the one target that embeds CPython) is excluded
 # from the test run, same as the old CMake job's `ctest -E ".*[p|P]ython.*"`
@@ -41,7 +47,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v7
