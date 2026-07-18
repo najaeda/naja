@@ -2921,8 +2921,8 @@ endmodule
 
     void appendDiagnosticsReport(std::string_view text) {
       // Test-detail helpers exercise warning construction without running the
-      // full construct() lifecycle. Production construction always opens the
-      // mandatory report before any diagnostic can be recorded.
+      // full construct() lifecycle. Production construction opens the report,
+      // when enabled, before any diagnostic can be recorded.
       if (!diagnosticsReportStream_.is_open()) {
         return;
       }
@@ -2932,7 +2932,7 @@ endmodule
       if (!diagnosticsReportStream_.good()) {
         std::ostringstream reason;
         reason << "Failed to write diagnostics report file: "
-               << options_.diagnosticsReportPath.string();
+               << diagnosticsReportDestination();
         throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
@@ -2970,7 +2970,10 @@ endmodule
     }
 
     void initializeDiagnosticsReport() {
-      const auto& reportPath = options_.diagnosticsReportPath;
+      if (!options_.diagnosticsReportPath) {
+        return;
+      }
+      const auto& reportPath = *options_.diagnosticsReportPath;
       if (reportPath.empty()) {
         throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
@@ -3027,12 +3030,15 @@ endmodule
           diagnostic.column,
           diagnostic.message);
       }
-      NAJA_LOG_WARN(
-        "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
-        diagnostics.size(),
-        warningCount,
-        errorCount,
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
+          diagnostics.size(), warningCount, errorCount, diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); console-only",
+          diagnostics.size(), warningCount, errorCount);
+      }
     }
 
     void emitWarningPolicyNotice() {
@@ -3040,10 +3046,16 @@ endmodule
         return;
       }
       warningPolicyNoticeEmitted_ = true;
-      NAJA_LOG_WARN(
-        "Only the first occurrence of each SystemVerilog warning code is emitted on the "
-        "console; all occurrences are written to '{}'",
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; all occurrences are written to '{}'",
+          diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; diagnostics reporting is console-only");
+      }
     }
 
     void finalizeDiagnosticsReport(bool success, std::string_view failureReason) {
@@ -3080,7 +3092,7 @@ endmodule
               << "count.naja_unsupported_error.codes="
               << unsupportedErrorCodes_.size() << "\n"
               << "report.path=\""
-              << escapeDiagnosticValue(options_.diagnosticsReportPath.string()) << "\"\n";
+              << escapeDiagnosticValue(diagnosticsReportDestination()) << "\"\n";
       if (!failureReason.empty()) {
         summary << "failure.reason=\"" << escapeDiagnosticValue(failureReason) << "\"\n";
       }
@@ -3105,13 +3117,19 @@ endmodule
           unsupportedWarningCodes_.size(),
           unsupportedErrorCount_,
           unsupportedErrorCodes_.size(),
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       } else {
         NAJA_LOG_INFO(
           "SystemVerilog diagnostics summary: status={}, no diagnostics; report='{}'",
           success ? "success" : "failed",
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       }
+    }
+
+    std::string diagnosticsReportDestination() const {
+      return options_.diagnosticsReportPath
+        ? options_.diagnosticsReportPath->string()
+        : "console-only";
     }
 
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
@@ -4226,7 +4244,9 @@ endmodule
       }
     }
 
-    const Expression* stripConnectionLValueArgConversions(const Expression& expr) const {
+    const Expression* stripConnectionLValueArgConversions(
+      const Expression& expr,
+      bool acceptImplicitLValueArgWrapper = false) const {
       const Expression* current = &expr;
       while (current) {
         if (current->kind == slang::ast::ExpressionKind::Conversion) {
@@ -4235,7 +4255,13 @@ endmodule
         }
         if (current->kind == slang::ast::ExpressionKind::Assignment) {
           const auto& assign = current->as<slang::ast::AssignmentExpression>();
-          if (assign.isLValueArg()) {
+          // Slang represents an output argument as an implicit assignment to
+          // the actual. DPI imports can retain the wrapper after elaboration
+          // even when the empty-argument marker is no longer exposed through
+          // isLValueArg(). Restrict that compatibility path to callers which
+          // know they are handling an output actual, so an ordinary assignment
+          // expression used as a value is never mistaken for a connection.
+          if (assign.isLValueArg() || acceptImplicitLValueArgWrapper) {
             current = &assign.left();
             continue;
           }
@@ -19274,7 +19300,7 @@ endmodule
               continue; // LCOV_EXCL_LINE
             }
             if (isOutputLikeArgumentDirection(formalArg->direction)) {
-              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg)) {
+              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true)) {
                 collectExpressionRootValueSymbols(*actualLhs, callSymbols);
               }
             } else {
@@ -19289,7 +19315,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -19526,7 +19552,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -20848,6 +20874,10 @@ endmodule
              direction == ArgumentDirection::Ref;
     }
 
+    bool isDPIImport(const slang::ast::SubroutineSymbol& subroutine) const {
+      return subroutine.flags.has(slang::ast::MethodFlags::DPIImport);
+    }
+
     const slang::ast::CallExpression* getOutputFunctionCallExpression(
       const Statement& stmt,
       const slang::ast::SubroutineSymbol*& subroutine) const {
@@ -20908,7 +20938,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg);
+        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg, true);
         if (trackAlwaysCombDynamicLHS) {
           lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
         } else if (trackSequentialFallbackLHS) {
@@ -26889,7 +26919,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
         if (!actualLhs) {
           continue; // LCOV_EXCL_LINE
         }
@@ -26905,6 +26935,56 @@ endmodule
         return true;
       }
       handled = true;
+
+      if (isDPIImport(*subroutine)) {
+        for (const auto& outputActual : outputActuals) {
+          if (!outputActual.actual) {
+            continue; // LCOV_EXCL_LINE
+          }
+          const auto* trackedActual = getTrackedAlwaysCombLHS(outputActual.actual);
+          if (!sameLhs(trackedActual, &lhsExpr) &&
+              !sameLhs(outputActual.actual, &lhsExpr) &&
+              !isTrackedSelectionSubLhsOf(outputActual.actual, &lhsExpr)) {
+            continue;
+          }
+          const auto width = getRepresentableExpressionBitWidth(*outputActual.actual);
+          if (!width || !*width) {
+            failureReason = "unable to resolve DPI output actual width"; // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
+          }
+          std::vector<SNLBitNet*> abstractBits;
+          abstractBits.reserve(*width);
+          for (size_t bit = 0; bit < *width; ++bit) {
+            auto* abstractBit = SNLScalarNet::create(design);
+            annotateSourceInfo(abstractBit, getSourceRange(*outputActual.actual));
+            abstractBits.push_back(abstractBit);
+          }
+          bool applied = false;
+          if (!tryApplyOutputActualBitsForLhs(
+                design,
+                *outputActual.actual,
+                lhsExpr,
+                abstractBits,
+                lhsBits,
+                dataBits,
+                failureReason,
+                applied)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (applied &&
+              activeProceduralReplayEnv_ &&
+              tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+            (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+          }
+        }
+        reportUnsupportedWarning(
+          "abstracted_dpi_output",
+          "abstracting output arguments of DPI import '" +
+            std::string(subroutine->name) + "' as unconstrained values",
+          getSourceRange(stmt));
+        return true;
+      }
 
       std::unordered_map<const Symbol*, SNLNet*> argumentNets;
       argumentNets.reserve(formalArgs.size());
@@ -26929,10 +27009,10 @@ endmodule
             getSourceRange(*callArg));
           if (formalArg->direction == ArgumentDirection::InOut ||
               formalArg->direction == ArgumentDirection::Ref) {
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             auto width = actualLhs
               ? getRepresentableExpressionBitWidth(*actualLhs)
-              : std::nullopt;
+              : std::nullopt; // LCOV_EXCL_LINE
             if (!width || !*width) {
               failureReason = "unable to resolve output function inout argument width";
               return false;

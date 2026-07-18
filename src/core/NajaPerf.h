@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -37,10 +38,11 @@ class NajaPerf {
         bool        started_ {false};
     };
     static MemoryUsage getMemoryUsage();
-    static std::filesystem::path getLogPathFromEnv(
+    using LogPath = std::optional<std::filesystem::path>;
+    static LogPath getLogPathFromEnv(
       const char* envVarName,
       const std::filesystem::path& defaultLogPath);
-    static NajaPerf* create(const std::filesystem::path& logPath, const std::string& topName);
+    static NajaPerf* create(const LogPath& logPath, const std::string& topName);
     static NajaPerf* get();
     ~NajaPerf();
     NajaPerf(const NajaPerf&) = delete;

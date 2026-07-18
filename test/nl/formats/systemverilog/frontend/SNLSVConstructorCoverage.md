@@ -108,3 +108,10 @@ the current architecture:
 - `dumpDiagnosticsReport`: filesystem I/O failure branches (directory creation,
   report file creation, report file final write-check) are defensive and
   environment-dependent, so they remain excluded.
+- Output-function `inout` / `ref` setup: the null-LHS arm after conversion is
+  unreachable because output-actual collection already accepted that same call
+  argument only after it converted to an LHS.
+- DPI output abstraction: non-bitstream actuals are rejected before this
+  lowering path, while Slang normalizes legal width conversions before the
+  output bits are applied. The corresponding width and application-failure
+  guards are retained as defensive checks.
