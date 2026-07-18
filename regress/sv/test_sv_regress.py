@@ -119,11 +119,14 @@ cases:
         primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
 
         self.assertIn("parameter INIT = 1'b0", primitives)
-        self.assertIn("parameter RESET_VALUE = INIT", primitives)
+        self.assertIn("parameter RESET_VALUE_ENABLE = 0", primitives)
+        self.assertIn("parameter RESET_VALUE = 1'b0", primitives)
+        self.assertIn("if (RESET_VALUE_ENABLE)", primitives)
         self.assertIn(
             "mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH]",
             primitives,
         )
+        self.assertIn("mem[reset_idx] = {WIDTH{1'b0}}", primitives)
         self.assertEqual(3, primitives.count("load_reset();"))
         self.assertNotIn("parameter [WIDTH*DEPTH-1:0] INIT", primitives)
 

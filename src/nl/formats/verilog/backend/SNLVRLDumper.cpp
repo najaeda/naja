@@ -1675,8 +1675,12 @@ void SNLVRLDumper::dumpInstParameters(
       }
     }
     if (auto reset = SNLDesignModeling::getResetValue(instance)) {
-      dumpedParameters.push_back(
-        {"RESET_VALUE", reset->toVerilogBinary(), SNLParameter::Type::Binary});
+      if (!reset->isAll(NLLogicValue::Zero)) {
+        dumpedParameters.push_back(
+          {"RESET_VALUE_ENABLE", "1", SNLParameter::Type::Decimal});
+        dumpedParameters.push_back(
+          {"RESET_VALUE", reset->toVerilogBinary(), SNLParameter::Type::Binary});
+      }
     }
   }
   std::sort(
@@ -2628,9 +2632,8 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   // force simulators to elaborate a WIDTH*DEPTH packed constant. A sized
   // explicit override retains its own width when initialization is enabled.
   o << "  parameter INIT = 1'b0,\n";
-  // Default to INIT so snapshots and hand-built DB0 memories using the
-  // historical single-image convention retain their reset behavior.
-  o << "  parameter RESET_VALUE = INIT\n";
+  o << "  parameter RESET_VALUE_ENABLE = 0,\n";
+  o << "  parameter RESET_VALUE = 1'b0\n";
   o << ") (\n";
   o << "  input CLK,\n";
   o << "  input RST,\n";
@@ -2657,8 +2660,14 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  task automatic load_reset;\n";
   o << "    integer reset_idx;\n";
   o << "    begin\n";
-  o << "      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1)\n";
-  o << "        mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];\n";
+  o << "      /* verilator lint_off SELRANGE */\n";
+  o << "      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1) begin\n";
+  o << "        if (RESET_VALUE_ENABLE)\n";
+  o << "          mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];\n";
+  o << "        else\n";
+  o << "          mem[reset_idx] = {WIDTH{1'b0}};\n";
+  o << "      end\n";
+  o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
   o << "  endtask\n\n";
   o << "  task automatic write_ports;\n";

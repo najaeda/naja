@@ -334,7 +334,8 @@ module naja_mem #(
   parameter RST_ACTIVE_LOW = 0,
   parameter INIT_ENABLE = 0,
   parameter INIT = 1'b0,
-  parameter RESET_VALUE = INIT
+  parameter RESET_VALUE_ENABLE = 0,
+  parameter RESET_VALUE = 1'b0
 ) (
   input CLK,
   input RST,
@@ -363,8 +364,14 @@ module naja_mem #(
   task automatic load_reset;
     integer reset_idx;
     begin
-      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1)
-        mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];
+      /* verilator lint_off SELRANGE */
+      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1) begin
+        if (RESET_VALUE_ENABLE)
+          mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];
+        else
+          mem[reset_idx] = {WIDTH{1'b0}};
+      end
+      /* verilator lint_on SELRANGE */
     end
   endtask
 

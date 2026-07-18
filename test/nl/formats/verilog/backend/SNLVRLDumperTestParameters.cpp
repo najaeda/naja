@@ -358,6 +358,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ASYNC(1)"));
   EXPECT_EQ(std::string::npos, dumped.find(".RST_ACTIVE_LOW(0)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".RESET_VALUE_ENABLE("));
+  EXPECT_EQ(std::string::npos, dumped.find(".RESET_VALUE("));
   EXPECT_NE(
     std::string::npos,
     dumped.find(
@@ -409,6 +411,28 @@ TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
   EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testNonZeroMemoryResetIsEmitted) {
+  auto* memoryInstance = createMemoryInstance();
+  ASSERT_NE(nullptr, memoryInstance);
+  SNLDesignModeling::setResetValue(
+    memoryInstance,
+    NLLogicVector::fromVerilogBinary(
+      "128'b1000000000000000000000000000000000000000000000000000000000000000"
+      "0000000000000000000000000000000000000000000000000000000000000001"));
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".RESET_VALUE_ENABLE(1)"));
+  EXPECT_NE(
+    std::string::npos,
+    dumped.find(
+      ".RESET_VALUE(128'b1000000000000000000000000000000000000000000000000000000000000000"
+      "0000000000000000000000000000000000000000000000000000000000000001)"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   ASSERT_NE(nullptr, createMemoryInstance());
 
@@ -453,6 +477,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
   EXPECT_NE(std::string::npos, primitiveDump.find("task automatic write_ports;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("parameter RESET_VALUE_ENABLE = 0"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (RESET_VALUE_ENABLE)"));
   EXPECT_NE(std::string::npos, primitiveDump.find("allow_write = WE[WR_PORTS-1-wp];"));
   EXPECT_NE(
     std::string::npos,
