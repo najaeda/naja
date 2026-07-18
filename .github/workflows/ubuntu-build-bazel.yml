@@ -4,12 +4,24 @@ name: Ubuntu Build (Bazel)
 # internal/bazel-migration-plan.md's Phase 8 approach: runs alongside the
 # CMake job, not replacing it, until Bazel has full CI parity.
 #
-# DRAFT, not yet validated against a live Ubuntu runner -- see
+# DRAFT, still being validated against live Ubuntu runners -- see
 # bazel/thirdparty/slang_overlay.BUILD's doc comment: slang needs
-# fmt>=12.2/tomlplusplus>=3.4, both newer than Ubuntu's apt packages, so
-# this relies on the `requires-network` fallback (matching CMake's own
-# current Ubuntu CI behavior) rather than the no-network path already
-# confirmed on macOS.
+# fmt>=12.2/tomlplusplus>=3.4, both newer than Ubuntu's apt packages
+# (libfmt-dev is 8.1.1/22.04, 9.1.0/24.04; libtomlplusplus-dev is only
+# confirmed present starting 24.04, exactly at 3.4.0 -- unconfirmed on
+# 22.04, may simply not exist there). This means slang's own CMake
+# `find_package()` calls will likely reject these as too old and fall
+# through to FetchContent's real network fetch (`requires-network` on
+# slang's cmake() rule permits this, matching CMake's own current Ubuntu
+# CI behavior). @fmt//:fmt / @tomlplusplus//:tomlplusplus (this repo's
+# own pkg-config-based wrappers, bazel/thirdparty/{fmt,tomlplusplus}/repo.bzl)
+# are a SEPARATE concern from whatever slang's internal build does --
+# they still need *some* system package to exist for pkg-config to
+# resolve, which is why these are installed here regardless of the
+# version question. Whether the version mismatch (libsvlang.a possibly
+# compiled against a freshly-fetched newer fmt, while @fmt links the
+# older apt one) causes a real problem hasn't been confirmed yet --
+# watching for it on the next run rather than guessing further.
 #
 # Single default toolchain for now (no gcc/clang matrix, unlike
 # ubuntu-build.yml) -- kept simple until this job is proven to work at
@@ -39,6 +51,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yq \
           libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          libfmt-dev libtomlplusplus-dev \
           bison flex m4 pkg-config python3-dev git
 
     - uses: bazel-contrib/setup-bazel@0.8.1
