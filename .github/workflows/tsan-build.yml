@@ -1,5 +1,23 @@
 name: tsan-build
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #27).
+# Uses .bazelrc's `--config=tsan`, which matches CMakeLists.txt's
+# ENABLE_THREAD_SANITIZER option exactly (ThreadSanitizer,
+# -fno-omit-frame-pointer, -c dbg to mirror CMake's Debug build type).
+# `--config=tsan` also forces test execution to run un-sandboxed
+# (spawn_strategy=local) and serially (local_test_jobs=1) -- see the
+# comment on those lines in .bazelrc for why.
+#
+# najaPythonPropertyTests is excluded from the test run, same as the old
+# CMake job's `ctest -E ".*[p|P]ython.*"`.
+#
+# NOTE: validated locally on macOS that --config=tsan compiles and links
+# every target cleanly (no code/BUILD issues). Could not validate the test
+# run itself there: the resulting binary segfaults on startup before any
+# test code runs, with no output at all -- macOS/Apple Silicon TSan support
+# is known to be far less mature than Linux's. Needs live Ubuntu CI to
+# confirm actual test results, same as valgrind.yml/coverage.yml.
+
 on:
   push:
     branches: [ main ]
@@ -7,39 +25,39 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  BUILD_TYPE: Debug
-
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: true
+    - uses: actions/checkout@v7
 
     - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ninja-build clang
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git clang
 
-    - name: Configure CMake
-      run: >
-        cmake -B ${{ github.workspace }}/build
-        -GNinja
-        -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
-        -DCMAKE_C_COMPILER=clang
-        -DCMAKE_CXX_COMPILER=clang++
-        -DENABLE_SANITIZERS=OFF
-        -DENABLE_THREAD_SANITIZER=ON
-        -DLONG_TESTS=OFF
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
 
     - name: Build
-      run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
+      run: >
+        bazel build --config=tsan
+        --repo_env=CC=clang --repo_env=CXX=clang++
+        //... --jobs=auto
 
     - name: Test
-      working-directory: ${{ github.workspace }}/build
       env:
         # Keep TSan focused on Naja code paths and avoid TBB scheduler reports.
         NON_MT: 1
         TSAN_OPTIONS: halt_on_error=1 ignore_noninstrumented_modules=1 suppressions=${{ github.workspace }}/.github/tsan.supp
-      run: ctest --parallel 1 -VV -E ".*[p|P]ython.*" -C ${{ env.BUILD_TYPE }}
+      run: >
+        bazel test --config=tsan
+        --repo_env=CC=clang --repo_env=CXX=clang++
+        --test_output=errors
+        -- //... -//test/nl/python/naja_wrapping:najaPythonPropertyTests

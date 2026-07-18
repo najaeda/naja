@@ -21,3 +21,25 @@ build --cxxopt=-std=c++20
 # static) throughout -- --dynamic_mode=off makes Linux match that same
 # fully-static assumption instead of silently diverging from it.
 build --dynamic_mode=off
+
+# --config=asan / --config=tsan: match CMakeLists.txt's ENABLE_SANITIZERS /
+# ENABLE_THREAD_SANITIZER options (internal/bazel-migration-plan.md, Phase 8,
+# task #27) -- same -fsanitize flags CMake's `sanitizers_config` INTERFACE
+# target adds, `-c dbg` to mirror CMake's Debug build type used by both jobs.
+build:asan -c dbg
+build:asan --copt=-fsanitize=address
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --linkopt=-fsanitize=address
+
+build:tsan -c dbg
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-fno-omit-frame-pointer
+build:tsan --linkopt=-fsanitize=thread
+# TSan's suppressions= file (.github/tsan.supp) is read by the test binary
+# at runtime from an absolute workspace path passed via TSAN_OPTIONS --
+# that path isn't visible inside Bazel's default sandbox, which only
+# exposes a test's declared inputs. `local` execution (no sandbox/mount
+# namespace) is fine here: CI runners are already single-use, ephemeral
+# VMs, so there's no hermeticity to lose that matters in that environment.
+test:tsan --spawn_strategy=local
+test:tsan --local_test_jobs=1
