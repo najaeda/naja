@@ -34,6 +34,22 @@ jobs:
       run: |
         brew install capnp tbb bison flex boost fmt tomlplusplus pkg-config
 
+    - name: Set Homebrew paths
+      # Xcode's own toolchain ships an ancient BSD bison/flex
+      # (/Applications/Xcode*/.../usr/bin) that otherwise shadows
+      # Homebrew's -- e.g. that bison doesn't understand GNU bison's
+      # -Wconflicts-sr flag (bazel/lefdef_bison.bzl,
+      # bazel/thirdparty/*/system_tool.bzl's `which("bison")` picks
+      # whichever comes first on PATH). ubuntu-build.yml doesn't need
+      # this; macos-build.yml (the CMake job) already does, for the same
+      # reason -- this step was missing from the first draft of this
+      # workflow and is why the first live run failed.
+      run: |
+        echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH
+        echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH
+        echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH
+        echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+
     - uses: bazel-contrib/setup-bazel@0.8.1
       with:
         bazelisk-cache: true

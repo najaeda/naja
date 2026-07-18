@@ -38,7 +38,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yq \
-          libboost-dev capnproto libcapnp-dev libtbb-dev \
+          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
           bison flex m4 pkg-config python3-dev git
 
     - uses: bazel-contrib/setup-bazel@0.8.1
