@@ -328,8 +328,6 @@ def dump_constants(design, analyzed_models):
                 + design.getName()
                 + ", constant net "
                 + bitnet.getName()
-                + " of type "
-                + bitnet.getTypeAsString()
             )
             if all(False for _ in bitnet.getComponents()):
                 logger.info(" with zero connections\n")

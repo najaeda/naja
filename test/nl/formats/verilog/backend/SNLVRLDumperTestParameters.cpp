@@ -10,7 +10,9 @@
 #include <sstream>
 
 #include "NLDB0.h"
+#include "NLLogicValue.h"
 #include "SNLVRLDumper.h"
+#include "SNLDesignModeling.h"
 
 #include "NLUniverse.h"
 #include "NLDB.h"
@@ -93,10 +95,11 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ENABLE")), "1");
       SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ASYNC")), "1");
       SNLInstParameter::create(ins, memory->getParameter(NLName("RST_ACTIVE_LOW")), "0");
-      SNLInstParameter::create(
+      SNLDesignModeling::setInitValue(
         ins,
-        memory->getParameter(NLName("INIT")),
-        "128'h00112233445566778899AABBCCDDEEFF");
+        NLLogicVector::fromVerilogBinary(
+          "128'b0000000000010001001000100011001101000100010101010110011001110111"
+          "1000100010011001101010101011101111001100110111011110111011111111"));
       return ins;
     }
 
@@ -176,9 +179,9 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
       }
 
       auto* const0 = SNLScalarNet::create(top_);
-      const0->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(const0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto* const1 = SNLScalarNet::create(top_);
-      const1->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(const1, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto* sourceBus = SNLBusNet::create(top_, 1, 0, NLName("source_bus"));
       auto* b = SNLBusNet::create(top_, 3, 0, NLName("mux_b"));
       auto* y = SNLBusNet::create(top_, 3, 0, NLName("mux_y"));
@@ -355,24 +358,49 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ASYNC(1)"));
   EXPECT_EQ(std::string::npos, dumped.find(".RST_ACTIVE_LOW(0)"));
+  EXPECT_EQ(std::string::npos, dumped.find(".RESET_VALUE_ENABLE("));
+  EXPECT_EQ(std::string::npos, dumped.find(".RESET_VALUE("));
   EXPECT_NE(
     std::string::npos,
-    dumped.find(".INIT(128'h00112233445566778899AABBCCDDEEFF)"));
+    dumped.find(
+      ".INIT(128'b0000000000010001001000100011001101000100010101010110011001110111"
+      "1000100010011001101010101011101111001100110111011110111011111111)"));
   EXPECT_EQ(std::string::npos, dumped.find("module naja_mem #("));
   EXPECT_EQ(std::string::npos, dumped.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_EQ(std::string::npos, dumped.find("if (allow_write && addr_index < DEPTH)"));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testConstantDriverDump) {
+  auto value = NLLogicVector::fromVerilogBinary("4'b10xz");
+  auto* driver = SNLDesignModeling::createConstantDriver(
+    top_, value, NLConstantDriverKind::Assign, NLName("constant"));
+  auto* net = SNLBusNet::create(top_, 3, 0, NLName("constant_bus"));
+  driver->setTermNet(NLDB0::getConstOutput(driver->getModel()), net);
+
+  auto* supply = SNLDesignModeling::createConstantDriver(
+    top_,
+    NLLogicVector::filled(1, NLLogicValue::One),
+    NLConstantDriverKind::Supply,
+    NLName("supply"));
+  auto* supplyNet = SNLScalarNet::create(top_, NLName("supply_net"));
+  supply->setTermNet(NLDB0::getConstOutput(supply->getModel()), supplyNet);
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+  EXPECT_EQ(std::string::npos, dumped.find("constant_bus"));
+  EXPECT_NE(
+    std::string::npos,
+    dumped.find("assign (supply0, supply1) supply_net = 1'b1;"));
+  EXPECT_EQ(std::string::npos, dumped.find("naja_const"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
   auto* memoryInstance = createMemoryInstance();
   ASSERT_NE(nullptr, memoryInstance);
-  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, init);
-  init->setValue("128'b" + std::string(128, '0'));
-  SNLInstParameter::create(
-    memoryInstance,
-    memoryInstance->getModel()->getParameter(NLName("INIT_ENABLE")),
-    "1");
+  SNLDesignModeling::setInitValue(
+    memoryInstance, NLLogicVector::filled(128, NLLogicValue::Zero));
 
   std::ostringstream out;
   SNLVRLDumper dumper;
@@ -383,42 +411,26 @@ TEST_F(SNLVRLDumperTestParameters, testZeroMemoryInitUsesModelDefault) {
   EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
 }
 
-TEST_F(SNLVRLDumperTestParameters, testMemoryInitZeroLiteralClassification) {
+TEST_F(SNLVRLDumperTestParameters, testNonZeroMemoryResetIsEmitted) {
   auto* memoryInstance = createMemoryInstance();
   ASSERT_NE(nullptr, memoryInstance);
-  auto* init = memoryInstance->getInstParameter(NLName("INIT"));
-  ASSERT_NE(nullptr, init);
+  SNLDesignModeling::setResetValue(
+    memoryInstance,
+    NLLogicVector::fromVerilogBinary(
+      "128'b1000000000000000000000000000000000000000000000000000000000000000"
+      "0000000000000000000000000000000000000000000000000000000000000001"));
 
-  struct TestCase {
-    const char* value;
-    bool isZero;
-  };
-  const TestCase testCases[] = {
-    {"0", true},
-    {"not_a_literal", false},
-    {"x'b0", false},
-    {"1'sb0", true},
-    {"1's", false},
-    {"1'q0", false},
-  };
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
 
-  for (const auto& testCase : testCases) {
-    SCOPED_TRACE(testCase.value);
-    init->setValue(testCase.value);
-
-    std::ostringstream out;
-    SNLVRLDumper dumper;
-    dumper.dumpDesign(top_, out);
-    const auto dumped = out.str();
-
-    if (testCase.isZero) {
-      EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
-    } else {
-      EXPECT_NE(
-        std::string::npos,
-        dumped.find(std::string(".INIT(") + testCase.value + ")"));
-    }
-  }
+  EXPECT_NE(std::string::npos, dumped.find(".RESET_VALUE_ENABLE(1)"));
+  EXPECT_NE(
+    std::string::npos,
+    dumped.find(
+      ".RESET_VALUE(128'b1000000000000000000000000000000000000000000000000000000000000000"
+      "0000000000000000000000000000000000000000000000000000000000000001)"));
 }
 
 TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
@@ -465,6 +477,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryPrimitiveFileDump) {
   EXPECT_NE(std::string::npos, primitiveDump.find("reg [WIDTH-1:0] mem [0:DEPTH-1];"));
   EXPECT_NE(std::string::npos, primitiveDump.find("integer addr_index;"));
   EXPECT_NE(std::string::npos, primitiveDump.find("task automatic write_ports;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("parameter RESET_VALUE_ENABLE = 0"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("if (RESET_VALUE_ENABLE)"));
   EXPECT_NE(std::string::npos, primitiveDump.find("allow_write = WE[WR_PORTS-1-wp];"));
   EXPECT_NE(
     std::string::npos,

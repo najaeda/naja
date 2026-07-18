@@ -34,6 +34,7 @@
 #include "SNLInstTerm.h"
 #include "SNLAttributes.h"
 #include "SNLDesignObject.h"
+#include "SNLDesignModeling.h"
 #include "SNLRTLInfos.h"
 #include "SNLUtils.h"
 
@@ -77,18 +78,12 @@ size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
 
 using ContiguousNetBits = std::vector<naja::NL::SNLBitNet*>;
 
-char getAssignConstantBitValue(const naja::NL::SNLBitNet* bit) {
-  switch (bit->getType()) {
-    case naja::NL::SNLNet::Type::Assign0:
-      return '0';
-    case naja::NL::SNLNet::Type::Assign1:
-      return '1';
-    default:
-      throw naja::NL::SNLVRLDumperException("ERROR"); //LCOV_EXCL_LINE
-  }
-}
-
-void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+void dumpConstantRange(
+    ContiguousNetBits& bits,
+    bool& firstElement,
+    bool& concatenation,
+    std::string& o,
+    const auto& constantBitToChar) {
   if (not bits.empty()) {
     if (not firstElement) {
       o += ", ";
@@ -98,7 +93,7 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
     std::string constantStr;
     for (auto bit: bits) {
-      constantStr += getAssignConstantBitValue(bit);
+      constantStr += constantBitToChar(bit);
     }
     if (constantStr.size() < 4) {
       //binary
@@ -144,47 +139,6 @@ std::string normalizeParameterValue(
   return value;
 }
 
-bool isZeroVerilogIntegerLiteral(const std::string& value) {
-  std::string compact;
-  compact.reserve(value.size());
-  for (char c : value) {
-    if (c != '_') {
-      compact += c;
-    }
-  }
-  if (compact == "0") {
-    return true;
-  }
-
-  const auto quote = compact.find('\'');
-  if (quote == std::string::npos || quote == 0) {
-    return false;
-  }
-  if (!std::all_of(compact.begin(), compact.begin() + quote, [](unsigned char c) {
-        return std::isdigit(c);
-      })) {
-    return false;
-  }
-
-  auto digits = quote + 1;
-  if (digits < compact.size() &&
-      (compact[digits] == 's' || compact[digits] == 'S')) {
-    ++digits;
-  }
-  if (digits == compact.size()) {
-    return false;
-  }
-  const char base = compact[digits++];
-  if (base != 'b' && base != 'B' && base != 'o' && base != 'O' &&
-      base != 'd' && base != 'D' && base != 'h' && base != 'H') {
-    return false;
-  }
-  return digits < compact.size() &&
-         std::all_of(compact.begin() + digits, compact.end(), [](char c) {
-           return c == '0';
-         });
-}
-
 std::string getEmittedDefaultParameterValue(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLParameter* parameter) {
@@ -200,12 +154,8 @@ std::string getEmittedDefaultParameterValue(
     }
     if (parameterName == NLName("RST_ENABLE") ||
         parameterName == NLName("RST_ASYNC") ||
-        parameterName == NLName("RST_ACTIVE_LOW") ||
-        parameterName == NLName("INIT_ENABLE")) {
+        parameterName == NLName("RST_ACTIVE_LOW")) {
       return "0";
-    }
-    if (parameterName == NLName("INIT")) {
-      return "1'b0";
     }
   }
   if (NLDB0::isDivMod(instance->getModel())) {
@@ -230,11 +180,6 @@ bool shouldDumpInstParameter(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLInstParameter* instParameter) {
   const auto* parameter = instParameter->getParameter();
-  if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
-      parameter->getName() == naja::NL::NLName("INIT") &&
-      isZeroVerilogIntegerLiteral(instParameter->getValue())) {
-    return false;
-  }
   return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
          normalizeParameterValue(
            parameter->getType(),
@@ -408,14 +353,7 @@ bool dumpSingleAssign(
   const naja::NL::SNLBitNet* outputNet,
   std::ostream& o,
   const auto& bitNetToString) {
-  std::string inputNetString;
-  if (inputNet->isConstant0()) {
-    inputNetString = "1'b0";
-  } else if (inputNet->isConstant1()) {
-    inputNetString = "1'b1";
-  } else {
-    inputNetString = bitNetToString(inputNet);
-  }
+  auto inputNetString = bitNetToString(inputNet);
   auto outputNetString = bitNetToString(outputNet);
   o << "assign " << outputNetString << " = " << inputNetString << ";" << '\n';
   return true;
@@ -436,12 +374,14 @@ std::string getBusBitRangeString(
   return busName + "[" + std::to_string(firstBit->getBit()) + ":" + std::to_string(lastBit->getBit()) + "]";
 }
 
-std::string getAssignConstantString(const std::vector<const naja::NL::SNLBitNet*>& bits) {
+std::string getAssignConstantString(
+    const std::vector<const naja::NL::SNLBitNet*>& bits,
+    const auto& constantBitToChar) {
   assert(not bits.empty());
   std::string bitString;
   bitString.reserve(bits.size());
   for (auto bit: bits) {
-    bitString += getAssignConstantBitValue(bit);
+    bitString += constantBitToChar(bit);
   }
   return std::to_string(bits.size()) + "'b" + bitString;
 }
@@ -485,12 +425,13 @@ struct AssignEmission {
 bool initializeAssignGroup(
   const naja::NL::SNLBitNet* inputNet,
   const naja::NL::SNLBitNet* outputNet,
-  AssignGroup& group) {
+  AssignGroup& group,
+  const auto& isInlineConstant) {
   auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
   if (not outputBusBit) {
     return false;
   }
-  if (inputNet->isAssignConstant()) {
+  if (isInlineConstant(inputNet)) {
     group.inputMode_ = AssignInputMode::Constant;
   } else {
     auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet);
@@ -507,12 +448,6 @@ bool initializeAssignGroup(
 std::string getAssignInputString(
   const naja::NL::SNLBitNet* inputNet,
   const auto& bitNetToString) {
-  if (inputNet->isConstant0()) {
-    return "1'b0";
-  }
-  if (inputNet->isConstant1()) {
-    return "1'b1";
-  }
   return bitNetToString(inputNet);
 }
 
@@ -540,6 +475,7 @@ bool createSingleAssignBusChunk(
   const naja::NL::SNLBitNet* inputNet,
   const naja::NL::SNLBitNet* outputNet,
   const auto& bitNetToString,
+  const auto& isInlineConstant,
   AssignBusChunk& chunk) {
   auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
   if (not outputBusBit) {
@@ -550,7 +486,7 @@ bool createSingleAssignBusChunk(
   chunk.outputBits_.push_back(outputBusBit);
   chunk.inputString_ = getAssignInputString(inputNet, bitNetToString);
 
-  if (inputNet->isAssignConstant()) {
+  if (isInlineConstant(inputNet)) {
     chunk.inputKind_ = AssignChunkInputKind::Constant;
     return true;
   }
@@ -569,7 +505,8 @@ bool createSingleAssignBusChunk(
 AssignBusChunk createAssignGroupBusChunk(
   const AssignGroup& group,
   const auto& bitNetToString,
-  const auto& busNetToString) {
+  const auto& busNetToString,
+  const auto& constantBitToChar) {
   assert(not group.outputBits_.empty());
   auto inputBits = group.inputBits_;
   auto outputBits = group.outputBits_;
@@ -581,7 +518,7 @@ AssignBusChunk createAssignGroupBusChunk(
 
   if (group.inputMode_ == AssignInputMode::Constant) {
     chunk.inputKind_ = AssignChunkInputKind::Constant;
-    chunk.inputString_ = getAssignConstantString(inputBits);
+    chunk.inputString_ = getAssignConstantString(inputBits, constantBitToChar);
     return chunk;
   }
 
@@ -721,7 +658,8 @@ std::string buildWholeBusAssignText(
 bool appendAssignGroup(
   AssignGroup& group,
   const naja::NL::SNLBitNet* inputNet,
-  const naja::NL::SNLBitNet* outputNet) {
+  const naja::NL::SNLBitNet* outputNet,
+  const auto& isInlineConstant) {
   auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
   if (not outputBusBit) {
     return false;
@@ -741,7 +679,7 @@ bool appendAssignGroup(
   }
 
   if (group.inputMode_ == AssignInputMode::Constant) {
-    if (not inputNet->isAssignConstant()) {
+    if (not isInlineConstant(inputNet)) {
       return false;
     }
   } else {
@@ -779,8 +717,10 @@ bool dumpAssignGroup(
   const AssignGroup& group,
   std::ostream& o,
   const auto& bitNetToString,
-  const auto& busNetToString) {
-  auto chunk = createAssignGroupBusChunk(group, bitNetToString, busNetToString);
+  const auto& busNetToString,
+  const auto& constantBitToChar) {
+  auto chunk = createAssignGroupBusChunk(
+    group, bitNetToString, busNetToString, constantBitToChar);
   o << getAssignBusChunkText(chunk, busNetToString) << '\n';
   return true;
 }
@@ -1165,17 +1105,70 @@ NLName SNLVRLDumper::getUnusedWireName(
   return it->second;
 }
 
+SNLVRLDumper::ConstantNetInfo SNLVRLDumper::getConstantNetInfo(
+  const SNLBitNet* bitNet) const {
+  auto [it, inserted] = constantNetInfoCache_.try_emplace(
+    bitNet, ConstantNetInfo::NotConstant);
+  if (!inserted) {
+    return it->second;
+  }
+
+  const auto value = SNLDesignModeling::getConstantValue(bitNet);
+  if (!value) {
+    return it->second;
+  }
+
+  bool assignKind = false;
+  for (auto* instTerm: bitNet->getInstTerms()) {
+    if (instTerm->getDirection() == SNLTerm::Direction::Output &&
+        SNLDesignModeling::isConstantDriver(instTerm->getInstance()) &&
+        SNLDesignModeling::getConstantDriverKind(instTerm->getInstance()) ==
+          NLConstantDriverKind::Assign) {
+      assignKind = true;
+      break;
+    }
+  }
+  if (!assignKind) {
+    it->second = ConstantNetInfo::OtherConstant;
+    return it->second;
+  }
+
+  switch (*value) {
+    case NLLogicValue::Zero: it->second = ConstantNetInfo::Assign0; break;
+    case NLLogicValue::One:  it->second = ConstantNetInfo::Assign1; break;
+    case NLLogicValue::X:    it->second = ConstantNetInfo::AssignX; break;
+    case NLLogicValue::Z:    it->second = ConstantNetInfo::AssignZ; break;
+  }
+  return it->second;
+}
+
+bool SNLVRLDumper::isInlineConstant(const SNLBitNet* bitNet) const {
+  const auto info = getConstantNetInfo(bitNet);
+  return info == ConstantNetInfo::Assign0 ||
+         info == ConstantNetInfo::Assign1 ||
+         info == ConstantNetInfo::AssignX ||
+         info == ConstantNetInfo::AssignZ;
+}
+
+char SNLVRLDumper::getAssignConstantBitValue(const SNLBitNet* bitNet) const {
+  switch (getConstantNetInfo(bitNet)) {
+    case ConstantNetInfo::Assign0: return '0';
+    case ConstantNetInfo::Assign1: return '1';
+    case ConstantNetInfo::AssignX: return 'x';
+    case ConstantNetInfo::AssignZ: return 'z';
+    default:
+      throw SNLVRLDumperException("ERROR"); //LCOV_EXCL_LINE
+  }
+}
+
 std::string SNLVRLDumper::getBitNetString(
   const SNLBitNet* bitNet,
-  const DesignInsideAnonymousNaming& naming) {
+  const DesignInsideAnonymousNaming& naming) const {
   if (!bitNet) {
     throw SNLVRLDumperException("Error while writing verilog: unexpected unconnected bit net");
   }
-  if (bitNet->isAssign0()) {
-    return "1'b0";
-  }
-  if (bitNet->isAssign1()) {
-    return "1'b1";
+  if (isInlineConstant(bitNet)) {
+    return std::string("1'b") + getAssignConstantBitValue(bitNet);
   }
   if (auto scalarNet = dynamic_cast<const SNLScalarNet*>(bitNet)) {
     auto netName = getNetName(scalarNet, naming);
@@ -1361,9 +1354,16 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
 }
 
 bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
-  if (net->isAssignConstant()) {
-    return false;
+  bool allInline = true;
+  bool hasBits = false;
+  for (auto* bit: net->getBits()) {
+    hasBits = true;
+    if (!isInlineConstant(bit)) {
+      allInline = false;
+      break;
+    }
   }
+  if (hasBits && allInline) return false;
   NLName netName;
   if (net->isUnnamed()) {
     netName = createNetName(net, naming);
@@ -1495,8 +1495,13 @@ void SNLVRLDumper::dumpInsTermConnectivity(
       if (bits.empty()) {
         return;
       }
-      if (bits[0]->isAssignConstant()) {
-        dumpConstantRange(bits, firstElement, concatenation, connectionStr);
+      if (isInlineConstant(bits[0])) {
+        dumpConstantRange(
+          bits,
+          firstElement,
+          concatenation,
+          connectionStr,
+          [&](const SNLBitNet* bit) { return getAssignConstantBitValue(bit); });
         return;
       }
       if (not firstElement) {
@@ -1546,10 +1551,10 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     for (size_t i = 0; i < termNets.size(); ++i) {
       auto net = termNets[i];
       if (net) {
-        if (net->isAssignConstant()) {
+        if (isInlineConstant(net)) {
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
-            if (not previousBit->isAssignConstant()) {
+            if (not isInlineConstant(previousBit)) {
               dumpRangeWithNaming(contiguousBits);
               contiguousBits = { net };
             } else {
@@ -1573,7 +1578,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           auto busNet = busNetBit->getBus();
           if (not contiguousBits.empty()) {
             SNLBitNet* previousBit = contiguousBits.back();
-            if (previousBit->isAssignConstant()) {
+            if (isInlineConstant(previousBit)) {
               dumpRangeWithNaming(contiguousBits);
               contiguousBits = { busNetBit };
             } else {
@@ -1673,46 +1678,69 @@ void SNLVRLDumper::dumpInstanceInterface(
 void SNLVRLDumper::dumpInstParameters(
   const SNLInstance* instance,
   std::ostream& o) {
-  std::vector<const SNLInstParameter*> dumpedParameters;
+  struct EmittedParameter {
+    std::string name;
+    std::string value;
+    SNLParameter::Type type {SNLParameter::Type::Binary};
+  };
+  std::vector<EmittedParameter> dumpedParameters;
   for (auto instParameter: instance->getInstParameters()) {
     if (shouldDumpInstParameter(instance, instParameter)) {
-      dumpedParameters.push_back(instParameter);
+      dumpedParameters.push_back({
+        instParameter->getName().getString(),
+        instParameter->getValue(),
+        instParameter->getParameter()->getType()});
+    }
+  }
+  if (NLDB0::isMemory(instance->getModel())) {
+    if (auto init = SNLDesignModeling::getInitValue(instance)) {
+      dumpedParameters.push_back({"INIT_ENABLE", "1", SNLParameter::Type::Decimal});
+      if (!init->isAll(NLLogicValue::Zero)) {
+        dumpedParameters.push_back(
+          {"INIT", init->toVerilogBinary(), SNLParameter::Type::Binary});
+      }
+    }
+    if (auto reset = SNLDesignModeling::getResetValue(instance)) {
+      if (!reset->isAll(NLLogicValue::Zero)) {
+        dumpedParameters.push_back(
+          {"RESET_VALUE_ENABLE", "1", SNLParameter::Type::Decimal});
+        dumpedParameters.push_back(
+          {"RESET_VALUE", reset->toVerilogBinary(), SNLParameter::Type::Binary});
+      }
     }
   }
   std::sort(
     dumpedParameters.begin(),
     dumpedParameters.end(),
-    [](const SNLInstParameter* lhs, const SNLInstParameter* rhs) {
-      return lhs->getName().getString() < rhs->getName().getString();
+    [](const EmittedParameter& lhs, const EmittedParameter& rhs) {
+      return lhs.name < rhs.name;
     });
   if (not dumpedParameters.empty()) {
     bool first = true;
     o << "#(" << '\n';
-    for (auto instParameter: dumpedParameters) {
+    for (const auto& parameter: dumpedParameters) {
       if (not first) {
         o << "," << '\n';
       }
       first = false;
-      o << "  ." << instParameter->getName().getString();
+      o << "  ." << parameter.name;
       o << "(";
-      auto parameter = instParameter->getParameter();
-      if (parameter->getType() == SNLParameter::Type::String) {
-        o << "\"" << instParameter->getValue() << "\"";
-      } else if (parameter->getType() == SNLParameter::Type::Boolean) {
-        if (instParameter->getValue()=="0" or instParameter->getValue()=="FALSE") {
+      if (parameter.type == SNLParameter::Type::String) {
+        o << "\"" << parameter.value << "\"";
+      } else if (parameter.type == SNLParameter::Type::Boolean) {
+        if (parameter.value=="0" or parameter.value=="FALSE") {
           o << "\"FALSE\"";
-        } else if (instParameter->getValue()=="1" or instParameter->getValue()=="TRUE") {
+        } else if (parameter.value=="1" or parameter.value=="TRUE") {
           o << "\"TRUE\"";
         } else {
           std::ostringstream reason;
           reason << "Error while writing verilog: in design " << instance->getDesign()->getString();
           reason << ", for instance " << instance->getName().getString();
-          reason << ", wrong boolean value in instance parameter " << parameter->getDescription();
-          reason << ": " << instParameter->getDescription();
+          reason << ", wrong boolean value in instance parameter " << parameter.name;
           throw SNLVRLDumperException(reason.str());
         }
       } else {
-        o << instParameter->getValue();
+        o << parameter.value;
       }
       o << ")";
     }
@@ -1755,6 +1783,43 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (SNLDesignModeling::isConstantDriver(instance)) {
+    const auto value = SNLDesignModeling::getConstantDriverValue(instance);
+    const auto kind = SNLDesignModeling::getConstantDriverKind(instance);
+    if (kind == NLConstantDriverKind::Assign) {
+      return false;
+    }
+    auto* output = NLDB0::getConstOutput(instance->getModel());
+    if (!output) { // LCOV_EXCL_START
+      return false;
+    } // LCOV_EXCL_STOP
+    for (auto* bitTerm : output->getBits()) {
+      auto* instTerm = instance->getInstTerm(bitTerm);
+      if (!instTerm || !instTerm->getNet()) {
+        continue;
+      }
+      size_t bitIndex = 0;
+      if (auto* busBit = dynamic_cast<SNLBusTermBit*>(bitTerm)) {
+        bitIndex = static_cast<size_t>(busBit->getBit());
+      }
+      const auto digit = value.getBit(bitIndex);
+      char digitChar = 'x';
+      switch (digit) {
+        case NLLogicValue::Zero: digitChar = '0'; break;
+        case NLLogicValue::One:  digitChar = '1'; break;
+        case NLLogicValue::X:    digitChar = 'x'; break;
+        case NLLogicValue::Z:    digitChar = 'z'; break;
+      }
+      dumpAttributes(instance, o, AttributeDumpSite::Instance);
+      o << "assign ";
+      if (kind == NLConstantDriverKind::Supply) {
+        o << "(supply0, supply1) ";
+      }
+      o << getBitNetString(instTerm->getNet(), naming)
+        << " = 1'b" << digitChar << ";\n";
+    }
+    return true;
+  }
   if (NLDB0::isMux2(instance->getModel())) {
     emitNajaMux2Model_ = true;
     emitNajaPrimitiveModels_ = true;
@@ -1857,9 +1922,8 @@ bool SNLVRLDumper::dumpInstance(
     if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
       widthValue = widthInstParam->getValue();
     }
-    const SNLInstParameter* initInstParam = instance->getInstParameter(NLName("INIT"));
-    const bool dumpInit =
-      initInstParam && shouldDumpInstParameter(instance, initInstParam);
+    const auto initValue = SNLDesignModeling::getInitValue(instance);
+    const bool dumpInit = initValue.has_value();
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
     o << modelName << " ";
     if (widthValue != "1" || dumpInit) {
@@ -1867,7 +1931,7 @@ bool SNLVRLDumper::dumpInstance(
       o << "  .WIDTH(" << widthValue << ")";
       if (dumpInit) {
         o << "," << '\n';
-        o << "  .INIT(" << initInstParam->getValue() << ")";
+        o << "  .INIT(" << initValue->toVerilogBinary() << ")";
       }
       o << '\n';
       o << ") ";
@@ -1938,6 +2002,12 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
     auto busName = getNetName(busNet, naming);
     return dumpName(busName.getString());
   };
+  auto inlineConstant = [&](const SNLBitNet* bitNet) {
+    return isInlineConstant(bitNet);
+  };
+  auto constantBitToChar = [&](const SNLBitNet* bitNet) {
+    return getAssignConstantBitValue(bitNet);
+  };
   auto dumpAssignInstances = [&](const std::vector<const SNLInstance*>& assignInstances) {
     std::vector<AssignEmission> emissions;
     size_t i = 0;
@@ -1949,7 +2019,8 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         continue;
       }
       AssignGroup group;
-      if (not initializeAssignGroup(inputNet, outputNet, group)) {
+      if (not initializeAssignGroup(
+            inputNet, outputNet, group, inlineConstant)) {
         AssignEmission emission;
         emission.text_ =
           "assign " + getBitNetString(outputNet, naming) +
@@ -1958,6 +2029,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
           inputNet,
           outputNet,
           bitNetToString,
+          inlineConstant,
           emission.busChunk_);
         emissions.push_back(std::move(emission));
         ++i;
@@ -1971,7 +2043,8 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         if (not getAssignConnectivity(assignInstances[i + groupSize], nextInputNet, nextOutputNet)) {
           break;
         }
-        if (not appendAssignGroup(group, nextInputNet, nextOutputNet)) {
+        if (not appendAssignGroup(
+              group, nextInputNet, nextOutputNet, inlineConstant)) {
           break;
         }
         ++groupSize;
@@ -1983,7 +2056,8 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         emission.busChunk_ = createAssignGroupBusChunk(
           group,
           bitNetToString,
-          busNetToString);
+          busNetToString,
+          constantBitToChar);
         emission.text_ = getAssignBusChunkText(
           emission.busChunk_,
           busNetToString);
@@ -1995,6 +2069,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
           inputNet,
           outputNet,
           bitNetToString,
+          inlineConstant,
           emission.busChunk_);
       }
       emissions.push_back(std::move(emission));
@@ -2044,6 +2119,11 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
 
   std::vector<const SNLInstance*> assignInstances;
   for (auto instance: design->getInstances()) {
+    if (SNLDesignModeling::isConstantDriver(instance) &&
+        SNLDesignModeling::getConstantDriverKind(instance) ==
+          NLConstantDriverKind::Assign) {
+      continue;
+    }
     if (NLDB0::isAssign(instance->getModel())) {
       if (configuration_.isDumpAssignsAsInstances()) {
         // LCOV_EXCL_START
@@ -2253,6 +2333,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
     detailedPerfReport_,
     detailedPerfReport_.dumpOneDesignDuration,
     detailedPerfReport_.dumpOneDesignCalls);
+  constantNetInfoCache_.clear();
   DesignInsideAnonymousNaming naming;
   for (auto term: getVerilogInterfaceTerms(design)) {
     if (not term->isUnnamed()) {
@@ -2588,7 +2669,9 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   // Keep the disabled default scalar so large uninitialized memories do not
   // force simulators to elaborate a WIDTH*DEPTH packed constant. A sized
   // explicit override retains its own width when initialization is enabled.
-  o << "  parameter INIT = 1'b0\n";
+  o << "  parameter INIT = 1'b0,\n";
+  o << "  parameter RESET_VALUE_ENABLE = 0,\n";
+  o << "  parameter RESET_VALUE = 1'b0\n";
   o << ") (\n";
   o << "  input CLK,\n";
   o << "  input RST,\n";
@@ -2609,6 +2692,19 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "      /* verilator lint_off SELRANGE */\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
   o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "      /* verilator lint_on SELRANGE */\n";
+  o << "    end\n";
+  o << "  endtask\n\n";
+  o << "  task automatic load_reset;\n";
+  o << "    integer reset_idx;\n";
+  o << "    begin\n";
+  o << "      /* verilator lint_off SELRANGE */\n";
+  o << "      for (reset_idx = 0; reset_idx < DEPTH; reset_idx = reset_idx + 1) begin\n";
+  o << "        if (RESET_VALUE_ENABLE)\n";
+  o << "          mem[reset_idx] = RESET_VALUE[reset_idx*WIDTH +: WIDTH];\n";
+  o << "        else\n";
+  o << "          mem[reset_idx] = {WIDTH{1'b0}};\n";
+  o << "      end\n";
   o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
   o << "  endtask\n\n";
@@ -2651,21 +2747,21 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset\n";
   o << "      always @(posedge CLK or negedge RST) begin\n";
   o << "        if (!RST)\n";
-  o << "          load_init();\n";
+  o << "          load_reset();\n";
   o << "        else\n";
   o << "          write_ports();\n";
   o << "      end\n";
   o << "    end else if (RST_ENABLE && RST_ASYNC) begin : async_high_reset\n";
   o << "      always @(posedge CLK or posedge RST) begin\n";
   o << "        if (RST)\n";
-  o << "          load_init();\n";
+  o << "          load_reset();\n";
   o << "        else\n";
   o << "          write_ports();\n";
   o << "      end\n";
   o << "    end else if (RST_ENABLE) begin : sync_reset\n";
   o << "      always @(posedge CLK) begin\n";
   o << "        if (reset_active)\n";
-  o << "          load_init();\n";
+  o << "          load_reset();\n";
   o << "        else\n";
   o << "          write_ports();\n";
   o << "      end\n";

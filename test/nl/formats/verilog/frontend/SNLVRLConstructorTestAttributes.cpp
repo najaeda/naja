@@ -208,9 +208,8 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     orOutTermAttributes[0]
   );
 
-  //2 assign nets (1'b0, 1'b1) and 6 nets
-  ASSERT_EQ(8, simple_netlist->getNets().size());
-  ASSERT_EQ(8, simple_netlist->getScalarNets().size());
+  ASSERT_EQ(6, simple_netlist->getNets().size());
+  ASSERT_EQ(6, simple_netlist->getScalarNets().size());
 
   auto andWire = simple_netlist->getNet(NLName("and_wire"));
   ASSERT_NE(andWire, nullptr);

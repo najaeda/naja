@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
@@ -63,17 +64,23 @@ TEST_F(SNLEquipotentialTest1, testConst0) {
   ASSERT_NE(cp, nullptr);
   auto cpi = cp->getInstTerm(cp->getModel()->getScalarTerm(NLName("i")));
   auto cpio = SNLOccurrence(cPath, cpi);
+
+  auto constant0 = aaPath.getModel()->getInstance(NLName("constant0"));
+  ASSERT_NE(constant0, nullptr);
+  auto constant0Output = constant0->getInstTerm(
+    constant0->getModel()->getScalarTerm(NLName("o")));
+  auto constant0OutputOccurrence = SNLOccurrence(aaPath, constant0Output);
   
   SNLEquipotential equipotentialTopOut(topout);
   using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
   Terms terms;
   terms.insert(topout);
   std::set<SNLOccurrence> instTermOccurrences;
+  instTermOccurrences.insert(constant0OutputOccurrence);
   instTermOccurrences.insert(bbpio);
   instTermOccurrences.insert(cpio);
   EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
-  EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign0);
   EXPECT_TRUE(equipotentialTopOut.isConst0());
 }
 
@@ -91,10 +98,12 @@ TEST_F(SNLEquipotentialTest1, testConst1) {
   ASSERT_NE(aa, nullptr);
   auto aan = aa->getScalarNet(NLName("n"));
   ASSERT_NE(aan, nullptr);
-  EXPECT_TRUE(aan->isAssign0());
-  aan->setType(SNLNet::Type::Assign1);
+  EXPECT_TRUE(SNLDesignModeling::isConstant(aan, NLLogicValue::Zero));
+  auto oldDriver = aa->getInstance(NLName("constant0"));
+  ASSERT_NE(oldDriver, nullptr);
+  oldDriver->destroy();
+  SNLDesignModeling::createConstantDriver(aan, NLLogicValue::One, NLConstantDriverKind::Assign);
 
   SNLEquipotential equipotentialTopOut(topout);
-  EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign1);
   EXPECT_TRUE(equipotentialTopOut.isConst1());
 }

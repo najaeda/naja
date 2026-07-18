@@ -15,17 +15,21 @@
 #include <vector>
 
 #include "SNLBitTerm.h"
+#include "NLLogicValue.h"
 #include "SNLTruthTable.h"
 namespace naja::NL {
 
 class SNLInstance;
 class SNLInstTerm;
 class SNLDesign;
+class SNLBitNet;
+class SNLNet;
 
 /**
  * \brief SNLDesignModeling allows to add timing informations on primitives and blackboxes.
  */
 class SNLDesignModeling {
+  friend class SNLInstance;
   public:
     enum class SNLTermRole {
       Clock, DataInput, DataOutput, AsyncReset, AsyncSet, SyncReset, SyncSet, Enable,
@@ -159,6 +163,39 @@ class SNLDesignModeling {
     static SNLTruthTable getTruthTable(const SNLDesign* design, size_t flatTermID);
     static bool hasModeling(const SNLDesign* design);
     static bool isSequential(const SNLDesign* design);
+    /// \brief True when an instance carries explicit power-up initialization.
+    static bool hasInit(const SNLInstance* instance);
+    /// \brief Set an explicit width-exact power-up value.
+    static void setInitValue(SNLInstance* instance, const NLLogicVector& value);
+    /// \return Explicit power-up initialization, or std::nullopt when absent.
+    static std::optional<NLLogicVector> getInitValue(const SNLInstance* instance);
+    /// \brief Set a width-exact reset image.
+    static void setResetValue(SNLInstance* instance, const NLLogicVector& value);
+    /// \return Reset image when modeled separately, or std::nullopt.
+    static std::optional<NLLogicVector> getResetValue(const SNLInstance* instance);
+    static SNLInstance* createConstantDriver(
+      SNLDesign* design,
+      const NLLogicVector& value,
+      NLConstantDriverKind kind,
+      const NLName& name = NLName());
+    static SNLInstance* createConstantDriver(
+      SNLNet* net,
+      NLLogicValue value,
+      NLConstantDriverKind kind = NLConstantDriverKind::Assign,
+      const NLName& name = NLName());
+    static void setConstantDriver(
+      SNLInstance* instance,
+      const NLLogicVector& value,
+      NLConstantDriverKind kind);
+    static bool isConstantDriver(const SNLInstance* instance);
+    static NLConstantDriverKind getConstantDriverKind(const SNLInstance* instance);
+    static NLLogicVector getConstantDriverValue(const SNLInstance* instance);
+    /// \return The value structurally driving a bit net, when unambiguous.
+    static std::optional<NLLogicValue> getConstantValue(const SNLBitNet* net);
+    /// \return True when every bit is structurally driven by a constant.
+    static bool isConstant(const SNLNet* net);
+    /// \return True when every bit is structurally driven by \p value.
+    static bool isConstant(const SNLNet* net, NLLogicValue value);
     static bool isConst0(const SNLDesign* design);
     static bool isConst1(const SNLDesign* design);
     static bool isConst(const SNLDesign* design);
@@ -176,6 +213,16 @@ class SNLDesignModeling {
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
+    static bool compareInstanceModeling(
+      const SNLInstance* instance1,
+      const SNLInstance* instance2,
+      std::string& reason);
+    static void cloneInstanceModeling(
+      const SNLInstance* source,
+      SNLInstance* target);
+    static void validateInstanceModelingForModel(
+      const SNLInstance* instance,
+      const SNLDesign* model);
     
     void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output);
     void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output, const std::string& parameterValue);

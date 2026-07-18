@@ -8,7 +8,9 @@ using ::testing::ElementsAre;
 using ::testing::UnorderedElementsAre;
 
 #include "NLUniverse.h"
+#include "NLDB0.h"
 #include "NLException.h"
+#include "NLLogicValue.h"
 #include "NajaDumpableProperty.h"
 
 #include "SNLDesignModeling.h"
@@ -17,6 +19,8 @@ using ::testing::UnorderedElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
+#include "SNLInstance.h"
+#include "SNLInstParameter.h"
 using namespace naja::NL;
 
 class SNLDesignModelingTest0: public ::testing::Test {
@@ -1067,4 +1071,105 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTTWithEmptyDeps) {
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i1).size(), 1);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 1);
+}
+
+TEST_F(SNLDesignModelingTest0, testExplicitSequentialInitialization) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* dff = NLDB0::getOrCreateDFF(4);
+
+  auto* uninitialized = SNLInstance::create(top, dff, NLName("uninitialized"));
+  EXPECT_TRUE(uninitialized->getProperties().empty());
+  EXPECT_FALSE(SNLDesignModeling::hasInit(uninitialized));
+  EXPECT_FALSE(SNLDesignModeling::getInitValue(uninitialized));
+
+  auto* explicitX = SNLInstance::create(top, dff, NLName("explicit_x"));
+  SNLDesignModeling::setInitValue(
+    explicitX, NLLogicVector::fromVerilogBinary("4'bxxxx"));
+  EXPECT_EQ(1, explicitX->getProperties().size());
+  EXPECT_TRUE(SNLDesignModeling::hasInit(explicitX));
+  auto xValue = SNLDesignModeling::getInitValue(explicitX);
+  ASSERT_TRUE(xValue);
+  EXPECT_TRUE(xValue->isAll(NLLogicValue::X));
+
+  auto* mixed = SNLInstance::create(top, dff, NLName("mixed"));
+  SNLDesignModeling::setInitValue(
+    mixed, NLLogicVector::fromVerilogBinary("4'b10xz"));
+  auto mixedValue = SNLDesignModeling::getInitValue(mixed);
+  ASSERT_TRUE(mixedValue);
+  EXPECT_EQ("4'b10xz", mixedValue->toVerilogBinary());
+
+  auto* invalid = SNLInstance::create(top, dff, NLName("invalid"));
+  EXPECT_THROW(
+    SNLDesignModeling::setInitValue(
+      invalid, NLLogicVector::fromVerilogBinary("3'b101")),
+    NLException);
+  EXPECT_FALSE(SNLDesignModeling::hasInit(nullptr));
+
+  auto* regularDFF = SNLDesign::create(designs, NLName("regular_dff"));
+  SNLScalarTerm::create(regularDFF, SNLTerm::Direction::Input, NLName("C"));
+  SNLBusTerm::create(regularDFF, SNLTerm::Direction::Input, 3, 0, NLName("D"));
+  SNLBusTerm::create(regularDFF, SNLTerm::Direction::Output, 3, 0, NLName("Q"));
+  SNLParameter::create(
+    regularDFF, NLName("WIDTH"), SNLParameter::Type::Decimal, "4");
+  EXPECT_THROW(mixed->setModel(regularDFF), NLException);
+  EXPECT_EQ(dff, mixed->getModel());
+
+  auto* clone = top->clone(NLName("top_clone"));
+  auto* clonedMixed = clone->getInstance(NLName("mixed"));
+  ASSERT_NE(nullptr, clonedMixed);
+  ASSERT_TRUE(SNLDesignModeling::getInitValue(clonedMixed));
+  EXPECT_EQ("4'b10xz", SNLDesignModeling::getInitValue(clonedMixed)->toVerilogBinary());
+  std::string reason;
+  EXPECT_TRUE(top->deepCompare(
+    clone, reason, NLDesign::CompareType::IgnoreIDAndName)) << reason;
+  SNLDesignModeling::setInitValue(
+    clonedMixed, NLLogicVector::fromVerilogBinary("4'b0000"));
+  reason.clear();
+  EXPECT_FALSE(top->deepCompare(
+    clone, reason, NLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_FALSE(reason.empty());
+}
+
+TEST_F(SNLDesignModelingTest0, testMemoryInitializationAndResetAreDistinct) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+
+  NLDB0::MemorySignature signature;
+  signature.width = 2;
+  signature.depth = 2;
+  signature.abits = 1;
+  signature.readPorts = 1;
+  signature.writePorts = 1;
+  signature.resetMode = NLDB0::MemoryResetMode::SyncHigh;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  auto* instance = SNLInstance::create(top, memory, NLName("memory"));
+
+  EXPECT_TRUE(instance->getProperties().empty());
+  EXPECT_FALSE(SNLDesignModeling::hasInit(instance));
+  EXPECT_FALSE(SNLDesignModeling::getInitValue(instance));
+  auto defaultReset = SNLDesignModeling::getResetValue(instance);
+  ASSERT_TRUE(defaultReset);
+  EXPECT_EQ("4'b0000", defaultReset->toVerilogBinary());
+
+  SNLDesignModeling::setInitValue(
+    instance, NLLogicVector::fromVerilogBinary("4'b10xz"));
+  SNLDesignModeling::setResetValue(
+    instance, NLLogicVector::fromVerilogBinary("4'b0110"));
+  EXPECT_EQ(1, instance->getProperties().size());
+
+  ASSERT_TRUE(SNLDesignModeling::hasInit(instance));
+  ASSERT_TRUE(SNLDesignModeling::getInitValue(instance));
+  EXPECT_EQ("4'b10xz", SNLDesignModeling::getInitValue(instance)->toVerilogBinary());
+  ASSERT_TRUE(SNLDesignModeling::getResetValue(instance));
+  EXPECT_EQ("4'b0110", SNLDesignModeling::getResetValue(instance)->toVerilogBinary());
+
+  auto* defaulted = SNLInstance::create(top, memory, NLName("defaulted_memory"));
+  EXPECT_TRUE(defaulted->getProperties().empty());
+  ASSERT_TRUE(SNLDesignModeling::getResetValue(defaulted));
+  EXPECT_EQ("4'b0000", SNLDesignModeling::getResetValue(defaulted)->toVerilogBinary());
 }

@@ -201,7 +201,6 @@ SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   SNLAttributes::cloneAttributes(this, newBus);
   newBus->createBits();
   for (size_t i=0; i<bits_.size(); i++) {
-    newBus->bits_[i]->setType(bits_[i]->getType());
     bits_[i]->cloneComponents(newBus->bits_[i]);
   }
   return newBus;
@@ -264,34 +263,10 @@ void SNLBusNet::insertBits(
   bitNets.insert(position, bits_.begin()+msbPos, bits_.begin()+lsbPos+1); 
 }
 
-void SNLBusNet::setType(const Type& type) {
-  std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
-}
-
 DESIGN_OBJECT_SET_NAME(SNLBusNet, Net, net)
 
 bool SNLBusNet::isAllNull() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr; });
-}
-
-bool SNLBusNet::isAssign0() const {
-  return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign0(); });
-}
-
-bool SNLBusNet::isAssign1() const {
-  return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign1(); });
-}
-
-bool SNLBusNet::isSupply0() const {
-  return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isSupply0(); });
-}
-
-bool SNLBusNet::isSupply1() const {
-  return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isSupply1(); });
 }
 
 //LCOV_EXCL_START

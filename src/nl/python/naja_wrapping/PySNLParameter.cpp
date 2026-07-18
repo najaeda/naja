@@ -73,7 +73,28 @@ static PyObject* PySNLParameter_createBinary(PyObject*, PyObject* args) {
   SNLParameter* parameter = nullptr;
   TRY
   if (IsPySNLDesign(arg0)) {
-    parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::Binary, std::to_string(value));
+    if (size <= 0 || value < 0) {
+      setError("SNLParameter binary value requires a positive width and non-negative value");
+      return nullptr;
+    }
+    std::string digits(static_cast<size_t>(size), '0');
+    auto unsignedValue = static_cast<unsigned int>(value);
+    if (size < static_cast<int>(sizeof(unsignedValue) * 8) &&
+        (unsignedValue >> size) != 0) {
+      setError("SNLParameter binary value does not fit the requested width");
+      return nullptr;
+    }
+    for (int bit = 0; bit < size; ++bit) {
+      if (bit < static_cast<int>(sizeof(unsignedValue) * 8) &&
+          ((unsignedValue >> bit) & 1U)) {
+        digits[static_cast<size_t>(size - bit - 1)] = '1';
+      }
+    }
+    parameter = SNLParameter::create(
+      PYSNLDesign_O(arg0),
+      name,
+      SNLParameter::Type::Binary,
+      std::to_string(size) + "'b" + digits);
   } else {
     setError("SNLParameter create accepts SNLDesign as first argument");
     return nullptr;
@@ -107,6 +128,17 @@ static PyObject* PySNLParameter_createBoolean(PyObject*, PyObject* args) {
 GetNameMethod(SNLParameter)
 GetObjectMethod(SNLParameter, SNLDesign, getDesign)
 
+static PyObject* PySNLParameter_getValue(PySNLParameter* self) {
+  METHOD_HEAD("SNLParameter.getValue()")
+  return PyUnicode_FromString(selfObject->getValue().c_str());
+}
+
+static PyObject* PySNLParameter_getType(PySNLParameter* self) {
+  METHOD_HEAD("SNLParameter.getType()")
+  return PyLong_FromLong(static_cast<long>(
+    static_cast<SNLParameter::Type::TypeEnum>(selfObject->getType())));
+}
+
 DBoDestroyAttribute(PySNLParameter_destroy, PySNLParameter)
 
 PyMethodDef PySNLParameter_Methods[] = {
@@ -122,6 +154,10 @@ PyMethodDef PySNLParameter_Methods[] = {
     "get SNLParameter name"},
   { "getDesign", (PyCFunction)PySNLParameter_getDesign, METH_NOARGS,
     "get SNLParameter owner design"},
+  { "getValue", (PyCFunction)PySNLParameter_getValue, METH_NOARGS,
+    "get the parameter value string"},
+  { "getType", (PyCFunction)PySNLParameter_getType, METH_NOARGS,
+    "get the SNLParameter type tag"},
   { "destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
     "destroy this SNLParameter."},
   {NULL, NULL, 0, NULL}           /* sentinel */

@@ -23,6 +23,7 @@
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "NLException.h"
+#include "NLLogicValue.h"
 
 #include "SNLDesignObject.h"
 #include "SNLRTLInfos.h"
@@ -34,27 +35,40 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLDesignModeling.h"
 
 //using boost::asio::ip::tcp;
 
 namespace {
 
 using namespace naja::NL;
+using CapnPConstantDriver =
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::ConstantDriver;
 
-DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType SNLtoCapnPNetType(SNLNet::Type type) {
-  switch (type) {
-    case SNLNet::Type::Standard:
-      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD;
-    case SNLNet::Type::Assign0:
-      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN0;
-    case SNLNet::Type::Assign1:
-      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN1;
-    case SNLNet::Type::Supply0:
-      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY0;
-    case SNLNet::Type::Supply1:
-      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1;
+template<typename Builder>
+void dumpLogicVector(Builder builder, const NLLogicVector& value) {
+  builder.setWidth(value.getWidth());
+  auto aval = builder.initAval(value.getAvalWords().size());
+  auto bval = builder.initBval(value.getBvalWords().size());
+  for (size_t i = 0; i < value.getAvalWords().size(); ++i) {
+    aval.set(i, value.getAvalWords()[i]);
+    bval.set(i, value.getBvalWords()[i]);
   }
-  return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD; //LCOV_EXCL_LINE
+}
+
+template<typename Reader>
+NLLogicVector loadLogicVector(Reader reader) {
+  std::vector<uint64_t> aval;
+  std::vector<uint64_t> bval;
+  aval.reserve(reader.getAval().size());
+  bval.reserve(reader.getBval().size());
+  for (auto word: reader.getAval()) {
+    aval.push_back(word);
+  }
+  for (auto word: reader.getBval()) {
+    bval.push_back(word);
+  }
+  return NLLogicVector::fromPackedWords(reader.getWidth(), std::move(aval), std::move(bval));
 }
 
 void dumpInstParameter(
@@ -85,6 +99,20 @@ void dumpInstance(
   }
   if (snlInstance->hasRTLInfos()) {
     dumpRTLInfos(instance.initRtlInfos(), snlInstance->getRTLInfos());
+  }
+  if (SNLDesignModeling::isConstantDriver(snlInstance)) {
+    auto driver = instance.initConstantDriver();
+    dumpLogicVector(driver.initValue(), SNLDesignModeling::getConstantDriverValue(snlInstance));
+    driver.setKind(
+      SNLDesignModeling::getConstantDriverKind(snlInstance) == NLConstantDriverKind::Supply
+        ? CapnPConstantDriver::Kind::SUPPLY
+        : CapnPConstantDriver::Kind::ASSIGN);
+  }
+  if (auto value = SNLDesignModeling::getInitValue(snlInstance)) {
+    dumpLogicVector(instance.initInitValue(), *value);
+  }
+  if (auto value = SNLDesignModeling::getResetValue(snlInstance)) {
+    dumpLogicVector(instance.initResetValue(), *value);
   }
 }
 
@@ -128,7 +156,6 @@ void dumpScalarNet(
   if (not scalarNet->isUnnamed()) {
     scalarNetBuilder.setName(scalarNet->getName().getString());
   }
-  scalarNetBuilder.setType(SNLtoCapnPNetType(scalarNet->getType()));
   size_t componentsSize = scalarNet->getComponents().size();
   if (componentsSize > 0) {
     auto components = scalarNetBuilder.initComponents(componentsSize);
@@ -150,7 +177,6 @@ void dumpBusNetBit(
   bitBuilder.setBit(bit);
   if (busNetBit) {
     bitBuilder.setDestroyed(false);
-    bitBuilder.setType(SNLtoCapnPNetType(busNetBit->getType()));
     size_t componentsSize = busNetBit->getComponents().size();
     if (componentsSize > 0) {
       auto components = bitBuilder.initComponents(componentsSize);
@@ -236,22 +262,6 @@ void dumpLibraryImplementation(
   }
 }
 
-SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType type) {
-  switch (type) {
-    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD:
-      return SNLNet::Type::Standard;
-    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN0:
-      return SNLNet::Type::Assign0;
-    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN1:
-      return SNLNet::Type::Assign1;
-    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY0:
-      return SNLNet::Type::Supply0;
-    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1:
-      return SNLNet::Type::Supply1;
-  }
-  return SNLNet::Type::Standard; //LCOV_EXCL_LINE
-}
-
 void loadInstParameter(
   SNLInstance* instance,
   const DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::InstParameter::Reader& instParameter) {
@@ -324,6 +334,21 @@ void loadInstance(
   }
   if (instance.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(snlInstance), instance.getRtlInfos());
+  }
+  if (instance.hasConstantDriver()) {
+    auto driver = instance.getConstantDriver();
+    SNLDesignModeling::setConstantDriver(
+      snlInstance,
+      loadLogicVector(driver.getValue()),
+      driver.getKind() == CapnPConstantDriver::Kind::SUPPLY
+        ? NLConstantDriverKind::Supply
+        : NLConstantDriverKind::Assign);
+  }
+  if (instance.hasInitValue()) {
+    SNLDesignModeling::setInitValue(snlInstance, loadLogicVector(instance.getInitValue()));
+  }
+  if (instance.hasResetValue()) {
+    SNLDesignModeling::setResetValue(snlInstance, loadLogicVector(instance.getResetValue()));
   }
 }
 
@@ -436,7 +461,6 @@ void loadBusNet(
         busNetBit->destroy();
         continue;
       }
-      busNetBit->setType(CapnPtoSNLNetType(bitNet.getType()));
       if (bitNet.hasComponents()) {
         for (auto componentReference: bitNet.getComponents()) {
           if (componentReference.isInstTermReference()) {
@@ -464,7 +488,6 @@ void loadScalarNet(
     snlName = NLName(net.getName());
   }
   auto scalarNet = SNLScalarNet::create(design, NLID::DesignObjectID(net.getId()), snlName);
-  scalarNet->setType(CapnPtoSNLNetType(net.getType()));
   if (net.hasComponents()) {
     for (auto componentReference: net.getComponents()) {
       if (componentReference.isInstTermReference()) {

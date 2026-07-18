@@ -114,7 +114,7 @@ void ReductionOptimization::replaceInstance(
   for (auto term : instance->getInstTerms()) {
     SNLBitNet* bitNet = term->getNet();
     term->setNet(nullptr);
-    if (bitNet->isConstant() || reducedInstTerms.empty()) {
+    if (SNLDesignModeling::getConstantValue(bitNet) || reducedInstTerms.empty()) {
       continue;
     }
     originNonConstantIndex++;

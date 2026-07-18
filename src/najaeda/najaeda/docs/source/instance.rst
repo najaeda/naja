@@ -28,6 +28,32 @@ Common tasks
    for leaf in alu.get_leaf_instances():
        print(leaf.get_name())
 
+Choosing an instance view
+-------------------------
+
+Constant drivers and continuous-assignment glue are explicit instances in
+SNL.  :py:meth:`najaeda.netlist.Instance.get_child_instances` is therefore
+lossless: it returns regular instances and both kinds of implementation helper.
+Use the named views instead of repeating ad-hoc filters:
+
+.. code-block:: python
+
+   regular = list(top.get_regular_child_instances())
+   assigns = list(top.get_assign_child_instances())
+   constants = list(top.get_constant_driver_child_instances())
+   helpers = list(top.get_helper_child_instances())
+
+The categories form these invariants:
+
+* all children = regular + assign glue + constant drivers;
+* helper children = assign glue + constant drivers.
+
+An instance for which :py:meth:`~najaeda.netlist.Instance.is_constant_driver`
+is true is not assign glue, even when its constant-driver kind is ``assign``.
+That kind records HDL provenance.  Use
+:py:meth:`~najaeda.netlist.Instance.is_assign` only for assign-glue instances,
+and :py:meth:`~najaeda.netlist.Instance.is_regular` for neither category.
+
 Generic Gates (and, or, etc.)
 -----------------------------
 

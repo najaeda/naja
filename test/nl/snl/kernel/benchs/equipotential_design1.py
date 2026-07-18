@@ -11,13 +11,18 @@ def constructEquipotentialDesign(db):
   #Primitive
   prim = naja.SNLDesign.createPrimitive(primitivesLib, "PRIM")
   primi = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "i")
+  logic0 = naja.SNLDesign.createPrimitive(primitivesLib, "LOGIC0")
+  logic0o = naja.SNLScalarTerm.create(
+    logic0, naja.SNLTerm.Direction.Output, "o")
+  logic0.setTruthTable(0)
 
   #Design AA
   aa = naja.SNLDesign.create(designLib, 'AA')
   aan = naja.SNLScalarNet.create(aa, 'n')
   aao = naja.SNLScalarTerm.create(aa, naja.SNLTerm.Direction.Output, 'o')
   aao.setNet(aan)
-  aan.setType(naja.SNLNet.Type.Assign0)
+  constant0 = naja.SNLInstance.create(aa, logic0, "constant0")
+  constant0.getInstTerm(logic0o).setNet(aan)
 
   #Design A
   a = naja.SNLDesign.create(designLib, 'A')

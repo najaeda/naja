@@ -59,9 +59,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     if ((fterm.getSnlBitTerm()->getNet() != nullptr) &&
         !fterm.getDNLInstance().getSNLModel()->isAssign()) {
       iso.addNet(fterm.getSnlBitTerm()->getNet());
-      if (fterm.getSnlBitTerm()->getNet()->isConstant()) {
-        updateConstant(iso, db_, fterm.getSnlBitTerm()->getNet());
-      }
+      updateConstant(iso, db_, fterm.getSnlBitTerm()->getNet());
       bool netAlreadyVisited = false;
       DNLInstance finstance = fterm.getDNLInstance();
       for (SNLInstTerm* instTerm :
@@ -95,9 +93,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     if (!fterm.getDNLInstance().isTop() &&
         fterm.getSnlTerm()->getNet() != nullptr) {
       iso.addNet(fterm.getSnlTerm()->getNet());
-      if (fterm.getSnlTerm()->getNet()->isConstant()) {
-        updateConstant(iso, db_, fterm.getSnlTerm()->getNet());
-      }
+      updateConstant(iso, db_, fterm.getSnlTerm()->getNet());
       bool netAlreadyVisited = false;
       DNLInstance fparent = fterm.getDNLInstance().getParentInstance();
       for (SNLInstTerm* instTerm :
@@ -366,8 +362,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                       nonConstDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                     };
   auto handleConstant = [&](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net) {
-                      bool constant0 = net->isConstant0();
-                      bool constant1 = net->isConstant1();
+                      auto value = SNLDesignModeling::getConstantValue(net);
+                      bool constant0 = value == NLLogicValue::Zero;
+                      bool constant1 = value == NLLogicValue::One;
                       if (constant0) {
                         if (iso.isConstant1()) {
                           db.removeConstant1Iso(iso.getIsoID());

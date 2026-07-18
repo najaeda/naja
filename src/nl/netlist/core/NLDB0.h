@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include "NLID.h"
+#include "NLLogicValue.h"
 #include "SNLTruthTable.h"
 
 namespace naja::NL {
@@ -52,7 +53,6 @@ class NLDB0 {
      * two-state while INIT is four-state metadata.
      */
     static std::string formatDFFInitValue(size_t width, std::string_view msbToLsbDigits);
-    static std::string getUndefinedDFFInitValue(size_t width);
 
     struct MemorySignature {
       size_t          width      {0};
@@ -170,6 +170,9 @@ class NLDB0 {
     static bool isAssign(const SNLDesign* design);
     static SNLScalarTerm* getAssignInput();
     static SNLScalarTerm* getAssignOutput();
+    static SNLDesign* getOrCreateConst(size_t width);
+    static bool isConst(const SNLDesign* design);
+    static SNLTerm* getConstOutput(const SNLDesign* design);
     static SNLDesign* getFA();
     static bool isFA(const SNLDesign* design);
     static SNLScalarTerm* getFAInputA();

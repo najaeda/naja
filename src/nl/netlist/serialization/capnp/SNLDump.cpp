@@ -6,7 +6,7 @@
 
 namespace naja::NL {
 
-const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 0);
+const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 1);
 
 //LCOV_EXCL_START
 std::string SNLDump::Version::getString() {

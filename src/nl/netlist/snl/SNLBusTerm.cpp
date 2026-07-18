@@ -309,16 +309,9 @@ void SNLBusTerm::setMSB(NLID::Bit msb) {
   std::vector<SNLBusTermBit*> removedBits(bits_.begin(), bits_.begin() + removeCount);
   for (auto bit: removedBits) {
     if (auto net = bit->getNet()) {
-      if (not net->isConstant()) {
-        std::ostringstream reason;
-        reason << "setMSB error: " << bit->getString() << " is connected to a non-constant net";
-        throw NLException(reason.str());
-      }
-      if (not net->getInstTerms().empty()) {
-        std::ostringstream reason;
-        reason << "setMSB error: " << bit->getString() << " net is connected to instances";
-        throw NLException(reason.str());
-      }
+      std::ostringstream reason;
+      reason << "setMSB error: " << bit->getString() << " is connected to a net";
+      throw NLException(reason.str());
     }
   }
 
@@ -375,16 +368,9 @@ void SNLBusTerm::setLSB(NLID::Bit lsb) {
   std::vector<SNLBusTermBit*> removedBits(eraseBegin, bits_.end());
   for (auto bit: removedBits) {
     if (auto net = bit->getNet()) {
-      if (not net->isConstant()) {
-        std::ostringstream reason;
-        reason << "setLSB error: " << bit->getString() << " is connected to a non-constant net";
-        throw NLException(reason.str());
-      }
-      if (not net->getInstTerms().empty()) {
-        std::ostringstream reason;
-        reason << "setLSB error: " << bit->getString() << " net is connected to instances";
-        throw NLException(reason.str());
-      }
+      std::ostringstream reason;
+      reason << "setLSB error: " << bit->getString() << " is connected to a net";
+      throw NLException(reason.str());
     }
   }
 

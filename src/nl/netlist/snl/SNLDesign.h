@@ -167,11 +167,23 @@ class SNLDesign final: public NLObject {
     /// \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship).
     NajaCollection<SNLInstance*> getInstances() const;
 
-    /// \return getInstances() excluding only instances whose model is assign glue.
+    /**
+     * \return getInstances() excluding only assign-glue instances.
+     * \remark This compatibility view includes constant-driver instances.
+     */
     NajaCollection<SNLInstance*> getNonAssignInstances() const;
 
-    /// \return the collection of instances whose model is assign glue.
+    /// \return the collection of assign-glue instances.
     NajaCollection<SNLInstance*> getAssignInstances() const;
+
+    /// \return the collection of instances that are neither assign glue nor constant drivers.
+    NajaCollection<SNLInstance*> getRegularInstances() const;
+
+    /// \return the collection of constant-driver instances.
+    NajaCollection<SNLInstance*> getConstantDriverInstances() const;
+
+    /// \return the collection of assign-glue and constant-driver instances.
+    NajaCollection<SNLInstance*> getHelperInstances() const;
 
     /**
      * \return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship).

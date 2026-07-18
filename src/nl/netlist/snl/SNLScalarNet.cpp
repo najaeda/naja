@@ -98,7 +98,6 @@ void SNLScalarNet::preDestroy() {
 
 SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
   auto newNet = new SNLScalarNet(design, id_, name_);
-  newNet->setType(getType());
   SNLAttributes::cloneAttributes(this, newNet);
   cloneComponents(newNet);
   return newNet;
@@ -147,12 +146,6 @@ bool SNLScalarNet::deepCompare(const SNLNet* other, std::string& reason) const {
   if (not otherScalarNet) {
     //LCOV_EXCL_START
     reason = "other term is not a SNLScalarNet";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (getType() != otherScalarNet->getType()) {
-    //LCOV_EXCL_START
-    reason = "type mismatch";
     return false;
     //LCOV_EXCL_STOP
   }

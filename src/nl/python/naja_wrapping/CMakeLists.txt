@@ -12,7 +12,6 @@ set(SOURCES
   PySNLParameter.cpp
   PySNLDesignObject.cpp
   PySNLNet.cpp PySNLBusNet.cpp PySNLBitNet.cpp PySNLScalarNet.cpp PySNLBusNetBit.cpp
-  PySNLNetType.cpp
   PySNLTermRole.cpp
   PySNLActiveLevel.cpp
   PySNLNetComponent.cpp

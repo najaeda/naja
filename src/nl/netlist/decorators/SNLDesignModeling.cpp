@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <stdexcept>
 
 #include "NLBitDependencies.h"
 #include "NLException.h"
@@ -18,7 +19,11 @@
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLBitNet.h"
 #include "SNLInstTerm.h"
+#include "SNLInstance.h"
+#include "SNLInstParameter.h"
+#include "SNLParameter.h"
 #include "SNLScalarTerm.h"
 
 // Common macros to unify repeated calculations without changing behavior
@@ -544,6 +549,124 @@ bool isConnectedWritePort(
     }
   }
   return true;
+}
+
+class SNLInstanceStateProperty: public naja::NajaPrivateProperty {
+  public:
+    using Inherit = naja::NajaPrivateProperty;
+    static const inline std::string Name = "SNLInstanceStateProperty";
+
+    static SNLInstanceStateProperty* create(naja::NL::SNLInstance* instance) {
+      preCreate(instance, Name);
+      auto* property = new SNLInstanceStateProperty();
+      property->postCreate(instance);
+      return property;
+    }
+
+    static SNLInstanceStateProperty* get(const naja::NL::SNLInstance* instance) {
+      return instance
+        ? static_cast<SNLInstanceStateProperty*>(instance->getProperty(Name))
+        : nullptr;
+    }
+
+    static SNLInstanceStateProperty* getOrCreate(naja::NL::SNLInstance* instance) {
+      auto* property = get(instance);
+      return property ? property : create(instance);
+    }
+
+    std::string getName() const override { return Name; }
+    //LCOV_EXCL_START
+    std::string getString() const override { return Name; }
+    //LCOV_EXCL_STOP
+
+    std::optional<naja::NL::NLLogicVector> initValue_  {};
+    std::optional<naja::NL::NLLogicVector> resetValue_ {};
+};
+
+class SNLConstantDriverProperty: public naja::NajaPrivateProperty {
+  public:
+    using Inherit = naja::NajaPrivateProperty;
+    static const inline std::string Name = "SNLConstantDriverProperty";
+
+    static SNLConstantDriverProperty* create(
+        naja::NL::SNLInstance* instance,
+        const naja::NL::NLConstantDriver& driver) {
+      preCreate(instance, Name);
+      auto* property = new SNLConstantDriverProperty();
+      property->driver_ = driver;
+      property->postCreate(instance);
+      return property;
+    }
+
+    static SNLConstantDriverProperty* get(const naja::NL::SNLInstance* instance) {
+      return instance
+        ? static_cast<SNLConstantDriverProperty*>(instance->getProperty(Name))
+        : nullptr;
+    }
+
+    std::string getName() const override { return Name; }
+    //LCOV_EXCL_START
+    std::string getString() const override { return Name; }
+    //LCOV_EXCL_STOP
+
+    naja::NL::NLConstantDriver driver_ {};
+};
+
+std::optional<std::string> getEffectiveParameterValue(
+    const naja::NL::SNLInstance* instance,
+    const naja::NL::SNLDesign* model,
+    const naja::NL::NLName& name) {
+  if (auto* instanceParameter = instance->getInstParameter(name)) {
+    return instanceParameter->getValue();
+  }
+  if (auto* parameter = model->getParameter(name)) {
+    return parameter->getValue();
+  }
+  return std::nullopt;
+}
+
+size_t getDecimalParameterValue(
+    const naja::NL::SNLInstance* instance,
+    const naja::NL::SNLDesign* model,
+    const naja::NL::NLName& name) {
+  const auto value = getEffectiveParameterValue(instance, model, name);
+  if (!value) {
+    throw naja::NL::NLException(
+      "SNLDesignModeling: missing " + name.getString() + " value");
+  }
+  try {
+    size_t position = 0;
+    const auto result = std::stoull(*value, &position);
+    if (position != value->size()) {
+      throw std::invalid_argument("trailing characters");
+    }
+    return result;
+  } catch (const std::exception&) {
+    throw naja::NL::NLException(
+      "SNLDesignModeling: invalid " + name.getString() + " value");
+  }
+}
+
+size_t getInitializationWidth(
+    const naja::NL::SNLInstance* instance,
+    const naja::NL::SNLDesign* model) {
+  if (naja::NL::NLDB0::isMemory(model)) {
+    return getDecimalParameterValue(instance, model, naja::NL::NLName("WIDTH")) *
+           getDecimalParameterValue(instance, model, naja::NL::NLName("DEPTH"));
+  }
+  if (isDB0SequentialPrimitive(model)) {
+    return getDecimalParameterValue(instance, model, naja::NL::NLName("WIDTH"));
+  }
+  throw naja::NL::NLException(
+    "SNLDesignModeling: instance is not a DB0 state element");
+}
+
+bool hasMemoryReset(
+    const naja::NL::SNLInstance* instance,
+    const naja::NL::SNLDesign* model) {
+  return naja::NL::NLDB0::isMemory(model) &&
+         getDecimalParameterValue(
+           instance, model, naja::NL::NLName("RST_ENABLE")) != 0;
 }
 
 class SNLDesignModelingProperty : public naja::NajaPrivateProperty {
@@ -1796,7 +1919,8 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLBitTerm* term) {
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+        NLDB0::isConst(design)) {
       return 0;
     }
     if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design)) {
@@ -1856,7 +1980,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+        NLDB0::isConst(design)) {
       return SNLTruthTable();
     }
     if (NLDB0::isTableSelect(design)) {
@@ -1973,7 +2098,8 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
     return found; };
 
   if (NLDB0::isDB0Primitive(design) &&
-      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design))) {
+      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+       NLDB0::isConst(design))) {
     return SNLTruthTable();
   }
   auto property = getTruthTableProperty(design);
@@ -2126,6 +2252,317 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
            not arcs->clockToInputArcs_.empty();
   }
   return false;
+}
+
+bool SNLDesignModeling::compareInstanceModeling(
+    const SNLInstance* instance1,
+    const SNLInstance* instance2,
+    std::string& reason) {
+  const auto* state1 = SNLInstanceStateProperty::get(instance1);
+  const auto* state2 = SNLInstanceStateProperty::get(instance2);
+  if ((state1 == nullptr) != (state2 == nullptr)) {
+    reason = "instance state property mismatch";
+    return false;
+  }
+  if (state1 && (state1->initValue_ != state2->initValue_ ||
+                 state1->resetValue_ != state2->resetValue_)) {
+    reason = "instance state value mismatch";
+    return false;
+  }
+
+  const auto* driver1 = SNLConstantDriverProperty::get(instance1);
+  const auto* driver2 = SNLConstantDriverProperty::get(instance2);
+  if ((driver1 == nullptr) != (driver2 == nullptr)) {
+    reason = "constant driver property mismatch";
+    return false;
+  }
+  if (driver1 && driver1->driver_ != driver2->driver_) {
+    reason = "constant driver value mismatch";
+    return false;
+  }
+  return true;
+}
+
+void SNLDesignModeling::cloneInstanceModeling(
+    const SNLInstance* source,
+    SNLInstance* target) {
+  if (const auto* state = SNLInstanceStateProperty::get(source)) {
+    auto* clone = SNLInstanceStateProperty::create(target);
+    clone->initValue_ = state->initValue_;
+    clone->resetValue_ = state->resetValue_;
+  }
+  if (const auto* driver = SNLConstantDriverProperty::get(source)) {
+    SNLConstantDriverProperty::create(target, driver->driver_);
+  }
+}
+
+void SNLDesignModeling::validateInstanceModelingForModel(
+    const SNLInstance* instance,
+    const SNLDesign* model) {
+  if (const auto* state = SNLInstanceStateProperty::get(instance)) {
+    if (state->initValue_ &&
+        state->initValue_->getWidth() != getInitializationWidth(instance, model)) {
+      throw NLException(
+        "SNLInstance::setModel error: initialization is incompatible with new model");
+    }
+    if (state->resetValue_) {
+      if (!hasMemoryReset(instance, model) ||
+          state->resetValue_->getWidth() != getInitializationWidth(instance, model)) {
+        throw NLException(
+          "SNLInstance::setModel error: reset value is incompatible with new model");
+      }
+    }
+  }
+
+  if (const auto* driver = SNLConstantDriverProperty::get(instance)) {
+    auto* output = NLDB0::getConstOutput(model);
+    if (!output || driver->driver_.value.getWidth() != output->getWidth()) {
+      throw NLException(
+        "SNLInstance::setModel error: constant driver is incompatible with new model");
+    }
+  }
+}
+
+bool SNLDesignModeling::hasInit(const SNLInstance* instance) {
+  const auto* property = SNLInstanceStateProperty::get(instance);
+  return property && property->initValue_.has_value();
+}
+
+void SNLDesignModeling::setInitValue(
+    SNLInstance* instance,
+    const NLLogicVector& value) {
+  if (!instance || value.empty()) {
+    throw NLException("SNLDesignModeling::setInitValue: invalid arguments");
+  }
+  const auto* model = instance->getModel();
+  size_t expectedWidth = 0;
+  try {
+    expectedWidth = getInitializationWidth(instance, model);
+  } catch (const NLException&) {
+    throw NLException("SNLDesignModeling::setInitValue: instance is not a DB0 state element");
+  }
+  if (value.getWidth() != expectedWidth) {
+    throw NLException("SNLDesignModeling::setInitValue: value width mismatch");
+  }
+  SNLInstanceStateProperty::getOrCreate(instance)->initValue_ = value;
+}
+
+std::optional<NLLogicVector> SNLDesignModeling::getInitValue(
+    const SNLInstance* instance) {
+  if (!hasInit(instance)) {
+    return std::nullopt;
+  }
+  return SNLInstanceStateProperty::get(instance)->initValue_;
+}
+
+void SNLDesignModeling::setResetValue(
+    SNLInstance* instance,
+    const NLLogicVector& value) {
+  if (!instance || !NLDB0::isMemory(instance->getModel()) || value.empty()) {
+    throw NLException("SNLDesignModeling::setResetValue: invalid arguments");
+  }
+  const auto signature = NLDB0::getMemorySignature(instance);
+  if (signature.resetMode == NLDB0::MemoryResetMode::None ||
+      value.getWidth() != signature.width * signature.depth) {
+    throw NLException("SNLDesignModeling::setResetValue: value width or reset mode mismatch");
+  }
+  SNLInstanceStateProperty::getOrCreate(instance)->resetValue_ = value;
+}
+
+std::optional<NLLogicVector> SNLDesignModeling::getResetValue(
+    const SNLInstance* instance) {
+  if (!instance || !NLDB0::isMemory(instance->getModel())) {
+    return std::nullopt;
+  }
+  const auto signature = NLDB0::getMemorySignature(instance);
+  if (signature.resetMode == NLDB0::MemoryResetMode::None) {
+    return std::nullopt;
+  }
+  if (const auto* property = SNLInstanceStateProperty::get(instance);
+      property && property->resetValue_) {
+    return property->resetValue_;
+  }
+  return NLLogicVector::filled(
+    signature.width * signature.depth, NLLogicValue::Zero);
+}
+
+SNLInstance* SNLDesignModeling::createConstantDriver(
+    SNLDesign* design,
+    const NLLogicVector& value,
+    NLConstantDriverKind kind,
+    const NLName& name) {
+  if (!design || value.empty()) {
+    throw NLException("SNLDesignModeling::createConstantDriver: invalid arguments");
+  }
+  if (kind == NLConstantDriverKind::Supply &&
+      !value.isAll(NLLogicValue::Zero) &&
+      !value.isAll(NLLogicValue::One)) {
+    throw NLException(
+      "SNLDesignModeling::createConstantDriver: supply must be uniform zero or one");
+  }
+  auto* model = NLDB0::getOrCreateConst(value.getWidth());
+  auto* instance = SNLInstance::create(design, model, name);
+  setConstantDriver(instance, value, kind);
+  return instance;
+}
+
+SNLInstance* SNLDesignModeling::createConstantDriver(
+    SNLNet* net,
+    NLLogicValue value,
+    NLConstantDriverKind kind,
+    const NLName& name) {
+  if (!net) {
+    throw NLException("SNLDesignModeling::createConstantDriver: invalid net");
+  }
+  auto* instance = createConstantDriver(
+    net->getDesign(), NLLogicVector::filled(net->getWidth(), value), kind, name);
+  instance->setTermNet(NLDB0::getConstOutput(instance->getModel()), net);
+  return instance;
+}
+
+void SNLDesignModeling::setConstantDriver(
+    SNLInstance* instance,
+    const NLLogicVector& value,
+    NLConstantDriverKind kind) {
+  if (!isConstantDriver(instance) || value.empty()) {
+    throw NLException("SNLDesignModeling::setConstantDriver: invalid arguments");
+  }
+  auto* output = NLDB0::getConstOutput(instance->getModel());
+  if (!output || value.getWidth() != output->getWidth()) {
+    throw NLException("SNLDesignModeling::setConstantDriver: value width mismatch");
+  }
+  if (kind == NLConstantDriverKind::Supply &&
+      !value.isAll(NLLogicValue::Zero) &&
+      !value.isAll(NLLogicValue::One)) {
+    throw NLException(
+      "SNLDesignModeling::setConstantDriver: supply must be uniform zero or one");
+  }
+  const NLConstantDriver driver {value, kind};
+  if (auto* property = SNLConstantDriverProperty::get(instance)) {
+    property->driver_ = driver;
+  } else {
+    SNLConstantDriverProperty::create(instance, driver);
+  }
+}
+
+bool SNLDesignModeling::isConstantDriver(const SNLInstance* instance) {
+  return instance && NLDB0::isConst(instance->getModel());
+}
+
+NLConstantDriverKind SNLDesignModeling::getConstantDriverKind(
+    const SNLInstance* instance) {
+  if (!isConstantDriver(instance)) {
+    throw NLException("SNLDesignModeling::getConstantDriverKind: not a constant driver");
+  }
+  if (const auto* property = SNLConstantDriverProperty::get(instance)) {
+    return property->driver_.kind;
+  }
+  throw NLException("SNLDesignModeling::getConstantDriverKind: missing typed driver value");
+}
+
+NLLogicVector SNLDesignModeling::getConstantDriverValue(
+    const SNLInstance* instance) {
+  if (!isConstantDriver(instance)) {
+    throw NLException("SNLDesignModeling::getConstantDriverValue: not a constant driver");
+  }
+  const auto* property = SNLConstantDriverProperty::get(instance);
+  if (!property) {
+    throw NLException("SNLDesignModeling::getConstantDriverValue: missing typed driver value");
+  }
+  const auto& value = property->driver_.value;
+  const auto* output = NLDB0::getConstOutput(instance->getModel());
+  const size_t expectedWidth = output ? output->getWidth() : 0;
+  if (value.getWidth() != expectedWidth) {
+    throw NLException("SNLDesignModeling::getConstantDriverValue: VALUE width mismatch");
+  }
+  const auto kind = getConstantDriverKind(instance);
+  if (kind == NLConstantDriverKind::Supply &&
+      !value.isAll(NLLogicValue::Zero) &&
+      !value.isAll(NLLogicValue::One)) {
+    throw NLException("SNLDesignModeling::getConstantDriverValue: invalid supply value");
+  }
+  return value;
+}
+
+std::optional<NLLogicValue> SNLDesignModeling::getConstantValue(
+    const SNLBitNet* net) {
+  if (!net) {
+    return std::nullopt;
+  }
+  std::optional<NLLogicValue> resolved;
+  for (auto* term: net->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Output) {
+      return std::nullopt;
+    }
+  }
+  for (auto* instTerm: net->getInstTerms()) {
+    if (instTerm->getBitTerm()->getDirection() != SNLTerm::Direction::Output) {
+      continue;
+    }
+    auto* instance = instTerm->getInstance();
+    NLLogicValue candidate;
+    if (isConstantDriver(instance)) {
+      auto value = getConstantDriverValue(instance);
+      size_t bit = 0;
+      if (auto* busBit = dynamic_cast<SNLBusTermBit*>(instTerm->getBitTerm())) {
+        bit = static_cast<size_t>(busBit->getBit());
+      }
+      if (bit >= value.getWidth()) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+      candidate = value.getBit(bit);
+    } else {
+      // Hierarchical outputs are resolved by equipotential traversal in their
+      // model.  Only leaf models can directly describe a legacy constant.
+      if (!instance->isLeaf()) {
+        return std::nullopt;
+      }
+      // Legacy constants have an explicit zero-input truth table. Reject
+      // ordinary gates before decoding their truth tables, which is costly on
+      // the hot net-classification path used by structural dumpers.
+      auto* truthTableProperty = getTruthTableProperty(instance->getModel());
+      if (!truthTableProperty || truthTableProperty->getValues().empty() ||
+          truthTableProperty->getUInt64Value(0) != 0) {
+        return std::nullopt;
+      }
+      try {
+        if (isConst0(instance->getModel())) {
+          candidate = NLLogicValue::Zero;
+        } else if (isConst1(instance->getModel())) {
+          candidate = NLLogicValue::One;
+        } else {
+          return std::nullopt;
+        }
+      } catch (const NLException&) {
+        return std::nullopt;
+      }
+    }
+    if (resolved && *resolved != candidate) {
+      return std::nullopt;
+    }
+    resolved = candidate;
+  }
+  return resolved;
+}
+
+bool SNLDesignModeling::isConstant(const SNLNet* net) {
+  if (!net) return false;
+  bool hasBits = false;
+  for (auto* bit: net->getBits()) {
+    hasBits = true;
+    if (!getConstantValue(bit)) return false;
+  }
+  return hasBits;
+}
+
+bool SNLDesignModeling::isConstant(const SNLNet* net, NLLogicValue value) {
+  if (!net) return false;
+  bool hasBits = false;
+  for (auto* bit: net->getBits()) {
+    hasBits = true;
+    if (getConstantValue(bit) != value) return false;
+  }
+  return hasBits;
 }
 
 bool SNLDesignModeling::isConst0(const SNLDesign* design) {

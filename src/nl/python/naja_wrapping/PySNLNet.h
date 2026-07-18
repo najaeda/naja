@@ -21,11 +21,9 @@ NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNet;
 
 extern PyObject*    PySNLNet_Link(naja::NL::SNLNet*);
 extern void         PySNLNet_LinkPyType();
-extern void         PySNLNet_postModuleInit();
 
 #define IsPySNLNet(v) (PyObject_TypeCheck(v, &PyTypeSNLNet))
 #define PYSNLNet(v)   ((PySNLNet*)(v))
 #define PYSNLNet_O(v) (static_cast<naja::NL::SNLNet*>(PYSNLNet(v)->parent_.object_))
 
 } /* PYNAJA namespace */
- 

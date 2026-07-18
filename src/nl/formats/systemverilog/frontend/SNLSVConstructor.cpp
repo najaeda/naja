@@ -47,6 +47,7 @@
 #include "SNLBusTerm.h"
 #include "SNLAttributes.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLDesignObject.h"
 #include "SNLInstParameter.h"
 #include "SNLInstance.h"
@@ -456,7 +457,7 @@ std::string makeUnsupportedCode(const std::string& reason) {
 
 bool allNetsArePortNets(SNLDesign* design) {
   for (auto net : design->getBitNets()) {
-    if (net->isAssignConstant()) {
+    if (SNLDesignModeling::getConstantValue(net)) {
       continue;
     }
     if (net->getBitTerms().empty()) {
@@ -464,6 +465,26 @@ bool allNetsArePortNets(SNLDesign* design) {
     }
   }
   return true;
+}
+
+bool isStructurallyConstant(const SNLBitNet* net) {
+  return SNLDesignModeling::getConstantValue(net).has_value();
+}
+
+bool isStructurallyConstant(const SNLNet* net) {
+  if (!net) return false;
+  for (auto* bit: net->getBits()) {
+    if (!isStructurallyConstant(bit)) return false;
+  }
+  return !net->getBits().empty();
+}
+
+bool isConstant0(const SNLBitNet* net) {
+  return SNLDesignModeling::getConstantValue(net) == NLLogicValue::Zero;
+}
+
+bool isConstant1(const SNLBitNet* net) {
+  return SNLDesignModeling::getConstantValue(net) == NLLogicValue::One;
 }
 
 const Expression* stripConversions(const Expression& expr) {
@@ -646,7 +667,8 @@ std::string formatUnknownLiteralWarning(
   const UnknownLiteralKinds& kinds) {
   std::ostringstream message;
   message << kinds.label() << " literal bits in " << context
-          << " lowered as 0 in SNL (four-state distinction is not preserved)";
+          << " preserved as four-state constant drivers; downstream operator "
+             "semantics remain conservative";
   return message.str();
 }
 
@@ -3539,7 +3561,8 @@ endmodule
       const slang::ast::Expression* clockExpr {nullptr};
       const slang::ast::Expression* resetSignalExpr {nullptr};
       NLDB0::MemorySignature signature {};
-      std::vector<bool> initBits {};
+      std::optional<NLLogicVector> initialValue {};
+      std::optional<NLLogicVector> resetValue {};
       std::map<int32_t, std::vector<InferredMemoryCommitAction>> commitActionsByIndex {};
       std::vector<InferredMemoryWriteAction> directWriteActions {};
       std::vector<InferredMemoryGuard> shadowCommitGuards {};
@@ -3549,7 +3572,6 @@ endmodule
       std::unordered_map<const slang::ast::Expression*, size_t> readPortBySelectorExpr {};
       std::unordered_map<int32_t, size_t> readPortByConstantSelectorIndex {};
       std::optional<slang::SourceRange> sourceRange {};
-      bool hasInitialValue {false};
       bool lowered {false};
     };
 
@@ -4626,15 +4648,15 @@ endmodule
       return bits;
     }
 
-    std::string encodeInitBits(const std::vector<bool>& bits) const {
-      std::string encoded;
-      encoded.reserve(bits.size() + 32);
-      encoded += std::to_string(bits.size());
-      encoded += "'b";
-      for (auto it = bits.rbegin(); it != bits.rend(); ++it) {
-        encoded += *it ? '1' : '0';
+    NLLogicVector makeLogicVector(const std::vector<bool>& bits) const {
+      if (bits.empty()) {
+        throw SNLSVInternalError("Cannot create an empty memory state value");
       }
-      return encoded;
+      auto value = NLLogicVector::filled(bits.size(), NLLogicValue::Zero);
+      for (size_t bit = 0; bit < bits.size(); ++bit) {
+        value.setBit(bit, bits[bit] ? NLLogicValue::One : NLLogicValue::Zero);
+      }
+      return value;
     }
 
     struct DFFInitBit {
@@ -4726,11 +4748,6 @@ endmodule
       if (!inst) {
         return; // LCOV_EXCL_LINE
       }
-      auto* model = inst->getModel();
-      auto* initParam = model ? model->getParameter(NLName("INIT")) : nullptr;
-      if (!initParam) {
-        return;
-      }
       auto initValue = getDFFInitValueForOutputBits(outputBits);
       if (!initValue) {
         return;
@@ -4741,7 +4758,8 @@ endmodule
           found->second.consumed = true;
         }
       }
-      SNLInstParameter::create(inst, initParam, *initValue);
+      SNLDesignModeling::setInitValue(
+        inst, NLLogicVector::fromVerilogBinary(*initValue));
     }
 
     bool analyzeDFFInitialBlock(
@@ -6220,7 +6238,7 @@ endmodule
             initFailureReason)) {
         return false;
       }
-      memory.initBits = std::move(initBits);
+      memory.resetValue = makeLogicVector(initBits);
       if (!tryConfigureInferredMemoryResetMode(
             *topCond.conditions[0].expr,
             asyncResetEventExpr,
@@ -6324,7 +6342,7 @@ endmodule
       }
 
       memory.signature.resetMode = NLDB0::MemoryResetMode::None;
-      memory.initBits.assign(memory.signature.width * memory.signature.depth, false);
+      memory.resetValue.reset();
       memory.commitSymbol = nullptr;
       memory.commitBlock = nullptr;
       memory.commitActionsByIndex.clear();
@@ -6410,7 +6428,7 @@ endmodule
         if (!initBits) {
           return false;
         }
-        memory.initBits = std::move(*initBits);
+        memory.resetValue = makeLogicVector(*initBits);
 
         const auto* resetCondition = chain.resetCond;
         if (!tryConfigureInferredMemoryResetMode(
@@ -6622,7 +6640,7 @@ endmodule
       candidate.signature = signature;
       candidate.signature.resetMode = resetMode;
       if (!initBits.empty()) {
-        candidate.initBits = std::move(initBits);
+        candidate.resetValue = makeLogicVector(initBits);
       }
       candidate.commitActionsByIndex.clear();
       candidate.directWriteActions = std::move(directWriteActions);
@@ -7239,8 +7257,7 @@ endmodule
           reportUnsupportedError(reason, getSourceRange(*block));
           continue;
         }
-        memory.initBits = std::move(initBits);
-        memory.hasInitialValue = true;
+        memory.initialValue = makeLogicVector(initBits);
         memory.sourceRange = getSourceRange(*block);
       }
     }
@@ -8805,11 +8822,14 @@ endmodule
            signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
             ? "1"
             : "0");
-        if (memory.hasInitialValue) {
-          addInstParam("INIT_ENABLE", "1");
+        if (memory.initialValue) {
+          SNLDesignModeling::setInitValue(inst, *memory.initialValue);
         }
-        if (signature.resetMode != NLDB0::MemoryResetMode::None || memory.hasInitialValue) {
-          addInstParam("INIT", encodeInitBits(memory.initBits));
+        if (signature.resetMode != NLDB0::MemoryResetMode::None) {
+          if (!memory.resetValue) {
+            throw SNLSVInternalError("Inferred reset memory has no reset value");
+          }
+          SNLDesignModeling::setResetValue(inst, *memory.resetValue);
         }
 
         auto* clkTerm = model->getScalarTerm(NLName("CLK"));
@@ -9121,7 +9141,7 @@ endmodule
       SNLNet* inNet,
       SNLNet* outNet,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (!inNet || !outNet || outNet->isAssignConstant()) {
+      if (!inNet || !outNet || isStructurallyConstant(outNet)) {
         return nullptr;
       }
       auto assignGate = NLDB0::getAssign();
@@ -9863,7 +9883,7 @@ endmodule
       // values.  Handles automatic local variables (e.g. idx_base, shift in
       // PLRU trees) whose values are compile-time constants within a loop
       // iteration but are not recognized by Slang's static constant folder.
-      // Only accepted when ALL replay bits have a constant (Assign0/Assign1)
+      // Only accepted when all replay bits have a structurally constant driver
       // type — never when a mux gate or signal bit is in the replay vector.
       if (activeProceduralReplayEnv_ &&
           slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
@@ -9877,9 +9897,9 @@ endmodule
           int64_t intVal = 0;
           for (size_t rk = 0; rk < replayFound->second.size(); ++rk) {
             const auto* rbit = replayFound->second[rk];
-            if (rbit && rbit->isConstant1()) {
+            if (rbit && isConstant1(rbit)) {
               intVal |= (int64_t(1) << static_cast<int>(rk));
-            } else if (!rbit || !rbit->isConstant0()) {
+            } else if (!rbit || !isConstant0(rbit)) {
               allConst = false;
               break;
             }
@@ -17190,16 +17210,28 @@ endmodule
       return true;
     }
 
-    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
-      auto& cache = one ? const1Nets_ : const0Nets_;
-      auto it = cache.find(design);
-      if (it != cache.end()) {
+    SNLScalarNet* getConstNet(SNLDesign* design, NLLogicValue value) {
+      std::unordered_map<SNLDesign*, SNLScalarNet*>* cache = nullptr;
+      switch (value) {
+        case NLLogicValue::Zero: cache = &const0Nets_; break;
+        case NLLogicValue::One:  cache = &const1Nets_; break;
+        case NLLogicValue::X:    cache = &constXNets_; break;
+        case NLLogicValue::Z:    cache = &constZNets_; break;
+      }
+      auto it = cache->find(design);
+      if (it != cache->end()) {
         return it->second;
       }
-      auto net = SNLScalarNet::create(design);
-      net->setType(one ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
-      cache[design] = net;
+      auto* net = SNLScalarNet::create(design);
+      auto* driver = SNLDesignModeling::createConstantDriver(
+        design, NLLogicVector::filled(1, value), NLConstantDriverKind::Assign);
+      driver->setTermNet(NLDB0::getConstOutput(driver->getModel()), net);
+      (*cache)[design] = net;
       return net;
+    }
+
+    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
+      return getConstNet(design, one ? NLLogicValue::One : NLLogicValue::Zero);
     }
 
     std::vector<SNLBitNet*> collectBits(SNLNet* net) {
@@ -20147,7 +20179,7 @@ endmodule
         return false;
       }
       for (const auto* bit : found->second) {
-        if (!bit || (!bit->isConstant0() && !bit->isConstant1())) {
+        if (!bit || (!isConstant0(bit) && !isConstant1(bit))) {
           return false;
         }
       }
@@ -24668,7 +24700,10 @@ endmodule
         if (unknownKinds) {
           unknownKinds->add(value);
         }
-        bits.assign(targetWidth, const0);
+        const auto logicValue = exactlyEqual(value, slang::logic_t::z)
+          ? NLLogicValue::Z
+          : NLLogicValue::X;
+        bits.assign(targetWidth, getConstNet(design, logicValue));
         usedUnknownFallback = true;
         return true;
       }
@@ -24685,14 +24720,14 @@ endmodule
         const auto integerWidth = static_cast<size_t>(literalValue.getBitWidth());
         bits.reserve(targetWidth);
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          NLLogicValue value = NLLogicValue::Zero;
           if (i < integerWidth) {
             const auto bit = literalValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            value = exactlyEqual(bit, slang::logic_t::x) ? NLLogicValue::X :
+              (exactlyEqual(bit, slang::logic_t::z) ? NLLogicValue::Z :
+                (static_cast<bool>(bit) ? NLLogicValue::One : NLLogicValue::Zero));
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, value)));
         }
         usedUnknownFallback = true;
         return true;
@@ -24721,14 +24756,14 @@ endmodule
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          NLLogicValue value = NLLogicValue::Zero;
           if (i < integerWidth) {
             const auto bit = intValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            value = exactlyEqual(bit, slang::logic_t::x) ? NLLogicValue::X :
+              (exactlyEqual(bit, slang::logic_t::z) ? NLLogicValue::Z :
+                (static_cast<bool>(bit) ? NLLogicValue::One : NLLogicValue::Zero));
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, value)));
         }
         usedUnknownFallback = true;
         return true;
@@ -33780,7 +33815,7 @@ endmodule
             // Slang rejects output/inout port actuals containing constants in
             // parser-backed construction before this normalization is reached.
             for (auto& bit: connectedBits) {
-              if (bit && bit->isAssignConstant()) {
+              if (bit && isStructurallyConstant(bit)) {
                 bit = nullptr;
               }
             }
@@ -33816,7 +33851,7 @@ endmodule
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
               if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
-                  net->isAssignConstant()) {
+                  isStructurallyConstant(net)) {
                 // LCOV_EXCL_START
                 // Slang rejects scalar output ports tied directly to constants
                 // before parser-backed construction reaches this point.
@@ -33862,7 +33897,7 @@ endmodule
               try {
                 auto* connectionBit = connectionBits.front();
                 if (scalarTerm->getDirection() != SNLTerm::Direction::Input &&
-                    connectionBit && connectionBit->isAssignConstant()) {
+                    connectionBit && isStructurallyConstant(connectionBit)) {
                   // LCOV_EXCL_START
                   // Slang rejects scalar output ports tied to constant-only
                   // expressions before parser-backed construction reaches this.
@@ -33961,6 +33996,8 @@ endmodule
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constXNets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constZNets_ {};
     std::vector<InferredMemory> inferredMemories_ {};
     std::unordered_map<const slang::ast::ValueSymbol*, size_t> inferredMemoryByStateSymbol_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>

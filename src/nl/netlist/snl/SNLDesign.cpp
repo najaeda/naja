@@ -370,12 +370,29 @@ NajaCollection<SNLInstance*> SNLDesign::getInstances() const {
 }
 
 NajaCollection<SNLInstance*> SNLDesign::getNonAssignInstances() const {
-  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isAssign(); };
+  auto filter = [](const SNLInstance* instance) { return not instance->isAssign(); };
   return getInstances().getSubCollection(filter);
 }
 
 NajaCollection<SNLInstance*> SNLDesign::getAssignInstances() const {
-  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isAssign(); };
+  auto filter = [](const SNLInstance* instance) { return instance->isAssign(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getRegularInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->isRegular(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getConstantDriverInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->isConstantDriver(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getHelperInstances() const {
+  auto filter = [](const SNLInstance* instance) {
+    return instance->isAssign() or instance->isConstantDriver();
+  };
   return getInstances().getSubCollection(filter);
 }
 

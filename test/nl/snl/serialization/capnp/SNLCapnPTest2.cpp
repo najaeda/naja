@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 
 #include <filesystem>
 #include <fstream>
@@ -35,9 +36,9 @@ class SNLCapNpTest2: public ::testing::Test {
       SNLDesign* top = SNLDesign::create(designs, NLName("top"));
       universe->setTopDesign(top);
       auto assign0 = SNLScalarNet::create(top);
-      assign0->setType(SNLNet::Type::Assign0);
+      SNLDesignModeling::createConstantDriver(assign0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
       auto assign1 = SNLScalarNet::create(top);
-      assign1->setType(SNLNet::Type::Assign1);
+      SNLDesignModeling::createConstantDriver(assign1, NLLogicValue::One, NLConstantDriverKind::Assign);
       auto n0 = SNLScalarNet::create(top, NLName("n0"));
       auto assign_ins0 = SNLInstance::create(top, NLDB0::getAssign());
       assign_ins0->getInstTerm(NLDB0::getAssignInput())->setNet(assign0);
@@ -47,10 +48,10 @@ class SNLCapNpTest2: public ::testing::Test {
       assign_ins1->getInstTerm(NLDB0::getAssignInput())->setNet(assign1);
       assign_ins1->getInstTerm(NLDB0::getAssignOutput())->setNet(n1);
       auto b0 = SNLBusNet::create(top, 3, 0, NLName("b0"));
-      b0->getBit(0)->setType(SNLNet::Type::Assign0);
-      b0->getBit(1)->setType(SNLNet::Type::Assign1);
-      b0->getBit(2)->setType(SNLNet::Type::Supply0);
-      b0->getBit(3)->setType(SNLNet::Type::Supply1);
+      SNLDesignModeling::createConstantDriver(b0->getBit(0), NLLogicValue::Zero, NLConstantDriverKind::Assign);
+      SNLDesignModeling::createConstantDriver(b0->getBit(1), NLLogicValue::One, NLConstantDriverKind::Assign);
+      SNLDesignModeling::createConstantDriver(b0->getBit(2), NLLogicValue::Zero, NLConstantDriverKind::Supply);
+      SNLDesignModeling::createConstantDriver(b0->getBit(3), NLLogicValue::One, NLConstantDriverKind::Supply);
 
       auto b1 = SNLBusNet::create(top, 3, 0, NLName("b1"));
       b1->getBit(3)->destroy();
@@ -84,7 +85,6 @@ TEST_F(SNLCapNpTest2, test0) {
   ASSERT_EQ(6, top->getNets().size());
   auto n0 = top->getScalarNet(NLName("n0"));
   ASSERT_NE(nullptr, n0);
-  EXPECT_EQ(SNLNet::Type::Standard, n0->getType());
   EXPECT_EQ(1, n0->getInstTerms().size());
   auto assign_ins0_output = *(n0->getInstTerms().begin());
   EXPECT_EQ(NLDB0::getAssignOutput(), assign_ins0_output->getBitTerm());
@@ -93,13 +93,10 @@ TEST_F(SNLCapNpTest2, test0) {
   auto assign_ins0_input = assign_ins0->getInstTerm(NLDB0::getAssignInput());
   auto assign_ins0_input_net = assign_ins0_input->getNet();
   EXPECT_NE(assign_ins0_input_net, nullptr);
-  EXPECT_EQ(SNLNet::Type::Assign0, assign_ins0_input_net->getType());
-  EXPECT_TRUE(assign_ins0_input_net->isConstant0());
-  EXPECT_EQ(SNLNet::Type::Assign0, assign_ins0_input_net->getType());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(assign_ins0_input_net, NLLogicValue::Zero));
 
   auto n1 = top->getScalarNet(NLName("n1"));
   ASSERT_NE(nullptr, n1);
-  EXPECT_EQ(SNLNet::Type::Standard, n1->getType());
   EXPECT_EQ(1, n1->getInstTerms().size());
   auto assign_ins1_output = *(n1->getInstTerms().begin());
   EXPECT_EQ(NLDB0::getAssignOutput(), assign_ins1_output->getBitTerm());
@@ -108,16 +105,15 @@ TEST_F(SNLCapNpTest2, test0) {
   auto assign_ins1_input = assign_ins1->getInstTerm(NLDB0::getAssignInput());
   auto assign_ins1_input_net = assign_ins1_input->getNet();
   EXPECT_NE(assign_ins1_input_net, nullptr);
-  EXPECT_TRUE(assign_ins1_input_net->isConstant1());
-  EXPECT_EQ(SNLNet::Type::Assign1, assign_ins1_input_net->getType());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(assign_ins1_input_net, NLLogicValue::One));
 
   auto b0 = top->getBusNet(NLName("b0"));
   ASSERT_NE(nullptr, b0);
   EXPECT_EQ(4, b0->getBits().size());
-  EXPECT_EQ(SNLNet::Type::Assign0, b0->getBit(0)->getType());
-  EXPECT_EQ(SNLNet::Type::Assign1, b0->getBit(1)->getType());
-  EXPECT_EQ(SNLNet::Type::Supply0, b0->getBit(2)->getType());
-  EXPECT_EQ(SNLNet::Type::Supply1, b0->getBit(3)->getType());
+  EXPECT_TRUE(SNLDesignModeling::isConstant(b0->getBit(0), NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(b0->getBit(1), NLLogicValue::One));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(b0->getBit(2), NLLogicValue::Zero));
+  EXPECT_TRUE(SNLDesignModeling::isConstant(b0->getBit(3), NLLogicValue::One));
 
   auto b1 = top->getBusNet(NLName("b1"));
   ASSERT_NE(nullptr, b1);

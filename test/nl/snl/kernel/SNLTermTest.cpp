@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "SNLDesignModeling.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
@@ -542,7 +543,7 @@ TEST_F(SNLTermTest, testResizeFailsOnInternalInstanceConnection) {
   auto model = SNLDesign::create(library, NLName("model"));
   auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
   auto net = SNLBusNet::create(model, 3, 0, NLName("n0"));
-  net->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(net, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   term->setNet(net);
 
   auto leaf = SNLDesign::create(library, NLName("leaf"));
@@ -559,7 +560,7 @@ TEST_F(SNLTermTest, testResizeLSBFailsOnInternalInstanceConnection) {
   auto model = SNLDesign::create(library, NLName("model"));
   auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
   auto net = SNLBusNet::create(model, 3, 0, NLName("n0"));
-  net->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(net, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   term->setNet(net);
 
   auto leaf = SNLDesign::create(library, NLName("leaf"));

@@ -34,7 +34,8 @@ class NajaEDAUnknownDesignsTest0(unittest.TestCase):
         #.OUT({net[0], net[1]}),
         #.COUT(net[2])
         #);
-        self.assertEqual(1, top.count_child_instances())
+        # The black box plus the shared explicit zero and one drivers.
+        self.assertEqual(3, top.count_child_instances())
         ins0 = top.get_child_instance('ins0')
         self.assertEqual('auto_blackbox0', ins0.get_model_name())
         self.assertIsNotNone(ins0)

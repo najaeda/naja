@@ -56,7 +56,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(NLLibrary* library);
 
-    static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
     static SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction);
 
     using Paths = std::vector<std::filesystem::path>;
@@ -156,8 +155,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLInstance*        currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
     ParameterValues     currentInstanceParameterValues_ {};
-    SNLScalarNet*       currentModuleAssign0_           {nullptr};
-    SNLScalarNet*       currentModuleAssign1_           {nullptr};
+    SNLScalarNet*       currentModuleConstant0_         {nullptr};
+    SNLScalarNet*       currentModuleConstant1_         {nullptr};
     using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
     InterfacePorts      currentModuleInterfacePorts_    {};

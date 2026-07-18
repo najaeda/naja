@@ -23,6 +23,7 @@
 
 #include "NLUniverse.h"
 #include "SNLBitNet.h"
+#include "SNLDesignModeling.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"

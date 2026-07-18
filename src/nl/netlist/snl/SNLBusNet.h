@@ -75,12 +75,7 @@ class SNLBusNet final: public SNLNet {
         std::vector<SNLBitNet*>::const_iterator position,
         NLID::Bit msb, NLID::Bit lsb);
 
-    void setType(const Type& type) override;
     bool isAllNull() const;
-    bool isAssign0() const override;
-    bool isAssign1() const override;
-    bool isSupply0() const override;
-    bool isSupply1() const override;
 
     const char* getTypeName() const override;
     std::string getString() const override;

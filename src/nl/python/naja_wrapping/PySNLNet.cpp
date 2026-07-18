@@ -7,9 +7,9 @@
 
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLDesignModeling.h"
 
 #include "PyInterface.h"
-#include "PySNLNetType.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
 #include "PySNLDesign.h"
@@ -40,26 +40,37 @@ PyObject* PySNLNet_Link(SNLNet* object) {
   }
 }
 
-static PyObject* setType(PySNLNet* self, PyObject* arg) {
-  METHOD_HEAD("SNLNet.setType()")
-
-  if (PyLong_Check(arg)) {
-    int intType = PyLong_AsUnsignedLong(arg);
-    SNLNet::Type type = SNLNet::Type::TypeEnum(intType);
-    selfObject->setType(type);
-  } else {
-    setError("SNLNet setType takes SNLNet.Type argument");
-    return nullptr;
-  }
-  Py_RETURN_NONE;
-}
-
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
 DirectGetNumericMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
-GetBoolAttribute(SNLNet, isConstant0)
-GetBoolAttribute(SNLNet, isConstant1)
-GetBoolAttribute(SNLNet, isConstant)
+static bool isAllConstant(const SNLNet* net, NLLogicValue value) {
+  bool hasBits = false;
+  for (auto* bit: net->getBits()) {
+    hasBits = true;
+    if (SNLDesignModeling::getConstantValue(bit) != value) return false;
+  }
+  return hasBits;
+}
+
+static PyObject* PySNLNet_isConstant0(PySNLNet* self) {
+  METHOD_HEAD("SNLNet.isConstant0()")
+  return PyBool_FromLong(isAllConstant(selfObject, NLLogicValue::Zero));
+}
+
+static PyObject* PySNLNet_isConstant1(PySNLNet* self) {
+  METHOD_HEAD("SNLNet.isConstant1()")
+  return PyBool_FromLong(isAllConstant(selfObject, NLLogicValue::One));
+}
+
+static PyObject* PySNLNet_isConstant(PySNLNet* self) {
+  METHOD_HEAD("SNLNet.isConstant()")
+  bool hasBits = false;
+  for (auto* bit: selfObject->getBits()) {
+    hasBits = true;
+    if (!SNLDesignModeling::getConstantValue(bit)) return PyBool_FromLong(false);
+  }
+  return PyBool_FromLong(hasBits);
+}
 
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
@@ -68,8 +79,6 @@ PyMethodDef PySNLNet_Methods[] = {
     "get SNLNet width"},
   { "getBits", (PyCFunction)PySNLNet_getBits, METH_NOARGS,
     "get a container of SNLBitNets."},
-  { "setType", (PyCFunction)setType, METH_O,
-    "set the type of this Net."},
   { "isConstant0", (PyCFunction)PySNLNet_isConstant0, METH_NOARGS,
     "Returns True if this SNLNet is a Constant 0."},
   { "isConstant1", (PyCFunction)PySNLNet_isConstant1, METH_NOARGS,
@@ -80,10 +89,5 @@ PyMethodDef PySNLNet_Methods[] = {
 };
 
 PyTypeNLAbstractObjectWithNLIDLinkPyType(SNLNet)
-
-void PySNLNet_postModuleInit() {
-  PySNLNetType_postModuleInit();
-  PyDict_SetItemString(PyTypeSNLNet.tp_dict, "Type", (PyObject*)&PyTypeSNLNetType);
-}
 
 }

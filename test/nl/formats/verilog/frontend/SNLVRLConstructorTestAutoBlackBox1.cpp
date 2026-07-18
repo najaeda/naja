@@ -12,6 +12,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLUtils.h"
+#include "SNLDesignModeling.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
@@ -49,7 +50,10 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox1, test0) {
   ASSERT_NE(nullptr, test1);
 
   using Instances = std::vector<SNLInstance*>;
-  Instances instances(test1->getInstances().begin(), test1->getInstances().end());
+  Instances instances;
+  for (auto* instance: test1->getInstances()) {
+    if (!SNLDesignModeling::isConstantDriver(instance)) instances.push_back(instance);
+  }
   ASSERT_EQ(2, instances.size());
   auto ins0 = instances[0];
   ASSERT_NE(ins0, nullptr);

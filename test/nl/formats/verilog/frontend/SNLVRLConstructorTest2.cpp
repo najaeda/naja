@@ -85,10 +85,10 @@ TEST_F(SNLVRLConstructorTest2, test) {
   constructor.parse(benchmarksPath/"test1.v");
   auto top = SNLUtils::findTop(library_);
   EXPECT_EQ(top, test);
-  using Instances = std::vector<SNLInstance*>;
-  Instances instances(top->getInstances().begin(), top->getInstances().end());
-  //6 standard instances, 4 assigns
-  ASSERT_EQ(10, instances.size());
+  EXPECT_EQ(3, top->getRegularInstances().size());
+  EXPECT_EQ(7, top->getAssignInstances().size());
+  EXPECT_EQ(2, top->getConstantDriverInstances().size());
+  EXPECT_EQ(12, top->getInstances().size());
   ASSERT_EQ(1, model0->getInstances().size());
   auto lut = model0->getInstance(NLName("lut"));
   ASSERT_NE(lut, nullptr);

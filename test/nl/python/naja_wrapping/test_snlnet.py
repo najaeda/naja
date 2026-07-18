@@ -35,7 +35,9 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNotNone(i0Net)
     self.assertEqual(self.design, i0Net.getDesign())
     self.assertEqual("I0", i0Net.getName())
-    self.assertEqual(naja.SNLNet.Type.Standard, i0Net.getType())
+    self.assertFalse(hasattr(naja.SNLNet, "Type"))
+    self.assertFalse(hasattr(i0Net, "getType"))
+    self.assertFalse(hasattr(i0Net, "setType"))
     i0.setNet(i0Net)
     self.assertEqual(i0.getNet(), i0Net)
     self.assertEqual(i0Net, i0.getNet())
@@ -178,26 +180,33 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(i1Net, i1Net.getBit(0).getBus())
     self.assertEqual(0, i1Net.getBit(0).getBit())
 
-  def testNetType(self):
-    i0Net = naja.SNLScalarNet.create(self.design, "I0")
-    i1Net = naja.SNLBusNet.create(self.design, 4, 0, "I1")
-    self.assertEqual(naja.SNLNet.Type.Standard, i0Net.getType())
-    i0Net.setType(naja.SNLNet.Type.Assign0)
-    self.assertEqual(naja.SNLNet.Type.Assign0, i0Net.getType())
-    i0Net.setType(naja.SNLNet.Type.Assign1)
-    self.assertEqual(naja.SNLNet.Type.Assign1, i0Net.getType())
-    self.assertTrue(i0Net.isConstant1())
-    self.assertTrue(i0Net.isConstant())
-    i0Net.setType(naja.SNLNet.Type.Supply0)
-    self.assertEqual(naja.SNLNet.Type.Supply0, i0Net.getType())
-    self.assertTrue(i0Net.isConstant0())
-    self.assertTrue(i0Net.isConstant())
-    i0Net.setType(naja.SNLNet.Type.Supply1)
-    self.assertEqual(naja.SNLNet.Type.Supply1, i0Net.getType())
-    i0Net.setType(naja.SNLNet.Type.Standard)
-    self.assertFalse(i0Net.isConstant0())
-    self.assertFalse(i0Net.isConstant1())
-    self.assertFalse(i0Net.isConstant())
+  def testConstants(self):
+    primitives = naja.NLLibrary.createPrimitives(self.design.getDB())
+    logic0 = naja.SNLDesign.createPrimitive(primitives, "LOGIC0")
+    logic0Out = naja.SNLScalarTerm.create(
+      logic0, naja.SNLTerm.Direction.Output, "O")
+    logic0.setTruthTable(0)
+    logic1 = naja.SNLDesign.createPrimitive(primitives, "LOGIC1")
+    logic1Out = naja.SNLScalarTerm.create(
+      logic1, naja.SNLTerm.Direction.Output, "O")
+    logic1.setTruthTable(1)
+
+    standardNet = naja.SNLScalarNet.create(self.design, "standard")
+    self.assertFalse(standardNet.isConstant())
+
+    const0Net = naja.SNLScalarNet.create(self.design, "constant0")
+    const0 = naja.SNLInstance.create(self.design, logic0, "constant0_driver")
+    const0.getInstTerm(logic0Out).setNet(const0Net)
+    self.assertTrue(const0Net.isConstant0())
+    self.assertFalse(const0Net.isConstant1())
+    self.assertTrue(const0Net.isConstant())
+
+    const1Net = naja.SNLScalarNet.create(self.design, "constant1")
+    const1 = naja.SNLInstance.create(self.design, logic1, "constant1_driver")
+    const1.getInstTerm(logic1Out).setNet(const1Net)
+    self.assertFalse(const1Net.isConstant0())
+    self.assertTrue(const1Net.isConstant1())
+    self.assertTrue(const1Net.isConstant())
 
   def test_bus_net_resize(self):
     net = naja.SNLBusNet.create(self.design, 3, 0, "net")
@@ -239,9 +248,6 @@ class SNLNetTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.SNLBusNet.create(self.lib, 4, 0, "I1")
     with self.assertRaises(RuntimeError) as context: naja.SNLScalarNet.create(self.design, 4, 0, "I1")
     with self.assertRaises(RuntimeError) as context: naja.SNLBusNet.create(self.lib, "I1")
-
-    net = naja.SNLScalarNet.create(self.design, "net")
-    with self.assertRaises(RuntimeError) as context: net.setType(i0)
 
   def testNameClash(self):
     i0Net = naja.SNLScalarNet.create(self.design, "I0")

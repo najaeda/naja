@@ -115,7 +115,7 @@ library (logic01_buf) {
       top, SNLTerm::Direction::Output, NLName("y"));
 
   auto constant0 = SNLScalarNet::create(top, NLName("constant0"));
-  constant0->setType(SNLNet::Type::Assign0);
+  SNLDesignModeling::createConstantDriver(constant0, NLLogicValue::Zero, NLConstantDriverKind::Assign);
   auto firstBufferOutput = SNLScalarNet::create(top, NLName("first_buffer_output"));
   auto topOutputNet = SNLScalarNet::create(top, NLName("top_output"));
 

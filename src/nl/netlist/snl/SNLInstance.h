@@ -4,6 +4,8 @@
 
 
 #pragma once
+#include <optional>
+#include <string>
 #include <vector>
 #include <map>
 #include <boost/intrusive/set.hpp>
@@ -86,6 +88,12 @@ class SNLInstance final: public SNLDesignObject {
     bool isPrimitive() const;
     ///\return true if this SNLInstance is a hierarchy leaf (blackbox or primitive).
     bool isLeaf() const;
+    ///\return true if this SNLInstance is assign glue.
+    bool isAssign() const;
+    ///\return true if this SNLInstance is a constant driver.
+    bool isConstantDriver() const;
+    ///\return true if this SNLInstance is neither assign glue nor a constant driver.
+    bool isRegular() const;
 
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -94,6 +102,8 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLInstParameter* getInstParameter(const NLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
+    /// \return The instance override or, when absent, the model default.
+    std::optional<std::string> getEffectiveParameterValue(const NLName& name) const;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance.
     SNLInstTerm* getInstTerm(const SNLBitTerm* bitTerm) const;

@@ -259,7 +259,7 @@ TEST_F(PNLNetTest, testCreation) {
   //   EXPECT_EQ(PNLNet::Type::VDD, bit->getType());
   //   EXPECT_TRUE(bit->getType().isSupply());
   //   EXPECT_TRUE(bit->getType().isDriving());
-  //   EXPECT_TRUE(bit->isConstant1());
+  //   EXPECT_TRUE(SNLDesignModeling::isConstant(bit, NLLogicValue::One));
   // }
   // net0->setType(PNLBitNet::Type::GND);
   // EXPECT_FALSE(net0->isGND());
@@ -267,7 +267,7 @@ TEST_F(PNLNetTest, testCreation) {
   // for (auto bit: net0->getBits()) {
   //   EXPECT_EQ(PNLNet::Type::GND, bit->getType());
   //   EXPECT_TRUE(bit->getType().isDriving());
-  //   EXPECT_TRUE(bit->isConstant0());
+  //   EXPECT_TRUE(SNLDesignModeling::isConstant(bit, NLLogicValue::Zero));
   // }
 
   // net0->destroy();

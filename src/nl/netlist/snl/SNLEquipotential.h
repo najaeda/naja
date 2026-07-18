@@ -5,7 +5,8 @@
 #pragma once
 
 #include <set>
-#include "SNLNet.h"
+#include <optional>
+#include "NLLogicValue.h"
 #include "SNLBitTerm.h"
 #include "SNLOccurrence.h"
 
@@ -27,9 +28,8 @@ class SNLEquipotential {
     const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
     NajaCollection<SNLBitTerm*> getTerms() const;
     NajaCollection<SNLOccurrence> getInstTermOccurrences() const;
-    SNLNet::Type getType() const { return type_; }
-    bool isConst0() const;
-    bool isConst1() const;
+    bool isConst0() const { return constantValue_ == NLLogicValue::Zero; }
+    bool isConst1() const { return constantValue_ == NLLogicValue::One; }
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {
@@ -55,7 +55,7 @@ class SNLEquipotential {
   private:
     InstTermOccurrences instTermOccurrences_  {};
     Terms               terms_                {};
-    SNLNet::Type        type_                 {SNLNet::Type::Standard};
+    std::optional<NLLogicValue> constantValue_ {};
 };
 
 }  // namespace naja::NL
