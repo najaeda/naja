@@ -36,3 +36,7 @@ graphify-out
 naja_sv_diagnostics.log
 naja_perf.log
 sv_constructor_perf.log
+internal
+
+# Bazel (see internal/bazel-migration-plan.md)
+/bazel-*

@@ -1,0 +1,47 @@
+name: macOS Build (Bazel)
+
+# Bazel counterpart to macos-build.yml, added additively per
+# internal/bazel-migration-plan.md's Phase 8 approach: runs alongside the
+# CMake job, not replacing it, until Bazel has full CI parity.
+#
+# The dependency set and no-network cmake() build for slang
+# (bazel/thirdparty/slang_overlay.BUILD) are exactly what's been
+# validated locally throughout this migration on Apple Silicon -- this
+# job is the first time it runs on a *fresh* macOS checkout/runner rather
+# than an already-populated dev machine, so treat it as the first real
+# confirmation, not a formality.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-26, macos-15]
+
+    steps:
+    - uses: actions/checkout@v6
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
+
+    - name: Install dependencies
+      run: |
+        brew install capnp tbb bison flex boost fmt tomlplusplus pkg-config
+
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+        repository-cache: true
+
+    - name: Build
+      run: bazel build //...
+
+    - name: Test
+      run: bazel test //... --test_output=errors

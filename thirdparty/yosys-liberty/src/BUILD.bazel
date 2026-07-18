@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt. YosysLibertyParser is a
+# hand-written recursive-descent parser (no bison/flex involved, despite
+# CMakeLists.txt defensively adding ${FLEX_INCLUDE_DIRS} -- confirmed no
+# FlexLexer.h include anywhere in the active source; the stray *.yy~/
+# *.ll~/*.cpp~ backup files alongside it are leftover artifacts from an
+# earlier bison/flex-based version, not part of the active build).
+
+cc_library(
+    name = "yosys_liberty",
+    srcs = ["YosysLibertyParser.cpp"],
+    hdrs = [
+        "YosysLibertyParser.h",
+        "YosysLibertyException.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

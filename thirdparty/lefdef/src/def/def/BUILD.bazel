@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `def` static
+# library naja actually links (src/nl/formats/lefdef/CMakeLists.txt).
+# See internal/bazel-migration-plan.md (task #13) and
+# bazel/lefdef_bison.bzl for why def.tab.h is treated as an ordinary
+# checked-in header (not generated) here, unlike lef.tab.h in
+# ../../lef/lef.
+
+load("//bazel:lefdef_bison.bzl", "lefdef_bison_parser")
+
+lefdef_bison_parser(
+    name = "def_parser",
+    src = "def.y",
+    name_prefix = "defyy",
+)
+
+cc_library(
+    name = "def",
+    srcs = [
+        ":def_parser",
+        "def_keywords.cpp",
+        "defiAlias.cpp",
+        "defiAssertion.cpp",
+        "defiBlockage.cpp",
+        "defiComponent.cpp",
+        "defiDebug.cpp",
+        "defiFPC.cpp",
+        "defiFill.cpp",
+        "defiGroup.cpp",
+        "defiIOTiming.cpp",
+        "defiMisc.cpp",
+        "defiNet.cpp",
+        "defiNonDefault.cpp",
+        "defiPartition.cpp",
+        "defiPath.cpp",
+        "defiPinCap.cpp",
+        "defiPinProp.cpp",
+        "defiProp.cpp",
+        "defiPropType.cpp",
+        "defiRegion.cpp",
+        "defiRowTrack.cpp",
+        "defiScanchain.cpp",
+        "defiSite.cpp",
+        "defiSlot.cpp",
+        "defiTimingDisable.cpp",
+        "defiUtil.cpp",
+        "defiVia.cpp",
+        "defrCallbacks.cpp",
+        "defrData.cpp",
+        "defrReader.cpp",
+        "defrSettings.cpp",
+        "defwWriter.cpp",
+        "defwWriterCalls.cpp",
+    ],
+    hdrs = glob(["*.hpp"]) + [
+        "def.tab.h",
+        "lex.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

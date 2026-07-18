@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "najaMetricsTests",
+    srcs = ["MetricsTests.cpp"],
+    deps = [
+        "//src/dnl:naja_dnl",
+        "//src/metrics:naja_metrics",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/optimization:naja_opt",
+        "@googletest//:gtest_main",
+    ],
+)

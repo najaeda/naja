@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Intentionally empty -- exists only so the .bzl files in this package can
+# be loaded (Bazel requires every .bzl file to sit under a package).

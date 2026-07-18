@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# reductionOptTests (needs naja_snl_pyloader) is deferred to Phase 6 --
+# see task #19's notes. ENABLE_TEST_DOT defaults OFF in CMake; not wired
+# up here either.
+
+cc_test(
+    name = "loadlessLogicRemoverTests",
+    srcs = ["LoadlessLogicRemoverTests.cpp"],
+    deps = [
+        "//src/dnl:naja_dnl",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/optimization:naja_opt",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "constantPropagationTests",
+    srcs = [
+        "ConstantPropagationTests.cpp",
+        "ConstantPropagationLibertyTests.cpp",
+    ],
+    deps = [
+        "//src/nl/formats/liberty:naja_snl_liberty",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/optimization:naja_opt",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,54 @@
+name: Ubuntu Build (Bazel)
+
+# Bazel counterpart to ubuntu-build.yml, added additively per
+# internal/bazel-migration-plan.md's Phase 8 approach: runs alongside the
+# CMake job, not replacing it, until Bazel has full CI parity.
+#
+# DRAFT, not yet validated against a live Ubuntu runner -- see
+# bazel/thirdparty/slang_overlay.BUILD's doc comment: slang needs
+# fmt>=12.2/tomlplusplus>=3.4, both newer than Ubuntu's apt packages, so
+# this relies on the `requires-network` fallback (matching CMake's own
+# current Ubuntu CI behavior) rather than the no-network path already
+# confirmed on macOS.
+#
+# Single default toolchain for now (no gcc/clang matrix, unlike
+# ubuntu-build.yml) -- kept simple until this job is proven to work at
+# all on a live runner.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+
+    steps:
+    - uses: actions/checkout@v6
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev capnproto libcapnp-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git
+
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+        repository-cache: true
+
+    - name: Build
+      run: bazel build //...
+
+    - name: Test
+      run: bazel test //... --test_output=errors

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "snlDecoratorsTests",
+    srcs = [
+        "SNLDesignModelingTest0.cpp",
+        "SNLTruthTableTest.cpp",
+        "SNLDesignTruthTablesTest0.cpp",
+        "SNLDesignTruthTablesTest1.cpp",
+        "SNLLibraryTruthTablesTest.cpp",
+        "SNLGateTruthTablesTest.cpp",
+    ],
+    deps = [
+        "//src/nl/netlist:naja_nl",
+        "@googletest//:gtest_main",
+    ],
+)

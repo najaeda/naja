@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Intentionally empty -- exists only so slang_host_prefixes.bzl can be
+# loaded as a repo rule (Bazel requires every .bzl file to sit under a
+# package). Deliberately placed here rather than inside
+# bazel/thirdparty/slang/ (a dual-purpose directory whose BUILD.bazel is
+# also copied into the separately-fetched @slang repo -- see
+# bazel/thirdparty/slang/BUILD.bazel and .bazelignore) so this package
+# doesn't need to be .bazelignore-d too.
