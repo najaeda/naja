@@ -5,11 +5,13 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
+#include <unordered_map>
 
 #include "SNLTerm.h"
 
@@ -247,7 +249,18 @@ class SNLVRLDumper {
     static NLName createUnusedWireName(const SNLInstTerm* instTerm, DesignInsideAnonymousNaming& naming);
     static NLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
     static NLName getUnusedWireName(const SNLInstTerm* instTerm, const DesignInsideAnonymousNaming& naming);
-    static std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming);
+    enum class ConstantNetInfo: uint8_t {
+      NotConstant,
+      Assign0,
+      Assign1,
+      AssignX,
+      AssignZ,
+      OtherConstant
+    };
+    ConstantNetInfo getConstantNetInfo(const SNLBitNet* bitNet) const;
+    bool isInlineConstant(const SNLBitNet* bitNet) const;
+    char getAssignConstantBitValue(const SNLBitNet* bitNet) const;
+    std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming) const;
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpNajaFAModel(std::ostream& o);
     void dumpNajaMux2Model(std::ostream& o);
@@ -307,6 +320,7 @@ class SNLVRLDumper {
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
     DetailedPerfReport      detailedPerfReport_     {};
+    mutable std::unordered_map<const SNLBitNet*, ConstantNetInfo> constantNetInfoCache_ {};
     bool                    emitNajaMemModel_       {false};
     bool                    emitNajaMux2Model_      {false};
     bool                    emitNajaTableSelectModel_ {false};

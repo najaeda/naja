@@ -2517,6 +2517,14 @@ std::optional<NLLogicValue> SNLDesignModeling::getConstantValue(
       if (!instance->isLeaf()) {
         return std::nullopt;
       }
+      // Legacy constants have an explicit zero-input truth table. Reject
+      // ordinary gates before decoding their truth tables, which is costly on
+      // the hot net-classification path used by structural dumpers.
+      auto* truthTableProperty = getTruthTableProperty(instance->getModel());
+      if (!truthTableProperty || truthTableProperty->getValues().empty() ||
+          truthTableProperty->getUInt64Value(0) != 0) {
+        return std::nullopt;
+      }
       try {
         if (isConst0(instance->getModel())) {
           candidate = NLLogicValue::Zero;

@@ -154,3 +154,30 @@ TEST_F(SNLVRLDumperTestGate0, testGatePinsWithUnusedWiresAndAssignConstants) {
   EXPECT_NE(content.find("_naja_unused_"), std::string::npos);
   EXPECT_EQ(content.find("DUMMY"), std::string::npos);
 }
+
+TEST_F(SNLVRLDumperTestGate0, testHighFanoutAssignConstantDump) {
+  auto* top = db_->getLibrary(NLName("MYLIB"))->getSNLDesign(NLName("top"));
+  ASSERT_TRUE(top);
+
+  auto* constant = SNLScalarNet::create(top, NLName("shared_constant"));
+  SNLDesignModeling::createConstantDriver(
+    constant, NLLogicValue::Zero, NLConstantDriverKind::Assign);
+
+  constexpr size_t Fanout = 10000;
+  for (size_t i = 0; i < Fanout; ++i) {
+    auto* output = SNLScalarNet::create(
+      top, NLName("fanout_output_" + std::to_string(i)));
+    auto* assign = SNLInstance::create(top, NLDB0::getAssign());
+    assign->getInstTerm(NLDB0::getAssignInput())->setNet(constant);
+    assign->getInstTerm(NLDB0::getAssignOutput())->setNet(output);
+  }
+
+  std::ostringstream stream;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top, stream);
+  const auto dumped = stream.str();
+  EXPECT_NE(std::string::npos, dumped.find("assign fanout_output_0 = 1'b0;"));
+  EXPECT_NE(
+    std::string::npos,
+    dumped.find("assign fanout_output_9999 = 1'b0;"));
+}
