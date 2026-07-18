@@ -8,24 +8,23 @@ name: Ubuntu Build (Bazel)
 # bazel/thirdparty/slang_overlay.BUILD's doc comment: slang needs
 # fmt>=12.2/tomlplusplus>=3.4, both newer than (or, for tomlplusplus, not
 # even packaged as) Ubuntu's apt versions (libfmt-dev is 8.1.1/22.04,
-# 9.1.0/24.04; libtomlplusplus-dev doesn't exist at all on 22.04/24.04 --
-# confirmed by a real `apt-get install` failure on live CI, not just
-# reasoned about beforehand). slang's own CMake `find_package()` calls
-# reject these as too old/missing and fall through to FetchContent's real
-# network fetch (`requires-network` on slang's cmake() rule permits this,
-# matching CMake's own current Ubuntu CI behavior).
+# 9.1.0/24.04; libtomlplusplus-dev doesn't exist at all on 22.04/24.04).
+# slang's own CMake `find_package()` calls reject these as too old/missing
+# and fall through to FetchContent's real network fetch (`requires-network`
+# on slang's cmake() rule permits this, matching CMake's own current
+# Ubuntu CI behavior).
 #
-# @fmt//:fmt (bazel/thirdparty/fmt/repo.bzl) stays pkg-config-wrapped --
-# libfmt-dev is at least a real, installable apt package, so it's kept
-# for now; the version mismatch against whatever slang's own build
-# actually links (older apt fmt vs. a possibly-freshly-fetched newer one)
-# hasn't caused a failure yet, so not preemptively "fixed" further.
-#
-# @tomlplusplus//:tomlplusplus is vendored instead (git_repository +
-# bazel/thirdparty/tomlplusplus_overlay.BUILD in MODULE.bazel, pinned to
-# the same v3.4.0 slang itself requires) -- libtomlplusplus-dev simply
-# isn't apt-installable here at all, so pkg-config-wrapping a system
-# package was never going to work on this platform.
+# @fmt//:fmt and @tomlplusplus//:tomlplusplus are both vendored
+# (git_repository + bazel/thirdparty/{fmt,tomlplusplus}_overlay.BUILD in
+# MODULE.bazel, each pinned to the exact version slang itself requires)
+# rather than pkg-config-wrapped like tbb/boost -- not installed via apt
+# here at all. Found the hard way on live CI: tomlplusplus isn't
+# apt-installable on either Ubuntu version at all; fmt *is* installable,
+# but too old, and pkg-config-wrapping that stale apt fmt caused a real
+# `fmt::v12::...` undefined-reference link failure (libsvlang.a links
+# against the real fmt 12.2.0 slang's own build fetches over the
+# network, not whatever old version apt has) -- vendoring both removes
+# this whole category of platform-dependent version mismatch.
 #
 # Single default toolchain for now (no gcc/clang matrix, unlike
 # ubuntu-build.yml) -- kept simple until this job is proven to work at
@@ -46,7 +45,7 @@ jobs:
         os: [ubuntu-24.04, ubuntu-22.04]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
       # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
@@ -55,7 +54,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yq \
           libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
-          libfmt-dev \
           bison flex m4 pkg-config python3-dev git
 
     - uses: bazel-contrib/setup-bazel@0.8.1
@@ -65,7 +63,12 @@ jobs:
         repository-cache: true
 
     - name: Build
-      run: bazel build //...
+      # --jobs=auto: Bazel already parallelizes across all local cores by
+      # default (unlike make/CMake's default serial build, which is why
+      # ubuntu-build.yml needs an explicit `--parallel $(nproc)`) -- spelled
+      # out explicitly here for clarity/predictability rather than because
+      # it's functionally required.
+      run: bazel build //... --jobs=auto
 
     - name: Test
-      run: bazel test //... --test_output=errors
+      run: bazel test //... --test_output=errors --jobs=auto

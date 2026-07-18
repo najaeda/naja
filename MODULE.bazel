@@ -98,20 +98,28 @@ git_repository(
 
 # fmt: svlang's static library doesn't bundle it (found as a system lib via
 # CMAKE_PREFIX_PATH, see host_prefixes.bzl above), so @slang//:slang needs
-# to link it directly too.
-fmt_repository = use_repo_rule(
-    "//bazel/thirdparty/fmt:repo.bzl",
-    "fmt_repository",
+# to link it directly too. Vendored (pinned to the exact 12.2.0 tag
+# commit, matching slang's own `FIND_PACKAGE_ARGS 12.2` requirement)
+# rather than pkg-config-wrapped like tbb/boost: live Ubuntu CI showed a
+# real ABI mismatch when this was pkg-config-wrapped against apt's
+# libfmt-dev (v8/v9, far below 12.2) -- slang's own internal build
+# rejects that same old version and fetches a real fmt 12.2.0 over the
+# network instead, so libsvlang.a ends up needing `fmt::v12::...`
+# symbols an older wrapped fmt can never provide (undefined reference
+# errors, confirmed on live CI). Same fix as tomlplusplus below: pin our
+# own copy to the exact version slang requires, everywhere, rather than
+# depend on whatever a platform's package manager happens to ship.
+git_repository(
+    name = "fmt",
+    remote = "https://github.com/fmtlib/fmt",
+    commit = "1be298e1bd68957e4cd352e1f676f00e07dcfb57",  # 12.2.0
+    build_file = "//bazel/thirdparty:fmt_overlay.BUILD",
 )
 
-fmt_repository(name = "fmt")
-
 # tomlplusplus: same situation as fmt (svlang doesn't bundle it in
-# either), but vendored (pinned to the v3.4.0 tag's commit, matching
-# slang's own `FIND_PACKAGE_ARGS 3.4` minimum) rather than pkg-config-wrapped
-# like fmt/tbb/boost -- Ubuntu's apt doesn't reliably have
-# libtomlplusplus-dev at all (confirmed on live CI, not just reasoned
-# about), unlike fmt/tbb/boost which are ubiquitous system packages. See
+# either), vendored the same way (pinned to the v3.4.0 tag's commit,
+# matching slang's own `FIND_PACKAGE_ARGS 3.4` minimum) -- Ubuntu's apt
+# doesn't have libtomlplusplus-dev at all (confirmed on live CI). See
 # bazel/thirdparty/tomlplusplus_overlay.BUILD.
 git_repository(
     name = "tomlplusplus",

@@ -26,11 +26,17 @@ jobs:
         os: [macos-26, macos-15]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
       # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
     - name: Install dependencies
+      # tomlplusplus here is for slang's *own* internal find_package()
+      # (bazel/thirdparty/slang_host_prefixes.bzl queries `brew --prefix
+      # tomlplusplus` for slang's CMAKE_PREFIX_PATH) -- unrelated to this
+      # repo's own @tomlplusplus (vendored via git_repository since
+      # libtomlplusplus-dev isn't apt-installable on Ubuntu; still needed
+      # here regardless of that).
       run: |
         brew install capnp tbb bison flex boost fmt tomlplusplus pkg-config
 
@@ -57,7 +63,13 @@ jobs:
         repository-cache: true
 
     - name: Build
-      run: bazel build //...
+      # --jobs=auto: Bazel already parallelizes across all local cores by
+      # default (unlike make/CMake's default serial build, which is why
+      # macos-build.yml needs an explicit `--parallel $(sysctl -n
+      # hw.logicalcpu)`) -- spelled out explicitly here for
+      # clarity/predictability rather than because it's functionally
+      # required.
+      run: bazel build //... --jobs=auto
 
     - name: Test
-      run: bazel test //... --test_output=errors
+      run: bazel test //... --test_output=errors --jobs=auto
