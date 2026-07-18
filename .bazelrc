@@ -5,3 +5,19 @@
 # Matches CMakeLists.txt:59's `set(CMAKE_CXX_STANDARD 20)` -- applied
 # globally here rather than per-target, same as the CMake build.
 build --cxxopt=-std=c++20
+
+# Force fully static linking on every platform. Found via live Ubuntu
+# CI (internal/bazel-migration-plan.md, Phase 8, task #26): Bazel's
+# default --dynamic_mode on Linux can auto-split a large cc_library
+# (here, @slang//:slang's libsvlang.a) that's shared across multiple
+# test binaries into an intermediate `_solib_k8/*.so`, built with only
+# what that specific linker invocation resolved at the time -- which can
+# come up short on symbols (`slang::SourceLocation::NoLocation`, a
+# static data member, not a function call) that a fully static link
+# would have pulled in via the ordinary static-archive dependency chain.
+# macOS's toolchain doesn't hit this (no equivalent auto-.so-splitting
+# by default there), which is why it wasn't caught until Linux CI. Every
+# library in this migration is an ordinary cc_library (implicitly
+# static) throughout -- --dynamic_mode=off makes Linux match that same
+# fully-static assumption instead of silently diverging from it.
+build --dynamic_mode=off
