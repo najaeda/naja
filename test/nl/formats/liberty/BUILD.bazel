@@ -7,6 +7,14 @@
 # CMAKE_CURRENT_SOURCE_DIR in CMake) -- needs that filegroup as data too.
 cc_test(
     name = "snl_liberty_tests",
+    # 94 actual TEST_F/TEST cases -- capped at 50, Bazel's hard shard_count
+    # ceiling ("Having more than 50 shards is indicative of poor test
+    # organization"), so under --define=isolated_tests=true this gets
+    # ~2 tests/process on average rather than true 1:1 isolation.
+    shard_count = select({
+        "//bazel:isolated_tests": 50,
+        "//conditions:default": 1,
+    }),
     srcs = [
         "SNLLibertyConstructorTest0.cpp",
         "SNLLibertyConstructorTest1.cpp",

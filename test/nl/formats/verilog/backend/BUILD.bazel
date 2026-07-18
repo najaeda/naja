@@ -11,6 +11,13 @@
 
 cc_test(
     name = "snlVRLDumperTests",
+    # 69 actual TEST_F/TEST cases -- capped at 50, Bazel's hard shard_count
+    # ceiling, so under --define=isolated_tests=true this gets ~1.4
+    # tests/process on average rather than true 1:1 isolation.
+    shard_count = select({
+        "//bazel:isolated_tests": 50,
+        "//conditions:default": 1,
+    }),
     srcs = [
         "SNLVRLDumperTest0.cpp",
         "SNLVRLDumperTest1.cpp",

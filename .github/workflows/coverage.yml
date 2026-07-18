@@ -25,6 +25,15 @@ name: coverage
 # src/nl/snippets the way the old job's lcov step did), which is an
 # accepted, deliberate scope reduction for this first migration pass.
 #
+# --define=isolated_tests=true activates test/...'s per-target
+# shard_count (see bazel/BUILD.bazel's isolated_tests config_setting and
+# .bazelrc's --config=asan/tsan, which set the same define): this job's
+# old CMake equivalent ran every TEST_F in its own ctest process
+# (GTEST_DISCOVER_TESTS), unlike Bazel's default of one process per whole
+# cc_test binary. Bazel merges coverage data across shards the same way
+# it merges across separate test targets, so this doesn't change what the
+# combined report covers -- only how many processes get there.
+#
 # NOTE: local validation on macOS got the instrumentation and the
 # llvm-profdata merge step working (confirmed real, non-empty raw profile
 # data), but the final llvm-cov lcov export produced an empty report in
@@ -103,6 +112,7 @@ jobs:
           --instrumentation_filter="^//src[/:]" \
           --action_env=LLVM_COV="${LLVM_COV}" \
           --test_env=LLVM_COV="${LLVM_COV}" \
+          --define=isolated_tests=true \
           --test_output=errors --jobs=auto
         cp bazel-out/_coverage/_coverage_report.dat coverage.info
 

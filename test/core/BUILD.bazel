@@ -13,6 +13,10 @@
 
 cc_test(
     name = "najaCoreTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 16,
+        "//conditions:default": 1,
+    }),
     srcs = [
         "NajaPrivatePropertyTest.cpp",
         "NajaPerfTests.cpp",

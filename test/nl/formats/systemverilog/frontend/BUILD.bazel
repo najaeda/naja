@@ -15,6 +15,15 @@ load("@naja_workspace_root//:workspace_root.bzl", "WORKSPACE_ROOT")
 
 cc_test(
     name = "snlSVConstructorTests",
+    # 1065 actual TEST_F/TEST cases (this suite has grown large) -- capped
+    # at 50, Bazel's hard shard_count ceiling ("Having more than 50 shards
+    # is indicative of poor test organization"), so under
+    # --define=isolated_tests=true this gets ~21 tests/process on average
+    # rather than true 1:1 isolation.
+    shard_count = select({
+        "//bazel:isolated_tests": 50,
+        "//conditions:default": 1,
+    }),
     srcs = [
         "SNLSVConstructorTestSimple.cpp",
         "SNLSVConstructorTestMemoryInference.cpp",

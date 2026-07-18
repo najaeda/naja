@@ -26,15 +26,29 @@ build --dynamic_mode=off
 # ENABLE_THREAD_SANITIZER options (internal/bazel-migration-plan.md, Phase 8,
 # task #27) -- same -fsanitize flags CMake's `sanitizers_config` INTERFACE
 # target adds, `-c dbg` to mirror CMake's Debug build type used by both jobs.
+# --define=isolated_tests=true activates test/...'s `shard_count =
+# select(...)` attributes (see bazel/BUILD.bazel's isolated_tests
+# config_setting): every test binary's individual TEST_F cases run in
+# their own process, matching what these jobs' old CMake/CTest
+# equivalents actually did (GTEST_DISCOVER_TESTS registers each TEST_F as
+# its own ctest process, unlike Bazel's default of one process for an
+# entire cc_test binary) -- both for correctness (process-local singletons
+# like NLUniverse can't race across separate processes the way they could
+# across threads in one shared process) and for the parallelism this
+# repo's tests were designed around (ctest's own --parallel $(nproc) ran
+# many of those isolated processes concurrently; Bazel's default of one
+# giant sequential process per binary loses that entirely).
 build:asan -c dbg
 build:asan --copt=-fsanitize=address
 build:asan --copt=-fno-omit-frame-pointer
 build:asan --linkopt=-fsanitize=address
+build:asan --define=isolated_tests=true
 
 build:tsan -c dbg
 build:tsan --copt=-fsanitize=thread
 build:tsan --copt=-fno-omit-frame-pointer
 build:tsan --linkopt=-fsanitize=thread
+build:tsan --define=isolated_tests=true
 # TSan's suppressions= file (.github/tsan.supp) is read by the test binary
 # at runtime from an absolute workspace path passed via TSAN_OPTIONS --
 # that path isn't visible inside Bazel's default sandbox, which only
@@ -42,4 +56,8 @@ build:tsan --linkopt=-fsanitize=thread
 # namespace) is fine here: CI runners are already single-use, ephemeral
 # VMs, so there's no hermeticity to lose that matters in that environment.
 test:tsan --spawn_strategy=local
+# Matches the old CMake tsan-build.yml's own `ctest --parallel 1` (a
+# deliberate choice distinct from asan-build.yml's `--parallel $(nproc)`)
+# -- shards still give per-test process isolation, they just aren't run
+# concurrently with each other under this config, same as before.
 test:tsan --local_test_jobs=1

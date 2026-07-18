@@ -8,6 +8,10 @@
 
 cc_test(
     name = "loadlessLogicRemoverTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 47,
+        "//conditions:default": 1,
+    }),
     srcs = ["LoadlessLogicRemoverTests.cpp"],
     deps = [
         "//src/dnl:naja_dnl",
@@ -19,6 +23,10 @@ cc_test(
 
 cc_test(
     name = "constantPropagationTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 47,
+        "//conditions:default": 1,
+    }),
     srcs = [
         "ConstantPropagationTests.cpp",
         "ConstantPropagationLibertyTests.cpp",

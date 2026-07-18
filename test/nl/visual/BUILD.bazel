@@ -7,6 +7,10 @@
 
 cc_test(
     name = "snl_visual_tests",
+    shard_count = select({
+        "//bazel:isolated_tests": 5,
+        "//conditions:default": 1,
+    }),
     srcs = ["SNLVisualTests.cpp"],
     deps = [
         "//src/dnl:naja_dnl",

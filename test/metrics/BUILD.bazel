@@ -4,6 +4,10 @@
 
 cc_test(
     name = "najaMetricsTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 19,
+        "//conditions:default": 1,
+    }),
     srcs = ["MetricsTests.cpp"],
     deps = [
         "//src/dnl:naja_dnl",

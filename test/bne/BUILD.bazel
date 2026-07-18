@@ -4,6 +4,10 @@
 
 cc_test(
     name = "bneTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 6,
+        "//conditions:default": 1,
+    }),
     srcs = ["BNETests.cpp"],
     deps = [
         "//src/bne:naja_bne",
