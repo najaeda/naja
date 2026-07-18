@@ -62,13 +62,42 @@ jobs:
         disk-cache: ${{ github.workflow }}
         repository-cache: true
 
-    - name: Generate coverage
+    - name: Resolve newest available clang
+      # See asan-build.yml's comment on this same step: forces the newest
+      # clang-N already on the runner image rather than the bare `clang`
+      # alias, which on some Ubuntu releases is too old for slang's use of
+      # std::source_location against libstdc++. Resolves the matching
+      # llvm-profdata-N/llvm-cov-N alongside it so the coverage tools are
+      # the same version as the compiler, not whatever the bare
+      # llvm-profdata/llvm-cov names happen to default to.
+      id: clang
       run: |
-        GCOV="$(command -v llvm-profdata)"
-        LLVM_COV="$(command -v llvm-cov)"
-        export CC=clang CXX=clang++ BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV LLVM_COV
+        cc="$(ls /usr/bin/clang-[0-9]* 2>/dev/null | grep -E '/clang-[0-9]+$' | sort -t- -k2 -n | tail -1)"
+        [ -z "$cc" ] && cc=clang
+        cxx="${cc/clang/clang++}"
+        ver_suffix="${cc#/usr/bin/clang}"
+        profdata="/usr/bin/llvm-profdata${ver_suffix}"
+        [ -x "$profdata" ] || profdata="$(command -v llvm-profdata)"
+        cov="/usr/bin/llvm-cov${ver_suffix}"
+        [ -x "$cov" ] || cov="$(command -v llvm-cov)"
+        echo "cc=$cc" >> "$GITHUB_OUTPUT"
+        echo "cxx=$cxx" >> "$GITHUB_OUTPUT"
+        echo "profdata=$profdata" >> "$GITHUB_OUTPUT"
+        echo "cov=$cov" >> "$GITHUB_OUTPUT"
+        "$cc" --version
+        "$profdata" --version
+        "$cov" --version
+
+    - name: Generate coverage
+      env:
+        CC: ${{ steps.clang.outputs.cc }}
+        CXX: ${{ steps.clang.outputs.cxx }}
+        BAZEL_USE_LLVM_NATIVE_COVERAGE: 1
+        GCOV: ${{ steps.clang.outputs.profdata }}
+        LLVM_COV: ${{ steps.clang.outputs.cov }}
+      run: |
         bazel coverage //... \
-          --repo_env=CC=clang --repo_env=CXX=clang++ \
+          --repo_env=CC="${CC}" --repo_env=CXX="${CXX}" \
           --combined_report=lcov \
           --experimental_generate_llvm_lcov \
           --instrumentation_filter="^//src[/:]" \
