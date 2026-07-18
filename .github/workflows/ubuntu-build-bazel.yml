@@ -6,22 +6,26 @@ name: Ubuntu Build (Bazel)
 #
 # DRAFT, still being validated against live Ubuntu runners -- see
 # bazel/thirdparty/slang_overlay.BUILD's doc comment: slang needs
-# fmt>=12.2/tomlplusplus>=3.4, both newer than Ubuntu's apt packages
-# (libfmt-dev is 8.1.1/22.04, 9.1.0/24.04; libtomlplusplus-dev is only
-# confirmed present starting 24.04, exactly at 3.4.0 -- unconfirmed on
-# 22.04, may simply not exist there). This means slang's own CMake
-# `find_package()` calls will likely reject these as too old and fall
-# through to FetchContent's real network fetch (`requires-network` on
-# slang's cmake() rule permits this, matching CMake's own current Ubuntu
-# CI behavior). @fmt//:fmt / @tomlplusplus//:tomlplusplus (this repo's
-# own pkg-config-based wrappers, bazel/thirdparty/{fmt,tomlplusplus}/repo.bzl)
-# are a SEPARATE concern from whatever slang's internal build does --
-# they still need *some* system package to exist for pkg-config to
-# resolve, which is why these are installed here regardless of the
-# version question. Whether the version mismatch (libsvlang.a possibly
-# compiled against a freshly-fetched newer fmt, while @fmt links the
-# older apt one) causes a real problem hasn't been confirmed yet --
-# watching for it on the next run rather than guessing further.
+# fmt>=12.2/tomlplusplus>=3.4, both newer than (or, for tomlplusplus, not
+# even packaged as) Ubuntu's apt versions (libfmt-dev is 8.1.1/22.04,
+# 9.1.0/24.04; libtomlplusplus-dev doesn't exist at all on 22.04/24.04 --
+# confirmed by a real `apt-get install` failure on live CI, not just
+# reasoned about beforehand). slang's own CMake `find_package()` calls
+# reject these as too old/missing and fall through to FetchContent's real
+# network fetch (`requires-network` on slang's cmake() rule permits this,
+# matching CMake's own current Ubuntu CI behavior).
+#
+# @fmt//:fmt (bazel/thirdparty/fmt/repo.bzl) stays pkg-config-wrapped --
+# libfmt-dev is at least a real, installable apt package, so it's kept
+# for now; the version mismatch against whatever slang's own build
+# actually links (older apt fmt vs. a possibly-freshly-fetched newer one)
+# hasn't caused a failure yet, so not preemptively "fixed" further.
+#
+# @tomlplusplus//:tomlplusplus is vendored instead (git_repository +
+# bazel/thirdparty/tomlplusplus_overlay.BUILD in MODULE.bazel, pinned to
+# the same v3.4.0 slang itself requires) -- libtomlplusplus-dev simply
+# isn't apt-installable here at all, so pkg-config-wrapping a system
+# package was never going to work on this platform.
 #
 # Single default toolchain for now (no gcc/clang matrix, unlike
 # ubuntu-build.yml) -- kept simple until this job is proven to work at
@@ -51,7 +55,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yq \
           libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
-          libfmt-dev libtomlplusplus-dev \
+          libfmt-dev \
           bison flex m4 pkg-config python3-dev git
 
     - uses: bazel-contrib/setup-bazel@0.8.1

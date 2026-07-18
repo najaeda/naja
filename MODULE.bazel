@@ -106,13 +106,19 @@ fmt_repository = use_repo_rule(
 
 fmt_repository(name = "fmt")
 
-# tomlplusplus: same situation as fmt (svlang doesn't bundle it in either).
-tomlplusplus_repository = use_repo_rule(
-    "//bazel/thirdparty/tomlplusplus:repo.bzl",
-    "tomlplusplus_repository",
+# tomlplusplus: same situation as fmt (svlang doesn't bundle it in
+# either), but vendored (pinned to the v3.4.0 tag's commit, matching
+# slang's own `FIND_PACKAGE_ARGS 3.4` minimum) rather than pkg-config-wrapped
+# like fmt/tbb/boost -- Ubuntu's apt doesn't reliably have
+# libtomlplusplus-dev at all (confirmed on live CI, not just reasoned
+# about), unlike fmt/tbb/boost which are ubiquitous system packages. See
+# bazel/thirdparty/tomlplusplus_overlay.BUILD.
+git_repository(
+    name = "tomlplusplus",
+    remote = "https://github.com/marzer/tomlplusplus",
+    commit = "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",  # v3.4.0
+    build_file = "//bazel/thirdparty:tomlplusplus_overlay.BUILD",
 )
-
-tomlplusplus_repository(name = "tomlplusplus")
 
 # --- TBB (task #10): no BCR module. Wrap the already system-installed
 # oneTBB (same one CMake's find_package(TBB REQUIRED) resolves against)
