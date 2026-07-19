@@ -84,6 +84,21 @@ jobs:
     - name: Test
       env:
         PYTHONMALLOC: malloc
+        # quarantine_size_mb: forces ASan to keep freed memory poisoned much
+        # longer before reallocating it, specifically to try to catch a
+        # slang::assert::AssertionException ('kind == SymbolKind::TypeAlias'
+        # in Type::resolveCanonical()) seen on live CI in
+        # snlSVConstructorTests, without any ASan report of its own
+        # alongside it -- consistent with a stale-pointer-into-since-
+        # reallocated-memory bug, which ASan's default quarantine is too
+        # small to reliably catch (it only poisons freed memory until it
+        # gets reused, and by default reuses it quickly). Bumped here to
+        # get a real heap-use-after-free report with full allocation/free/
+        # access stack traces instead of this opaque assertion, pinpointing
+        # exactly where the stale pointer is held. malloc_context_size:
+        # deeper stack traces for those reports. Diagnostic-only for now --
+        # not meant to stay at this value once the bug is found and fixed.
+        ASAN_OPTIONS: quarantine_size_mb=512:malloc_context_size=30
       run: >
         bazel test --config=asan
         --repo_env=CC=${{ steps.clang.outputs.cc }} --repo_env=CXX=${{ steps.clang.outputs.cxx }}
