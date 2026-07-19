@@ -395,6 +395,14 @@ size_t countDFFBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFF);
 }
 
+size_t countAssignXNets(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* net : design->getScalarNets()) {
+    count += net->isAssignX();
+  }
+  return count;
+}
+
 size_t countDFFNBits(const SNLDesign* design) {
   return countPrimitiveBits(design, NLDB0::isDFFN);
 }
@@ -3028,7 +3036,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousGateAssignBitwiseNotUnknownOperandReportedUnsupported) {
+  parseContinuousGateAssignBitwiseNotFourStateOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath /
@@ -3053,19 +3061,16 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {
-      "Unsupported operand in continuous gate assign",
-      "gate=and",
-      "failed to resolve bitwise-not operand bits"
-    });
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_gate_assign_bitwise_not_unknown_operand_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousBitwiseGateAssignBitwiseNotUnknownOperandReportedUnsupported) {
+  parseContinuousBitwiseGateAssignBitwiseNotFourStateOperandSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath /
@@ -3090,15 +3095,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {
-      "Unsupported gate construction in continuous assign",
-      "gate=and",
-      "lhs_width=4",
-      "failed to resolve bitwise-not operand bits"
-    });
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_bitwise_gate_assign_bitwise_not_unknown_operand_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -4801,7 +4802,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignSimpleReturnFunctionArgumentResolveFailureUnsupported) {
+  parseContinuousAssignSimpleReturnFunctionFourStateArgumentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -4827,11 +4828,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_simple_return_function_argument_resolve_failure_unsupported'"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_simple_return_function_argument_resolve_failure_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -5944,7 +5945,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignProceduralReturnFunctionArgumentResolveFailureUnsupported) {
+  parseContinuousAssignProceduralReturnFunctionFourStateArgumentSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "continuous_assign_procedural_return_function_argument_resolve_failure_unsupported";
@@ -5972,11 +5973,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_procedural_return_function_argument_resolve_failure_unsupported'"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_procedural_return_function_argument_resolve_failure_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -6099,7 +6100,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignFunctionCaseReturnDefaultResolveFailureUnsupported) {
+  parseContinuousAssignFunctionCaseReturnDefaultFourStateSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -6129,11 +6130,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_function_case_return_default_resolve_failure_unsupported'"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_function_case_return_default_resolve_failure_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -6178,7 +6179,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignFunctionCaseReturnItemResolveFailureUnsupported) {
+  parseContinuousAssignFunctionCaseReturnItemFourStateSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -6208,16 +6209,16 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_function_case_return_item_resolve_failure_unsupported'"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_function_case_return_item_resolve_failure_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignFunctionCaseReturnItemEqualityResolveFailureUnsupported) {
+  parseContinuousAssignFunctionCaseReturnItemEqualityFourStateSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -6249,11 +6250,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_function_case_return_item_equality_resolve_failure_unsupported'"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_function_case_return_item_equality_resolve_failure_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -9653,7 +9654,7 @@ endmodule
 )",
     3);
   ASSERT_TRUE(packedBits.has_value());
-  EXPECT_EQ("001", *packedBits);
+  EXPECT_EQ("x01", *packedBits);
 
   const auto concatBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(output logic [1:0] y);
@@ -9666,7 +9667,7 @@ endmodule
 )",
     2);
   ASSERT_TRUE(concatBits.has_value());
-  EXPECT_EQ("01", *concatBits);
+  EXPECT_EQ("x1", *concatBits);
 }
 
 TEST_F(
@@ -9684,7 +9685,7 @@ endmodule
 )",
     2);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("01", *bits);
+  EXPECT_EQ("x1", *bits);
 }
 
 TEST_F(
@@ -9698,7 +9699,7 @@ endmodule
 )",
     1);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("0", *bits);
+  EXPECT_EQ("x", *bits);
 }
 
 TEST_F(
@@ -9711,7 +9712,7 @@ endmodule
 )",
     2);
   ASSERT_TRUE(constTrueBits.has_value());
-  EXPECT_EQ("01", *constTrueBits);
+  EXPECT_EQ("x1", *constTrueBits);
 
   const auto constFalseBits = detail::testSVConstructorResolveUnknownLiteralBitsAsZeroFromAssignRhs(
     R"(module detail_test(input logic sel, output logic [1:0] y);
@@ -9720,7 +9721,7 @@ endmodule
 )",
     2);
   ASSERT_TRUE(constFalseBits.has_value());
-  EXPECT_EQ("10", *constFalseBits);
+  EXPECT_EQ("1x", *constFalseBits);
 }
 
 TEST_F(
@@ -9735,7 +9736,7 @@ endmodule
 )",
     3);
   ASSERT_TRUE(bits.has_value());
-  EXPECT_EQ("001", *bits);
+  EXPECT_EQ("x01", *bits);
 }
 
 TEST_F(
@@ -21897,7 +21898,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombLHSDynamicElementSelectUnknownBitsUnsupported) {
+  parseAlwaysCombLHSDynamicElementSelectFourStateBitsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath / "always_comb_lhs_dynamic_element_select_unknown_bits_unsupported";
@@ -21925,10 +21926,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve dynamic index bits in always_comb assignment LHS"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_unknown_bits_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -23587,15 +23589,17 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksSuppo
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousResolveExpressionBitsFailurePathsUnsupported) {
+  parseContinuousResolveExpressionBitsFourStatePathsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  EXPECT_THROW(
-    constructor.construct(
-      benchmarksPath /
-      "continuous_resolve_expression_bits_failure_paths_unsupported" /
-      "continuous_resolve_expression_bits_failure_paths_unsupported.sv"),
-    SNLSVConstructorException);
+  EXPECT_NO_THROW(constructor.construct(
+    benchmarksPath /
+    "continuous_resolve_expression_bits_failure_paths_unsupported" /
+    "continuous_resolve_expression_bits_failure_paths_unsupported.sv"));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_resolve_expression_bits_failure_paths_unsupported_top"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -25660,7 +25664,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialDirectMultiAssignmentUnsupportedIntegralSelectionTargetUnsupported) {
+  parseSequentialDirectMultiAssignmentFourStateSelectionTargetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -25693,10 +25697,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"direct multi-assignment LHS is not"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "seq_direct_multi_assignment_unsupported_integral_selection_target_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(
@@ -26300,7 +26305,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialMultiAssignmentResetDynamicElementSelectUnknownBitsUnsupported) {
+  parseSequentialMultiAssignmentResetDynamicElementSelectFourStateBitsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -26338,10 +26343,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve dynamic index bits in sequential assignment LHS"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "seq_multi_assignment_reset_dynamic_element_select_unknown_bits_unsupported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSupported) {
@@ -27221,7 +27227,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseSequentialUnknownIndexedLHSUnsupportedReportsChainLHSResolution) {
+  parseSequentialFourStateIndexedLHSSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath =
@@ -27251,11 +27257,11 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unable to resolve assignment LHS net",
-     "failed to resolve always_comb assignment LHS bits"});
+  EXPECT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "seq_unknown_indexed_lhs_unsupported_reports_chain_lhs_resolution"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countAssignXNets(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSupported) {
@@ -30923,15 +30929,14 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSuppo
   auto top = library_->getSNLDesign(NLName("seq_reset_struct_default_unknown_supported"));
   ASSERT_NE(top, nullptr);
 
-  auto dffrnModel = NLDB0::getDFFRN();
-  ASSERT_NE(dffrnModel, nullptr);
-  size_t dffrnCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFFRN(inst->getModel())) {
-      dffrnCount += getPrimitiveWidth(inst);
-    }
+  EXPECT_EQ(0u, countPrimitiveBits(top, NLDB0::isDFFRN));
+  EXPECT_EQ(12u, countPrimitiveBits(top, NLDB0::isDFF));
+  EXPECT_EQ(24u, countPrimitiveBits(top, NLDB0::isMux2));
+  size_t assignXCount = 0;
+  for (auto* net : top->getScalarNets()) {
+    assignXCount += net->isAssignX();
   }
-  EXPECT_EQ(12u, dffrnCount);
+  EXPECT_EQ(1u, assignXCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupported) {
@@ -32815,21 +32820,70 @@ endmodule
   EXPECT_NO_THROW(constructor.construct(svPath, options));
 
   const auto report = readTextFile(reportPath);
-  EXPECT_NE(
-    std::string::npos,
-    report.find(
-      "X literal bits in always_comb assignment RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
-  EXPECT_NE(
-    std::string::npos,
-    report.find(
-      "Z literal bits in continuous assign RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
-  EXPECT_NE(
-    std::string::npos,
-    report.find(
-      "X and Z literal bits in continuous assign RHS lowered as 0 in SNL "
-      "(four-state distinction is not preserved)"));
+  EXPECT_EQ(std::string::npos, report.find("four-state distinction is not preserved"));
+
+  auto top = library_->getSNLDesign(
+    NLName("unknown_literal_diagnostics_identify_x_and_z"));
+  ASSERT_NE(nullptr, top);
+  size_t assignXCount = 0;
+  size_t assignZCount = 0;
+  for (auto net: top->getScalarNets()) {
+    assignXCount += net->isAssignX();
+    assignZCount += net->isAssignZ();
+  }
+  EXPECT_EQ(1u, assignXCount);
+  EXPECT_EQ(1u, assignZCount);
+
+  auto mixed = top->getBusNet(NLName("mixed_o"));
+  ASSERT_NE(nullptr, mixed);
+  const std::array<SNLNet::Type::TypeEnum, 4> expected = {
+    SNLNet::Type::Assign0,
+    SNLNet::Type::AssignZ,
+    SNLNet::Type::Assign1,
+    SNLNet::Type::AssignX};
+  for (size_t bit = 0; bit < expected.size(); ++bit) {
+    auto* driver = dynamic_cast<SNLBitNet*>(
+      getSingleAssignInputDriving(mixed->getBit(static_cast<NLID::Bit>(bit))));
+    ASSERT_NE(nullptr, driver);
+    EXPECT_EQ(expected[bit], driver->getType());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseFourStateConstantPortConnection) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "four_state_constant_port_connection",
+    R"(module four_state_port_child(input logic [3:0] i);
+endmodule
+
+module four_state_constant_port_connection;
+  four_state_port_child u0(.i(4'b10xz));
+endmodule
+)");
+
+  EXPECT_NO_THROW(constructor.construct(svPath));
+
+  auto* top = library_->getSNLDesign(
+    NLName("four_state_constant_port_connection"));
+  auto* child = library_->getSNLDesign(NLName("four_state_port_child"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, child);
+  auto* instance = top->getInstance(NLName("u0"));
+  auto* input = child->getBusTerm(NLName("i"));
+  ASSERT_NE(nullptr, instance);
+  ASSERT_NE(nullptr, input);
+  const std::array<SNLNet::Type::TypeEnum, 4> expected = {
+    SNLNet::Type::AssignZ,
+    SNLNet::Type::AssignX,
+    SNLNet::Type::Assign0,
+    SNLNet::Type::Assign1};
+  for (size_t bit = 0; bit < expected.size(); ++bit) {
+    auto* net = instance->getInstTerm(
+      input->getBit(static_cast<NLID::Bit>(bit)))->getNet();
+    ASSERT_NE(nullptr, net);
+    EXPECT_EQ(expected[bit], net->getType());
+  }
+  EXPECT_EQ(1u, top->getInstances().size());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElaborationWarningsDedupStdoutAndDumpDiagnosticsReport) {

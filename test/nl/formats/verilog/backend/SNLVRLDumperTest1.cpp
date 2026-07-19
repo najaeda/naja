@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -112,6 +113,51 @@ TEST_F(SNLVRLDumperTest1, test0) {
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest1, testFourStateScalarConnections) {
+  auto library = db_->getLibrary(NLName("MYLIB"));
+  auto top = library->getSNLDesign(NLName("top"));
+  auto model = SNLDesign::create(library, NLName("four_state_model"));
+  auto xInput = SNLScalarTerm::create(
+    model, SNLTerm::Direction::Input, NLName("x_input"));
+  auto zInput = SNLScalarTerm::create(
+    model, SNLTerm::Direction::Input, NLName("z_input"));
+  auto mixedInput = SNLBusTerm::create(
+    model, SNLTerm::Direction::Input, 3, 0, NLName("mixed_input"));
+  auto instance = SNLInstance::create(top, model, NLName("four_state_instance"));
+  auto xNet = SNLScalarNet::create(top);
+  xNet->setType(SNLNet::Type::AssignX);
+  auto zNet = SNLScalarNet::create(top);
+  zNet->setType(SNLNet::Type::AssignZ);
+  instance->getInstTerm(xInput)->setNet(xNet);
+  instance->getInstTerm(zInput)->setNet(zNet);
+  const std::array<SNLNet::Type::TypeEnum, 4> mixedTypes = {
+    SNLNet::Type::AssignZ,
+    SNLNet::Type::AssignX,
+    SNLNet::Type::Assign0,
+    SNLNet::Type::Assign1};
+  for (size_t bit = 0; bit < mixedTypes.size(); ++bit) {
+    auto* net = SNLScalarNet::create(top);
+    net->setType(mixedTypes[bit]);
+    instance->getInstTerm(mixedInput->getBit(static_cast<NLID::Bit>(bit)))->setNet(net);
+  }
+
+  auto outDir = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) /
+    "testFourStateScalarConnections";
+  std::filesystem::create_directories(outDir);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName("top.v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outDir);
+
+  std::ifstream stream(outDir / "top.v");
+  std::stringstream buffer;
+  buffer << stream.rdbuf();
+  const auto verilog = buffer.str();
+  EXPECT_NE(std::string::npos, verilog.find("1'bx"));
+  EXPECT_NE(std::string::npos, verilog.find("1'bz"));
+  EXPECT_NE(std::string::npos, verilog.find("4'b10xz"));
 }
 
 TEST_F(SNLVRLDumperTest1, test1) {

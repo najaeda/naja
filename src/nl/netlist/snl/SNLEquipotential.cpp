@@ -37,7 +37,12 @@ struct SNLEquipotentialExtractor {
     visitedNetOccurrences_.insert(netOccurrence);
     auto net = dynamic_cast<const SNLBitNet*>(netOccurrence.getObject());
     if (net->getType() != SNLNet::Type::Standard) {
-      type_ = net->getType();
+      if (not hasDrivingType_) {
+        type_ = net->getType();
+        hasDrivingType_ = true;
+      } else if (type_ != net->getType()) {
+        type_ = SNLNet::Type::Standard;
+      }
     }
     auto path = netOccurrence.getPath();
     for (auto component: net->getComponents()) {
@@ -123,6 +128,7 @@ struct SNLEquipotentialExtractor {
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
     SNLNet::Type&                           type_;
+    bool                                    hasDrivingType_    {false};
     using NetOccurrences = std::set<SNLOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
 };
@@ -146,6 +152,14 @@ bool SNLEquipotential::isConst0() const {
 
 bool SNLEquipotential::isConst1() const {
   return type_.isConst1();
+}
+
+bool SNLEquipotential::isConstX() const {
+  return type_.isConstX();
+}
+
+bool SNLEquipotential::isConstZ() const {
+  return type_.isConstZ();
 }
 
 std::string SNLEquipotential::getString() const {

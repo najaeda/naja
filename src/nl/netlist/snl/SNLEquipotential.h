@@ -30,6 +30,8 @@ class SNLEquipotential {
     SNLNet::Type getType() const { return type_; }
     bool isConst0() const;
     bool isConst1() const;
+    bool isConstX() const;
+    bool isConstZ() const;
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {

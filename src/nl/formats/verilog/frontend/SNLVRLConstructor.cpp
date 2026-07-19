@@ -320,7 +320,7 @@ void SNLVRLConstructor::createConstantNets(
     throw naja::NL::SNLVRLConstructorException(reason.str());
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
-  auto bits = SNLVRLConstructorUtils::numberToBits(basedNumber);
+  auto bits = SNLVRLConstructorUtils::numberToNetTypes(basedNumber);
   //LCOV_EXCL_START
   if (bits.size() != basedNumber.size_) {
     std::ostringstream reason;
@@ -330,10 +330,24 @@ void SNLVRLConstructor::createConstantNets(
   }
   //LCOV_EXCL_STOP
   for (int i=bits.size()-1; i>=0; i--) {
-    if (bits[i]) {
-      nets.push_back(currentModuleAssign1_);
-    } else {
-      nets.push_back(currentModuleAssign0_);
+    switch (bits[i]) {
+      case SNLNet::Type::Assign0: nets.push_back(currentModuleAssign0_); break;
+      case SNLNet::Type::Assign1: nets.push_back(currentModuleAssign1_); break;
+      case SNLNet::Type::AssignX:
+        if (!currentModuleAssignX_) {
+          currentModuleAssignX_ = SNLScalarNet::create(currentModule_);
+          currentModuleAssignX_->setType(SNLNet::Type::AssignX);
+        }
+        nets.push_back(currentModuleAssignX_);
+        break;
+      case SNLNet::Type::AssignZ:
+        if (!currentModuleAssignZ_) {
+          currentModuleAssignZ_ = SNLScalarNet::create(currentModule_);
+          currentModuleAssignZ_->setType(SNLNet::Type::AssignZ);
+        }
+        nets.push_back(currentModuleAssignZ_);
+        break;
+      default: throw SNLVRLConstructorException("Invalid constant bit type");
     }
   }
 }
@@ -386,6 +400,8 @@ void SNLVRLConstructor::resetPerModuleState() {
   currentInstanceParameterValues_.clear();
   currentModuleAssign0_ = nullptr;
   currentModuleAssign1_ = nullptr;
+  currentModuleAssignX_ = nullptr;
+  currentModuleAssignZ_ = nullptr;
   nextObjectAttributes_.clear();
   skipCurrentModule_ = false;
 }

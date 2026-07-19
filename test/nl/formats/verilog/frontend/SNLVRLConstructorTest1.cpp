@@ -31,6 +31,7 @@
 #include "SNLVRLConstructor.h"
 #undef private
 #include "SNLVRLConstructorException.h"
+#include "SNLVRLDumper.h"
 
 using namespace naja::NL;
 
@@ -260,6 +261,89 @@ TEST_F(SNLVRLConstructorTest1, testOrderedBundleConnections) {
   EXPECT_EQ(top->getNet(NLName("qn0")), instTerms[5]->getNet());
   EXPECT_EQ(top->getNet(NLName("qn1")), instTerms[6]->getNet());
 
+  std::filesystem::remove(testPath);
+}
+
+TEST_F(SNLVRLConstructorTest1, testFourStateInstanceConnection) {
+  const auto testPath =
+    std::filesystem::temp_directory_path() / "naja_vrl_four_state_connection.v";
+  {
+    std::ofstream stream(testPath);
+    stream
+      << "module child(input [3:0] i); endmodule\n"
+      << "module child8(input [7:0] i); endmodule\n"
+      << "module top;\n"
+      << "  child u0 (.i(4'b10xz));\n"
+      << "  child8 u1 (.i(8'hxz));\n"
+      << "endmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  constructor.parse(testPath);
+  constructor.setFirstPass(false);
+  constructor.parse(testPath);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  auto child = library_->getSNLDesign(NLName("child"));
+  auto child8 = library_->getSNLDesign(NLName("child8"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, child);
+  ASSERT_NE(nullptr, child8);
+  auto instance = top->getInstance(NLName("u0"));
+  auto input = child->getBusTerm(NLName("i"));
+  ASSERT_NE(nullptr, instance);
+  ASSERT_NE(nullptr, input);
+  EXPECT_EQ(SNLNet::Type::AssignZ, instance->getInstTerm(input->getBit(0))->getNet()->getType());
+  EXPECT_EQ(SNLNet::Type::AssignX, instance->getInstTerm(input->getBit(1))->getNet()->getType());
+  EXPECT_EQ(SNLNet::Type::Assign0, instance->getInstTerm(input->getBit(2))->getNet()->getType());
+  EXPECT_EQ(SNLNet::Type::Assign1, instance->getInstTerm(input->getBit(3))->getNet()->getType());
+  auto instance8 = top->getInstance(NLName("u1"));
+  auto input8 = child8->getBusTerm(NLName("i"));
+  ASSERT_NE(nullptr, instance8);
+  ASSERT_NE(nullptr, input8);
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(
+      SNLNet::Type::AssignZ,
+      instance8->getInstTerm(input8->getBit(bit))->getNet()->getType());
+    EXPECT_EQ(
+      SNLNet::Type::AssignX,
+      instance8->getInstTerm(input8->getBit(bit + 4))->getNet()->getType());
+  }
+  EXPECT_EQ(2u, top->getInstances().size());
+
+  const auto dumpPath =
+    std::filesystem::temp_directory_path() / "naja_vrl_four_state_roundtrip";
+  std::filesystem::remove_all(dumpPath);
+  std::filesystem::create_directory(dumpPath);
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName("top.v");
+  dumper.dumpDesign(top, dumpPath);
+
+  auto* reloadDB = NLDB::create(NLUniverse::get());
+  auto* reloadLibrary = NLLibrary::create(reloadDB, NLName("RELOADED"));
+  SNLVRLConstructor reloadConstructor(reloadLibrary);
+  reloadConstructor.parse(dumpPath / "top.v");
+  reloadConstructor.setFirstPass(false);
+  reloadConstructor.parse(dumpPath / "top.v");
+  auto* reloadedTop = reloadLibrary->getSNLDesign(NLName("top"));
+  auto* reloadedChild8 = reloadLibrary->getSNLDesign(NLName("child8"));
+  ASSERT_NE(nullptr, reloadedTop);
+  ASSERT_NE(nullptr, reloadedChild8);
+  auto* reloadedInstance8 = reloadedTop->getInstance(NLName("u1"));
+  auto* reloadedInput8 = reloadedChild8->getBusTerm(NLName("i"));
+  ASSERT_NE(nullptr, reloadedInstance8);
+  ASSERT_NE(nullptr, reloadedInput8);
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(
+      SNLNet::Type::AssignZ,
+      reloadedInstance8->getInstTerm(reloadedInput8->getBit(bit))->getNet()->getType());
+    EXPECT_EQ(
+      SNLNet::Type::AssignX,
+      reloadedInstance8->getInstTerm(reloadedInput8->getBit(bit + 4))->getNet()->getType());
+  }
+  EXPECT_EQ(2u, reloadedTop->getInstances().size());
+  std::filesystem::remove_all(dumpPath);
   std::filesystem::remove(testPath);
 }
 

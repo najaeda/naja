@@ -26,6 +26,8 @@ class SNLBitNet: public SNLNet {
 
     bool isAssign0() const override { return type_.isAssign0(); } 
     bool isAssign1() const override { return type_.isAssign1(); } 
+    bool isAssignX() const override { return type_.isAssignX(); }
+    bool isAssignZ() const override { return type_.isAssignZ(); }
     bool isSupply0() const override { return type_.isSupply0(); } 
     bool isSupply1() const override { return type_.isSupply1(); } 
 

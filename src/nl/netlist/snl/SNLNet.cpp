@@ -32,6 +32,8 @@ std::string SNLNet::Type::getString() const {
     case Type::Assign1:  return "Assign1";
     case Type::Supply0:  return "Supply0";
     case Type::Supply1:  return "Supply1";
+    case Type::AssignX:  return "AssignX";
+    case Type::AssignZ:  return "AssignZ";
   }
   return "Unknown";
 }
