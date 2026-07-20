@@ -347,7 +347,8 @@ void SNLVRLConstructor::createConstantNets(
         }
         nets.push_back(currentModuleAssignZ_);
         break;
-      default: throw SNLVRLConstructorException("Invalid constant bit type");
+      // numberToNetTypes returns only the four assign-constant types handled above.
+      default: throw SNLVRLConstructorException("Invalid constant bit type"); // LCOV_EXCL_LINE
     }
   }
 }

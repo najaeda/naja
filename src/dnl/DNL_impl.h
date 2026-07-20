@@ -397,7 +397,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                         case DNLIso::IsoType::CONST1: addConstantIso1(iso.getIsoID()); break;
                         case DNLIso::IsoType::CONSTX: addConstantIsoX(iso.getIsoID()); break;
                         case DNLIso::IsoType::CONSTZ: addConstantIsoZ(iso.getIsoID()); break;
-                        default: break;
+                        // STANDART returns above; all other non-constant types are terminal states.
+                        default: break; // LCOV_EXCL_LINE
                       }
                     };
   std::vector<DNLID> tasks;

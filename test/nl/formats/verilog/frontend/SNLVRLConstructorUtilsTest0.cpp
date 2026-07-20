@@ -106,3 +106,65 @@ TEST(SNLVRLConstructorUtilsTest0, testErrors) {
     EXPECT_THROW(SNLVRLConstructorUtils::numberToBits(num), SNLVRLConstructorException);
   }
 }
+
+TEST(SNLVRLConstructorUtilsTest0, testNumberToNetTypes) {
+  {
+    const auto num = naja::verilog::BasedNumber("4", false, 'd', "10");
+    const auto bits = SNLVRLConstructorUtils::numberToNetTypes(num);
+    const std::vector<SNLNet::Type> expected = {
+      SNLNet::Type::Assign0,
+      SNLNet::Type::Assign1,
+      SNLNet::Type::Assign0,
+      SNLNet::Type::Assign1};
+    EXPECT_EQ(expected, bits);
+  }
+
+  {
+    const auto num = naja::verilog::BasedNumber("4", false, 'b', "10xZ");
+    const auto bits = SNLVRLConstructorUtils::numberToNetTypes(num);
+    const std::vector<SNLNet::Type> expected = {
+      SNLNet::Type::AssignZ,
+      SNLNet::Type::AssignX,
+      SNLNet::Type::Assign0,
+      SNLNet::Type::Assign1};
+    EXPECT_EQ(expected, bits);
+  }
+
+  {
+    const auto num = naja::verilog::BasedNumber("8", false, 'h', "xA");
+    const auto bits = SNLVRLConstructorUtils::numberToNetTypes(num);
+    const std::vector<SNLNet::Type> expected = {
+      SNLNet::Type::Assign0,
+      SNLNet::Type::Assign1,
+      SNLNet::Type::Assign0,
+      SNLNet::Type::Assign1,
+      SNLNet::Type::AssignX,
+      SNLNet::Type::AssignX,
+      SNLNet::Type::AssignX,
+      SNLNet::Type::AssignX};
+    EXPECT_EQ(expected, bits);
+  }
+}
+
+TEST(SNLVRLConstructorUtilsTest0, testNumberToNetTypesErrors) {
+  {
+    const auto num = naja::verilog::BasedNumber("4", false, 'h', "1G");
+    EXPECT_THROW(
+      SNLVRLConstructorUtils::numberToNetTypes(num),
+      SNLVRLConstructorException);
+  }
+
+  {
+    const auto num = naja::verilog::BasedNumber("3", false, 'b', "102");
+    EXPECT_THROW(
+      SNLVRLConstructorUtils::numberToNetTypes(num),
+      SNLVRLConstructorException);
+  }
+
+  {
+    const auto num = naja::verilog::BasedNumber("3", false, 'o', "7");
+    EXPECT_THROW(
+      SNLVRLConstructorUtils::numberToNetTypes(num),
+      SNLVRLConstructorException);
+  }
+}

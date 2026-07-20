@@ -65,6 +65,16 @@ the current architecture:
   SV elaboration (defensive guard).
 - `getConstantBit`: null expression after `stripConversions` on AST expression
   references (defensive guard).
+- `getConstNet`: invalid net-type and four-state-value throws. Internal callers
+  only pass an assign-constant type, and `slang::logic_t` only represents 0, 1,
+  X, and Z.
+- Case-inside value-range bound evaluation after `getConstant()` fails. Current
+  Slang ASTs expose folded integer constants for legal bounds; the fallback is
+  retained for alternate or future AST spellings.
+- Generic unknown-integer bit expansion after the dedicated literal,
+  structured-pattern, and constant-expression resolvers. Parser-backed unknown
+  constants are consumed by those earlier paths; the generic loop is retained
+  for alternate or future AST spellings.
 - `resolveExpressionBits`: defensive call-cast guards for malformed argument
   list and zero/non-integral width (`$signed` / `$unsigned`).
 - `resolveExpressionBits`: defensive unknown-bit recheck after

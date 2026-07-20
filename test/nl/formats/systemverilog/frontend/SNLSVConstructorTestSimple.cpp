@@ -4646,6 +4646,35 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseContinuousAssignFunctionCaseInsideEvaluatedRangeBoundsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "continuous_assign_function_case_inside_evaluated_range_bounds_supported",
+    R"(module continuous_assign_function_case_inside_evaluated_range_bounds_supported(
+  input  logic [5:0] op,
+  output logic       y
+);
+  localparam logic [5:0] BOUNDS [0:1] = '{6'd4, 6'd17};
+  function automatic logic is_amo(input logic [5:0] op_i);
+    case (op_i) inside
+      [BOUNDS[0] : BOUNDS[1]]: return 1'b1;
+      default:                 return 1'b0;
+    endcase
+  endfunction
+  assign y = is_amo(op);
+endmodule
+)");
+
+  EXPECT_NO_THROW(constructor.construct(svPath));
+
+  auto* top = library_->getSNLDesign(
+    NLName("continuous_assign_function_case_inside_evaluated_range_bounds_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_NE(nullptr, top->getNet(NLName("y")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseContinuousAssignFunctionCaseInsideMultipleItemExpressionsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

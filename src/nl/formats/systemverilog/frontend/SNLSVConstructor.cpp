@@ -11245,10 +11245,14 @@ endmodule
           }
           const slang::ConstantValue* constant = strippedBound->getConstant();
           slang::ConstantValue evaluated;
+          // Current Slang value-range bounds expose folded integer constants;
+          // retain evaluation for alternate / future AST spellings.
+          // LCOV_EXCL_START
           if ((!constant || !constant->isInteger()) &&
               getExpressionConstantValue(*strippedBound, evaluated)) {
             constant = &evaluated;
           }
+          // LCOV_EXCL_STOP
           slang::ConstantValue converted;
           convertConstantToIntegerIfNeeded(constant, converted);
           return constant && constant->isInteger() &&
@@ -17233,7 +17237,8 @@ endmodule
         case SNLNet::Type::AssignX: cache = &constXNets_; break;
         case SNLNet::Type::AssignZ: cache = &constZNets_; break;
         default:
-          throw SNLSVInternalError("Internal error: non-assign type requested as constant net");
+          // All callers select one of the four assign-constant types above.
+          throw SNLSVInternalError("Internal error: non-assign type requested as constant net"); // LCOV_EXCL_LINE
       }
       auto it = cache->find(design);
       if (it != cache->end()) {
@@ -17264,7 +17269,8 @@ endmodule
       if (exactlyEqual(value, slang::logic_t::z)) {
         return getConstNet(design, SNLNet::Type::AssignZ);
       }
-      throw SNLSVInternalError("Internal error: invalid four-state constant value");
+      // slang::logic_t only represents 0, 1, X, and Z.
+      throw SNLSVInternalError("Internal error: invalid four-state constant value"); // LCOV_EXCL_LINE
     }
 
     std::vector<SNLBitNet*> collectBits(SNLNet* net) {
@@ -24784,6 +24790,10 @@ endmodule
         }
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
+        // Parser-backed unknown integer constants are resolved by the literal,
+        // structured-pattern, or constant-expression paths before this generic
+        // fallback. Retain the loop for alternate / future AST spellings.
+        // LCOV_EXCL_START
         for (size_t i = 0; i < targetWidth; ++i) {
           slang::logic_t bit(0);
           if (i < integerWidth) {
@@ -24791,6 +24801,7 @@ endmodule
           }
           bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
         }
+        // LCOV_EXCL_STOP
         usedUnknownFallback = true;
         return true;
       }
