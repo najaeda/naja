@@ -5,6 +5,7 @@
 
 #include "SNLVRLConstructorUtils.h"
 
+#include <cctype>
 #include <sstream>
 #include "SNLVRLConstructorException.h"
 
@@ -86,6 +87,81 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
     }
   }
   return boost::dynamic_bitset<>();
+}
+
+std::vector<SNLNet::Type> SNLVRLConstructorUtils::numberToNetTypes(
+  const naja::verilog::BasedNumber& number) {
+  std::vector<SNLNet::Type> bits(number.size_, SNLNet::Type::Assign0);
+  const auto setHexDigit = [&](size_t offset, char digit) {
+    const auto setKnownDigit = [&](unsigned value) {
+      for (size_t bit = 0; bit < 4 && offset + bit < bits.size(); ++bit) {
+        bits[offset + bit] = (value & (1U << bit))
+          ? SNLNet::Type::Assign1
+          : SNLNet::Type::Assign0;
+      }
+    };
+    const auto upper = static_cast<char>(std::toupper(static_cast<unsigned char>(digit)));
+    if (upper >= '0' && upper <= '9') {
+      setKnownDigit(static_cast<unsigned>(upper - '0'));
+    } else if (upper >= 'A' && upper <= 'F') {
+      setKnownDigit(static_cast<unsigned>(upper - 'A' + 10));
+    } else if (upper == 'X' || upper == 'Z') {
+      const auto type = upper == 'X' ? SNLNet::Type::AssignX : SNLNet::Type::AssignZ;
+      for (size_t bit = 0; bit < 4 && offset + bit < bits.size(); ++bit) {
+        bits[offset + bit] = type;
+      }
+    } else {
+      std::stringstream stream;
+      stream << "In SNLVRLConstructorUtils::numberToNetTypes, unrecognized hexadecimal character: "
+             << digit;
+      throw SNLVRLConstructorException(stream.str());
+    }
+  };
+
+  switch (number.base_) {
+    case naja::verilog::BasedNumber::DECIMAL: {
+      const auto binaryBits = numberToBits(number);
+      for (size_t bit = 0; bit < binaryBits.size(); ++bit) {
+        bits[bit] = binaryBits[bit] ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0;
+      }
+      return bits;
+    }
+    case naja::verilog::BasedNumber::BINARY: {
+      size_t index = 0;
+      for (auto it = number.digits_.rbegin();
+           it != number.digits_.rend() && index < bits.size(); ++it, ++index) {
+        const auto upper = static_cast<char>(
+          std::toupper(static_cast<unsigned char>(*it)));
+        switch (upper) {
+          case '0': bits[index] = SNLNet::Type::Assign0; break;
+          case '1': bits[index] = SNLNet::Type::Assign1; break;
+          case 'X': bits[index] = SNLNet::Type::AssignX; break;
+          case 'Z': bits[index] = SNLNet::Type::AssignZ; break;
+          default: {
+            std::stringstream stream;
+            stream << "In SNLVRLConstructorUtils::numberToNetTypes, unrecognized binary character: "
+                   << *it;
+            throw SNLVRLConstructorException(stream.str());
+          }
+        }
+      }
+      return bits;
+    }
+    case naja::verilog::BasedNumber::HEX: {
+      size_t offset = 0;
+      for (auto it = number.digits_.rbegin(); it != number.digits_.rend() && offset < bits.size();
+           ++it, offset += 4) {
+        setHexDigit(offset, *it);
+      }
+      return bits;
+    }
+    default: {
+      std::stringstream stream;
+      stream << "In SNLVRLConstructorUtils::numberToNetTypes, unsupported format: "
+             << naja::verilog::BasedNumber::getBaseString(number.base_);
+      throw SNLVRLConstructorException(stream.str());
+    }
+  }
 }
 
 } // namespace naja::NL

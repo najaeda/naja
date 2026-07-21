@@ -17,6 +17,8 @@ extern void PySNLNetType_postModuleInit() {
   LoadObjectConstant(PyTypeSNLNetType.tp_dict, SNLNet::Type::Supply1,   "Supply1");
   LoadObjectConstant(PyTypeSNLNetType.tp_dict, SNLNet::Type::Assign0,   "Assign0");
   LoadObjectConstant(PyTypeSNLNetType.tp_dict, SNLNet::Type::Assign1,   "Assign1");
+  LoadObjectConstant(PyTypeSNLNetType.tp_dict, SNLNet::Type::AssignX,   "AssignX");
+  LoadObjectConstant(PyTypeSNLNetType.tp_dict, SNLNet::Type::AssignZ,   "AssignZ");
 }
 
 PyMethodDef PySNLNetType_Methods[] = {

@@ -38,6 +38,10 @@ class SNLCapNpTest2: public ::testing::Test {
       assign0->setType(SNLNet::Type::Assign0);
       auto assign1 = SNLScalarNet::create(top);
       assign1->setType(SNLNet::Type::Assign1);
+      auto assignX = SNLScalarNet::create(top);
+      assignX->setType(SNLNet::Type::AssignX);
+      auto assignZ = SNLScalarNet::create(top);
+      assignZ->setType(SNLNet::Type::AssignZ);
       auto n0 = SNLScalarNet::create(top, NLName("n0"));
       auto assign_ins0 = SNLInstance::create(top, NLDB0::getAssign());
       assign_ins0->getInstTerm(NLDB0::getAssignInput())->setNet(assign0);
@@ -46,11 +50,13 @@ class SNLCapNpTest2: public ::testing::Test {
       auto assign_ins1 = SNLInstance::create(top, NLDB0::getAssign());
       assign_ins1->getInstTerm(NLDB0::getAssignInput())->setNet(assign1);
       assign_ins1->getInstTerm(NLDB0::getAssignOutput())->setNet(n1);
-      auto b0 = SNLBusNet::create(top, 3, 0, NLName("b0"));
+      auto b0 = SNLBusNet::create(top, 5, 0, NLName("b0"));
       b0->getBit(0)->setType(SNLNet::Type::Assign0);
       b0->getBit(1)->setType(SNLNet::Type::Assign1);
       b0->getBit(2)->setType(SNLNet::Type::Supply0);
       b0->getBit(3)->setType(SNLNet::Type::Supply1);
+      b0->getBit(4)->setType(SNLNet::Type::AssignX);
+      b0->getBit(5)->setType(SNLNet::Type::AssignZ);
 
       auto b1 = SNLBusNet::create(top, 3, 0, NLName("b1"));
       b1->getBit(3)->destroy();
@@ -80,8 +86,8 @@ TEST_F(SNLCapNpTest2, test0) {
   EXPECT_EQ(NLID::DBID(1), db_->getID());
   auto top = db_->getTopDesign();
   EXPECT_NE(nullptr, top);
-  //assign0, assign1, n0, n1, b0, b1
-  ASSERT_EQ(6, top->getNets().size());
+  //assign0, assign1, assignX, assignZ, n0, n1, b0, b1
+  ASSERT_EQ(8, top->getNets().size());
   auto n0 = top->getScalarNet(NLName("n0"));
   ASSERT_NE(nullptr, n0);
   EXPECT_EQ(SNLNet::Type::Standard, n0->getType());
@@ -113,11 +119,15 @@ TEST_F(SNLCapNpTest2, test0) {
 
   auto b0 = top->getBusNet(NLName("b0"));
   ASSERT_NE(nullptr, b0);
-  EXPECT_EQ(4, b0->getBits().size());
+  EXPECT_EQ(6, b0->getBits().size());
   EXPECT_EQ(SNLNet::Type::Assign0, b0->getBit(0)->getType());
   EXPECT_EQ(SNLNet::Type::Assign1, b0->getBit(1)->getType());
   EXPECT_EQ(SNLNet::Type::Supply0, b0->getBit(2)->getType());
   EXPECT_EQ(SNLNet::Type::Supply1, b0->getBit(3)->getType());
+  EXPECT_EQ(SNLNet::Type::AssignX, b0->getBit(4)->getType());
+  EXPECT_EQ(SNLNet::Type::AssignZ, b0->getBit(5)->getType());
+  EXPECT_TRUE(b0->getBit(4)->isConstantX());
+  EXPECT_TRUE(b0->getBit(5)->isConstantZ());
 
   auto b1 = top->getBusNet(NLName("b1"));
   ASSERT_NE(nullptr, b1);

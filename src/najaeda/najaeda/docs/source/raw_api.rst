@@ -380,6 +380,11 @@ expert reference above.
       :members:
       :undoc-members:
 
+   ``SNLNet.Type.AssignX`` and ``SNLNet.Type.AssignZ`` represent structural
+   four-state constants.  Use ``SNLNet.isConstantX()`` and
+   ``SNLNet.isConstantZ()`` to distinguish them; ``isConstant()`` accepts all
+   four assign values while the zero and one predicates remain binary-only.
+
    .. autoclass:: najaeda.naja.SNLTermRole
       :members:
       :undoc-members:

@@ -34,6 +34,50 @@ class SNLNetTest: public ::testing::Test {
     SNLDesign*  design_;
 };
 
+TEST_F(SNLNetTest, testFourStateAssignTypes) {
+  EXPECT_EQ(0, static_cast<int>(SNLNet::Type::Standard));
+  EXPECT_EQ(1, static_cast<int>(SNLNet::Type::Assign0));
+  EXPECT_EQ(2, static_cast<int>(SNLNet::Type::Assign1));
+  EXPECT_EQ(3, static_cast<int>(SNLNet::Type::Supply0));
+  EXPECT_EQ(4, static_cast<int>(SNLNet::Type::Supply1));
+  EXPECT_EQ(5, static_cast<int>(SNLNet::Type::AssignX));
+  EXPECT_EQ(6, static_cast<int>(SNLNet::Type::AssignZ));
+
+  SNLNet::Type assignX(SNLNet::Type::AssignX);
+  EXPECT_TRUE(assignX.isAssignX());
+  EXPECT_TRUE(assignX.isAssign());
+  EXPECT_TRUE(assignX.isConstX());
+  EXPECT_TRUE(assignX.isDriving());
+  EXPECT_EQ("AssignX", assignX.getString());
+
+  SNLNet::Type assignZ(SNLNet::Type::AssignZ);
+  EXPECT_TRUE(assignZ.isAssignZ());
+  EXPECT_TRUE(assignZ.isAssign());
+  EXPECT_TRUE(assignZ.isConstZ());
+  EXPECT_TRUE(assignZ.isDriving());
+  EXPECT_EQ("AssignZ", assignZ.getString());
+
+  auto scalarX = SNLScalarNet::create(design_, NLName("x"));
+  scalarX->setType(SNLNet::Type::AssignX);
+  EXPECT_TRUE(scalarX->isAssignConstant());
+  EXPECT_TRUE(scalarX->isConstantX());
+  EXPECT_TRUE(scalarX->isConstant());
+  EXPECT_FALSE(scalarX->isConstant0());
+  EXPECT_FALSE(scalarX->isConstant1());
+
+  auto busZ = SNLBusNet::create(design_, 3, 0, NLName("z"));
+  busZ->setType(SNLNet::Type::AssignZ);
+  EXPECT_TRUE(busZ->isAssignZ());
+  EXPECT_TRUE(busZ->isConstantZ());
+  EXPECT_TRUE(busZ->isConstant());
+  for (auto bit: busZ->getBits()) {
+    EXPECT_EQ(SNLNet::Type::AssignZ, bit->getType());
+  }
+  busZ->getBit(0)->setType(SNLNet::Type::AssignX);
+  EXPECT_FALSE(busZ->isAssignZ());
+  EXPECT_FALSE(busZ->isConstant());
+}
+
 TEST_F(SNLNetTest, testCreation) {
   //Create Model
   auto db = design_->getDB();
@@ -461,10 +505,14 @@ TEST_F(SNLNetTest, testResizeBusNetInvalidMSB) {
 TEST_F(SNLNetTest, testNetType) {
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isAssign());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isAssign());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::AssignX).isAssign());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::AssignZ).isAssign());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isSupply());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isSupply());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isDriving());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isDriving());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::AssignX).isDriving());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::AssignZ).isDriving());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isDriving());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isDriving());
   EXPECT_FALSE(SNLNet::Type(SNLNet::Type::Standard).isDriving());

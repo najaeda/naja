@@ -158,6 +158,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     ParameterValues     currentInstanceParameterValues_ {};
     SNLScalarNet*       currentModuleAssign0_           {nullptr};
     SNLScalarNet*       currentModuleAssign1_           {nullptr};
+    SNLScalarNet*       currentModuleAssignX_           {nullptr};
+    SNLScalarNet*       currentModuleAssignZ_           {nullptr};
     using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
     InterfacePorts      currentModuleInterfacePorts_    {};
