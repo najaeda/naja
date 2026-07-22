@@ -313,13 +313,15 @@ class DNLTerminalFull {
 class DNLIso {
  public:
 
-  // Iso type ENUM : STANDART, CONST0, CONST1, SHADOW
+  // Iso type ENUM : STANDART, CONST0, CONST1, AMBIGUOUS, SHADOW, CONSTX, CONSTZ
   enum IsoType {
     STANDART,
     CONST0,
     CONST1,
     AMBIGUOUS,
-    SHADOW
+    SHADOW,
+    CONSTX,
+    CONSTZ
   };
 
   DNLIso(DNLID id = DNLID_MAX);
@@ -386,7 +388,11 @@ class DNLIso {
 
   bool isConstant0() const { return isoType_ == IsoType::CONST0; }
   bool isConstant1() const { return isoType_ == IsoType::CONST1; }
-  bool isConstant() const { return isConstant0() || isConstant1(); }
+  bool isConstantX() const { return isoType_ == IsoType::CONSTX; }
+  bool isConstantZ() const { return isoType_ == IsoType::CONSTZ; }
+  bool isConstant() const {
+    return isConstant0() || isConstant1() || isConstantX() || isConstantZ();
+  }
 
   IsoType getType() const { return isoType_; }
 
@@ -490,10 +496,18 @@ class DNLIsoDB {
    * \return The constant 1 DNLIso in the DNLIsoDB.
    */
   const std::set<DNLID>& getConstant1Isos() const { return constant1Isos_; }
+  void addConstantXIso(DNLID isoid) { constantXIsos_.insert(isoid); }
+  void removeConstantXIso(DNLID isoid) { constantXIsos_.erase(isoid); }
+  const std::set<DNLID>& getConstantXIsos() const { return constantXIsos_; }
+  void addConstantZIso(DNLID isoid) { constantZIsos_.insert(isoid); }
+  void removeConstantZIso(DNLID isoid) { constantZIsos_.erase(isoid); }
+  const std::set<DNLID>& getConstantZIsos() const { return constantZIsos_; }
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
   std::set<DNLID> constant0Isos_;
   std::set<DNLID> constant1Isos_;
+  std::set<DNLID> constantXIsos_;
+  std::set<DNLID> constantZIsos_;
   std::vector<DNLID> shadowIsos_;
 };
 
@@ -537,6 +551,8 @@ class DNLIsoDBBuilder {
    * \param isoid The DNL ID of the DNLIso.
    */
   void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONST1); }
+  void addConstantIsoX(DNLID iso) { db_.addConstantXIso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONSTX); }
+  void addConstantIsoZ(DNLID iso) { db_.addConstantZIso(iso); db_.getIsoFromIsoID(iso).setIsoType(DNLIso::IsoType::CONSTZ); }
   /**
    * \brief Add a DNLIso to the DNLIsoDB.
    * \return The added DNLIso.

@@ -108,25 +108,35 @@ TEST_F(SNLVRLDumperTestGate0, testGatePinsWithUnusedWiresAndAssignConstants) {
   assign0->setType(SNLNet::Type::Assign0);
   auto assign1 = SNLScalarNet::create(top, NLName("assign1"));
   assign1->setType(SNLNet::Type::Assign1);
+  auto assignX = SNLScalarNet::create(top, NLName("assignX"));
+  assignX->setType(SNLNet::Type::AssignX);
+  auto assignZ = SNLScalarNet::create(top, NLName("assignZ"));
+  assignZ->setType(SNLNet::Type::AssignZ);
   auto gateOut = SNLScalarNet::create(top, NLName("mixedOut"));
 
-  auto and3 = SNLInstance::create(
-    top, NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 3), NLName("and3mix"));
-  auto output = and3->getInstTerm(NLDB0::getGateSingleTerm(and3->getModel()));
+  auto and5 = SNLInstance::create(
+    top, NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 5), NLName("and5mix"));
+  auto output = and5->getInstTerm(NLDB0::getGateSingleTerm(and5->getModel()));
   ASSERT_TRUE(output);
   output->setNet(gateOut);
 
-  auto inputs = NLDB0::getGateNTerms(and3->getModel());
+  auto inputs = NLDB0::getGateNTerms(and5->getModel());
   ASSERT_TRUE(inputs);
-  auto input0 = and3->getInstTerm(inputs->getBitAtPosition(0));
-  auto input1 = and3->getInstTerm(inputs->getBitAtPosition(1));
-  auto input2 = and3->getInstTerm(inputs->getBitAtPosition(2));
+  auto input0 = and5->getInstTerm(inputs->getBitAtPosition(0));
+  auto input1 = and5->getInstTerm(inputs->getBitAtPosition(1));
+  auto input2 = and5->getInstTerm(inputs->getBitAtPosition(2));
+  auto input3 = and5->getInstTerm(inputs->getBitAtPosition(3));
+  auto input4 = and5->getInstTerm(inputs->getBitAtPosition(4));
   ASSERT_TRUE(input0);
   ASSERT_TRUE(input1);
   ASSERT_TRUE(input2);
+  ASSERT_TRUE(input3);
+  ASSERT_TRUE(input4);
   input0->setNet(assign0);
   input1->setNet(assign1);
-  EXPECT_EQ(nullptr, input2->getNet());
+  input2->setNet(assignX);
+  input3->setNet(assignZ);
+  EXPECT_EQ(nullptr, input4->getNet());
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test_gate0_constants_dummy";
@@ -146,9 +156,11 @@ TEST_F(SNLVRLDumperTestGate0, testGatePinsWithUnusedWiresAndAssignConstants) {
   buffer << dumped.rdbuf();
   const auto content = buffer.str();
 
-  EXPECT_NE(content.find("and and3mix("), std::string::npos);
+  EXPECT_NE(content.find("and and5mix("), std::string::npos);
   EXPECT_NE(content.find("1'b0"), std::string::npos);
   EXPECT_NE(content.find("1'b1"), std::string::npos);
+  EXPECT_NE(content.find("1'bx"), std::string::npos);
+  EXPECT_NE(content.find("1'bz"), std::string::npos);
   EXPECT_NE(content.find("wire _naja_unused_"), std::string::npos);
   EXPECT_NE(content.find("_naja_unused_"), std::string::npos);
   EXPECT_EQ(content.find("DUMMY"), std::string::npos);

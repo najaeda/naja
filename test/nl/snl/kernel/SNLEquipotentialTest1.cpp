@@ -98,3 +98,29 @@ TEST_F(SNLEquipotentialTest1, testConst1) {
   EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign1);
   EXPECT_TRUE(equipotentialTopOut.isConst1());
 }
+
+TEST_F(SNLEquipotentialTest1, testConstXAndZ) {
+  auto lib = db_->getLibrary(NLID::LibraryID(1));
+  ASSERT_NE(nullptr, lib);
+  auto top = lib->getSNLDesign(NLName("TOP"));
+  auto topout = top->getScalarTerm(NLName("out"));
+  auto aa = lib->getSNLDesign(NLName("AA"));
+  auto aan = aa->getScalarNet(NLName("n"));
+
+  aan->setType(SNLNet::Type::AssignX);
+  SNLEquipotential equipotentialX(topout);
+  EXPECT_EQ(SNLNet::Type::AssignX, equipotentialX.getType());
+  EXPECT_TRUE(equipotentialX.isConstX());
+
+  topout->getNet()->setType(SNLNet::Type::Assign1);
+  SNLEquipotential conflictingEquipotential(topout);
+  EXPECT_EQ(SNLNet::Type::Standard, conflictingEquipotential.getType());
+  EXPECT_FALSE(conflictingEquipotential.isConstX());
+  EXPECT_FALSE(conflictingEquipotential.isConst1());
+
+  topout->getNet()->setType(SNLNet::Type::Standard);
+  aan->setType(SNLNet::Type::AssignZ);
+  SNLEquipotential equipotentialZ(topout);
+  EXPECT_EQ(SNLNet::Type::AssignZ, equipotentialZ.getType());
+  EXPECT_TRUE(equipotentialZ.isConstZ());
+}

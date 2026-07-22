@@ -43,6 +43,12 @@ Some development and test layouts also place the extension on ``PYTHONPATH``
 as top-level ``naja``.  Prefer ``from najaeda import naja`` in documentation
 and reusable scripts because it works with bundled package layouts too.
 
+Importing the native module does not write a performance report by default.
+Set ``NAJA_PERF=1`` to write ``naja_perf.log``, or set ``NAJA_PERF`` to a file
+path to select another destination. An unset or empty value disables the
+performance report, which is appropriate when embedding Naja in a host Python
+process.
+
 Object identity and hashing
 ---------------------------
 
@@ -218,6 +224,10 @@ expert reference above.
       :members:
       :undoc-members:
 
+   ``NLDB.loadSystemVerilog`` writes incremental frontend diagnostics to
+   ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
+   to disable the report file and keep diagnostics console-only.
+
    .. autoclass:: najaeda.naja.NLLibrary
       :members:
       :undoc-members:
@@ -369,6 +379,11 @@ expert reference above.
    .. autoclass:: najaeda.naja.SNLNet.Type
       :members:
       :undoc-members:
+
+   ``SNLNet.Type.AssignX`` and ``SNLNet.Type.AssignZ`` represent structural
+   four-state constants.  Use ``SNLNet.isConstantX()`` and
+   ``SNLNet.isConstantZ()`` to distinguish them; ``isConstant()`` accepts all
+   four assign values while the zero and one predicates remain binary-only.
 
    .. autoclass:: najaeda.naja.SNLTermRole
       :members:

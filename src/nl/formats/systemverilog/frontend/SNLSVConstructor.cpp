@@ -644,10 +644,9 @@ struct UnknownLiteralKinds {
 std::string formatUnknownLiteralWarning(
   std::string_view context,
   const UnknownLiteralKinds& kinds) {
-  std::ostringstream message;
-  message << kinds.label() << " literal bits in " << context
-          << " lowered as 0 in SNL (four-state distinction is not preserved)";
-  return message.str();
+  (void)context;
+  (void)kinds;
+  return {};
 }
 
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
@@ -1788,13 +1787,14 @@ class SNLSVConstructorImpl {
             *rhsExpr,
             targetWidth,
             bits,
-            usedUnknownFallback) ||
-          !usedUnknownFallback) {
+            usedUnknownFallback)) {
         return std::nullopt;
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(detailDesign, false));
       auto* const1 = static_cast<SNLBitNet*>(getConstNet(detailDesign, true));
+      auto* constX = static_cast<SNLBitNet*>(getConstNet(detailDesign, SNLNet::Type::AssignX));
+      auto* constZ = static_cast<SNLBitNet*>(getConstNet(detailDesign, SNLNet::Type::AssignZ));
       std::string result;
       result.reserve(bits.size());
       for (auto* bit : bits) {
@@ -1802,6 +1802,10 @@ class SNLSVConstructorImpl {
           result.push_back('0');
         } else if (bit == const1) {
           result.push_back('1');
+        } else if (bit == constX) {
+          result.push_back('x');
+        } else if (bit == constZ) {
+          result.push_back('z');
         } else {
           result.push_back('?');
         }
@@ -2921,8 +2925,8 @@ endmodule
 
     void appendDiagnosticsReport(std::string_view text) {
       // Test-detail helpers exercise warning construction without running the
-      // full construct() lifecycle. Production construction always opens the
-      // mandatory report before any diagnostic can be recorded.
+      // full construct() lifecycle. Production construction opens the report,
+      // when enabled, before any diagnostic can be recorded.
       if (!diagnosticsReportStream_.is_open()) {
         return;
       }
@@ -2932,7 +2936,7 @@ endmodule
       if (!diagnosticsReportStream_.good()) {
         std::ostringstream reason;
         reason << "Failed to write diagnostics report file: "
-               << options_.diagnosticsReportPath.string();
+               << diagnosticsReportDestination();
         throw SNLSVInternalError(reason.str());
       }
       // LCOV_EXCL_STOP
@@ -2970,7 +2974,10 @@ endmodule
     }
 
     void initializeDiagnosticsReport() {
-      const auto& reportPath = options_.diagnosticsReportPath;
+      if (!options_.diagnosticsReportPath) {
+        return;
+      }
+      const auto& reportPath = *options_.diagnosticsReportPath;
       if (reportPath.empty()) {
         throw SNLSVInternalError("Empty path for diagnostics report dump");
       }
@@ -3027,12 +3034,15 @@ endmodule
           diagnostic.column,
           diagnostic.message);
       }
-      NAJA_LOG_WARN(
-        "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
-        diagnostics.size(),
-        warningCount,
-        errorCount,
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); see '{}'",
+          diagnostics.size(), warningCount, errorCount, diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Slang emitted {} diagnostic(s) ({} warning(s), {} error(s)); console-only",
+          diagnostics.size(), warningCount, errorCount);
+      }
     }
 
     void emitWarningPolicyNotice() {
@@ -3040,10 +3050,16 @@ endmodule
         return;
       }
       warningPolicyNoticeEmitted_ = true;
-      NAJA_LOG_WARN(
-        "Only the first occurrence of each SystemVerilog warning code is emitted on the "
-        "console; all occurrences are written to '{}'",
-        options_.diagnosticsReportPath.string());
+      if (options_.diagnosticsReportPath) {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; all occurrences are written to '{}'",
+          diagnosticsReportDestination());
+      } else {
+        NAJA_LOG_WARN(
+          "Only the first occurrence of each SystemVerilog warning code is emitted on the "
+          "console; diagnostics reporting is console-only");
+      }
     }
 
     void finalizeDiagnosticsReport(bool success, std::string_view failureReason) {
@@ -3080,7 +3096,7 @@ endmodule
               << "count.naja_unsupported_error.codes="
               << unsupportedErrorCodes_.size() << "\n"
               << "report.path=\""
-              << escapeDiagnosticValue(options_.diagnosticsReportPath.string()) << "\"\n";
+              << escapeDiagnosticValue(diagnosticsReportDestination()) << "\"\n";
       if (!failureReason.empty()) {
         summary << "failure.reason=\"" << escapeDiagnosticValue(failureReason) << "\"\n";
       }
@@ -3105,13 +3121,19 @@ endmodule
           unsupportedWarningCodes_.size(),
           unsupportedErrorCount_,
           unsupportedErrorCodes_.size(),
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       } else {
         NAJA_LOG_INFO(
           "SystemVerilog diagnostics summary: status={}, no diagnostics; report='{}'",
           success ? "success" : "failed",
-          options_.diagnosticsReportPath.string());
+          diagnosticsReportDestination());
       }
+    }
+
+    std::string diagnosticsReportDestination() const {
+      return options_.diagnosticsReportPath
+        ? options_.diagnosticsReportPath->string()
+        : "console-only";
     }
 
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
@@ -3851,6 +3873,9 @@ endmodule
       const std::string& code,
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      if (reason.empty()) {
+        return;
+      }
       recordNajaWarning(
         "naja_elaboration",
         "Naja Elaboration Warnings",
@@ -4226,7 +4251,9 @@ endmodule
       }
     }
 
-    const Expression* stripConnectionLValueArgConversions(const Expression& expr) const {
+    const Expression* stripConnectionLValueArgConversions(
+      const Expression& expr,
+      bool acceptImplicitLValueArgWrapper = false) const {
       const Expression* current = &expr;
       while (current) {
         if (current->kind == slang::ast::ExpressionKind::Conversion) {
@@ -4235,7 +4262,13 @@ endmodule
         }
         if (current->kind == slang::ast::ExpressionKind::Assignment) {
           const auto& assign = current->as<slang::ast::AssignmentExpression>();
-          if (assign.isLValueArg()) {
+          // Slang represents an output argument as an implicit assignment to
+          // the actual. DPI imports can retain the wrapper after elaboration
+          // even when the empty-argument marker is no longer exposed through
+          // isLValueArg(). Restrict that compatibility path to callers which
+          // know they are handling an output actual, so an ordinary assignment
+          // expression used as a value is never mistaken for a connection.
+          if (assign.isLValueArg() || acceptImplicitLValueArgWrapper) {
             current = &assign.left();
             continue;
           }
@@ -11205,6 +11238,31 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
 
+        const auto isBinaryConstantBound = [&](const Expression& bound) {
+          const auto* strippedBound = stripConversions(bound);
+          if (!strippedBound) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const slang::ConstantValue* constant = strippedBound->getConstant();
+          slang::ConstantValue evaluated;
+          // Current Slang value-range bounds expose folded integer constants;
+          // retain evaluation for alternate / future AST spellings.
+          // LCOV_EXCL_START
+          if ((!constant || !constant->isInteger()) &&
+              getExpressionConstantValue(*strippedBound, evaluated)) {
+            constant = &evaluated;
+          }
+          // LCOV_EXCL_STOP
+          slang::ConstantValue converted;
+          convertConstantToIntegerIfNeeded(constant, converted);
+          return constant && constant->isInteger() &&
+            !constant->integer().hasUnknown();
+        };
+        if (!isBinaryConstantBound(valueRangeExpr.left()) ||
+            !isBinaryConstantBound(valueRangeExpr.right())) {
+          return false;
+        }
+
         auto* geNet = SNLScalarNet::create(design);
         annotateSourceInfo(geNet, sourceRange);
         if (!createRelationalAssign(
@@ -13375,6 +13433,7 @@ endmodule
       const slang::ConstantValue* constant =
         skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
+      bool runtimeEvaluatedConstant = false;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
       if (!skipMixedLoopRuntimeEval &&
           (!constant || !constant->isInteger()) &&
@@ -13383,6 +13442,7 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+          runtimeEvaluatedConstant = true;
         }
       }
       // Fallback: evaluate using the compilation root as context.
@@ -13411,6 +13471,7 @@ endmodule
           compilationEvaluatedConstant = stripped->eval(rootEvalContext);
           if (compilationEvaluatedConstant && compilationEvaluatedConstant.isInteger()) {
             constant = &compilationEvaluatedConstant;
+            runtimeEvaluatedConstant = true;
           }
         }
       }
@@ -13418,23 +13479,25 @@ endmodule
       convertConstantToIntegerIfNeeded(constant, convertedConstant);
       if (constant && constant->isInteger()) {
         const auto& intValue = constant->integer();
-        if (intValue.hasUnknown()) {
-          return false;
-        }
-        const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
-        bits.reserve(targetWidth);
-        for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
-          if (i < integerWidth) {
-            const auto bit = intValue[static_cast<int32_t>(i)];
-            if (bit.isUnknown()) {
-              return false; // LCOV_EXCL_LINE
+        const bool directlyStorableFourStateExpression =
+          stripped->kind == slang::ast::ExpressionKind::IntegerLiteral ||
+          stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral ||
+          stripped->kind == slang::ast::ExpressionKind::SimpleAssignmentPattern ||
+          stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern ||
+          !expressionReferencesRuntimeValueSymbol(*stripped);
+        if (!(runtimeEvaluatedConstant && intValue.hasUnknown() &&
+              !directlyStorableFourStateExpression)) {
+          const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
+          bits.reserve(targetWidth);
+          for (size_t i = 0; i < targetWidth; ++i) {
+            slang::logic_t bit(0);
+            if (i < integerWidth) {
+              bit = intValue[static_cast<int32_t>(i)];
             }
-            one = static_cast<bool>(bit);
+            bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          return true;
         }
-        return true;
       }
 
       int64_t signedValue = 0;
@@ -17164,16 +17227,50 @@ endmodule
       return true;
     }
 
-    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
-      auto& cache = one ? const1Nets_ : const0Nets_;
-      auto it = cache.find(design);
-      if (it != cache.end()) {
+    SNLScalarNet* getConstNet(
+      SNLDesign* design,
+      SNLNet::Type::TypeEnum type) {
+      std::unordered_map<SNLDesign*, SNLScalarNet*>* cache = nullptr;
+      switch (type) {
+        case SNLNet::Type::Assign0: cache = &const0Nets_; break;
+        case SNLNet::Type::Assign1: cache = &const1Nets_; break;
+        case SNLNet::Type::AssignX: cache = &constXNets_; break;
+        case SNLNet::Type::AssignZ: cache = &constZNets_; break;
+        default:
+          // All callers select one of the four assign-constant types above.
+          throw SNLSVInternalError("Internal error: non-assign type requested as constant net"); // LCOV_EXCL_LINE
+      }
+      auto it = cache->find(design);
+      if (it != cache->end()) {
         return it->second;
       }
       auto net = SNLScalarNet::create(design);
-      net->setType(one ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
-      cache[design] = net;
+      net->setType(type);
+      (*cache)[design] = net;
       return net;
+    }
+
+    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
+      return getConstNet(
+        design,
+        one ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+    }
+
+    SNLScalarNet* getConstNet(SNLDesign* design, slang::logic_t value) {
+      if (exactlyEqual(value, slang::logic_t(0))) {
+        return getConstNet(design, SNLNet::Type::Assign0);
+      }
+      if (exactlyEqual(value, slang::logic_t(1))) {
+        return getConstNet(design, SNLNet::Type::Assign1);
+      }
+      if (exactlyEqual(value, slang::logic_t::x)) {
+        return getConstNet(design, SNLNet::Type::AssignX);
+      }
+      if (exactlyEqual(value, slang::logic_t::z)) {
+        return getConstNet(design, SNLNet::Type::AssignZ);
+      }
+      // slang::logic_t only represents 0, 1, X, and Z.
+      throw SNLSVInternalError("Internal error: invalid four-state constant value"); // LCOV_EXCL_LINE
     }
 
     std::vector<SNLBitNet*> collectBits(SNLNet* net) {
@@ -19274,7 +19371,7 @@ endmodule
               continue; // LCOV_EXCL_LINE
             }
             if (isOutputLikeArgumentDirection(formalArg->direction)) {
-              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg)) {
+              if (const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true)) {
                 collectExpressionRootValueSymbols(*actualLhs, callSymbols);
               }
             } else {
@@ -19289,7 +19386,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -19526,7 +19623,7 @@ endmodule
                 !isOutputLikeArgumentDirection(formalArg->direction)) {
               continue;
             }
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             actualLhs = getTrackedAlwaysCombLHS(actualLhs);
             if (shouldIgnoreTrackedLHS(actualLhs, ignoredSymbols)) {
               continue; // LCOV_EXCL_LINE
@@ -20848,6 +20945,10 @@ endmodule
              direction == ArgumentDirection::Ref;
     }
 
+    bool isDPIImport(const slang::ast::SubroutineSymbol& subroutine) const {
+      return subroutine.flags.has(slang::ast::MethodFlags::DPIImport);
+    }
+
     const slang::ast::CallExpression* getOutputFunctionCallExpression(
       const Statement& stmt,
       const slang::ast::SubroutineSymbol*& subroutine) const {
@@ -20908,7 +21009,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg);
+        const Expression* lhsExpr = stripConnectionLValueArgConversions(*callArg, true);
         if (trackAlwaysCombDynamicLHS) {
           lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
         } else if (trackSequentialFallbackLHS) {
@@ -24638,7 +24739,9 @@ endmodule
         if (unknownKinds) {
           unknownKinds->add(value);
         }
-        bits.assign(targetWidth, const0);
+        bits.assign(
+          targetWidth,
+          static_cast<SNLBitNet*>(getConstNet(design, value)));
         usedUnknownFallback = true;
         return true;
       }
@@ -24655,14 +24758,11 @@ endmodule
         const auto integerWidth = static_cast<size_t>(literalValue.getBitWidth());
         bits.reserve(targetWidth);
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          slang::logic_t bit(0);
           if (i < integerWidth) {
-            const auto bit = literalValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            bit = literalValue[static_cast<int32_t>(i)];
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
         }
         usedUnknownFallback = true;
         return true;
@@ -24690,16 +24790,18 @@ endmodule
         }
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
+        // Parser-backed unknown integer constants are resolved by the literal,
+        // structured-pattern, or constant-expression paths before this generic
+        // fallback. Retain the loop for alternate / future AST spellings.
+        // LCOV_EXCL_START
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          slang::logic_t bit(0);
           if (i < integerWidth) {
-            const auto bit = intValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            bit = intValue[static_cast<int32_t>(i)];
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
         }
+        // LCOV_EXCL_STOP
         usedUnknownFallback = true;
         return true;
       }
@@ -26889,7 +26991,7 @@ endmodule
             !isOutputLikeArgumentDirection(formalArg->direction)) {
           continue;
         }
-        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+        const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
         if (!actualLhs) {
           continue; // LCOV_EXCL_LINE
         }
@@ -26905,6 +27007,56 @@ endmodule
         return true;
       }
       handled = true;
+
+      if (isDPIImport(*subroutine)) {
+        for (const auto& outputActual : outputActuals) {
+          if (!outputActual.actual) {
+            continue; // LCOV_EXCL_LINE
+          }
+          const auto* trackedActual = getTrackedAlwaysCombLHS(outputActual.actual);
+          if (!sameLhs(trackedActual, &lhsExpr) &&
+              !sameLhs(outputActual.actual, &lhsExpr) &&
+              !isTrackedSelectionSubLhsOf(outputActual.actual, &lhsExpr)) {
+            continue;
+          }
+          const auto width = getRepresentableExpressionBitWidth(*outputActual.actual);
+          if (!width || !*width) {
+            failureReason = "unable to resolve DPI output actual width"; // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
+          }
+          std::vector<SNLBitNet*> abstractBits;
+          abstractBits.reserve(*width);
+          for (size_t bit = 0; bit < *width; ++bit) {
+            auto* abstractBit = SNLScalarNet::create(design);
+            annotateSourceInfo(abstractBit, getSourceRange(*outputActual.actual));
+            abstractBits.push_back(abstractBit);
+          }
+          bool applied = false;
+          if (!tryApplyOutputActualBitsForLhs(
+                design,
+                *outputActual.actual,
+                lhsExpr,
+                abstractBits,
+                lhsBits,
+                dataBits,
+                failureReason,
+                applied)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (applied &&
+              activeProceduralReplayEnv_ &&
+              tryGetRootValueSymbolReference(lhsExpr, trackedSymbol)) {
+            (*activeProceduralReplayEnv_)[trackedSymbol] = dataBits;
+          }
+        }
+        reportUnsupportedWarning(
+          "abstracted_dpi_output",
+          "abstracting output arguments of DPI import '" +
+            std::string(subroutine->name) + "' as unconstrained values",
+          getSourceRange(stmt));
+        return true;
+      }
 
       std::unordered_map<const Symbol*, SNLNet*> argumentNets;
       argumentNets.reserve(formalArgs.size());
@@ -26929,10 +27081,10 @@ endmodule
             getSourceRange(*callArg));
           if (formalArg->direction == ArgumentDirection::InOut ||
               formalArg->direction == ArgumentDirection::Ref) {
-            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg);
+            const auto* actualLhs = stripConnectionLValueArgConversions(*callArg, true);
             auto width = actualLhs
               ? getRepresentableExpressionBitWidth(*actualLhs)
-              : std::nullopt;
+              : std::nullopt; // LCOV_EXCL_LINE
             if (!width || !*width) {
               failureReason = "unable to resolve output function inout argument width";
               return false;
@@ -30260,6 +30412,7 @@ endmodule
       const slang::ConstantValue* constant =
         skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
+      bool runtimeEvaluatedConstant = false;
       if (!skipMixedLoopRuntimeEval &&
           (!constant || !constant->isInteger()) &&
           stripped->getSymbolReference()) {
@@ -30267,6 +30420,7 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+          runtimeEvaluatedConstant = true;
         }
       }
       slang::ConstantValue convertedConstant;
@@ -30281,21 +30435,24 @@ endmodule
       }
 
       const auto& intValue = constant->integer();
-      if (intValue.hasUnknown()) {
+      const bool directlyStorableFourStateExpression =
+        stripped->kind == slang::ast::ExpressionKind::IntegerLiteral ||
+        stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral ||
+        stripped->kind == slang::ast::ExpressionKind::SimpleAssignmentPattern ||
+        stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern ||
+        !expressionReferencesRuntimeValueSymbol(*stripped);
+      if (runtimeEvaluatedConstant && intValue.hasUnknown() &&
+          !directlyStorableFourStateExpression) {
         return false;
       }
       const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
       bits.reserve(targetWidth);
       for (size_t i = 0; i < targetWidth; ++i) {
-        bool one = false;
+        slang::logic_t bit(0);
         if (i < integerWidth) {
-          const auto bit = intValue[static_cast<int32_t>(i)];
-          if (bit.isUnknown()) {
-            return false; // LCOV_EXCL_LINE
-          }
-          one = static_cast<bool>(bit);
+          bit = intValue[static_cast<int32_t>(i)];
         }
-        bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+        bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
       }
       return true;
     }
@@ -30356,8 +30513,8 @@ endmodule
             "unknown_literal_sequential_assignment_rhs",
             formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
             sourceRange);
-          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
-          return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
+          auto* constant = static_cast<SNLBitNet*>(getConstNet(design, value));
+          return std::vector<SNLBitNet*>(lhsBits.size(), constant);
         }
       } // LCOV_EXCL_LINE
       if (rhsExpr &&
@@ -33881,6 +34038,8 @@ endmodule
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constXNets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constZNets_ {};
     std::vector<InferredMemory> inferredMemories_ {};
     std::unordered_map<const slang::ast::ValueSymbol*, size_t> inferredMemoryByStateSymbol_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>

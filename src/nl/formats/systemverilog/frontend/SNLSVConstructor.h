@@ -74,9 +74,11 @@ class SNLSVConstructor {
       /// If true, detect empty port-only modules as blackboxes.
       bool blackboxDetection {true};
       std::optional<std::filesystem::path> elaboratedASTJsonPath {};
-      /// Incremental diagnostics report. A report is always written; callers may
-      /// override this default path but an empty path is invalid.
-      std::filesystem::path diagnosticsReportPath {"naja_sv_diagnostics.log"};
+      /// Incremental diagnostics report. By default it is written to this path;
+      /// reset the optional to emit diagnostics to the console only. An empty
+      /// path remains invalid.
+      std::optional<std::filesystem::path> diagnosticsReportPath {
+        "naja_sv_diagnostics.log"};
       bool prettyPrintElaboratedASTJson {true};
       bool includeSourceInfoInElaboratedASTJson {true};
       /// Request retention of live frontend AST to SNL object links after load.

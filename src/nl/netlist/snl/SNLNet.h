@@ -21,7 +21,7 @@ class SNLNet: public SNLDesignObject {
     class Type {
       public:
         enum TypeEnum {
-          Standard, Assign0, Assign1, Supply0, Supply1
+          Standard, Assign0, Assign1, Supply0, Supply1, AssignX, AssignZ
         };
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
@@ -36,12 +36,18 @@ class SNLNet: public SNLDesignObject {
         operator const TypeEnum&() const { return typeEnum_; }
         constexpr bool isAssign0() const { return typeEnum_ == Assign0;  }
         constexpr bool isAssign1() const { return typeEnum_ == Assign1;  }
-        constexpr bool isAssign() const { return isAssign0() or isAssign1(); }
+        constexpr bool isAssignX() const { return typeEnum_ == AssignX;  }
+        constexpr bool isAssignZ() const { return typeEnum_ == AssignZ;  }
+        constexpr bool isAssign() const {
+          return isAssign0() or isAssign1() or isAssignX() or isAssignZ();
+        }
         constexpr bool isSupply0() const { return typeEnum_ == Supply0; }
         constexpr bool isSupply1() const { return typeEnum_ == Supply1; }
         constexpr bool isSupply() const { return isSupply0() or isSupply1(); }
         constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
         constexpr bool isConst1() const { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
+        constexpr bool isConstX() const { return typeEnum_ == AssignX; }
+        constexpr bool isConstZ() const { return typeEnum_ == AssignZ; }
         constexpr bool isDriving() const { return isAssign() or isSupply(); }
         std::string getString() const;
       private:
@@ -73,8 +79,14 @@ class SNLNet: public SNLDesignObject {
     virtual bool isAssign0() const = 0;
     /// \return true if all bits of this net are assigned to 1'b1.
     virtual bool isAssign1() const = 0;
-    /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
-    bool isAssignConstant() const { return isAssign0() or isAssign1(); }
+    /// \return true if all bits of this net are assigned to 1'bx.
+    virtual bool isAssignX() const = 0;
+    /// \return true if all bits of this net are assigned to 1'bz.
+    virtual bool isAssignZ() const = 0;
+    /// \return true if all bits of this net are assign constants.
+    bool isAssignConstant() const {
+      return isAssign0() or isAssign1() or isAssignX() or isAssignZ();
+    }
     /// \return true if all bits of this net are of type Supply0
     virtual bool isSupply0() const = 0;
     /// \return true if all bits of this net are of type Supply1
@@ -85,8 +97,14 @@ class SNLNet: public SNLDesignObject {
     bool isConstant0() const { return isAssign0() or isSupply0(); }
     /// \return true if all bits of this net are constants 1
     bool isConstant1() const { return isAssign1() or isSupply1(); }
+    /// \return true if all bits of this net are constants X
+    bool isConstantX() const { return isAssignX(); }
+    /// \return true if all bits of this net are constants Z
+    bool isConstantZ() const { return isAssignZ(); }
     /// \return true if all bits of this net are constants
-    bool isConstant() const { return isConstant0() or isConstant1(); }
+    bool isConstant() const {
+      return isConstant0() or isConstant1() or isConstantX() or isConstantZ();
+    }
 
 
     virtual bool deepCompare(const SNLNet* other, std::string& reason) const = 0;

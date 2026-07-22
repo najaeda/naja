@@ -205,7 +205,7 @@ class Equipotential:
         :return: True if this equipotential is a constant generator.
         :rtype: bool
         """
-        return self.is_const0() or self.is_const1()
+        return self.is_const0() or self.is_const1() or self.is_constx() or self.is_constz()
 
     def is_const0(self) -> bool:
         """Check if this equipotential is a constant 0 generator.
@@ -223,12 +223,22 @@ class Equipotential:
         """
         return self.equi.isConst1()
 
+    def is_constx(self) -> bool:
+        """Check if this equipotential is a constant X generator."""
+        return self.equi.isConstX()
+
+    def is_constz(self) -> bool:
+        """Check if this equipotential is a constant Z generator."""
+        return self.equi.isConstZ()
+
 
 class Net:
     class Type(Enum):
         STANDARD = naja.SNLNet.Type.Standard
         ASSIGN0 = naja.SNLNet.Type.Assign0
         ASSIGN1 = naja.SNLNet.Type.Assign1
+        ASSIGNX = naja.SNLNet.Type.AssignX
+        ASSIGNZ = naja.SNLNet.Type.AssignZ
         SUPPLY0 = naja.SNLNet.Type.Supply0
         SUPPLY1 = naja.SNLNet.Type.Supply1
 
@@ -436,6 +446,18 @@ class Net:
             return self.net.isConstant1()
         else:
             return all(net.isConstant1() for net in self.net_concat)
+
+    def is_constx(self) -> bool:
+        """:return: True if the net is a constant X generator."""
+        if hasattr(self, "net"):
+            return self.net.isConstantX()
+        return all(net.isConstantX() for net in self.net_concat)
+
+    def is_constz(self) -> bool:
+        """:return: True if the net is a constant Z generator."""
+        if hasattr(self, "net"):
+            return self.net.isConstantZ()
+        return all(net.isConstantZ() for net in self.net_concat)
 
     def set_type(self, net_type: Type):
         """
@@ -1988,7 +2010,8 @@ class VerilogDumpConfig:
 class SystemVerilogConfig:
     keep_assigns: bool = True
     elaborated_ast_json_path: str = None
-    diagnostics_report_path: str = "naja_sv_diagnostics.log"
+    # Set to None to disable the diagnostics report file (console-only diagnostics).
+    diagnostics_report_path: Optional[str] = "naja_sv_diagnostics.log"
     pretty_print_elaborated_ast_json: bool = True
     include_source_info_in_elaborated_ast_json: bool = True
     flist: str = None

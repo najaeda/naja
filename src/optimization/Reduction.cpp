@@ -114,7 +114,8 @@ void ReductionOptimization::replaceInstance(
   for (auto term : instance->getInstTerms()) {
     SNLBitNet* bitNet = term->getNet();
     term->setNet(nullptr);
-    if (bitNet->isConstant() || reducedInstTerms.empty()) {
+    if (bitNet->isConstant0() || bitNet->isConstant1() ||
+        reducedInstTerms.empty()) {
       continue;
     }
     originNonConstantIndex++;
