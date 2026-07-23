@@ -56,7 +56,7 @@ bazel_dep(name = "naja-if", version = "0.0.0")
 git_override(
     module_name = "naja-if",
     remote = "https://github.com/najaeda/naja-if",
-    commit = "8313896856aeb9cac53204888a6501a17de41b46",  # bazel-support
+    commit = "099677d9f52c0db11b12c08d03e32543eebc7888",  # bazel-support
 )
 
 bazel_dep(name = "naja-verilog", version = "0.0.0")
