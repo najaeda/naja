@@ -83,6 +83,10 @@ char getAssignConstantBitValue(const naja::NL::SNLBitNet* bit) {
       return '0';
     case naja::NL::SNLNet::Type::Assign1:
       return '1';
+    case naja::NL::SNLNet::Type::AssignX:
+      return 'x';
+    case naja::NL::SNLNet::Type::AssignZ:
+      return 'z';
     default:
       throw naja::NL::SNLVRLDumperException("ERROR"); //LCOV_EXCL_LINE
   }
@@ -100,7 +104,8 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     for (auto bit: bits) {
       constantStr += getAssignConstantBitValue(bit);
     }
-    if (constantStr.size() < 4) {
+    if (constantStr.size() < 4 ||
+        constantStr.find_first_of("xz") != std::string::npos) {
       //binary
       o += std::to_string(bits.size()) + "'b";
       o += constantStr;
@@ -1176,6 +1181,12 @@ std::string SNLVRLDumper::getBitNetString(
   }
   if (bitNet->isAssign1()) {
     return "1'b1";
+  }
+  if (bitNet->isAssignX()) {
+    return "1'bx";
+  }
+  if (bitNet->isAssignZ()) {
+    return "1'bz";
   }
   if (auto scalarNet = dynamic_cast<const SNLScalarNet*>(bitNet)) {
     auto netName = getNetName(scalarNet, naming);

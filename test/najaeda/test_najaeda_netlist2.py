@@ -310,6 +310,14 @@ class NajaNetlistTest2(unittest.TestCase):
         modI0Net.set_type(netlist.Net.Type.ASSIGN1)
         self.assertTrue(modI0Net.is_const())
         self.assertTrue(modI0Net.is_const1())
+        modI0Net.set_type(netlist.Net.Type.ASSIGNX)
+        self.assertTrue(modI0Net.is_const())
+        self.assertTrue(modI0Net.is_constx())
+        self.assertFalse(modI0Net.is_const0())
+        self.assertFalse(modI0Net.is_const1())
+        modI0Net.set_type(netlist.Net.Type.ASSIGNZ)
+        self.assertTrue(modI0Net.is_const())
+        self.assertTrue(modI0Net.is_constz())
 
         for i in range(4):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net

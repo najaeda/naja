@@ -685,10 +685,9 @@ struct UnknownLiteralKinds {
 std::string formatUnknownLiteralWarning(
   std::string_view context,
   const UnknownLiteralKinds& kinds) {
-  std::ostringstream message;
-  message << kinds.label() << " literal bits in " << context
-          << " lowered as 0 in SNL (four-state distinction is not preserved)";
-  return message.str();
+  (void)context;
+  (void)kinds;
+  return {};
 }
 
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
@@ -1829,13 +1828,14 @@ class SNLSVConstructorImpl {
             *rhsExpr,
             targetWidth,
             bits,
-            usedUnknownFallback) ||
-          !usedUnknownFallback) {
+            usedUnknownFallback)) {
         return std::nullopt;
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(detailDesign, false));
       auto* const1 = static_cast<SNLBitNet*>(getConstNet(detailDesign, true));
+      auto* constX = static_cast<SNLBitNet*>(getConstNet(detailDesign, SNLNet::Type::AssignX));
+      auto* constZ = static_cast<SNLBitNet*>(getConstNet(detailDesign, SNLNet::Type::AssignZ));
       std::string result;
       result.reserve(bits.size());
       for (auto* bit : bits) {
@@ -1843,6 +1843,10 @@ class SNLSVConstructorImpl {
           result.push_back('0');
         } else if (bit == const1) {
           result.push_back('1');
+        } else if (bit == constX) {
+          result.push_back('x');
+        } else if (bit == constZ) {
+          result.push_back('z');
         } else {
           result.push_back('?');
         }
@@ -3910,6 +3914,9 @@ endmodule
       const std::string& code,
       const std::string& reason,
       const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      if (reason.empty()) {
+        return;
+      }
       recordNajaWarning(
         "naja_elaboration",
         "Naja Elaboration Warnings",
@@ -11272,6 +11279,31 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
 
+        const auto isBinaryConstantBound = [&](const Expression& bound) {
+          const auto* strippedBound = stripConversions(bound);
+          if (!strippedBound) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const slang::ConstantValue* constant = strippedBound->getConstant();
+          slang::ConstantValue evaluated;
+          // Current Slang value-range bounds expose folded integer constants;
+          // retain evaluation for alternate / future AST spellings.
+          // LCOV_EXCL_START
+          if ((!constant || !constant->isInteger()) &&
+              getExpressionConstantValue(*strippedBound, evaluated)) {
+            constant = &evaluated;
+          }
+          // LCOV_EXCL_STOP
+          slang::ConstantValue converted;
+          convertConstantToIntegerIfNeeded(constant, converted);
+          return constant && constant->isInteger() &&
+            !constant->integer().hasUnknown();
+        };
+        if (!isBinaryConstantBound(valueRangeExpr.left()) ||
+            !isBinaryConstantBound(valueRangeExpr.right())) {
+          return false;
+        }
+
         auto* geNet = SNLScalarNet::create(design);
         annotateSourceInfo(geNet, sourceRange);
         if (!createRelationalAssign(
@@ -13442,6 +13474,7 @@ endmodule
       const slang::ConstantValue* constant =
         skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
+      bool runtimeEvaluatedConstant = false;
       const Symbol* evalSymbol = getConstantEvalSymbol(*stripped);
       if (!skipMixedLoopRuntimeEval &&
           (!constant || !constant->isInteger()) &&
@@ -13450,6 +13483,7 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+          runtimeEvaluatedConstant = true;
         }
       }
       // Fallback: evaluate using the compilation root as context.
@@ -13478,6 +13512,7 @@ endmodule
           compilationEvaluatedConstant = stripped->eval(rootEvalContext);
           if (compilationEvaluatedConstant && compilationEvaluatedConstant.isInteger()) {
             constant = &compilationEvaluatedConstant;
+            runtimeEvaluatedConstant = true;
           }
         }
       }
@@ -13485,23 +13520,25 @@ endmodule
       convertConstantToIntegerIfNeeded(constant, convertedConstant);
       if (constant && constant->isInteger()) {
         const auto& intValue = constant->integer();
-        if (intValue.hasUnknown()) {
-          return false;
-        }
-        const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
-        bits.reserve(targetWidth);
-        for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
-          if (i < integerWidth) {
-            const auto bit = intValue[static_cast<int32_t>(i)];
-            if (bit.isUnknown()) {
-              return false; // LCOV_EXCL_LINE
+        const bool directlyStorableFourStateExpression =
+          stripped->kind == slang::ast::ExpressionKind::IntegerLiteral ||
+          stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral ||
+          stripped->kind == slang::ast::ExpressionKind::SimpleAssignmentPattern ||
+          stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern ||
+          !expressionReferencesRuntimeValueSymbol(*stripped);
+        if (!(runtimeEvaluatedConstant && intValue.hasUnknown() &&
+              !directlyStorableFourStateExpression)) {
+          const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
+          bits.reserve(targetWidth);
+          for (size_t i = 0; i < targetWidth; ++i) {
+            slang::logic_t bit(0);
+            if (i < integerWidth) {
+              bit = intValue[static_cast<int32_t>(i)];
             }
-            one = static_cast<bool>(bit);
+            bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          return true;
         }
-        return true;
       }
 
       int64_t signedValue = 0;
@@ -17231,16 +17268,50 @@ endmodule
       return true;
     }
 
-    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
-      auto& cache = one ? const1Nets_ : const0Nets_;
-      auto it = cache.find(design);
-      if (it != cache.end()) {
+    SNLScalarNet* getConstNet(
+      SNLDesign* design,
+      SNLNet::Type::TypeEnum type) {
+      std::unordered_map<SNLDesign*, SNLScalarNet*>* cache = nullptr;
+      switch (type) {
+        case SNLNet::Type::Assign0: cache = &const0Nets_; break;
+        case SNLNet::Type::Assign1: cache = &const1Nets_; break;
+        case SNLNet::Type::AssignX: cache = &constXNets_; break;
+        case SNLNet::Type::AssignZ: cache = &constZNets_; break;
+        default:
+          // All callers select one of the four assign-constant types above.
+          throw SNLSVInternalError("Internal error: non-assign type requested as constant net"); // LCOV_EXCL_LINE
+      }
+      auto it = cache->find(design);
+      if (it != cache->end()) {
         return it->second;
       }
       auto net = SNLScalarNet::create(design);
-      net->setType(one ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
-      cache[design] = net;
+      net->setType(type);
+      (*cache)[design] = net;
       return net;
+    }
+
+    SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
+      return getConstNet(
+        design,
+        one ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+    }
+
+    SNLScalarNet* getConstNet(SNLDesign* design, slang::logic_t value) {
+      if (exactlyEqual(value, slang::logic_t(0))) {
+        return getConstNet(design, SNLNet::Type::Assign0);
+      }
+      if (exactlyEqual(value, slang::logic_t(1))) {
+        return getConstNet(design, SNLNet::Type::Assign1);
+      }
+      if (exactlyEqual(value, slang::logic_t::x)) {
+        return getConstNet(design, SNLNet::Type::AssignX);
+      }
+      if (exactlyEqual(value, slang::logic_t::z)) {
+        return getConstNet(design, SNLNet::Type::AssignZ);
+      }
+      // slang::logic_t only represents 0, 1, X, and Z.
+      throw SNLSVInternalError("Internal error: invalid four-state constant value"); // LCOV_EXCL_LINE
     }
 
     std::vector<SNLBitNet*> collectBits(SNLNet* net) {
@@ -24709,7 +24780,9 @@ endmodule
         if (unknownKinds) {
           unknownKinds->add(value);
         }
-        bits.assign(targetWidth, const0);
+        bits.assign(
+          targetWidth,
+          static_cast<SNLBitNet*>(getConstNet(design, value)));
         usedUnknownFallback = true;
         return true;
       }
@@ -24726,14 +24799,11 @@ endmodule
         const auto integerWidth = static_cast<size_t>(literalValue.getBitWidth());
         bits.reserve(targetWidth);
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          slang::logic_t bit(0);
           if (i < integerWidth) {
-            const auto bit = literalValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            bit = literalValue[static_cast<int32_t>(i)];
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
         }
         usedUnknownFallback = true;
         return true;
@@ -24761,16 +24831,18 @@ endmodule
         }
         const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
         bits.reserve(targetWidth);
+        // Parser-backed unknown integer constants are resolved by the literal,
+        // structured-pattern, or constant-expression paths before this generic
+        // fallback. Retain the loop for alternate / future AST spellings.
+        // LCOV_EXCL_START
         for (size_t i = 0; i < targetWidth; ++i) {
-          bool one = false;
+          slang::logic_t bit(0);
           if (i < integerWidth) {
-            const auto bit = intValue[static_cast<int32_t>(i)];
-            if (!bit.isUnknown()) {
-              one = static_cast<bool>(bit);
-            }
+            bit = intValue[static_cast<int32_t>(i)];
           }
-          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
         }
+        // LCOV_EXCL_STOP
         usedUnknownFallback = true;
         return true;
       }
@@ -30381,6 +30453,7 @@ endmodule
       const slang::ConstantValue* constant =
         skipMixedLoopRuntimeEval ? nullptr : stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
+      bool runtimeEvaluatedConstant = false;
       if (!skipMixedLoopRuntimeEval &&
           (!constant || !constant->isInteger()) &&
           stripped->getSymbolReference()) {
@@ -30388,6 +30461,7 @@ endmodule
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+          runtimeEvaluatedConstant = true;
         }
       }
       slang::ConstantValue convertedConstant;
@@ -30402,21 +30476,24 @@ endmodule
       }
 
       const auto& intValue = constant->integer();
-      if (intValue.hasUnknown()) {
+      const bool directlyStorableFourStateExpression =
+        stripped->kind == slang::ast::ExpressionKind::IntegerLiteral ||
+        stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral ||
+        stripped->kind == slang::ast::ExpressionKind::SimpleAssignmentPattern ||
+        stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern ||
+        !expressionReferencesRuntimeValueSymbol(*stripped);
+      if (runtimeEvaluatedConstant && intValue.hasUnknown() &&
+          !directlyStorableFourStateExpression) {
         return false;
       }
       const auto integerWidth = static_cast<size_t>(intValue.getBitWidth());
       bits.reserve(targetWidth);
       for (size_t i = 0; i < targetWidth; ++i) {
-        bool one = false;
+        slang::logic_t bit(0);
         if (i < integerWidth) {
-          const auto bit = intValue[static_cast<int32_t>(i)];
-          if (bit.isUnknown()) {
-            return false; // LCOV_EXCL_LINE
-          }
-          one = static_cast<bool>(bit);
+          bit = intValue[static_cast<int32_t>(i)];
         }
-        bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+        bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, bit)));
       }
       return true;
     }
@@ -30477,8 +30554,8 @@ endmodule
             "unknown_literal_sequential_assignment_rhs",
             formatUnknownLiteralWarning("sequential assignment RHS", unknownKinds),
             sourceRange);
-          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
-          return std::vector<SNLBitNet*>(lhsBits.size(), constZero);
+          auto* constant = static_cast<SNLBitNet*>(getConstNet(design, value));
+          return std::vector<SNLBitNet*>(lhsBits.size(), constant);
         }
       } // LCOV_EXCL_LINE
       if (rhsExpr &&
@@ -34002,6 +34079,8 @@ endmodule
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constXNets_ {};
+    std::unordered_map<SNLDesign*, SNLScalarNet*> constZNets_ {};
     std::vector<InferredMemory> inferredMemories_ {};
     std::unordered_map<const slang::ast::ValueSymbol*, size_t> inferredMemoryByStateSymbol_ {};
     std::unordered_map<const slang::ast::ProceduralBlockSymbol*, size_t>

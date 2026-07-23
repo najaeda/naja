@@ -70,6 +70,8 @@ GetContainerMethod(SNLEquipotential, SNLBitTerm*, SNLBitTerms, Terms)
 GetContainerMethod(SNLEquipotential, SNLOccurrence, SNLOccurrences, InstTermOccurrences)
 GetBoolAttribute(SNLEquipotential, isConst0)
 GetBoolAttribute(SNLEquipotential, isConst1)
+GetBoolAttribute(SNLEquipotential, isConstX)
+GetBoolAttribute(SNLEquipotential, isConstZ)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 
@@ -85,6 +87,10 @@ PyMethodDef PySNLEquipotential_Methods[] = {
      "Returns True if the equipotential is constant 0."},
   {  "isConst1", (PyCFunction)PySNLEquipotential_isConst1, METH_NOARGS,
      "Returns True if the equipotential is constant 1."},
+  {  "isConstX", (PyCFunction)PySNLEquipotential_isConstX, METH_NOARGS,
+     "Returns True if the equipotential is constant X."},
+  {  "isConstZ", (PyCFunction)PySNLEquipotential_isConstZ, METH_NOARGS,
+     "Returns True if the equipotential is constant Z."},
   {  "dumpDotFile", (PyCFunction)PySNLEquipotential_dumpDotFile, METH_VARARGS,
      "Dump the dot file."},
   {NULL, NULL, 0, NULL} /* sentinel */

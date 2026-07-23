@@ -79,6 +79,8 @@ class SNLBusNet final: public SNLNet {
     bool isAllNull() const;
     bool isAssign0() const override;
     bool isAssign1() const override;
+    bool isAssignX() const override;
+    bool isAssignZ() const override;
     bool isSupply0() const override;
     bool isSupply1() const override;
 

@@ -42,6 +42,8 @@ static PyObject* PySNLBitNet_getTypeAsString(PySNLBitNet* self) {
     case SNLNet::Type::Assign1: return PyUnicode_FromString("Assign1");
     case SNLNet::Type::Supply0: return PyUnicode_FromString("Supply0");
     case SNLNet::Type::Supply1: return PyUnicode_FromString("Supply1");
+    case SNLNet::Type::AssignX: return PyUnicode_FromString("AssignX");
+    case SNLNet::Type::AssignZ: return PyUnicode_FromString("AssignZ");
     default: return PyUnicode_FromString("Unknown");
   }
 }

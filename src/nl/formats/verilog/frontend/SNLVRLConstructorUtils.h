@@ -6,7 +6,9 @@
 
 #pragma once
 #include "VerilogTypes.h"
+#include "SNLNet.h"
 #include <boost/dynamic_bitset.hpp>
+#include <vector>
 
 namespace naja::NL {
 
@@ -18,6 +20,8 @@ class SNLVRLConstructorUtils {
      * \warning 'x' value is converted to 0
      */
     static boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number);
+    static std::vector<SNLNet::Type> numberToNetTypes(
+      const naja::verilog::BasedNumber& number);
 };
 
 }  // namespace naja::NL

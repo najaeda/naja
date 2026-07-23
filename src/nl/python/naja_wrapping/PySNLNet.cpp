@@ -59,6 +59,8 @@ PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 DirectGetNumericMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
 GetBoolAttribute(SNLNet, isConstant0)
 GetBoolAttribute(SNLNet, isConstant1)
+GetBoolAttribute(SNLNet, isConstantX)
+GetBoolAttribute(SNLNet, isConstantZ)
 GetBoolAttribute(SNLNet, isConstant)
 
 PyMethodDef PySNLNet_Methods[] = {
@@ -74,6 +76,10 @@ PyMethodDef PySNLNet_Methods[] = {
     "Returns True if this SNLNet is a Constant 0."},
   { "isConstant1", (PyCFunction)PySNLNet_isConstant1, METH_NOARGS,
     "Returns True if this SNLNet is a Constant 1."},
+  { "isConstantX", (PyCFunction)PySNLNet_isConstantX, METH_NOARGS,
+    "Returns True if this SNLNet is a Constant X."},
+  { "isConstantZ", (PyCFunction)PySNLNet_isConstantZ, METH_NOARGS,
+    "Returns True if this SNLNet is a Constant Z."},
   { "isConstant", (PyCFunction)PySNLNet_isConstant, METH_NOARGS,
     "Returns True if this SNLNet is a Constant."},
   {NULL, NULL, 0, NULL}           /* sentinel */

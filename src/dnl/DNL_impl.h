@@ -366,24 +366,39 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                       nonConstDNL.getNonConstDNLTerminalFromID(fid).setIsoID(iso.getIsoID());
                     };
   auto handleConstant = [&](DNLIso& iso, DNLIsoDB& db, SNLBitNet* net) {
-                      bool constant0 = net->isConstant0();
-                      bool constant1 = net->isConstant1();
-                      if (constant0) {
-                        if (iso.isConstant1()) {
-                          db.removeConstant1Iso(iso.getIsoID());
-                          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
-                        } else {
-                          addConstantIso0(iso.getIsoID());
-                          iso.setIsoType(DNLIso::IsoType::CONST0);
-                        }
-                      } else if (constant1) {
-                        if (iso.isConstant0()) {
-                          db.removeConstant0Iso(iso.getIsoID());
-                          iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
-                        } else {
-                          addConstantIso1(iso.getIsoID());
-                          iso.setIsoType(DNLIso::IsoType::CONST1);
-                        }
+                      DNLIso::IsoType netType = DNLIso::IsoType::STANDART;
+                      if (net->isConstant0()) {
+                        netType = DNLIso::IsoType::CONST0;
+                      } else if (net->isConstant1()) {
+                        netType = DNLIso::IsoType::CONST1;
+                      } else if (net->isConstantX()) {
+                        netType = DNLIso::IsoType::CONSTX;
+                      } else if (net->isConstantZ()) {
+                        netType = DNLIso::IsoType::CONSTZ;
+                      }
+
+                      const auto currentType = iso.getType();
+                      if (currentType == DNLIso::IsoType::AMBIGUOUS ||
+                          netType == DNLIso::IsoType::STANDART) {
+                        return;
+                      }
+                      if (currentType != DNLIso::IsoType::STANDART &&
+                          currentType != netType) {
+                        db.removeConstant0Iso(iso.getIsoID());
+                        db.removeConstant1Iso(iso.getIsoID());
+                        db.removeConstantXIso(iso.getIsoID());
+                        db.removeConstantZIso(iso.getIsoID());
+                        iso.setIsoType(DNLIso::IsoType::AMBIGUOUS);
+                        return;
+                      }
+
+                      switch (netType) {
+                        case DNLIso::IsoType::CONST0: addConstantIso0(iso.getIsoID()); break;
+                        case DNLIso::IsoType::CONST1: addConstantIso1(iso.getIsoID()); break;
+                        case DNLIso::IsoType::CONSTX: addConstantIsoX(iso.getIsoID()); break;
+                        case DNLIso::IsoType::CONSTZ: addConstantIsoZ(iso.getIsoID()); break;
+                        // STANDART returns above; all other non-constant types are terminal states.
+                        default: break; // LCOV_EXCL_LINE
                       }
                     };
   std::vector<DNLID> tasks;

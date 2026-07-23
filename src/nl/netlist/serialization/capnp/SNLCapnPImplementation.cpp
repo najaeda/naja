@@ -53,6 +53,10 @@ DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType SNLtoC
       return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY0;
     case SNLNet::Type::Supply1:
       return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1;
+    case SNLNet::Type::AssignX:
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN_X;
+    case SNLNet::Type::AssignZ:
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN_Z;
   }
   return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD; //LCOV_EXCL_LINE
 }
@@ -248,6 +252,10 @@ SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::SNLDesig
       return SNLNet::Type::Supply0;
     case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1:
       return SNLNet::Type::Supply1;
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN_X:
+      return SNLNet::Type::AssignX;
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN_Z:
+      return SNLNet::Type::AssignZ;
   }
   return SNLNet::Type::Standard; //LCOV_EXCL_LINE
 }

@@ -203,6 +203,8 @@ class SNLDesignCloneTest: public ::testing::Test {
       nets_[0]->setType(SNLNet::Type::Assign0);
       nets_.push_back(SNLBusNet::create(design_, 4, 0, NLName("net1")));
       nets_.push_back(SNLScalarNet::create(design_, NLName("net2")));
+      nets_[2]->setType(SNLNet::Type::AssignX);
+      static_cast<SNLBusNet*>(nets_[1])->getBit(4)->setType(SNLNet::Type::AssignZ);
       terms_[0]->setNet(nets_[0]);
       ((SNLBusTerm*)terms_[3])->getBit(0)->setNet(nets_[0]);
       instances_[0]->getInstTerm(prim0Term0)->setNet(nets_[0]);

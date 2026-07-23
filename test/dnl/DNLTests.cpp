@@ -47,6 +47,63 @@ TEST_F(DNLTests, DefaultInstanceHasNoModel) {
   EXPECT_EQ(nullptr, instance.getSNLModel());
 }
 
+TEST_F(DNLTests, FourStateConstantIsos) {
+  auto* universe = NLUniverse::create();
+  auto* db = NLDB::create(universe);
+  auto* library = NLLibrary::create(db, NLName("MYLIB"));
+  auto* top = SNLDesign::create(library, NLName("top"));
+  universe->setTopDesign(top);
+
+  auto* xTerm = SNLScalarTerm::create(
+    top, SNLTerm::Direction::Input, NLName("x"));
+  auto* zTerm = SNLScalarTerm::create(
+    top, SNLTerm::Direction::Input, NLName("z"));
+  auto* xNet = SNLScalarNet::create(top);
+  xNet->setType(SNLNet::Type::AssignX);
+  xTerm->setNet(xNet);
+  auto* zNet = SNLScalarNet::create(top);
+  zNet->setType(SNLNet::Type::AssignZ);
+  zTerm->setNet(zNet);
+
+  auto* dnl = get();
+  const auto xIsoID = dnl->getTop().getTerminalFromBitTerm(xTerm).getIsoID();
+  const auto zIsoID = dnl->getTop().getTerminalFromBitTerm(zTerm).getIsoID();
+  const auto& xIso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(xIsoID);
+  const auto& zIso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(zIsoID);
+  EXPECT_TRUE(xIso.isConstantX());
+  EXPECT_TRUE(zIso.isConstantZ());
+  EXPECT_TRUE(xIso.isConstant());
+  EXPECT_TRUE(zIso.isConstant());
+  EXPECT_EQ(1u, dnl->getDNLIsoDB().getConstantXIsos().count(xIsoID));
+  EXPECT_EQ(1u, dnl->getDNLIsoDB().getConstantZIsos().count(zIsoID));
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstant0Isos().count(xIsoID));
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstant1Isos().count(xIsoID));
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstant0Isos().count(zIsoID));
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstant1Isos().count(zIsoID));
+
+  auto* child = SNLDesign::create(library, NLName("child"));
+  auto* childInput = SNLScalarTerm::create(
+    child, SNLTerm::Direction::Input, NLName("i"));
+  auto* childZNet = SNLScalarNet::create(child);
+  childZNet->setType(SNLNet::Type::AssignZ);
+  childInput->setNet(childZNet);
+  auto* childInstance = SNLInstance::create(top, child, NLName("u0"));
+  auto* conflictingXNet = SNLScalarNet::create(top);
+  conflictingXNet->setType(SNLNet::Type::AssignX);
+  childInstance->getInstTerm(childInput)->setNet(conflictingXNet);
+
+  destroy();
+  dnl = get();
+  const auto conflictingIsoID =
+    dnl->getTop().getChildInstance(childInstance).getTerminalFromBitTerm(childInput).getIsoID();
+  const auto& conflictingIso =
+    dnl->getDNLIsoDB().getIsoFromIsoIDconst(conflictingIsoID);
+  EXPECT_EQ(DNLIso::IsoType::AMBIGUOUS, conflictingIso.getType());
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstantXIsos().count(conflictingIsoID));
+  EXPECT_EQ(0u, dnl->getDNLIsoDB().getConstantZIsos().count(conflictingIsoID));
+  destroy();
+}
+
 TEST_F(DNLTests, ManualIsoBuilderAndCustomIsoCoverageEdges) {
   NLUniverse* univ = NLUniverse::create();
   NLDB* db = NLDB::create(univ);
