@@ -22,6 +22,17 @@ build --cxxopt=-std=c++20
 # fully-static assumption instead of silently diverging from it.
 build --dynamic_mode=off
 
+# Suppress -Wunused-variable for all compilation under test/ -- these are
+# test fixtures (netlist objects built and asserted on via side effects
+# like SNL dump comparisons, not the variable itself), not production
+# code, and the warning fires on hundreds of them across the whole test/
+# tree. --per_file_copt matches by source-file path regardless of which
+# cc_test target it's compiled into, so this doesn't touch src/ at all
+# (src/nl/formats/systemverilog/BUILD.bazel's naja_snl_systemverilog_test
+# needs its own target-level copt for the same reason, since it's a src/
+# file recompiled specifically for tests -- see that file's comment).
+build --per_file_copt=test/.*\.cpp@-Wno-unused-variable
+
 # --config=asan / --config=tsan: match CMakeLists.txt's ENABLE_SANITIZERS /
 # ENABLE_THREAD_SANITIZER options (internal/bazel-migration-plan.md, Phase 8,
 # task #27) -- same -fsanitize flags CMake's `sanitizers_config` INTERFACE
