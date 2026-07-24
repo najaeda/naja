@@ -91,7 +91,7 @@ class NLDB final: public NLObject {
     static void preCreate(NLUniverse* universe);
     static void preCreate(NLUniverse* universe, NLID::DBID id);
     void postCreateAndSetID(NLUniverse* universe);
-    void postCreate(NLUniverse* universe);
+    void postCreateWithUniverse(NLUniverse* universe);
     void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();

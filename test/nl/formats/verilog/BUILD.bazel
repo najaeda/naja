@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Exposes benchmarks/ as data for test/nl/formats/{verilog,systemverilog}
+# (both reference it as "../benchmarks" from CMAKE_CURRENT_SOURCE_DIR).
+
+filegroup(
+    name = "benchmarks",
+    srcs = glob(["benchmarks/**"], exclude = ["benchmarks/__pycache__/**"]),
+    visibility = ["//test:__subpackages__"],
+)

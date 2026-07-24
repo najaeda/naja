@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds `naja_python` (the
+# raw CPython C-API binding sources) and `naja` (the actual importable
+# extension module, a thin PyNaja.cpp wrapper around naja_python). See
+# internal/bazel-migration-plan.md (Phase 6, task #21).
+#
+# CMake links naja_python against Python3::Module (this Bazel build's
+# equivalent, @python//:headers -- no libpython linking, symbols resolve
+# dynamically at import time) or Python3::Python (Python3::Embed
+# equivalent, @python//:embed) depending on BUILD_NAJA_PYTHON. This
+# target is the Module/extension-module case; naja_edit's embedded mode
+# (task #22) needs its own copy linked against @python//:embed instead,
+# since a single cc_library can't conditionally pick either at build
+# time the way CMake's option toggle does.
+
+cc_library(
+    name = "naja_python",
+    srcs = [
+        "PyNLID.cpp",
+        "PyNLUniverse.cpp",
+        "PyNLDB.cpp",
+        "PyNLLibrary.cpp",
+        "PyNLDBs.cpp",
+        "PyNLLibraries.cpp",
+        "PySNLDesign.cpp",
+        "PySNLAttribute.cpp",
+        "PySNLParameter.cpp",
+        "PySNLDesignObject.cpp",
+        "PySNLNet.cpp",
+        "PySNLBusNet.cpp",
+        "PySNLBitNet.cpp",
+        "PySNLScalarNet.cpp",
+        "PySNLBusNetBit.cpp",
+        "PySNLNetType.cpp",
+        "PySNLTermRole.cpp",
+        "PySNLActiveLevel.cpp",
+        "PySNLNetComponent.cpp",
+        "PySNLTerm.cpp",
+        "PySNLTermDirection.cpp",
+        "PySNLBusTerm.cpp",
+        "PySNLBundleTerm.cpp",
+        "PySNLBitTerm.cpp",
+        "PySNLScalarTerm.cpp",
+        "PySNLBusTermBit.cpp",
+        "PySNLInstance.cpp",
+        "PySNLInstParameter.cpp",
+        "PySNLInstTerm.cpp",
+        "PySNLAttributes.cpp",
+        "PySNLDesigns.cpp",
+        "PySNLParameters.cpp",
+        "PySNLInstParameters.cpp",
+        "PySNLNetComponents.cpp",
+        "PySNLTerms.cpp",
+        "PySNLBitTerms.cpp",
+        "PySNLScalarTerms.cpp",
+        "PySNLBusTerms.cpp",
+        "PySNLBundleTerms.cpp",
+        "PySNLNets.cpp",
+        "PySNLBitNets.cpp",
+        "PySNLScalarNets.cpp",
+        "PySNLBusNets.cpp",
+        "PySNLInstances.cpp",
+        "PySNLInstTerms.cpp",
+        "PySNLPath.cpp",
+        "PySNLOccurrence.cpp",
+        "PySNLOccurrences.cpp",
+        "PySNLEquipotential.cpp",
+        "PyLogicCone.cpp",
+        "PySNLUniquifier.cpp",
+        "NajaPythonProperty.cpp",
+    ],
+    hdrs = glob(["*.h"]),
+    defines = ["NAJA_PYTHON_EXPORTS"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/metrics:naja_metrics",
+        "//src/nl/formats/liberty:naja_snl_liberty",
+        "//src/nl/formats/systemverilog:naja_snl_systemverilog",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "//src/optimization:naja_opt",
+        "@python//:headers",
+    ],
+)
+
+cc_binary(
+    name = "naja.so",
+    srcs = ["PyNaja.cpp"],
+    linkopts = select({
+        # cc_binary's linkshared=True already implies -dynamiclib on
+        # macOS (conflicts with -bundle, the traditional Python-extension
+        # mach-o type) -- CPython's dlopen()-based import also accepts a
+        # plain dylib on modern macOS, so only -undefined dynamic_lookup
+        # (letting Python API symbols resolve at import time, since this
+        # target links no libpython -- see @python//:headers) is needed.
+        "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
+        "//conditions:default": [],
+    }),
+    linkshared = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":naja_python",
+        "@python//:headers",
+    ],
+)

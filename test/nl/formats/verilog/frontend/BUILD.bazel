@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# SNL_VRL_BENCHMARKS_PATH mirrors CMAKE_CURRENT_SOURCE_DIR/../benchmarks:
+# a workspace-relative path (cc_test's runtime CWD is its runfiles root,
+# which mirrors the workspace layout), with the actual files pulled in
+# via `data`. SNL_VRL_DUMPER_TEST_PATH mirrors CMAKE_CURRENT_BINARY_DIR
+# (writable scratch) as ".", same pattern as test/core/BUILD.bazel.
+#
+# snlVRLConstructorPyLoaderTests (needs naja_snl_pyloader) is deferred to
+# Phase 6 -- see task #19's notes.
+
+cc_test(
+    name = "snlVRLConstructorTests",
+    # 66 actual TEST_F/TEST cases -- capped at 50, Bazel's hard shard_count
+    # ceiling, so under --define=isolated_tests=true this gets ~1.3
+    # tests/process on average rather than true 1:1 isolation.
+    shard_count = select({
+        "//bazel:isolated_tests": 50,
+        "//conditions:default": 1,
+    }),
+    srcs = [
+        "SNLVRLConstructorUtilsTest0.cpp",
+        "SNLVRLConstructorTest0.cpp",
+        "SNLVRLConstructorTest1.cpp",
+        "SNLVRLConstructorTestAttributes.cpp",
+        "SNLVRLConstructorTestGate0.cpp",
+        "SNLVRLConstructorTestGate1.cpp",
+        "SNLVRLConstructorTestGate2.cpp",
+        "SNLVRLConstructorTestAutoBlackBox0.cpp",
+        "SNLVRLConstructorTestAutoBlackBox1.cpp",
+        "SNLVRLConstructorTestAutoBlackBox2.cpp",
+        "SNLVRLConstructorTestEmptyInstanceConnection.cpp",
+        "SNLVRLConstructorTestImplicitNets.cpp",
+        "SNLVRLConstructorTestConflictingNameModules.cpp",
+        "SNLVRLConstructorTestPreprocess.cpp",
+    ],
+    data = ["//test/nl/formats/verilog:benchmarks"],
+    defines = [
+        'SNL_VRL_BENCHMARKS_PATH=\\"test/nl/formats/verilog/benchmarks\\"',
+        'SNL_VRL_DUMPER_TEST_PATH=\\".\\"',
+    ],
+    deps = [
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "@googletest//:gtest_main",
+    ],
+)

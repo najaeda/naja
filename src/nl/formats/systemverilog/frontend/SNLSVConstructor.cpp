@@ -34,6 +34,7 @@
 
 #include "NajaLog.h"
 #include "NajaPerf.h"
+#include "NajaPrivateProperty.h"
 
 #include "NLID.h"
 #include "NLDB0.h"
@@ -99,13 +100,14 @@
 namespace naja::NL {
 
 namespace {
-using LiveASTLinksByDB = std::unordered_map<NLDB*, std::unique_ptr<SNLSVLiveASTLink>>;
-
-LiveASTLinksByDB& liveASTLinksByDB() {
-  static LiveASTLinksByDB links;
-  return links;
-}
-
+// Convenience cache for getLatest(): which NLDB, if any, most recently had
+// a link stored. Just a hint about *where to look* -- SNLSVLiveASTLinkProperty
+// (attached directly to that NLDB) is the actual source of truth. Reset to
+// nullptr by SNLSVLiveASTLinkProperty::preDestroy() whenever the NLDB it
+// points at is destroyed, so it can never point at freed memory: even if
+// that reset were somehow missed, looking it up goes through the live
+// object's own (correctly life-cycled) property list, not a disconnected
+// map that could hold a stale, mismatched entry.
 NLDB*& latestLiveASTLinkDB() {
   static NLDB* db = nullptr;
   return db;
@@ -181,39 +183,73 @@ bool SNLSVLiveASTLink::hasSymbol(const slang::ast::Symbol* symbol) const {
   return objectsBySymbol_.find(symbol) != objectsBySymbol_.end();
 }
 
+SNLSVLiveASTLinkProperty::SNLSVLiveASTLinkProperty(std::unique_ptr<SNLSVLiveASTLink> link):
+  super(),
+  link_(std::move(link))
+{}
+
+SNLSVLiveASTLinkProperty* SNLSVLiveASTLinkProperty::create(
+  NLDB* db, std::unique_ptr<SNLSVLiveASTLink> link) {
+  super::preCreate(db, Name);
+  auto* property = new SNLSVLiveASTLinkProperty(std::move(link));
+  property->postCreate(db);
+  return property;
+}
+
+void SNLSVLiveASTLinkProperty::preDestroy() {
+  if (latestLiveASTLinkDB() == getOwner()) {
+    latestLiveASTLinkDB() = nullptr;
+  }
+  super::preDestroy();
+}
+
 void SNLSVLiveASTLinkRegistry::clear(NLDB* db) {
   if (!db) {
     return;
   }
-  liveASTLinksByDB().erase(db);
-  if (latestLiveASTLinkDB() == db) {
-    latestLiveASTLinkDB() = nullptr;
+  if (auto* property = dynamic_cast<SNLSVLiveASTLinkProperty*>(
+        db->getProperty(SNLSVLiveASTLinkProperty::Name))) {
+    property->destroy();
   }
 }
 
 void SNLSVLiveASTLinkRegistry::clearAll() {
-  liveASTLinksByDB().clear();
-  latestLiveASTLinkDB() = nullptr;
+  auto* universe = NLUniverse::get();
+  if (!universe) {
+    return;
+  }
+  // Snapshot first: destroying a property while iterating getDBs() would
+  // invalidate that collection's underlying iterator.
+  std::vector<NLDB*> dbs;
+  for (auto* db : universe->getDBs()) {
+    dbs.push_back(db);
+  }
+  for (auto* db : dbs) {
+    clear(db);
+  }
 }
 
 void SNLSVLiveASTLinkRegistry::store(NLDB* db, std::unique_ptr<SNLSVLiveASTLink> link) {
   if (!db) {
     return;
   }
+  clear(db);  // a property named SNLSVLiveASTLinkProperty::Name may already exist on db
   if (!link) {
-    clear(db);
     return;
   }
-  liveASTLinksByDB()[db] = std::move(link);
+  SNLSVLiveASTLinkProperty::create(db, std::move(link));
   latestLiveASTLinkDB() = db;
 }
 
 const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::get(NLDB* db) {
-  auto found = liveASTLinksByDB().find(db);
-  if (found == liveASTLinksByDB().end()) {
+  if (!db) {
     return nullptr;
   }
-  return found->second.get();
+  if (auto* property = dynamic_cast<SNLSVLiveASTLinkProperty*>(
+        db->getProperty(SNLSVLiveASTLinkProperty::Name))) {
+    return property->getLink();
+  }
+  return nullptr;
 }
 
 const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::getLatest() {
@@ -232,10 +268,15 @@ const SNLSVLiveASTLink* SNLSVLiveASTLinkRegistry::findForSymbol(
   if (!symbol) {
     return nullptr;
   }
-  for (const auto& [db, link] : liveASTLinksByDB()) {
-    (void)db;
-    if (link && link->hasSymbol(symbol)) {
-      return link.get();
+  auto* universe = NLUniverse::get();
+  if (!universe) {
+    return nullptr;
+  }
+  for (auto* db : universe->getDBs()) {
+    if (const auto* link = get(db)) {
+      if (link->hasSymbol(symbol)) {
+        return link;
+      }
     }
   }
   return nullptr;
@@ -4508,7 +4549,8 @@ endmodule
       while (true) {
         if (auto* existing = design->getNet(NLName(name))) {
           // LCOV_EXCL_START
-          if (auto* bus = dynamic_cast<SNLBusNet*>(existing); bus && bus->getWidth() == width) {
+          if (auto* bus = dynamic_cast<SNLBusNet*>(existing);
+              bus && static_cast<size_t>(bus->getWidth()) == width) {
             return bus;
           }
           // LCOV_EXCL_STOP
@@ -14026,7 +14068,6 @@ endmodule
       if (stripped->kind == slang::ast::ExpressionKind::Inside) {
         const auto& insideExpr = stripped->as<slang::ast::InsideExpression>();
         auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         auto insideSourceRange = getSourceRange(*stripped);
         SNLBitNet* insideBit = const0;
         for (const auto* rangeExpr : insideExpr.rangeList()) {
@@ -18337,7 +18378,7 @@ endmodule
       if (!select || !inA.net || !inB.net || !outNet) {
         return; // LCOV_EXCL_LINE
       }
-      const auto width = outNet->getWidth();
+      const auto width = static_cast<size_t>(outNet->getWidth());
       if (width != getPackedNetRefWidth(inA) || width != getPackedNetRefWidth(inB)) {
         throw SNLSVInternalError("Internal error: mux width mismatch"); // LCOV_EXCL_LINE
       }
@@ -18441,7 +18482,7 @@ endmodule
         // they choose this generic mux-builder helper. Keep the mismatch guard
         // only as a defensive backstop for future call paths.
         // LCOV_EXCL_START
-        if (outNet->getWidth() != inA.size()) {
+        if (static_cast<size_t>(outNet->getWidth()) != inA.size()) {
           return false;
         }
         // LCOV_EXCL_STOP
@@ -27556,8 +27597,6 @@ endmodule
           itemBegin = std::next(lastItem);
         }
 
-        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         for (auto itemIt = itemBegin; itemIt != caseStmt.items.rend(); ++itemIt) {
           std::vector<SNLBitNet*> itemBits = dataBits;
           ProceduralReplayEnv itemReplayEnv = incomingReplayEnv;
@@ -33598,8 +33637,7 @@ endmodule
           // individual signal term.  The model's terms are named
           // <portName>__<signalName> (created in createTerms above).
           if (conn->port.kind == SymbolKind::InterfacePort) {
-            const auto& ifacePort =
-              conn->port.as<slang::ast::InterfacePortSymbol>();
+            (void)conn->port.as<slang::ast::InterfacePortSymbol>();
             auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
             if (modportSym) {
               // Lazy term creation: create flattened terms on the model the

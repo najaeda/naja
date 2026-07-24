@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_nl_dump`
+# library. The 3 capnp schema -> C++ codegen steps
+# (capnp_generate_cpp() over thirdparty/naja-if/schema/*.capnp) are
+# @naja-if//:naja_common_capnp, @naja-if//:naja_nl_interface_capnp,
+# @naja-if//:naja_nl_implementation_capnp (task #9/#5's bazel-support
+# branch) rather than reimplemented here.
+#
+# See internal/bazel-migration-plan.md (Phase 4, task #16), and
+# CLAUDE.md's "NajaIF snapshot compatibility" section for what
+# SNLDumpManifest.cpp's snl.mf handling is actually for.
+
+cc_library(
+    name = "naja_nl_dump",
+    srcs = [
+        "SNLDump.cpp",
+        "SNLDumpManifest.cpp",
+        "SNLCapnP.cpp",
+        "SNLCapnPRTLInfos.cpp",
+        "SNLCapnPInterface.cpp",
+        "SNLCapnPImplementation.cpp",
+    ],
+    hdrs = [
+        "SNLCapnP.h",
+        "SNLCapnPRTLInfos.h",
+        "SNLDump.h",
+        "SNLDumpException.h",
+        "SNLDumpManifest.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//src/nl/netlist:naja_nl",
+        "@naja-if//:naja_common_capnp",
+        "@naja-if//:naja_nl_implementation_capnp",
+        "@naja-if//:naja_nl_interface_capnp",
+    ],
+)

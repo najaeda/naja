@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_library(
+    name = "snl_netlists",
+    srcs = ["SNLNetlist0.cpp"],
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    visibility = ["//test:__subpackages__"],
+    deps = ["//src/nl/netlist:naja_nl"],
+)
+
+cc_test(
+    name = "snlNetlistTests",
+    srcs = ["SNLNetlist0Test.cpp"],
+    deps = [
+        ":snl_netlists",
+        "@googletest//:gtest_main",
+    ],
+)

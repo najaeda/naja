@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# naja-python-tests (pure Python `unittest discover`, needs the built
+# naja.so extension module on PYTHONPATH) is deferred -- see task #21's
+# notes in internal/bazel-migration-plan.md.
+#
+# najaPythonPropertyTests is a plain C++ executable (not a Python-loaded
+# extension), so unlike naja.so it can't defer Python API symbol
+# resolution to a running interpreter via -undefined dynamic_lookup --
+# it needs a real, fully linked libpython, i.e. @python//:embed (matching
+# CMake's default, non-BUILD_NAJA_PYTHON `Python3::Python` linkage for
+# naja_python -- see src/nl/python/naja_wrapping/CMakeLists.txt's
+# if/else). @python//:headers (naja_python's own dep, for compiling
+# against Python.h) doesn't provide that; adding @python//:embed directly
+# here supplies the missing linkopts at final-link time without needing
+# a second, embed-linked copy of the whole naja_python library.
+
+cc_test(
+    name = "najaPythonPropertyTests",
+    srcs = ["NajaPythonPropertyTest.cpp"],
+    deps = [
+        "//src/nl/python/naja_wrapping:naja_python",
+        "@googletest//:gtest_main",
+        "@python//:embed",
+    ],
+)

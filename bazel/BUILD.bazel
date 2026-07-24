@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Intentionally empty -- exists only so the .bzl files in this package can
+# be loaded (Bazel requires every .bzl file to sit under a package).
+
+# Gates cc_test's shard_count in test/... BUILD files (see each such
+# target's `shard_count = select(...)`). Off by default -- a plain `bazel
+# test //...` (ubuntu-build.yml/macos-build.yml) stays exactly as fast as a
+# single process per binary. asan-build.yml/tsan-build.yml/coverage.yml set
+# `--define=isolated_tests=true` because their old CMake/CTest equivalents
+# ran every individual TEST_F case in its own process
+# (GTEST_DISCOVER_TESTS), unlike Bazel's default of one process per whole
+# cc_test binary -- see internal/bazel-migration-plan.md, Phase 8, task
+# #27's TSan/oneTBB finding for why that difference matters here.
+# `shard_count` parallelism is process-level, not thread-level -- each
+# shard is a fully separate OS process with its own address space, so this
+# is safe for process-local singletons like NLUniverse (see
+# src/nl/netlist/core/NLUniverse.h's `static NLUniverse* universe_`):
+# concurrent shards can never race on it, any more than two separate cc_test
+# targets already running concurrently today could.
+# valgrind.yml deliberately does *not* set this: its own CMake original
+# never used ctest/GTEST_DISCOVER_TESTS either, running each whole binary
+# under one valgrind invocation instead, and Bazel's shard_count hard caps
+# at 50 -- sharding wouldn't recover ctest's actual isolation for the
+# largest suites here anyway, while multiplying valgrind's already-heavy
+# per-process overhead by up to 50x per target.
+config_setting(
+    name = "isolated_tests",
+    values = {"define": "isolated_tests=true"},
+    visibility = ["//visibility:public"],
+)

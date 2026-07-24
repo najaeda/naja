@@ -1,5 +1,43 @@
 name: asan-build
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #27).
+# Uses .bazelrc's `--config=asan`, which matches CMakeLists.txt's
+# ENABLE_SANITIZERS option exactly (AddressSanitizer, -fno-omit-frame-pointer,
+# -c dbg to mirror CMake's Debug build type).
+#
+# Forces Bazel's auto-configured local cc toolchain to clang (default local
+# toolchain on these runners is gcc, unlike the CMake job which passes
+# -DCMAKE_C_COMPILER=clang explicitly) -- specifically the *newest* clang-N
+# already present on the runner image, not the bare `clang` alias. Found via
+# live CI, in two rounds: Ubuntu 22.04's bare `clang` package is Clang 14,
+# under which slang's use of std::source_location doesn't compile against
+# libstdc++ ("no type named 'source_location' in namespace std"); the
+# newest clang-N 22.04 actually has -- clang-15 -- gets past that but then
+# hits a second, similar Clang/libstdc++ gap in slang's use of
+# std::ranges::view_interface ("no matching function for call to
+# '__begin'"). Both are known Clang-vs-libstdc++ C++20-library-feature
+# compatibility gaps, not code bugs, and Ubuntu 22.04 doesn't package any
+# newer clang-N via plain apt to try next. Moved this job to ubuntu-24.04
+# instead of chasing that further -- matches tsan-build.yml/coverage.yml,
+# whose default clang (18) is new enough that neither hit this. The plain
+# CMake build never hit either gap because it never forces clang for
+# slang's *own* nested build the way rules_foreign_cc's cmake() action here
+# does (that nested build otherwise inherits whatever compiler Bazel uses).
+#
+# najaPythonPropertyTests (the one target that embeds CPython) is excluded
+# from the test run, same as the old CMake job's `ctest -E ".*[p|P]ython.*"`
+# / `-DPYTHON_INTERFACE=OFF` -- CPython's own allocator is known to trip
+# ASan/LeakSanitizer false positives.
+#
+# NOTE: validated locally on macOS that --config=asan compiles and links
+# every target cleanly (no code/BUILD issues). Could not validate the test
+# run itself there: Apple Silicon's ASan runtime hangs indefinitely inside
+# __asan::InitializeShadowMemory() (confirmed via `sample` on the hung
+# process) before any test code even runs -- a known macOS/Apple-clang
+# pathology, unrelated to this config or to Naja's code, and not something
+# this job will hit on Linux. Needs live Ubuntu CI to confirm actual test
+# results, same as valgrind.yml/coverage.yml.
+
 on:
   push:
     branches: [ main ]
@@ -7,39 +45,62 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Debug
-
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v5
-      with:
-        submodules: true
-    # install dependencies
-    - name: Install boost & capnproto
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev ninja-build clang libtbb-dev
+    - uses: actions/checkout@v7
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -GNinja -DCMAKE_C_COMPILER=clang -DENABLE_SANITIZERS=ON -DPYTHON_INTERFACE=OFF
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git clang
+
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
+
+    - name: Resolve newest available clang
+      id: clang
+      run: |
+        cc="$(ls /usr/bin/clang-[0-9]* 2>/dev/null | grep -E '/clang-[0-9]+$' | sort -t- -k2 -n | tail -1)"
+        [ -z "$cc" ] && cc=clang
+        cxx="${cc/clang/clang++}"
+        echo "cc=$cc" >> "$GITHUB_OUTPUT"
+        echo "cxx=$cxx" >> "$GITHUB_OUTPUT"
+        "$cc" --version
 
     - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
+      run: >
+        bazel build --config=asan
+        --repo_env=CC=${{ steps.clang.outputs.cc }} --repo_env=CXX=${{ steps.clang.outputs.cxx }}
+        //... --jobs=auto
 
     - name: Test
-      working-directory: ${{github.workspace}}/build
       env:
         PYTHONMALLOC: malloc
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest --parallel $(nproc) -VV -E ".*[p|P]ython.*" -C ${{env.BUILD_TYPE}}
+        # quarantine_size_mb: forces ASan to keep freed memory poisoned much
+        # longer before reallocating it, specifically to try to catch a
+        # slang::assert::AssertionException ('kind == SymbolKind::TypeAlias'
+        # in Type::resolveCanonical()) seen on live CI in
+        # snlSVConstructorTests, without any ASan report of its own
+        # alongside it -- consistent with a stale-pointer-into-since-
+        # reallocated-memory bug, which ASan's default quarantine is too
+        # small to reliably catch (it only poisons freed memory until it
+        # gets reused, and by default reuses it quickly). Bumped here to
+        # get a real heap-use-after-free report with full allocation/free/
+        # access stack traces instead of this opaque assertion, pinpointing
+        # exactly where the stale pointer is held. malloc_context_size:
+        # deeper stack traces for those reports. Diagnostic-only for now --
+        # not meant to stay at this value once the bug is found and fixed.
+        ASAN_OPTIONS: quarantine_size_mb=512:malloc_context_size=30
+      run: >
+        bazel test --config=asan
+        --repo_env=CC=${{ steps.clang.outputs.cc }} --repo_env=CXX=${{ steps.clang.outputs.cxx }}
+        --test_output=errors --jobs=auto
+        -- //... -//test/nl/python/naja_wrapping:najaPythonPropertyTests

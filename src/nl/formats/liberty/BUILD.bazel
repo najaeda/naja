@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the
+# `naja_snl_liberty` library. See internal/bazel-migration-plan.md
+# (Phase 4, task #17).
+
+cc_library(
+    name = "naja_snl_liberty",
+    srcs = [
+        "SNLLibertyConstructor.cpp",
+        "SNLBooleanTree.cpp",
+    ],
+    hdrs = [
+        "SNLLibertyConstructor.h",
+        "SNLLibertyConstructorException.h",
+        "SNLBooleanTree.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//src/nl/netlist:naja_nl",
+        "//thirdparty/yosys-liberty/src:yosys_liberty",
+        "@zlib//:zlib",
+    ],
+)

@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `lef` static
+# library naja actually links (src/nl/formats/lefdef/CMakeLists.txt).
+# See internal/bazel-migration-plan.md (task #13) and
+# bazel/lefdef_bison.bzl for why lef.tab.h is freshly generated here but
+# def (in ../../def/def) uses an already-checked-in def.tab.h instead.
+
+load("//bazel:lefdef_bison.bzl", "lefdef_bison_parser")
+
+lefdef_bison_parser(
+    name = "lef_parser",
+    src = "lef.y",
+    name_prefix = "lefyy",
+    hdr_out = "lef.tab.h",
+)
+
+cc_library(
+    name = "lef",
+    srcs = [
+        ":lef_parser",
+        "crypt.cpp",
+        "lef_keywords.cpp",
+        "lefiArray.cpp",
+        "lefiCrossTalk.cpp",
+        "lefiDebug.cpp",
+        "lefiEncryptInt.cpp",
+        "lefiLayer.cpp",
+        "lefiMacro.cpp",
+        "lefiMisc.cpp",
+        "lefiNonDefault.cpp",
+        "lefiProp.cpp",
+        "lefiPropType.cpp",
+        "lefiTBExt.cpp",
+        "lefiUnits.cpp",
+        "lefiVia.cpp",
+        "lefiViaRule.cpp",
+        "lefrCallbacks.cpp",
+        "lefrData.cpp",
+        "lefrReader.cpp",
+        "lefrSettings.cpp",
+        "lefwWriter.cpp",
+        "lefwWriterCalls.cpp",
+    ],
+    hdrs = glob(["*.hpp"]) + ["lex.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

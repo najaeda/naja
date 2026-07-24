@@ -1,120 +1,128 @@
 name: valgrind
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #27).
+# One `bazel test --run_under=valgrind` step per target, keeping the old
+# CMake job's per-test leak-check flags (some targets get the full
+# `--show-leak-kinds=all --errors-for-leak-kinds=all`, some the weaker
+# `definite`-only variant, some none at all) rather than applying one
+# uniform flag set to every target, since that per-target split looks
+# deliberate (e.g. presumably avoiding known noisy/non-actionable leak
+# reports in specific targets) rather than an oversight.
+#
+# Two of the old job's steps are dropped: TestSNLKernelWithPyLoader
+# (snlTestsWithPyLoader) and TestSNLPyLoader (snlPyLoaderTests) both need
+# naja_snl_pyloader / naja_python, which aren't wired up under Bazel yet
+# (internal/bazel-migration-plan.md Phase 6 -- blocked on naja_nl's
+# CMake SHARED-vs-Bazel-cc_library-static architecture mismatch). The
+# already-commented-out TestReductionOpt step stays dropped too (no Bazel
+# target for it either). Every other target from the old job is covered.
+#
+# --test_timeout is bumped well above Bazel's normal per-size defaults --
+# valgrind can slow test execution down by an order of magnitude or more.
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Debug
-
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        submodules: true
-    - name: Install boost & capnproto & valgrind
-      # install dependencies
-      run: |
-            sudo apt-get update
-            sudo apt-get -yq install libboost-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
+    - uses: actions/checkout@v7
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DLONG_TESTS=ON
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git valgrind
+
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
 
     - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
+      run: bazel build //... --jobs=auto
 
     - name: TestNajaCore
-      working-directory: ${{github.workspace}}/build/test/core
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./najaCoreTests
+      run: >
+        bazel test //test/core:najaCoreTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLKernel
-      working-directory: ${{github.workspace}}/build/test/nl/snl/kernel
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
+      run: >
+        bazel test //test/nl/snl/kernel:snlTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestDecoratorsTest
-      working-directory: ${{github.workspace}}/build/test/nl/snl/decorators
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlDecoratorsTests
-
-    - name: TestSNLKernelWithPyLoader
-      working-directory: ${{github.workspace}}/build/test/nl/snl/kernel
-      env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/naja_wrapping
-        PYTHONMALLOC: malloc
-      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlTestsWithPyLoader
+      run: >
+        bazel test //test/nl/snl/decorators:snlDecoratorsTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLDump
-      working-directory: ${{github.workspace}}/build/test/nl/snl/serialization/capnp
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlCapnPTests
+      run: >
+        bazel test //test/nl/snl/serialization/capnp:snlCapnPTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLNetlists
-      working-directory: ${{github.workspace}}/build/test/nl/netlists
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlNetlistTests
+      run: >
+        bazel test //test/nl/netlists:snlNetlistTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLVRLConstructor
-      working-directory: ${{github.workspace}}/build/test/nl/formats/verilog/frontend
-      env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/nl_wrapping
-        PYTHONMALLOC: malloc
-      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlVRLConstructorTests
+      run: >
+        bazel test //test/nl/formats/verilog/frontend:snlVRLConstructorTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite"
+        --test_output=all --test_timeout=1200
 
     - name: TestLiberty
-      working-directory: ${{github.workspace}}/build/test/nl/formats/liberty
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_liberty_tests
+      run: >
+        bazel test //test/nl/formats/liberty:snl_liberty_tests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLVRLDumper
-      working-directory: ${{github.workspace}}/build/test/nl/formats/verilog/backend
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLDumperTests
-
-    - name: TestSNLPyLoader
-      working-directory: ${{github.workspace}}/build/test/nl/python/pyloader
-      env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/naja_wrapping
-        PYTHONMALLOC: malloc
-      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPyLoaderTests --gtest_filter=-"*testFaultyPythonScript*"
+      run: >
+        bazel test //test/nl/formats/verilog/backend:snlVRLDumperTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestSNLVisualsTest
-      working-directory: ${{github.workspace}}/build/test/nl/visual
-      run: valgrind --error-exitcode=1 ./snl_visual_tests
-      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_visual_tests
+      run: >
+        bazel test //test/nl/visual:snl_visual_tests
+        --run_under="valgrind --error-exitcode=1"
+        --test_output=all --test_timeout=1200
 
     - name: TestDNL
-      working-directory: ${{github.workspace}}/build/test/dnl
-      run: valgrind --error-exitcode=1 ./dnlTests
-      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
+      run: >
+        bazel test //test/dnl:dnlTests
+        --run_under="valgrind --error-exitcode=1"
+        --test_output=all --test_timeout=1200
 
     - name: TestDLE
-      working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 ./loadlessLogicRemoverTests
-      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./loadlessLogicRemoverTests
+      run: >
+        bazel test //test/logic_opt:loadlessLogicRemoverTests
+        --run_under="valgrind --error-exitcode=1"
+        --test_output=all --test_timeout=1200
 
     - name: TestConstantPropagation
-      working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./constantPropagationTests
-
-    #- name: TestReductionOpt
-    #  working-directory: ${{github.workspace}}/build/test/logic_opt
-    #  env:
-    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
-    #    PYTHONMALLOC: malloc
-    #  run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
-    #  #run: valgrind --error-exitcode=1 ./reductionOptTests
+      run: >
+        bazel test //test/logic_opt:constantPropagationTests
+        --run_under="valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all"
+        --test_output=all --test_timeout=1200
 
     - name: TestBNE
-      working-directory: ${{github.workspace}}/build/test/bne
-      run: valgrind --error-exitcode=1 ./bneTests
-      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./bneTests
+      run: >
+        bazel test //test/bne:bneTests
+        --run_under="valgrind --error-exitcode=1"
+        --test_output=all --test_timeout=1200

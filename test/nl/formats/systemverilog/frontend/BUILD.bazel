@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Same workspace-relative-path + data pattern as
+# test/nl/formats/verilog/frontend/BUILD.bazel, except
+# SNL_SV_BENCHMARKS_PATH must be absolute here: SNLSVConstructorTestSimple.cpp's
+# parseSimpleModuleUsesDefaultDiagnosticsReportPath calls
+# std::filesystem::current_path() to change CWD mid-test, which a
+# workspace-relative define wouldn't survive (see bazel/workspace_root.bzl).
+# ENABLE_SV_CONSTRUCTOR_PERF_REPORT defaults OFF in CMake; not wired up
+# here either.
+
+load("@naja_workspace_root//:workspace_root.bzl", "WORKSPACE_ROOT")
+
+cc_test(
+    name = "snlSVConstructorTests",
+    # 1065 actual TEST_F/TEST cases (this suite has grown large) -- capped
+    # at 50, Bazel's hard shard_count ceiling ("Having more than 50 shards
+    # is indicative of poor test organization"), so under
+    # --define=isolated_tests=true this gets ~21 tests/process on average
+    # rather than true 1:1 isolation.
+    shard_count = select({
+        "//bazel:isolated_tests": 50,
+        "//conditions:default": 1,
+    }),
+    srcs = [
+        "SNLSVConstructorTestSimple.cpp",
+        "SNLSVConstructorTestMemoryInference.cpp",
+        "SNLSVConstructorTestAlwaysComb.cpp",
+        "SNLSVConstructorTestSequentialOverlap.cpp",
+        "SNLSVConstructorTestElab.cpp",
+        "SNLSVIntentTest.cpp",
+    ],
+    copts = ["-std=c++20"],
+    data = ["//test/nl/formats/systemverilog:benchmarks"],
+    defines = [
+        'SNL_SV_BENCHMARKS_PATH=\\"%s/test/nl/formats/systemverilog/benchmarks\\"' % WORKSPACE_ROOT,
+        'SNL_SV_DUMPER_TEST_PATH=\\".\\"',
+    ],
+    deps = [
+        "//src/dnl:naja_dnl",
+        "//src/metrics:naja_metrics",
+        "//src/nl/formats/systemverilog:naja_snl_systemverilog_test",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "@googletest//:gtest_main",
+    ],
+)

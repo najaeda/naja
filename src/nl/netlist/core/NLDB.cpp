@@ -30,7 +30,7 @@ NLDB* NLDB::create(NLUniverse* universe) {
 NLDB* NLDB::create(NLUniverse* universe, NLID::DBID id) {
   preCreate(universe, id);
   NLDB* db = new NLDB(id);
-  db->postCreate(universe);
+  db->postCreateWithUniverse(universe);
   return db;
 }
 
@@ -56,7 +56,7 @@ void NLDB::postCreateAndSetID(NLUniverse* universe) {
   universe->addDBAndSetID(this);
 }
 
-void NLDB::postCreate(NLUniverse* universe) {
+void NLDB::postCreateWithUniverse(NLUniverse* universe) {
   super::postCreate();
   universe->addDB(this);
 }

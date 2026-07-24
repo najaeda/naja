@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds `naja_snl_pyloader`.
+# See internal/bazel-migration-plan.md (Phase 6, task #21). CMake links
+# this PUBLIC against naja_python, which itself defaults to the embedded
+# (Python3::Python) case (see
+# src/nl/python/naja_wrapping/CMakeLists.txt's if/else) -- @python//:embed
+# is added directly here for the same reason as
+# test/nl/python/naja_wrapping/BUILD.bazel's najaPythonPropertyTests
+# (a real executable consumer needs a fully linked libpython; a
+# cc_library's own deps don't matter until final link time), and
+# propagates to naja_edit (task #22) and other consumers automatically.
+
+cc_library(
+    name = "naja_snl_pyloader",
+    srcs = ["SNLPyLoader.cpp"],
+    hdrs = [
+        "SNLPyLoader.h",
+        "SNLPyEdit.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/nl/netlist:naja_nl",
+        "//src/nl/python/naja_wrapping:naja_python",
+        "@python//:embed",
+    ],
+)

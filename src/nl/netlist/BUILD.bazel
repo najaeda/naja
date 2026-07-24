@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_nl`
+# library (core/snl/pnl/decorators, one flat library, matching CMake)
+# and `naja_snl_visual` (visual/, a small separate consumer of naja_nl).
+# See internal/bazel-migration-plan.md (Phase 4, task #15).
+#
+# serialization/ is add_subdirectory'd by CMake alongside this library
+# but isn't a dependency of naja_nl itself -- ported separately (task #16).
+
+cc_library(
+    name = "naja_nl",
+    srcs = [
+        "core/NLName.cpp",
+        "core/NLObject.cpp",
+        "core/NLUniverse.cpp",
+        "core/NLDB.cpp",
+        "core/NLDB0.cpp",
+        "core/NLLibrary.cpp",
+        "core/NLDesign.cpp",
+        "snl/SNLAttributes.cpp",
+        "snl/SNLRTLInfos.cpp",
+        "snl/SNLDesignObject.cpp",
+        "snl/SNLNet.cpp",
+        "snl/SNLBusNet.cpp",
+        "snl/SNLBitNet.cpp",
+        "snl/SNLScalarNet.cpp",
+        "snl/SNLBusNetBit.cpp",
+        "snl/SNLNetComponent.cpp",
+        "snl/SNLTerm.cpp",
+        "snl/SNLBitTerm.cpp",
+        "snl/SNLBusTerm.cpp",
+        "snl/SNLBundleTerm.cpp",
+        "snl/SNLScalarTerm.cpp",
+        "snl/SNLBusTermBit.cpp",
+        "snl/SNLInstance.cpp",
+        "snl/SNLInstTerm.cpp",
+        "snl/SNLDesign.cpp",
+        "snl/SNLSharedPath.cpp",
+        "snl/SNLPath.cpp",
+        "snl/SNLParameter.cpp",
+        "snl/SNLInstParameter.cpp",
+        "snl/SNLUtils.cpp",
+        "snl/SNLOccurrence.cpp",
+        "snl/SNLEquipotential.cpp",
+        "snl/SNLUniquifier.cpp",
+        "pnl/PNLDesign.cpp",
+        "pnl/PNLInstance.cpp",
+        "pnl/PNLDesignObject.cpp",
+        "pnl/PNLNet.cpp",
+        "pnl/PNLNetComponent.cpp",
+        "pnl/PNLTerm.cpp",
+        "pnl/PNLBitTerm.cpp",
+        "pnl/PNLBitNet.cpp",
+        "pnl/PNLInstTerm.cpp",
+        "pnl/PNLScalarNet.cpp",
+        "pnl/PNLScalarTerm.cpp",
+        "pnl/PNLOrientation.cpp",
+        "pnl/PNLSite.cpp",
+        "pnl/PNLTechnology.cpp",
+        "decorators/NLLibraryTruthTables.cpp",
+        "decorators/SNLDesignModeling.cpp",
+        "decorators/NLBitDependencies.cpp",
+    ],
+    hdrs = glob([
+        "core/*.h",
+        "snl/*.h",
+        "pnl/*.h",
+        "decorators/*.h",
+    ]),
+    includes = [
+        "core",
+        "decorators",
+        "pnl",
+        "snl",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//thirdparty/spdlog-1.17.0:spdlog",
+        "@boost//:headers",
+    ],
+)
+
+cc_library(
+    name = "naja_snl_visual",
+    srcs = ["visual/NetlistGraph.cpp"],
+    hdrs = [
+        "visual/NetlistGraph.h",
+        "visual/NetlistGraph_impl.h",
+    ],
+    includes = ["visual"],
+    visibility = ["//visibility:public"],
+    deps = [":naja_nl"],
+)

@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+build
+build-asan
+build-tsan
+build-coverage
+build-coverage-svconstructor
+
+# Submodule checkouts kept for CMake (see internal/bazel-migration-plan.md's
+# Phase 1 "Bazel-only" scope decision) -- Bazel fetches its own separate
+# copies of these instead (git_repository/bazel_dep in MODULE.bazel), so
+# these on-disk checkouts should never be scanned as Bazel packages (some
+# ship their own unrelated BUILD files with unmet dev dependencies, e.g.
+# thirdparty/googletest's own test suite needs rules_python we don't have).
+thirdparty/googletest
+thirdparty/naja-verilog
+thirdparty/cpptrace
+thirdparty/naja-if
+thirdparty/slang

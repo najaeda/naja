@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2025 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_metrics`
+# library. See internal/bazel-migration-plan.md (Phase 4, task #18).
+
+cc_library(
+    name = "naja_metrics",
+    srcs = [
+        "FanoutComputer.cpp",
+        "LogicCone.cpp",
+        "LogicLevelComputer.cpp",
+    ],
+    hdrs = [
+        "FanoutComputer.h",
+        "LogicCone.h",
+        "LogicLevelComputer.h",
+    ],
+    copts = select({
+        "@platforms//os:macos": ["-Wno-sign-conversion"],
+        "//conditions:default": [],
+    }),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/bne:naja_bne",
+        "//src/dnl:naja_dnl",
+        "//thirdparty/spdlog-1.17.0:spdlog",
+        "@boost//:headers",
+    ],
+)

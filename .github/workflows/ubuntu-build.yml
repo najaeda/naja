@@ -1,59 +1,64 @@
 name: Ubuntu Build
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #26).
+# Replaced the CMake-based version of this workflow once this job was
+# validated green on live Ubuntu 22.04/24.04 runners.
+#
+# @fmt//:fmt and @tomlplusplus//:tomlplusplus are vendored (git_repository
+# + bazel/thirdparty/{fmt,tomlplusplus}_overlay.BUILD in MODULE.bazel,
+# each pinned to the exact version slang itself requires) rather than
+# pkg-config-wrapped like tbb/boost -- not installed via apt here at all.
+# Found the hard way on live CI: tomlplusplus isn't apt-installable on
+# either Ubuntu version at all; fmt *is* installable, but too old
+# (libfmt-dev is 8.1.1/22.04, 9.1.0/24.04, both below slang's `fmt>=12.2`
+# requirement), and pkg-config-wrapping that stale apt fmt caused a real
+# `fmt::v12::...` undefined-reference link failure (libsvlang.a links
+# against the real fmt 12.2.0 slang's own build fetches over the network
+# when its `find_package()` rejects the old apt one -- `requires-network`
+# on slang's cmake() rule permits that fetch). Vendoring both removes
+# this whole category of platform-dependent version mismatch.
+#
+# Single default toolchain for now (no gcc/clang matrix, unlike the old
+# CMake job) -- kept simple until there's a concrete reason to add it back.
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Debug
-
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
-        compiler:
-          - { cc: gcc,   cxx: g++ }
-          - { cc: clang, cxx: clang++ }
-        exclude:
-          # clang-14 (Ubuntu 22.04 default) lacks std::source_location (C++20, needs clang 15+)
-          - os: ubuntu-22.04
-            compiler: { cc: clang, cxx: clang++ }
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: true
-    # install dependencies
-    - name: Install boost & capnproto
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev clang
+    - uses: actions/checkout@v7
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=ON
-      env:
-        CC:  ${{ matrix.compiler.cc }}
-        CXX: ${{ matrix.compiler.cxx }}
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git
+
+    - uses: bazel-contrib/setup-bazel@0.8.1
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+        repository-cache: true
 
     - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
-      env:
-        CC:  ${{ matrix.compiler.cc }}
-        CXX: ${{ matrix.compiler.cxx }}
+      # --jobs=auto: Bazel already parallelizes across all local cores by
+      # default (unlike make/CMake's default serial build) -- spelled out
+      # explicitly here for clarity/predictability rather than because
+      # it's functionally required.
+      run: bazel build //... --jobs=auto
 
     - name: Test
-      working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest --parallel $(nproc) -VV -C ${{ env.BUILD_TYPE }}
+      run: bazel test //... --test_output=errors --jobs=auto

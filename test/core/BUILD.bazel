@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: one cc_test binary per
+# CMake add_executable+GTEST_DISCOVER_TESTS group (matching CMake's own
+# granularity, not one cc_test per source file). See
+# internal/bazel-migration-plan.md (Phase 5, task #20).
+#
+# NAJA_CORE_TESTS_PATH mirrors CMAKE_CURRENT_BINARY_DIR (a writable
+# scratch dir for log-file tests) as "." -- Bazel's cc_test sandbox
+# working directory is writable at test-run time, same role.
+
+cc_test(
+    name = "najaCoreTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 16,
+        "//conditions:default": 1,
+    }),
+    srcs = [
+        "NajaPrivatePropertyTest.cpp",
+        "NajaPerfTests.cpp",
+        "NajaLogTests.cpp",
+    ],
+    defines = ['NAJA_CORE_TESTS_PATH=\\".\\"'],
+    deps = [
+        "//src/core:naja_core",
+        "@googletest//:gtest_main",
+    ],
+)

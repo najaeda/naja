@@ -1,0 +1,217 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Bazel module for the naja CMake-to-Bazel migration.
+
+Status: Phase 2 in progress (see internal/bazel-migration-plan.md).
+CMake remains the build of record; this file is additive and does not
+touch .gitmodules/thirdparty/CMakeLists.txt (see the Phase 1 scope
+decision in the plan doc). No naja source targets exist yet — those land
+in Phase 4.
+"""
+
+module(
+    name = "naja",
+    version = "1.0.0",
+)
+
+# --- Bazel Central Registry dependencies (Phase 0) ---
+
+# Used by test/ (cc_test targets land in Phase 5, task #20).
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "googletest")
+
+# select()-ed on directly (task #18, dnl/bne/opt/metrics' -Wno-sign-conversion
+# on macOS, matching CMakeLists.txt's `if(APPLE)` guards) -- otherwise only
+# pulled in transitively, not visible to our own module under strict deps.
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# Transitive dependency of capnp-cpp; also used directly by naja's own
+# codegen/serialization glue.
+bazel_dep(name = "zlib", version = "1.3.2")
+
+# Replaces the CMake-side `capnp_generate_cpp()` toolchain
+# (src/nl/netlist/serialization/capnp/CMakeLists.txt). Schema BUILD rules
+# for the 3 naja-if .capnp files are written in Phase 2 (task #9).
+bazel_dep(name = "capnp-cpp", version = "1.4.0")
+
+# --- cpptrace (task #4): BCR module exists, pinned to the exact current
+# submodule commit (3db8da8) rather than the newer 1.0.4 BCR release, so
+# behavior doesn't shift as a side effect of the build-system switch. ---
+bazel_dep(name = "cpptrace", version = "1.0.4.bcr.1")
+git_override(
+    module_name = "cpptrace",
+    remote = "https://github.com/jeremy-rifkin/cpptrace",
+    commit = "3db8da80111171c219ab5839905771386bee06b3",
+)
+
+# --- naja-if, naja-verilog (tasks #5, #6): both are najaeda-org forks
+# (siblings of this repo, not truly third-party), so rather than the
+# non-module git_repository + placeholder-overlay workaround from Phase 1,
+# each now carries its own native MODULE.bazel/BUILD.bazel on a
+# `bazel-support` branch pushed directly to those repos -- making them
+# real Bazel modules consumable via bazel_dep + git_override, the same
+# pattern as cpptrace above. See internal/bazel-migration-plan.md.
+bazel_dep(name = "naja-if", version = "0.0.0")
+git_override(
+    module_name = "naja-if",
+    remote = "https://github.com/najaeda/naja-if",
+    commit = "099677d9f52c0db11b12c08d03e32543eebc7888",  # bazel-support
+)
+
+bazel_dep(name = "naja-verilog", version = "0.0.0")
+git_override(
+    module_name = "naja-verilog",
+    remote = "https://github.com/najaeda/naja-verilog",
+    commit = "ccf33d698c5cbac593dc032db16586a36efc4850",  # bazel-support
+)
+
+# --- slang (task #7): also a najaeda-org fork, but its build (Python
+# codegen-driven, FetchContent for fmt/mimalloc/Catch2/Boost.regex/
+# tomlplusplus) is the single highest-risk item in this migration --
+# deliberately kept as the Phase 1 non-module git_repository + placeholder
+# overlay rather than attempting a native upstream port at the same time
+# (see the Phase 3 scope decision in internal/bazel-migration-plan.md).
+# Real build target: task #14, shelling out to slang's own CMake build via
+# rules_foreign_cc (bazel/thirdparty/slang/BUILD.bazel). ---
+
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+
+host_prefixes = use_repo_rule(
+    "//bazel/thirdparty:slang_host_prefixes.bzl",
+    "host_prefixes",
+)
+
+host_prefixes(name = "slang_host_prefixes")
+
+git_repository = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:git.bzl",
+    "git_repository",
+)
+
+git_repository(
+    name = "slang",
+    remote = "https://github.com/najaeda/slang",
+    commit = "512c327c209d3043aa98ecfd02d06a1b73fcd5fb",
+    build_file = "//bazel/thirdparty:slang_overlay.BUILD",
+)
+
+# fmt: svlang's static library doesn't bundle it (found as a system lib via
+# CMAKE_PREFIX_PATH, see host_prefixes.bzl above), so @slang//:slang needs
+# to link it directly too. Vendored (pinned to the exact 12.2.0 tag
+# commit, matching slang's own `FIND_PACKAGE_ARGS 12.2` requirement)
+# rather than pkg-config-wrapped like tbb/boost: live Ubuntu CI showed a
+# real ABI mismatch when this was pkg-config-wrapped against apt's
+# libfmt-dev (v8/v9, far below 12.2) -- slang's own internal build
+# rejects that same old version and fetches a real fmt 12.2.0 over the
+# network instead, so libsvlang.a ends up needing `fmt::v12::...`
+# symbols an older wrapped fmt can never provide (undefined reference
+# errors, confirmed on live CI). Same fix as tomlplusplus below: pin our
+# own copy to the exact version slang requires, everywhere, rather than
+# depend on whatever a platform's package manager happens to ship.
+git_repository(
+    name = "fmt",
+    remote = "https://github.com/fmtlib/fmt",
+    commit = "1be298e1bd68957e4cd352e1f676f00e07dcfb57",  # 12.2.0
+    build_file = "//bazel/thirdparty:fmt_overlay.BUILD",
+)
+
+# tomlplusplus: same situation as fmt (svlang doesn't bundle it in
+# either), vendored the same way (pinned to the v3.4.0 tag's commit,
+# matching slang's own `FIND_PACKAGE_ARGS 3.4` minimum) -- Ubuntu's apt
+# doesn't have libtomlplusplus-dev at all (confirmed on live CI). See
+# bazel/thirdparty/tomlplusplus_overlay.BUILD.
+git_repository(
+    name = "tomlplusplus",
+    remote = "https://github.com/marzer/tomlplusplus",
+    commit = "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",  # v3.4.0
+    build_file = "//bazel/thirdparty:tomlplusplus_overlay.BUILD",
+)
+
+# --- TBB (task #10): no BCR module. Wrap the already system-installed
+# oneTBB (same one CMake's find_package(TBB REQUIRED) resolves against)
+# via pkg-config rather than building it from source under Bazel. ---
+
+tbb_repository = use_repo_rule(
+    "//bazel/thirdparty/tbb:repo.bzl",
+    "tbb_repository",
+)
+
+tbb_repository(name = "tbb")
+
+# --- Boost (task #11): no BCR module. naja only consumes it as headers
+# (no compiled Boost:: component is linked anywhere in src/), so vendor
+# the official release tarball the same way fmt/tomlplusplus are vendored
+# above, rather than wrapping whatever Boost a given host happens to have
+# installed. The earlier pkg-config/find_path-style
+# bazel/thirdparty/boost/repo.bzl meant both the exact version and the
+# search-order-picked install location varied by machine, and its
+# repo_ctx.symlink of the whole discovered include prefix was found to
+# leak unrelated system headers into the include path (a stale
+# libgtest-dev gtest.h shadowed Bazel's own fetched @googletest on one
+# dev machine). Pinning a tarball fetch removes both: identical Boost
+# bits everywhere, and only boost/** on the include path. ---
+
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+http_archive(
+    name = "boost",
+    url = "https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz",
+    sha256 = "9de758db755e8330a01d995b0a24d09798048400ac25c03fc5ea9be364b13c93",
+    strip_prefix = "boost_1_89_0",
+    build_file = "//bazel/thirdparty:boost_overlay.BUILD",
+)
+
+# --- Python (tasks #21/#22): no BCR module usable here (rules_python's
+# hermetic toolchain would introduce a second, different Python from the
+# one naja's own CMake build already uses) -- wrap the system Python 3
+# via python3-config instead, same pragmatic pattern as everything above.
+# See bazel/thirdparty/python/repo.bzl. ---
+
+python_repository = use_repo_rule(
+    "//bazel/thirdparty/python:repo.bzl",
+    "python_repository",
+)
+
+python_repository(name = "python")
+
+# --- lefdef (task #13): vendored directly in thirdparty/lefdef/ (not a
+# submodule, no separate repo to push a bazel-support branch to). Only
+# `bison` is needed (this SDK's lef.y/def.y embed their own hand-written
+# lexers -- no flex/.l files at all), located via system_tool.bzl the same
+# way CMake's find_package(BISON REQUIRED)
+# (thirdparty/lefdef/CMakeLists.txt) does. See
+# bazel/lefdef_bison.bzl and internal/bazel-migration-plan.md. ---
+
+system_tool_repository = use_repo_rule(
+    "//bazel:system_tool.bzl",
+    "system_tool_repository",
+)
+
+system_tool_repository(name = "bison_tool", tool = "bison")
+system_tool_repository(name = "m4_tool", tool = "m4")
+
+# --- naja_core version stamping (task #15/#18): generates
+# src/core/NajaVersion.h's @NAJA_GIT_HASH@ substitution. See
+# bazel/git_version.bzl for the staleness caveat versus CMake's
+# configure_file (rerun on every configure). ---
+
+git_version = use_repo_rule(
+    "//bazel:git_version.bzl",
+    "git_version",
+)
+
+git_version(name = "naja_git_version")
+
+# Phase 5, task #20: absolute workspace root, needed only by
+# test/nl/formats/systemverilog/frontend's SNLSVConstructorTestSimple.cpp
+# CWD-changing test. See bazel/workspace_root.bzl.
+workspace_root = use_repo_rule(
+    "//bazel:workspace_root.bzl",
+    "workspace_root",
+)
+
+workspace_root(name = "naja_workspace_root")

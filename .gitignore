@@ -37,3 +37,4 @@ naja_sv_diagnostics.log
 naja_perf.log
 sv_constructor_perf.log
 internal
+/bazel-*

@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "pnlTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 30,
+        "//conditions:default": 1,
+    }),
+    srcs = [
+        "PNLPointTest.cpp",
+        "PNLBoxTest.cpp",
+        "PNLDesignTest.cpp",
+        "PNLInstanceTest0.cpp",
+        "PNLTermTest.cpp",
+        "PNLNetTest.cpp",
+        "PNLOrientationTest.cpp",
+        "PNLTransformTest.cpp",
+        "PNLSiteTest.cpp",
+        "PNLTechnologyTest.cpp",
+    ],
+    deps = [
+        "//src/nl/netlist:naja_nl",
+        "@googletest//:gtest_main",
+    ],
+)

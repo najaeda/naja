@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# ENABLE_TEST_DOT (Graphviz rendering) defaults OFF in CMake; not wired
+# up here either.
+
+cc_test(
+    name = "snl_visual_tests",
+    shard_count = select({
+        "//bazel:isolated_tests": 5,
+        "//conditions:default": 1,
+    }),
+    srcs = ["SNLVisualTests.cpp"],
+    deps = [
+        "//src/dnl:naja_dnl",
+        "//src/nl/netlist:naja_snl_visual",
+        "@googletest//:gtest_main",
+    ],
+)

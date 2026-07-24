@@ -216,7 +216,7 @@ int main(int argc, char* argv[]) {
   if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
   } else {
-    if (auto output = program.is_used("-o")) {
+    if (program.is_used("-o")) {
       // in case output format is not provided and output path is provided
       // output format is same as input format
       if (inputFormatType == FormatType::NOT_PROVIDED) {

@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# SNL_CAPNP_TEST_PATH mirrors CMAKE_CURRENT_BINARY_DIR (writable scratch)
+# as "." -- see test/core/BUILD.bazel's NAJA_CORE_TESTS_PATH for the same
+# pattern.
+
+cc_test(
+    name = "snlCapnPTests",
+    shard_count = select({
+        "//bazel:isolated_tests": 12,
+        "//conditions:default": 1,
+    }),
+    srcs = [
+        "SNLDumpManifestTest.cpp",
+        "SNLCapnPTest0.cpp",
+        "SNLCapnPTest1.cpp",
+        "SNLCapnPTest2.cpp",
+        "SNLCapnPTest3.cpp",
+        "SNLCapnPRTLInfosTest.cpp",
+    ],
+    defines = ['SNL_CAPNP_TEST_PATH=\\".\\"'],
+    deps = [
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "@googletest//:gtest_main",
+    ],
+)
