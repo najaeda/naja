@@ -62,6 +62,44 @@ cmake(
         "SLANG_INCLUDE_DOCS": "OFF",
         "SLANG_USE_MIMALLOC": "OFF",
         "SLANG_PIC_ON": "ON",
+        # Pin this regardless of Bazel's own -c dbg/opt/fastbuild: without
+        # it, rules_foreign_cc's cmake_script.bzl defaults CMAKE_BUILD_TYPE
+        # to "Debug" whenever Bazel's compilation mode is dbg (true for both
+        # --config=asan and --config=tsan, since both set `-c dbg`). slang's
+        # own source/CMakeLists.txt has
+        # `target_compile_definitions(slang_slang PUBLIC
+        # $<$<CONFIG:Debug>:SLANG_DEBUG>)`, and SLANG_DEBUG isn't just an
+        # assertion switch: it adds real data members (BufferID::name,
+        # SourceLocation::bufferName -- see
+        # include/slang/text/SourceLocation.h) that change the size/layout
+        # of SourceLocation, which every slang::ast::Symbol/Type embeds.
+        # That PUBLIC define is meant to propagate to consumers via CMake's
+        # own target_link_libraries (and does, when naja's own top-level
+        # CMakeLists.txt add_subdirectory()s slang directly -- one shared
+        # CMAKE_BUILD_TYPE, no mismatch possible). But :slang below wraps
+        # this nested build's prebuilt libsvlang.a in a plain cc_library
+        # with no `defines`, so Bazel-native consumers (naja_snl_systemverilog_test,
+        # snlSVConstructorTests, ...) never see SLANG_DEBUG regardless of
+        # Bazel's own compilation mode. Left to its default, `-c dbg` alone
+        # would make *this* nested build define SLANG_DEBUG while every
+        # Bazel-native TU that also includes these same headers does not --
+        # two incompatible layouts of the same classes linked into one
+        # binary. That silently corrupts memory (confirmed via a minimal
+        # standalone repro outside Bazel/gtest entirely: linking a
+        # SLANG_DEBUG-built libsvlang.a against a non-SLANG_DEBUG-compiled
+        # caller reproduces a clean ASan stack-buffer-overflow on the very
+        # first slang::ast::Compilation constructed), which is what was
+        # actually behind the "kind == SymbolKind::TypeAlias" assertion
+        # failures in slang's Type::resolveCanonical() under
+        # --config=asan/--config=tsan (task #14 follow-up; see
+        # internal/bazel-migration-plan.md) -- those crashed on every shard,
+        # even before any TEST_F ran, because it's a static build-config
+        # mismatch, not anything test-order- or lifetime-dependent. Pinning
+        # this to RelWithDebInfo keeps debug symbols (useful under
+        # asan/tsan/gdb) while never satisfying CONFIG:Debug, so SLANG_DEBUG
+        # stays off here exactly like it does for every Bazel-native
+        # consumer, regardless of which -c mode Bazel itself is using.
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_PREFIX_PATH": CMAKE_PREFIX_PATH,
         # slang's own CMakeLists.txt unconditionally does
         # find_program(CCACHE_EXECUTABLE ccache) and, if found, sets it as
