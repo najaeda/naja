@@ -53,7 +53,15 @@ def _tbb_repository_impl(repository_ctx):
     includedir = pkgconfig_var("includedir")
     libdir = pkgconfig_var("libdir")
 
-    repository_ctx.symlink(includedir, "include")
+    # Symlink only the two subdirectories oneTBB actually ships (the
+    # compatibility `tbb/*.h` shims and the real `oneapi/tbb/*.h`
+    # implementation the shims forward to via "../oneapi/tbb/...").
+    # Symlinking the whole includedir (e.g. /usr/include) instead would
+    # expose every other system header -- including an old libgtest-dev
+    # gtest.h -- as fair game for any `-isystem .../tbb/include` compile,
+    # silently shadowing Bazel's own fetched @googletest headers.
+    repository_ctx.symlink(includedir + "/tbb", "include/tbb")
+    repository_ctx.symlink(includedir + "/oneapi", "include/oneapi")
     repository_ctx.file(
         "BUILD.bazel",
         _BUILD_TEMPLATE.format(libdir = libdir),
