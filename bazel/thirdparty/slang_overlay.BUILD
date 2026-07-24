@@ -63,6 +63,27 @@ cmake(
         "SLANG_USE_MIMALLOC": "OFF",
         "SLANG_PIC_ON": "ON",
         "CMAKE_PREFIX_PATH": CMAKE_PREFIX_PATH,
+        # slang's own CMakeLists.txt unconditionally does
+        # find_program(CCACHE_EXECUTABLE ccache) and, if found, sets it as
+        # CMAKE_{C,CXX}_COMPILER_LAUNCHER -- on a host with a system-wide
+        # ccache install, this makes the build try to write ccache's temp
+        # dir under $XDG_RUNTIME_DIR (e.g. /run/user/<uid>/ccache-tmp),
+        # which is outside Bazel's sandbox and read-only there, failing
+        # the whole compile. Pre-seeding this cache variable to the
+        # standard CMake "not found" sentinel makes find_program() treat
+        # it as already-searched and skip re-detecting ccache, so
+        # find_package()'s own result (real or not) is never overridden by
+        # a nonexistent one -- same idiom as any other pre-seeded
+        # find_program/find_package cache variable.
+        "CCACHE_EXECUTABLE": "CCACHE_EXECUTABLE-NOTFOUND",
+    },
+    # Belt-and-suspenders for the same ccache issue: if CCACHE_EXECUTABLE
+    # somehow still resolves (e.g. a future slang version searches
+    # differently), CCACHE_DISABLE=1 makes ccache itself a transparent
+    # passthrough to the real compiler -- no cache, no temp dir, so
+    # nothing to fail to create.
+    env = {
+        "CCACHE_DISABLE": "1",
     },
     lib_source = ":all_srcs",
     out_static_libs = ["libsvlang.a"],
