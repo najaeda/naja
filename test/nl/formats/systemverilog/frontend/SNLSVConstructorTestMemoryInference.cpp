@@ -53,21 +53,6 @@ using namespace naja::NL;
 
 namespace {
 
-const SNLRTLInfos* getRTLInfos(const NLObject* object) {
-  if (auto design = dynamic_cast<const SNLDesign*>(object)) {
-    return design->getRTLInfos();
-  }
-  if (auto designObject = dynamic_cast<const SNLDesignObject*>(object)) {
-    return designObject->getRTLInfos();
-  }
-  return nullptr;
-}
-
-bool hasRTLInfo(const NLObject* object, const std::string& name) {
-  auto rtlInfos = getRTLInfos(object);
-  return rtlInfos && rtlInfos->hasInfo(NLName(name));
-}
-
 std::string readTextFile(const std::filesystem::path& path) {
   std::ifstream file(path);
   std::stringstream buffer;
@@ -142,20 +127,6 @@ std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
   return outPath / fileName;
 }
 
-size_t getMux2Width(const SNLInstance* instance) {
-  if (!instance || !NLDB0::isMux2(instance->getModel())) {
-    return 0;
-  }
-  if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
-    return static_cast<size_t>(std::stoull(widthInstParam->getValue()));
-  }
-  auto* widthParam = instance->getModel()->getParameter(NLName("WIDTH"));
-  if (!widthParam) {
-    return 0;
-  }
-  return static_cast<size_t>(std::stoull(widthParam->getValue()));
-}
-
 size_t getPrimitiveWidth(const SNLInstance* instance) {
   if (!instance) {
     return 0;
@@ -171,30 +142,6 @@ size_t getPrimitiveWidth(const SNLInstance* instance) {
     return static_cast<size_t>(std::stoull(widthParam->getValue()));
   }
   return 1;
-}
-
-size_t countMux2Instances(const SNLDesign* design, size_t width = 0) {
-  size_t count = 0;
-  for (auto inst : design->getInstances()) {
-    if (!NLDB0::isMux2(inst->getModel())) {
-      continue;
-    }
-    if (width != 0 && getMux2Width(inst) != width) {
-      continue;
-    }
-    ++count;
-  }
-  return count;
-}
-
-size_t countFAInstances(const SNLDesign* design) {
-  size_t count = 0;
-  for (auto inst : design->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++count;
-    }
-  }
-  return count;
 }
 
 size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
