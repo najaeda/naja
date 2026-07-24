@@ -4549,7 +4549,8 @@ endmodule
       while (true) {
         if (auto* existing = design->getNet(NLName(name))) {
           // LCOV_EXCL_START
-          if (auto* bus = dynamic_cast<SNLBusNet*>(existing); bus && bus->getWidth() == width) {
+          if (auto* bus = dynamic_cast<SNLBusNet*>(existing);
+              bus && static_cast<size_t>(bus->getWidth()) == width) {
             return bus;
           }
           // LCOV_EXCL_STOP
@@ -14067,7 +14068,6 @@ endmodule
       if (stripped->kind == slang::ast::ExpressionKind::Inside) {
         const auto& insideExpr = stripped->as<slang::ast::InsideExpression>();
         auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         auto insideSourceRange = getSourceRange(*stripped);
         SNLBitNet* insideBit = const0;
         for (const auto* rangeExpr : insideExpr.rangeList()) {
@@ -18378,7 +18378,7 @@ endmodule
       if (!select || !inA.net || !inB.net || !outNet) {
         return; // LCOV_EXCL_LINE
       }
-      const auto width = outNet->getWidth();
+      const auto width = static_cast<size_t>(outNet->getWidth());
       if (width != getPackedNetRefWidth(inA) || width != getPackedNetRefWidth(inB)) {
         throw SNLSVInternalError("Internal error: mux width mismatch"); // LCOV_EXCL_LINE
       }
@@ -18482,7 +18482,7 @@ endmodule
         // they choose this generic mux-builder helper. Keep the mismatch guard
         // only as a defensive backstop for future call paths.
         // LCOV_EXCL_START
-        if (outNet->getWidth() != inA.size()) {
+        if (static_cast<size_t>(outNet->getWidth()) != inA.size()) {
           return false;
         }
         // LCOV_EXCL_STOP
@@ -27597,8 +27597,6 @@ endmodule
           itemBegin = std::next(lastItem);
         }
 
-        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         for (auto itemIt = itemBegin; itemIt != caseStmt.items.rend(); ++itemIt) {
           std::vector<SNLBitNet*> itemBits = dataBits;
           ProceduralReplayEnv itemReplayEnv = incomingReplayEnv;
@@ -33639,8 +33637,7 @@ endmodule
           // individual signal term.  The model's terms are named
           // <portName>__<signalName> (created in createTerms above).
           if (conn->port.kind == SymbolKind::InterfacePort) {
-            const auto& ifacePort =
-              conn->port.as<slang::ast::InterfacePortSymbol>();
+            (void)conn->port.as<slang::ast::InterfacePortSymbol>();
             auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
             if (modportSym) {
               // Lazy term creation: create flattened terms on the model the
