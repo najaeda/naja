@@ -140,16 +140,30 @@ tbb_repository = use_repo_rule(
 tbb_repository(name = "tbb")
 
 # --- Boost (task #11): no BCR module. naja only consumes it as headers
-# (no compiled Boost:: component is linked anywhere in src/), so wrap the
-# system installation the same way CMake's find_path(Boost_INCLUDE_DIR)
-# does, rather than vendoring/building Boost from source. ---
+# (no compiled Boost:: component is linked anywhere in src/), so vendor
+# the official release tarball the same way fmt/tomlplusplus are vendored
+# above, rather than wrapping whatever Boost a given host happens to have
+# installed. The earlier pkg-config/find_path-style
+# bazel/thirdparty/boost/repo.bzl meant both the exact version and the
+# search-order-picked install location varied by machine, and its
+# repo_ctx.symlink of the whole discovered include prefix was found to
+# leak unrelated system headers into the include path (a stale
+# libgtest-dev gtest.h shadowed Bazel's own fetched @googletest on one
+# dev machine). Pinning a tarball fetch removes both: identical Boost
+# bits everywhere, and only boost/** on the include path. ---
 
-boost_repository = use_repo_rule(
-    "//bazel/thirdparty/boost:repo.bzl",
-    "boost_repository",
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
 )
 
-boost_repository(name = "boost")
+http_archive(
+    name = "boost",
+    url = "https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz",
+    sha256 = "9de758db755e8330a01d995b0a24d09798048400ac25c03fc5ea9be364b13c93",
+    strip_prefix = "boost_1_89_0",
+    build_file = "//bazel/thirdparty:boost_overlay.BUILD",
+)
 
 # --- Python (tasks #21/#22): no BCR module usable here (rules_python's
 # hermetic toolchain would introduce a second, different Python from the
