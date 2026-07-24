@@ -65,7 +65,7 @@ jobs:
           bison flex m4 pkg-config python3-dev git \
           clang llvm
 
-    - uses: bazel-contrib/setup-bazel@0.8.1
+    - uses: bazel-contrib/setup-bazel@0.19.0
       with:
         bazelisk-cache: true
         disk-cache: ${{ github.workflow }}
