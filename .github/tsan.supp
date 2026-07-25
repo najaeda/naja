@@ -1,7 +1,19 @@
 # oneTBB scheduler/partitioner reports from parallel_for_each.
-race:tbb::detail::d1::dynamic_grainsize_mode
-race:tbb::detail::d1::adaptive_mode
-race:tbb::detail::d1::start_for
+#
+# Wrapped in leading/trailing '*': a bare, unwildcarded pattern here
+# (race:tbb::detail::d1::dynamic_grainsize_mode) was found NOT to match a
+# live TSan report whose SUMMARY/frame text plainly contains that same
+# substring (bool tbb::detail::d1::dynamic_grainsize_mode<...>::
+# check_being_stolen<...>(...) in partitioner.h) -- TSan's race:
+# suppression matching is a glob match against the full demangled
+# signature, not a plain substring/"contains" check, so an unwildcarded
+# pattern only matches if it happens to equal that entire string. '*' on
+# both ends makes it a true substring match regardless of whatever
+# template parameters/return type/enclosing class happen to surround the
+# named function in a given instantiation.
+race:*tbb::detail::d1::dynamic_grainsize_mode*
+race:*tbb::detail::d1::adaptive_mode*
+race:*tbb::detail::d1::start_for*
 
 # oneTBB's fold_tree/partitioner ref-count bookkeeping racing against its
 # own concurrent_unordered_set insert path -- same scheduler-internal noise
@@ -12,5 +24,5 @@ race:tbb::detail::d1::start_for
 # in a binary sequentially within one process -- unlike CTest's
 # --gtest_filter-per-test isolation, that gives TBB's global scheduler far
 # more sustained activity within a single process to ever hit this window.
-race:tbb::detail::d1::concurrent_unordered_base
-race:tbb::detail::d1::fold_tree
+race:*tbb::detail::d1::concurrent_unordered_base*
+race:*tbb::detail::d1::fold_tree*

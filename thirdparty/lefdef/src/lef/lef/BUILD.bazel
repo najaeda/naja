@@ -19,6 +19,10 @@ lefdef_bison_parser(
 
 cc_library(
     name = "lef",
+    # -w: this is Cadence's vendored LEF reference parser (thirdparty/,
+    # not naja's own code) -- silence its warnings wholesale rather than
+    # fixing them one at a time, since naja doesn't maintain this source.
+    copts = ["-w"],
     srcs = [
         ":lef_parser",
         "crypt.cpp",
