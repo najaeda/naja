@@ -6,6 +6,17 @@
 # globally here rather than per-target, same as the CMake build.
 build --cxxopt=-std=c++20
 
+# Bazel's own default compilation_mode is `fastbuild` (no -O, no -g, no
+# -DNDEBUG) -- fine for fast iteration, but not the CMake build this repo's
+# docs actually tell people to run (`-DCMAKE_BUILD_TYPE=Release`, i.e. -O2
+# -DNDEBUG). Left unset, every bare `bazel build`/`bazel test` -- including
+# CI's own ubuntu-build.yml/macos-build.yml -- would silently build and
+# benchmark an unoptimized binary. Pin the default to `opt` so bare
+# invocations match the CMake habit; --config=asan/--config=tsan below both
+# explicitly set `-c dbg` themselves, which (later in file evaluation order)
+# overrides this for those configs, same as passing -c dbg by hand would.
+build -c opt
+
 # Force fully static linking on every platform. Found via live Ubuntu
 # CI (internal/bazel-migration-plan.md, Phase 8, task #26): Bazel's
 # default --dynamic_mode on Linux can auto-split a large cc_library
