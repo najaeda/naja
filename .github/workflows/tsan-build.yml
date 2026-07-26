@@ -70,8 +70,17 @@ jobs:
         # Keep TSan focused on Naja code paths and avoid TBB scheduler reports.
         NON_MT: 1
         TSAN_OPTIONS: halt_on_error=1 ignore_noninstrumented_modules=1 suppressions=${{ github.workspace }}/.github/tsan.supp
+      # --test_env=NAME (no `=value`) forwards this step's env var through by
+      # name -- Bazel's test actions do NOT inherit the invoking shell/CI
+      # step's environment by default (see internal/bazel-migration-plan.md's
+      # TSan/oneTBB finding). Without these two flags, NON_MT and
+      # TSAN_OPTIONS above are silently dropped: the suppressions file is
+      # never read (no suppression applied, regardless of pattern syntax)
+      # and NON_MT never reaches RemoveLoadlessLogic.cpp/DNL_impl.h/
+      # LogicCone.cpp, so their TBB-parallel paths run anyway.
       run: >
         bazel test --config=tsan
         --repo_env=CC=${{ steps.clang.outputs.cc }} --repo_env=CXX=${{ steps.clang.outputs.cxx }}
+        --test_env=NON_MT --test_env=TSAN_OPTIONS
         --test_output=errors
         -- //... -//test/nl/python/naja_wrapping:najaPythonPropertyTests
