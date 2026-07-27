@@ -14,6 +14,19 @@ class NLLibrary;
 
 class SNLLibertyConstructor {
   public:
+    struct Config {
+      enum class ConflictingCellNamePolicy {
+        Forbid,   ///< Throw if a cell with the same name already exists in the library.
+        FirstOne  ///< Keep the first definition and ignore subsequent ones (emit a warning).
+      };
+
+      ConflictingCellNamePolicy conflictingCellNamePolicy_ {
+        ConflictingCellNamePolicy::FirstOne
+      };
+    };
+
+    Config config_ {};
+
     SNLLibertyConstructor() = delete;
     SNLLibertyConstructor(const SNLLibertyConstructor&) = delete;
     SNLLibertyConstructor(NLLibrary* library);
