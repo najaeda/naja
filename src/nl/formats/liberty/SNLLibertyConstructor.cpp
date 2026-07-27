@@ -21,6 +21,7 @@
 #include "YosysLibertyParser.h"
 #include "YosysLibertyException.h"
 
+#include "NajaLog.h"
 #include "NajaPerf.h"
 
 #include "NLLibrary.h"
@@ -38,6 +39,8 @@
 namespace {
 
 using namespace naja::NL;
+using ConflictingCellNamePolicy =
+  SNLLibertyConstructor::Config::ConflictingCellNamePolicy;
 
 SNLTerm::Direction getSNLDirection(const std::string& direction) {
   if (direction == "input") {
@@ -752,8 +755,25 @@ void parseCell(
   NLLibrary* library,
   const Yosys::LibertyAst* top,
   Yosys::LibertyAst* cell,
-  const std::filesystem::path& sourcePath) {
+  const std::filesystem::path& sourcePath,
+  ConflictingCellNamePolicy conflictingCellNamePolicy) {
   auto cellName = cell->args[0];
+  if (library->getSNLDesign(NLName(cellName))) {
+    if (conflictingCellNamePolicy == ConflictingCellNamePolicy::FirstOne) {
+      NAJA_LOG_WARN(
+        "In SNLLibertyConstructor, cell {} from {} already exists in "
+        "library {}, ignoring this definition.",
+        cellName,
+        sourcePath.string(),
+        library->getDescription());
+      return;
+    }
+    std::ostringstream reason;
+    reason << "Liberty parser: " << sourcePath.string()
+      << ": NLLibrary " << library->getString()
+      << " contains already a SNLDesign named: " << cellName;
+    throw SNLLibertyConstructorException(reason.str());
+  }
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
   //std::cerr << "Parse cell: " << cellName << std::endl;
   FunctionParsingType type = FunctionParsingType::Combinational;
@@ -768,10 +788,11 @@ void parseCell(
 void parseCells(
   NLLibrary* library,
   const Yosys::LibertyAst* ast,
-  const std::filesystem::path& sourcePath) {
+  const std::filesystem::path& sourcePath,
+  ConflictingCellNamePolicy conflictingCellNamePolicy) {
   for (auto child: ast->children) {
     if (child->id == "cell") {
-      parseCell(library, ast, child, sourcePath);
+      parseCell(library, ast, child, sourcePath, conflictingCellNamePolicy);
     }
   }
 }
@@ -1178,9 +1199,8 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     auto libraryName = ast->args[0];
     {
       NajaPerf::Scope constructScope("Liberty build SNL primitives");
-      //find a policy for multiple libs
       library_->setName(NLName(libraryName));
-      parseCells(library_, ast, path);
+      parseCells(library_, ast, path, config_.conflictingCellNamePolicy_);
     }
   }
   NLLibraryTruthTables::construct(library_);
