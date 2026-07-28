@@ -33,10 +33,14 @@ jobs:
     - uses: actions/checkout@v7
 
     - name: Install dependencies
+      # libboost-dev/libtbb-dev: still needed even though naja's own
+      # Boost usage is vendored -- see ubuntu-build.yml's comment on this
+      # same step (slang's nested CMake build needs a real system Boost;
+      # oneTBB has no BCR module and is pkg-config-wrapped).
       run: |
         sudo apt-get update
         sudo apt-get install -yq \
-          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          libboost-dev libfl-dev libtbb-dev \
           bison flex m4 pkg-config python3-dev git clang
 
     - uses: bazel-contrib/setup-bazel@0.19.0

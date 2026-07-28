@@ -1,41 +1,64 @@
 name: najaeda test, coverage and lint
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #28).
+#
+# The hermetic `bazel test` run is the real pass/fail gate: it drives
+# //test/najaeda:najaeda_python_tests, which replicates
+# setup_test_env.cmake's copy-najaeda-sources + symlink-naja.so dance
+# inside run_najaeda_tests.sh (its own scratch dir per test run, not
+# shared with any other target). najaeda-examples.yml covers
+# //src/najaeda/examples:najaeda_examples separately, matching that
+# workflow's pre-existing split from this one.
+#
+# Coverage/lint still run outside Bazel, same as before this migration:
+# flake8 needs no build at all, and `python -m coverage run -m
+# unittest` needs to import the *uninstrumented* najaeda sources
+# directly from a plain directory (Bazel's own sandboxed copy above is
+# torn down after that test action, not reachable from a later step),
+# so this job builds naja.so once with `bazel build` and reuses the
+# same copy-plus-symlink setup by hand to point coverage at real,
+# on-disk sources -- same env vars CMakeLists.txt's ENVIRONMENT string
+# used to set.
+
 on:
   push:
     branches:
       - main
   pull_request:
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        submodules: true
-    # install dependencies
-    - name: Install boost & capnproto
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
-    - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
+    - uses: actions/checkout@v7
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
+    - name: Install dependencies
+      # libboost-dev/libtbb-dev: still needed even though naja's own
+      # Boost usage is vendored -- see ubuntu-build.yml's comment on this
+      # same step (slang's nested CMake build needs a real system Boost;
+      # oneTBB has no BCR module and is pkg-config-wrapped).
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git
+
+    - uses: bazel-contrib/setup-bazel@0.19.0
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
+
+    - name: Test (hermetic, via Bazel)
+      run: bazel test //test/najaeda:najaeda_python_tests --test_output=errors --jobs=auto
+
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: 3.13
-    - name: Install dependencies
+    - name: Install lint/coverage tooling
       run: |
         python -m pip install --upgrade pip
         pip install flake8
@@ -43,13 +66,21 @@ jobs:
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8 --max-line-length=100 --ignore E128,W504,W503 --exclude docs,examples,native_examples,README
-    - name: Run najaeda testing with pytest
+
+    - name: Build naja.so for coverage run
+      run: bazel build //src/nl/python/naja_wrapping:naja.so --jobs=auto
+    - name: Set up najaeda coverage env
+      run: |
+        mkdir -p /tmp/najaeda-coverage-env/najaeda
+        cp -R src/najaeda/najaeda/. /tmp/najaeda-coverage-env/najaeda/
+        cp bazel-bin/src/nl/python/naja_wrapping/naja.so /tmp/najaeda-coverage-env/najaeda/naja.so
+    - name: Run najaeda testing with coverage
       working-directory: ${{github.workspace}}/test/najaeda
       env:
-        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
+        PYTHONPATH: /tmp/najaeda-coverage-env
         LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/liberty/benchmarks
         VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/verilog/benchmarks
-        NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
+        NAJAEDA_TEST_PATH: /tmp/najaeda-coverage-env
         NAJAEDA_SOURCE_TEST_PATH: ${{github.workspace}}/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc

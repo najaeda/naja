@@ -41,10 +41,20 @@ jobs:
       # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
     - name: Install dependencies
+      # libboost-dev: not needed for naja's own code (Boost is vendored
+      # via a pinned http_archive tarball, task #11) -- needed because
+      # slang is wrapped via rules_foreign_cc's cmake() rule, and slang's
+      # own nested CMake build does a real find_package(Boost) against
+      # the system install. libtbb-dev: no BCR module exists for oneTBB;
+      # bazel/thirdparty/tbb/repo.bzl locates it via pkg-config, so the
+      # real library has to already be on the host. See
+      # internal/bazel-migration-plan.md's CI apt dependency audit for
+      # the full per-package reasoning (also covers capnproto/
+      # libcapnp-dev, dropped, and libfl-dev, kept).
       run: |
         sudo apt-get update
         sudo apt-get install -yq \
-          libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev \
+          libboost-dev libfl-dev libtbb-dev \
           bison flex m4 pkg-config python3-dev git
 
     - uses: bazel-contrib/setup-bazel@0.19.0

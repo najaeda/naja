@@ -5,6 +5,17 @@
 # SNLLibertyConstructorTest1.cpp's testBundleTermsIssue120VerilogIntegration
 # also reaches across to ../verilog/benchmarks (a relative path from
 # CMAKE_CURRENT_SOURCE_DIR in CMake) -- needs that filegroup as data too.
+
+# Exposed as its own named target (unlike the inline glob() below, kept
+# for the cc_test to avoid churn) so test/najaeda's sh_test -- which
+# needs LIBERTY_BENCHMARKS_PATH too (task #28) -- can reference it across
+# packages, matching verilog/systemverilog's ":benchmarks" pattern.
+filegroup(
+    name = "benchmarks",
+    srcs = glob(["benchmarks/**"], exclude = ["benchmarks/__pycache__/**"]),
+    visibility = ["//test:__subpackages__"],
+)
+
 cc_test(
     name = "snl_liberty_tests",
     # 94 actual TEST_F/TEST cases -- capped at 50, Bazel's hard shard_count

@@ -21,6 +21,12 @@ module(
 # Used by test/ (cc_test targets land in Phase 5, task #20).
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "googletest")
 
+# Used by bench/ (task #28) -- mirrors CMake's `find_package(benchmark
+# REQUIRED)` (bench/CMakeLists.txt), gated there behind -DBUILD_BENCHMARKS=ON;
+# no equivalent optional-fetch mechanism in bzlmod, so this is just an
+# ordinary bazel_dep (same non-dev-dependency style as googletest above).
+bazel_dep(name = "google_benchmark", version = "1.9.5")
+
 # select()-ed on directly (task #18, dnl/bne/opt/metrics' -Wno-sign-conversion
 # on macOS, matching CMakeLists.txt's `if(APPLE)` guards) -- otherwise only
 # pulled in transitively, not visible to our own module under strict deps.
@@ -193,6 +199,14 @@ system_tool_repository = use_repo_rule(
 
 system_tool_repository(name = "bison_tool", tool = "bison")
 system_tool_repository(name = "m4_tool", tool = "m4")
+
+# --- najaeda Python test infra (task #28): the interpreter itself (not
+# just Python.h/libpython above) is needed to actually run
+# `python3 -m unittest discover` inside sh_test sandboxes. Reuses
+# system_tool.bzl's PATH-search pattern already declared above for
+# bison/m4 rather than a second repo rule. ---
+
+system_tool_repository(name = "python3_tool", tool = "python3")
 
 # --- naja_core version stamping (task #15/#18): generates
 # src/core/NajaVersion.h's @NAJA_GIT_HASH@ substitution. See

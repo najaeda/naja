@@ -1,36 +1,45 @@
 name: tutorials regression
 
+# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #28).
+# Only the najaeda extension itself is Bazel-built here (notebooks are
+# pure Python, no other compiled artifact is invoked) -- reuses the same
+# build-naja.so-then-copy-into-a-scratch-dir setup already established
+# for najaeda-test.yml's coverage step, since running Jupyter notebooks
+# via `pytest --nbmake` isn't itself a Bazel sandboxed action.
+
 on:
   push:
     branches:
       - main
   pull_request:
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   run:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        submodules: true
+    - uses: actions/checkout@v7
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
 
     - name: Install system dependencies
+      # libboost-dev/libtbb-dev: still needed even though naja's own
+      # Boost usage is vendored -- see ubuntu-build.yml's comment on this
+      # same step (slang's nested CMake build needs a real system Boost;
+      # oneTBB has no BCR module and is pkg-config-wrapped).
       run: |
         sudo apt-get update
-        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev graphviz
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git graphviz
 
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
-
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
+    - uses: bazel-contrib/setup-bazel@0.19.0
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}
+        repository-cache: true
 
     - name: Run najaeda tests
-      run: ctest --test-dir ${{github.workspace}}/build --parallel $(nproc) -C ${{env.BUILD_TYPE}} -R najaeda --output-on-failure
+      run: bazel test //test/najaeda:najaeda_python_tests --test_output=errors --jobs=auto
 
     - name: Set up Python
       uses: actions/setup-python@v3
@@ -59,9 +68,16 @@ jobs:
     - name: Strip notebook outputs before execution
       run: nbstripout tutorials/notebooks/*.ipynb
 
+    - name: Build naja.so and set up najaeda env for notebooks
+      run: |
+        bazel build //src/nl/python/naja_wrapping:naja.so --jobs=auto
+        mkdir -p /tmp/najaeda-tutorials-env/najaeda
+        cp -R src/najaeda/najaeda/. /tmp/najaeda-tutorials-env/najaeda/
+        cp bazel-bin/src/nl/python/naja_wrapping/naja.so /tmp/najaeda-tutorials-env/najaeda/naja.so
+
     - name: Run tutorials
       env:
-        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
+        PYTHONPATH: /tmp/najaeda-tutorials-env
         NAJAEDA_TUTORIALS_BENCHMARKS: ${{github.workspace}}/tutorials/benchmarks
         IBEX_REPO: /tmp/ibex
       run: pytest --nbmake tutorials/notebooks/

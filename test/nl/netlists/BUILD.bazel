@@ -7,7 +7,7 @@ cc_library(
     srcs = ["SNLNetlist0.cpp"],
     hdrs = glob(["*.h"]),
     includes = ["."],
-    visibility = ["//test:__subpackages__"],
+    visibility = ["//test:__subpackages__", "//bench:__subpackages__"],
     deps = ["//src/nl/netlist:naja_nl"],
 )
 
