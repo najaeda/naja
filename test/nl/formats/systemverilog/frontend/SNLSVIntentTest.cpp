@@ -427,6 +427,11 @@ TEST_F(SNLSVIntentTest, liveASTLinkRegistryEdgeCases) {
   ASSERT_EQ(retainedLink, SNLSVLiveASTLinkRegistry::getLatest());
   ASSERT_NE(nullptr, retainedLink->getCompilation());
 
+  auto* liveASTLinkProperty = db->getProperty(SNLSVLiveASTLinkProperty::Name);
+  ASSERT_NE(nullptr, liveASTLinkProperty);
+  EXPECT_EQ(SNLSVLiveASTLinkProperty::Name, liveASTLinkProperty->getName());
+  EXPECT_EQ(SNLSVLiveASTLinkProperty::Name, liveASTLinkProperty->getString());
+
   auto* stateQ = top->getNet(NLName("state_q"));
   auto* plainQ = top->getNet(NLName("plain_q"));
   ASSERT_NE(nullptr, stateQ);
@@ -481,4 +486,14 @@ TEST_F(SNLSVIntentTest, liveASTLinkRegistryEdgeCases) {
   SNLSVLiveASTLinkRegistry::store(db, nullptr);
   EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::get(db));
   EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::getLatest());
+
+  // No NLUniverse at all: clearAll()/findForSymbol() must degrade to safe
+  // no-ops instead of dereferencing a null universe. stateSymbol's pointer
+  // *value* stays safe to pass here (never dereferenced on this early-return
+  // path) even though its pointee (the destroyed universe's retained
+  // compilation) is gone by now.
+  NLUniverse::get()->destroy();
+  SNLSVLiveASTLinkRegistry::clearAll();
+  EXPECT_EQ(nullptr, SNLSVLiveASTLinkRegistry::findForSymbol(stateSymbol));
+  NLUniverse::create();  // TearDown() expects a universe to destroy
 }
