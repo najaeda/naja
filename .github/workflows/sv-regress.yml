@@ -1,11 +1,5 @@
 name: External SV Regress
 
-# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #29).
-# Only naja.so itself moves to Bazel here -- sv_regress.py's own
-# subprocess/najaeda-import plumbing is untouched, since it just expects
-# a populated build/test/najaeda/ directory (DEFAULT_NAJAEDA_PATH),
-# regardless of what built naja.so or put it there.
-
 on:
   workflow_dispatch:
   push:
@@ -22,51 +16,39 @@ concurrency:
 
 jobs:
   sv-regress:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install build dependencies
-        # libboost-dev/libtbb-dev: still needed even though naja's own
-        # Boost usage is vendored -- see ubuntu-build.yml's comment on
-        # this same step (slang's nested CMake build needs a real system
-        # Boost; oneTBB has no BCR module and is pkg-config-wrapped).
-        # capnproto/libcapnp-dev dropped -- see
-        # internal/bazel-migration-plan.md's CI apt dependency audit
-        # (naja-if's schema codegen is fully hermetic under Bazel).
         run: |
           sudo apt-get update
-          sudo apt-get install -yq \
-            libboost-dev libfl-dev libtbb-dev \
-            bison flex m4 pkg-config python3-dev git
+          sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
 
       - name: Install bender
         run: cargo install bender
 
-      - uses: bazel-contrib/setup-bazel@0.19.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SANITIZERS=OFF \
+            -DLONG_TESTS=OFF \
+            -DPython3_EXECUTABLE=$(which python3)
 
       - name: Build naja Python module
-        # Runs after "Set up Python" above so bazel/thirdparty/python/
-        # repo.bzl's python3-config PATH search resolves to this job's
-        # actual Python 3.12, matching the original CMake job's explicit
-        # -DPython3_EXECUTABLE=$(which python3) -- not whatever system
-        # python happens to be on PATH otherwise.
-        run: bazel build //src/nl/python/naja_wrapping:naja.so --jobs=auto
+        run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
 
       - name: Prepare najaeda Python package for script execution
         run: |
@@ -74,7 +56,7 @@ jobs:
           cp -R \
             ${{ github.workspace }}/src/najaeda/najaeda \
             ${{ github.workspace }}/build/test/najaeda/
-          ln -sf ${{ github.workspace }}/bazel-bin/src/nl/python/naja_wrapping/naja.so \
+          ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
             ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
 
       - name: Run external SV regress lint

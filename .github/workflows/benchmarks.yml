@@ -1,11 +1,5 @@
 name: Benchmarks
 
-# Bazel build (see internal/bazel-migration-plan.md, Phase 8, task #28).
-# //bench:snl_bench pulls google_benchmark from the Bazel Central
-# Registry (bazel_dep in MODULE.bazel) rather than apt's libbenchmark-dev
-# -- no CMake-style optional -DBUILD_BENCHMARKS=ON gate exists in Bazel,
-# the target is just always buildable.
-
 on:
   push:
     branches: [ main ]
@@ -18,35 +12,24 @@ permissions:
 
 jobs:
   benchmarks:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v7
-        # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
-        # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
+        with:
+          submodules: true
 
       - name: Install dependencies
-        # libboost-dev/libtbb-dev: still needed even though naja's own
-        # Boost usage is vendored -- see ubuntu-build.yml's comment on
-        # this same step (slang's nested CMake build needs a real system
-        # Boost; oneTBB has no BCR module and is pkg-config-wrapped).
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq \
-            libboost-dev libfl-dev libtbb-dev \
-            bison flex m4 pkg-config python3-dev git
+        run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev libbenchmark-dev
 
-      - uses: bazel-contrib/setup-bazel@0.19.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
 
       - name: Build benchmarks
-        run: bazel build //bench:snl_bench --jobs=auto
+        run: cmake --build ${{github.workspace}}/build --target snl_bench --parallel $(nproc)
 
       - name: Run benchmarks
-        run: ./bazel-bin/bench/snl_bench --benchmark_format=json --benchmark_out=${{github.workspace}}/benchmark.json
+        run: ${{github.workspace}}/build/bench/snl_bench --benchmark_format=json --benchmark_out=${{github.workspace}}/benchmark.json
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
