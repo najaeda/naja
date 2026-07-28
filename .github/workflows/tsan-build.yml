@@ -11,6 +11,17 @@ name: tsan-build
 # najaPythonPropertyTests is excluded from the test run, same as the old
 # CMake job's `ctest -E ".*[p|P]ython.*"`.
 #
+# //test/najaeda:najaeda_python_tests and
+# //src/najaeda/examples:najaeda_examples are excluded too (task #28),
+# preemptively -- not yet independently confirmed failing here, but
+# asan-build.yml hit exactly this class of problem live: under
+# --config=asan, naja.so gets built sanitizer-instrumented, but these
+# targets load it via a plain system `python3` never linked against the
+# sanitizer runtime, so its interceptor symbols
+# (`__asan_option_detect_stack_use_after_return`, and presumably the
+# TSan equivalents here) can't resolve. Same fix as there: exclude rather
+# than chase LD_PRELOADing a version-matched runtime.
+#
 # NOTE: validated locally on macOS that --config=tsan compiles and links
 # every target cleanly (no code/BUILD issues). Could not validate the test
 # run itself there: the resulting binary segfaults on startup before any
@@ -88,3 +99,4 @@ jobs:
         --test_env=NON_MT --test_env=TSAN_OPTIONS
         --test_output=errors
         -- //... -//test/nl/python/naja_wrapping:najaPythonPropertyTests
+        -//test/najaeda:najaeda_python_tests -//src/najaeda/examples:najaeda_examples
