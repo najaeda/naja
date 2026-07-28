@@ -48,7 +48,14 @@ jobs:
     - uses: bazel-contrib/setup-bazel@0.19.0
       with:
         bazelisk-cache: true
-        disk-cache: ${{ github.workflow }}
+        # Hardcoded, not `${{ github.workflow }}` like the other Bazel
+        # workflows: this workflow's own `name:` is "najaeda test,
+        # coverage and lint", and its literal comma broke setup-bazel's
+        # cache key (actions/cache keys can't contain commas) -- seen
+        # live on CI as a `ValidationError: ... cannot contain commas`
+        # plus a `ReferenceError: name is not defined` inside
+        # setup-bazel@0.19.0's own restoreCache path.
+        disk-cache: najaeda-test
         repository-cache: true
 
     - name: Test (hermetic, via Bazel)
