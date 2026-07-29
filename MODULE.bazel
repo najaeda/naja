@@ -59,12 +59,10 @@ git_override(
 )
 
 # --- naja-if, naja-verilog (tasks #5, #6): both are najaeda-org forks
-# (siblings of this repo, not truly third-party), so rather than the
-# non-module git_repository + placeholder-overlay workaround from Phase 1,
-# each now carries its own native MODULE.bazel/BUILD.bazel on a
-# `bazel-support` branch pushed directly to those repos -- making them
-# real Bazel modules consumable via bazel_dep + git_override, the same
-# pattern as cpptrace above. See internal/bazel-migration-plan.md.
+# (siblings of this repo, not truly third-party), each carrying its own
+# native MODULE.bazel/BUILD.bazel -- making them real Bazel modules
+# consumable via bazel_dep + git_override, the same pattern as cpptrace
+# above. See internal/bazel-migration-plan.md.
 bazel_dep(name = "naja-if", version = "0.0.0")
 git_override(
     module_name = "naja-if",
@@ -72,11 +70,16 @@ git_override(
     commit = "099677d9f52c0db11b12c08d03e32543eebc7888",  # bazel-support
 )
 
+# naja-verilog's `bazel-support` branch (native MODULE.bazel/BUILD.bazel)
+# was merged into `main` (2026), so this now just tracks `main`'s tip
+# directly, same commit CMake's own submodule pin
+# (thirdparty/naja-verilog) tracks -- ci/check_submodule_bazel_sync.py
+# checks these for an exact match now, not just ancestry.
 bazel_dep(name = "naja-verilog", version = "0.0.0")
 git_override(
     module_name = "naja-verilog",
     remote = "https://github.com/najaeda/naja-verilog",
-    commit = "ccf33d698c5cbac593dc032db16586a36efc4850",  # bazel-support
+    commit = "5da040bb34f0e4e5bb8d67223b999a0132fb401f",  # main
 )
 
 # --- slang (task #7): also a najaeda-org fork, but its build (Python

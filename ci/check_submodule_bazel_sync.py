@@ -15,17 +15,18 @@ these to move together, so bumping one without the other is an easy,
 silent way for the two build systems to end up testing different
 upstream code without anyone noticing.
 
-Two dependencies (naja-if, naja-verilog) are the project's own forks
-that carry a separate `bazel-support` branch (native Bazel BUILD files
-added on top, not present on the branch CMake tracks) -- these can never
-be an exact commit match by design, so they're checked as "the
-bazel-support pin must still contain (be a descendant of, or equal to)
-the submodule pin" instead, i.e. bazel-support must never fall behind
-main. cpptrace and slang have no such fork and are checked for an exact
-commit match. googletest is deliberately excluded: CMake pins an old
-submodule dev commit while Bazel takes a BCR release (1.17.0.bcr.2) --
-a different dependency-sourcing mechanism entirely, not something
-meant to track in lockstep.
+naja-if is the project's own fork that still carries a separate
+`bazel-support` branch (native Bazel BUILD files added on top, not
+present on the branch CMake tracks) -- it can never be an exact commit
+match by design, so it's checked as "the bazel-support pin must still
+contain (be a descendant of, or equal to) the submodule pin" instead,
+i.e. bazel-support must never fall behind main. naja-verilog's own
+`bazel-support` branch was merged into `main` (2026), so it's now
+checked for an exact match like cpptrace and slang, all three tracking
+one branch instead of two. googletest is deliberately excluded: CMake
+pins an old submodule dev commit while Bazel takes a BCR release
+(1.17.0.bcr.2) -- a different dependency-sourcing mechanism entirely,
+not something meant to track in lockstep.
 """
 
 import re
@@ -43,7 +44,7 @@ SYNC_SPECS = {
     "thirdparty/cpptrace": ("cpptrace", "https://github.com/jeremy-rifkin/cpptrace", "exact"),
     "thirdparty/slang": ("slang", "https://github.com/najaeda/slang", "exact"),
     "thirdparty/naja-if": ("naja-if", "https://github.com/najaeda/naja-if", "ancestor"),
-    "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "ancestor"),
+    "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "exact"),
 }
 
 
