@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_core`
+# library. See internal/bazel-migration-plan.md (Phase 4, task #15/#18).
+#
+# `naja_fmt` (linked by CMake) is an empty INTERFACE library outside the
+# BUILD_NAJA_PYTHON-on-Windows case (CMakeLists.txt:166-176), so it's
+# skipped here entirely rather than ported. `coverage_config`/
+# `sanitizers_config` are also empty unless CODE_COVERAGE/
+# ENABLE_SANITIZERS are set, and NAJA_CXX_WARNINGS is never actually
+# defined anywhere in the CMake tree (a no-op variable expansion) --
+# neither is ported either.
+
+load("@naja_git_version//:git_version.bzl", "NAJA_GIT_HASH")
+
+genrule(
+    name = "naja_version_h",
+    srcs = ["NajaVersion.h.in"],
+    outs = ["NajaVersion.h"],
+    cmd = "sed 's/@NAJA_GIT_HASH@/%s/' $< > $@" % NAJA_GIT_HASH,
+)
+
+cc_library(
+    name = "naja_core",
+    srcs = [
+        "NajaObject.cpp",
+        "NajaUtils.cpp",
+        "NajaProperty.cpp",
+        "NajaPrivateProperty.cpp",
+        "NajaDumpableProperty.cpp",
+        "NajaPerf.cpp",
+        "NajaLog.cpp",
+    ],
+    hdrs = [
+        "NajaObject.h",
+        "NajaCollection.h",
+        "NajaProperty.h",
+        "NajaPrivateProperty.h",
+        "NajaDumpableProperty.h",
+        "NajaException.h",
+        "NajaPerf.h",
+        "NajaLog.h",
+        "NajaUtils.h",
+        ":naja_version_h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//thirdparty/spdlog-1.17.0:spdlog",
+        "@boost//:headers",
+    ],
+)

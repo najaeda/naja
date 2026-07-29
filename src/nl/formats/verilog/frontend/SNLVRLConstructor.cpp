@@ -51,7 +51,7 @@ void collectAttributes(
   naja::NL::NLObject* object,
   const naja::NL::SNLVRLConstructor::Attributes& attributes) {
   if (auto design = dynamic_cast<naja::NL::SNLDesign*>(object)) {
-    for (const auto attribute: attributes) {
+    for (const auto& attribute: attributes) {
       naja::NL::NLName attributeName(attribute.name_.getString());
       std::string expression;
       naja::NL::SNLAttributeValue::Type valueType;
@@ -73,7 +73,7 @@ void collectAttributes(
           naja::NL::SNLAttributeValue(valueType, expression)));
     }
   } else if (auto designObject = dynamic_cast<naja::NL::SNLDesignObject*>(object)) {
-    for (const auto attribute: attributes) {
+    for (const auto& attribute: attributes) {
       naja::NL::NLName attributeName(attribute.name_.getString());
       std::string expression;
       naja::NL::SNLAttributeValue::Type valueType;
@@ -1050,7 +1050,7 @@ void SNLVRLConstructor::endModule() {
       //but this is just to produce message error
       std::string portName;
       for (const auto& [key, value]: currentModuleInterfacePortsMap_) {
-        if (value == position) {
+        if (value == static_cast<size_t>(position)) {
           portName = key;
         }
       }

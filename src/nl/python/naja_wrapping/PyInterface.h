@@ -18,14 +18,14 @@
 
 namespace PYNAJA {
 
-static void setError(const std::string& reason) {
+static inline void setError(const std::string& reason) {
   //Mabybe create a custom error type in the future ?
   PyErr_SetString(PyExc_RuntimeError, reason.c_str());
 }
 
 //LCOV_EXCL_START
 //Can be used to debug the type of a PyObject
-static std::string getStringForPyObject(PyObject* obj) {
+static inline std::string getStringForPyObject(PyObject* obj) {
   if (PyUnicode_Check(obj)) {
     return PyUnicode_AsUTF8(obj);
   }

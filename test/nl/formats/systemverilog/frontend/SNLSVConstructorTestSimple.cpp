@@ -474,14 +474,6 @@ bool isSequentialDFFPrimitive(const SNLDesign* design) {
          NLDB0::isDFFSSE(design) || NLDB0::isDFFSSNE(design);
 }
 
-size_t countSequentialDFFBits(const SNLDesign* design) {
-  return countPrimitiveBits(design, isSequentialDFFPrimitive);
-}
-
-size_t countDLatchBits(const SNLDesign* design) {
-  return countPrimitiveBits(design, NLDB0::isDLatch);
-}
-
 SNLNet* getDFFDataForOutputBit(SNLDesign* design, SNLBitNet* outputBit) {
   if (!design || !outputBit) {
     ADD_FAILURE() << "Missing design or DFF output bit";
@@ -643,21 +635,6 @@ size_t countDivModInstances(const SNLDesign* design, size_t width = 0, bool isSi
       continue;
     }
     ++count;
-  }
-  return count;
-}
-
-size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
-  size_t count = 0;
-  auto assignOutput = NLDB0::getAssignOutput();
-  for (auto inst : design->getInstances()) {
-    if (!NLDB0::isAssign(inst->getModel())) {
-      continue;
-    }
-    auto instTerm = inst->getInstTerm(assignOutput);
-    if (instTerm && instTerm->getNet() == net) {
-      ++count;
-    }
   }
   return count;
 }

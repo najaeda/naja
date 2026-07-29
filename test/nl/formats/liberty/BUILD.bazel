@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2024 The Naja liberty authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# SNLLibertyConstructorTest1.cpp's testBundleTermsIssue120VerilogIntegration
+# also reaches across to ../verilog/benchmarks (a relative path from
+# CMAKE_CURRENT_SOURCE_DIR in CMake) -- needs that filegroup as data too.
+
+# Exposed as its own named target (unlike the inline glob() below, kept
+# for the cc_test to avoid churn) so test/najaeda's sh_test -- which
+# needs LIBERTY_BENCHMARKS_PATH too (task #28) -- can reference it across
+# packages, matching verilog/systemverilog's ":benchmarks" pattern.
+filegroup(
+    name = "benchmarks",
+    srcs = glob(["benchmarks/**"], exclude = ["benchmarks/__pycache__/**"]),
+    visibility = ["//test:__subpackages__"],
+)
+
+cc_test(
+    name = "snl_liberty_tests",
+    srcs = [
+        "SNLLibertyConstructorTest0.cpp",
+        "SNLLibertyConstructorTest1.cpp",
+        "SNLLibertyConstructorTest2.cpp",
+        "SNLLibertyConstructorZlibTest.cpp",
+        "SNLBooleanTreeTest0.cpp",
+        "SNLBooleanTreeTest1.cpp",
+    ],
+    data = glob(["benchmarks/**"]) + ["//test/nl/formats/verilog:benchmarks"],
+    defines = ['SNL_LIBERTY_BENCHMARKS=\\"test/nl/formats/liberty\\"'],
+    deps = [
+        "//src/nl/formats/liberty:naja_snl_liberty",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "@googletest//:gtest_main",
+        "@zlib//:zlib",
+    ],
+)

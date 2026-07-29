@@ -34,12 +34,12 @@ class SNLCapNpTest1: public ::testing::Test {
       NLUniverse* universe = NLUniverse::create();
       db_ = NLDB::create(universe);
       NLLibrary* root1 = NLLibrary::create(db_, NLName("ROOT"));
-      NLLibrary* lib1 = NLLibrary::create(root1, NLName("lib1")); 
+      NLLibrary::create(root1, NLName("lib1")); 
       NLLibrary* lib2 = NLLibrary::create(root1);
-      NLLibrary* lib3 = NLLibrary::create(lib2, NLName("lib3"));
-      NLLibrary* lib4 = NLLibrary::create(lib2);
-      SNLDesign* design0 = SNLDesign::create(lib2, NLName("design0"));
-      SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::UserBlackBox);
+      NLLibrary::create(lib2, NLName("lib3"));
+      NLLibrary::create(lib2);
+      SNLDesign::create(lib2, NLName("design0"));
+      SNLDesign::create(lib2, SNLDesign::Type::UserBlackBox);
       SNLDesign* design2 = SNLDesign::create(lib2, SNLDesign::Type::AutoBlackBox);
       SNLScalarTerm::create(design2, SNLTerm::Direction::Undefined, NLName("I0"));
       SNLScalarTerm::create(design2, SNLTerm::Direction::Undefined, NLName("I1"));
@@ -47,7 +47,7 @@ class SNLCapNpTest1: public ::testing::Test {
       NLLibrary* primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
       NLLibrary* prims1 = NLLibrary::create(primitives, NLLibrary::Type::Primitives);
       NLLibrary* prims2 = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName("prims2"));
-      NLLibrary* prims3 = NLLibrary::create(prims1, NLLibrary::Type::Primitives, NLName("prims3"));
+      NLLibrary::create(prims1, NLLibrary::Type::Primitives, NLName("prims3"));
       SNLDesign* prim = SNLDesign::create(prims2, SNLDesign::Type::Primitive, NLName("prim"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("A"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("B"));

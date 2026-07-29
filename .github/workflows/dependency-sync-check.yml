@@ -1,0 +1,29 @@
+name: Dependency sync check
+
+# Asserts CMake's git submodule pins (thirdparty/) and Bazel's
+# MODULE.bazel pins for the same upstream dependency haven't silently
+# drifted apart -- see ci/check_submodule_bazel_sync.py for the full
+# reasoning (exact-match vs ancestor-only checks, and why googletest is
+# deliberately excluded). CMake remains the primary build; Bazel is kept
+# as a validated smoke test (ubuntu-bazel.yml/macos-bazel.yml) -- this
+# check is what keeps that smoke test meaningful over time instead of
+# silently testing stale or unrelated dependency versions.
+#
+# No `submodules: true` needed: the script reads each submodule's pinned
+# commit straight from the git tree's gitlink entry (`git ls-tree HEAD`),
+# which is present even without the submodule itself being checked out.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check submodule/MODULE.bazel dependency sync
+        run: python3 ci/check_submodule_bazel_sync.py

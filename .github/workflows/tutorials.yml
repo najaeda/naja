@@ -13,7 +13,7 @@ jobs:
   run:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         submodules: true
@@ -33,7 +33,7 @@ jobs:
       run: ctest --test-dir ${{github.workspace}}/build --parallel $(nproc) -C ${{env.BUILD_TYPE}} -R najaeda --output-on-failure
 
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v7
       with:
         python-version: '3.13'
 

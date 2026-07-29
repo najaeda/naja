@@ -1,4 +1,24 @@
-# oneTBB scheduler/partitioner reports from parallel_for_each.
-race:tbb::detail::d1::dynamic_grainsize_mode
-race:tbb::detail::d1::adaptive_mode
-race:tbb::detail::d1::start_for
+# oneTBB scheduler/partitioner reports from parallel_for_each -- internal
+# TSan races inside TBB's own scheduler bookkeeping, not naja-owned data.
+# These are read via tsan-build.yml's ctest step
+# (TSAN_OPTIONS=...suppressions=.github/tsan.supp), which relies on
+# ctest simply inheriting the job's environment -- no special plumbing
+# needed there. Patterns are bare substring matches (no wildcards
+# required for TSan's suppression matcher to apply them); wrapped in
+# leading/trailing '*' here defensively, which is harmless but not
+# functionally required.
+race:*tbb::detail::d1::dynamic_grainsize_mode*
+race:*tbb::detail::d1::adaptive_mode*
+race:*tbb::detail::d1::start_for*
+
+# oneTBB's fold_tree/partitioner ref-count bookkeeping racing against its
+# own concurrent_unordered_set insert path -- same scheduler-internal noise
+# as above, just a different pair of frames (both inside TBB, unrelated to
+# any naja-owned data: see LoadlessLogicRemover::getTracedIsos, which only
+# ever inserts into each thread's own tracedIsos.local() before merging
+# serially). Only reproduces when the MT path is active (this workflow's
+# NON_MT=1 keeps RemoveLoadlessLogic.cpp/DNL_impl.h/LogicCone.cpp off this
+# path entirely) and enough hierarchy/instances exist to spin up multiple
+# TBB workers, as simple_2_loadless_3_levels does.
+race:*tbb::detail::d1::concurrent_unordered_base*
+race:*tbb::detail::d1::fold_tree*

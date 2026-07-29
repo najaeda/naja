@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Bazel equivalent of .github/workflows/najaeda-examples.yml: runs
+# run_regress.py, which walks its own cwd's immediate subdirectories and
+# executes every *.py example script in each (task #28).
+
+filegroup(
+    name = "examples_sources",
+    srcs = glob(
+        ["**/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+)
+
+sh_test(
+    name = "najaeda_examples",
+    srcs = ["run_najaeda_examples.sh"],
+    args = [
+        "src/najaeda/najaeda",
+        "$(rootpath //src/nl/python/naja_wrapping:naja.so)",
+        "$(rootpath @python3_tool//:python3)",
+        "src/najaeda/examples",
+    ],
+    data = [
+        ":examples_sources",
+        "//src/najaeda/benchmarks",
+        "//src/najaeda/najaeda:sources",
+        "//src/nl/python/naja_wrapping:naja.so",
+        "@python3_tool//:python3",
+    ],
+    # Not gtest/ctest-shaped output; run_regress.py's own logging is the
+    # useful signal, and each example script can take a few seconds
+    # (SystemVerilog/Verilog parsing) -- matches the ~3-minute
+    # per-script timeout run_regress.py itself already enforces.
+    timeout = "long",
+)

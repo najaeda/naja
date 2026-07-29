@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Matches CMakeLists.txt:59's `set(CMAKE_CXX_STANDARD 20)` -- applied
+# globally here rather than per-target, same as the CMake build.
+build --cxxopt=-std=c++20
+
+# Bazel's own default compilation_mode is `fastbuild` (no -O, no -g, no
+# -DNDEBUG) -- fine for fast iteration, but not the CMake build this repo's
+# docs actually tell people to run (`-DCMAKE_BUILD_TYPE=Release`, i.e. -O2
+# -DNDEBUG). Left unset, every bare `bazel build`/`bazel test` -- including
+# CI's own ubuntu-bazel.yml/macos-bazel.yml smoke test -- would silently
+# build and benchmark an unoptimized binary. Pin the default to `opt` so
+# bare invocations match the CMake habit.
+build -c opt
+
+# Force fully static linking on every platform. Found via live Ubuntu
+# CI (internal/bazel-migration-plan.md, Phase 8, task #26): Bazel's
+# default --dynamic_mode on Linux can auto-split a large cc_library
+# (here, @slang//:slang's libsvlang.a) that's shared across multiple
+# test binaries into an intermediate `_solib_k8/*.so`, built with only
+# what that specific linker invocation resolved at the time -- which can
+# come up short on symbols (`slang::SourceLocation::NoLocation`, a
+# static data member, not a function call) that a fully static link
+# would have pulled in via the ordinary static-archive dependency chain.
+# macOS's toolchain doesn't hit this (no equivalent auto-.so-splitting
+# by default there), which is why it wasn't caught until Linux CI. Every
+# library in this migration is an ordinary cc_library (implicitly
+# static) throughout -- --dynamic_mode=off makes Linux match that same
+# fully-static assumption instead of silently diverging from it.
+build --dynamic_mode=off
+
+# Suppress -Wunused-variable for all compilation under test/ -- these are
+# test fixtures (netlist objects built and asserted on via side effects
+# like SNL dump comparisons, not the variable itself), not production
+# code, and the warning fires on hundreds of them across the whole test/
+# tree. --per_file_copt matches by source-file path regardless of which
+# cc_test target it's compiled into, so this doesn't touch src/ at all
+# (src/nl/formats/systemverilog/BUILD.bazel's naja_snl_systemverilog_test
+# needs its own target-level copt for the same reason, since it's a src/
+# file recompiled specifically for tests -- see that file's comment).
+build --per_file_copt=test/.*\.cpp@-Wno-unused-variable

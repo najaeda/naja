@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_opt`
+# library. See internal/bazel-migration-plan.md (Phase 4, task #18).
+# (Reduction.cpp~ is a stray backup file, not part of the CMake SOURCES
+# list either -- excluded here too.)
+
+cc_library(
+    name = "naja_opt",
+    srcs = [
+        "RemoveLoadlessLogic.cpp",
+        "ConstantPropagation.cpp",
+        "Reduction.cpp",
+    ],
+    hdrs = [
+        "RemoveLoadlessLogic.h",
+        "ConstantPropagation.h",
+        "Reduction.h",
+    ],
+    copts = select({
+        "@platforms//os:macos": ["-Wno-sign-conversion"],
+        "//conditions:default": [],
+    }),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/bne:naja_bne",
+        "//src/dnl:naja_dnl",
+        "//thirdparty/spdlog-1.17.0:spdlog",
+        "@boost//:headers",
+    ],
+)

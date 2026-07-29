@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Bazel equivalent of this directory's CMakeLists.txt: replicates
+# setup_test_env.cmake's copy-najaeda-sources + symlink-naja.so-in-place
+# dance inside run_najaeda_tests.sh, since a Bazel sh_test's sandbox has
+# no direct equivalent of ctest's FIXTURES_SETUP/CMAKE_CURRENT_BINARY_DIR.
+#
+# najaeda/src/najaeda/najaeda and test/najaeda are passed as workspace-
+# relative string constants (matching test/nl/formats/verilog/frontend's
+# SNL_VRL_BENCHMARKS_PATH pattern) since Bazel's runfiles tree mirrors the
+# workspace's source layout 1:1; only naja.so and python3 (an actual
+# build output and an external-repo tool, respectively) need $(rootpath).
+
+filegroup(
+    name = "test_sources",
+    srcs = glob(
+        ["test_najaeda_*.py", "test_najaeda_custom_primitives/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+)
+
+sh_test(
+    name = "najaeda_python_tests",
+    srcs = ["run_najaeda_tests.sh"],
+    args = [
+        "src/najaeda/najaeda",
+        "$(rootpath //src/nl/python/naja_wrapping:naja.so)",
+        "$(rootpath @python3_tool//:python3)",
+        "test/najaeda",
+        "test/nl/formats/verilog/benchmarks",
+        "test/nl/formats/systemverilog/benchmarks",
+        "test/nl/formats/liberty/benchmarks",
+    ],
+    data = [
+        ":test_sources",
+        "//src/najaeda/najaeda:sources",
+        "//src/nl/python/naja_wrapping:naja.so",
+        "//test/nl/formats/liberty:benchmarks",
+        "//test/nl/formats/systemverilog:benchmarks",
+        "//test/nl/formats/verilog:benchmarks",
+        "@python3_tool//:python3",
+    ],
+)
