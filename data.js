@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785358966325,
+  "lastUpdate": 1785364151402,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -10098,6 +10098,108 @@ window.BENCHMARK_DATA = {
             "value": 284716.71915606456,
             "unit": "ns/iter",
             "extra": "iterations: 2464\ncpu: 284590.6834415185 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c70af6aacef5d0b18f1a39dbd4ff1661af1629b9",
+          "message": "Bazel build (#413)\n\n* Bazel build\n\n* ubuntu and mac os builds fixes\n\n* build and license cleaning\n\n* ubuntu build fixes\n\n* build again\n\n* force static\n\n* porting workflows\n\n* clang setup\n\n* new attempt\n\n* keep isolated tests for the moment\n\n* property to keep link with AST Tree\n\n* push asan testing\n\n* clean NLDB\n\n* update naja-if\n\n* specific option for tests\n\n* code cleaning\n\n* disable ccache for slang\n\n* clean code warnings\n\n* bazel: scope @tbb repo rule symlinks to tbb/oneapi subdirs only\n\nSymlinking the whole pkg-config includedir (e.g. /usr/include) put\nevery unrelated system header on the -isystem search path for any\ntarget depending on @tbb, including a stale libgtest-dev gtest.h that\nshadowed Bazel's own fetched @googletest headers -- header/library\nversion mismatch caused undefined MakeAndRegisterTestInfo references\nat link time for cc_test targets. Symlink only tbb/ and oneapi/ (the\ntwo subdirs oneTBB actually ships) instead.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\n\n* bazel: vendor Boost via http_archive instead of wrapping system install\n\nReplaces the find_path-style boost_repository rule (which searched\ncommon install prefixes and symlinked the whole discovered directory,\ne.g. /usr/local/include or /usr/include, into the include path) with a\npinned http_archive fetch of the official 1.89.0 release tarball,\nfollowing the same vendoring pattern already used for fmt and\ntomlplusplus in MODULE.bazel.\n\nThis removes two problems with the system-wrapping approach: the exact\nBoost version (and which of several installed copies got picked, by\nsearch-order priority) varied by machine, and the broad directory\nsymlink was found to leak unrelated system headers -- including a\nstale libgtest-dev gtest.h that shadowed Bazel's own fetched\n@googletest headers on one dev machine, causing gtest ABI mismatches\nat link time.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\n\n* slang building\n\n* bump setup-bazel version\n\n* silence lef def warnings\n\n* more details\n\n* global flags\n\n* tsan fixes\n\n* switch more to bazel\n\n* fix workflow\n\n* less warnings\n\n* fix workflows\n\n* more translation\n\n* come back to bazel as second build system\n\n* coverage\n\n* cleaning\n\n* bump naja-verilog to main\n\n* update bazel targeted modules\n\n* bump version number\n\n---------\n\nCo-authored-by: Claude Sonnet 5 <noreply@anthropic.com>",
+          "timestamp": "2026-07-30T00:13:44+02:00",
+          "tree_id": "7eb0cc7e33ed563c6f332c3669d4bbb63872af91",
+          "url": "https://github.com/najaeda/naja/commit/c70af6aacef5d0b18f1a39dbd4ff1661af1629b9"
+        },
+        "date": 1785364150306,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 134169.4033170736,
+            "unit": "ns/iter",
+            "extra": "iterations: 5125\ncpu: 134147.5943414634 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 207802.1624064804,
+            "unit": "ns/iter",
+            "extra": "iterations: 3208\ncpu: 207778.20355361604 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1266201.987632501,
+            "unit": "ns/iter",
+            "extra": "iterations: 566\ncpu: 1266056.5689045934 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 12852419.425926158,
+            "unit": "ns/iter",
+            "extra": "iterations: 54\ncpu: 12851421.703703705 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 989.5529581129916,
+            "unit": "ns/iter",
+            "extra": "iterations: 707833\ncpu: 989.2856210433807 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 9791.290190165124,
+            "unit": "ns/iter",
+            "extra": "iterations: 71622\ncpu: 9788.748806232721 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 102916.25711053415,
+            "unit": "ns/iter",
+            "extra": "iterations: 6188\ncpu: 102897.30365223008 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 298674.2916842597,
+            "unit": "ns/iter",
+            "extra": "iterations: 2369\ncpu: 298621.7108484595 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 262575.8810506518,
+            "unit": "ns/iter",
+            "extra": "iterations: 2665\ncpu: 262537.70431519684 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 213791.64822738495,
+            "unit": "ns/iter",
+            "extra": "iterations: 3272\ncpu: 213770.6421149142 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 53162570.27272606,
+            "unit": "ns/iter",
+            "extra": "iterations: 11\ncpu: 53156900.27272718 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 16510.613097076017,
+            "unit": "ns/iter",
+            "extra": "iterations: 42101\ncpu: 16509.09660103084 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 283457.3828070499,
+            "unit": "ns/iter",
+            "extra": "iterations: 2466\ncpu: 283336.8592862715 ns\nthreads: 1"
           }
         ]
       }
