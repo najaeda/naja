@@ -1379,13 +1379,13 @@ NLDB0::TableSelectSignature NLDB0::getTableSelectSignature(const SNLInstance* in
     throw NLException("NLDB0::getTableSelectSignature: instance is not a table select primitive");
   }
   auto signature = getTableSelectSignature(instance->getModel());
-  if (auto* width = instance->getInstParameter(NLName("WIDTH"))) {
+  if (instance->getInstParameter(NLName("WIDTH"))) {
     signature.width = getMemoryDecimalParameter(instance, "WIDTH");
   }
-  if (auto* depth = instance->getInstParameter(NLName("DEPTH"))) {
+  if (instance->getInstParameter(NLName("DEPTH"))) {
     signature.depth = getMemoryDecimalParameter(instance, "DEPTH");
   }
-  if (auto* abits = instance->getInstParameter(NLName("ABITS"))) {
+  if (instance->getInstParameter(NLName("ABITS"))) {
     signature.abits = getMemoryDecimalParameter(instance, "ABITS");
   }
   return signature;
