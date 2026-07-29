@@ -40,6 +40,87 @@ class SNLLibertyConstructorTest0: public ::testing::Test {
     NLLibrary*  library_;
 };
 
+namespace {
+
+void writeConflictingCellLiberty(
+  const std::filesystem::path& path,
+  const std::string& libraryName,
+  const std::string& duplicateInput,
+  const std::string& uniqueCellName) {
+  std::ofstream output(path, std::ios::binary);
+  output
+    << "library (" << libraryName << ") {\n"
+    << "  cell (duplicate) {\n"
+    << "    pin (" << duplicateInput << ") { direction : input; }\n"
+    << "    pin (Y) { direction : output; function : \"" << duplicateInput << "\"; }\n"
+    << "  }\n"
+    << "  cell (" << uniqueCellName << ") {\n"
+    << "    pin (A) { direction : input; }\n"
+    << "    pin (Y) { direction : output; function : \"A\"; }\n"
+    << "  }\n"
+    << "}\n";
+}
+
+}  // namespace
+
+TEST_F(SNLLibertyConstructorTest0, testConflictingCellNameFirstOneDefault) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto firstPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path(
+      "naja_liberty_conflicting_cell_first_" + std::to_string(stamp) + ".lib");
+  auto secondPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path(
+      "naja_liberty_conflicting_cell_second_" + std::to_string(stamp) + ".lib");
+  writeConflictingCellLiberty(firstPath, "FIRST", "A", "first_only");
+  writeConflictingCellLiberty(secondPath, "SECOND", "B", "second_only");
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_EQ(
+    SNLLibertyConstructor::Config::ConflictingCellNamePolicy::FirstOne,
+    constructor.config_.conflictingCellNamePolicy_);
+  ASSERT_NO_THROW(
+    constructor.construct(SNLLibertyConstructor::Paths{firstPath, secondPath}));
+
+  EXPECT_EQ(3, library_->getSNLDesigns().size());
+  auto duplicate = library_->getSNLDesign(NLName("duplicate"));
+  ASSERT_NE(nullptr, duplicate);
+  EXPECT_NE(nullptr, duplicate->getScalarTerm(NLName("A")));
+  EXPECT_EQ(nullptr, duplicate->getScalarTerm(NLName("B")));
+  EXPECT_NE(nullptr, library_->getSNLDesign(NLName("first_only")));
+  EXPECT_NE(nullptr, library_->getSNLDesign(NLName("second_only")));
+
+  std::error_code ec;
+  std::filesystem::remove(firstPath, ec);
+  std::filesystem::remove(secondPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testConflictingCellNameForbid) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto firstPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path(
+      "naja_liberty_forbid_conflicting_cell_first_" + std::to_string(stamp) + ".lib");
+  auto secondPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path(
+      "naja_liberty_forbid_conflicting_cell_second_" + std::to_string(stamp) + ".lib");
+  writeConflictingCellLiberty(firstPath, "FIRST", "A", "first_only");
+  writeConflictingCellLiberty(secondPath, "SECOND", "B", "second_only");
+
+  SNLLibertyConstructor constructor(library_);
+  constructor.config_.conflictingCellNamePolicy_ =
+    SNLLibertyConstructor::Config::ConflictingCellNamePolicy::Forbid;
+  try {
+    constructor.construct(SNLLibertyConstructor::Paths{firstPath, secondPath});
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find(secondPath.string()));
+    EXPECT_NE(std::string::npos, e.getReason().find("duplicate"));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(firstPath, ec);
+  std::filesystem::remove(secondPath, ec);
+}
+
 TEST_F(SNLLibertyConstructorTest0, test0) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
