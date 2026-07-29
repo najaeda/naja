@@ -4,10 +4,6 @@
 
 cc_test(
     name = "pnlTests",
-    shard_count = select({
-        "//bazel:isolated_tests": 30,
-        "//conditions:default": 1,
-    }),
     srcs = [
         "PNLPointTest.cpp",
         "PNLBoxTest.cpp",

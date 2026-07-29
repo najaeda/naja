@@ -8,10 +8,6 @@
 
 cc_test(
     name = "snlCapnPTests",
-    shard_count = select({
-        "//bazel:isolated_tests": 12,
-        "//conditions:default": 1,
-    }),
     srcs = [
         "SNLDumpManifestTest.cpp",
         "SNLCapnPTest0.cpp",

@@ -2,13 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bazel module for the naja CMake-to-Bazel migration.
+"""Bazel module for naja.
 
-Status: Phase 2 in progress (see internal/bazel-migration-plan.md).
-CMake remains the build of record; this file is additive and does not
-touch .gitmodules/thirdparty/CMakeLists.txt (see the Phase 1 scope
-decision in the plan doc). No naja source targets exist yet — those land
-in Phase 4.
+CMake is naja's primary build system (see CLAUDE.md's "Build systems"
+section) -- this file, and the BUILD.bazel tree throughout the repo,
+are kept as a validated smoke test (ubuntu-bazel.yml/macos-bazel.yml:
+`bazel build //... && bazel test //...`), not CI's primary gate. See
+internal/bazel-migration-plan.md for the full history of how this was
+built out and the 2026-07-28 pivot away from full Bazel migration.
+
+ci/check_submodule_bazel_sync.py (run by
+.github/workflows/dependency-sync-check.yml) keeps this file's
+git_override()/git_repository() commit pins in sync with CMake's git
+submodule pins (.gitmodules/thirdparty/) for the dependencies both
+build systems share.
 """
 
 module(

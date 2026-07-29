@@ -1,29 +1,12 @@
-# oneTBB scheduler/partitioner reports from parallel_for_each.
-#
-# Wrapped in leading/trailing '*' defensively, but that was NOT the actual
-# fix for the "suppression doesn't seem to apply" symptom seen earlier.
-# Verified against LLVM release/14.x's sanitizer_common TemplateMatch (the
-# same source powering the Ubuntu clang-14 this project builds with): a
-# bare, unwildcarded pattern with no '^'/'$' anchors is *already* a plain
-# substring match via internal_strstr, so
-# race:tbb::detail::d1::dynamic_grainsize_mode already matches any frame
-# whose demangled signature contains that substring -- confirmed by
-# reverting to the bare (pre-'*') patterns locally and reproducing a clean
-# suppressed run, both via the raw test binary and via `bazel test`.
-#
-# The real root cause: .github/workflows/tsan-build.yml's Test step set
-# TSAN_OPTIONS (and NON_MT) as a GitHub Actions step `env:`, but its
-# `bazel test` invocation never passed them through via --test_env. Bazel's
-# test actions do not inherit the invoking shell/CI step's ambient
-# environment by default -- only the fixed hermetic set --test_env/
-# --action_env explicitly whitelist. So in CI, suppressions=.github/
-# tsan.supp was never actually read (no suppression could ever have
-# applied, independent of pattern syntax) *and* NON_MT never reached
-# RemoveLoadlessLogic.cpp/DNL_impl.h/LogicCone.cpp, so the TBB-parallel
-# path those were meant to skip ran anyway -- which is why this report was
-# ever observed live. Fixed by adding --test_env=NON_MT --test_env=
-# TSAN_OPTIONS to that job's `bazel test` command. See
-# internal/bazel-migration-plan.md for the full writeup.
+# oneTBB scheduler/partitioner reports from parallel_for_each -- internal
+# TSan races inside TBB's own scheduler bookkeeping, not naja-owned data.
+# These are read via tsan-build.yml's ctest step
+# (TSAN_OPTIONS=...suppressions=.github/tsan.supp), which relies on
+# ctest simply inheriting the job's environment -- no special plumbing
+# needed there. Patterns are bare substring matches (no wildcards
+# required for TSan's suppression matcher to apply them); wrapped in
+# leading/trailing '*' here defensively, which is harmless but not
+# functionally required.
 race:*tbb::detail::d1::dynamic_grainsize_mode*
 race:*tbb::detail::d1::adaptive_mode*
 race:*tbb::detail::d1::start_for*
@@ -33,12 +16,9 @@ race:*tbb::detail::d1::start_for*
 # as above, just a different pair of frames (both inside TBB, unrelated to
 # any naja-owned data: see LoadlessLogicRemover::getTracedIsos, which only
 # ever inserts into each thread's own tracedIsos.local() before merging
-# serially). Reproduces even in a single isolated TEST_F process (one shard,
-# one test, per --define=isolated_tests=true's shard_count) whenever
-# getTracedIsos's parallel_for spawns enough worker threads for real
-# concurrency -- it is not specific to Bazel's cc_test running many TEST_F
-# sequentially in one process; it just needs the MT path active (NON_MT
-# unset/not reaching the process, see above) and enough hierarchy/instances
-# to spin up multiple TBB workers, as simple_2_loadless_3_levels does.
+# serially). Only reproduces when the MT path is active (this workflow's
+# NON_MT=1 keeps RemoveLoadlessLogic.cpp/DNL_impl.h/LogicCone.cpp off this
+# path entirely) and enough hierarchy/instances exist to spin up multiple
+# TBB workers, as simple_2_loadless_3_levels does.
 race:*tbb::detail::d1::concurrent_unordered_base*
 race:*tbb::detail::d1::fold_tree*
