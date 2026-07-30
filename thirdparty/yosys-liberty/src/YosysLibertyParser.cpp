@@ -224,6 +224,7 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "pin")
 		return childId == "direction" || childId == "function" ||
+				childId == "nextstate_type" ||
 				childId == "memory_read" || childId == "memory_write" ||
 				childId == "timing";
 

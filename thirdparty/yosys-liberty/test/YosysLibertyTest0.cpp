@@ -99,6 +99,7 @@ library(test) {
     }
     pin(A) {
       direction : input;
+      nextstate_type : data;
       capacitance : 0.1;
       internal_power() {
         rise_power(power_template) {
@@ -168,6 +169,7 @@ library(test) {
   auto pinA = cell->children[0];
   ASSERT_EQ("pin", pinA->id);
   EXPECT_NE(nullptr, findChild(pinA, "direction"));
+  EXPECT_NE(nullptr, findChild(pinA, "nextstate_type"));
   EXPECT_EQ(nullptr, findChild(pinA, "capacitance"));
   EXPECT_EQ(nullptr, findChild(pinA, "internal_power"));
 
