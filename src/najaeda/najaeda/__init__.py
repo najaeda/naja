@@ -18,8 +18,8 @@ def _load_naja():
 
 naja = _load_naja()
 
-from ._version import version, git_hash
-from ._logging import configure_native_logging
+from ._version import version, git_hash  # noqa: E402
+from ._logging import configure_native_logging  # noqa: E402
 
 __version__ = version()
 
