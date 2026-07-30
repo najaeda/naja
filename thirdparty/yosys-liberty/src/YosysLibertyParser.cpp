@@ -251,7 +251,8 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "ff")
 		return childId == "clocked_on" || childId == "next_state" ||
-				childId == "clear" || childId == "preset";
+				childId == "clear" || childId == "preset" ||
+				childId == "clear_preset_var1";
 
 	if (parentId == "latch")
 		return childId == "enable" || childId == "data_in" ||

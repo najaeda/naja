@@ -126,6 +126,11 @@ library(test) {
         }
       }
     }
+    ff(IQ, IQN) {
+      clocked_on : "CLK";
+      next_state : "D";
+      clear_preset_var1 : L;
+    }
   }
 }
 )liberty");
@@ -153,6 +158,12 @@ library(test) {
   EXPECT_EQ(2, countChildren(cell, "pin"));
   EXPECT_EQ(nullptr, findChild(cell, "area"));
   EXPECT_EQ(nullptr, findChild(cell, "leakage_power"));
+
+  auto ff = findChild(cell, "ff");
+  ASSERT_NE(nullptr, ff);
+  auto clearPresetValue = findChild(ff, "clear_preset_var1");
+  ASSERT_NE(nullptr, clearPresetValue);
+  EXPECT_EQ("L", clearPresetValue->value);
 
   auto pinA = cell->children[0];
   ASSERT_EQ("pin", pinA->id);
