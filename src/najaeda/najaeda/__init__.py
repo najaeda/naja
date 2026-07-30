@@ -5,13 +5,18 @@
 
 import importlib
 
-try:
-    naja = importlib.import_module(".naja", __name__)
-except ModuleNotFoundError as error:
-    if error.name != f"{__name__}.naja":
-        raise
-    # Some development layouts expose the extension directly on PYTHONPATH.
-    naja = importlib.import_module("naja")
+
+def _load_naja():
+    try:
+        return importlib.import_module(".naja", __name__)
+    except ModuleNotFoundError as error:
+        if error.name != f"{__name__}.naja":
+            raise
+        # Some development layouts expose the extension directly on PYTHONPATH.
+        return importlib.import_module("naja")
+
+
+naja = _load_naja()
 
 from ._version import version, git_hash
 from ._logging import configure_native_logging
