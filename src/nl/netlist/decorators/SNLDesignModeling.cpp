@@ -1014,6 +1014,91 @@ naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialDepsFromTruthTable(
   return getCombinatorialOutputsDepsFromTruthTable(term);
 }
 
+naja::NL::SNLDesignModeling::BooleanExpression makeTermExpression(
+    naja::NL::SNLBitTerm* term,
+    bool inverted = false) {
+  using Expression = naja::NL::SNLDesignModeling::BooleanExpression;
+  Expression expression;
+  auto root = expression.addTerm(term);
+  if (inverted) {
+    root = expression.addOperation(Expression::Operator::Not, {root});
+  }
+  expression.root = root;
+  return expression;
+}
+
+naja::NL::SNLDesignModeling::SequentialModel makeDB0SequentialModel(
+    const naja::NL::SNLDesign* design) {
+  using Modeling = naja::NL::SNLDesignModeling;
+  using Expression = Modeling::BooleanExpression;
+  using Role = Modeling::SNLTermRole;
+  Modeling::SequentialModel model;
+  model.kind = naja::NL::NLDB0::isDLatch(design)
+      ? Modeling::SequentialModel::Kind::Latch
+      : Modeling::SequentialModel::Kind::FlipFlop;
+
+  auto* clock = getDB0SequentialClockTerm(design);
+  model.clockedOn = makeTermExpression(
+      clock, naja::NL::NLDB0::isDFFN(design));
+
+  std::vector<naja::NL::SNLBitTerm*> dataTerms;
+  std::vector<naja::NL::SNLBitTerm*> outputTerms;
+  naja::NL::SNLBitTerm* enable = nullptr;
+  naja::NL::SNLBitTerm* clear = nullptr;
+  naja::NL::SNLBitTerm* preset = nullptr;
+  for (auto* term : design->getBitTerms()) {
+    const auto role = Modeling::getTermRole(term);
+    if (role == Role::DataInput) {
+      dataTerms.push_back(term);
+    } else if (role == Role::DataOutput) {
+      outputTerms.push_back(term);
+    } else if (role == Role::Enable && term != clock) {
+      enable = term;
+    } else if (role == Role::AsyncReset || role == Role::SyncReset) {
+      clear = term;
+    } else if (role == Role::AsyncSet || role == Role::SyncSet) {
+      preset = term;
+    }
+  }
+  if (dataTerms.size() != outputTerms.size() || dataTerms.empty()) {
+    throw naja::NL::NLException("Invalid DB0 sequential primitive interface");
+  }
+
+  for (size_t stateIndex = 0; stateIndex < outputTerms.size(); ++stateIndex) {
+    Modeling::SequentialState state;
+    auto data = state.nextState.addTerm(dataTerms[stateIndex]);
+    if (enable != nullptr) {
+      auto enableNode = state.nextState.addTerm(enable);
+      auto current = state.nextState.addState(stateIndex);
+      auto enabledData = state.nextState.addOperation(
+          Expression::Operator::And, {enableNode, data});
+      auto disabled = state.nextState.addOperation(
+          Expression::Operator::Not, {enableNode});
+      auto heldState = state.nextState.addOperation(
+          Expression::Operator::And, {disabled, current});
+      data = state.nextState.addOperation(
+          Expression::Operator::Or, {enabledData, heldState});
+    }
+    state.nextState.root = data;
+    if (clear != nullptr) {
+      state.clear = makeTermExpression(
+          clear, Modeling::getResetActiveLevel(clear) == Modeling::SNLActiveLevel::Low);
+    }
+    if (preset != nullptr) {
+      state.preset = makeTermExpression(
+          preset, Modeling::getResetActiveLevel(preset) == Modeling::SNLActiveLevel::Low);
+    }
+    state.clearPresetValue = Modeling::SequentialState::ClearPresetValue::One;
+    model.states.push_back(std::move(state));
+
+    Modeling::SequentialOutput output;
+    output.term = outputTerms[stateIndex];
+    output.function.root = output.function.addState(stateIndex);
+    model.outputs.push_back(std::move(output));
+  }
+  return model;
+}
+
 }  // namespace
 
 namespace naja::NL {
@@ -1461,6 +1546,40 @@ void SNLDesignModeling::setMemoryInterface(
   validateMemoryInterfaceForDesign(design, memInterface);
   auto property = getOrCreateProperty(design, NO_PARAMETER);
   property->getModeling()->setMemoryInterface_(memInterface);
+}
+
+void SNLDesignModeling::setSequentialModel(
+    SNLDesign* design,
+    const SequentialModel& model) {
+  if (!design || !design->isPrimitive()) {
+    throw NLException("Cannot add sequential model on non-primitive design");
+  }
+  if (!model.isValid()) {
+    throw NLException("Cannot add invalid sequential model");
+  }
+  auto property = getOrCreateProperty(design, NO_PARAMETER);
+  property->getModeling()->setSequentialModel_(model);
+}
+
+bool SNLDesignModeling::hasSequentialModel(const SNLDesign* design) {
+  auto property = design ? getProperty(design) : nullptr;
+  if ((!property || !property->getModeling()->hasSequentialModel_()) &&
+      isDB0SequentialPrimitive(design)) {
+    setSequentialModel(
+        const_cast<SNLDesign*>(design), makeDB0SequentialModel(design));
+    property = getProperty(design);
+  }
+  return property && property->getModeling()->hasSequentialModel_();
+}
+
+const SNLDesignModeling::SequentialModel&
+SNLDesignModeling::getSequentialModel(const SNLDesign* design) {
+  hasSequentialModel(design);
+  auto property = design ? getProperty(design) : nullptr;
+  if (!property || !property->getModeling()->hasSequentialModel_()) {
+    throw NLException("Design has no sequential model");
+  }
+  return property->getModeling()->getSequentialModel_();
 }
 
 void SNLDesignModeling::setTermRole(
@@ -2121,6 +2240,9 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
   auto property = getProperty(design);
   if (property) {
     auto modeling = property->getModeling();
+    if (modeling->hasSequentialModel_()) {
+      return true;
+    }
     const auto arcs = modeling->getTimingArcs();
     return not arcs->inputToClockArcs_.empty() or
            not arcs->clockToInputArcs_.empty();

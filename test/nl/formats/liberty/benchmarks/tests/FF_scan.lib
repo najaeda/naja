@@ -1,0 +1,27 @@
+library (FF_scan_test) {
+  cell (FFSCAN) {
+    ff (IQN, IQNN) {
+      clocked_on : "CK";
+      next_state : "(!D * !SE) + (!D * !SI) + (SE * !SI)";
+    }
+    pin(D) {
+      direction : input;
+      nextstate_type : data;
+    }
+    pin(SE) {
+      direction : input;
+      nextstate_type : scan_enable;
+    }
+    pin(SI) {
+      direction : input;
+      nextstate_type : scan_in;
+    }
+    pin(CK) {
+      direction : input;
+    }
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+}
