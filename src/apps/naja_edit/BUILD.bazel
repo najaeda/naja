@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_edit`
+# CLI. See internal/bazel-migration-plan.md (Phase 6, task #22) and
+# task #19's original "blocked" notes -- unblocked once naja_snl_pyloader
+# (task #21) existed.
+#
+# NajaEdit.cpp #includes several headers (SNLLibertyConstructor.h,
+# SNLSVConstructor.h, SNLVRLConstructor.h/Dumper.h, SNLCapnP.h,
+# NetlistGraph.h) that CMake's own target_link_libraries(naja_edit
+# naja_snl_pyloader naja_dnl naja_opt) doesn't list directly -- they
+# arrive transitively via naja_snl_pyloader -> naja_python's PUBLIC deps
+# (src/nl/python/naja_wrapping/CMakeLists.txt). Declared as direct deps
+# here instead, matching this migration's convention throughout of not
+# relying on undeclared transitive header visibility.
+
+cc_binary(
+    name = "naja_edit",
+    srcs = ["NajaEdit.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//src/dnl:naja_dnl",
+        "//src/nl/formats/liberty:naja_snl_liberty",
+        "//src/nl/formats/systemverilog:naja_snl_systemverilog",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "//src/nl/python/pyloader:naja_snl_pyloader",
+        "//src/optimization:naja_opt",
+        "//thirdparty/argparse-3.1:argparse",
+        "@boost//:headers",
+    ],
+)

@@ -1,0 +1,79 @@
+name: Ubuntu Bazel Build
+
+# CMake is naja's primary build system (see ubuntu-build.yml) -- this
+# workflow keeps the Bazel side (MODULE.bazel, BUILD.bazel throughout
+# the tree) validated as a smoke test rather than as CI's main gate. See
+# CLAUDE.md's "Build systems: CMake (primary) + Bazel (validated smoke
+# test)" section, and internal/bazel-migration-plan.md for the full
+# history of how this was built out and why it's not CI's primary path.
+#
+# @fmt//:fmt and @tomlplusplus//:tomlplusplus are vendored (git_repository
+# + bazel/thirdparty/{fmt,tomlplusplus}_overlay.BUILD in MODULE.bazel,
+# each pinned to the exact version slang itself requires) rather than
+# pkg-config-wrapped like tbb/boost -- not installed via apt here at all.
+# Found the hard way on live CI: tomlplusplus isn't apt-installable on
+# either Ubuntu version at all; fmt *is* installable, but too old
+# (libfmt-dev is 8.1.1/22.04, 9.1.0/24.04, both below slang's `fmt>=12.2`
+# requirement), and pkg-config-wrapping that stale apt fmt caused a real
+# `fmt::v12::...` undefined-reference link failure (libsvlang.a links
+# against the real fmt 12.2.0 slang's own build fetches over the network
+# when its `find_package()` rejects the old apt one -- `requires-network`
+# on slang's cmake() rule permits that fetch). Vendoring both removes
+# this whole category of platform-dependent version mismatch.
+#
+# Single default toolchain for now (no gcc/clang matrix) -- kept simple
+# until there's a concrete reason to add it back.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+
+    steps:
+    - uses: actions/checkout@v7
+      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
+      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
+      # dependency-sync-check.yml is what keeps these two build systems'
+      # pins from silently drifting apart.
+
+    - name: Install dependencies
+      # libboost-dev: not needed for naja's own code (Boost is vendored
+      # via a pinned http_archive tarball, task #11) -- needed because
+      # slang is wrapped via rules_foreign_cc's cmake() rule, and slang's
+      # own nested CMake build does a real find_package(Boost) against
+      # the system install. libtbb-dev: no BCR module exists for oneTBB;
+      # bazel/thirdparty/tbb/repo.bzl locates it via pkg-config, so the
+      # real library has to already be on the host. See
+      # internal/bazel-migration-plan.md's CI apt dependency audit for
+      # the full per-package reasoning (also covers capnproto/
+      # libcapnp-dev, dropped, and libfl-dev, kept).
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq \
+          libboost-dev libfl-dev libtbb-dev \
+          bison flex m4 pkg-config python3-dev git
+
+    - uses: bazel-contrib/setup-bazel@0.19.0
+      with:
+        bazelisk-cache: true
+        disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+        repository-cache: true
+
+    - name: Build
+      # --jobs=auto: Bazel already parallelizes across all local cores by
+      # default (unlike make/CMake's default serial build) -- spelled out
+      # explicitly here for clarity/predictability rather than because
+      # it's functionally required.
+      run: bazel build //... --jobs=auto
+
+    - name: Test
+      run: bazel test //... --test_output=errors --jobs=auto

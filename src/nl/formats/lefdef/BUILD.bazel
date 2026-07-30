@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_lefdef`
+# library. CMake also links `naja_verilog` here, but nothing in this
+# directory actually #includes any Verilog-related header (grepped) --
+# an apparently vestigial link, skipped here. See
+# internal/bazel-migration-plan.md (Phase 4, task #17).
+
+cc_library(
+    name = "naja_lefdef",
+    srcs = [
+        "LEFConstructor.cpp",
+        "LEFDumper.cpp",
+        "DEFConstructor.cpp",
+        "DEFDumper.cpp",
+    ],
+    hdrs = [
+        "LEFConstructor.h",
+        "LEFDumper.h",
+        "DEFConstructor.h",
+        "DEFDumper.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//src/nl/netlist:naja_nl",
+        "//thirdparty/lefdef/src/def/def:def",
+        "//thirdparty/lefdef/src/lef/lef:lef",
+        "//thirdparty/spdlog-1.17.0:spdlog",
+        "@boost//:headers",
+    ],
+)

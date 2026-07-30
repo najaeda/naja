@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# SNL_VRL_DUMPER_TEST_PATH mirrors CMAKE_CURRENT_BINARY_DIR (writable
+# scratch) as ".". SNL_VRL_DUMPER_REFERENCES_PATH and NAJA_DIFF mirror
+# CMAKE_CURRENT_SOURCE_DIR/references and
+# CMAKE_SOURCE_DIR/test/test_utils/diff_files.py as workspace-relative
+# paths, same pattern validated in
+# test/nl/formats/verilog/frontend/BUILD.bazel.
+
+cc_test(
+    name = "snlVRLDumperTests",
+    srcs = [
+        "SNLVRLDumperTest0.cpp",
+        "SNLVRLDumperTest1.cpp",
+        "SNLVRLDumperTest2.cpp",
+        "SNLVRLDumperTest3.cpp",
+        "SNLVRLDumperTest4.cpp",
+        "SNLVRLDumperTestEscaping.cpp",
+        "SNLVRLDumperTestTermNets.cpp",
+        "SNLVRLDumperTestParameters.cpp",
+        "SNLVRLDumperTestAttributes.cpp",
+        "SNLVRLDumperTestUtils.cpp",
+        "SNLVRLDumperTestLibraryDump.cpp",
+        "SNLVRLDumperTestGate0.cpp",
+    ],
+    data = [
+        "//test/test_utils:diff_files.py",
+    ] + glob(["references/**"]),
+    defines = [
+        'SNL_VRL_DUMPER_TEST_PATH=\\".\\"',
+        'SNL_VRL_DUMPER_REFERENCES_PATH=\\"test/nl/formats/verilog/backend/references\\"',
+        'NAJA_DIFF=\\"test/test_utils/diff_files.py\\"',
+    ],
+    deps = [
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "@googletest//:gtest_main",
+    ],
+)

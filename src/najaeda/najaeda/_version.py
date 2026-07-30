@@ -3,12 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib
-
-try:
-    naja = importlib.import_module("naja")
-except ModuleNotFoundError:
-    naja = importlib.import_module(".naja", __package__)
+from . import naja
 
 
 def version():

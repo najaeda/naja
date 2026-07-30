@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2025 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt (task #28): builds
+# `snl_bench`, gated there behind -DBUILD_BENCHMARKS=ON. No equivalent
+# optional-target mechanism in Bazel -- this target is just always
+# buildable, matching how google_benchmark is registered in MODULE.bazel
+# as an ordinary bazel_dep rather than behind any flag.
+
+cc_binary(
+    name = "snl_bench",
+    srcs = ["SNLNetlistBench.cpp"],
+    defines = [
+        'SNL_VRL_BENCHMARKS_PATH=\\"test/nl/formats/verilog/benchmarks\\"',
+    ],
+    deps = [
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist:naja_nl",
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "//test/nl/netlists:snl_netlists",
+        "@google_benchmark//:benchmark",
+    ],
+)

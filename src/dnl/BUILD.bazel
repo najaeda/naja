@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_dnl`
+# library (Dissolved Netlist). See internal/bazel-migration-plan.md
+# (Phase 4, task #18).
+
+cc_library(
+    name = "naja_dnl",
+    srcs = ["DNL.cpp"],
+    hdrs = [
+        "DNL.h",
+        "DNL_impl.h",
+    ],
+    copts = select({
+        "@platforms//os:macos": ["-Wno-sign-conversion"],
+        "//conditions:default": [],
+    }),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/nl/netlist:naja_nl",
+        "@boost//:headers",
+        "@tbb//:tbb",
+        "@tbb//:tbbmalloc",
+    ],
+)
