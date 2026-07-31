@@ -17,7 +17,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
     using Inherit = naja::NajaPrivateProperty;
     using SNLAttribute = naja::NL::SNLAttribute;
     using Attributes = std::vector<SNLAttribute>;
-    static const inline std::string Name = "SNLDesignTruthTableProperty";
+    static const inline std::string Name = "SNLAttributesPrivateProperty";
     
     static SNLAttributesPrivateProperty* create(naja::NL::NLObject* object) {
       preCreate(object, Name);
