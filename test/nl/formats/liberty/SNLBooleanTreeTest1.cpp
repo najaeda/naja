@@ -144,11 +144,12 @@ TEST_F(SNLBooleanTreeTest1, testBooleanExpressionErrors) {
   }
 
   {
+    auto invalidInput = std::make_unique<SNLBooleanTreeInputNode>(
+        static_cast<SNLBooleanTreeInputNode::Type>(100));
     SNLBooleanTree tree;
     auto* root = new SNLBooleanTreeFunctionNode(
         SNLBooleanTreeFunctionNode::Type::AND);
-    root->addInput(new SNLBooleanTreeInputNode(
-        static_cast<SNLBooleanTreeInputNode::Type>(100)));
+    root->addInput(invalidInput.get());
     tree.setRoot(root);
     EXPECT_THROW(tree.getBooleanExpression(), SNLLibertyConstructorException);
   }
