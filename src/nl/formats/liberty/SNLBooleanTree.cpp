@@ -197,6 +197,18 @@ SNLBooleanTreeInputNode* SNLBooleanTree::getOrCreateConstantInputNode(bool const
   }
 }
 
+SNLBooleanTreeInputNode* SNLBooleanTree::getOrCreateStateInputNode(
+    size_t state, bool inverted) {
+  const StateIdentifier identifier {state, inverted};
+  auto it = stateInputs_.find(identifier);
+  if (it != stateInputs_.end()) {
+    return it->second;
+  }
+  auto* inputNode = new SNLBooleanTreeInputNode(state, inverted);
+  stateInputs_[identifier] = inputNode;
+  return inputNode;
+}
+
 SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
   const SNLDesign* primitive,
   const std::string& function,
@@ -230,6 +242,12 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     }
 
     auto inputName = function.substr(pos, idLen);
+    if (auto stateIt = stateIdentifiers_.find(inputName);
+        stateIt != stateIdentifiers_.end()) {
+      pos += idLen;
+      return getOrCreateStateInputNode(
+          stateIt->second.first, stateIt->second.second);
+    }
     SNLBitTerm* input = nullptr;
 
     //is it a bus ?
@@ -264,7 +282,15 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
 }
 
 void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
+  parse(primitive, function, {});
+}
+
+void SNLBooleanTree::parse(
+    const SNLDesign* primitive,
+    const std::string& function,
+    const StateIdentifiers& stateIdentifiers) {
   function_ = function;
+  stateIdentifiers_ = stateIdentifiers;
   size_t pos = 0;
   Stack stack;
   try {
@@ -414,9 +440,72 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
   return SNLTruthTable(n, mask, NLBitDependencies::encodeBits(deps));
 }
 
+namespace {
+SNLDesignModeling::BooleanExpression::NodeID appendBooleanExpressionNode(
+    const SNLBooleanTreeNode* treeNode,
+    SNLDesignModeling::BooleanExpression& expression) {
+  using Expression = SNLDesignModeling::BooleanExpression;
+  if (auto* input = dynamic_cast<const SNLBooleanTreeInputNode*>(treeNode)) {
+    switch (input->getType()) {
+      case SNLBooleanTreeInputNode::Type::INPUT:
+        return expression.addTerm(const_cast<SNLBitTerm*>(input->getTerm()));
+      case SNLBooleanTreeInputNode::Type::STATE: {
+        auto state = expression.addState(input->getState());
+        return input->isStateInverted()
+            ? expression.addOperation(Expression::Operator::Not, {state})
+            : state;
+      }
+      case SNLBooleanTreeInputNode::Type::CONSTANT0:
+        return expression.addConstant(false);
+      case SNLBooleanTreeInputNode::Type::CONSTANT1:
+        return expression.addConstant(true);
+    }
+  }
+
+  auto* function = dynamic_cast<const SNLBooleanTreeFunctionNode*>(treeNode);
+  if (function == nullptr) {
+    throw SNLLibertyConstructorException("Invalid Boolean tree node");
+  }
+  std::vector<Expression::NodeID> operands;
+  operands.reserve(function->getInputs().size());
+  for (auto* input : function->getInputs()) {
+    operands.push_back(appendBooleanExpressionNode(input, expression));
+  }
+  switch (function->getType()) {
+    case SNLBooleanTreeFunctionNode::Type::BUFFER:
+      if (operands.size() != 1) {
+        throw SNLLibertyConstructorException(
+            "BUFFER node must have exactly one input");
+      }
+      return operands.front();
+    case SNLBooleanTreeFunctionNode::Type::NOT:
+      return expression.addOperation(Expression::Operator::Not, std::move(operands));
+    case SNLBooleanTreeFunctionNode::Type::AND:
+      return expression.addOperation(Expression::Operator::And, std::move(operands));
+    case SNLBooleanTreeFunctionNode::Type::OR:
+      return expression.addOperation(Expression::Operator::Or, std::move(operands));
+    case SNLBooleanTreeFunctionNode::Type::XOR:
+      return expression.addOperation(Expression::Operator::Xor, std::move(operands));
+  }
+  throw SNLLibertyConstructorException("Invalid Boolean tree function");
+}
+}
+
+SNLDesignModeling::BooleanExpression SNLBooleanTree::getBooleanExpression() const {
+  if (root_ == nullptr) {
+    throw SNLLibertyConstructorException("Boolean tree not parsed");
+  }
+  SNLDesignModeling::BooleanExpression expression;
+  expression.root = appendBooleanExpressionNode(root_, expression);
+  return expression;
+}
+
 SNLBooleanTree::~SNLBooleanTree() {
   delete root_;
   for (auto input: inputs_) {
+    delete input.second;
+  }
+  for (auto input: stateInputs_) {
     delete input.second;
   }
   delete constant0_;

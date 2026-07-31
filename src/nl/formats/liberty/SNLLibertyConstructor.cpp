@@ -6,6 +6,7 @@
 #include "SNLLibertyConstructor.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
@@ -373,6 +374,27 @@ void registerConstructedTermModeling(
   TermPins& termFunctionPins,
   SequentialTermClocks& seqTermClocks,
   LibertyMemoryInterface& memoryInterface) {
+  auto registerNextStateRole = [&](SNLBitTerm* term) {
+    auto nextStateType = findDirectChild(child, "nextstate_type");
+    if (term == nullptr || nextStateType == nullptr) {
+      return;
+    }
+    using Role = SNLDesignModeling::SNLTermRole;
+    if (nextStateType->value == "data") {
+      SNLDesignModeling::setTermRole(term, Role::DataInput);
+    } else if (nextStateType->value == "scan_in") {
+      SNLDesignModeling::setTermRole(term, Role::ScanInput);
+    } else if (nextStateType->value == "scan_enable") {
+      SNLDesignModeling::setTermRole(term, Role::ScanEnable);
+    }
+  };
+  registerNextStateRole(constructedScalarTerm);
+  if (constructedBusTerm) {
+    for (auto* bit : constructedBusTerm->getBits()) {
+      registerNextStateRole(bit);
+    }
+  }
+
   if (functionParsingType == FunctionParsingType::Sequential) {
     if (constructedScalarTerm) {
       registerSequentialClockFromTiming(child, constructedScalarTerm, seqTermClocks);
@@ -393,14 +415,15 @@ void registerConstructedTermModeling(
       memoryInterface.writeBuses.push_back(*writeBus);
     }
   }
-  if (functionParsingType == FunctionParsingType::Combinational
+  if (functionParsingType != FunctionParsingType::Ignore
     and constructedScalarTerm
     and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
-    termFunctions[constructedScalarTerm] = pinName;
     termFunctionPins[constructedScalarTerm] = pinName;
     auto functionNode = const_cast<Yosys::LibertyAst*>(child)->find("function");
     if (functionNode) {
       termFunctions[constructedScalarTerm] = functionNode->value;
+    } else if (functionParsingType == FunctionParsingType::Combinational) {
+      termFunctions[constructedScalarTerm] = pinName;
     }
   } else if (functionParsingType != FunctionParsingType::Ignore
     and constructedBusTerm
@@ -498,6 +521,136 @@ SNLTerm::Direction inferBundleDirection(
     }
   }
   return getSNLDirection(inferredDirectionNode->value);
+}
+
+SNLDesignModeling::BooleanExpression parseSequentialExpression(
+    const SNLDesign* primitive,
+    const std::string& expression,
+    const SNLBooleanTree::StateIdentifiers& stateIdentifiers) {
+  SNLBooleanTree tree;
+  tree.parse(primitive, expression, stateIdentifiers);
+  return tree.getBooleanExpression();
+}
+
+std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> getExpressionTerms(
+    const SNLDesignModeling::BooleanExpression& expression) {
+  std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> terms;
+  for (const auto& node : expression.nodes) {
+    if (node.operation == SNLDesignModeling::BooleanExpression::Operator::Term &&
+        node.term != nullptr) {
+      terms.insert(node.term);
+    }
+  }
+  return terms;
+}
+
+SNLDesignModeling::SequentialState::ClearPresetValue getClearPresetValue(
+    const Yosys::LibertyAst* ff) {
+  using Value = SNLDesignModeling::SequentialState::ClearPresetValue;
+  auto valueNode = findDirectChild(ff, "clear_preset_var1");
+  if (valueNode == nullptr || valueNode->value.empty()) {
+    return Value::Unknown;
+  }
+  const char value = static_cast<char>(
+      std::toupper(static_cast<unsigned char>(valueNode->value.front())));
+  switch (value) {
+    case 'L': return Value::Zero;
+    case 'H': return Value::One;
+    case 'N': return Value::Hold;
+    case 'T': return Value::Toggle;
+    default: return Value::Unknown;
+  }
+}
+
+bool hasRelatedTerm(
+    const naja::NajaCollection<SNLBitTerm*>& terms,
+    const SNLBitTerm* expected) {
+  return std::any_of(terms.begin(), terms.end(),
+      [expected](const SNLBitTerm* term) { return term == expected; });
+}
+
+void addSequentialModelArcs(
+    const SNLDesignModeling::SequentialModel& model) {
+  auto clockTerms = getExpressionTerms(model.clockedOn);
+  std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> updateTerms;
+  for (const auto& state : model.states) {
+    const auto nextStateTerms = getExpressionTerms(state.nextState);
+    updateTerms.insert(nextStateTerms.begin(), nextStateTerms.end());
+    if (state.clear.has_value()) {
+      const auto clearTerms = getExpressionTerms(*state.clear);
+      updateTerms.insert(clearTerms.begin(), clearTerms.end());
+    }
+    if (state.preset.has_value()) {
+      const auto presetTerms = getExpressionTerms(*state.preset);
+      updateTerms.insert(presetTerms.begin(), presetTerms.end());
+    }
+  }
+
+  for (auto* clock : clockTerms) {
+    SNLDesignModeling::setTermRole(
+        clock, SNLDesignModeling::SNLTermRole::Clock);
+    for (auto* input : updateTerms) {
+      if (!hasRelatedTerm(
+              SNLDesignModeling::getInputRelatedClocks(input), clock)) {
+        SNLDesignModeling::addInputsToClockArcs({input}, clock);
+      }
+    }
+    for (const auto& output : model.outputs) {
+      SNLDesignModeling::setTermRole(
+          output.term, SNLDesignModeling::SNLTermRole::DataOutput);
+      if (!hasRelatedTerm(
+              SNLDesignModeling::getOutputRelatedClocks(output.term), clock)) {
+        SNLDesignModeling::addClockToOutputsArcs(clock, {output.term});
+      }
+    }
+  }
+}
+
+void populateSequentialModel(
+    SNLDesign* primitive,
+    const Yosys::LibertyAst* cell,
+    const TermFunctions& termFunctions) {
+  auto ff = findDirectChild(cell, "ff");
+  if (ff == nullptr || ff->args.empty() || termFunctions.empty()) {
+    return;
+  }
+
+  SNLBooleanTree::StateIdentifiers stateIdentifiers;
+  stateIdentifiers.emplace(ff->args[0], SNLBooleanTree::StateIdentifier{0, false});
+  if (ff->args.size() > 1) {
+    stateIdentifiers.emplace(ff->args[1], SNLBooleanTree::StateIdentifier{0, true});
+  }
+
+  auto clockedOn = findDirectChild(ff, "clocked_on");
+  auto nextState = findDirectChild(ff, "next_state");
+  if (clockedOn == nullptr || nextState == nullptr) {
+    return;
+  }
+
+  SNLDesignModeling::SequentialModel model;
+  model.clockedOn = parseSequentialExpression(
+      primitive, clockedOn->value, stateIdentifiers);
+  SNLDesignModeling::SequentialState state;
+  state.nextState = parseSequentialExpression(
+      primitive, nextState->value, stateIdentifiers);
+  if (auto clear = findDirectChild(ff, "clear")) {
+    state.clear = parseSequentialExpression(
+        primitive, clear->value, stateIdentifiers);
+  }
+  if (auto preset = findDirectChild(ff, "preset")) {
+    state.preset = parseSequentialExpression(
+        primitive, preset->value, stateIdentifiers);
+  }
+  state.clearPresetValue = getClearPresetValue(ff);
+  model.states.push_back(std::move(state));
+
+  for (const auto& [term, function] : termFunctions) {
+    model.outputs.push_back({
+        term,
+        parseSequentialExpression(primitive, function, stateIdentifiers)});
+  }
+  SNLDesignModeling::setSequentialModel(primitive, model);
+  addSequentialModelArcs(model);
 }
 
 void parseTerms(
@@ -686,7 +839,8 @@ void parseTerms(
         SNLDesignModeling::setMemoryInterface(primitive, modelingInterface);
       }
     }
-  } else if (termFunctions.size() == 1 && outputs.size() == 1) {
+  } else if (functionParsingType == FunctionParsingType::Combinational &&
+             termFunctions.size() == 1 && outputs.size() == 1) {
     auto outputTerm = termFunctions.begin()->first;
     auto pinName = termFunctionPins[outputTerm];
     auto cellName = primitive->getName().getString();
@@ -709,7 +863,8 @@ void parseTerms(
         pinName, cellName, sourcePath, e.getReason());
       throw SNLLibertyConstructorException(reason);
     }
-  } else if (termFunctions.size() > 0) {  
+  } else if (functionParsingType == FunctionParsingType::Combinational &&
+             termFunctions.size() > 0) {
     std::vector<SNLTruthTable> truthTables;
     auto cellName = primitive->getName().getString();
     // Assuming termFunctions is ordered based on termIDs!
@@ -748,6 +903,9 @@ void parseTerms(
       }
     }
     naja::NL::SNLDesignModeling::setTruthTables(primitive, truthTables);
+  }
+  if (functionParsingType == FunctionParsingType::Sequential) {
+    populateSequentialModel(primitive, cell, termFunctions);
   }
 }
 

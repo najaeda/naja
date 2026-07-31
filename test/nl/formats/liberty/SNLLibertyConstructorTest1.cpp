@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include <set>
 #include "NLUniverse.h"
 
 #include "SNLBitNet.h"
@@ -704,4 +705,48 @@ TEST_F(SNLLibertyConstructorTest1, testFF) {
   auto outputs = SNLDesignModeling::getClockRelatedOutputs(ck);
   EXPECT_EQ(1, outputs.size());
   EXPECT_EQ(q, *outputs.begin());
+  ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(design));
+  const auto& model = SNLDesignModeling::getSequentialModel(design);
+  ASSERT_EQ(model.states.size(), 1u);
+  ASSERT_EQ(model.outputs.size(), 1u);
+  EXPECT_EQ(model.clockedOn.nodes[model.clockedOn.root].term, ck);
+  EXPECT_EQ(model.states[0].nextState.nodes[model.states[0].nextState.root].term, d);
+  EXPECT_EQ(
+      model.outputs[0].function.nodes[model.outputs[0].function.root].operation,
+      SNLDesignModeling::BooleanExpression::Operator::State);
+}
+
+TEST_F(SNLLibertyConstructorTest1, testFFScanModel) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "FF_scan.lib";
+  constructor.construct(testPath);
+  auto* design = library_->getSNLDesign(NLName("FFSCAN"));
+  ASSERT_NE(nullptr, design);
+  auto* ck = design->getScalarTerm(NLName("CK"));
+  auto* d = design->getScalarTerm(NLName("D"));
+  auto* se = design->getScalarTerm(NLName("SE"));
+  auto* si = design->getScalarTerm(NLName("SI"));
+  auto* qn = design->getScalarTerm(NLName("QN"));
+
+  ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(design));
+  const auto& model = SNLDesignModeling::getSequentialModel(design);
+  ASSERT_EQ(model.states.size(), 1u);
+  ASSERT_EQ(model.outputs.size(), 1u);
+  std::set<SNLBitTerm*> nextStateTerms;
+  for (const auto& node : model.states[0].nextState.nodes) {
+    if (node.operation == SNLDesignModeling::BooleanExpression::Operator::Term) {
+      nextStateTerms.insert(node.term);
+    }
+  }
+  EXPECT_EQ(nextStateTerms, (std::set<SNLBitTerm*>{d, se, si}));
+  EXPECT_EQ(SNLDesignModeling::getTermRole(d),
+            SNLDesignModeling::SNLTermRole::DataInput);
+  EXPECT_EQ(SNLDesignModeling::getTermRole(se),
+            SNLDesignModeling::SNLTermRole::ScanEnable);
+  EXPECT_EQ(SNLDesignModeling::getTermRole(si),
+            SNLDesignModeling::SNLTermRole::ScanInput);
+  EXPECT_EQ(SNLDesignModeling::getClockRelatedInputs(ck).size(), 3u);
+  EXPECT_EQ(SNLDesignModeling::getClockRelatedOutputs(ck).size(), 1u);
+  EXPECT_NE(qn, nullptr);
 }

@@ -1462,6 +1462,33 @@ void SNLDesignModeling::setMemoryInterface(
   property->getModeling()->setMemoryInterface_(memInterface);
 }
 
+void SNLDesignModeling::setSequentialModel(
+    SNLDesign* design,
+    const SequentialModel& model) {
+  if (!design || !design->isPrimitive()) {
+    throw NLException("Cannot add sequential model on non-primitive design");
+  }
+  if (!model.isValid()) {
+    throw NLException("Cannot add invalid sequential model");
+  }
+  auto property = getOrCreateProperty(design, NO_PARAMETER);
+  property->getModeling()->setSequentialModel_(model);
+}
+
+bool SNLDesignModeling::hasSequentialModel(const SNLDesign* design) {
+  auto property = design ? getProperty(design) : nullptr;
+  return property && property->getModeling()->hasSequentialModel_();
+}
+
+const SNLDesignModeling::SequentialModel&
+SNLDesignModeling::getSequentialModel(const SNLDesign* design) {
+  auto property = design ? getProperty(design) : nullptr;
+  if (!property || !property->getModeling()->hasSequentialModel_()) {
+    throw NLException("Design has no sequential model");
+  }
+  return property->getModeling()->getSequentialModel_();
+}
+
 void SNLDesignModeling::setTermRole(
     SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
   if (!term || !term->getDesign()->isLeaf()) return;
@@ -2120,6 +2147,9 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
   auto property = getProperty(design);
   if (property) {
     auto modeling = property->getModeling();
+    if (modeling->hasSequentialModel_()) {
+      return true;
+    }
     const auto arcs = modeling->getTimingArcs();
     return not arcs->inputToClockArcs_.empty() or
            not arcs->clockToInputArcs_.empty();

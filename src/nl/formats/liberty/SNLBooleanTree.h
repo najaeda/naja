@@ -7,6 +7,7 @@
 
 #pragma once
 #include "SNLBitTerm.h"
+#include "SNLDesignModeling.h"
 #include "SNLTruthTable.h"
 
 namespace naja::NL {
@@ -25,7 +26,7 @@ class SNLBooleanTreeNode {
 
 class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
   public:
-    enum class Type { INPUT, CONSTANT0, CONSTANT1 };
+    enum class Type { INPUT, STATE, CONSTANT0, CONSTANT1 };
     SNLBooleanTreeInputNode(const SNLBitTerm* input):
       type_(Type::INPUT),
       term_(input)
@@ -36,11 +37,19 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
       term_(nullptr)
     {}
 
+    SNLBooleanTreeInputNode(size_t state, bool inverted):
+      type_(Type::STATE),
+      term_(nullptr),
+      state_(state),
+      stateInverted_(inverted)
+    {}
+
     void setValue(bool value) { value_ = value; }
 
     bool getValue() const override {
       switch (type_) {
         case Type::INPUT:
+        case Type::STATE:
           return value_;
         case Type::CONSTANT0:
           return false;
@@ -53,10 +62,15 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
     const SNLBitTerm* getTerm() const {
       return term_;
     }
+    Type getType() const { return type_; }
+    size_t getState() const { return state_; }
+    bool isStateInverted() const { return stateInverted_; }
 
   private:
     Type              type_     {Type::INPUT};
     const SNLBitTerm* term_     {nullptr};
+    size_t            state_    {0};
+    bool              stateInverted_ {false};
     bool              value_    {false};
 };
 
@@ -76,6 +90,7 @@ class SNLBooleanTreeFunctionNode: public SNLBooleanTreeNode {
     }
 
     Type getType() const { return type_; }
+    const Inputs& getInputs() const { return inputs_; }
 
     bool getValue() const override;
 
@@ -87,6 +102,8 @@ class SNLBooleanTreeFunctionNode: public SNLBooleanTreeNode {
 class SNLBooleanTree {
   public:
     using Inputs = std::map<const SNLBitTerm*, SNLBooleanTreeInputNode*, SNLBitTerm::PointerLess>;
+    using StateIdentifier = std::pair<size_t, bool>;
+    using StateIdentifiers = std::map<std::string, StateIdentifier>;
 
     SNLBooleanTree() = default;
     ~SNLBooleanTree();
@@ -96,18 +113,26 @@ class SNLBooleanTree {
       const std::string& function,
       size_t& pos);
     void parse(const SNLDesign* primitive, const std::string& function);
+    void parse(
+      const SNLDesign* primitive,
+      const std::string& function,
+      const StateIdentifiers& stateIdentifiers);
     SNLBooleanTreeFunctionNode* getRoot() const { return root_; }
     const Inputs& getInputs() const { return inputs_; }
     SNLBooleanTreeInputNode* getInput(const SNLBitTerm* inputTerm) const;
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
     SNLBooleanTreeInputNode* getOrCreateConstantInputNode(bool constant);
+    SNLBooleanTreeInputNode* getOrCreateStateInputNode(size_t state, bool inverted);
     void setRoot(SNLBooleanTreeFunctionNode* root) { root_ = root; }
 
     using Terms = std::vector<SNLBitTerm*>;
     SNLTruthTable getTruthTable(const Terms& terms);
+    SNLDesignModeling::BooleanExpression getBooleanExpression() const;
   private:
     std::string                 function_   {};
     Inputs                      inputs_     {};
+    StateIdentifiers            stateIdentifiers_ {};
+    std::map<StateIdentifier, SNLBooleanTreeInputNode*> stateInputs_ {};
     SNLBooleanTreeInputNode*    constant0_  {nullptr};
     SNLBooleanTreeInputNode*    constant1_  {nullptr};
     SNLBooleanTreeFunctionNode* root_       {nullptr};  

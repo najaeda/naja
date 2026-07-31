@@ -99,6 +99,7 @@ library(test) {
     }
     pin(A) {
       direction : input;
+      nextstate_type : data;
       capacitance : 0.1;
       internal_power() {
         rise_power(power_template) {
@@ -125,6 +126,11 @@ library(test) {
           values("1, 2, 3");
         }
       }
+    }
+    ff(IQ, IQN) {
+      clocked_on : "CLK";
+      next_state : "D";
+      clear_preset_var1 : L;
     }
   }
 }
@@ -154,9 +160,16 @@ library(test) {
   EXPECT_EQ(nullptr, findChild(cell, "area"));
   EXPECT_EQ(nullptr, findChild(cell, "leakage_power"));
 
+  auto ff = findChild(cell, "ff");
+  ASSERT_NE(nullptr, ff);
+  auto clearPresetValue = findChild(ff, "clear_preset_var1");
+  ASSERT_NE(nullptr, clearPresetValue);
+  EXPECT_EQ("L", clearPresetValue->value);
+
   auto pinA = cell->children[0];
   ASSERT_EQ("pin", pinA->id);
   EXPECT_NE(nullptr, findChild(pinA, "direction"));
+  EXPECT_NE(nullptr, findChild(pinA, "nextstate_type"));
   EXPECT_EQ(nullptr, findChild(pinA, "capacitance"));
   EXPECT_EQ(nullptr, findChild(pinA, "internal_power"));
 
