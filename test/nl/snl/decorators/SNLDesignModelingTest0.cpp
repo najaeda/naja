@@ -1068,3 +1068,62 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTTWithEmptyDeps) {
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 1);
 }
+
+TEST_F(SNLDesignModelingTest0, testSequentialModelAPI) {
+  using Expression = SNLDesignModeling::BooleanExpression;
+  using Model = SNLDesignModeling::SequentialModel;
+
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* primitives = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* primitive = SNLDesign::create(
+      primitives, SNLDesign::Type::Primitive, NLName("FF"));
+  auto* clock = SNLScalarTerm::create(
+      primitive, SNLTerm::Direction::Input, NLName("CK"));
+  auto* output = SNLScalarTerm::create(
+      primitive, SNLTerm::Direction::Output, NLName("Q"));
+
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(nullptr));
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(primitive));
+  EXPECT_FALSE(SNLDesignModeling::isSequential(primitive));
+  EXPECT_THROW(
+      SNLDesignModeling::getSequentialModel(nullptr), NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::getSequentialModel(primitive), NLException);
+
+  Model invalidModel;
+  EXPECT_THROW(
+      SNLDesignModeling::setSequentialModel(primitive, invalidModel),
+      NLException);
+
+  Model model;
+  model.clockedOn.root = model.clockedOn.addTerm(clock);
+  SNLDesignModeling::SequentialState state;
+  const auto constant0 = state.nextState.addConstant(false);
+  const auto constant1 = state.nextState.addConstant(true);
+  state.nextState.root = state.nextState.addOperation(
+      Expression::Operator::Or, {constant0, constant1});
+  model.states.push_back(std::move(state));
+  SNLDesignModeling::SequentialOutput sequentialOutput;
+  sequentialOutput.term = output;
+  sequentialOutput.function.root = sequentialOutput.function.addState(0);
+  model.outputs.push_back(std::move(sequentialOutput));
+  ASSERT_TRUE(model.isValid());
+
+  EXPECT_THROW(
+      SNLDesignModeling::setSequentialModel(nullptr, model), NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setSequentialModel(top, model), NLException);
+  SNLDesignModeling::setSequentialModel(primitive, model);
+
+  EXPECT_TRUE(SNLDesignModeling::hasSequentialModel(primitive));
+  EXPECT_TRUE(SNLDesignModeling::isSequential(primitive));
+  const auto& stored = SNLDesignModeling::getSequentialModel(primitive);
+  ASSERT_EQ(3u, stored.states[0].nextState.nodes.size());
+  EXPECT_FALSE(stored.states[0].nextState.nodes[constant0].constant);
+  EXPECT_TRUE(stored.states[0].nextState.nodes[constant1].constant);
+  EXPECT_EQ(Expression::Operator::State,
+            stored.outputs[0].function.nodes[0].operation);
+}
