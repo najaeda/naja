@@ -692,9 +692,8 @@ static const std::string SNLDesignTruthTablePropertyName =
 
 naja::NajaDumpableProperty* getTruthTableProperty(
     const naja::NL::SNLDesign* design) {
-  auto property = static_cast<naja::NajaDumpableProperty*>(
+  return dynamic_cast<naja::NajaDumpableProperty*>(
       design->getProperty(SNLDesignTruthTablePropertyName));
-  return property;
 }
 
 size_t getDependencyChunkCount(const naja::NL::SNLDesign* design) {
