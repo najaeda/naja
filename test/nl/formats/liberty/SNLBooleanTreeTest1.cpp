@@ -26,6 +26,15 @@ class SNLBooleanTreeTest1: public ::testing::Test {
     NLLibrary*      library_;
 };
 
+namespace {
+
+class InvalidBooleanTreeNode final: public SNLBooleanTreeNode {
+  public:
+    bool getValue() const override { return false; }
+};
+
+}
+
 TEST_F(SNLBooleanTreeTest1, testError0) {
   auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("AND2"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("A"));
@@ -54,4 +63,93 @@ TEST_F(SNLBooleanTreeTest1, testError1) {
   bufNode->addInput(aNode);
   bufNode->addInput(bNode);
   EXPECT_THROW(bufNode->getValue(), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLBooleanTreeTest1, testBooleanExpressionNodes) {
+  auto primitive = SNLDesign::create(
+      library_, SNLDesign::Type::Primitive, NLName("EXPRESSION"));
+  SNLScalarTerm::create(
+      primitive, SNLTerm::Direction::Input, NLName("A"));
+  SNLScalarTerm::create(
+      primitive, SNLTerm::Direction::Input, NLName("B"));
+
+  SNLBooleanTree tree;
+  auto* state = tree.getOrCreateStateInputNode(0, false);
+  EXPECT_EQ(state, tree.getOrCreateStateInputNode(0, false));
+  tree.parse(
+      primitive,
+      "Q + QN + 0 + 1 + (A ^ B)",
+      {{"Q", {0, false}}, {"QN", {0, true}}});
+
+  const auto expression = tree.getBooleanExpression();
+  EXPECT_TRUE(expression.isValid());
+  bool hasFalse = false;
+  bool hasTrue = false;
+  bool hasState = false;
+  bool hasNot = false;
+  bool hasXor = false;
+  for (const auto& node : expression.nodes) {
+    if (node.operation ==
+        SNLDesignModeling::BooleanExpression::Operator::Constant) {
+      hasFalse |= !node.constant;
+      hasTrue |= node.constant;
+    } else if (node.operation ==
+               SNLDesignModeling::BooleanExpression::Operator::State) {
+      hasState = true;
+    } else if (node.operation ==
+               SNLDesignModeling::BooleanExpression::Operator::Not) {
+      hasNot = true;
+    } else if (node.operation ==
+               SNLDesignModeling::BooleanExpression::Operator::Xor) {
+      hasXor = true;
+    }
+  }
+  EXPECT_TRUE(hasFalse);
+  EXPECT_TRUE(hasTrue);
+  EXPECT_TRUE(hasState);
+  EXPECT_TRUE(hasNot);
+  EXPECT_TRUE(hasXor);
+}
+
+TEST_F(SNLBooleanTreeTest1, testBooleanExpressionErrors) {
+  SNLBooleanTree unparsed;
+  EXPECT_THROW(
+      unparsed.getBooleanExpression(), SNLLibertyConstructorException);
+
+  {
+    SNLBooleanTree tree;
+    auto* root = new SNLBooleanTreeFunctionNode(
+        SNLBooleanTreeFunctionNode::Type::BUFFER);
+    root->addInput(tree.getOrCreateConstantInputNode(false));
+    root->addInput(tree.getOrCreateConstantInputNode(true));
+    tree.setRoot(root);
+    EXPECT_THROW(tree.getBooleanExpression(), SNLLibertyConstructorException);
+  }
+
+  {
+    SNLBooleanTree tree;
+    auto* root = new SNLBooleanTreeFunctionNode(
+        SNLBooleanTreeFunctionNode::Type::AND);
+    root->addInput(new InvalidBooleanTreeNode());
+    tree.setRoot(root);
+    EXPECT_THROW(tree.getBooleanExpression(), SNLLibertyConstructorException);
+  }
+
+  {
+    SNLBooleanTree tree;
+    auto* root = new SNLBooleanTreeFunctionNode(
+        static_cast<SNLBooleanTreeFunctionNode::Type>(100));
+    tree.setRoot(root);
+    EXPECT_THROW(tree.getBooleanExpression(), SNLLibertyConstructorException);
+  }
+
+  {
+    SNLBooleanTree tree;
+    auto* root = new SNLBooleanTreeFunctionNode(
+        SNLBooleanTreeFunctionNode::Type::AND);
+    root->addInput(new SNLBooleanTreeInputNode(
+        static_cast<SNLBooleanTreeInputNode::Type>(100)));
+    tree.setRoot(root);
+    EXPECT_THROW(tree.getBooleanExpression(), SNLLibertyConstructorException);
+  }
 }

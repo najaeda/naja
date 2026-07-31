@@ -750,3 +750,42 @@ TEST_F(SNLLibertyConstructorTest1, testFFScanModel) {
   EXPECT_EQ(SNLDesignModeling::getClockRelatedOutputs(ck).size(), 1u);
   EXPECT_NE(qn, nullptr);
 }
+
+TEST_F(SNLLibertyConstructorTest1, testFFSequentialModelCoverage) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "FF_sequential_coverage.lib";
+  constructor.construct(testPath);
+
+  using Value = SNLDesignModeling::SequentialState::ClearPresetValue;
+  const std::vector<std::pair<const char*, Value>> expectedValues {
+      {"FF_CLEAR_PRESET_L", Value::Zero},
+      {"FF_VALUE_H", Value::One},
+      {"FF_VALUE_N", Value::Hold},
+      {"FF_VALUE_T", Value::Toggle},
+      {"FF_VALUE_UNKNOWN", Value::Unknown}};
+  for (const auto& [name, expected] : expectedValues) {
+    auto* design = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, design);
+    ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(design));
+    const auto& model = SNLDesignModeling::getSequentialModel(design);
+    ASSERT_EQ(1u, model.states.size());
+    EXPECT_EQ(expected, model.states[0].clearPresetValue);
+  }
+
+  auto* controlled =
+      library_->getSNLDesign(NLName("FF_CLEAR_PRESET_L"));
+  const auto& controlledModel =
+      SNLDesignModeling::getSequentialModel(controlled);
+  EXPECT_TRUE(controlledModel.states[0].clear.has_value());
+  EXPECT_TRUE(controlledModel.states[0].preset.has_value());
+  ASSERT_EQ(2u, controlledModel.outputs.size());
+  auto* clock = controlled->getScalarTerm(NLName("CK"));
+  EXPECT_EQ(3u, SNLDesignModeling::getClockRelatedInputs(clock).size());
+  EXPECT_EQ(2u, SNLDesignModeling::getClockRelatedOutputs(clock).size());
+
+  auto* incomplete =
+      library_->getSNLDesign(NLName("FF_MISSING_NEXT_STATE"));
+  ASSERT_NE(nullptr, incomplete);
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(incomplete));
+}

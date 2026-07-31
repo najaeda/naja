@@ -35,6 +35,10 @@ target_compile_definitions(snlTests PRIVATE
 TARGET_LINK_LIBRARIES(snlTests naja_nl gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlTests)
 
+ADD_EXECUTABLE(snlDB0InternalTests NLDB0InternalTest.cpp)
+TARGET_LINK_LIBRARIES(snlDB0InternalTests naja_nl gmock gtest_main)
+GTEST_DISCOVER_TESTS(snlDB0InternalTests)
+
 if(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
   ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
   target_compile_definitions(snlTestsWithPyLoader PRIVATE
