@@ -5,6 +5,8 @@
 #include "gtest/gtest.h"
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <vector>
 
 #include "NajaVersion.h"
 #include "SNLDumpManifest.h"
@@ -92,6 +94,71 @@ TEST_F(SNLDumpManifestTest, malformedRecordsExplainHowToRepairManifest) {
     EXPECT_NE(reason.find("line 2"), std::string::npos);
     EXPECT_NE(reason.find("got `two`"), std::string::npos);
     EXPECT_NE(reason.find("V <major> <minor> <revision>"), std::string::npos);
+  }
+}
+
+TEST_F(SNLDumpManifestTest, recordCountsAndDuplicatesAreRejected) {
+  struct MalformedManifest {
+    std::string name;
+    std::string contents;
+    std::string problem;
+    std::string expected;
+    size_t lineNumber;
+  };
+  const std::vector<MalformedManifest> malformedManifests = {
+    {
+      "schema_value_count",
+      "V 1 2\n",
+      "schema version record has 2 value(s)",
+      "V <major> <minor> <revision>",
+      1
+    },
+    {
+      "duplicate_schema",
+      "V 1 2 3\nV 4 5 6\n",
+      "duplicate schema version record",
+      "exactly one V <major> <minor> <revision> record",
+      2
+    },
+    {
+      "producer_value_count",
+      "V 1 2 3\nP producer\n",
+      "producer record has 1 value(s)",
+      "P <naja-version> <git-hash>",
+      2
+    },
+    {
+      "duplicate_producer",
+      "V 1 2 3\nP producer hash\nP other other-hash\n",
+      "duplicate producer record",
+      "at most one P <naja-version> <git-hash> record",
+      3
+    }
+  };
+
+  for (const auto& malformedManifest: malformedManifests) {
+    SCOPED_TRACE(malformedManifest.name);
+    const auto manifestDir = manifestsPath_ / malformedManifest.name;
+    std::filesystem::remove_all(manifestDir);
+    std::filesystem::create_directory(manifestDir);
+    const auto manifestPath = manifestDir / SNLDumpManifest::ManifestFileName;
+    {
+      std::ofstream manifest(manifestPath);
+      manifest << malformedManifest.contents;
+    }
+
+    try {
+      static_cast<void>(SNLDumpManifest::load(manifestDir));
+      FAIL() << "Expected malformed manifest to throw";
+    } catch (const SNLDumpException& e) {
+      const std::string reason = e.getReason();
+      EXPECT_NE(reason.find(manifestPath.string()), std::string::npos);
+      EXPECT_NE(
+        reason.find("line " + std::to_string(malformedManifest.lineNumber)),
+        std::string::npos);
+      EXPECT_NE(reason.find(malformedManifest.problem), std::string::npos);
+      EXPECT_NE(reason.find(malformedManifest.expected), std::string::npos);
+    }
   }
 }
 
