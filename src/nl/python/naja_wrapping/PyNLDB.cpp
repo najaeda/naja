@@ -256,12 +256,42 @@ PyObject* PyNLDB_dumpNajaIF(PyNLDB* self, PyObject* args) {
 PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
   PyObject* arg0 = nullptr;
   if (not PyArg_ParseTuple(args, "O:NLDB.loadLibertyPrimitives", &arg0)) {
-    setError("malformed NLDB loadLibertyPrimitives");
     return nullptr;
   }
   if (not PyList_Check(arg0)) {
-    setError("malformed SNLDesign.loadLibertyPrimitives method");
+    PyErr_Format(
+      PyExc_TypeError,
+      "NLDB.loadLibertyPrimitives: files must be a list[str], got %s",
+      Py_TYPE(arg0)->tp_name);
     return nullptr;
+  }
+  if (PyList_Size(arg0) == 0) {
+    PyErr_SetString(
+      PyExc_ValueError,
+      "NLDB.loadLibertyPrimitives: files must contain at least one Liberty path");
+    return nullptr;
+  }
+  SNLLibertyConstructor::Paths paths;
+  paths.reserve(static_cast<size_t>(PyList_Size(arg0)));
+  for (int i = 0; i < PyList_Size(arg0); ++i) {
+    PyObject* object = PyList_GetItem(arg0, i);
+    if (not PyUnicode_Check(object)) {
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadLibertyPrimitives: files[%d] must be a str path, got %s",
+        i,
+        Py_TYPE(object)->tp_name);
+      return nullptr;
+    }
+    std::string pathStr = PyUnicode_AsUTF8(object);
+    if (pathStr.empty()) {
+      PyErr_Format(
+        PyExc_ValueError,
+        "NLDB.loadLibertyPrimitives: files[%d] must not be empty",
+        i);
+      return nullptr;
+    }
+    paths.emplace_back(pathStr);
   }
   METHOD_HEAD("NLDB.loadLibertyPrimitives()")
   NLLibrary* primitivesLibrary = nullptr;
@@ -269,17 +299,6 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
   if (primitivesLibrary == nullptr) {
     primitivesLibrary =
       NLLibrary::create(selfObject, NLLibrary::Type::Primitives, NLName("PRIMS"));
-  }
-  SNLLibertyConstructor::Paths paths;
-  paths.reserve(static_cast<size_t>(PyList_Size(arg0)));
-  for (int i = 0; i < PyList_Size(arg0); ++i) {
-    PyObject* object = PyList_GetItem(arg0, i);
-    if (not PyUnicode_Check(object)) {
-      setError("NLDB loadLibertyPrimitives argument should be a file path");
-      return nullptr;
-    }
-    std::string pathStr = PyUnicode_AsUTF8(object);
-    paths.emplace_back(pathStr);
   }
   // LCOV_EXCL_START
   TRY
@@ -308,56 +327,50 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     const_cast<char**>(kwords),
     &files, &keep_assigns, &blackbox_unknown_modules, &preprocess_enabled,
     &conflicting_design_name_policy)) {
-    setError("malformed NLDB loadVerilog");
     return nullptr;
   }
 
   if (not PyList_Check(files)) {
-    setError("malformed NLDB.loadVerilog method");
+    PyErr_Format(
+      PyExc_TypeError,
+      "NLDB.loadVerilog: files must be a list[str], got %s",
+      Py_TYPE(files)->tp_name);
     return nullptr;
   }
-  NLDB* db = self->object_;
-  SNLDesign* top = nullptr;
-  TRY
-  //loadVerilog can be called multiple times
-  //last one gets top
-  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
-  if (designLibrary == nullptr) {
-    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+  if (PyList_Size(files) == 0) {
+    PyErr_SetString(
+      PyExc_ValueError,
+      "NLDB.loadVerilog: files must contain at least one Verilog path");
+    return nullptr;
   }
-  SNLVRLConstructor constructor(designLibrary);
-  if (blackbox_unknown_modules) {
-    constructor.config_.blackboxUnknownModules_ = true;
-  }
-  if (preprocess_enabled) {
-    constructor.config_.preprocessEnabled_ = true;
-  }
+  using Policy = SNLVRLConstructor::Config::ConflictingDesignNamePolicy;
+  Policy policy = Policy::Forbid;
   // Conflicting design name policy (optional)
   if (conflicting_design_name_policy != nullptr && conflicting_design_name_policy != Py_None) {
-    using Policy = SNLVRLConstructor::Config::ConflictingDesignNamePolicy;
-
     if (!PyUnicode_Check(conflicting_design_name_policy)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadVerilog: conflicting_design_name_policy must be a str, got: "
-          << getStringForPyObject(conflicting_design_name_policy);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadVerilog: conflicting_design_name_policy must be a str or None, "
+        "got %s",
+        Py_TYPE(conflicting_design_name_policy)->tp_name);
       return nullptr;
     }
 
     const std::string s = PyUnicode_AsUTF8(conflicting_design_name_policy);
     if (s == "forbid") {
-      constructor.config_.conflictingDesignNamePolicy_ = Policy::Forbid;
+      policy = Policy::Forbid;
     } else if (s == "first") {
-      constructor.config_.conflictingDesignNamePolicy_ = Policy::FirstOne;
+      policy = Policy::FirstOne;
     } else if (s == "last") {
-      constructor.config_.conflictingDesignNamePolicy_ = Policy::LastOne;
+      policy = Policy::LastOne;
     } else if (s == "verify") {
-      constructor.config_.conflictingDesignNamePolicy_ = Policy::VerifyEquality;
+      policy = Policy::VerifyEquality;
     } else {
-      std::ostringstream oss;
-      oss << "NLDB.loadVerilog: invalid conflicting_design_name_policy '" << s
-          << "' (expected one of: forbid, first, last, verify)";
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_ValueError,
+        "NLDB.loadVerilog: invalid conflicting_design_name_policy '%s'; "
+        "expected one of: forbid, first, last, verify",
+        s.c_str());
       return nullptr;
     }
   }
@@ -366,22 +379,53 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   for (int i = 0; i < PyList_Size(files); ++i) {
     PyObject* object = PyList_GetItem(files, i);
     if (not PyUnicode_Check(object)) {
-      setError("NLDB loadVerilog argument should be a file path");
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadVerilog: files[%d] must be a str path, got %s",
+        i,
+        Py_TYPE(object)->tp_name);
       return nullptr;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
+    if (pathStr.empty()) {
+      PyErr_Format(
+        PyExc_ValueError,
+        "NLDB.loadVerilog: files[%d] must not be empty",
+        i);
+      return nullptr;
+    }
     const std::filesystem::path path(pathStr);
     inputPaths.push_back(path);
   }
+  METHOD_HEAD("NLDB.loadVerilog()")
+  NLDB* db = selfObject;
+  SNLDesign* top = nullptr;
+  TRY
+  // loadVerilog can be called multiple times; the last load determines the top.
+  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
+  if (designLibrary == nullptr) {
+    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+  }
+  SNLVRLConstructor constructor(designLibrary);
+  constructor.config_.blackboxUnknownModules_ = blackbox_unknown_modules;
+  constructor.config_.preprocessEnabled_ = preprocess_enabled;
+  constructor.config_.conflictingDesignNamePolicy_ = policy;
   try {
     constructor.construct(inputPaths);
   } catch (const std::exception& e) {
     const auto location = constructor.getCurrentLocation();
     std::ostringstream error;
-    error << "Error while parsing Verilog: "
-      << location.currentPath_.string() << ":"
-      << location.line_ << ":"
-      << location.column_ << ": ";
+    error << "Error while parsing Verilog";
+    if (not location.currentPath_.empty()) {
+      error << " at " << location.currentPath_.string();
+      if (location.line_ != 0) {
+        error << ":" << location.line_;
+        if (location.column_ != 0) {
+          error << ":" << location.column_;
+        }
+      }
+    }
+    error << ": ";
     setError(error.str() + e.what());
     return nullptr;
   }
@@ -393,7 +437,9 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     NLUniverse::get()->setTopDesign(top);
     NLUniverse::get()->setTopDB(top->getDB());
   } else {
-    setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
+    setError(
+      "No top design was found after parsing verilog. Ensure the input has "
+      "exactly one uninstantiated root module."); //LCOV_EXCL_LINE
     return nullptr; //LCOV_EXCL_LINE
   }
   NLCATCH
@@ -428,24 +474,17 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
     &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules)) {
-    setError("malformed NLDB loadSystemVerilog");
     return nullptr;
   }
 
   if (not PyList_Check(files)) {
-    setError("malformed NLDB.loadSystemVerilog method");
+    PyErr_Format(
+      PyExc_TypeError,
+      "NLDB.loadSystemVerilog: files must be a list[str], got %s",
+      Py_TYPE(files)->tp_name);
     return nullptr;
   }
 
-  NLDB* db = self->object_;
-  SNLDesign* top = nullptr;
-  TRY
-  // SystemVerilog parsing elaborates designs into the DESIGN library.
-  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
-  if (designLibrary == nullptr) {
-    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
-  }
-  SNLSVConstructor constructor(designLibrary);
   SNLSVConstructor::ConstructOptions options;
   options.prettyPrintElaboratedASTJson = pretty_print_elaborated_ast_json;
   options.includeSourceInfoInElaboratedASTJson =
@@ -456,62 +495,129 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
     if (not PyUnicode_Check(elaborated_ast_json_path)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadSystemVerilog: elaborated_ast_json_path must be a str, got: "
-          << getStringForPyObject(elaborated_ast_json_path);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: elaborated_ast_json_path must be a str or None, "
+        "got %s",
+        Py_TYPE(elaborated_ast_json_path)->tp_name);
       return nullptr;
     }
-    options.elaboratedASTJsonPath =
-      std::filesystem::path(PyUnicode_AsUTF8(elaborated_ast_json_path));
+    const std::string path = PyUnicode_AsUTF8(elaborated_ast_json_path);
+    if (path.empty()) {
+      PyErr_SetString(
+        PyExc_ValueError,
+        "NLDB.loadSystemVerilog: elaborated_ast_json_path must not be empty");
+      return nullptr;
+    }
+    options.elaboratedASTJsonPath = std::filesystem::path(path);
   }
   if (diagnostics_report_path == Py_None) {
     options.diagnosticsReportPath.reset();
   } else if (diagnostics_report_path != nullptr) {
     if (not PyUnicode_Check(diagnostics_report_path)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadSystemVerilog: diagnostics_report_path must be a str, got: "
-          << getStringForPyObject(diagnostics_report_path);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: diagnostics_report_path must be a str or None, "
+        "got %s",
+        Py_TYPE(diagnostics_report_path)->tp_name);
       return nullptr;
     }
-    options.diagnosticsReportPath =
-      std::filesystem::path(PyUnicode_AsUTF8(diagnostics_report_path));
+    const std::string path = PyUnicode_AsUTF8(diagnostics_report_path);
+    if (path.empty()) {
+      PyErr_SetString(
+        PyExc_ValueError,
+        "NLDB.loadSystemVerilog: diagnostics_report_path must not be empty; "
+        "pass None to disable the report");
+      return nullptr;
+    }
+    options.diagnosticsReportPath = std::filesystem::path(path);
   }
 
   if (suppress_warnings != nullptr && suppress_warnings != Py_None) {
     if (not PyList_Check(suppress_warnings)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadSystemVerilog: suppress_warnings must be a list, got: "
-          << getStringForPyObject(suppress_warnings);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: suppress_warnings must be a list[str] or None, "
+        "got %s",
+        Py_TYPE(suppress_warnings)->tp_name);
       return nullptr;
     }
     for (Py_ssize_t i = 0; i < PyList_Size(suppress_warnings); ++i) {
       PyObject* item = PyList_GetItem(suppress_warnings, i);
       if (not PyUnicode_Check(item)) {
-        setError("NLDB.loadSystemVerilog: suppress_warnings items must be strings");
+        PyErr_Format(
+          PyExc_TypeError,
+          "NLDB.loadSystemVerilog: suppress_warnings[%zd] must be a str, got %s",
+          i,
+          Py_TYPE(item)->tp_name);
         return nullptr;
       }
-      options.suppressWarnings.push_back(PyUnicode_AsUTF8(item));
+      const std::string warning = PyUnicode_AsUTF8(item);
+      if (warning.empty()) {
+        PyErr_Format(
+          PyExc_ValueError,
+          "NLDB.loadSystemVerilog: suppress_warnings[%zd] must not be empty",
+          i);
+        return nullptr;
+      }
+      if (warning.find_first_of(" \t\r\n") != std::string::npos) {
+        PyErr_Format(
+          PyExc_ValueError,
+          "NLDB.loadSystemVerilog: suppress_warnings[%zd] must not contain "
+          "whitespace; got '%s'",
+          i,
+          warning.c_str());
+        return nullptr;
+      }
+      if (warning.starts_with("-W")) {
+        PyErr_Format(
+          PyExc_ValueError,
+          "NLDB.loadSystemVerilog: suppress_warnings[%zd] must be the warning "
+          "name without a -W/-Wno- prefix; got '%s'",
+          i,
+          warning.c_str());
+        return nullptr;
+      }
+      options.suppressWarnings.push_back(warning);
     }
   }
 
   if (defines != nullptr && defines != Py_None) {
     if (not PyList_Check(defines)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadSystemVerilog: defines must be a list, got: "
-          << getStringForPyObject(defines);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: defines must be a list[str] or None, got %s",
+        Py_TYPE(defines)->tp_name);
       return nullptr;
     }
     for (Py_ssize_t i = 0; i < PyList_Size(defines); ++i) {
       PyObject* item = PyList_GetItem(defines, i);
       if (not PyUnicode_Check(item)) {
-        setError("NLDB.loadSystemVerilog: defines items must be strings");
+        PyErr_Format(
+          PyExc_TypeError,
+          "NLDB.loadSystemVerilog: defines[%zd] must be a str, got %s",
+          i,
+          Py_TYPE(item)->tp_name);
         return nullptr;
       }
-      options.preprocessorDefines.push_back(PyUnicode_AsUTF8(item));
+      const std::string define = PyUnicode_AsUTF8(item);
+      if (define.empty()) {
+        PyErr_Format(
+          PyExc_ValueError,
+          "NLDB.loadSystemVerilog: defines[%zd] must not be empty",
+          i);
+        return nullptr;
+      }
+      if (define.find_first_of(" \t\r\n") != std::string::npos) {
+        PyErr_Format(
+          PyExc_ValueError,
+          "NLDB.loadSystemVerilog: defines[%zd] must not contain whitespace; "
+          "got '%s'",
+          i,
+          define.c_str());
+        return nullptr;
+      }
+      options.preprocessorDefines.push_back(define);
     }
   }
 
@@ -519,26 +625,60 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   Paths inputPaths;
   if (flist != nullptr && flist != Py_None) {
     if (not PyUnicode_Check(flist)) {
-      std::ostringstream oss;
-      oss << "NLDB.loadSystemVerilog: flist must be a str, got: "
-          << getStringForPyObject(flist);
-      setError(oss.str());
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: flist must be a str or None, got %s",
+        Py_TYPE(flist)->tp_name);
+      return nullptr;
+    }
+    const std::string flistPath = PyUnicode_AsUTF8(flist);
+    if (flistPath.empty()) {
+      PyErr_SetString(
+        PyExc_ValueError,
+        "NLDB.loadSystemVerilog: flist must not be empty");
       return nullptr;
     }
     inputPaths.emplace_back(std::filesystem::path("-f"));
-    inputPaths.emplace_back(std::filesystem::path(PyUnicode_AsUTF8(flist)));
+    inputPaths.emplace_back(std::filesystem::path(flistPath));
   }
   for (int i = 0; i < PyList_Size(files); ++i) {
     PyObject* object = PyList_GetItem(files, i);
     if (not PyUnicode_Check(object)) {
-      setError("NLDB loadSystemVerilog argument should be a file path");
+      PyErr_Format(
+        PyExc_TypeError,
+        "NLDB.loadSystemVerilog: files[%d] must be a str path, got %s",
+        i,
+        Py_TYPE(object)->tp_name);
       return nullptr;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
+    if (pathStr.empty()) {
+      PyErr_Format(
+        PyExc_ValueError,
+        "NLDB.loadSystemVerilog: files[%d] must not be empty",
+        i);
+      return nullptr;
+    }
     const std::filesystem::path path(pathStr);
     inputPaths.push_back(path);
   }
+  if (inputPaths.empty()) {
+    PyErr_SetString(
+      PyExc_ValueError,
+      "NLDB.loadSystemVerilog: provide at least one files path or flist");
+    return nullptr;
+  }
 
+  METHOD_HEAD("NLDB.loadSystemVerilog()")
+  NLDB* db = selfObject;
+  SNLDesign* top = nullptr;
+  TRY
+  // SystemVerilog parsing elaborates designs into the DESIGN library.
+  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
+  if (designLibrary == nullptr) {
+    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+  }
+  SNLSVConstructor constructor(designLibrary);
   try {
     constructor.construct(inputPaths, options);
   } catch (const std::exception& e) {
@@ -572,7 +712,10 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     NLUniverse::get()->setTopDesign(top);
     NLUniverse::get()->setTopDB(top->getDB());
   } else {
-    setError("No top design was found after parsing systemverilog");
+    setError(
+      "No top design was found after parsing systemverilog. Ensure the input "
+      "has exactly one uninstantiated root module, or select one with a "
+      "--top <module> entry in flist.");
     return nullptr;
   }
   NLCATCH

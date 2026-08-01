@@ -4,9 +4,11 @@
 
 #include "gtest/gtest.h"
 #include <filesystem>
+#include <fstream>
 
 #include "NajaVersion.h"
 #include "SNLDumpManifest.h"
+#include "SNLDumpException.h"
 #include "NLException.h"
 using namespace naja::NL;
 
@@ -66,4 +68,64 @@ TEST_F(SNLDumpManifestTest, testErrors) {
   std::filesystem::path errorPath("/error");
   EXPECT_THROW(SNLDumpManifest::dump(errorPath), NLException);
   EXPECT_THROW(SNLDumpManifest::load(errorPath), NLException);
+}
+
+TEST_F(SNLDumpManifestTest, malformedRecordsExplainHowToRepairManifest) {
+  const auto manifestDir = manifestsPath_ / "malformed";
+  std::filesystem::remove_all(manifestDir);
+  std::filesystem::create_directory(manifestDir);
+  const auto manifestPath = manifestDir / SNLDumpManifest::ManifestFileName;
+
+  {
+    std::ofstream manifest(manifestPath);
+    manifest << "# SNL manifest\n"
+             << "V 1 two 3\n"
+             << "P producer hash\n";
+  }
+
+  try {
+    static_cast<void>(SNLDumpManifest::load(manifestDir));
+    FAIL() << "Expected malformed manifest to throw";
+  } catch (const SNLDumpException& e) {
+    const std::string reason = e.getReason();
+    EXPECT_NE(reason.find(manifestPath.string()), std::string::npos);
+    EXPECT_NE(reason.find("line 2"), std::string::npos);
+    EXPECT_NE(reason.find("got `two`"), std::string::npos);
+    EXPECT_NE(reason.find("V <major> <minor> <revision>"), std::string::npos);
+  }
+}
+
+TEST_F(SNLDumpManifestTest, unknownAndMissingRecordsAreActionable) {
+  const auto manifestDir = manifestsPath_ / "unknown_record";
+  std::filesystem::remove_all(manifestDir);
+  std::filesystem::create_directory(manifestDir);
+  const auto manifestPath = manifestDir / SNLDumpManifest::ManifestFileName;
+
+  {
+    std::ofstream manifest(manifestPath);
+    manifest << "X unsupported\n";
+  }
+  try {
+    static_cast<void>(SNLDumpManifest::load(manifestDir));
+    FAIL() << "Expected unknown manifest record to throw";
+  } catch (const SNLDumpException& e) {
+    const std::string reason = e.getReason();
+    EXPECT_NE(reason.find("unknown record type `X`"), std::string::npos);
+    EXPECT_NE(reason.find("line 1"), std::string::npos);
+  }
+
+  {
+    std::ofstream manifest(manifestPath);
+    manifest << "# producer-only legacy manifest\n"
+             << "P producer hash\n";
+  }
+  try {
+    static_cast<void>(SNLDumpManifest::load(manifestDir));
+    FAIL() << "Expected missing schema record to throw";
+  } catch (const SNLDumpException& e) {
+    const std::string reason = e.getReason();
+    EXPECT_NE(reason.find(manifestPath.string()), std::string::npos);
+    EXPECT_NE(reason.find("missing required schema version record"), std::string::npos);
+    EXPECT_NE(reason.find("V <major> <minor> <revision>"), std::string::npos);
+  }
 }

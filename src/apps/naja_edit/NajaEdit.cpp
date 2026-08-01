@@ -100,6 +100,67 @@ void logInstanceCountDelta(
       after.reachableModels);
 }
 
+bool validateExistingPath(
+    const std::filesystem::path& path,
+    std::string_view option,
+    std::string_view purpose) {
+  if (path.empty()) {
+    NAJA_LOG_CRITICAL(
+      "{} contains an empty path; provide a path to {}",
+      option,
+      purpose);
+    return false;
+  }
+  std::error_code ec;
+  const bool exists = std::filesystem::exists(path, ec);
+  if (ec) {
+    NAJA_LOG_CRITICAL(
+      "Cannot inspect {} path '{}': {}",
+      purpose,
+      path.string(),
+      ec.message());
+    return false;
+  }
+  if (!exists) {
+    NAJA_LOG_CRITICAL(
+      "{} path '{}' does not exist (resolved to '{}')",
+      purpose,
+      path.string(),
+      std::filesystem::absolute(path).string());
+    return false;
+  }
+  return true;
+}
+
+bool validateOutputPath(
+    const std::filesystem::path& path,
+    std::string_view option,
+    std::string_view purpose) {
+  if (path.empty()) {
+    NAJA_LOG_CRITICAL(
+      "{} requires a non-empty path for {}",
+      option,
+      purpose);
+    return false;
+  }
+  const auto parent = path.parent_path().empty()
+    ? std::filesystem::current_path()
+    : path.parent_path();
+  std::error_code ec;
+  const bool parentExists = std::filesystem::is_directory(parent, ec);
+  if (ec || !parentExists) {
+    NAJA_LOG_CRITICAL(
+      "Cannot write {} to '{}': parent directory '{}' {}. "
+      "Create the directory or choose another path",
+      purpose,
+      path.string(),
+      parent.string(),
+      ec ? "cannot be inspected" : "does not exist");
+    return false;
+  }
+  return true;
+}
+
 }
 
 int main(int argc, char* argv[]) {
@@ -109,7 +170,8 @@ int main(int argc, char* argv[]) {
       "Edit gate level netlists using python script and apply optimizations");
   program.add_argument("-f", "--from_format")
     .help("from/input format (verilog|systemverilog|sv|snl)");
-  program.add_argument("-t", "--to_format").help("to/output format");
+  program.add_argument("-t", "--to_format")
+    .help("to/output format (verilog|snl|dot)");
   program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
   program.add_argument("-p", "--primitives")
@@ -200,15 +262,21 @@ int main(int argc, char* argv[]) {
     inputFormat = *inputFormatArg;
   }
   FormatType inputFormatType = argToFormatType(inputFormat);
-  if (inputFormatType == FormatType::UNKNOWN) {
-    NAJA_LOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
+  if (inputFormatType == FormatType::UNKNOWN ||
+      inputFormatType == FormatType::DOT ||
+      inputFormatType == FormatType::SVG) {
+    NAJA_LOG_CRITICAL(
+      "Invalid value '{}' for --from_format (-f). "
+      "Expected one of: verilog, systemverilog (or sv), snl",
+      inputFormat);
     argError = true;
   }
 
   if (program.present("-i")) {
     if (inputFormatType == FormatType::NOT_PROVIDED) {
-      NAJA_LOG_CRITICAL("output option (-f) is mandatory when the input is provided");
-      std::exit(EXIT_FAILURE);
+      NAJA_LOG_CRITICAL(
+        "--from_format (-f) is required when --input (-i) is provided");
+      argError = true;
     }
   }
 
@@ -220,7 +288,14 @@ int main(int argc, char* argv[]) {
       // in case output format is not provided and output path is provided
       // output format is same as input format
       if (inputFormatType == FormatType::NOT_PROVIDED) {
-        NAJA_LOG_CRITICAL("output format option (-t) is mandatory");
+        NAJA_LOG_CRITICAL(
+          "--to_format (-t) is required when --output (-o) is provided "
+          "without an input format to infer from");
+        argError = true;
+      } else if (inputFormatType == FormatType::SYSTEMVERILOG) {
+        NAJA_LOG_CRITICAL(
+          "--to_format (-t) is required for SystemVerilog input. "
+          "Expected one of: verilog, snl, dot");
         argError = true;
       } else {
         outputFormat = inputFormat;
@@ -229,15 +304,22 @@ int main(int argc, char* argv[]) {
   }
   FormatType outputFormatType = argToFormatType(outputFormat);
   
-  if (outputFormatType == FormatType::UNKNOWN) {
-    NAJA_LOG_CRITICAL("Unrecognized output format type: {}", outputFormat);
+  if (outputFormatType == FormatType::UNKNOWN ||
+      outputFormatType == FormatType::SYSTEMVERILOG ||
+      outputFormatType == FormatType::SVG) {
+    NAJA_LOG_CRITICAL(
+      "Invalid value '{}' for --to_format (-t). "
+      "Expected one of: verilog, snl, dot",
+      outputFormat);
     argError = true;
   }
 
   Paths primitivesPaths;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
-      NAJA_LOG_CRITICAL("primitives option (-p) is incompatible with input format 'SNL'");
+      NAJA_LOG_CRITICAL(
+        "--primitives (-p) is incompatible with --from_format snl because "
+        "an SNL snapshot already carries its primitive libraries");
       argError = true;
     }
     auto primitivesPathsString = program.get<std::vector<std::string>>("-p");
@@ -303,19 +385,26 @@ int main(int argc, char* argv[]) {
       "For SystemVerilog input, provide at least one --input (-i) file or --sv_flist");
     argError = true;
   }
+  if (inputFormatType != FormatType::NOT_PROVIDED &&
+      inputFormatType != FormatType::UNKNOWN &&
+      inputFormatType != FormatType::SYSTEMVERILOG &&
+      !program.present("-i")) {
+    NAJA_LOG_CRITICAL(
+      "--input (-i) is required with --from_format '{}'",
+      inputFormat);
+    argError = true;
+  }
 
   OptimizationType optimizationType = OptimizationType::NOT_PROVIDED;
   if (auto optimizationArg = program.present("-a")) {
     std::string optimization = *optimizationArg;
     optimizationType = argToOptimizationType(optimization);
     if (optimizationType == OptimizationType::UNKNOWN) {
-      NAJA_LOG_CRITICAL("Unrecognized optimization type: {}", optimization);
+      NAJA_LOG_CRITICAL(
+        "Invalid value '{}' for --apply (-a). Expected one of: dle, all",
+        optimization);
       argError = true;
     }
-  }
-
-  if (argError) {
-    std::exit(-1);
   }
 
   using StringPaths = std::vector<std::string>;
@@ -329,14 +418,52 @@ int main(int argc, char* argv[]) {
                    return std::filesystem::path(sp);
                  });
 
+  if (inputFormatType == FormatType::SNL && inputPaths.size() > 1) {
+    NAJA_LOG_CRITICAL(
+      "--from_format snl accepts exactly one --input path, but {} were provided",
+      inputPaths.size());
+    argError = true;
+  }
+  for (const auto& inputPath : inputPaths) {
+    argError =
+      !validateExistingPath(inputPath, "--input (-i)", "input") || argError;
+  }
+  for (const auto& primitivesPath : primitivesPaths) {
+    argError =
+      !validateExistingPath(
+        primitivesPath, "--primitives (-p)", "primitives input") || argError;
+  }
+  if (hasSvFlistPath) {
+    argError =
+      !validateExistingPath(
+        svFlistPath, "--sv_flist", "SystemVerilog command file") || argError;
+  }
+  if (auto preEdit = program.present("-e")) {
+    argError =
+      !validateExistingPath(*preEdit, "--pre_edit (-e)", "pre-edit script") || argError;
+  }
+  if (auto postEdit = program.present("-z")) {
+    argError =
+      !validateExistingPath(*postEdit, "--post_edit (-z)", "post-edit script") || argError;
+  }
+
   std::filesystem::path outputPath;
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
+    argError =
+      !validateOutputPath(outputPath, "--output (-o)", "netlist output") || argError;
   } else {
     if (outputFormatType != FormatType::NOT_PROVIDED) {
-      NAJA_LOG_CRITICAL("output option (-o) is mandatory when the output format provided");
-      std::exit(EXIT_FAILURE);
+      NAJA_LOG_CRITICAL(
+        "--output (-o) is required when --to_format (-t) is provided");
+      argError = true;
     }
+  }
+
+  if (argError) {
+    NAJA_LOG_CRITICAL(
+      "Invalid command-line configuration; run 'naja_edit --help' for usage");
+    return EXIT_FAILURE;
   }
 
   try {
@@ -367,7 +494,9 @@ int main(int argc, char* argv[]) {
           libertyPrimitivesPaths.push_back(path);
         } else {
           NAJA_LOG_CRITICAL(
-            "Unknown primitives path extension; expected .py, .lib*, or a gzip/zip Liberty file");
+            "Cannot determine primitives format for '{}'. Expected a .py file, "
+            "a .lib* Liberty file, or a gzip/zip file containing Liberty data",
+            path.string());
           std::exit(EXIT_FAILURE);
         }
       }
@@ -380,10 +509,6 @@ int main(int argc, char* argv[]) {
 
       if (inputFormatType == FormatType::SNL) {
         naja::NajaPerf::Scope scope("Parsing SNL format");
-        if (inputPaths.size() > 1) {
-          NAJA_LOG_CRITICAL("Multiple input paths are not supported for SNL format");
-          std::exit(EXIT_FAILURE);
-        }
         const auto start{std::chrono::steady_clock::now()};
         auto inputPath = inputPaths[0];
         db = SNLCapnP::load(inputPath);
@@ -412,7 +537,9 @@ int main(int argc, char* argv[]) {
           NLUniverse::get()->setTopDesign(top);
           NAJA_LOG_INFO("Found top design: " + top->getString());
         } else {
-          NAJA_LOG_ERROR("No top design was found after parsing verilog");
+          throw NLException(
+            "No top design was found after parsing Verilog. Ensure the input "
+            "has exactly one uninstantiated root module.");
         }
         const auto end{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{end - start};
@@ -522,7 +649,10 @@ int main(int argc, char* argv[]) {
           NLUniverse::get()->setTopDesign(top);
           NAJA_LOG_INFO("Found top design: " + top->getString());
         } else {
-          NAJA_LOG_ERROR("No top design was found after parsing systemverilog");
+          throw NLException(
+            "No top design was found after parsing SystemVerilog. Ensure the "
+            "input has exactly one uninstantiated root module, or select one "
+            "with --sv_top <module>.");
         }
         const auto end{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{end - start};
@@ -681,10 +811,11 @@ int main(int argc, char* argv[]) {
       }
     }
   } catch (const NLException& e) {
-    //SPDLOG_CRITICAL("Caught Naja error: {}\n{}",
-    //  e.what(), e.trace().to_string()); 
-    NAJA_LOG_CRITICAL("Caught SNL error: {}\n", e.what());
-    std::exit(EXIT_FAILURE);
+    NAJA_LOG_CRITICAL("naja_edit failed: {}", e.what());
+    return EXIT_FAILURE;
+  } catch (const std::exception& e) {
+    NAJA_LOG_CRITICAL("naja_edit failed with an unexpected error: {}", e.what());
+    return EXIT_FAILURE;
   }
   const auto najaEditEnd{std::chrono::steady_clock::now()};
   const std::chrono::duration<double> najaElapsedSeconds{najaEditEnd - najaEditStart};
@@ -706,5 +837,5 @@ int main(int argc, char* argv[]) {
   NAJA_LOG_INFO("naja version: {}", naja::NAJA_VERSION);
   NAJA_LOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
   NAJA_LOG_INFO("########################################################");
-  std::exit(EXIT_SUCCESS);
+  return EXIT_SUCCESS;
 }

@@ -85,7 +85,9 @@ class SNLDBTest(unittest.TestCase):
     db.dumpVerilog("./test_verilog")
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog()
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
+    with self.assertRaisesRegex(
+        TypeError, r"files must be a list\[str\], got str"):
+      db.loadLibertyPrimitives("./error.lib")
 
   def testLoadLibertyPrimitivesRenamedFiles(self):
     formats_path = os.environ.get('FORMATS_PATH')
@@ -155,8 +157,12 @@ class SNLDBTest(unittest.TestCase):
     db.destroy()
     db = naja.NLDB.create(u)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='verify') 
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy=1)
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='foo')
+    with self.assertRaisesRegex(
+        TypeError, r"conflicting_design_name_policy must be a str or None, got int"):
+      db.loadVerilog(verilogs, conflicting_design_name_policy=1)
+    with self.assertRaisesRegex(
+        ValueError, r"expected one of: forbid, first, last, verify"):
+      db.loadVerilog(verilogs, conflicting_design_name_policy='foo')
 
 
   def testSNLFormat(self):
@@ -225,7 +231,9 @@ class SNLDBTest(unittest.TestCase):
     primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
     db.loadVerilog(verilogs, keep_assigns=False)
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, keep_assign=False)
+    with self.assertRaisesRegex(
+        TypeError, r"unexpected keyword argument 'keep_assign'.*keep_assigns"):
+      db.loadVerilog(verilogs, keep_assign=False)
 
   def testAssignInstancePartition(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
@@ -454,10 +462,10 @@ endmodule
         source.write("module typed_internal; endmodule\n")
 
       db = naja.NLDB.create(u)
-      with self.assertRaises(naja.SystemVerilogInternalError) as context:
+      with self.assertRaises(ValueError) as context:
         db.loadSystemVerilog([valid_path], diagnostics_report_path="")
-      self.assertIsInstance(context.exception, RuntimeError)
-      self.assertIn("Empty path for diagnostics report dump", str(context.exception))
+      self.assertIn("diagnostics_report_path must not be empty", str(context.exception))
+      self.assertIn("pass None to disable", str(context.exception))
 
   def testSystemVerilogDiagnosticsReportCanBeDisabled(self):
     u = naja.NLUniverse.get()
@@ -691,8 +699,8 @@ endmodule
       multiTopFile.write("module top_a; endmodule\n")
       multiTopFile.write("module top_b; endmodule\n")
       multiTopPath = multiTopFile.name
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog()
+    with self.assertRaises(TypeError): db.loadVerilog("Error", "Error")
+    with self.assertRaises(TypeError): db.loadSystemVerilog()
     with self.assertRaises(RuntimeError) as context:
       db.loadSystemVerilog([missingSvFile])
     self.assertIn("Error while parsing SystemVerilog:", str(context.exception))
@@ -703,21 +711,42 @@ endmodule
     finally:
       if os.path.exists(multiTopPath):
         os.remove(multiTopPath)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog("Error")
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog(designs)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=1)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], defines=[1])
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=1)
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], suppress_warnings=[1])
-    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitives)
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(designs)
+    with self.assertRaisesRegex(
+        TypeError, r"files must be a list\[str\], got str"):
+      db.loadSystemVerilog("Error")
+    with self.assertRaisesRegex(
+        TypeError, r"files\[0\] must be a str path, got int"):
+      db.loadSystemVerilog(designs)
+    with self.assertRaisesRegex(
+        TypeError, r"files\[0\] must be a str path, got int"):
+      db.loadSystemVerilog([1])
+    with self.assertRaisesRegex(TypeError, "elaborated_ast_json_path.*got int"):
+      db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
+    with self.assertRaisesRegex(TypeError, "diagnostics_report_path.*got int"):
+      db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaisesRegex(TypeError, r"defines must be a list\[str\].*got int"):
+      db.loadSystemVerilog([svFile], defines=1)
+    with self.assertRaisesRegex(TypeError, r"defines\[0\].*got int"):
+      db.loadSystemVerilog([svFile], defines=[1])
+    with self.assertRaisesRegex(TypeError, r"suppress_warnings must be a list\[str\].*got int"):
+      db.loadSystemVerilog([svFile], suppress_warnings=1)
+    with self.assertRaisesRegex(TypeError, r"suppress_warnings\[0\].*got int"):
+      db.loadSystemVerilog([svFile], suppress_warnings=[1])
+    with self.assertRaisesRegex(TypeError, "flist.*got int"):
+      db.loadSystemVerilog([svFile], flist=1)
+    with self.assertRaises(TypeError): db.loadLibertyPrimitives("Error", "Error")
+    with self.assertRaisesRegex(
+        TypeError, r"NLDB\.loadVerilog: files must be a list\[str\], got str"):
+      db.loadVerilog("Error")
+    with self.assertRaisesRegex(
+        TypeError, r"NLDB\.loadLibertyPrimitives: files must be a list\[str\], got str"):
+      db.loadLibertyPrimitives("Error")
+    with self.assertRaisesRegex(
+        TypeError, r"files\[0\] must be a str path, got int"):
+      db.loadLibertyPrimitives(primitives)
+    with self.assertRaisesRegex(
+        TypeError, r"NLDB\.loadVerilog: files\[0\] must be a str path, got int"):
+      db.loadVerilog(designs)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesNoExtension)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtension)
     u.destroy()
