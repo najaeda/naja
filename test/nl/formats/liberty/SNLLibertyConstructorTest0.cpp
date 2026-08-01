@@ -61,6 +61,18 @@ void writeConflictingCellLiberty(
     << "}\n";
 }
 
+std::filesystem::path writeTemporaryLiberty(
+  const std::string& stem,
+  const std::string& contents) {
+  const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto path = std::filesystem::temp_directory_path()
+    / std::filesystem::path(
+      "naja_liberty_" + stem + "_" + std::to_string(stamp) + ".lib");
+  std::ofstream output(path, std::ios::binary);
+  output << contents;
+  return path;
+}
+
 }  // namespace
 
 TEST_F(SNLLibertyConstructorTest0, testConflictingCellNameFirstOneDefault) {
@@ -260,6 +272,213 @@ TEST_F(SNLLibertyConstructorTest0, testDetailedParserErrorMessage) {
   std::filesystem::remove(tempPath, ec);
 }
 
+TEST_F(SNLLibertyConstructorTest0, testUnnamedPinErrorHasGroupContext) {
+  auto tempPath = writeTemporaryLiberty(
+    "unnamed_pin",
+    R"(library (UNNAMED_PIN) {
+  cell (BAD) {
+    pin () {
+      direction : input;
+    }
+  }
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("While processing `pin`"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("The `pin` group must specify a name."));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testUnnamedSequentialGroupIsIgnored) {
+  auto tempPath = writeTemporaryLiberty(
+    "unnamed_ff",
+    R"(library (UNNAMED_FF) {
+  cell (FF) {
+    ff () {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "D";
+    }
+  }
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(tempPath));
+  auto* design = library_->getSNLDesign(NLName("FF"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(design));
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testInvalidBusBoundsHaveGroupContext) {
+  auto tempPath = writeTemporaryLiberty(
+    "invalid_bus_bounds",
+    R"(library (INVALID_BUS_BOUNDS) {
+  type (BAD_BUS) {
+    bit_from : invalid;
+    bit_to : 0;
+    downto : true;
+  }
+  cell (BAD) {
+    bus (A) {
+      bus_type : BAD_BUS;
+      direction : input;
+    }
+  }
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("While processing `bus (A)`"));
+    EXPECT_NE(std::string::npos, e.getReason().find("stoi"));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testUnnamedCellErrorHasCellContext) {
+  auto tempPath = writeTemporaryLiberty(
+    "unnamed_cell",
+    R"(library (UNNAMED_CELL) {
+  cell () {
+  }
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("cell `<unnamed>`"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("The `cell` group must specify a cell name."));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testPrimitiveCellInStandardLibraryError) {
+  auto tempPath = writeTemporaryLiberty(
+    "standard_library",
+    R"(library (STANDARD_LIBRARY) {
+  cell (PRIMITIVE) {
+  }
+})");
+  auto* standardLibrary = NLLibrary::create(
+    library_->getDB(),
+    NLLibrary::Type::Standard,
+    NLName("STANDARD_TARGET"));
+
+  SNLLibertyConstructor constructor(standardLibrary);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("cell `PRIMITIVE`"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("Cannot create a primitive design"));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testUnexpectedTopLevelGroup) {
+  auto tempPath = writeTemporaryLiberty(
+    "unexpected_top_level",
+    R"(cell (NOT_A_LIBRARY) {
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Expected a top-level `library` group, found `cell`."));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testUnnamedTopLevelLibrary) {
+  auto tempPath = writeTemporaryLiberty(
+    "unnamed_library",
+    R"(library () {
+})");
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "The top-level `library` group must specify a library name."));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testLibraryRenameCollisionHasFileContext) {
+  auto tempPath = writeTemporaryLiberty(
+    "library_name_collision",
+    R"(library (EXISTING_LIBRARY) {
+})");
+  NLLibrary::create(
+    library_->getDB(),
+    NLLibrary::Type::Standard,
+    NLName("EXISTING_LIBRARY"));
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find(tempPath.string()));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("another library"));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
 TEST_F(SNLLibertyConstructorTest0, testFunctionErrorHasLocationContext) {
   const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
   auto tempPath = std::filesystem::temp_directory_path()
@@ -294,6 +513,10 @@ TEST_F(SNLLibertyConstructorTest0, testFunctionErrorHasLocationContext) {
     EXPECT_NE(std::string::npos, reason.find(tempPath.string()));
     EXPECT_NE(std::string::npos, reason.find("cell `BAD`"));
     EXPECT_NE(std::string::npos, reason.find("pin `Y`"));
+    EXPECT_NE(std::string::npos, reason.find("at line 14"));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("`(((A ^ B) CI) | (A B`"));
   }
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);
@@ -337,6 +560,7 @@ TEST_F(SNLLibertyConstructorTest0, testMultiOutputFunctionErrorHasLocationContex
     EXPECT_NE(std::string::npos, reason.find(tempPath.string()));
     EXPECT_NE(std::string::npos, reason.find("cell `BAD_MULTI`"));
     EXPECT_NE(std::string::npos, reason.find("pin `Y1`"));
+    EXPECT_NE(std::string::npos, reason.find("at line 18"));
   }
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);
@@ -475,7 +699,16 @@ TEST_F(SNLLibertyConstructorTest0, testMissingDirection) {
       / std::filesystem::path("benchmarks")
       / std::filesystem::path("errors")
       / std::filesystem::path("missing_direction_error.lib"));
-  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    const auto& reason = e.getReason();
+    EXPECT_NE(std::string::npos, reason.find(testPath.string()));
+    EXPECT_NE(std::string::npos, reason.find("line 2, cell `cell0`"));
+    EXPECT_NE(std::string::npos, reason.find("`pin (A)` at line 3"));
+    EXPECT_NE(std::string::npos, reason.find("Direction not found"));
+  }
 }
 
 TEST_F(SNLLibertyConstructorTest0, testInconsistentBusChildDirections) {
@@ -489,7 +722,15 @@ TEST_F(SNLLibertyConstructorTest0, testInconsistentBusChildDirections) {
     constructor.construct(testPath);
     FAIL() << "Expected SNLLibertyConstructorException";
   } catch (const SNLLibertyConstructorException& e) {
-    EXPECT_NE(std::string::npos, e.getReason().find("Inconsistent child pin directions for bus DRV"));
+    const auto& reason = e.getReason();
+    EXPECT_NE(std::string::npos, reason.find(testPath.string()));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("line 11, cell `PADCELL_DRV_MIXED`"));
+    EXPECT_NE(std::string::npos, reason.find("`bus (DRV)` at line 16"));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("Inconsistent child pin directions for bus DRV"));
   }
 }
 

@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include <algorithm>
 #include <set>
 #include "NLUniverse.h"
 
@@ -16,6 +17,7 @@
 #include "SNLBusTerm.h"
 
 #include "SNLLibertyConstructor.h"
+#include "SNLLibertyConstructorException.h"
 #include "SNLVRLConstructor.h"
 #include "NLBitVecDynamic.h"
 #include "SNLDesignModeling.h"
@@ -788,4 +790,59 @@ TEST_F(SNLLibertyConstructorTest1, testFFSequentialModelCoverage) {
       library_->getSNLDesign(NLName("FF_MISSING_NEXT_STATE"));
   ASSERT_NE(nullptr, incomplete);
   EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(incomplete));
+}
+
+TEST_F(SNLLibertyConstructorTest1, testMultipleFFGroups) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "multiple_ff_groups.lib";
+
+  EXPECT_NO_THROW(constructor.construct(testPath));
+  EXPECT_NE(nullptr, library_->getSNLDesign(NLName("INV")));
+  auto* multiClock = library_->getSNLDesign(NLName("badcell"));
+  ASSERT_NE(nullptr, multiClock);
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(multiClock));
+
+  auto* multiState = library_->getSNLDesign(NLName("MULTI_STATE_FF"));
+  ASSERT_NE(nullptr, multiState);
+  ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(multiState));
+  const auto& model = SNLDesignModeling::getSequentialModel(multiState);
+  ASSERT_EQ(2u, model.states.size());
+  ASSERT_EQ(2u, model.outputs.size());
+  EXPECT_TRUE(std::any_of(
+      model.states[1].nextState.nodes.begin(),
+      model.states[1].nextState.nodes.end(),
+      [](const auto& node) {
+        return node.operation ==
+                   SNLDesignModeling::BooleanExpression::Operator::State &&
+               node.state == 0;
+      }));
+}
+
+TEST_F(SNLLibertyConstructorTest1, testSequentialModelErrorHasCellContext) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "errors" / "unknown_sequential_state.lib";
+
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "line 2, cell `BROKEN_FF`"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find("unknown_sequential_state.lib"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Invalid `next_state` expression for `ff (IQ, IQN)` at line 5"));
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Scalar term `UNKNOWN_STATE` referenced at character 1 "
+            "was not found in the cell interface."));
+  }
 }
