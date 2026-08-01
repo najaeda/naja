@@ -232,7 +232,9 @@ class SNLDBTest(unittest.TestCase):
     db.loadLibertyPrimitives(primitives)
     db.loadVerilog(verilogs, keep_assigns=False)
     with self.assertRaisesRegex(
-        TypeError, r"unexpected keyword argument 'keep_assign'.*keep_assigns"):
+        TypeError,
+        r"(?:unexpected keyword argument 'keep_assign'.*keep_assigns|"
+        r"'keep_assign' is an invalid keyword argument for NLDB\.loadVerilog\(\))"):
       db.loadVerilog(verilogs, keep_assign=False)
 
   def testAssignInstancePartition(self):
