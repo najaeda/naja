@@ -320,6 +320,7 @@ LibertyAst *LibertyParser::parse()
 
 	LibertyAst *ast = new LibertyAst;
 	ast->id = str;
+	ast->line = line;
 
 	while (1)
 	{

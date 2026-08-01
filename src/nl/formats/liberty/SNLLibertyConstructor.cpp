@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <map>
@@ -102,6 +103,7 @@ struct BusType {
 
 using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
 using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
+using TermSourceLines = std::map<SNLScalarTerm*, int, SNLScalarTerm::PointerLess>;
 using SequentialTermClocks = std::map<SNLBitTerm*, std::string, SNLBitTerm::InDesignLess>;
 
 struct ConstructedTerm {
@@ -158,18 +160,30 @@ enum class FunctionParsingType {
 
 std::string buildFunctionParseErrorReason(
   const std::string& pinName,
-  const std::string& cellName,
-  const std::filesystem::path& sourcePath,
+  int sourceLine,
+  const std::string& function,
   const std::string& parserReason) {
   std::ostringstream reason;
-  reason << "While parsing function for pin `";
-  reason << pinName;
-  reason << "` in cell `";
-  reason << cellName;
-  reason << "` from file `";
-  reason << sourcePath.string();
-  reason << "`: ";
-  reason << parserReason;
+  reason << "Invalid `function` expression for pin `" << pinName << "`";
+  if (sourceLine > 0) {
+    reason << " at line " << sourceLine;
+  }
+  reason << ": `" << function << "`: " << parserReason;
+  return reason.str();
+}
+
+std::string buildCellErrorReason(
+  const Yosys::LibertyAst* cell,
+  const std::filesystem::path& sourcePath,
+  const std::string& constructorReason) {
+  std::ostringstream reason;
+  reason << "Liberty construction error in file `" << sourcePath.string() << "`";
+  if (cell->line > 0) {
+    reason << ", line " << cell->line;
+  }
+  reason << ", cell `"
+         << (cell->args.empty() ? "<unnamed>" : cell->args[0])
+         << "`: " << constructorReason;
   return reason.str();
 }
 
@@ -181,6 +195,19 @@ std::string buildParserFileErrorReason(
   reason << sourcePath.string();
   reason << "`: ";
   reason << parserReason;
+  return reason.str();
+}
+
+std::string ensureFileContext(
+  const std::filesystem::path& sourcePath,
+  const std::string& reasonWithoutGuaranteedPath) {
+  if (reasonWithoutGuaranteedPath.find(sourcePath.string()) !=
+      std::string::npos) {
+    return reasonWithoutGuaranteedPath;
+  }
+  std::ostringstream reason;
+  reason << "Liberty loading error in file `" << sourcePath.string()
+         << "`: " << reasonWithoutGuaranteedPath;
   return reason.str();
 }
 
@@ -372,6 +399,7 @@ void registerConstructedTermModeling(
   SNLBusTerm* constructedBusTerm,
   TermFunctions& termFunctions,
   TermPins& termFunctionPins,
+  TermSourceLines& termFunctionLines,
   SequentialTermClocks& seqTermClocks,
   LibertyMemoryInterface& memoryInterface) {
   auto registerNextStateRole = [&](SNLBitTerm* term) {
@@ -422,8 +450,10 @@ void registerConstructedTermModeling(
     auto functionNode = const_cast<Yosys::LibertyAst*>(child)->find("function");
     if (functionNode) {
       termFunctions[constructedScalarTerm] = functionNode->value;
+      termFunctionLines[constructedScalarTerm] = functionNode->line;
     } else if (functionParsingType == FunctionParsingType::Combinational) {
       termFunctions[constructedScalarTerm] = pinName;
+      termFunctionLines[constructedScalarTerm] = child->line;
     }
   } else if (functionParsingType != FunctionParsingType::Ignore
     and constructedBusTerm
@@ -526,10 +556,40 @@ SNLTerm::Direction inferBundleDirection(
 SNLDesignModeling::BooleanExpression parseSequentialExpression(
     const SNLDesign* primitive,
     const std::string& expression,
-    const SNLBooleanTree::StateIdentifiers& stateIdentifiers) {
-  SNLBooleanTree tree;
-  tree.parse(primitive, expression, stateIdentifiers);
-  return tree.getBooleanExpression();
+    const SNLBooleanTree::StateIdentifiers& stateIdentifiers,
+    const std::string& context,
+    int sourceLine) {
+  try {
+    SNLBooleanTree tree;
+    tree.parse(primitive, expression, stateIdentifiers);
+    return tree.getBooleanExpression();
+  } catch (const SNLLibertyConstructorException& e) {
+    std::ostringstream reason;
+    reason << "Invalid " << context;
+    if (sourceLine > 0) {
+      reason << " at line " << sourceLine;
+    }
+    reason << ": `" << expression << "`: " << e.getReason();
+    throw SNLLibertyConstructorException(reason.str());
+  }
+}
+
+std::string getGroupDescription(const Yosys::LibertyAst* group) {
+  std::ostringstream description;
+  description << "`" << group->id;
+  if (group->args.empty()) {
+    description << "`";
+    return description.str();
+  }
+  description << " (";
+  for (size_t i = 0; i < group->args.size(); ++i) {
+    if (i > 0) {
+      description << ", ";
+    }
+    description << group->args[i];
+  }
+  description << ")`";
+  return description.str();
 }
 
 std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> getExpressionTerms(
@@ -609,45 +669,94 @@ void addSequentialModelArcs(
 void populateSequentialModel(
     SNLDesign* primitive,
     const Yosys::LibertyAst* cell,
-    const TermFunctions& termFunctions) {
-  auto ff = findDirectChild(cell, "ff");
-  if (ff == nullptr || ff->args.empty() || termFunctions.empty()) {
+    const TermFunctions& termFunctions,
+    const TermPins& termFunctionPins,
+    const TermSourceLines& termFunctionLines) {
+  std::vector<const Yosys::LibertyAst*> ffs;
+  for (auto* child : cell->children) {
+    if (child->id == "ff") {
+      ffs.push_back(child);
+    }
+  }
+  if (ffs.empty() || termFunctions.empty()) {
     return;
   }
 
   SNLBooleanTree::StateIdentifiers stateIdentifiers;
-  stateIdentifiers.emplace(ff->args[0], SNLBooleanTree::StateIdentifier{0, false});
-  if (ff->args.size() > 1) {
-    stateIdentifiers.emplace(ff->args[1], SNLBooleanTree::StateIdentifier{0, true});
-  }
+  const Yosys::LibertyAst* firstClockedOn = nullptr;
+  for (size_t stateIndex = 0; stateIndex < ffs.size(); ++stateIndex) {
+    const auto* ff = ffs[stateIndex];
+    if (ff->args.empty()) {
+      return;
+    }
+    stateIdentifiers.emplace(
+        ff->args[0], SNLBooleanTree::StateIdentifier{stateIndex, false});
+    if (ff->args.size() > 1) {
+      stateIdentifiers.emplace(
+          ff->args[1], SNLBooleanTree::StateIdentifier{stateIndex, true});
+    }
 
-  auto clockedOn = findDirectChild(ff, "clocked_on");
-  auto nextState = findDirectChild(ff, "next_state");
-  if (clockedOn == nullptr || nextState == nullptr) {
-    return;
+    auto* clockedOn = findDirectChild(ff, "clocked_on");
+    auto* nextState = findDirectChild(ff, "next_state");
+    if (clockedOn == nullptr || nextState == nullptr) {
+      return;
+    }
+    if (firstClockedOn == nullptr) {
+      firstClockedOn = clockedOn;
+    } else if (clockedOn->value != firstClockedOn->value) {
+      // SequentialModel has one clock expression shared by all states. Keep
+      // the primitive loadable when Liberty describes independently-clocked
+      // state groups, but do not attach a model that would misrepresent them.
+      return;
+    }
   }
 
   SNLDesignModeling::SequentialModel model;
   model.clockedOn = parseSequentialExpression(
-      primitive, clockedOn->value, stateIdentifiers);
-  SNLDesignModeling::SequentialState state;
-  state.nextState = parseSequentialExpression(
-      primitive, nextState->value, stateIdentifiers);
-  if (auto clear = findDirectChild(ff, "clear")) {
-    state.clear = parseSequentialExpression(
-        primitive, clear->value, stateIdentifiers);
+      primitive,
+      firstClockedOn->value,
+      stateIdentifiers,
+      "`clocked_on` expression for " + getGroupDescription(ffs.front()),
+      firstClockedOn->line);
+  for (const auto* ff : ffs) {
+    SNLDesignModeling::SequentialState state;
+    auto* nextState = findDirectChild(ff, "next_state");
+    state.nextState = parseSequentialExpression(
+        primitive,
+        nextState->value,
+        stateIdentifiers,
+        "`next_state` expression for " + getGroupDescription(ff),
+        nextState->line);
+    if (auto* clear = findDirectChild(ff, "clear")) {
+      state.clear = parseSequentialExpression(
+          primitive,
+          clear->value,
+          stateIdentifiers,
+          "`clear` expression for " + getGroupDescription(ff),
+          clear->line);
+    }
+    if (auto* preset = findDirectChild(ff, "preset")) {
+      state.preset = parseSequentialExpression(
+          primitive,
+          preset->value,
+          stateIdentifiers,
+          "`preset` expression for " + getGroupDescription(ff),
+          preset->line);
+    }
+    state.clearPresetValue = getClearPresetValue(ff);
+    model.states.push_back(std::move(state));
   }
-  if (auto preset = findDirectChild(ff, "preset")) {
-    state.preset = parseSequentialExpression(
-        primitive, preset->value, stateIdentifiers);
-  }
-  state.clearPresetValue = getClearPresetValue(ff);
-  model.states.push_back(std::move(state));
 
   for (const auto& [term, function] : termFunctions) {
     model.outputs.push_back({
         term,
-        parseSequentialExpression(primitive, function, stateIdentifiers)});
+        parseSequentialExpression(
+            primitive,
+            function,
+            stateIdentifiers,
+            "`function` expression for pin `" +
+                termFunctionPins.at(term) + "`",
+            termFunctionLines.at(term))});
   }
   SNLDesignModeling::setSequentialModel(primitive, model);
   addSequentialModelArcs(model);
@@ -657,58 +766,83 @@ void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
   const Yosys::LibertyAst* cell,
-  const std::filesystem::path& sourcePath,
   FunctionParsingType functionParsingType = FunctionParsingType::Ignore) {
   TermFunctions termFunctions;
   TermPins termFunctionPins;
+  TermSourceLines termFunctionLines;
   SequentialTermClocks seqTermClocks;
   LibertyMemoryInterface memoryInterface;
   populateMemoryInterfaceHeader(cell, memoryInterface);
   for (auto child: cell->children) {
-    if (child->id == "pin" or child->id == "bus") {
-      auto constructedTerm = constructTerm(primitive, top, child);
-      registerConstructedTermModeling(
-        child,
-        child->args[0],
-        functionParsingType,
-        constructedTerm.scalar,
-        constructedTerm.bus,
-        termFunctions,
-        termFunctionPins,
-        seqTermClocks,
-        memoryInterface);
-    } else if (child->id == "bundle") {
-      auto bundleDirectionNode = findDirectionNode(child);
-      if (bundleDirectionNode != nullptr and bundleDirectionNode->value == "internal") {
-        continue;
+    try {
+      if ((child->id == "pin" || child->id == "bus" ||
+           child->id == "bundle") && child->args.empty()) {
+        throw SNLLibertyConstructorException(
+            "The `" + child->id + "` group must specify a name.");
       }
-      auto orderedMembers = getBundleMembers(child);
-      auto memberDefinitions = collectBundleMemberDefinitions(child);
-      std::set<std::string> orderedMemberSet(orderedMembers.begin(), orderedMembers.end());
-      for (const auto& [memberName, _]: memberDefinitions) {
-        if (orderedMemberSet.find(memberName) == orderedMemberSet.end()) {
-          std::ostringstream reason;
-          reason << "Bundle " << child->args[0] << " defines extra member " << memberName;
-          throw SNLLibertyConstructorException(reason.str());
-        }
-      }
-      auto bundleDirection = inferBundleDirection(child, orderedMembers, memberDefinitions);
-      auto bundleTerm = SNLBundleTerm::create(primitive, bundleDirection, NLName(child->args[0]));
-      for (const auto& memberName: orderedMembers) {
-        auto memberIt = memberDefinitions.find(memberName);
-        auto memberNode = memberIt->second;
-        auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm, bundleDirection);
+      if (child->id == "pin" or child->id == "bus") {
+        auto constructedTerm = constructTerm(primitive, top, child);
         registerConstructedTermModeling(
-          memberNode,
-          memberName,
+          child,
+          child->args[0],
           functionParsingType,
           constructedTerm.scalar,
           constructedTerm.bus,
           termFunctions,
           termFunctionPins,
+          termFunctionLines,
           seqTermClocks,
           memoryInterface);
+      } else if (child->id == "bundle") {
+        auto bundleDirectionNode = findDirectionNode(child);
+        if (bundleDirectionNode != nullptr and bundleDirectionNode->value == "internal") {
+          continue;
+        }
+        auto orderedMembers = getBundleMembers(child);
+        auto memberDefinitions = collectBundleMemberDefinitions(child);
+        std::set<std::string> orderedMemberSet(orderedMembers.begin(), orderedMembers.end());
+        for (const auto& [memberName, _]: memberDefinitions) {
+          if (orderedMemberSet.find(memberName) == orderedMemberSet.end()) {
+            std::ostringstream reason;
+            reason << "Bundle " << child->args[0] << " defines extra member " << memberName;
+            throw SNLLibertyConstructorException(reason.str());
+          }
+        }
+        auto bundleDirection = inferBundleDirection(child, orderedMembers, memberDefinitions);
+        auto bundleTerm = SNLBundleTerm::create(primitive, bundleDirection, NLName(child->args[0]));
+        for (const auto& memberName: orderedMembers) {
+          auto memberIt = memberDefinitions.find(memberName);
+          auto memberNode = memberIt->second;
+          auto constructedTerm = constructTerm(primitive, top, memberNode, bundleTerm, bundleDirection);
+          registerConstructedTermModeling(
+            memberNode,
+            memberName,
+            functionParsingType,
+            constructedTerm.scalar,
+            constructedTerm.bus,
+            termFunctions,
+            termFunctionPins,
+            termFunctionLines,
+            seqTermClocks,
+            memoryInterface);
+        }
       }
+    } catch (const SNLLibertyConstructorException& e) {
+      std::ostringstream reason;
+      reason << "While processing " << getGroupDescription(child);
+      if (child->line > 0) {
+        reason << " at line " << child->line;
+      }
+      reason << ": " << e.getReason();
+      throw SNLLibertyConstructorException(reason.str());
+    } catch (const std::exception& e) {
+      std::ostringstream reason;
+      reason << "While processing " << getGroupDescription(child);
+      if (child->line > 0) {
+        reason << " at line " << child->line;
+      }
+      reason << ": " << e.what();
+      throw SNLLibertyConstructorException(reason.str());
     }
   }
   std::vector<SNLBitTerm*> outputs;
@@ -843,7 +977,6 @@ void parseTerms(
              termFunctions.size() == 1 && outputs.size() == 1) {
     auto outputTerm = termFunctions.begin()->first;
     auto pinName = termFunctionPins[outputTerm];
-    auto cellName = primitive->getName().getString();
     auto function = termFunctions.begin()->second;
     auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
     try {
@@ -860,13 +993,12 @@ void parseTerms(
       naja::NL::SNLDesignModeling::setTruthTable(primitive, truthTable);
     } catch (const SNLLibertyConstructorException& e) {
       auto reason = buildFunctionParseErrorReason(
-        pinName, cellName, sourcePath, e.getReason());
+        pinName, termFunctionLines[outputTerm], function, e.getReason());
       throw SNLLibertyConstructorException(reason);
     }
   } else if (functionParsingType == FunctionParsingType::Combinational &&
              termFunctions.size() > 0) {
     std::vector<SNLTruthTable> truthTables;
-    auto cellName = primitive->getName().getString();
     // Assuming termFunctions is ordered based on termIDs!
     for (auto term: primitive->getBitTerms()) {
       if (term->getDirection() == SNLTerm::Direction::Input) {
@@ -898,14 +1030,19 @@ void parseTerms(
         truthTables.push_back(truthTable);
       } catch (const SNLLibertyConstructorException& e) {
         auto reason = buildFunctionParseErrorReason(
-          pinName, cellName, sourcePath, e.getReason());
+          pinName, termFunctionLines[scalarTerm], function, e.getReason());
         throw SNLLibertyConstructorException(reason);
       }
     }
     naja::NL::SNLDesignModeling::setTruthTables(primitive, truthTables);
   }
   if (functionParsingType == FunctionParsingType::Sequential) {
-    populateSequentialModel(primitive, cell, termFunctions);
+    populateSequentialModel(
+        primitive,
+        cell,
+        termFunctions,
+        termFunctionPins,
+        termFunctionLines);
   }
 }
 
@@ -915,32 +1052,43 @@ void parseCell(
   Yosys::LibertyAst* cell,
   const std::filesystem::path& sourcePath,
   ConflictingCellNamePolicy conflictingCellNamePolicy) {
-  auto cellName = cell->args[0];
-  if (library->getSNLDesign(NLName(cellName))) {
-    if (conflictingCellNamePolicy == ConflictingCellNamePolicy::FirstOne) {
-      NAJA_LOG_WARN(
-        "In SNLLibertyConstructor, cell {} from {} already exists in "
-        "library {}, ignoring this definition.",
-        cellName,
-        sourcePath.string(),
-        library->getDescription());
-      return;
+  try {
+    if (cell->args.empty()) {
+      throw SNLLibertyConstructorException(
+          "The `cell` group must specify a cell name.");
     }
-    std::ostringstream reason;
-    reason << "Liberty parser: " << sourcePath.string()
-      << ": NLLibrary " << library->getString()
-      << " contains already a SNLDesign named: " << cellName;
-    throw SNLLibertyConstructorException(reason.str());
+    const auto& cellName = cell->args[0];
+    if (library->getSNLDesign(NLName(cellName))) {
+      if (conflictingCellNamePolicy == ConflictingCellNamePolicy::FirstOne) {
+        NAJA_LOG_WARN(
+          "In SNLLibertyConstructor, cell {} from {} already exists in "
+          "library {}, ignoring this definition.",
+          cellName,
+          sourcePath.string(),
+          library->getDescription());
+        return;
+      }
+      std::ostringstream reason;
+      reason << "Library `" << library->getString()
+             << "` already contains a design named `" << cellName << "`.";
+      throw SNLLibertyConstructorException(reason.str());
+    }
+    auto primitive = SNLDesign::create(
+        library, SNLDesign::Type::Primitive, NLName(cellName));
+    FunctionParsingType type = FunctionParsingType::Combinational;
+    if (cell->find("ff") || cell->find("memory")) {
+      type = FunctionParsingType::Sequential;
+    } else if (cell->find("latch")) {
+      type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
+    }
+    parseTerms(primitive, top, cell, type);
+  } catch (const SNLLibertyConstructorException& e) {
+    throw SNLLibertyConstructorException(
+        buildCellErrorReason(cell, sourcePath, e.getReason()));
+  } catch (const std::exception& e) {
+    throw SNLLibertyConstructorException(
+        buildCellErrorReason(cell, sourcePath, e.what()));
   }
-  auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
-  //std::cerr << "Parse cell: " << cellName << std::endl;
-  FunctionParsingType type = FunctionParsingType::Combinational;
-  if (cell->find("ff") || cell->find("memory")) {
-    type = FunctionParsingType::Sequential;
-  } else if (cell->find("latch")) {
-    type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
-  }
-  parseTerms(primitive, top, cell, sourcePath, type);
 }
 
 void parseCells(
@@ -1334,31 +1482,48 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
   NajaPerf::Scope scope("Liberty construct");
   for (const auto& path : paths) {
     if (not std::filesystem::exists(path)) {
-      std::string reason("Liberty parser: " + path.string() + " does not exist");
+      std::string reason(
+          "Liberty file `" + path.string() + "` does not exist.");
       throw SNLLibertyConstructorException(reason);
     }
-    auto inStream = openLibertyStream(path);
-    std::unique_ptr<Yosys::LibertyParser> parser;
     try {
-      NajaPerf::Scope parseScope("Liberty parse AST");
-      parser = std::make_unique<Yosys::LibertyParser>(
-        *inStream, Yosys::LibertyParser::ParseMode::Structural);
-    } catch (const naja::liberty::YosysLibertyException& e) {
-      auto reason = buildParserFileErrorReason(path, e.getReason());
-      throw SNLLibertyConstructorException(reason);
-    }
-    auto ast = parser->ast;
-    //LCOV_EXCL_START
-    if (ast == nullptr) {
-      std::string reason("Liberty parser: failed to parse the file: " + path.string());
-      throw SNLLibertyConstructorException(reason);
-    }
-    //LCOV_EXCL_STOP
-    auto libraryName = ast->args[0];
-    {
-      NajaPerf::Scope constructScope("Liberty build SNL primitives");
-      library_->setName(NLName(libraryName));
-      parseCells(library_, ast, path, config_.conflictingCellNamePolicy_);
+      auto inStream = openLibertyStream(path);
+      std::unique_ptr<Yosys::LibertyParser> parser;
+      try {
+        NajaPerf::Scope parseScope("Liberty parse AST");
+        parser = std::make_unique<Yosys::LibertyParser>(
+          *inStream, Yosys::LibertyParser::ParseMode::Structural);
+      } catch (const naja::liberty::YosysLibertyException& e) {
+        auto reason = buildParserFileErrorReason(path, e.getReason());
+        throw SNLLibertyConstructorException(reason);
+      }
+      auto ast = parser->ast;
+      //LCOV_EXCL_START
+      if (ast == nullptr) {
+        throw SNLLibertyConstructorException(
+            "The Liberty parser produced an empty syntax tree.");
+      }
+      //LCOV_EXCL_STOP
+      if (ast->id != "library") {
+        throw SNLLibertyConstructorException(
+            "Expected a top-level `library` group, found `" + ast->id + "`.");
+      }
+      if (ast->args.empty()) {
+        throw SNLLibertyConstructorException(
+            "The top-level `library` group must specify a library name.");
+      }
+      const auto& libraryName = ast->args[0];
+      {
+        NajaPerf::Scope constructScope("Liberty build SNL primitives");
+        library_->setName(NLName(libraryName));
+        parseCells(library_, ast, path, config_.conflictingCellNamePolicy_);
+      }
+    } catch (const SNLLibertyConstructorException& e) {
+      throw SNLLibertyConstructorException(
+          ensureFileContext(path, e.getReason()));
+    } catch (const std::exception& e) {
+      throw SNLLibertyConstructorException(
+          ensureFileContext(path, e.what()));
     }
   }
   NLLibraryTruthTables::construct(library_);

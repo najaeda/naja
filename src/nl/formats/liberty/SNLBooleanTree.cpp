@@ -227,7 +227,10 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     }
 
     if (idLen == 0) {
-      throw SNLLibertyConstructorException("Expected identifier at `" + function.substr(pos) + "'.");
+      std::ostringstream reason;
+      reason << "Expected an identifier at character " << (pos + 1)
+             << " near `" << function.substr(pos) << "`.";
+      throw SNLLibertyConstructorException(reason.str());
     }
 
     if (idLen == 1) {
@@ -271,7 +274,10 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     //} else {
       input = primitive->getScalarTerm(NLName(inputName));
       if (input == nullptr) {
-        throw SNLLibertyConstructorException("Scalar `" + inputName + "' not found.");
+        std::ostringstream reason;
+        reason << "Scalar term `" << inputName << "` referenced at character "
+               << (pos + 1) << " was not found in the cell interface.";
+        throw SNLLibertyConstructorException(reason.str());
       }
     //}
 
@@ -328,8 +334,8 @@ void SNLBooleanTree::parse(
 
     if (stack.size() != 1 || stack.back().type_ != 3) {
       std::ostringstream reason;
-      reason << "Parser error in function expr. failing expression="
-             << std::quoted(function);
+      reason << "Malformed Boolean expression " << std::quoted(function)
+             << ": operators and parentheses could not be reduced to one expression.";
       throw SNLLibertyConstructorException(reason.str());
     }
 

@@ -1,0 +1,16 @@
+library(testlib) {
+  cell ("BROKEN_FF") {
+    ff (IQ,IQN) {
+      clocked_on : "CK";
+      next_state : "UNKNOWN_STATE";
+    }
+    pin (CK) {
+      clock : true;
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+}

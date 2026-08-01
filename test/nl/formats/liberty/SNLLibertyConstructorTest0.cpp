@@ -294,6 +294,10 @@ TEST_F(SNLLibertyConstructorTest0, testFunctionErrorHasLocationContext) {
     EXPECT_NE(std::string::npos, reason.find(tempPath.string()));
     EXPECT_NE(std::string::npos, reason.find("cell `BAD`"));
     EXPECT_NE(std::string::npos, reason.find("pin `Y`"));
+    EXPECT_NE(std::string::npos, reason.find("at line 14"));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("`(((A ^ B) CI) | (A B`"));
   }
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);
@@ -337,6 +341,7 @@ TEST_F(SNLLibertyConstructorTest0, testMultiOutputFunctionErrorHasLocationContex
     EXPECT_NE(std::string::npos, reason.find(tempPath.string()));
     EXPECT_NE(std::string::npos, reason.find("cell `BAD_MULTI`"));
     EXPECT_NE(std::string::npos, reason.find("pin `Y1`"));
+    EXPECT_NE(std::string::npos, reason.find("at line 18"));
   }
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);
@@ -475,7 +480,16 @@ TEST_F(SNLLibertyConstructorTest0, testMissingDirection) {
       / std::filesystem::path("benchmarks")
       / std::filesystem::path("errors")
       / std::filesystem::path("missing_direction_error.lib"));
-  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    const auto& reason = e.getReason();
+    EXPECT_NE(std::string::npos, reason.find(testPath.string()));
+    EXPECT_NE(std::string::npos, reason.find("line 2, cell `cell0`"));
+    EXPECT_NE(std::string::npos, reason.find("`pin (A)` at line 3"));
+    EXPECT_NE(std::string::npos, reason.find("Direction not found"));
+  }
 }
 
 TEST_F(SNLLibertyConstructorTest0, testInconsistentBusChildDirections) {
@@ -489,7 +503,15 @@ TEST_F(SNLLibertyConstructorTest0, testInconsistentBusChildDirections) {
     constructor.construct(testPath);
     FAIL() << "Expected SNLLibertyConstructorException";
   } catch (const SNLLibertyConstructorException& e) {
-    EXPECT_NE(std::string::npos, e.getReason().find("Inconsistent child pin directions for bus DRV"));
+    const auto& reason = e.getReason();
+    EXPECT_NE(std::string::npos, reason.find(testPath.string()));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("line 11, cell `PADCELL_DRV_MIXED`"));
+    EXPECT_NE(std::string::npos, reason.find("`bus (DRV)` at line 16"));
+    EXPECT_NE(
+        std::string::npos,
+        reason.find("Inconsistent child pin directions for bus DRV"));
   }
 }
 
