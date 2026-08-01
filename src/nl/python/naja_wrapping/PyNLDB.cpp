@@ -437,10 +437,12 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     NLUniverse::get()->setTopDesign(top);
     NLUniverse::get()->setTopDB(top->getDB());
   } else {
+    // LCOV_EXCL_START
     setError(
       "No top design was found after parsing verilog. Ensure the input has "
-      "exactly one uninstantiated root module."); //LCOV_EXCL_LINE
-    return nullptr; //LCOV_EXCL_LINE
+      "exactly one uninstantiated root module.");
+    return nullptr;
+    //LCOV_EXCL_STOP
   }
   NLCATCH
   return PySNLDesign_Link(top);

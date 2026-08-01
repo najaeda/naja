@@ -220,7 +220,74 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaisesRegex(
         RuntimeError, "snapshot_manifest argument should be a file path"):
       naja.snapshot_manifest(42)
-  
+
+  def testLoaderArgumentValidation(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+
+    invalid_calls = (
+      (
+        lambda: db.loadLibertyPrimitives([]),
+        ValueError,
+        "files must contain at least one Liberty path"),
+      (
+        lambda: db.loadLibertyPrimitives([""]),
+        ValueError,
+        r"files\[0\] must not be empty"),
+      (
+        lambda: db.loadVerilog([]),
+        ValueError,
+        "files must contain at least one Verilog path"),
+      (
+        lambda: db.loadVerilog([""]),
+        ValueError,
+        r"files\[0\] must not be empty"),
+      (
+        lambda: db.loadSystemVerilog(
+          [], elaborated_ast_json_path=""),
+        ValueError,
+        "elaborated_ast_json_path must not be empty"),
+      (
+        lambda: db.loadSystemVerilog(
+          [], suppress_warnings=[""]),
+        ValueError,
+        r"suppress_warnings\[0\] must not be empty"),
+      (
+        lambda: db.loadSystemVerilog(
+          [], suppress_warnings=["width trunc"]),
+        ValueError,
+        r"suppress_warnings\[0\] must not contain whitespace"),
+      (
+        lambda: db.loadSystemVerilog(
+          [], suppress_warnings=["-Wwidth-trunc"]),
+        ValueError,
+        r"suppress_warnings\[0\].*without a -W/-Wno- prefix"),
+      (
+        lambda: db.loadSystemVerilog([], defines=[""]),
+        ValueError,
+        r"defines\[0\] must not be empty"),
+      (
+        lambda: db.loadSystemVerilog([], defines=["SYNTHESIS DEBUG"]),
+        ValueError,
+        r"defines\[0\] must not contain whitespace"),
+      (
+        lambda: db.loadSystemVerilog([], flist=""),
+        ValueError,
+        "flist must not be empty"),
+      (
+        lambda: db.loadSystemVerilog([""]),
+        ValueError,
+        r"files\[0\] must not be empty"),
+      (
+        lambda: db.loadSystemVerilog([]),
+        ValueError,
+        "provide at least one files path or flist"),
+    )
+
+    for invalid_call, exception_type, message in invalid_calls:
+      with self.subTest(message=message):
+        with self.assertRaisesRegex(exception_type, message):
+          invalid_call()
+
   def testVerilogNoAssigns(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 
