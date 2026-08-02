@@ -49,6 +49,66 @@ class NajaNetlistTestErrors(unittest.TestCase):
                 TypeError, r"Liberty files must be a path string or list.*got int"):
             netlist.load_liberty(7)
 
+    def test_verilog_config_validation_errors(self):
+        cases = [
+            (
+                {"keep_assigns": 1},
+                TypeError,
+                r"VerilogConfig\.keep_assigns must be a bool \(got int\)",
+            ),
+            (
+                {"conflicting_design_name_policy": 1},
+                TypeError,
+                r"conflicting_design_name_policy must be a str \(got int\)",
+            ),
+            (
+                {"conflicting_design_name_policy": "merge"},
+                ValueError,
+                r"Invalid conflicting_design_name_policy: 'merge'",
+            ),
+            (
+                {"allow_unknown_designs": "true"},
+                TypeError,
+                r"allow_unknown_designs must be a bool or None \(got str\)",
+            ),
+        ]
+        for kwargs, exception_type, message in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(exception_type, message):
+                    netlist.VerilogConfig(**kwargs)
+
+    def test_loader_config_and_path_validation_errors(self):
+        with self.assertRaisesRegex(
+                TypeError,
+                r"SystemVerilogConfig\.diagnostics_report_path "
+                r"must be a path string or None \(got int\)"):
+            netlist.SystemVerilogConfig(diagnostics_report_path=1)
+
+        with self.assertRaisesRegex(
+                ValueError, r"Verilog files\[0\] must not be empty"):
+            netlist.load_verilog([" "])
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r"load_verilog config must be a VerilogConfig or None \(got str\)"):
+            netlist.load_verilog([], config="invalid")
+
+        with self.assertRaisesRegex(
+                TypeError,
+                r"load_system_verilog config must be a "
+                r"SystemVerilogConfig or None \(got str\)"):
+            netlist.load_system_verilog([], config="invalid")
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(
+                    ValueError, r"Verilog input path is not a file"):
+                netlist.load_verilog(directory)
+
+            config = netlist.SystemVerilogConfig(flist=directory)
+            with self.assertRaisesRegex(
+                    ValueError, r"SystemVerilogConfig\.flist is not a file"):
+                netlist.load_system_verilog([], config=config)
+
     def test_width_mismatch(self):
         top = netlist.create_top('Top')
         self.assertIsNotNone(top)

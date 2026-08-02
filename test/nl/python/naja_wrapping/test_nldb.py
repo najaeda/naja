@@ -536,6 +536,15 @@ endmodule
       self.assertIn("diagnostics_report_path must not be empty", str(context.exception))
       self.assertIn("pass None to disable", str(context.exception))
 
+      report_directory = os.path.join(tempdir, "report_directory")
+      os.mkdir(report_directory)
+      with self.assertRaises(naja.SystemVerilogInternalError) as context:
+        db.loadSystemVerilog(
+          [valid_path], diagnostics_report_path=report_directory)
+      self.assertIn(
+        "Failed to create diagnostics report file", str(context.exception))
+      db.destroy()
+
   def testSystemVerilogDiagnosticsReportCanBeDisabled(self):
     u = naja.NLUniverse.get()
     with tempfile.TemporaryDirectory() as tempdir:
