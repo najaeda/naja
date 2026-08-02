@@ -31,6 +31,12 @@ Use Verilog loading for structural Verilog netlists.  Load Liberty or
 primitive libraries first when the design instantiates standard cells or
 technology primitives.
 
+Loader arguments are validated before native parsing starts.  A missing input
+raises :class:`FileNotFoundError` with both the supplied and resolved path;
+wrong argument and configuration types raise :class:`TypeError`; empty paths
+or unsupported configuration values raise :class:`ValueError`.  Errors for a
+list entry identify its zero-based index (for example, ``files[2]``).
+
 SystemVerilog
 -------------
 
@@ -49,6 +55,12 @@ By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
 :class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain
 console diagnostics only.
+
+``SystemVerilogConfig`` validates path, boolean, define, and warning-suppression
+fields when it is created and again when loading begins.  Entries in
+``suppress_warnings`` are warning names such as ``"width-trunc"``; omit the
+``-W`` or ``-Wno-`` command-line prefix.  To load only from a command file,
+pass an empty file list and set ``flist``.
 
 Liberty and primitive libraries
 -------------------------------

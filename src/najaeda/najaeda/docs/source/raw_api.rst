@@ -230,6 +230,14 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
+   The raw ``NLDB`` Verilog, SystemVerilog, and Liberty loaders report malformed
+   Python arguments with standard :class:`TypeError` or :class:`ValueError`
+   exceptions.  List-entry errors include the option name and index, such as
+   ``files[1]`` or ``defines[0]``.  Native parser and elaboration failures
+   remain ``RuntimeError`` subclasses; SystemVerilog failures use the more
+   specific ``SystemVerilog*`` exception classes and expose structured
+   diagnostic details where available.
+
    .. autoclass:: najaeda.naja.NLLibrary
       :members:
       :undoc-members:
