@@ -12,6 +12,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLScalarTerm.h"
 #include "SNLVRLDumper.h"
 
 #include "SNLSVConstructor.h"
@@ -90,4 +91,94 @@ TEST_F(SNLSVConstructorTestElab, elaborateParameterizedPorts) {
   dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
+}
+
+TEST_F(SNLSVConstructorTestElab, elaborateInstanceArrays) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "instance_arrays" / "instance_arrays.sv");
+
+  auto leaf = library_->getSNLDesign(NLName("instance_array_leaf"));
+  auto interfaceModel =
+    library_->getSNLDesign(NLName("instance_array_if"));
+  auto sink = library_->getSNLDesign(NLName("instance_array_sink"));
+  auto top = library_->getSNLDesign(NLName("instance_arrays_top"));
+  ASSERT_NE(leaf, nullptr);
+  ASSERT_NE(interfaceModel, nullptr);
+  ASSERT_NE(sink, nullptr);
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(16, top->getNonAssignInstances().size());
+
+  auto leafA = leaf->getScalarTerm(NLName("a"));
+  auto leafY = leaf->getScalarTerm(NLName("y"));
+  auto moduleI = top->getBusNet(NLName("module_i"));
+  auto moduleO = top->getBusNet(NLName("module_o"));
+  auto matrixI = top->getBusNet(NLName("matrix_i"));
+  auto matrixO = top->getBusNet(NLName("matrix_o"));
+  ASSERT_NE(leafA, nullptr);
+  ASSERT_NE(leafY, nullptr);
+  ASSERT_NE(moduleI, nullptr);
+  ASSERT_NE(moduleO, nullptr);
+  ASSERT_NE(matrixI, nullptr);
+  ASSERT_NE(matrixO, nullptr);
+
+  for (NLID::Bit i = 0; i < 4; ++i) {
+    auto* inst = top->getInstance(
+      NLName("instance_arrays_top_u_" + std::to_string(i)));
+    ASSERT_NE(inst, nullptr);
+    EXPECT_EQ(leaf, inst->getModel());
+    const auto bit = static_cast<NLID::Bit>(3 - i);
+    EXPECT_EQ(moduleI->getBit(bit), inst->getInstTerm(leafA)->getNet());
+    EXPECT_EQ(moduleO->getBit(bit), inst->getInstTerm(leafY)->getNet());
+  }
+
+  for (NLID::Bit i = 0; i < 2; ++i) {
+    for (NLID::Bit j = 0; j < 3; ++j) {
+      auto* inst = top->getInstance(
+        NLName(
+          "instance_arrays_top_matrix_" + std::to_string(i) + "_" +
+          std::to_string(j)));
+      ASSERT_NE(inst, nullptr);
+      EXPECT_EQ(leaf, inst->getModel());
+      auto* instANet = inst->getInstTerm(leafA)->getNet();
+      auto* instYNet = inst->getInstTerm(leafY)->getNet();
+      bool inputConnected = false;
+      bool outputConnected = false;
+      for (auto* bit : matrixI->getBits()) {
+        inputConnected = inputConnected || bit == instANet;
+      }
+      for (auto* bit : matrixO->getBits()) {
+        outputConnected = outputConnected || bit == instYNet;
+      }
+      EXPECT_TRUE(inputConnected) << "matrix[" << i << "][" << j << "]";
+      EXPECT_TRUE(outputConnected) << "matrix[" << i << "][" << j << "]";
+    }
+  }
+
+  auto sinkBusSig = sink->getScalarTerm(NLName("bus__sig"));
+  auto sinkY = sink->getScalarTerm(NLName("y"));
+  auto interfaceO = top->getBusNet(NLName("interface_o"));
+  ASSERT_NE(sinkBusSig, nullptr);
+  ASSERT_NE(sinkY, nullptr);
+  ASSERT_NE(interfaceO, nullptr);
+  for (NLID::Bit i = 0; i < 2; ++i) {
+    for (NLID::Bit j = 0; j < 2; ++j) {
+      auto* interfaceInst = top->getInstance(
+        NLName(
+          "instance_arrays_top_gen_interfaces_" + std::to_string(i) +
+          "_buses_" + std::to_string(j)));
+      ASSERT_NE(interfaceInst, nullptr);
+      EXPECT_EQ(interfaceModel, interfaceInst->getModel());
+    }
+
+    auto* sinkInst = top->getInstance(
+      NLName(
+        "instance_arrays_top_gen_interfaces_" + std::to_string(i) +
+        "_sink"));
+    ASSERT_NE(sinkInst, nullptr);
+    EXPECT_EQ(sink, sinkInst->getModel());
+    EXPECT_NE(nullptr, sinkInst->getInstTerm(sinkBusSig)->getNet());
+    EXPECT_EQ(interfaceO->getBit(i), sinkInst->getInstTerm(sinkY)->getNet());
+  }
 }

@@ -44,6 +44,9 @@ are still expected in real designs:
 - Diagnostics report option paths are covered with explicit tests for:
   no-diagnostics content, non-empty diagnostics content, and empty report-path
   validation.
+- `instance_arrays`: recursive lowering of module and interface instance arrays,
+  including a two-dimensional module array and interface-array elements
+  selected from generated blocks.
 
 ## Deliberate LCOV Exclusions
 
