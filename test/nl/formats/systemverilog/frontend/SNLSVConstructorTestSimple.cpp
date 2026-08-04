@@ -1674,6 +1674,63 @@ endmodule
   EXPECT_EQ(nullptr, u3->getInstTerm(p1->getBit(0))->getNet());
 }
 
+TEST_F(SNLSVConstructorTestSimple,
+       parseUnknownModuleAutoBlackboxInsideNamedGenerateLoop) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_named_generate";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_named_generate.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic [1:0] data_i,
+  output logic [1:0] data_o
+);
+  for (genvar i = 0; i < 2; ++i) begin : banks
+    missing_cell bank_i(
+      .din(data_i[i]),
+      .dout(data_o[i])
+    );
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_cell"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  EXPECT_EQ(2, top->getNonAssignInstances().size());
+
+  auto* din = model->getScalarTerm(NLName("din"));
+  auto* dout = model->getScalarTerm(NLName("dout"));
+  ASSERT_NE(nullptr, din);
+  ASSERT_NE(nullptr, dout);
+  auto* dataI = top->getBusNet(NLName("data_i"));
+  auto* dataO = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(nullptr, dataI);
+  ASSERT_NE(nullptr, dataO);
+
+  for (NLID::Bit i = 0; i < 2; ++i) {
+    auto* inst = top->getInstance(
+      NLName("top_banks_" + std::to_string(i) + "_bank_i"));
+    ASSERT_NE(nullptr, inst);
+    EXPECT_EQ(model, inst->getModel());
+    EXPECT_EQ(dataI->getBit(i), inst->getInstTerm(din)->getNet());
+    EXPECT_EQ(dataO->getBit(i), inst->getInstTerm(dout)->getNet());
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoops) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -27901,19 +27958,19 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 
-  auto dffModel = NLDB0::getDFF();
-  ASSERT_NE(dffModel, nullptr);
-  size_t dffCount = 0;
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
-      dffCount += getPrimitiveWidth(inst);
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) && NLDB0::getGateName(inst->getModel()) == "or") {
       ++orGateCount;
     }
   }
-  EXPECT_EQ(1u, dffCount);
+  EXPECT_EQ(1u, dffrnCount);
   EXPECT_GE(orGateCount, 1u);
 }
 
@@ -30162,8 +30219,74 @@ endmodule
     const std::string reason = e.what();
     EXPECT_NE(
       std::string::npos,
-      reason.find("Unsupported sequential event list; missing posedge clock event"));
+      reason.find(
+        "Unsupported sequential event list; unable to distinguish clock from async controls"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingEventListNegedgeClockAndResetSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_event_list_negedge_clock_and_reset_supported",
+    R"(module seq_timing_event_list_negedge_clock_and_reset_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(negedge clk_i or negedge rst_ni) begin
+    if (rst_ni == 1'b0)
+      q_o[0] <= 1'b0;
+    else
+      q_o[0] <= d_i[0];
+  end
+
+  always_ff @(negedge rst_ni or negedge clk_i) begin
+    if (!rst_ni)
+      q_o[1] <= 1'b0;
+    else
+      q_o[1] <= d_i[1];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_event_list_negedge_clock_and_reset_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFF));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRN));
+
+  auto* sourceClock = top->getScalarNet(NLName("clk_i"));
+  ASSERT_NE(nullptr, sourceClock);
+  SNLBitNet* primitiveClock = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFFRN(inst->getModel())) {
+      continue;
+    }
+    auto* clockTerm = inst->getInstTerm(NLDB0::getDFFRNClock());
+    ASSERT_NE(nullptr, clockTerm);
+    ASSERT_NE(nullptr, clockTerm->getNet());
+    EXPECT_NE(sourceClock, clockTerm->getNet());
+    if (!primitiveClock) {
+      primitiveClock = clockTerm->getNet();
+    } else {
+      EXPECT_EQ(primitiveClock, clockTerm->getNet());
+    }
+  }
+  ASSERT_NE(nullptr, primitiveClock);
+
+  size_t notGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(1u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetSupported) {
@@ -33312,6 +33435,50 @@ endmodule
     }
   }
   EXPECT_EQ(1u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPriorityChainSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_chain_supported",
+    R"(module always_latch_priority_chain_supported(
+  input  logic rst_ni,
+  input  logic expired_i,
+  input  logic clear_i,
+  output logic [1:0] reason_o
+);
+  always_latch begin
+    if (rst_ni == 1'b0)
+      reason_o <= 2'b01;
+    else if (expired_i == 1'b1)
+      reason_o <= 2'b10;
+    else if (clear_i == 1'b1)
+      reason_o <= 2'b00;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top =
+    library_->getSNLDesign(NLName("always_latch_priority_chain_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDLatch));
+  EXPECT_EQ(3u, countMux2Instances(top, 2));
+
+  size_t orGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_EQ(2u, orGateCount);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_latch_priority_chain_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIncrementerSupported) {

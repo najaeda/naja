@@ -837,12 +837,14 @@ cases:
             (vc_dir / "fake.vc").write_text(
                 """
 --Mdir .
+--cc
 +incdir+src/rtl
 -CFLAGS -Isrc/rtl
 src/lint/waiver.vlt
 src/rtl/pkg.sv
 src/rtl/top.sv
 --top-module fake_top
+--exe
 -DSYNTHESIS=1
 -DRVFI=1
 """,
@@ -856,10 +858,84 @@ src/rtl/top.sv
             self.assertIn(f"+incdir+{vc_dir}/src/rtl", lines)
             self.assertIn(f"{vc_dir}/src/rtl/pkg.sv", lines)
             self.assertIn(f"{vc_dir}/src/rtl/top.sv", lines)
+            self.assertLess(
+                lines.index(f"{vc_dir}/src/rtl/pkg.sv"),
+                lines.index(f"{vc_dir}/src/rtl/top.sv"),
+            )
             self.assertIn("+define+SYNTHESIS=1", lines)
             self.assertIn("+define+RVFI=1", lines)
             self.assertFalse(any("waiver.vlt" in line for line in lines))
             self.assertFalse(any("--top-module" in line for line in lines))
+            self.assertNotIn("--Mdir .", lines)
+            self.assertNotIn("--cc", lines)
+            self.assertNotIn("--exe", lines)
+            self.assertFalse(any(line.startswith("-CFLAGS") for line in lines))
+
+    def test_materialize_flist_validates_expected_source_count(self):
+        case = {
+            "name": "fake",
+            "flist": "rtl/files.f",
+            "expected_source_count": 2,
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            case_dir = Path(tmpdir)
+            repo_dir = case_dir / "repo"
+            artifacts_dir = case_dir / "artifacts"
+            (repo_dir / "rtl").mkdir(parents=True)
+            artifacts_dir.mkdir()
+            flist = repo_dir / "rtl" / "files.f"
+            flist.write_text(
+                "+incdir+include\nrtl/pkg.sv\nrtl/top.sv\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                flist,
+                sv_regress.materialize_flist(
+                    case,
+                    repo_dir,
+                    case_dir,
+                    artifacts_dir,
+                ),
+            )
+            case["expected_source_count"] = 3
+            with self.assertRaisesRegex(
+                sv_regress.RegressError,
+                "expected 3, got 2",
+            ):
+                sv_regress.materialize_flist(
+                    case,
+                    repo_dir,
+                    case_dir,
+                    artifacts_dir,
+                )
+
+    def test_validate_unknown_module_blackboxes_requires_exact_allowlist(self):
+        case = {
+            "name": "fake",
+            "expected_unknown_modules": ["clock_gate", "sram"],
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            diagnostics = Path(tmpdir) / "diagnostics.log"
+            diagnostics.write_text(
+                """
+message="unknown module 'clock_gate'"
+message="unknown module 'sram'"
+message="unknown module 'clock_gate'"
+""",
+                encoding="utf-8",
+            )
+            sv_regress.validate_unknown_module_blackboxes(case, diagnostics)
+
+            case["expected_unknown_modules"] = ["clock_gate"]
+            with self.assertRaisesRegex(
+                sv_regress.RegressError,
+                "unexpected: sram",
+            ):
+                sv_regress.validate_unknown_module_blackboxes(
+                    case,
+                    diagnostics,
+                )
 
     def test_run_setup_commands_formats_placeholders(self):
         case = {
@@ -945,6 +1021,70 @@ src/rtl/top.sv
         setup_commands = ibex.get("setup_commands", [])
         self.assertEqual(1, len(setup_commands))
         self.assertIn("--mapping=lowrisc:prim_generic:all:0.1", setup_commands[0])
+
+    def test_core_v_mcu_case_is_pinned_to_synthesizable_fusesoc_target(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        core_v_mcu = sv_regress.select_cases(cases, "core_v_mcu")[0]
+
+        self.assertEqual(
+            "https://github.com/openhwgroup/core-v-mcu.git",
+            core_v_mcu["repo"],
+        )
+        self.assertEqual(
+            "4608714d3f6c2a2e67141b03a7aeb24ccdb3f73d",
+            core_v_mcu["commit"],
+        )
+        self.assertEqual("core_v_mcu", core_v_mcu["top"])
+        self.assertIn("default-verilator", core_v_mcu["flist"])
+        self.assertIn("default-verilator", core_v_mcu["flist_glob"])
+        self.assertEqual("fusesoc_vc", core_v_mcu["flist_format"])
+        self.assertEqual(370, core_v_mcu["expected_source_count"])
+        self.assertTrue(core_v_mcu["blackbox_unknown_modules"])
+        self.assertEqual(
+            {
+                "QL_eFPGA_ArcticPro2_32X32_GF_22_Arnold2",
+                "a2_bootrom",
+                "apb_pll",
+                "cluster_clock_gating",
+                "cluster_clock_inverter",
+                "core_v_mcu_interleaved_ram",
+                "core_v_mcu_private_ram",
+                "cv32e40p_clock_gate",
+                "pulp_clock_gating",
+                "pulp_clock_inverter",
+                "pulp_clock_mux2",
+                "sram512x64",
+            },
+            set(core_v_mcu["expected_unknown_modules"]),
+        )
+        self.assertEqual(
+            [
+                "+define+VERILATOR",
+                "+define+protect=",
+                "+define+endprotect=",
+            ],
+            core_v_mcu["flist_append"],
+        )
+        setup = core_v_mcu["setup_commands"][0]
+        self.assertIn("--target=default", setup)
+        self.assertIn("--tool=verilator", setup)
+        self.assertIn("--setup", setup)
+        self.assertIn("openhwgroup.org:systems:core-v-mcu", setup)
+
+        self.assertIn(
+            'parser.add_argument("--blackbox-unknown-modules"',
+            sv_regress.GENERATOR,
+        )
+        self.assertIn(
+            "blackbox_unknown_modules=args.blackbox_unknown_modules",
+            sv_regress.GENERATOR,
+        )
+        self.assertIn(
+            '"top_instances": top.count_child_instances()',
+            sv_regress.GENERATOR,
+        )
+        self.assertIn('"top_terms": top.count_terms()', sv_regress.GENERATOR)
+        self.assertIn('"top_nets": top.count_nets()', sv_regress.GENERATOR)
 
     def test_cv32e40p_case_uses_rtl_manifest_and_design_dir(self):
         cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
