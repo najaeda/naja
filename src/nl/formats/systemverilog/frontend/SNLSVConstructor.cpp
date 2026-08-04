@@ -4038,6 +4038,7 @@ endmodule
             case SymbolKind::Variable:
             case SymbolKind::ContinuousAssign:
             case SymbolKind::Instance:
+            case SymbolKind::InstanceArray:
             case SymbolKind::ProceduralBlock:
               return true;
             default:
@@ -4049,6 +4050,7 @@ endmodule
             case SymbolKind::Variable:
             case SymbolKind::ContinuousAssign:
             case SymbolKind::Instance:
+            case SymbolKind::InstanceArray:
             case SymbolKind::ProceduralBlock:
               return true;
             default:
@@ -33434,6 +33436,45 @@ endmodule
       }
     }
 
+    void createInstance(SNLDesign* design, const InstanceSymbol& instance) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.instanceSymbolsVisited;
+      noteSVPerfProgress();
+#endif
+      const auto* canonicalBody = instance.getCanonicalBody();
+      auto modelDesign = buildDesign(canonicalBody ? *canonicalBody : instance.body);
+      auto inst = SNLInstance::create(
+        design,
+        modelDesign,
+        NLName(getLoweredSymbolName(instance)));
+      annotateSourceInfo(inst, getSourceRange(instance));
+      bindLiveASTLink(inst, instance);
+      connectInstance(inst, instance);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.instancesCreated;
+      noteSVPerfProgress();
+#endif
+    }
+
+    void createInstanceArray(
+      SNLDesign* design,
+      const slang::ast::InstanceArraySymbol& instanceArray) {
+      for (const auto* element : instanceArray.elements) {
+        if (!element) {
+          continue; // LCOV_EXCL_LINE defensive: slang array elements are non-null
+        }
+        if (element->kind == SymbolKind::Instance) {
+          createInstance(design, element->as<InstanceSymbol>());
+          continue;
+        }
+        if (element->kind == SymbolKind::InstanceArray) {
+          createInstanceArray(
+            design,
+            element->as<slang::ast::InstanceArraySymbol>());
+        }
+      }
+    }
+
     void createInstances(SNLDesign* design, const InstanceBodySymbol& body) {
       std::function<void(const slang::ast::Scope&)> visitScope;
       visitScope = [&](const slang::ast::Scope& scope) {
@@ -33455,6 +33496,12 @@ endmodule
             }
             continue;
           }
+          if (sym.kind == SymbolKind::InstanceArray) {
+            createInstanceArray(
+              design,
+              sym.as<slang::ast::InstanceArraySymbol>());
+            continue;
+          }
           if (sym.kind == SymbolKind::UninstantiatedDef) {
             // Unresolved module/primitive instantiation. When enabled, model it
             // as an AutoBlackBox instead of letting the load fail.
@@ -33467,24 +33514,7 @@ endmodule
           if (sym.kind != SymbolKind::Instance) {
             continue;
           }
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-          ++svPerfReport_.instanceSymbolsVisited;
-          noteSVPerfProgress();
-#endif
-          const auto& instance = sym.as<InstanceSymbol>();
-          const auto* canonicalBody = instance.getCanonicalBody();
-          auto modelDesign = buildDesign(canonicalBody ? *canonicalBody : instance.body);
-          auto inst = SNLInstance::create(
-            design,
-            modelDesign,
-            NLName(getLoweredSymbolName(instance)));
-          annotateSourceInfo(inst, getSourceRange(instance));
-          bindLiveASTLink(inst, instance);
-          connectInstance(inst, instance);
-#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-          ++svPerfReport_.instancesCreated;
-          noteSVPerfProgress();
-#endif
+          createInstance(design, sym.as<InstanceSymbol>());
         }
       };
       visitScope(body);
