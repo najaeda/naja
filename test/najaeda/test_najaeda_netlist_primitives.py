@@ -19,6 +19,34 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
 
         and2_ins = top.create_child_instance('$_AND_', 'and2_ins')
         or2_ins = top.create_child_instance('$_OR_', 'or2_ins')
+        self.assertIsNotNone(and2_ins)
+        self.assertIsNotNone(or2_ins)
+
+        library = naja.NLUniverse.get().getTopDB().getLibrary("yosys")
+        dff = library.getSNLDesign("$_DFF_P_")
+        self.assertTrue(dff.getScalarTerm("C").is_clock())
+        self.assertTrue(dff.getScalarTerm("D").is_data_input())
+        self.assertTrue(dff.getScalarTerm("Q").is_data_output())
+        self.assertEqual(
+            [dff.getScalarTerm("D")],
+            list(dff.getClockRelatedInputs(dff.getScalarTerm("C"))),
+        )
+
+        async_reset = library.getSNLDesign("$_DFFE_PN0N_")
+        self.assertTrue(async_reset.getScalarTerm("E").is_enable())
+        self.assertTrue(async_reset.getScalarTerm("R").is_async_reset())
+        self.assertEqual(
+            naja.SNLActiveLevel.Low,
+            async_reset.getScalarTerm("R").getResetActiveLevel(),
+        )
+
+        sync_set = library.getSNLDesign("$_SDFFCE_PP1P_")
+        self.assertTrue(sync_set.getScalarTerm("E").is_enable())
+        self.assertTrue(sync_set.getScalarTerm("R").is_sync_set())
+        self.assertEqual(
+            naja.SNLActiveLevel.High,
+            sync_set.getScalarTerm("R").getResetActiveLevel(),
+        )
 
     def test_gate_family_predicates(self):
         top = netlist.create_top('Top')
@@ -54,6 +82,32 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         o = top.create_output_term("O")
         self.assertIsNotNone(top)
         netlist.load_primitives('xilinx')
+        library = naja.NLUniverse.get().getTopDB().getLibrary("xilinx")
+
+        fdce = library.getSNLDesign("FDCE")
+        self.assertTrue(fdce.getScalarTerm("C").is_clock())
+        self.assertTrue(fdce.getScalarTerm("D").is_data_input())
+        self.assertTrue(fdce.getScalarTerm("Q").is_data_output())
+        self.assertTrue(fdce.getScalarTerm("CE").is_enable())
+        self.assertTrue(fdce.getScalarTerm("CLR").is_async_reset())
+        self.assertEqual(
+            naja.SNLActiveLevel.High,
+            fdce.getScalarTerm("CLR").getResetActiveLevel(),
+        )
+
+        fdse = library.getSNLDesign("FDSE")
+        self.assertTrue(fdse.getScalarTerm("S").is_sync_set())
+
+        ram32m = library.getSNLDesign("RAM32M")
+        self.assertTrue(ram32m.getScalarTerm("WCLK").is_clock())
+        self.assertEqual(
+            naja.SNLTermRole.MemoryWriteEnable,
+            ram32m.getScalarTerm("WE").getRole(),
+        )
+        self.assertEqual(
+            naja.SNLTermRole.MemoryReadData,
+            ram32m.getBusTerm("DOA").getBusTermBit(0).getRole(),
+        )
 
         lut2_ins0 = top.create_child_instance('LUT2', 'ins0')
         lut2_ins1 = top.create_child_instance('LUT2', 'ins1')

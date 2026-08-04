@@ -26,6 +26,51 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertTrue(self.primitives.isPrimitives())
     self.assertFalse(self.primitives.isStandard())
 
+  def testTermRoleDecoration(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "REG")
+    clock = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Input, "CLK")
+    data = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Input, "D")
+    reset = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Input, "RESET_B")
+    output = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+
+    clock.setRole(naja.SNLTermRole.Clock)
+    data.setRole(naja.SNLTermRole.DataInput)
+    reset.setRole(naja.SNLTermRole.AsyncReset, naja.SNLActiveLevel.Low)
+    output.setRole(naja.SNLTermRole.DataOutput)
+
+    self.assertEqual(naja.SNLTermRole.Clock, clock.getRole())
+    self.assertEqual(naja.SNLTermRole.DataInput, data.getRole())
+    self.assertEqual(naja.SNLTermRole.AsyncReset, reset.getRole())
+    self.assertEqual(naja.SNLActiveLevel.Low, reset.getResetActiveLevel())
+    self.assertEqual(naja.SNLTermRole.DataOutput, output.getRole())
+    self.assertEqual([clock], list(reg.getClockTerms()))
+    self.assertEqual([reset], list(reg.getAsyncResetTerms()))
+    self.assertEqual([data], list(reg.getDataInputTerms()))
+    self.assertEqual([output], list(reg.getOutputTerms()))
+
+    top = naja.SNLDesign.create(self.designs, "TOP")
+    instance = naja.SNLInstance.create(top, reg, "reg")
+    self.assertTrue(instance.getInstTerm(clock).is_clock())
+    self.assertTrue(instance.getInstTerm(data).is_data_input())
+    self.assertTrue(instance.getInstTerm(reset).is_async_reset())
+    self.assertEqual(
+      naja.SNLActiveLevel.Low,
+      instance.getInstTerm(reset).getResetActiveLevel())
+    self.assertTrue(instance.getInstTerm(output).is_data_output())
+
+    with self.assertRaises(RuntimeError):
+      clock.setRole("Clock")
+    with self.assertRaises(RuntimeError):
+      clock.setRole(1000)
+    with self.assertRaises(RuntimeError):
+      clock.setRole(naja.SNLTermRole.Clock, "High")
+    with self.assertRaises(RuntimeError):
+      clock.setRole(naja.SNLTermRole.Clock, 1000)
+
   def testLoweredSequentialTermRoles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)
@@ -300,6 +345,61 @@ endmodule
     naja.SNLDesign.addClockToOutputsArcs(c, [q1])
     self.assertEqual(2, sum(1 for t in naja.SNLDesign.getClockRelatedInputs(c)))
     self.assertEqual(2, sum(1 for t in naja.SNLDesign.getClockRelatedOutputs(c)))
+    self.assertEqual([c], list(naja.SNLDesign.getInputRelatedClocks(d0)))
+    self.assertEqual([c], list(naja.SNLDesign.getInputRelatedClocks(d1)))
+    self.assertEqual([c], list(naja.SNLDesign.getOutputRelatedClocks(q0)))
+    self.assertEqual([c], list(naja.SNLDesign.getOutputRelatedClocks(q1)))
+
+    top = naja.SNLDesign.create(self.designs, "TOP")
+    instance = naja.SNLInstance.create(top, reg, "reg")
+    ic = instance.getInstTerm(c)
+    id0 = instance.getInstTerm(d0)
+    iq0 = instance.getInstTerm(q0)
+    self.assertEqual(
+      [id0, instance.getInstTerm(d1)],
+      list(instance.getClockRelatedInputs(ic)))
+    self.assertEqual(
+      [iq0, instance.getInstTerm(q1)],
+      list(instance.getClockRelatedOutputs(ic)))
+    self.assertEqual([ic], list(instance.getInputRelatedClocks(id0)))
+    self.assertEqual([ic], list(instance.getOutputRelatedClocks(iq0)))
+
+  def testParameterizedCombinatorialArcs(self):
+    gate = naja.SNLDesign.createPrimitive(self.primitives, "PARAM_GATE")
+    mode = naja.SNLParameter.create_string(gate, "MODE", "NORMAL")
+    i0 = naja.SNLScalarTerm.create(
+      gate, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(
+      gate, naja.SNLTerm.Direction.Input, "I1")
+    o0 = naja.SNLScalarTerm.create(
+      gate, naja.SNLTerm.Direction.Output, "O0")
+    o1 = naja.SNLScalarTerm.create(
+      gate, naja.SNLTerm.Direction.Output, "O1")
+
+    gate.setTimingModelParameter("MODE", "NORMAL")
+    naja.SNLDesign.addCombinatorialArcs(i0, o0)
+    naja.SNLDesign.addCombinatorialArcs(i1, o1)
+    naja.SNLDesign.addCombinatorialArcs("CROSS", i0, o1)
+    naja.SNLDesign.addCombinatorialArcs("CROSS", i1, o0)
+
+    self.assertEqual([o0], list(gate.getCombinatorialOutputs(i0)))
+    self.assertEqual([o1], list(gate.getCombinatorialOutputs(i1)))
+
+    top = naja.SNLDesign.create(self.designs, "TOP")
+    normal = naja.SNLInstance.create(top, gate, "normal")
+    cross = naja.SNLInstance.create(top, gate, "cross")
+    naja.SNLInstParameter.create(cross, mode, "CROSS")
+    self.assertEqual(
+      normal.getInstTerm(o0),
+      next(iter(normal.getCombinatorialOutputs(normal.getInstTerm(i0)))))
+    self.assertEqual(
+      cross.getInstTerm(o1),
+      next(iter(cross.getCombinatorialOutputs(cross.getInstTerm(i0)))))
+
+    with self.assertRaises(RuntimeError):
+      gate.setTimingModelParameter("UNKNOWN", "NORMAL")
+    with self.assertRaises(RuntimeError):
+      naja.SNLDesign.addCombinatorialArcs(1, i0, o0)
 
   def testCombiWithBusses0(self):
     design = naja.SNLDesign.createPrimitive(self.primitives, "DESIGN")

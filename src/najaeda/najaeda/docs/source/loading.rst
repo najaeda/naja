@@ -76,6 +76,11 @@ The primitives library is available through
 :func:`najaeda.netlist.get_primitives_library` for scripts that need to inspect
 or create primitive-backed models.
 
+Built-in Python primitive libraries attach combinational/sequential timing
+arcs and characterize clock, data, enable, reset/set, and memory terms.  When
+authoring a custom primitive loader, use the raw timing-model API described in
+:ref:`Primitive timing modeling <primitive-timing-modeling>`.
+
 Naja interchange
 ----------------
 
