@@ -104,6 +104,9 @@ the current architecture:
 - Inferred-memory write-target extraction: missing bitstream width after a
   supported memory signature, and dynamic-target expansion reaching the memory
   root without first collecting a dynamic selector, are defensive fallbacks.
+- Direct inferred-memory matching's ignorable-statement return is unreachable
+  after candidate collection: a direct candidate exists only when that same
+  statement tree contains an indexed memory assignment.
 - Inferred-memory selector guards: expansion always supplies an expression and
   selector index; after their width and resolved bits are validated, failure to
   build the equality guard requires an internal primitive-construction failure.
@@ -128,3 +131,10 @@ the current architecture:
   lowering path, while Slang normalizes legal width conversions before the
   output bits are applied. The corresponding width and application-failure
   guards are retained as defensive checks.
+- Sequential event-list condition extraction always receives a parser-backed
+  process statement; its null and failed-unwrapping guards are defensive.
+  Slang also represents a one-event sensitivity list as `SignalEvent`, leaving
+  the one-element `EventList` arm as an alternate-AST fallback.
+- Priority `always_latch` mux / OR construction and controlled-negedge clock
+  inversion use validated nets and canonical DB0 primitives. Their null-result
+  diagnostics require an internal primitive-construction failure.

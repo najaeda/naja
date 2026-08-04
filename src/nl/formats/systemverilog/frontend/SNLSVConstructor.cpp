@@ -6569,7 +6569,7 @@ endmodule
         return false;
       }
       if (isIgnorableSequentialStatementTree(*stmt)) {
-        return false;
+        return false; // LCOV_EXCL_LINE -- indexed-write candidate collection excludes ignorable trees
       }
 
       auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
@@ -30764,11 +30764,11 @@ endmodule
 
     const Expression* getTopLevelSequentialCondition(const Statement* stmt) const {
       if (!stmt) {
-        return nullptr;
+        return nullptr; // LCOV_EXCL_LINE -- event-list callers always provide the process statement
       }
       const auto* current = unwrapStatement(*stmt);
       if (!current) {
-        return nullptr;
+        return nullptr; // LCOV_EXCL_LINE -- parser-backed statements always unwrap
       }
       if (current->kind == slang::ast::StatementKind::List) {
         for (const auto* item : current->as<slang::ast::StatementList>().list) {
@@ -30838,7 +30838,7 @@ endmodule
           signalEvents.push_back(&event);
         }
         if (signalEvents.size() == 1) {
-          return &signalEvents.front()->expr;
+          return &signalEvents.front()->expr; // LCOV_EXCL_LINE -- slang normalizes one event to SignalEvent
         }
 
         // SNL represents an edge-triggered process as one clock plus, at most,
@@ -31867,9 +31867,11 @@ endmodule
                     getSourceRange(*branch.condition),
                     nullptr,
                     true)) {
+                // LCOV_EXCL_START -- primitive library construction is infallible here
                 latchFailureReason =
                   "unable to build priority always_latch data mux";
-                return false; // LCOV_EXCL_LINE
+                return false;
+                // LCOV_EXCL_STOP
               }
               dataBits = std::move(mergedBits);
             }
@@ -31897,9 +31899,11 @@ endmodule
                 nullptr,
                 latchSourceRange));
               if (!combinedEnable) {
+                // LCOV_EXCL_START -- primitive library construction is infallible here
                 latchFailureReason =
                   "unable to build priority always_latch combined enable";
-                return false; // LCOV_EXCL_LINE
+                return false;
+                // LCOV_EXCL_STOP
               }
             }
 
@@ -32788,10 +32792,12 @@ endmodule
           primitiveClkNet =
             createNotBitGate(design, clkNet, statementSourceRange);
           if (!primitiveClkNet) {
+            // LCOV_EXCL_START -- validated clock nets and the DB0 NOT primitive cannot fail
             reportUnsupportedError(
               "Unsupported sequential block: unable to invert negedge clock for controlled primitive",
-              statementSourceRange); // LCOV_EXCL_LINE
-            continue; // LCOV_EXCL_LINE
+              statementSourceRange);
+            continue;
+            // LCOV_EXCL_STOP
           }
         }
         {
