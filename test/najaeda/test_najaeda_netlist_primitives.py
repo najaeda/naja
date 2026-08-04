@@ -8,10 +8,17 @@ import faulthandler
 
 from najaeda import netlist
 from najaeda import naja
+from najaeda.primitives import utils
+
 
 class NajaNetlistTestPrimitives(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
+
+    def test_bit_terms_scalar_and_none(self):
+        term = object()
+        self.assertEqual([], utils._bit_terms(None))
+        self.assertEqual([term], utils._bit_terms(term))
 
     def test_yosys_primitives(self):
         netlist.load_primitives('yosys')
