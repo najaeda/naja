@@ -41,6 +41,14 @@ class SNLDesignModelingTest(unittest.TestCase):
     data.setRole(naja.SNLTermRole.DataInput)
     reset.setRole(naja.SNLTermRole.AsyncReset, naja.SNLActiveLevel.Low)
     output.setRole(naja.SNLTermRole.DataOutput)
+    for role in (
+        naja.SNLTermRole.MemoryWriteAddress,
+        naja.SNLTermRole.Other,
+        naja.SNLTermRole.ScanInput,
+        naja.SNLTermRole.ScanEnable):
+      data.setRole(role)
+      self.assertEqual(role, data.getRole())
+    data.setRole(naja.SNLTermRole.DataInput)
 
     self.assertEqual(naja.SNLTermRole.Clock, clock.getRole())
     self.assertEqual(naja.SNLTermRole.DataInput, data.getRole())
@@ -62,6 +70,8 @@ class SNLDesignModelingTest(unittest.TestCase):
       instance.getInstTerm(reset).getResetActiveLevel())
     self.assertTrue(instance.getInstTerm(output).is_data_output())
 
+    with self.assertRaises(RuntimeError):
+      clock.setRole()
     with self.assertRaises(RuntimeError):
       clock.setRole("Clock")
     with self.assertRaises(RuntimeError):
@@ -398,6 +408,8 @@ endmodule
 
     with self.assertRaises(RuntimeError):
       gate.setTimingModelParameter("UNKNOWN", "NORMAL")
+    with self.assertRaises(RuntimeError):
+      gate.setTimingModelParameter("MODE")
     with self.assertRaises(RuntimeError):
       naja.SNLDesign.addCombinatorialArcs(1, i0, o0)
 

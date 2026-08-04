@@ -185,8 +185,10 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
     if (not PyArg_ParseTuple(
         args, "OO:SNLDesign.addCombinatorialArcs",
         &inputsObject, &outputsObject)) {
+      // LCOV_EXCL_START defensive: "O" accepts any Python object
       setError("malformed SNLDesign.addCombinatorialArcs method");
       return nullptr;
+      // LCOV_EXCL_STOP
     }
   } else if (PyTuple_Size(args) == 3) {
     if (not PyArg_ParseTuple(
