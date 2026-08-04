@@ -276,6 +276,62 @@ cases:
           - "10000000"
       pass_regex: "CVA6_HELLOWORLD_SIM_PASS"
 
+  # CORE-V MCU's FuseSoC default target is the synthesizable integration
+  # boundary. The lint target adds generic simulation memories, boot/PLL
+  # models, and rtl/simulation/top.sv; those models are intentionally not part
+  # of this SNL load. Unknown definitions in the default target are technology
+  # hard macros and are preserved as AutoBlackBox models.
+  - name: core_v_mcu
+    repo: https://github.com/openhwgroup/core-v-mcu.git
+    commit: 4608714d3f6c2a2e67141b03a7aeb24ccdb3f73d
+    top: core_v_mcu
+    flist: build/fusesoc/openhwgroup.org_systems_core-v-mcu_0/default-verilator/openhwgroup.org_systems_core-v-mcu_0.vc
+    flist_glob: build/fusesoc/**/default-verilator/*.vc
+    flist_format: fusesoc_vc
+    flist_append:
+      - +define+VERILATOR
+      - +define+protect=
+      - +define+endprotect=
+    expected_source_count: 370
+    blackbox_unknown_modules: true
+    expected_unknown_modules:
+      - QL_eFPGA_ArcticPro2_32X32_GF_22_Arnold2
+      - a2_bootrom
+      - apb_pll
+      - cluster_clock_gating
+      - cluster_clock_inverter
+      - core_v_mcu_interleaved_ram
+      - core_v_mcu_private_ram
+      - cv32e40p_clock_gate
+      - pulp_clock_gating
+      - pulp_clock_inverter
+      - pulp_clock_mux2
+      - sram512x64
+    setup_timeout_seconds: 3600
+    setup_commands:
+      - - fusesoc
+        - --cores-root
+        - "{repo}"
+        - run
+        - --target=default
+        - --tool=verilator
+        - --setup
+        - --build-root
+        - "{repo}/build/fusesoc"
+        - openhwgroup.org:systems:core-v-mcu
+    output: core_v_mcu_naja.v
+    env:
+      XDG_CACHE_HOME: "{case}/.cache"
+    generate_timeout_seconds: 7200
+    dump:
+      rtl_infos_as_attributes: true
+      assigns_as_instances: false
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+      suppressions:
+        - MULTITOP
+
   - name: ibex
     repo: https://github.com/lowRISC/ibex.git
     commit: eede2fbbef007d53cafbd85d937b897751c40a54

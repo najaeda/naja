@@ -6396,7 +6396,7 @@ endmodule
               memory)) {
           return false;
         }
-        auto clockEvent = getSequentialClockEventInfo(*timing);
+        auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
         if (!clockEvent || clockEvent->edge != slang::ast::EdgeKind::PosEdge) {
           return false;
         }
@@ -6406,7 +6406,7 @@ endmodule
         return true; // LCOV_EXCL_LINE
       }
 
-      auto clockEvent = getSequentialClockEventInfo(*timing);
+      auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
       if (!clockEvent || clockEvent->edge != slang::ast::EdgeKind::PosEdge) {
         return false;
       }
@@ -6569,10 +6569,10 @@ endmodule
         return false;
       }
       if (isIgnorableSequentialStatementTree(*stmt)) {
-        return false;
+        return false; // LCOV_EXCL_LINE -- indexed-write candidate collection excludes ignorable trees
       }
 
-      auto clockEvent = getSequentialClockEventInfo(*timing);
+      auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
       if (!clockEvent || clockEvent->edge != slang::ast::EdgeKind::PosEdge) {
         return false;
       }
@@ -18770,10 +18770,17 @@ endmodule
     };
 
     struct AlwaysLatchPattern {
+      struct PriorityBranch {
+        const Expression* condition {nullptr};
+        const slang::ast::Pattern* conditionPattern {nullptr};
+        AssignAction action {};
+      };
+
       const Expression* lhs {nullptr};
       const Expression* enableCond {nullptr};
       const slang::ast::Pattern* enablePattern {nullptr};
       AssignAction dataAction {};
+      std::vector<PriorityBranch> additionalBranches {};
       const Expression* defaultLhs {nullptr};
       AssignAction defaultAction {};
       bool hasDefault {false};
@@ -18826,8 +18833,16 @@ endmodule
         return false;
       }
 
-      return !actionReferencesLHSRoot(pattern.dataAction, *pattern.lhs) &&
-             !actionReferencesLHSRoot(pattern.defaultAction, *pattern.lhs);
+      if (actionReferencesLHSRoot(pattern.dataAction, *pattern.lhs) ||
+          actionReferencesLHSRoot(pattern.defaultAction, *pattern.lhs)) {
+        return false;
+      }
+      return std::none_of(
+        pattern.additionalBranches.begin(),
+        pattern.additionalBranches.end(),
+        [&](const auto& branch) {
+          return actionReferencesLHSRoot(branch.action, *pattern.lhs);
+        });
     }
 
     const Statement* unwrapStatement(const Statement& stmt) const {
@@ -21764,18 +21779,44 @@ endmodule
       pattern.enablePattern = condStmt.conditions.front().pattern;
       pattern.dataAction = dataAction;
 
-      if (!condStmt.ifFalse) {
-        return true;
-      }
+      const Statement* falseStmt = condStmt.ifFalse;
+      while (falseStmt) {
+        const auto* unwrappedFalse = unwrapStatement(*falseStmt);
+        if (!unwrappedFalse) {
+          return true; // LCOV_EXCL_LINE
+        }
+        if (unwrappedFalse->kind != slang::ast::StatementKind::Conditional) {
+          const Expression* defaultLhs = nullptr;
+          AssignAction defaultAction;
+          if (!extractAssignment(*unwrappedFalse, defaultLhs, defaultAction)) {
+            return isIgnorableSequentialStatementTree(*unwrappedFalse);
+          }
+          pattern.defaultLhs = defaultLhs;
+          pattern.defaultAction = defaultAction;
+          pattern.hasDefault = true;
+          return true;
+        }
 
-      const Expression* defaultLhs = nullptr;
-      AssignAction defaultAction;
-      if (!extractAssignment(*condStmt.ifFalse, defaultLhs, defaultAction)) {
-        return isIgnorableSequentialStatementTree(*condStmt.ifFalse);
+        const auto& nextCond =
+          unwrappedFalse->as<slang::ast::ConditionalStatement>();
+        if (nextCond.conditions.size() != 1 ||
+            !nextCond.conditions.front().expr) {
+          return false;
+        }
+        const Expression* branchLhs = nullptr;
+        AssignAction branchAction;
+        if (!extractAssignment(nextCond.ifTrue, branchLhs, branchAction) ||
+            !sameLhs(branchLhs, pattern.lhs)) {
+          return false;
+        }
+        pattern.additionalBranches.push_back(
+          AlwaysLatchPattern::PriorityBranch {
+            nextCond.conditions.front().expr,
+            nextCond.conditions.front().pattern,
+            branchAction
+          });
+        falseStmt = nextCond.ifFalse;
       }
-      pattern.defaultLhs = defaultLhs;
-      pattern.defaultAction = defaultAction;
-      pattern.hasDefault = true;
       return true;
     }
 
@@ -30682,7 +30723,78 @@ endmodule
       slang::ast::EdgeKind edge {slang::ast::EdgeKind::PosEdge};
     };
 
-    const Expression* getClockExpression(const TimingControl& timing) {
+    std::optional<bool> getControlConditionActiveLevel(
+      const Expression& conditionExpr,
+      const Expression& controlExpr) const {
+      const auto* condition = stripConversions(conditionExpr);
+      if (!condition) {
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+      if (sameLhs(condition, &controlExpr)) {
+        return true;
+      }
+      if (condition->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unaryExpr = condition->as<slang::ast::UnaryExpression>();
+        if ((unaryExpr.op == slang::ast::UnaryOperator::LogicalNot ||
+             unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) &&
+            sameLhs(&unaryExpr.operand(), &controlExpr)) {
+          return false;
+        }
+      }
+      if (condition->kind != slang::ast::ExpressionKind::BinaryOp) {
+        return std::nullopt;
+      }
+      const auto& binaryExpr = condition->as<slang::ast::BinaryExpression>();
+      const bool equality = isEqualityBinaryOp(binaryExpr.op);
+      const bool inequality = isInequalityBinaryOp(binaryExpr.op);
+      if (!equality && !inequality) {
+        return std::nullopt;
+      }
+      bool constantBit = false;
+      if (sameLhs(&binaryExpr.left(), &controlExpr) &&
+          getConstantBit(binaryExpr.right(), constantBit)) {
+        return equality ? constantBit : !constantBit;
+      }
+      if (sameLhs(&binaryExpr.right(), &controlExpr) &&
+          getConstantBit(binaryExpr.left(), constantBit)) {
+        return equality ? constantBit : !constantBit;
+      }
+      return std::nullopt;
+    }
+
+    const Expression* getTopLevelSequentialCondition(const Statement* stmt) const {
+      if (!stmt) {
+        return nullptr; // LCOV_EXCL_LINE -- event-list callers always provide the process statement
+      }
+      const auto* current = unwrapStatement(*stmt);
+      if (!current) {
+        return nullptr; // LCOV_EXCL_LINE -- parser-backed statements always unwrap
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          const auto* unwrappedItem = item ? unwrapStatement(*item) : nullptr;
+          if (unwrappedItem &&
+              unwrappedItem->kind == slang::ast::StatementKind::Conditional) {
+            current = unwrappedItem;
+            break;
+          }
+        }
+      }
+      if (current->kind != slang::ast::StatementKind::Conditional) {
+        return nullptr;
+      }
+      const auto& conditional =
+        current->as<slang::ast::ConditionalStatement>();
+      if (conditional.conditions.size() != 1 ||
+          !conditional.conditions.front().expr) {
+        return nullptr;
+      }
+      return conditional.conditions.front().expr;
+    }
+
+    const Expression* getClockExpression(
+      const TimingControl& timing,
+      const Statement* stmt = nullptr) {
       if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
         // getSequentialClockEventInfo() handles direct signal events before
         // delegating here, so this arm is preserved only as a legacy fallback.
@@ -30702,7 +30814,8 @@ endmodule
         // LCOV_EXCL_STOP
       } else if (timing.kind == slang::ast::TimingControlKind::EventList) {
         const auto& eventList = timing.as<slang::ast::EventListControl>();
-        const Expression* clockExpr = nullptr;
+        std::vector<const slang::ast::SignalEventControl*> signalEvents;
+        signalEvents.reserve(eventList.events.size());
         for (const auto* eventCtrl : eventList.events) {
           if (!eventCtrl ||
               eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
@@ -30715,33 +30828,67 @@ endmodule
           }
 
           const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
-          if (event.edge == slang::ast::EdgeKind::PosEdge) {
-            // Keep the first posedge event as clock. Additional posedge/negedge
-            // events are handled separately as potential async controls.
-            if (!clockExpr) {
-              clockExpr = &event.expr;
+          if (event.edge != slang::ast::EdgeKind::PosEdge &&
+              event.edge != slang::ast::EdgeKind::NegEdge) {
+            reportUnsupportedError(
+              "Unsupported sequential timing edge in event list; only posedge/negedge are supported",
+              getSourceRange(*eventCtrl));
+            return nullptr;
+          }
+          signalEvents.push_back(&event);
+        }
+        if (signalEvents.size() == 1) {
+          return &signalEvents.front()->expr; // LCOV_EXCL_LINE -- slang normalizes one event to SignalEvent
+        }
+
+        // SNL represents an edge-triggered process as one clock plus, at most,
+        // one asynchronous control. Infer that control from the leading
+        // reset/set condition instead of assuming that every negedge is reset:
+        // valid RTL commonly uses a negedge clock and a negedge reset, and the
+        // source order of those two events is not semantically significant.
+        if (signalEvents.size() == 2) {
+          if (const auto* condition = getTopLevelSequentialCondition(stmt)) {
+            std::optional<size_t> asyncIndex;
+            for (size_t i = 0; i < signalEvents.size(); ++i) {
+              const auto* event = signalEvents[i];
+              const auto activeLevel =
+                getControlConditionActiveLevel(*condition, event->expr);
+              const bool matchesAsyncEdge =
+                activeLevel &&
+                ((*activeLevel &&
+                  event->edge == slang::ast::EdgeKind::PosEdge) ||
+                 (!*activeLevel &&
+                  event->edge == slang::ast::EdgeKind::NegEdge));
+              if (matchesAsyncEdge) {
+                if (asyncIndex) {
+                  asyncIndex.reset();
+                  break;
+                }
+                asyncIndex = i;
+              }
             }
-            continue;
+            if (asyncIndex) {
+              return &signalEvents[1 - *asyncIndex]->expr;
+            }
           }
 
-          if (event.edge == slang::ast::EdgeKind::NegEdge) {
-            // Allow common async-reset sensitivity lists:
-            //   @(posedge clk or negedge rst_n)
-            // while still using only the posedge event as DFF clock.
-            continue;
-          }
-
-          reportUnsupportedError(
-            "Unsupported sequential timing edge in event list; only posedge/negedge are supported",
-            getSourceRange(*eventCtrl));
-          return nullptr;
-        }
-        if (clockExpr) {
-          return clockExpr;
         }
 
+        // Preserve the established convention of treating the first posedge as
+        // the clock when the process condition does not identify an async
+        // control. Later lowering reports multiple controls or condition/edge
+        // mismatches with the more specific diagnostic.
+        const auto posedgeEvent = std::find_if(
+          signalEvents.begin(),
+          signalEvents.end(),
+          [](const auto* event) {
+            return event->edge == slang::ast::EdgeKind::PosEdge;
+          });
+        if (posedgeEvent != signalEvents.end()) {
+          return &(*posedgeEvent)->expr;
+        }
         reportUnsupportedError(
-          "Unsupported sequential event list; missing posedge clock event",
+          "Unsupported sequential event list; unable to distinguish clock from async controls",
           getSourceRange(timing));
         return nullptr;
       }
@@ -30751,7 +30898,9 @@ endmodule
       return nullptr;
     }
 
-    std::optional<ClockEventInfo> getSequentialClockEventInfo(const TimingControl& timing) {
+    std::optional<ClockEventInfo> getSequentialClockEventInfo(
+      const TimingControl& timing,
+      const Statement* stmt = nullptr) {
       if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
         const auto& event = timing.as<slang::ast::SignalEventControl>();
         if (event.edge == slang::ast::EdgeKind::PosEdge ||
@@ -30769,11 +30918,22 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      const auto* clockExpr = getClockExpression(timing);
+      const auto* clockExpr = getClockExpression(timing, stmt);
       if (!clockExpr) {
         return std::nullopt;
       }
-      return ClockEventInfo{clockExpr, slang::ast::EdgeKind::PosEdge};
+      const auto& eventList = timing.as<slang::ast::EventListControl>();
+      for (const auto* eventCtrl : eventList.events) {
+        if (!eventCtrl ||
+            eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
+          continue; // LCOV_EXCL_LINE
+        }
+        const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
+        if (sameLhs(&event.expr, clockExpr)) {
+          return ClockEventInfo{clockExpr, event.edge};
+        }
+      }
+      return std::nullopt; // LCOV_EXCL_LINE
     }
 
     bool isCombinationalAlwaysTimingControl(const TimingControl& timing) const {
@@ -30834,9 +30994,7 @@ endmodule
           continue; // LCOV_EXCL_LINE
         }
         const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
-        if (!skippedClock &&
-            event.edge == slang::ast::EdgeKind::PosEdge &&
-            sameLhs(&event.expr, &clockExpr)) {
+        if (!skippedClock && sameLhs(&event.expr, &clockExpr)) {
           skippedClock = true;
           continue;
         }
@@ -30856,26 +31014,17 @@ endmodule
     bool isActiveLowResetConditionForSignal(
       const Expression& resetConditionExpr,
       const Expression& resetSignalExpr) const {
-      const auto* condition = stripConversions(resetConditionExpr);
-      if (!condition || condition->kind != slang::ast::ExpressionKind::UnaryOp) {
-        return false;
-      }
-      const auto& unaryExpr = condition->as<slang::ast::UnaryExpression>();
-      if (unaryExpr.op != slang::ast::UnaryOperator::LogicalNot &&
-          unaryExpr.op != slang::ast::UnaryOperator::BitwiseNot) {
-        return false;
-      }
-      return sameLhs(&unaryExpr.operand(), &resetSignalExpr);
+      const auto activeLevel =
+        getControlConditionActiveLevel(resetConditionExpr, resetSignalExpr);
+      return activeLevel && !*activeLevel;
     }
 
     bool isActiveHighResetConditionForSignal(
       const Expression& resetConditionExpr,
       const Expression& resetSignalExpr) const {
-      const auto* condition = stripConversions(resetConditionExpr);
-      if (!condition) {
-        return false; // LCOV_EXCL_LINE
-      }
-      return sameLhs(condition, &resetSignalExpr);
+      const auto activeLevel =
+        getControlConditionActiveLevel(resetConditionExpr, resetSignalExpr);
+      return activeLevel && *activeLevel;
     }
 
     const Expression* getActiveLowControlSignal(const Expression& conditionExpr) const {
@@ -31582,6 +31731,206 @@ endmodule
             return false;
           }
 
+          if (!pattern.additionalBranches.empty()) {
+            if (pattern.hasDefault &&
+                (!pattern.defaultLhs ||
+                 !sameLhs(pattern.defaultLhs, pattern.lhs))) {
+              latchFailureReason =
+                "priority always_latch chain assigns a different LHS in its final else branch";
+              return false;
+            }
+
+            std::vector<AlwaysLatchPattern::PriorityBranch> branches;
+            branches.reserve(1 + pattern.additionalBranches.size());
+            branches.push_back(
+              AlwaysLatchPattern::PriorityBranch {
+                pattern.enableCond,
+                pattern.enablePattern,
+                pattern.dataAction
+              });
+            branches.insert(
+              branches.end(),
+              pattern.additionalBranches.begin(),
+              pattern.additionalBranches.end());
+
+            std::vector<SNLBitNet*> incrementerBits;
+            bool needsIncrementer = false;
+            for (const auto& branch : branches) {
+              needsIncrementer =
+                needsIncrementer ||
+                needsIncrementerForAction(design, lhsNet, branch.action);
+            }
+            if (pattern.hasDefault) {
+              needsIncrementer =
+                needsIncrementer ||
+                needsIncrementerForAction(
+                  design,
+                  lhsNet,
+                  pattern.defaultAction);
+            }
+            if (needsIncrementer) {
+              auto* incNet = getOrCreateNamedNet(
+                design,
+                joinName("inc", baseName),
+                lhsNet,
+                latchSourceRange);
+              auto incBits = collectBits(incNet);
+              auto* incCarryNet = getOrCreateNamedNet(
+                design,
+                joinName("inc_carry", baseName),
+                lhsNet,
+                latchSourceRange);
+              auto carryBits = collectBits(incCarryNet);
+              incrementerBits = buildIncrementer(
+                design,
+                lhsBits,
+                incBits,
+                carryBits,
+                latchSourceRange);
+            }
+
+            if (pattern.hasDefault) {
+              auto defaultBits = buildAssignBits(
+                design,
+                pattern.defaultAction,
+                lhsNet,
+                lhsBits,
+                &incrementerBits,
+                getActionSourceRange(pattern.defaultAction));
+              if (defaultBits.empty()) {
+                return false;
+              }
+              const bool explicitSelfAssignment =
+                pattern.defaultAction.stepDelta == 0 &&
+                pattern.defaultAction.rhs &&
+                sameLhs(pattern.defaultAction.rhs, pattern.lhs);
+              const bool bitwiseSelfAssignment =
+                defaultBits.size() == lhsBits.size() &&
+                std::equal(
+                  defaultBits.begin(),
+                  defaultBits.end(),
+                  lhsBits.begin());
+              if (!explicitSelfAssignment && !bitwiseSelfAssignment) {
+                latchFailureReason =
+                  "priority always_latch chain final else branch is not a hold";
+                return false;
+              }
+            }
+
+            std::vector<SNLBitNet*> branchEnableBits;
+            branchEnableBits.reserve(branches.size());
+            for (size_t branchIndex = 0;
+                 branchIndex < branches.size();
+                 ++branchIndex) {
+              const auto& branch = branches[branchIndex];
+              const auto branchSourceRange =
+                getSourceRange(*branch.condition);
+              auto* branchEnable = resolvePatternConditionNet(
+                design,
+                *branch.condition,
+                branch.conditionPattern,
+                joinName(
+                  "latch_en_" + std::to_string(branchIndex),
+                  baseName),
+                branchSourceRange);
+              if (!branchEnable) {
+                latchFailureReason =
+                  "unable to resolve priority latch enable condition net";
+                return false;
+              }
+              branchEnableBits.push_back(branchEnable);
+            }
+
+            std::vector<SNLBitNet*> dataBits = lhsBits;
+            for (size_t reverseIndex = branches.size();
+                 reverseIndex > 0;
+                 --reverseIndex) {
+              const size_t branchIndex = reverseIndex - 1;
+              const auto& branch = branches[branchIndex];
+              auto branchDataBits = buildAssignBits(
+                design,
+                branch.action,
+                lhsNet,
+                lhsBits,
+                &incrementerBits,
+                getActionSourceRange(branch.action));
+              if (branchDataBits.empty()) {
+                return false;
+              }
+              std::vector<SNLBitNet*> mergedBits;
+              if (!createMux2Instance(
+                    design,
+                    branchEnableBits[branchIndex],
+                    dataBits,
+                    branchDataBits,
+                    mergedBits,
+                    getSourceRange(*branch.condition),
+                    nullptr,
+                    true)) {
+                // LCOV_EXCL_START -- primitive library construction is infallible here
+                latchFailureReason =
+                  "unable to build priority always_latch data mux";
+                return false;
+                // LCOV_EXCL_STOP
+              }
+              dataBits = std::move(mergedBits);
+            }
+
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+            SNLBitNet* combinedEnable = const0;
+            for (auto* branchEnable : branchEnableBits) {
+              if (combinedEnable == const1 || branchEnable == const0) {
+                continue;
+              }
+              if (branchEnable == const1) {
+                combinedEnable = const1;
+                continue;
+              }
+              if (combinedEnable == const0) {
+                combinedEnable = branchEnable;
+                continue;
+              }
+              combinedEnable = getSingleBitNet(createBinaryGate(
+                design,
+                NLDB0::GateType(NLDB0::GateType::Or),
+                combinedEnable,
+                branchEnable,
+                nullptr,
+                latchSourceRange));
+              if (!combinedEnable) {
+                // LCOV_EXCL_START -- primitive library construction is infallible here
+                latchFailureReason =
+                  "unable to build priority always_latch combined enable";
+                return false;
+                // LCOV_EXCL_STOP
+              }
+            }
+
+            bool emittedVectorLatch = false;
+            if (lhsBits.size() > 1) {
+              emittedVectorLatch = createVectorSequentialInstance(
+                design,
+                NLDB0::getOrCreateDLatch(lhsBits.size()),
+                combinedEnable,
+                "E",
+                dataBits,
+                lhsBits,
+                latchSourceRange);
+            }
+            if (!emittedVectorLatch) {
+              for (size_t i = 0; i < lhsBits.size(); ++i) {
+                createDLatchInstance(
+                  design,
+                  combinedEnable,
+                  dataBits[i],
+                  lhsBits[i],
+                  latchSourceRange);
+              }
+            }
+            return true;
+          }
+
           if (pattern.hasDefault &&
               pattern.defaultLhs &&
               !sameLhs(pattern.defaultLhs, pattern.lhs)) {
@@ -31839,7 +32188,7 @@ endmodule
         const Expression* asyncResetEventExpr = nullptr;
         std::optional<slang::ast::EdgeKind> asyncResetEventEdge;
         if (timing) {
-          auto clockEvent = getSequentialClockEventInfo(*timing);
+          auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
           if (clockEvent) {
             clockEdge = clockEvent->edge;
             clkNet = getSingleBitNet(resolveExpressionNet(design, *clockEvent->expr));
@@ -32422,6 +32771,35 @@ endmodule
         }
 
         auto* constEnableOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        const bool useControlledPositiveEdgePrimitive =
+          useAsyncResetDFFRN ||
+          useAsyncResetDFFR ||
+          useAsyncResetDFFS ||
+          useAsyncResetDFFRE ||
+          useAsyncResetDFFSE ||
+          useSyncResetDFFSR ||
+          useSyncResetDFFSRN ||
+          useSyncSetDFFSS ||
+          useSyncSetDFFSSN ||
+          useSyncResetDFFSRE ||
+          useSyncResetDFFSRNE ||
+          useSyncSetDFFSSE ||
+          useSyncSetDFFSSNE ||
+          useClockEnablePrimitive;
+        SNLBitNet* primitiveClkNet = clkNet;
+        if (clockEdge == slang::ast::EdgeKind::NegEdge &&
+            useControlledPositiveEdgePrimitive) {
+          primitiveClkNet =
+            createNotBitGate(design, clkNet, statementSourceRange);
+          if (!primitiveClkNet) {
+            // LCOV_EXCL_START -- validated clock nets and the DB0 NOT primitive cannot fail
+            reportUnsupportedError(
+              "Unsupported sequential block: unable to invert negedge clock for controlled primitive",
+              statementSourceRange);
+            continue;
+            // LCOV_EXCL_STOP
+          }
+        }
         {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeSequentialPerfScopeName("emitSequentialPrimitives"));
@@ -32433,7 +32811,7 @@ endmodule
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFRN(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32444,7 +32822,7 @@ endmodule
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFR(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32455,7 +32833,7 @@ endmodule
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFS(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32466,7 +32844,7 @@ endmodule
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFRE(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32479,7 +32857,7 @@ endmodule
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFSE(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32490,45 +32868,45 @@ endmodule
                 "S");
             } else if (useSyncResetDFFSR) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSR(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSR(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, syncResetControlNet, "R");
             } else if (useSyncResetDFFSRN) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSRN(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSRN(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, syncResetControlNet, "RN");
             } else if (useSyncSetDFFSS) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSS(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSS(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, syncResetControlNet, "S");
             } else if (useSyncSetDFFSSN) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSSN(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSSN(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, syncResetControlNet, "SN");
             } else if (useSyncResetDFFSRE) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSRE(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSRE(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, enableNet, "E",
                 syncResetControlNet, "R");
             } else if (useSyncResetDFFSRNE) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSRNE(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSRNE(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, enableNet, "E",
                 syncResetControlNet, "RN");
             } else if (useSyncSetDFFSSE) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSSE(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSSE(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, enableNet, "E",
                 syncResetControlNet, "S");
             } else if (useSyncSetDFFSSNE) {
               emittedVectorSequential = createVectorSequentialInstance(
-                design, NLDB0::getOrCreateDFFSSNE(width), clkNet, "C",
+                design, NLDB0::getOrCreateDFFSSNE(width), primitiveClkNet, "C",
                 dataBits, lhsBits, statementSourceRange, enableNet, "E",
                 syncResetControlNet, "SN");
             } else if (useClockEnablePrimitive) {
               emittedVectorSequential = createVectorSequentialInstance(
                 design,
                 NLDB0::getOrCreateDFFE(width),
-                clkNet,
+                primitiveClkNet,
                 "C",
                 dataBits,
                 lhsBits,
@@ -32560,7 +32938,7 @@ endmodule
               if (useAsyncResetDFFRN) {
                 createDFFRNInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   asyncResetControlNet,
                   lhsBits[i],
@@ -32568,7 +32946,7 @@ endmodule
               } else if (useAsyncResetDFFR) {
                 createDFFRInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   asyncResetControlNet,
                   lhsBits[i],
@@ -32576,7 +32954,7 @@ endmodule
               } else if (useAsyncResetDFFS) {
                 createDFFSInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   asyncResetControlNet,
                   lhsBits[i],
@@ -32584,7 +32962,7 @@ endmodule
               } else if (useAsyncResetDFFRE) {
                 createDFFREInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   useClockEnablePrimitive ? enableNet : constEnableOne,
                   asyncResetControlNet,
@@ -32593,7 +32971,7 @@ endmodule
               } else if (useAsyncResetDFFSE) {
                 createDFFSEInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   useClockEnablePrimitive ? enableNet : constEnableOne,
                   asyncResetControlNet,
@@ -32601,40 +32979,40 @@ endmodule
                   statementSourceRange);
               } else if (useSyncResetDFFSR) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSR(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSR(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, syncResetControlNet, "R");
               } else if (useSyncResetDFFSRN) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSRN(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSRN(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, syncResetControlNet, "RN");
               } else if (useSyncSetDFFSS) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSS(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSS(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, syncResetControlNet, "S");
               } else if (useSyncSetDFFSSN) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSSN(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSSN(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, syncResetControlNet, "SN");
               } else if (useSyncResetDFFSRE) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSRE(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSRE(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, enableNet, "E", syncResetControlNet, "R");
               } else if (useSyncResetDFFSRNE) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSRNE(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSRNE(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, enableNet, "E", syncResetControlNet, "RN");
               } else if (useSyncSetDFFSSE) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSSE(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSSE(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, enableNet, "E", syncResetControlNet, "S");
               } else if (useSyncSetDFFSSNE) {
                 createScalarSequentialInstance(
-                  design, NLDB0::getDFFSSNE(), clkNet, dataBits[i], lhsBits[i],
+                  design, NLDB0::getDFFSSNE(), primitiveClkNet, dataBits[i], lhsBits[i],
                   statementSourceRange, enableNet, "E", syncResetControlNet, "SN");
               } else if (useClockEnablePrimitive) {
                 createDFFEInstance(
                   design,
-                  clkNet,
+                  primitiveClkNet,
                   dataBits[i],
                   enableNet,
                   lhsBits[i],
@@ -33587,7 +33965,7 @@ endmodule
       }
 
       auto inst = SNLInstance::create(
-        design, model, NLName(std::string(uninst.name)));
+        design, model, NLName(getLoweredSymbolName(uninst)));
       annotateSourceInfo(inst, getSourceRange(uninst));
 
       // Wire the connections we can resolve; unresolved actuals are left

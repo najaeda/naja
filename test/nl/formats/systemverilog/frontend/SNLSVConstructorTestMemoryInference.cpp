@@ -11498,7 +11498,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"Unsupported sequential event list; missing posedge clock event"});
+    {"unsupported statement pattern for sequential lowering"});
 }
 
 TEST_F(

@@ -15,6 +15,40 @@ except ImportError:  # pragma: no cover
     import utils
 
 
+def _constructSequentialPrimitive(design, clock):
+    """Decode Yosys' sequential-cell suffix and attach timing metadata."""
+    term_roles = {}
+    enable = design.getScalarTerm("E")
+    if enable is not None:
+        term_roles[enable] = naja.SNLTermRole.Enable
+
+    control = design.getScalarTerm("R")
+    if control is not None:
+        encoding = design.getName().split("_")[-2]
+        active_level = (
+            naja.SNLActiveLevel.High
+            if encoding[1] == "P"
+            else naja.SNLActiveLevel.Low
+        )
+        synchronous = design.getName().startswith("$_SDFF")
+        sets_state = encoding[2] == "1"
+        if synchronous:
+            role = (
+                naja.SNLTermRole.SyncSet
+                if sets_state
+                else naja.SNLTermRole.SyncReset
+            )
+        else:
+            role = (
+                naja.SNLTermRole.AsyncSet
+                if sets_state
+                else naja.SNLTermRole.AsyncReset
+            )
+        term_roles[control] = (role, active_level)
+
+    utils.constructSequentialPrimitive(design, clock, term_roles)
+
+
 def constructAND(lib):
     and2 = naja.SNLDesign.createPrimitive(lib, "$_AND_")
     naja.SNLScalarTerm.create(and2, naja.SNLTerm.Direction.Input, "A")
@@ -68,7 +102,7 @@ def constructDFFP(lib):
     c = naja.SNLScalarTerm.create(dffp, naja.SNLTerm.Direction.Input, "C")
     naja.SNLScalarTerm.create(dffp, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dffp, naja.SNLTerm.Direction.Output, "Q")
-    utils.constructSequentialPrimitive(dffp, c)
+    _constructSequentialPrimitive(dffp, c)
 
 
 def constructDFFE_PP(lib):
@@ -77,7 +111,7 @@ def constructDFFE_PP(lib):
     naja.SNLScalarTerm.create(dffe_pp, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dffe_pp, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pp, naja.SNLTerm.Direction.Output, "Q")
-    utils.constructSequentialPrimitive(dffe_pp, c)
+    _constructSequentialPrimitive(dffe_pp, c)
 
 
 def constructDFFE_PN(lib):
@@ -86,7 +120,7 @@ def constructDFFE_PN(lib):
     naja.SNLScalarTerm.create(dffe_pn, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dffe_pn, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pn, naja.SNLTerm.Direction.Output, "Q")
-    utils.constructSequentialPrimitive(dffe_pn, c)
+    _constructSequentialPrimitive(dffe_pn, c)
 
 
 def constructDFF_PP0(lib):
@@ -95,7 +129,7 @@ def constructDFF_PP0(lib):
     naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dff_pp0, c)
+    _constructSequentialPrimitive(dff_pp0, c)
 
 
 def constructDFF_PN0(lib):
@@ -104,7 +138,7 @@ def constructDFF_PN0(lib):
     naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dff_pn0, c)
+    _constructSequentialPrimitive(dff_pn0, c)
 
 
 def constructDFF_PN1(lib):
@@ -113,7 +147,7 @@ def constructDFF_PN1(lib):
     naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dff_pn1, c)
+    _constructSequentialPrimitive(dff_pn1, c)
 
 
 def constructDFF_PP1(lib):
@@ -122,7 +156,7 @@ def constructDFF_PP1(lib):
     naja.SNLScalarTerm.create(dffe_pp1, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(dffe_pp1, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pp1, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pp1, c)
+    _constructSequentialPrimitive(dffe_pp1, c)
 
 
 def constructDFFE_PP0P(lib):
@@ -132,7 +166,7 @@ def constructDFFE_PP0P(lib):
     naja.SNLScalarTerm.create(dffe_pp0p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pp0p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pp0p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pp0p, c)
+    _constructSequentialPrimitive(dffe_pp0p, c)
 
 
 def constructDFFE_PP1P(lib):
@@ -142,7 +176,7 @@ def constructDFFE_PP1P(lib):
     naja.SNLScalarTerm.create(dffe_pp1p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pp1p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pp1p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pp1p, c)
+    _constructSequentialPrimitive(dffe_pp1p, c)
 
 
 def constructDFFE_PP0N(lib):
@@ -152,7 +186,7 @@ def constructDFFE_PP0N(lib):
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pp0n, c)
+    _constructSequentialPrimitive(dffe_pp0n, c)
 
 
 def constructDFFE_PN0P(lib):
@@ -162,7 +196,7 @@ def constructDFFE_PN0P(lib):
     naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pn0p, c)
+    _constructSequentialPrimitive(dffe_pn0p, c)
 
 
 def constructDFFE_PN0N(lib):
@@ -172,7 +206,7 @@ def constructDFFE_PN0N(lib):
     naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pn0n, c)
+    _constructSequentialPrimitive(dffe_pn0n, c)
 
 
 def constructDFFE_PN1P(lib):
@@ -182,7 +216,7 @@ def constructDFFE_PN1P(lib):
     naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(dffe_pn1p, c)
+    _constructSequentialPrimitive(dffe_pn1p, c)
 
 
 def constructSDFF_PP0(lib):
@@ -191,7 +225,7 @@ def constructSDFF_PP0(lib):
     naja.SNLScalarTerm.create(sdff_pp0, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(sdff_pp0, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdff_pp0, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdff_pp0, c)
+    _constructSequentialPrimitive(sdff_pp0, c)
 
 
 def constructSDFFE_PP0N(lib):
@@ -201,7 +235,7 @@ def constructSDFFE_PP0N(lib):
     naja.SNLScalarTerm.create(sdffe_pp0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffe_pp0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffe_pp0n, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffe_pp0n, c)
+    _constructSequentialPrimitive(sdffe_pp0n, c)
 
 
 def constructSDFFE_PN0P(lib):
@@ -211,7 +245,7 @@ def constructSDFFE_PN0P(lib):
     naja.SNLScalarTerm.create(sdffe_pn0p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffe_pn0p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffe_pn0p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffe_pn0p, c)
+    _constructSequentialPrimitive(sdffe_pn0p, c)
 
 
 def constructSDFFE_PN0N(lib):
@@ -221,7 +255,7 @@ def constructSDFFE_PN0N(lib):
     naja.SNLScalarTerm.create(sdffe_pn0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffe_pn0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffe_pn0n, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffe_pn0n, c)
+    _constructSequentialPrimitive(sdffe_pn0n, c)
 
 
 def constructSDFFCE_PP0P(lib):
@@ -231,7 +265,7 @@ def constructSDFFCE_PP0P(lib):
     naja.SNLScalarTerm.create(sdffce_pp0p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffce_pp0p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffce_pp0p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffce_pp0p, c)
+    _constructSequentialPrimitive(sdffce_pp0p, c)
 
 
 def constructSDFFCE_PP1P(lib):
@@ -241,7 +275,7 @@ def constructSDFFCE_PP1P(lib):
     naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffce_pp1p, c)
+    _constructSequentialPrimitive(sdffce_pp1p, c)
 
 
 def constructSDFFCE_PN0N(lib):
@@ -251,7 +285,7 @@ def constructSDFFCE_PN0N(lib):
     naja.SNLScalarTerm.create(sdffce_pn0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffce_pn0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffce_pn0n, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffce_pn0n, c)
+    _constructSequentialPrimitive(sdffce_pn0n, c)
 
 
 def constructSDFFCE_PN1P(lib):
@@ -261,7 +295,7 @@ def constructSDFFCE_PN1P(lib):
     naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffce_pn1p, c)
+    _constructSequentialPrimitive(sdffce_pn1p, c)
 
 
 def constructPrimitives(lib):

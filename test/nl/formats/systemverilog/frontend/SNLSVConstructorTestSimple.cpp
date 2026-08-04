@@ -1674,6 +1674,63 @@ endmodule
   EXPECT_EQ(nullptr, u3->getInstTerm(p1->getBit(0))->getNet());
 }
 
+TEST_F(SNLSVConstructorTestSimple,
+       parseUnknownModuleAutoBlackboxInsideNamedGenerateLoop) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.blackboxUnknownModules = true;
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "unknown_module_auto_blackbox_named_generate";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unknown_module_auto_blackbox_named_generate.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module top(
+  input  logic [1:0] data_i,
+  output logic [1:0] data_o
+);
+  for (genvar i = 0; i < 2; ++i) begin : banks
+    missing_cell bank_i(
+      .din(data_i[i]),
+      .dout(data_o[i])
+    );
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath, options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  auto* model = library_->getSNLDesign(NLName("missing_cell"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, model);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  EXPECT_EQ(2, top->getNonAssignInstances().size());
+
+  auto* din = model->getScalarTerm(NLName("din"));
+  auto* dout = model->getScalarTerm(NLName("dout"));
+  ASSERT_NE(nullptr, din);
+  ASSERT_NE(nullptr, dout);
+  auto* dataI = top->getBusNet(NLName("data_i"));
+  auto* dataO = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(nullptr, dataI);
+  ASSERT_NE(nullptr, dataO);
+
+  for (NLID::Bit i = 0; i < 2; ++i) {
+    auto* inst = top->getInstance(
+      NLName("top_banks_" + std::to_string(i) + "_bank_i"));
+    ASSERT_NE(nullptr, inst);
+    EXPECT_EQ(model, inst->getModel());
+    EXPECT_EQ(dataI->getBit(i), inst->getInstTerm(din)->getNet());
+    EXPECT_EQ(dataO->getBit(i), inst->getInstTerm(dout)->getNet());
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignsInsideNestedGenerateLoops) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -27901,19 +27958,19 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("q_o")), nullptr);
 
-  auto dffModel = NLDB0::getDFF();
-  ASSERT_NE(dffModel, nullptr);
-  size_t dffCount = 0;
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
   size_t orGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isDFF(inst->getModel())) {
-      dffCount += getPrimitiveWidth(inst);
+    if (NLDB0::isDFFRN(inst->getModel())) {
+      dffrnCount += getPrimitiveWidth(inst);
     }
     if (NLDB0::isGate(inst->getModel()) && NLDB0::getGateName(inst->getModel()) == "or") {
       ++orGateCount;
     }
   }
-  EXPECT_EQ(1u, dffCount);
+  EXPECT_EQ(1u, dffrnCount);
   EXPECT_GE(orGateCount, 1u);
 }
 
@@ -30162,8 +30219,214 @@ endmodule
     const std::string reason = e.what();
     EXPECT_NE(
       std::string::npos,
-      reason.find("Unsupported sequential event list; missing posedge clock event"));
+      reason.find(
+        "Unsupported sequential event list; unable to distinguish clock from async controls"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingEventListNegedgeClockAndResetSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_event_list_negedge_clock_and_reset_supported",
+    R"(module seq_timing_event_list_negedge_clock_and_reset_supported(
+  input  logic clk_i,
+  input  logic rst_ni,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(negedge clk_i or negedge rst_ni) begin
+    if (rst_ni == 1'b0)
+      q_o[0] <= 1'b0;
+    else
+      q_o[0] <= d_i[0];
+  end
+
+  always_ff @(negedge rst_ni or negedge clk_i) begin
+    if (!rst_ni)
+      q_o[1] <= 1'b0;
+    else
+      q_o[1] <= d_i[1];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_event_list_negedge_clock_and_reset_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFF));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFRN));
+
+  auto* sourceClock = top->getScalarNet(NLName("clk_i"));
+  ASSERT_NE(nullptr, sourceClock);
+  SNLBitNet* primitiveClock = nullptr;
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFFRN(inst->getModel())) {
+      continue;
+    }
+    auto* clockTerm = inst->getInstTerm(NLDB0::getDFFRNClock());
+    ASSERT_NE(nullptr, clockTerm);
+    ASSERT_NE(nullptr, clockTerm->getNet());
+    EXPECT_NE(sourceClock, clockTerm->getNet());
+    if (!primitiveClock) {
+      primitiveClock = clockTerm->getNet();
+    } else {
+      EXPECT_EQ(primitiveClock, clockTerm->getNet());
+    }
+  }
+  ASSERT_NE(nullptr, primitiveClock);
+
+  size_t notGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(1u, notGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingEventListReversedResetEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_event_list_reversed_reset_equality_supported",
+    R"(module seq_timing_event_list_reversed_reset_equality_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_ff @(negedge rst_ni or negedge clk_i) begin
+    if (1'b0 == rst_ni)
+      q_o <= 2'b00;
+    else
+      q_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_event_list_reversed_reset_equality_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countPrimitiveBits(top, NLDB0::isDFFRN));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingEventListCompoundResetConditionSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_event_list_compound_reset_condition_supported",
+    R"(module seq_timing_event_list_compound_reset_condition_supported(
+  input  logic clk_i,
+  input  logic rst_i,
+  input  logic mode_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i or posedge rst_i) begin
+    if (rst_i & mode_i)
+      q_o <= 1'b0;
+    else
+      q_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_event_list_compound_reset_condition_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveBits(top, isSequentialDFFPrimitive));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingEventListPatternConjunctionSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_event_list_pattern_conjunction_supported",
+    R"(module seq_timing_event_list_pattern_conjunction_supported(
+  input  logic clk_i,
+  input  logic rst_i,
+  input  logic mode_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge clk_i or posedge rst_i) begin
+    if (rst_i matches (1'b1) &&& mode_i matches (1'b1))
+      q_o <= 1'b0;
+    else
+      q_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_event_list_pattern_conjunction_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveBits(top, isSequentialDFFPrimitive));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialTimingDuplicateMatchingEventsSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_timing_duplicate_matching_events_supported",
+    R"(module seq_timing_duplicate_matching_events_supported(
+  input  logic rst_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_ff @(posedge rst_i or posedge rst_i) begin
+    if (rst_i)
+      q_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_timing_duplicate_matching_events_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveBits(top, isSequentialDFFPrimitive));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseSequentialVectorAsyncResetEnableDFFRESupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_vector_async_reset_enable_dffre_supported",
+    R"(module seq_vector_async_reset_enable_dffre_supported(
+  input  logic       clk_i,
+  input  logic       rst_i,
+  input  logic       en_i,
+  input  logic [3:0] d_i,
+  output logic [3:0] q_o
+);
+  always_ff @(posedge clk_i or posedge rst_i) begin
+    if (rst_i)
+      q_o <= 4'b0000;
+    else if (en_i)
+      q_o <= d_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("seq_vector_async_reset_enable_dffre_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(4u, countPrimitiveBits(top, NLDB0::isDFFRE));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysStarCombinationalSnippetSupported) {
@@ -33312,6 +33575,350 @@ endmodule
     }
   }
   EXPECT_EQ(1u, dlatchCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchPriorityChainSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_chain_supported",
+    R"(module always_latch_priority_chain_supported(
+  input  logic rst_ni,
+  input  logic expired_i,
+  input  logic clear_i,
+  output logic [1:0] reason_o
+);
+  always_latch begin
+    if (rst_ni == 1'b0)
+      reason_o <= 2'b01;
+    else if (expired_i == 1'b1)
+      reason_o <= 2'b10;
+    else if (clear_i == 1'b1)
+      reason_o <= 2'b00;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top =
+    library_->getSNLDesign(NLName("always_latch_priority_chain_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDLatch));
+  EXPECT_EQ(3u, countMux2Instances(top, 2));
+
+  size_t orGateCount = 0;
+  for (auto* inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_EQ(2u, orGateCount);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_latch_priority_chain_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchCompletePriorityChainAsCombinationalSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_complete_priority_chain_as_combinational_supported",
+    R"(module always_latch_complete_priority_chain_as_combinational_supported(
+  input  logic sel0_i,
+  input  logic sel1_i,
+  input  logic d0_i,
+  input  logic d1_i,
+  input  logic d2_i,
+  output logic q_o
+);
+  always_latch begin
+    if (sel0_i)
+      q_o <= d0_i;
+    else if (sel1_i)
+      q_o <= d1_i;
+    else
+      q_o <= d2_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_latch_complete_priority_chain_as_combinational_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDLatch));
+  EXPECT_EQ(2u, countMux2Instances(top, 1));
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityIntermediateDifferentLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_intermediate_different_lhs_unsupported",
+    R"(module always_latch_priority_intermediate_different_lhs_unsupported(
+  input  logic en0_i,
+  input  logic en1_i,
+  input  logic d_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      r_o <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_priority_intermediate_different_lhs_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityPatternConjunctionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_pattern_conjunction_unsupported",
+    R"(module always_latch_priority_pattern_conjunction_unsupported(
+  input  logic a_i,
+  input  logic b_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_latch begin
+    if (a_i)
+      q_o <= d_i;
+    else if (a_i matches (1'b1) &&& b_i matches (1'b1))
+      q_o <= b_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_priority_pattern_conjunction_unsupported'",
+     "unsupported statement pattern for always_latch lowering"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityFinalElseDifferentLHSUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_final_else_different_lhs_unsupported",
+    R"(module always_latch_priority_final_else_different_lhs_unsupported(
+  input  logic en0_i,
+  input  logic en1_i,
+  input  logic d_i,
+  output logic q_o,
+  output logic r_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      q_o <= ~d_i;
+    else
+      r_o <= d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_priority_final_else_different_lhs_unsupported'",
+     "priority always_latch chain assigns a different LHS"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityIncrementAndHoldSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_increment_and_hold_supported",
+    R"(module always_latch_priority_increment_and_hold_supported(
+  input  logic en0_i,
+  input  logic en1_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      q_o <= q_o + 1'b1;
+    else
+      q_o <= q_o;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_latch_priority_increment_and_hold_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countPrimitiveInstances(top, NLDB0::isDLatch));
+  EXPECT_GT(countFAInstances(top), 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityNonHoldDefaultUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_non_hold_default_unsupported",
+    R"(module always_latch_priority_non_hold_default_unsupported(
+  input  logic       en0_i,
+  input  logic       en1_i,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      q_o <= q_o;
+    else
+      q_o <= q_o ^ d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_priority_non_hold_default_unsupported'",
+     "priority always_latch chain final else branch is not a hold"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityDefaultDataFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_default_data_failure_unsupported",
+    R"(module always_latch_priority_default_data_failure_unsupported(
+  input  logic       en0_i,
+  input  logic       en1_i,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      q_o <= q_o;
+    else
+      q_o <= d_i -> q_o;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in sequential assignment: ->"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityBranchEnableFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_branch_enable_failure_unsupported",
+    R"(module always_latch_priority_branch_enable_failure_unsupported(
+  input  logic en0_i,
+  input  logic en1_i,
+  input  logic d_i,
+  output logic q_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i matches (.captured))
+      q_o <= ~d_i;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported latch block in module "
+     "'always_latch_priority_branch_enable_failure_unsupported'",
+     "unable to resolve priority latch enable condition net"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityBranchDataFailureUnsupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_branch_data_failure_unsupported",
+    R"(module always_latch_priority_branch_data_failure_unsupported(
+  input  logic       en0_i,
+  input  logic       en1_i,
+  input  logic [1:0] d_i,
+  output logic [1:0] q_o
+);
+  always_latch begin
+    if (en0_i)
+      q_o <= d_i;
+    else if (en1_i)
+      q_o <= d_i -> q_o;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"Unsupported binary operator in sequential assignment: ->"});
+}
+
+TEST_F(SNLSVConstructorTestSimple,
+       parseAlwaysLatchPriorityConstantEnablesSupported) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_latch_priority_constant_enables_supported",
+    R"(module always_latch_priority_constant_enables_supported(
+  input  logic en_i,
+  input  logic d0_i,
+  input  logic d1_i,
+  output logic q0_o,
+  output logic q1_o
+);
+  always_latch begin
+    if (en_i)
+      q0_o <= d0_i;
+    else if (1'b0)
+      q0_o <= d1_i;
+  end
+
+  always_latch begin
+    if (en_i)
+      q1_o <= d0_i;
+    else if (1'b1)
+      q1_o <= d1_i;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_latch_priority_constant_enables_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDLatch));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchIncrementerSupported) {
