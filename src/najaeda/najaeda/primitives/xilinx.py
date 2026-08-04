@@ -260,11 +260,11 @@ def constructSRL16E(lib):
 
 def constructFDCE(lib):
     fdce = naja.SNLDesign.createPrimitive(lib, "FDCE")
-    q = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "CE")
     clr = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "CLR")
-    d = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdce, "INIT", 1, 0b0)
     utils.constructSequentialPrimitive(
         fdce,
@@ -278,11 +278,11 @@ def constructFDCE(lib):
 
 def constructFDPE(lib):
     fdpe = naja.SNLDesign.createPrimitive(lib, "FDPE")
-    q = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "CE")
     pre = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "PRE")
-    d = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdpe, "INIT", 1, 0b1)
     utils.constructSequentialPrimitive(
         fdpe,
@@ -296,11 +296,11 @@ def constructFDPE(lib):
 
 def constructFDRE(lib):
     fdre = naja.SNLDesign.createPrimitive(lib, "FDRE")
-    q = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "CE")
     r = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "R")
-    d = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdre, "INIT", 1, 0b0)
     utils.constructSequentialPrimitive(
         fdre,
@@ -314,11 +314,11 @@ def constructFDRE(lib):
 
 def constructFDSE(lib):
     fdse = naja.SNLDesign.createPrimitive(lib, "FDSE")
-    q = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "CE")
     s = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "S")
-    d = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdse, "INIT", 1, 0b0)
     utils.constructSequentialPrimitive(
         fdse,
