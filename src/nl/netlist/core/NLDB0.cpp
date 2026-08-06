@@ -1651,6 +1651,67 @@ SNLBusTerm* NLDB0::getDivModRemainder(const SNLDesign* design) {
   return design->getBusTerm(Term3ID);
 }
 
+SNLTruthTable NLDB0::getDivModTruthTable(
+    const SNLDesign* design,
+    size_t flatTermID) {
+  if (!isDivMod(design)) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: design is not a divmod primitive");
+  }
+
+  const auto signature = getDivModSignature(design);
+  if (signature.width == 0 ||
+      signature.width > std::numeric_limits<uint32_t>::max()) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: width does not fit truth table metadata");
+  }
+
+  const SNLBitTerm* outputTerm = nullptr;
+  for (const auto* term : design->getBitTerms()) {
+    if (term->getOrderID() == flatTermID) {
+      outputTerm = term;
+      break;
+    }
+  }
+  const auto* quotient = getDivModQuotient(design);
+  const auto* remainder = getDivModRemainder(design);
+  if (!outputTerm ||
+      outputTerm->getDirection() != SNLTerm::Direction::Output ||
+      (outputTerm->getID() != quotient->getID() &&
+       outputTerm->getID() != remainder->getID())) {
+    std::ostringstream reason;
+    reason << "Term ID " << flatTermID
+           << " is not an output in divmod design <"
+           << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+
+  const auto outputBit = static_cast<size_t>(outputTerm->getBit());
+  if (outputBit >= signature.width) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: output bit is out of range");
+  }
+
+  std::vector<size_t> dependencies;
+  dependencies.reserve(signature.width * 2);
+  for (const auto* operand :
+       {getDivModDividend(design), getDivModDivisor(design)}) {
+    for (const auto* bit : operand->getBits()) {
+      dependencies.push_back(bit->getOrderID());
+    }
+  }
+
+  const auto result = outputTerm->getID() == quotient->getID()
+      ? SNLTruthTable::DivModResult::QUOTIENT
+      : SNLTruthTable::DivModResult::REMAINDER;
+  return SNLTruthTable::DivMod(
+      static_cast<uint32_t>(signature.width),
+      signature.isSigned,
+      result,
+      static_cast<uint32_t>(outputBit),
+      NLBitDependencies::encodeBits(dependencies));
+}
+
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isMemory(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");

@@ -892,6 +892,44 @@ TEST_F(NLDB0Test, testDivModPrimitive) {
   EXPECT_EQ(8, remainder->getWidth());
 
   EXPECT_THROW(NLDB0::getPrimitiveTruthTable(divmod0), NLException);
+  EXPECT_EQ(16u, SNLDesignModeling::getTruthTableCount(divmod0));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(divmod0).isInitialized());
+
+  const auto quotientBit3 = SNLDesignModeling::getTruthTable(
+      divmod0, quotient->getBit(3)->getOrderID());
+  EXPECT_TRUE(quotientBit3.isInitialized());
+  EXPECT_TRUE(quotientBit3.isGeneric());
+  EXPECT_EQ(
+      SNLTruthTable::GenericType::DIVMOD,
+      quotientBit3.getGenericType());
+  EXPECT_EQ(8u, quotientBit3.getDivModWidth());
+  EXPECT_FALSE(quotientBit3.isDivModSigned());
+  EXPECT_EQ(
+      SNLTruthTable::DivModResult::QUOTIENT,
+      quotientBit3.getDivModResult());
+  EXPECT_EQ(3u, quotientBit3.getDivModOutputBit());
+  EXPECT_EQ(16u, quotientBit3.size());
+  EXPECT_EQ(
+      16u,
+      NLBitDependencies::countBitsForVector(
+          quotientBit3.getDependencies()));
+
+  const auto remainderBit5 = SNLDesignModeling::getTruthTable(
+      divmod0, remainder->getBit(5)->getOrderID());
+  EXPECT_EQ(
+      SNLTruthTable::DivModResult::REMAINDER,
+      remainderBit5.getDivModResult());
+  EXPECT_EQ(5u, remainderBit5.getDivModOutputBit());
+  EXPECT_THROW(remainderBit5.getReducedWithConstant(0, false), NLException);
+
+  const auto signedQuotientBit = SNLDesignModeling::getTruthTable(
+      signedDivMod,
+      NLDB0::getDivModQuotient(signedDivMod)->getBit(0)->getOrderID());
+  EXPECT_TRUE(signedQuotientBit.isDivModSigned());
+  EXPECT_THROW(
+      SNLDesignModeling::getTruthTable(
+          divmod0, dividend->getBit(0)->getOrderID()),
+      NLException);
   EXPECT_TRUE(SNLDesignModeling::hasModeling(divmod0));
   auto q0Inputs = std::vector(
     SNLDesignModeling::getCombinatorialInputs(
