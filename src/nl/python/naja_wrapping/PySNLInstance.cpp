@@ -91,6 +91,19 @@ static PyObject* PySNLInstance_getCombinatorialOutputs(PySNLDesign*, PyObject* i
   return nullptr;
 }
 
+#define INSTANCE_MODELING_RELATED(GETTER)                              \
+  static PyObject* PySNLInstance_##GETTER(                             \
+      PySNLInstance*, PyObject* object) {                              \
+    GetDesignModelingRelatedObjects(                                  \
+      SNLInstTerm, GETTER, SNLInstance)                               \
+  }
+
+INSTANCE_MODELING_RELATED(getClockRelatedInputs)
+INSTANCE_MODELING_RELATED(getClockRelatedOutputs)
+INSTANCE_MODELING_RELATED(getInputRelatedClocks)
+INSTANCE_MODELING_RELATED(getOutputRelatedClocks)
+#undef INSTANCE_MODELING_RELATED
+
 GetNameMethod(SNLInstance)
 
 DBoLinkCreateMethod(SNLInstance)
@@ -142,6 +155,14 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get combinatorial inputs of an instance term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLInstance_getCombinatorialOutputs, METH_O|METH_STATIC,
     "get combinatorial outputs of an instance term"},
+  { "getClockRelatedInputs", (PyCFunction)PySNLInstance_getClockRelatedInputs, METH_O|METH_STATIC,
+    "get inputs related to a clock instance term"},
+  { "getClockRelatedOutputs", (PyCFunction)PySNLInstance_getClockRelatedOutputs, METH_O|METH_STATIC,
+    "get outputs related to a clock instance term"},
+  { "getInputRelatedClocks", (PyCFunction)PySNLInstance_getInputRelatedClocks, METH_O|METH_STATIC,
+    "get clocks related to an input instance term"},
+  { "getOutputRelatedClocks", (PyCFunction)PySNLInstance_getOutputRelatedClocks, METH_O|METH_STATIC,
+    "get clocks related to an output instance term"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

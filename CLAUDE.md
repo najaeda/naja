@@ -124,6 +124,19 @@ ci/check_submodule_bazel_sync.py`.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
 
+## Primitive timing-model alignment
+
+`SNLDesignModeling.h` is the canonical C++ primitive timing-model API. Timing
+metadata can be populated by the Liberty frontend, by direct C++ construction
+of NLDB0 primitives, and by the Python primitive libraries under
+`src/najaeda/najaeda/primitives/`. Keep these three paths aligned: when adding
+or changing timing arcs, timing parameters, term roles, active levels, or
+related queries, verify that the raw `najaeda.naja` bindings expose the feature
+needed to express the same model from Python and update the Python primitive
+loaders where applicable. Add or update focused tests for both the raw bindings
+and the affected Python primitive libraries so that equivalent decorations do
+not silently drift apart.
+
 ## najaeda Python API documentation
 
 When changing either Python API level exposed by the `najaeda` package, update the package documentation in `src/najaeda/najaeda/docs/source/` in the same change. This includes both the high-level `najaeda.netlist` API and the raw compiled `najaeda.naja` / `naja.so` API.

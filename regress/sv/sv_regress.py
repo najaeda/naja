@@ -406,9 +406,11 @@ parser.add_argument("--output", required=True)
 parser.add_argument("--diagnostics", required=True)
 parser.add_argument("--rtl-infos-as-attributes", action="store_true")
 parser.add_argument("--assigns-as-instances", action="store_true")
+parser.add_argument("--blackbox-unknown-modules", action="store_true")
 parser.add_argument("--sv-suppress-warning", action="append", dest="sv_suppress_warnings", default=[])
 parser.add_argument("--logic-cones-config")
 parser.add_argument("--logic-cones-output")
+parser.add_argument("--stats", required=True)
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True)
@@ -418,6 +420,7 @@ svconfig = netlist.SystemVerilogConfig(
     flist=args.flist,
     diagnostics_report_path=args.diagnostics,
     suppress_warnings=args.sv_suppress_warnings or None,
+    blackbox_unknown_modules=args.blackbox_unknown_modules,
 )
 top = netlist.load_system_verilog([], config=svconfig)
 if args.logic_cones_config:
@@ -430,6 +433,20 @@ dump_config = netlist.VerilogDumpConfig()
 dump_config.dumpRTLInfosAsAttributes = args.rtl_infos_as_attributes
 dump_config.dumpAssignsAsInstances = args.assigns_as_instances
 top.dump_verilog(args.output, config=dump_config)
+with open(args.flist, encoding="utf-8") as source_list:
+    source_count = sum(
+        1 for line in source_list
+        if line.strip().endswith((".sv", ".v"))
+    )
+with open(args.stats, "w", encoding="utf-8") as stream:
+    json.dump({
+        "top": top.get_name(),
+        "source_count": source_count,
+        "top_instances": top.count_child_instances(),
+        "top_terms": top.count_terms(),
+        "top_nets": top.count_nets(),
+    }, stream, indent=2, sort_keys=True)
+    stream.write("\n")
 netlist.reset()
 '''
 
@@ -454,6 +471,7 @@ def generate_verilog(
 
     output_path = artifacts_dir / case["output"]
     diagnostics_path = artifacts_dir / "diagnostics.log"
+    stats_path = artifacts_dir / "design-stats.json"
     run_setup_commands(
         case,
         repo_dir=repo_dir,
@@ -481,11 +499,15 @@ def generate_verilog(
         str(output_path),
         "--diagnostics",
         str(diagnostics_path),
+        "--stats",
+        str(stats_path),
     ]
     if dump.get("rtl_infos_as_attributes", False):
         args.append("--rtl-infos-as-attributes")
     if dump.get("assigns_as_instances", False):
         args.append("--assigns-as-instances")
+    if case.get("blackbox_unknown_modules", False):
+        args.append("--blackbox-unknown-modules")
     for warning in case.get("sv_suppress_warnings", []):
         args.extend(["--sv-suppress-warning", str(warning)])
     if build_logic_cones:
@@ -505,7 +527,44 @@ def generate_verilog(
     run_command(args, cwd=repo_dir, env=env, timeout=timeout, log_path=log_dir / "generate.log")
     if not output_path.exists():
         raise RegressError(f"Generation did not create expected output: {output_path}")
+    if not stats_path.exists():
+        raise RegressError(f"Generation did not create expected design stats: {stats_path}")
+    validate_unknown_module_blackboxes(case, diagnostics_path)
     return output_path
+
+
+def validate_unknown_module_blackboxes(
+    case: dict[str, Any],
+    diagnostics_path: Path,
+) -> None:
+    expected = case.get("expected_unknown_modules")
+    if expected is None:
+        return
+    if not isinstance(expected, list) or not all(
+        isinstance(module, str) and module for module in expected
+    ):
+        raise RegressError(
+            f"Invalid expected_unknown_modules for case {case['name']}: "
+            "expected a list of non-empty strings"
+        )
+    diagnostics = diagnostics_path.read_text(
+        encoding="utf-8",
+        errors="replace",
+    )
+    actual = set(re.findall(r"unknown module '([^']+)'", diagnostics))
+    expected_set = set(expected)
+    missing = sorted(expected_set - actual)
+    unexpected = sorted(actual - expected_set)
+    if missing or unexpected:
+        details = []
+        if missing:
+            details.append("missing: " + ", ".join(missing))
+        if unexpected:
+            details.append("unexpected: " + ", ".join(unexpected))
+        raise RegressError(
+            f"Unknown-module blackbox set mismatch for case {case['name']}: "
+            + "; ".join(details)
+        )
 
 
 def resolve_case_path(
@@ -601,6 +660,28 @@ def normalize_fusesoc_vc(flist_path: Path) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+def count_flist_sources(flist_path: Path) -> int:
+    return sum(
+        1
+        for raw_line in flist_path.read_text(encoding="utf-8").splitlines()
+        if raw_line.strip() and
+        not raw_line.lstrip().startswith("#") and
+        raw_line.strip().endswith((".sv", ".v"))
+    )
+
+
+def validate_flist_source_count(case: dict[str, Any], flist_path: Path) -> None:
+    expected = case.get("expected_source_count")
+    if expected is None:
+        return
+    actual = count_flist_sources(flist_path)
+    if actual != int(expected):
+        raise RegressError(
+            f"Source count mismatch for case {case['name']}: "
+            f"expected {expected}, got {actual} in {flist_path}"
+        )
+
+
 def write_flist(
     case: dict[str, Any],
     *,
@@ -643,6 +724,7 @@ def materialize_flist(
     flist_format = case.get("flist_format", "plain")
     flist_append = case.get("flist_append", [])
     if flist_format == "plain" and not flist_append:
+        validate_flist_source_count(case, flist_path)
         return flist_path
 
     if flist_format == "plain":
@@ -652,13 +734,15 @@ def materialize_flist(
     else:
         raise RegressError(f"Unsupported flist_format for case {case['name']}: {flist_format}")
 
-    return write_flist(
+    materialized = write_flist(
         case,
         artifacts_dir=artifacts_dir,
         content=content,
         repo_dir=repo_dir,
         case_dir=case_dir,
     )
+    validate_flist_source_count(case, materialized)
+    return materialized
 
 
 def run_verilator(
@@ -1139,6 +1223,10 @@ def run_case(
         finally:
             summary["timings"]["generate"] = elapsed_record(phase_start, phase_started_at)
         summary["generated_verilog"] = str(generated_path)
+        stats_path = artifacts_dir / "design-stats.json"
+        if stats_path.exists():
+            with stats_path.open("r", encoding="utf-8") as stream:
+                summary["design_stats"] = json.load(stream)
         verification_case = case
         verification_path = generated_path
         if case.get("verification_top") and any(

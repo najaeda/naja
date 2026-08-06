@@ -31,6 +31,12 @@ Use Verilog loading for structural Verilog netlists.  Load Liberty or
 primitive libraries first when the design instantiates standard cells or
 technology primitives.
 
+Loader arguments are validated before native parsing starts.  A missing input
+raises :class:`FileNotFoundError` with both the supplied and resolved path;
+wrong argument and configuration types raise :class:`TypeError`; empty paths
+or unsupported configuration values raise :class:`ValueError`.  Errors for a
+list entry identify its zero-based index (for example, ``files[2]``).
+
 SystemVerilog
 -------------
 
@@ -50,6 +56,12 @@ By default, an incremental diagnostics report is written to
 :class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain
 console diagnostics only.
 
+``SystemVerilogConfig`` validates path, boolean, define, and warning-suppression
+fields when it is created and again when loading begins.  Entries in
+``suppress_warnings`` are warning names such as ``"width-trunc"``; omit the
+``-W`` or ``-Wno-`` command-line prefix.  To load only from a command file,
+pass an empty file list and set ``flist``.
+
 Liberty and primitive libraries
 -------------------------------
 
@@ -63,6 +75,11 @@ Liberty and primitive libraries
 The primitives library is available through
 :func:`najaeda.netlist.get_primitives_library` for scripts that need to inspect
 or create primitive-backed models.
+
+Built-in Python primitive libraries attach combinational/sequential timing
+arcs and characterize clock, data, enable, reset/set, and memory terms.  When
+authoring a custom primitive loader, use the raw timing-model API described in
+:ref:`Primitive timing modeling <primitive-timing-modeling>`.
 
 Naja interchange
 ----------------
