@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLDesign.h"
+#include "PySNLSequentialModel.h"
 
 #include "PyInterface.h"
 
@@ -727,6 +728,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get primitive data input terms"},
   { "getOutputTerms", (PyCFunction)PySNLDesign_getOutputTerms, METH_NOARGS,
     "get primitive data output terms"},
+  { "setSequentialModel", (PyCFunction)PySNLDesign_setSequentialModel,
+    METH_VARARGS|METH_KEYWORDS, "set the sequential model of a primitive"},
+  { "hasSequentialModel", (PyCFunction)PySNLDesign_hasSequentialModel,
+    METH_NOARGS, "Returns True if the primitive has a sequential model"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
   { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,

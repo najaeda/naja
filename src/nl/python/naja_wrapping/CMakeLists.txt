@@ -8,6 +8,7 @@ set(SOURCES
   PyNLDB.cpp PyNLLibrary.cpp
   PyNLDBs.cpp PyNLLibraries.cpp
   PySNLDesign.cpp
+  PySNLSequentialModel.cpp
   PySNLAttribute.cpp
   PySNLParameter.cpp
   PySNLDesignObject.cpp

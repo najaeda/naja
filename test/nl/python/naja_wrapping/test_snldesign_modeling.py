@@ -81,6 +81,28 @@ class SNLDesignModelingTest(unittest.TestCase):
     with self.assertRaises(RuntimeError):
       clock.setRole(naja.SNLTermRole.Clock, 1000)
 
+  def testSequentialModel(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "SCAN_REG")
+    q = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+    qn = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "QN")
+    for name in ("CLK", "D", "SE", "SI", "RESET_B"):
+      naja.SNLScalarTerm.create(
+        reg, naja.SNLTerm.Direction.Input, name)
+
+    self.assertFalse(reg.hasSequentialModel())
+    reg.setSequentialModel(
+      clocked_on="CLK",
+      states=[{
+        "name": "IQ",
+        "inverted_name": "IQN",
+        "next_state": "(SE & SI) | (!SE & D)",
+        "clear": "!RESET_B",
+      }],
+      outputs=[(q, "IQ"), (qn, "IQN")])
+    self.assertTrue(reg.hasSequentialModel())
+
   def testLoweredSequentialTermRoles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)
