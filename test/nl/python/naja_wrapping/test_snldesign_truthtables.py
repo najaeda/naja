@@ -88,6 +88,20 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
   def testPrimitiveTruthTableErrors(self):
     prim = naja.SNLDesign.createPrimitive(self.primitives, "AND2")
     with self.assertRaises(RuntimeError) as context: prim.setTruthTable("ERROR")
+
+  def testTruthTableFromParameter(self):
+    prim = naja.SNLDesign.createPrimitive(self.primitives, "LUT2")
+    i0 = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Input, "I1")
+    output = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Output, "O")
+    init = naja.SNLParameter.create_binary(prim, "INIT", 4, 0)
+
+    prim.setTruthTableFromParameter(output, [i0, i1], init)
+
+    self.assertEqual([2, 0], prim.getTruthTable())
    
 if __name__ == '__main__':
   unittest.main()

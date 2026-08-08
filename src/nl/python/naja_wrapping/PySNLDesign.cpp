@@ -395,6 +395,54 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_setTruthTableFromParameter(
+    PySNLDesign* self, PyObject* args) {
+  PyObject* outputObject = nullptr;
+  PyObject* inputsObject = nullptr;
+  PyObject* parameterObject = nullptr;
+  uint64_t parameterBitOffset = 0;
+  if (!PyArg_ParseTuple(
+          args,
+          "OOO|K:SNLDesign.setTruthTableFromParameter",
+          &outputObject,
+          &inputsObject,
+          &parameterObject,
+          &parameterBitOffset)) {
+    setError("malformed SNLDesign.setTruthTableFromParameter method");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.setTruthTableFromParameter()")
+  if (!IsPySNLBitTerm(outputObject) || !PyList_Check(inputsObject) ||
+      !IsPySNLParameter(parameterObject)) {
+    setError(
+        "SNLDesign.setTruthTableFromParameter expects output, inputs, parameter, and optional bit offset");
+    return nullptr;
+  }
+
+  SNLDesignModeling::BitTerms inputs;
+  for (Py_ssize_t index = 0; index < PyList_Size(inputsObject); ++index) {
+    PyObject* inputObject = PyList_GetItem(inputsObject, index);
+    if (!IsPySNLBitTerm(inputObject)) {
+      setError(
+          "SNLDesign.setTruthTableFromParameter inputs must be SNLBitTerm objects");
+      return nullptr;
+    }
+    inputs.push_back(PYSNLBitTerm_O(inputObject));
+  }
+  try {
+    SNLDesignModeling::setTruthTableFromParameter(
+        selfObject,
+        PYSNLBitTerm_O(outputObject),
+        inputs,
+        PYSNLParameter_O(parameterObject),
+        static_cast<size_t>(parameterBitOffset));
+  } catch (const NLException& e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what());
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 // Set truth tables for design
 static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -734,6 +782,9 @@ PyMethodDef PySNLDesign_Methods[] = {
     METH_NOARGS, "Returns True if the primitive has a sequential model"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
+  { "setTruthTableFromParameter",
+    (PyCFunction)PySNLDesign_setTruthTableFromParameter, METH_VARARGS,
+    "set a primitive truth table derived from an instance parameter"},
   { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,
     "get truth table of a primitive"},
   { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,

@@ -38,7 +38,7 @@ class SNLInstParameter : public NajaObject {
     SNLParameter* getParameter() const { return parameter_; }
     /// \return The value of the parameter.
     std::string getValue() const { return value_; }
-    void setValue(const std::string& value) { value_ = value; }
+    void setValue(const std::string& value);
 
     const char* getTypeName() const override;
     std::string getString() const override;
