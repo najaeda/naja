@@ -139,6 +139,9 @@ class NLDB0 {
     static SNLBusTerm* getDivModDivisor(const SNLDesign* design);
     static SNLBusTerm* getDivModQuotient(const SNLDesign* design);
     static SNLBusTerm* getDivModRemainder(const SNLDesign* design);
+    static SNLTruthTable getDivModTruthTable(
+      const SNLDesign* design,
+      size_t flatTermID);
     static bool isTableSelect(const SNLDesign* design);
     static TableSelectSignature getTableSelectSignature(const SNLDesign* design);
     static TableSelectSignature getTableSelectSignature(const SNLInstance* instance);

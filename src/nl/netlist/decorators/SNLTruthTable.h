@@ -30,7 +30,13 @@ class SNLTruthTable {
     NAND,
     XOR,
     XNOR,
-    TABLE_SELECT
+    TABLE_SELECT,
+    DIVMOD
+  };
+
+  enum class DivModResult {
+    QUOTIENT,
+    REMAINDER
   };
   
   SNLTruthTable() : size_(0) {}
@@ -81,7 +87,11 @@ class SNLTruthTable {
       dependencies_(o.dependencies_),
       genericType_(o.genericType_),
       tableSelectAddressSize_(o.tableSelectAddressSize_),
-      tableSelectDepth_(o.tableSelectDepth_)
+      tableSelectDepth_(o.tableSelectDepth_),
+      divModWidth_(o.divModWidth_),
+      divModSigned_(o.divModSigned_),
+      divModResult_(o.divModResult_),
+      divModOutputBit_(o.divModOutputBit_)
   {}
 
   // explicit copy‐assignment to match
@@ -94,6 +104,10 @@ class SNLTruthTable {
       genericType_ = o.genericType_;
       tableSelectAddressSize_ = o.tableSelectAddressSize_;
       tableSelectDepth_ = o.tableSelectDepth_;
+      divModWidth_ = o.divModWidth_;
+      divModSigned_ = o.divModSigned_;
+      divModResult_ = o.divModResult_;
+      divModOutputBit_ = o.divModOutputBit_;
     }
     return *this;
   }
@@ -154,11 +168,45 @@ class SNLTruthTable {
         depth);
   }
 
+  static SNLTruthTable DivMod(
+      uint32_t width,
+      bool isSigned,
+      DivModResult result,
+      uint32_t outputBit,
+      const std::vector<uint64_t>& dependencies) {
+    if (width == 0 ||
+        width > std::numeric_limits<uint32_t>::max() / 2) {
+      throw NLException("Invalid DIVMOD truth table width");
+    }
+    if (outputBit >= width) {
+      throw NLException("DIVMOD truth table output bit is out of range");
+    }
+    const uint32_t inputCount = width * 2;
+    if (NLBitDependencies::countBitsForVector(dependencies) != inputCount) {
+      throw NLException("DIVMOD truth table must depend on every operand bit");
+    }
+
+    SNLTruthTable table;
+    table.size_ = inputCount;
+    table.dependencies_ = dependencies;
+    table.genericType_ = GenericType::DIVMOD;
+    table.divModWidth_ = width;
+    table.divModSigned_ = isSigned;
+    table.divModResult_ = result;
+    table.divModOutputBit_ = outputBit;
+    table.validateGenericMetadata();
+    return table;
+  }
+
   bool operator==(const SNLTruthTable& o) const {
     return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_ &&
            genericType_ == o.genericType_ &&
            tableSelectAddressSize_ == o.tableSelectAddressSize_ &&
-           tableSelectDepth_ == o.tableSelectDepth_;
+           tableSelectDepth_ == o.tableSelectDepth_ &&
+           divModWidth_ == o.divModWidth_ &&
+           divModSigned_ == o.divModSigned_ &&
+           divModResult_ == o.divModResult_ &&
+           divModOutputBit_ == o.divModOutputBit_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
@@ -170,6 +218,14 @@ class SNLTruthTable {
       return tableSelectAddressSize_ < o.tableSelectAddressSize_;
     if (tableSelectDepth_ != o.tableSelectDepth_)
       return tableSelectDepth_ < o.tableSelectDepth_;
+    if (divModWidth_ != o.divModWidth_)
+      return divModWidth_ < o.divModWidth_;
+    if (divModSigned_ != o.divModSigned_)
+      return divModSigned_ < o.divModSigned_;
+    if (divModResult_ != o.divModResult_)
+      return divModResult_ < o.divModResult_;
+    if (divModOutputBit_ != o.divModOutputBit_)
+      return divModOutputBit_ < o.divModOutputBit_;
     if (bits_ != o.bits_)
       return bits_ < o.bits_;
     return dependencies_ < o.dependencies_;
@@ -246,6 +302,26 @@ class SNLTruthTable {
       throw NLException("Truth table is not a table select generic");
     }
     return tableSelectDepth_;
+  }
+
+  uint32_t getDivModWidth() const {
+    requireDivMod();
+    return divModWidth_;
+  }
+
+  bool isDivModSigned() const {
+    requireDivMod();
+    return divModSigned_;
+  }
+
+  DivModResult getDivModResult() const {
+    requireDivMod();
+    return divModResult_;
+  }
+
+  uint32_t getDivModOutputBit() const {
+    requireDivMod();
+    return divModOutputBit_;
   }
 
   using ConstantInput = std::pair<uint32_t, bool>;
@@ -362,6 +438,9 @@ class SNLTruthTable {
         case GenericType::TABLE_SELECT:
           throw NLException(
               "getReducedWithConstants() does not support TABLE_SELECT");
+        case GenericType::DIVMOD:
+          throw NLException(
+              "getReducedWithConstants() does not support DIVMOD");
         default:
           break;  // LCOV_EXCL_LINE
       }
@@ -503,11 +582,25 @@ class SNLTruthTable {
         oss << ", ";
       }
     }
-    oss << "])";
+    oss << "]";
+    if (genericType_ == GenericType::DIVMOD) {
+      oss << ", genericType=DIVMOD"
+          << ", divModWidth=" << divModWidth_
+          << ", divModSigned=" << divModSigned_
+          << ", divModResult=" << static_cast<int>(divModResult_)
+          << ", divModOutputBit=" << divModOutputBit_;
+    }
+    oss << ")";
     return oss.str();
   }
 
  private:
+  void requireDivMod() const {
+    if (genericType_ != GenericType::DIVMOD) {
+      throw NLException("Truth table is not a DIVMOD generic");
+    }
+  }
+
   bool isGenericOrEquivalent(GenericType type) const {
     if (genericType_ == type) {
       return true;
@@ -561,8 +654,22 @@ class SNLTruthTable {
       }
       return;
     }
+    if (genericType_ == GenericType::DIVMOD) {
+      if (tableSelectAddressSize_ != 0 || tableSelectDepth_ != 0 ||
+          divModWidth_ == 0 ||
+          divModWidth_ > std::numeric_limits<uint32_t>::max() / 2 ||
+          size_ != divModWidth_ * 2 ||
+          divModOutputBit_ >= divModWidth_) {
+        throw NLException("Invalid DIVMOD truth table metadata");
+      }
+      return;
+    }
     if (tableSelectAddressSize_ != 0 || tableSelectDepth_ != 0) {
       throw NLException("Unexpected table select metadata on truth table");
+    }
+    if (divModWidth_ != 0 || divModSigned_ ||
+        divModResult_ != DivModResult::QUOTIENT || divModOutputBit_ != 0) {
+      throw NLException("Unexpected DIVMOD metadata on truth table");
     }
   }
 
@@ -572,6 +679,10 @@ class SNLTruthTable {
   GenericType genericType_{GenericType::NONE};
   uint32_t tableSelectAddressSize_{0};
   uint32_t tableSelectDepth_{0};
+  uint32_t divModWidth_{0};
+  bool divModSigned_{false};
+  DivModResult divModResult_{DivModResult::QUOTIENT};
+  uint32_t divModOutputBit_{0};
 };
 
 }  // namespace naja::NL

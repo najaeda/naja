@@ -1825,7 +1825,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
     }
-    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design)) {
+    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design) ||
+        NLDB0::isDivMod(design)) {
       size_t tableCount = 0;
       for (const auto* term : design->getBitTerms()) {
         if (term->getDirection() != SNLTerm::Direction::Input) {
@@ -1882,7 +1883,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+        NLDB0::isDivMod(design)) {
       return SNLTruthTable();
     }
     if (NLDB0::isTableSelect(design)) {
@@ -2039,6 +2041,15 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
       return NLDB0::getTableSelectTruthTable(design, flatTermID);
+    } else if (NLDB0::isDivMod(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in divmod design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getDivModTruthTable(design, flatTermID);
     } else {
       if (outputCount != 1) {
         std::ostringstream reason;
