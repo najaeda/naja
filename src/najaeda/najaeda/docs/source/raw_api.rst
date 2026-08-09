@@ -201,6 +201,16 @@ The built-in loaders under :mod:`najaeda.primitives` use the same API, so
 Python-defined primitives expose the same arc, role, and active-level
 metadata as primitives constructed by the C++ DB0 and Liberty paths.
 
+Liberty loading preserves every distinct sequential dependency declared by
+setup, hold, or edge timing groups.  Consequently,
+``getInputRelatedClocks()`` and ``getOutputRelatedClocks()`` can return more
+than one clock for a term; repeated groups for the same term and clock are
+deduplicated.  The generic timing-arc model does not retain Liberty ``when``
+expressions, so conditionally enabled arcs are exposed conservatively as
+unconditional dependencies.  The generic ``MemoryInterface`` remains a
+single-clock abstraction: per-port clocks on a fully modeled multi-clock
+memory are not represented by that interface.
+
 Raw module reference
 --------------------
 
