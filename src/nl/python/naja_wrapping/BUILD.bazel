@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+
 # Mirrors this directory's own CMakeLists.txt: builds `naja_python` (the
 # raw CPython C-API binding sources) and `naja` (the actual importable
 # extension module, a thin PyNaja.cpp wrapper around naja_python). See
@@ -89,9 +91,38 @@ cc_library(
     ],
 )
 
+cc_shared_library(
+    name = "naja_runtime",
+    deps = [
+        ":naja_python",
+        "//src/bne:naja_bne",
+        "//src/core:naja_core",
+        "//src/dnl:naja_dnl",
+        "//src/metrics:naja_metrics",
+        "//src/nl/formats/liberty:naja_snl_liberty",
+        "//src/nl/formats/systemverilog:naja_snl_systemverilog",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist:naja_nl",
+        "//src/nl/netlist:naja_snl_visual",
+        "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "//src/optimization:naja_opt",
+    ],
+    exports_filter = [
+        "//src:__subpackages__",
+        "@fmt//:fmt",
+        "@zlib//:z",
+    ],
+    user_link_flags = select({
+        "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
 cc_binary(
     name = "naja.so",
     srcs = ["PyNaja.cpp"],
+    dynamic_deps = [":naja_runtime"],
     linkopts = select({
         # cc_binary's linkshared=True already implies -dynamiclib on
         # macOS (conflicts with -bundle, the traditional Python-extension
