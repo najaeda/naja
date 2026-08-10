@@ -104,7 +104,9 @@ struct BusType {
 using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
 using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
 using TermSourceLines = std::map<SNLScalarTerm*, int, SNLScalarTerm::PointerLess>;
-using SequentialTermClocks = std::map<SNLBitTerm*, std::string, SNLBitTerm::InDesignLess>;
+using SequentialClockNames = std::set<std::string>;
+using SequentialTermClocks =
+  std::map<SNLBitTerm*, SequentialClockNames, SNLBitTerm::InDesignLess>;
 
 struct ConstructedTerm {
   SNLScalarTerm* scalar{nullptr};
@@ -278,13 +280,10 @@ void registerSequentialClockForBitTerm(
     SNLBitTerm* term,
     const std::string& clockName,
     SequentialTermClocks& seqTermClocks) {
-  const auto [it, inserted] = seqTermClocks.emplace(term, clockName);
-  if (!inserted && it->second != clockName) {
-    std::ostringstream reason;
-    reason << "Conflicting sequential clocks `" << it->second << "` and `"
-           << clockName << "` for term " << term->getName().getString();
-    throw SNLLibertyConstructorException(reason.str());
-  }
+  // SNLDesignModeling does not represent Liberty `when` conditions. Retain
+  // the conservative union of all declared dependencies while deduplicating
+  // setup/hold and conditional timing groups for the same term/clock pair.
+  seqTermClocks[term].insert(clockName);
 }
 
 void registerSequentialClockFromTiming(
@@ -852,11 +851,18 @@ void parseTerms(
     }
   }
   if (seqTermClocks.size() > 0) {
-    for (const auto& pair: seqTermClocks) {
-      auto term = pair.first;
-      const auto& clockName = pair.second;
-      auto clock = dynamic_cast<SNLScalarTerm*>(primitive->getTerm(NLName(clockName)));
-      if (clock) {
+    for (const auto& [term, clockNames]: seqTermClocks) {
+      for (const auto& clockName: clockNames) {
+        auto* relatedTerm = primitive->getTerm(NLName(clockName));
+        auto* clock = dynamic_cast<SNLScalarTerm*>(relatedTerm);
+        if (clock == nullptr ||
+            clock->getDirection() != SNLTerm::Direction::Input) {
+          std::ostringstream reason;
+          reason << "Sequential timing `related_pin` `" << clockName
+                 << "` for term `" << term->getName().getString()
+                 << "` does not resolve to a scalar input term";
+          throw SNLLibertyConstructorException(reason.str());
+        }
         if (term->getDirection() == SNLTerm::Direction::Input) {
           SNLDesignModeling::addInputsToClockArcs({term}, clock);
         } else if (term->getDirection() == SNLTerm::Direction::Output) {
@@ -958,8 +964,8 @@ void parseTerms(
           }
           modelingWritePort.extraWriteInputs.push_back(std::move(extraWriteInput));
         }
-        for (const auto& [timedTerm, timedClockName] : seqTermClocks) {
-          if (timedClockName != key.clockName ||
+        for (const auto& [timedTerm, timedClockNames] : seqTermClocks) {
+          if (timedClockNames.find(key.clockName) == timedClockNames.end() ||
               timedTerm->getDirection() == SNLTerm::Direction::Output ||
               usedInputTerms.find(timedTerm) != usedInputTerms.end()) {
             continue;

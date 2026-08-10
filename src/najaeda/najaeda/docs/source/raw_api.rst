@@ -207,6 +207,16 @@ parameter, bit_offset=0)``. The input list must follow design order and may
 contain up to six terms. Naja resolves the instance override on first use and
 caches the resulting truth table for that instance.
 
+Liberty loading preserves every distinct sequential dependency declared by
+setup, hold, or edge timing groups.  Consequently,
+``getInputRelatedClocks()`` and ``getOutputRelatedClocks()`` can return more
+than one clock for a term; repeated groups for the same term and clock are
+deduplicated.  The generic timing-arc model does not retain Liberty ``when``
+expressions, so conditionally enabled arcs are exposed conservatively as
+unconditional dependencies.  The generic ``MemoryInterface`` remains a
+single-clock abstraction: per-port clocks on a fully modeled multi-clock
+memory are not represented by that interface.
+
 Raw module reference
 --------------------
 
