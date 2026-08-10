@@ -14,11 +14,12 @@ set -euo pipefail
 
 najaeda_src_dir="$1"
 naja_so="$2"
-python3_bin="$3"
-test_src_dir="$4"
-verilog_benchmarks="$5"
-systemverilog_benchmarks="$6"
-liberty_benchmarks="$7"
+naja_runtime="$3"
+python3_bin="$4"
+test_src_dir="$5"
+verilog_benchmarks="$6"
+systemverilog_benchmarks="$7"
+liberty_benchmarks="$8"
 
 runfiles_root="$PWD"
 abspath() { echo "${runfiles_root}/$1"; }
@@ -29,6 +30,9 @@ trap 'rm -rf "${scratch}"' EXIT
 cp -R "$(abspath "${najaeda_src_dir}")" "${scratch}/najaeda"
 cp "$(abspath "${naja_so}")" "${scratch}/najaeda/naja.so"
 
+runtime_dir="$(dirname "$(abspath "${naja_runtime}")")"
+export DYLD_LIBRARY_PATH="${runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="${runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 export PYTHONPATH="${scratch}"
 export VERILOG_BENCHMARKS_PATH="$(abspath "${verilog_benchmarks}")"
 export SYSTEMVERILOG_BENCHMARKS_PATH="$(abspath "${systemverilog_benchmarks}")"
