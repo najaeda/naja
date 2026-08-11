@@ -370,18 +370,37 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '(') {
+			bool canExtendArgument = false;
 			while (1) {
 				std::string arg;
 				tok = lexer(arg);
-				if (tok == ',')
+				if (tok == ',') {
+					canExtendArgument = false;
 					continue;
+				}
 				if (tok == ')')
 					break;
+
+				// Some Liberty producers use unquoted colon-separated names for
+				// CCB groups and references (for example, `input_ccb(example:a)`).
+				// Keep ':' as a lexer token so it can still delimit attributes and
+				// vector ranges, and combine it only within an argument here.
+				if (tok == ':' && canExtendArgument) {
+					tok = lexer(arg);
+					if (tok != 'v') {
+						delete ast;
+						error("Expected an identifier after ':' in an argument.");
+					}
+					ast->args.back() += ':';
+					ast->args.back() += arg;
+					continue;
+				}
 				
 				// FIXME: the AST needs to be extended to store
 				//        these vector ranges.
 				if (tok == '[')
 				{
+					canExtendArgument = false;
 					// parse vector range [A] or [A:B]
 					std::string arg;
 					tok = lexer(arg);
@@ -446,6 +465,7 @@ LibertyAst *LibertyParser::parse()
 					}
 				}
 				ast->args.push_back(arg);
+				canExtendArgument = true;
 			}
 			continue;
 		}
