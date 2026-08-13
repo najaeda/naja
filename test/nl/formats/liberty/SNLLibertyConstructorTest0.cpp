@@ -330,6 +330,46 @@ TEST_F(SNLLibertyConstructorTest0, testUnnamedSequentialGroupIsIgnored) {
   std::filesystem::remove(tempPath, ec);
 }
 
+TEST_F(SNLLibertyConstructorTest0, testMixedFFAndLatchCellRemainsLoadable) {
+  auto tempPath = writeTemporaryLiberty(
+    "mixed_ff_latch",
+    R"LIB(library (MIXED_FF_LATCH) {
+  cell (power_cell) {
+    ff (Q1, QN1) {
+      clocked_on : "clk";
+      next_state : "(D * !scan_enable + scan_input * scan_enable)";
+      clear : "(((!b_sig_b) * !Q2) + !read)";
+      preset : "((!b_sig_b) * Q2)";
+      clear_preset_var1 : "L";
+      clear_preset_var2 : "H";
+    }
+    latch (Q2, QN2) {
+      enable : "b_sig_one";
+      data_in : "Q1";
+    }
+    pin (D) { direction : input; }
+    pin (clk) { direction : input; }
+    pin (scan_enable) { direction : input; }
+    pin (scan_input) { direction : input; }
+    pin (b_sig_b) { direction : input; }
+    pin (read) { direction : input; }
+    pin (b_sig_one) { direction : input; }
+    pin (Q) { direction : output; function : "Q1"; }
+  }
+})LIB");
+
+  SNLLibertyConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(tempPath));
+  auto* design = library_->getSNLDesign(NLName("power_cell"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(8u, design->getScalarTerms().size());
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("Q")));
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(design));
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
 TEST_F(SNLLibertyConstructorTest0, testInvalidBusBoundsHaveGroupContext) {
   auto tempPath = writeTemporaryLiberty(
     "invalid_bus_bounds",

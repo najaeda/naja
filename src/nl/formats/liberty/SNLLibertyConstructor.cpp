@@ -681,6 +681,13 @@ void populateSequentialModel(
     return;
   }
 
+  if (findDirectChild(cell, "latch") != nullptr) {
+    // SequentialModel has one shared control and cannot faithfully represent
+    // mixed flip-flop and latch state. Keep the cell loadable instead of
+    // attaching a partial model that omits the latch state.
+    return;
+  }
+
   SNLBooleanTree::StateIdentifiers stateIdentifiers;
   const Yosys::LibertyAst* firstClockedOn = nullptr;
   for (size_t stateIndex = 0; stateIndex < ffs.size(); ++stateIndex) {
