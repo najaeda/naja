@@ -164,6 +164,43 @@ TEST_F(SNLLibertyConstructorTest0, test0) {
   EXPECT_EQ(SNLTerm::Direction::Output, y->getDirection());
 }
 
+TEST_F(SNLLibertyConstructorTest0, testColonSeparatedCCBNames) {
+  auto tempPath = writeTemporaryLiberty(
+    "colon_separated_ccb_names",
+    R"liberty(
+library(test) {
+  cell(C) {
+    pin(A) {
+      direction:input;
+      input_ccb(example:a) {
+        related_ccb_node : "net1:15";
+      }
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_type : combinational;
+        active_input_ccb(example:a, vendor:block:b);
+      }
+    }
+  }
+}
+)liberty");
+
+  SNLLibertyConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(tempPath));
+
+  auto design = library_->getSNLDesign(NLName("C"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("A")));
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("Y")));
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
 TEST_F(SNLLibertyConstructorTest0, testInOut) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
