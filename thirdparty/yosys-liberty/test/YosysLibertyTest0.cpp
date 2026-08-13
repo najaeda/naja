@@ -79,6 +79,63 @@ TEST(YosysLibertyTest0, test0) {
   EXPECT_EQ("1", child2_0->value);
 }
 
+TEST(YosysLibertyTest0, colonSeparatedArgumentIdentifiers) {
+  std::istringstream inFile(R"liberty(
+library(test) {
+  cell(C) {
+    pin(A) {
+      direction:input;
+      input_ccb(example:a) {
+        related_ccb_node : "net1:15";
+      }
+      timing() {
+        active_input_ccb(example:a, vendor:block:b);
+      }
+    }
+    bus(DATA[7:0]) {
+      direction:input;
+    }
+  }
+}
+)liberty");
+
+  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
+  ASSERT_NE(nullptr, parser);
+  auto ast = parser->ast;
+  ASSERT_NE(nullptr, ast);
+
+  auto cell = findChild(ast, "cell");
+  ASSERT_NE(nullptr, cell);
+  auto pin = findChild(cell, "pin");
+  ASSERT_NE(nullptr, pin);
+
+  auto direction = findChild(pin, "direction");
+  ASSERT_NE(nullptr, direction);
+  EXPECT_EQ("input", direction->value);
+
+  auto inputCCB = findChild(pin, "input_ccb");
+  ASSERT_NE(nullptr, inputCCB);
+  ASSERT_EQ(1, inputCCB->args.size());
+  EXPECT_EQ("example:a", inputCCB->args[0]);
+
+  auto relatedCCBNode = findChild(inputCCB, "related_ccb_node");
+  ASSERT_NE(nullptr, relatedCCBNode);
+  EXPECT_EQ("net1:15", relatedCCBNode->value);
+
+  auto timing = findChild(pin, "timing");
+  ASSERT_NE(nullptr, timing);
+  auto activeInputCCB = findChild(timing, "active_input_ccb");
+  ASSERT_NE(nullptr, activeInputCCB);
+  ASSERT_EQ(2, activeInputCCB->args.size());
+  EXPECT_EQ("example:a", activeInputCCB->args[0]);
+  EXPECT_EQ("vendor:block:b", activeInputCCB->args[1]);
+
+  auto bus = findChild(cell, "bus");
+  ASSERT_NE(nullptr, bus);
+  ASSERT_EQ(1, bus->args.size());
+  EXPECT_EQ("DATA", bus->args[0]);
+}
+
 TEST(YosysLibertyTest0, structuralModeSkipsNonStructuralGroups) {
   std::istringstream inFile(R"liberty(
 library(test) {
@@ -111,6 +168,9 @@ library(test) {
           values("1, 2, 3");
         }
       }
+      input_ccb(example:a) {
+        related_ccb_node : "net1:15";
+      }
     }
     pin(Y) {
       direction : output;
@@ -119,6 +179,7 @@ library(test) {
         related_pin : "A";
         timing_type : combinational;
         timing_sense : positive_unate;
+        active_input_ccb(example:a, vendor:block:b);
         cell_rise(delay_template) {
           values("1, 2, 3");
         }
