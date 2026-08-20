@@ -79,17 +79,24 @@ TEST(YosysLibertyTest0, test0) {
   EXPECT_EQ("1", child2_0->value);
 }
 
-TEST(YosysLibertyTest0, colonSeparatedArgumentIdentifiers) {
+TEST(YosysLibertyTest0, punctuatedArgumentIdentifiers) {
   std::istringstream inFile(R"liberty(
 library(test) {
   cell(C) {
     pin(A) {
       direction:input;
-      input_ccb(example:a) {
+      input_ccb(cell_cond__!A&!B&!C__1) {
         related_ccb_node : "net1:15";
       }
       timing() {
-        active_input_ccb(example:a, vendor:block:b);
+        active_input_ccb(cell_cond__!A&!B&!C__1, vendor:block:b);
+        active_output_ccb(cell_cond__!A&!B&!C__1);
+      }
+    }
+    pin(Y) {
+      direction:output;
+      output_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net2:16";
       }
     }
     bus(DATA[7:0]) {
@@ -116,7 +123,7 @@ library(test) {
   auto inputCCB = findChild(pin, "input_ccb");
   ASSERT_NE(nullptr, inputCCB);
   ASSERT_EQ(1, inputCCB->args.size());
-  EXPECT_EQ("example:a", inputCCB->args[0]);
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", inputCCB->args[0]);
 
   auto relatedCCBNode = findChild(inputCCB, "related_ccb_node");
   ASSERT_NE(nullptr, relatedCCBNode);
@@ -127,8 +134,20 @@ library(test) {
   auto activeInputCCB = findChild(timing, "active_input_ccb");
   ASSERT_NE(nullptr, activeInputCCB);
   ASSERT_EQ(2, activeInputCCB->args.size());
-  EXPECT_EQ("example:a", activeInputCCB->args[0]);
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", activeInputCCB->args[0]);
   EXPECT_EQ("vendor:block:b", activeInputCCB->args[1]);
+
+  auto activeOutputCCB = findChild(timing, "active_output_ccb");
+  ASSERT_NE(nullptr, activeOutputCCB);
+  ASSERT_EQ(1, activeOutputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", activeOutputCCB->args[0]);
+
+  auto outputPin = cell->children[1];
+  ASSERT_EQ("pin", outputPin->id);
+  auto outputCCB = findChild(outputPin, "output_ccb");
+  ASSERT_NE(nullptr, outputCCB);
+  ASSERT_EQ(1, outputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", outputCCB->args[0]);
 
   auto bus = findChild(cell, "bus");
   ASSERT_NE(nullptr, bus);
@@ -168,7 +187,7 @@ library(test) {
           values("1, 2, 3");
         }
       }
-      input_ccb(example:a) {
+      input_ccb(cell_cond__!A&!B&!C__1) {
         related_ccb_node : "net1:15";
       }
     }
@@ -179,7 +198,8 @@ library(test) {
         related_pin : "A";
         timing_type : combinational;
         timing_sense : positive_unate;
-        active_input_ccb(example:a, vendor:block:b);
+        active_input_ccb(cell_cond__!A&!B&!C__1, vendor:block:b);
+        active_output_ccb(cell_cond__!A&!B&!C__1);
         cell_rise(delay_template) {
           values("1, 2, 3");
         }
@@ -191,6 +211,9 @@ library(test) {
         rise_power(power_template) {
           values("1, 2, 3");
         }
+      }
+      output_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net2:16";
       }
     }
     ff(IQ, IQN) {
