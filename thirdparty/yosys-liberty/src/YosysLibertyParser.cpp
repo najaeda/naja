@@ -371,28 +371,34 @@ LibertyAst *LibertyParser::parse()
 
 		if (tok == '(') {
 			bool canExtendArgument = false;
+			bool needsArgumentContinuation = false;
 			while (1) {
 				std::string arg;
 				tok = lexer(arg);
 				if (tok == ',') {
+					if (needsArgumentContinuation) {
+						delete ast;
+						error("Expected an identifier after punctuation in an argument.");
+					}
 					canExtendArgument = false;
 					continue;
 				}
-				if (tok == ')')
-					break;
-
-				// Some Liberty producers use unquoted colon-separated names for
-				// CCB groups and references (for example, `input_ccb(example:a)`).
-				// Keep ':' as a lexer token so it can still delimit attributes and
-				// vector ranges, and combine it only within an argument here.
-				if (tok == ':' && canExtendArgument) {
-					tok = lexer(arg);
-					if (tok != 'v') {
+				if (tok == ')') {
+					if (needsArgumentContinuation) {
 						delete ast;
-						error("Expected an identifier after ':' in an argument.");
+						error("Expected an identifier after punctuation in an argument.");
 					}
-					ast->args.back() += ':';
-					ast->args.back() += arg;
+					break;
+				}
+
+				// Some Liberty producers use punctuation in unquoted CCB names and
+				// references (for example, `input_ccb(cell_cond__!A&!B)` or
+				// `input_ccb(example:a)`). Keep these characters as lexer tokens so
+				// they can retain their normal meaning in attributes and vector
+				// ranges, and combine them only within an argument here.
+				if ((tok == ':' || tok == '!' || tok == '&') && canExtendArgument) {
+					ast->args.back() += static_cast<char>(tok);
+					needsArgumentContinuation = true;
 					continue;
 				}
 				
@@ -464,7 +470,12 @@ LibertyAst *LibertyParser::parse()
 						error();
 					}
 				}
-				ast->args.push_back(arg);
+				if (needsArgumentContinuation) {
+					ast->args.back() += arg;
+					needsArgumentContinuation = false;
+				} else {
+					ast->args.push_back(arg);
+				}
 				canExtendArgument = true;
 			}
 			continue;
