@@ -164,15 +164,15 @@ TEST_F(SNLLibertyConstructorTest0, test0) {
   EXPECT_EQ(SNLTerm::Direction::Output, y->getDirection());
 }
 
-TEST_F(SNLLibertyConstructorTest0, testColonSeparatedCCBNames) {
+TEST_F(SNLLibertyConstructorTest0, testPunctuatedCCBNames) {
   auto tempPath = writeTemporaryLiberty(
-    "colon_separated_ccb_names",
+    "punctuated_ccb_names",
     R"liberty(
 library(test) {
   cell(C) {
     pin(A) {
       direction:input;
-      input_ccb(example:a) {
+      input_ccb(cell_cond__!A&!B&!C__1) {
         related_ccb_node : "net1:15";
       }
     }
@@ -182,7 +182,11 @@ library(test) {
       timing() {
         related_pin : "A";
         timing_type : combinational;
-        active_input_ccb(example:a, vendor:block:b);
+        active_input_ccb(cell_cond__!A&!B&!C__1, vendor:block:b);
+        active_output_ccb(cell_cond__!A&!B&!C__1);
+      }
+      output_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net2:16";
       }
     }
   }
