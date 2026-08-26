@@ -13888,6 +13888,73 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableDynamicElementSelectUsesReplayValue) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_dynamic_element_select_uses_replay_value",
+    R"(module always_comb_automatic_variable_dynamic_element_select_uses_replay_value(
+  input  logic [2:0] sel,
+  input  logic [7:0] flat,
+  output logic       q_initializer,
+  output logic       q_assignment,
+  output logic       q_reassignment
+);
+  always_comb begin
+    automatic logic [7:0] initializer_tbl = flat;
+    automatic logic [7:0] assignment_tbl;
+    automatic logic [7:0] reassignment_tbl = '0;
+    assignment_tbl = flat;
+    reassignment_tbl = flat;
+    q_initializer = initializer_tbl[sel];
+    q_assignment = assignment_tbl[sel];
+    q_reassignment = reassignment_tbl[sel];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_dynamic_element_select_uses_replay_value"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(3u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {1, 8, 3}));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableDynamicIndexedPartSelectUsesReplayValue) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_dynamic_indexed_part_select_uses_replay_value",
+    R"(module always_comb_automatic_variable_dynamic_indexed_part_select_uses_replay_value(
+  input  logic [2:0] sel,
+  input  logic [7:0] flat,
+  output logic [1:0] q
+);
+  always_comb begin
+    automatic logic [7:0] tbl = flat;
+    q = tbl[sel +: 2];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_dynamic_indexed_part_select_uses_replay_value"));
+  ASSERT_NE(top, nullptr);
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableDeclarationInitializerUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

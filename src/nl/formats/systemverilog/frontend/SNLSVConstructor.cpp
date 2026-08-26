@@ -13378,6 +13378,65 @@ endmodule
       return resolveProceduralReplayEnvBits(*stripped, targetWidth, bits);
     }
 
+    void resolveSelectionBaseBits(
+      SNLDesign* design,
+      const Expression& valueExpr,
+      SNLNet*& valueNet,
+      std::vector<SNLBitNet*>& valueBits) {
+      valueNet = nullptr;
+      valueBits.clear();
+
+      // Procedural locals are represented by their current replay bits, not by
+      // a stable design net. Prefer those bits before constant handling or
+      // resolveExpressionNet() can materialize a stale or undriven base.
+      if (auto valueWidth = getIntegralExpressionBitWidth(valueExpr);
+          valueWidth && *valueWidth > 0) {
+        if (!resolveActiveProceduralReplayBits(valueExpr, *valueWidth, valueBits) ||
+            valueBits.size() != *valueWidth) {
+          valueBits.clear();
+        }
+      }
+
+      const auto materializeConstantSelectionBaseNet = [&]() {
+        if (!valueNet && shouldMaterializeConstantSelectionBaseNet(valueExpr)) {
+          valueNet = resolveExpressionNet(design, valueExpr);
+        }
+      };
+      if (valueBits.empty()) {
+        if (auto valueWidth = getRepresentableExpressionBitWidth(valueExpr);
+            valueWidth && *valueWidth > 0) {
+          resolveConstantExpressionBits(design, valueExpr, *valueWidth, valueBits);
+          if (valueBits.size() != *valueWidth) {
+            valueBits.clear();
+          } else {
+            materializeConstantSelectionBaseNet();
+          }
+        }
+      }
+
+      if (valueBits.empty()) {
+        valueNet = resolveExpressionNet(design, valueExpr);
+        valueBits = collectBits(valueNet);
+      }
+      if (auto valueWidth = getIntegralExpressionBitWidth(valueExpr);
+          valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
+        std::vector<SNLBitNet*> selectedValueBits;
+        if (resolveExpressionBits(design, valueExpr, *valueWidth, selectedValueBits) &&
+            selectedValueBits.size() == *valueWidth) {
+          valueBits = std::move(selectedValueBits);
+          valueNet = nullptr;
+        }
+      }
+      if (valueBits.empty()) {
+        if (auto valueWidth = getRepresentableExpressionBitWidth(valueExpr)) {
+          if (!resolveExpressionBits(design, valueExpr, *valueWidth, valueBits) ||
+              valueBits.size() != *valueWidth) {
+            valueBits.clear();
+          }
+        }
+      }
+    }
+
     bool resolveExpressionBits(
       SNLDesign* design,
       const Expression& expr,
@@ -14798,47 +14857,7 @@ endmodule
           if (valueType.hasFixedRange()) {
             SNLNet* valueNet = nullptr;
             std::vector<SNLBitNet*> valueBits;
-            const auto materializeConstantSelectionBaseNet = [&]() {
-              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
-                valueNet = resolveExpressionNet(design, *valueExpr);
-              }
-            };
-            if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
-                valueWidth && *valueWidth > 0) {
-              resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
-              if (valueBits.size() != *valueWidth) {
-                valueBits.clear();
-              } else {
-                materializeConstantSelectionBaseNet();
-              }
-            }
-            if (valueBits.empty()) {
-              valueNet = resolveExpressionNet(design, *valueExpr);
-              valueBits = collectBits(valueNet);
-            }
-            if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
-                valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
-              std::vector<SNLBitNet*> selectedValueBits;
-              if (resolveExpressionBits(design, *valueExpr, *valueWidth, selectedValueBits) &&
-                  selectedValueBits.size() == *valueWidth) {
-                valueBits = std::move(selectedValueBits);
-                valueNet = nullptr;
-              }
-            }
-            if (valueBits.empty()) {
-              if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr)) {
-                if (!resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) ||
-                    valueBits.size() != *valueWidth) {
-                  // LCOV_EXCL_START
-                  // This is an alternate recovery path after no flattened value
-                  // net was available. Current parser-backed indexed-range cases
-                  // either resolve cleanly here or fail earlier in the main
-                  // expression lowering.
-                  valueBits.clear();
-                  // LCOV_EXCL_STOP
-                }
-              }
-            }
+            resolveSelectionBaseBits(design, *valueExpr, valueNet, valueBits);
             if (!valueBits.empty()) {
               size_t elementWidth = 0;
               if (auto selectedWidth =
@@ -15160,45 +15179,7 @@ endmodule
           if (valueExpr) {
             SNLNet* valueNet = nullptr;
             std::vector<SNLBitNet*> valueBits;
-            const auto materializeConstantSelectionBaseNet = [&]() {
-              if (!valueNet && shouldMaterializeConstantSelectionBaseNet(*valueExpr)) {
-                valueNet = resolveExpressionNet(design, *valueExpr);
-              }
-            };
-            if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr);
-                valueWidth && *valueWidth > 0) {
-              resolveConstantExpressionBits(design, *valueExpr, *valueWidth, valueBits);
-              if (valueBits.size() != *valueWidth) {
-                valueBits.clear();
-              } else {
-                materializeConstantSelectionBaseNet();
-              }
-            }
-            if (valueBits.empty()) {
-              valueNet = resolveExpressionNet(design, *valueExpr);
-              valueBits = collectBits(valueNet);
-            }
-            if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr);
-                valueWidth && *valueWidth > 0 && valueBits.size() != *valueWidth) {
-              std::vector<SNLBitNet*> selectedValueBits;
-              if (resolveExpressionBits(design, *valueExpr, *valueWidth, selectedValueBits) &&
-                  selectedValueBits.size() == *valueWidth) {
-                valueBits = std::move(selectedValueBits);
-                valueNet = nullptr;
-              }
-            }
-            if (valueBits.empty()) {
-              // LCOV_EXCL_START
-              // Alternate recovery path after no flattened range-select value
-              // net was available; covered parser-backed flows resolve earlier.
-              if (auto valueWidth = getRepresentableExpressionBitWidth(*valueExpr)) {
-                if (!resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) ||
-                    valueBits.size() != *valueWidth) {
-                  valueBits.clear(); // LCOV_EXCL_LINE
-                } // LCOV_EXCL_LINE
-              }
-              // LCOV_EXCL_STOP
-            }
+            resolveSelectionBaseBits(design, *valueExpr, valueNet, valueBits);
 
             int32_t constantStartIndex = 0;
             int32_t constantSliceWidth = 0;
