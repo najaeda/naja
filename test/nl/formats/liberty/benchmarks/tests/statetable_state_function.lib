@@ -15,15 +15,38 @@ library (statetable_state_function_test) {
     pin (GCLK) {
       direction : output;
       state_function : "CLK & IQ";
+      timing () {
+        related_pin : "CLK";
+        timing_type : combinational_fall;
+      }
+      timing () {
+        related_pin : "CLK";
+      }
     }
     pin (CLK) {
       direction : input;
     }
     pin (ENA) {
       direction : input;
+      timing () {
+        related_pin : "CLK";
+        timing_type : hold_rising;
+      }
+      timing () {
+        related_pin : "CLK";
+        timing_type : setup_rising;
+      }
     }
     pin (SE) {
       direction : input;
+      timing () {
+        related_pin : "CLK";
+        timing_type : hold_rising;
+      }
+      timing () {
+        related_pin : "CLK";
+        timing_type : setup_rising;
+      }
     }
   }
   cell (STATE_FUNCTION_ONLY) {
@@ -34,6 +57,47 @@ library (statetable_state_function_test) {
       direction : output;
       function : "D";
       state_function : "D";
+    }
+  }
+  cell (STATE_RISING_OUTPUT) {
+    pin (CLK) {
+      direction : input;
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      state_function : "IQ";
+      timing () {
+        related_pin : "CLK";
+        timing_type : rising_edge;
+      }
+    }
+  }
+  cell (FF_WITH_STATE_FUNCTION) {
+    ff (IQ, IQN) {
+      clocked_on : "CLK";
+      next_state : "D";
+    }
+    pin (CLK) {
+      direction : input;
+    }
+    pin (D) {
+      direction : input;
+      timing () {
+        related_pin : "CLK";
+        timing_type : setup_rising;
+      }
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+      state_function : "IQ";
+      timing () {
+        related_pin : "CLK";
+        timing_type : rising_edge;
+      }
     }
   }
 }
