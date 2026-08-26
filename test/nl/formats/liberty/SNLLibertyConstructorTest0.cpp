@@ -239,6 +239,8 @@ TEST_F(SNLLibertyConstructorTest0, testInternalPin) {
   EXPECT_EQ(SNLTerm::Direction::Input, i->getDirection());
   auto z = design->getScalarTerm(NLName("Z"));
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(design));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(design).isInitialized());
 }
 
 TEST_F(SNLLibertyConstructorTest0, testNonExistingFile) {
@@ -647,7 +649,7 @@ TEST_F(SNLLibertyConstructorTest0, testMultiOutputFunctionErrorHasLocationContex
   std::filesystem::remove(tempPath, ec);
 }
 
-TEST_F(SNLLibertyConstructorTest0, testMixedOutputKindsCreatePlaceholderTables) {
+TEST_F(SNLLibertyConstructorTest0, testMixedOutputKindsRemainOpaque) {
   const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
   auto tempPath = std::filesystem::temp_directory_path()
     / std::filesystem::path("naja_liberty_mixed_outputs_" + std::to_string(stamp) + ".lib");
@@ -703,18 +705,18 @@ TEST_F(SNLLibertyConstructorTest0, testMixedOutputKindsCreatePlaceholderTables) 
   EXPECT_EQ(1, bo->getMSB());
   EXPECT_EQ(0, bo->getLSB());
 
-  auto yTruthTable = SNLDesignModeling::getTruthTable(design, y->getFlatID());
-  EXPECT_EQ(SNLTruthTable::Buf(), yTruthTable);
-  auto ioTruthTable = SNLDesignModeling::getTruthTable(design, io->getFlatID());
-  EXPECT_EQ(SNLTruthTable::Logic0(), ioTruthTable);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(design));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(design).isInitialized());
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(design, y->getFlatID()).isInitialized());
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(design, io->getFlatID()).isInitialized());
   ASSERT_NE(nullptr, bo->getBit(1));
-  EXPECT_EQ(
-      SNLTruthTable::Logic0(),
-      SNLDesignModeling::getTruthTable(design, bo->getBit(1)->getFlatID()));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(
+      design, bo->getBit(1)->getFlatID()).isInitialized());
   ASSERT_NE(nullptr, bo->getBit(0));
-  EXPECT_EQ(
-      SNLTruthTable::Logic0(),
-      SNLDesignModeling::getTruthTable(design, bo->getBit(0)->getFlatID()));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(
+      design, bo->getBit(0)->getFlatID()).isInitialized());
 
   std::error_code ec;
   std::filesystem::remove(tempPath, ec);

@@ -67,6 +67,17 @@ const Yosys::LibertyAst* findDirectChild(const Yosys::LibertyAst* node, const st
   return nullptr;
 }
 
+bool containsLibertyNode(
+    const Yosys::LibertyAst* node,
+    const std::string& id) {
+  for (auto* child : node->children) {
+    if (child->id == id || containsLibertyNode(child, id)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const Yosys::LibertyAst* findDirectionNode(const Yosys::LibertyAst* node) {
   auto directionNode = findDirectChild(node, "direction");
   if (directionNode != nullptr or node->id != "bus") {
@@ -450,9 +461,6 @@ void registerConstructedTermModeling(
     if (functionNode) {
       termFunctions[constructedScalarTerm] = functionNode->value;
       termFunctionLines[constructedScalarTerm] = functionNode->line;
-    } else if (functionParsingType == FunctionParsingType::Combinational) {
-      termFunctions[constructedScalarTerm] = pinName;
-      termFunctionLines[constructedScalarTerm] = child->line;
     }
   } else if (functionParsingType != FunctionParsingType::Ignore
     and constructedBusTerm
@@ -857,6 +865,16 @@ void parseTerms(
       outputs.push_back(term);
     }
   }
+  if (functionParsingType == FunctionParsingType::Combinational &&
+      termFunctions.size() != outputs.size()) {
+    NAJA_LOG_WARN(
+      "In SNLLibertyConstructor, cell {} defines a `function` for {} of {} "
+      "non-input terms; leaving all truth tables uninitialized.",
+      primitive->getName().getString(),
+      termFunctions.size(),
+      outputs.size());
+    return;
+  }
   if (seqTermClocks.size() > 0) {
     for (const auto& [term, clockNames]: seqTermClocks) {
       for (const auto& clockName: clockNames) {
@@ -1012,22 +1030,13 @@ void parseTerms(
   } else if (functionParsingType == FunctionParsingType::Combinational &&
              termFunctions.size() > 0) {
     std::vector<SNLTruthTable> truthTables;
-    // Assuming termFunctions is ordered based on termIDs!
     for (auto term: primitive->getBitTerms()) {
       if (term->getDirection() == SNLTerm::Direction::Input) {
         continue;
       }
-      SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
-      if (scalarTerm == nullptr) {
-        truthTables.push_back(SNLTruthTable()); //push empty table for non-scalar terms
-        continue;
-      }
-      if (termFunctions.find(scalarTerm) == termFunctions.end()) {
-        truthTables.push_back(SNLTruthTable()); //push empty table for terms without function
-        continue;
-      }
-      auto& function = termFunctions[scalarTerm];
-      auto pinName = termFunctionPins[scalarTerm];
+      auto* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
+      auto& function = termFunctions.at(scalarTerm);
+      auto pinName = termFunctionPins.at(scalarTerm);
       auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
       try {
         //std::cerr << "Parsing function: " << function << std::endl;
@@ -1043,7 +1052,7 @@ void parseTerms(
         truthTables.push_back(truthTable);
       } catch (const SNLLibertyConstructorException& e) {
         auto reason = buildFunctionParseErrorReason(
-          pinName, termFunctionLines[scalarTerm], function, e.getReason());
+          pinName, termFunctionLines.at(scalarTerm), function, e.getReason());
         throw SNLLibertyConstructorException(reason);
       }
     }
@@ -1088,11 +1097,22 @@ void parseCell(
     }
     auto primitive = SNLDesign::create(
         library, SNLDesign::Type::Primitive, NLName(cellName));
+    const bool hasUnsupportedStateModel =
+        containsLibertyNode(cell, "statetable") ||
+        containsLibertyNode(cell, "state_function");
     FunctionParsingType type = FunctionParsingType::Combinational;
-    if (cell->find("ff") || cell->find("memory")) {
+    if (hasUnsupportedStateModel) {
+      type = FunctionParsingType::Ignore;
+      NAJA_LOG_WARN(
+        "In SNLLibertyConstructor, cell {} from {} uses unsupported Liberty "
+        "statetable/state_function modeling; leaving its truth table "
+        "uninitialized.",
+        cellName,
+        sourcePath.string());
+    } else if (cell->find("ff") || cell->find("memory")) {
       type = FunctionParsingType::Sequential;
     } else if (cell->find("latch")) {
-      type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
+      type = FunctionParsingType::Ignore;
     }
     parseTerms(primitive, top, cell, type);
   } catch (const SNLLibertyConstructorException& e) {

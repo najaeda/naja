@@ -6,6 +6,7 @@
 #include "gmock/gmock.h"
 #include <algorithm>
 #include <set>
+#include "NajaLog.h"
 #include "NLUniverse.h"
 
 #include "SNLBitNet.h"
@@ -716,6 +717,49 @@ TEST_F(SNLLibertyConstructorTest1, testFF) {
   EXPECT_EQ(
       model.outputs[0].function.nodes[model.outputs[0].function.root].operation,
       SNLDesignModeling::BooleanExpression::Operator::State);
+}
+
+TEST_F(SNLLibertyConstructorTest1, testStateTableFunctionIsOpaque) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "statetable_state_function.lib";
+  testing::internal::CaptureStdout();
+  constructor.construct(testPath);
+  naja::log::get()->flush();
+  const auto diagnostics = testing::internal::GetCapturedStdout();
+  EXPECT_NE(std::string::npos, diagnostics.find("cell ICG"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_FUNCTION_ONLY"));
+  EXPECT_NE(
+      std::string::npos,
+      diagnostics.find("unsupported Liberty statetable/state_function modeling"));
+
+  auto* icg = library_->getSNLDesign(NLName("ICG"));
+  ASSERT_NE(nullptr, icg);
+  EXPECT_EQ(4, icg->getTerms().size());
+  EXPECT_EQ(4, icg->getScalarTerms().size());
+  EXPECT_TRUE(icg->getBusTerms().empty());
+
+  for (const char* inputName : {"CLK", "ENA", "SE"}) {
+    auto* input = icg->getScalarTerm(NLName(inputName));
+    ASSERT_NE(nullptr, input);
+    EXPECT_EQ(SNLTerm::Direction::Input, input->getDirection());
+  }
+  auto* gclk = icg->getScalarTerm(NLName("GCLK"));
+  ASSERT_NE(nullptr, gclk);
+  EXPECT_EQ(SNLTerm::Direction::Output, gclk->getDirection());
+
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(icg));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(icg).isInitialized());
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(icg, gclk->getFlatID()).isInitialized());
+  EXPECT_FALSE(SNLDesignModeling::isConst0(icg));
+
+  auto* stateFunctionOnly =
+      library_->getSNLDesign(NLName("STATE_FUNCTION_ONLY"));
+  ASSERT_NE(nullptr, stateFunctionOnly);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(stateFunctionOnly));
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(stateFunctionOnly).isInitialized());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testFFScanModel) {

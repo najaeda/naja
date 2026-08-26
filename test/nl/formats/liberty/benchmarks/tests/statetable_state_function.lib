@@ -1,0 +1,39 @@
+library (statetable_state_function_test) {
+  cell (ICG) {
+    clock_gating_integrated_cell : latch_posedge_precontrol;
+    statetable ("CLK ENA SE", "IQ") {
+      table : "L L L : - : L,
+               L L H : - : H,
+               L H L : - : H,
+               L H H : - : H,
+               H - - : - : N";
+    }
+    pin (IQ) {
+      direction : internal;
+      internal_node : "IQ";
+    }
+    pin (GCLK) {
+      direction : output;
+      state_function : "CLK & IQ";
+    }
+    pin (CLK) {
+      direction : input;
+    }
+    pin (ENA) {
+      direction : input;
+    }
+    pin (SE) {
+      direction : input;
+    }
+  }
+  cell (STATE_FUNCTION_ONLY) {
+    pin (D) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "D";
+      state_function : "D";
+    }
+  }
+}
