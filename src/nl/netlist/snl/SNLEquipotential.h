@@ -15,13 +15,23 @@ class SNLNetComponent;
 
 class SNLEquipotential {
   public:
+    enum class Mode {
+      Standard,
+      /// Cross Assign instances and omit their inst terms from the result.
+      TraverseAssigns
+    };
+
     using InstTermOccurrences = std::set<SNLOccurrence>;
     using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
     SNLEquipotential()=default;
     SNLEquipotential(const SNLEquipotential&)=default;
     SNLEquipotential(SNLNetComponent* netComponent);
+    SNLEquipotential(SNLNetComponent* netComponent, Mode mode);
     SNLEquipotential(const SNLOccurrence& netComponentOccurrence);
+    SNLEquipotential(
+      const SNLOccurrence& netComponentOccurrence,
+      Mode mode);
 
     const Terms& getTermsSet() const { return terms_; }
     const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
