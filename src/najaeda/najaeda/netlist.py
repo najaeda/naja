@@ -1018,9 +1018,9 @@ class Term:
         return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
     def get_equipotential(
-            self,
-            mode: Equipotential.Mode = Equipotential.Mode.STANDARD
-            ) -> Equipotential:
+        self,
+        mode: Equipotential.Mode = Equipotential.Mode.STANDARD
+    ) -> Equipotential:
         """
         :param Equipotential.Mode mode: traversal mode.
         :return: the Equipotential of this Term.

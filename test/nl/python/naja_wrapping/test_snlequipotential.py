@@ -134,6 +134,10 @@ class SNLEquiTest(unittest.TestCase):
       with self.assertRaisesRegex(
           RuntimeError, "invalid SNLEquipotential.Mode value"):
         naja.SNLEquipotential(input_term, mode=99)
+      with self.assertRaisesRegex(
+          RuntimeError,
+          "SNLEquipotential mode must be an SNLEquipotential.Mode"):
+        naja.SNLEquipotential(input_term, mode="TraverseAssigns")
     finally:
       os.remove(source_path)
 
