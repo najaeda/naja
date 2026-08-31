@@ -116,18 +116,32 @@ class Equipotential:
     some of the snl occurrence API.
     """
 
-    def __init__(self, term):
+    class Mode(Enum):
+        """Traversal mode for equipotential construction."""
+        STANDARD = naja.SNLEquipotential.Mode.Standard
+        TRAVERSE_ASSIGNS = naja.SNLEquipotential.Mode.TraverseAssigns
+
+    def __init__(self, term, mode: Mode = Mode.STANDARD):
+        """Construct the equipotential containing ``term``.
+
+        :param Term term: term from which to start the traversal.
+        :param Equipotential.Mode mode: traversal mode.
+        """
+        if not isinstance(mode, Equipotential.Mode):
+            raise TypeError("mode must be an Equipotential.Mode")
         path = get_snl_path_from_id_list(term.pathIDs)
         snl_term = get_snl_term_for_ids_with_path(path, term.termID, term.bit)
         if isinstance(snl_term, naja.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
         if len(term.pathIDs) == 0:
-            self.equi = naja.SNLEquipotential(snl_term)
+            self.equi = naja.SNLEquipotential(
+                snl_term, mode=mode.value)
         else:
             ito = naja.SNLOccurrence(
                 path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
             )
-            self.equi = naja.SNLEquipotential(ito)
+            self.equi = naja.SNLEquipotential(
+                ito, mode=mode.value)
 
     def __eq__(self, value):
         return self.equi == value.equi
@@ -1003,12 +1017,16 @@ class Term:
     def count_flat_fanout(self, filter=None):
         return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
-    def get_equipotential(self) -> Equipotential:
+    def get_equipotential(
+        self,
+        mode: Equipotential.Mode = Equipotential.Mode.STANDARD
+    ) -> Equipotential:
         """
+        :param Equipotential.Mode mode: traversal mode.
         :return: the Equipotential of this Term.
         :rtype: Equipotential
         """
-        return Equipotential(self)
+        return Equipotential(self, mode=mode)
 
     def is_input(self) -> bool:
         """

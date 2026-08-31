@@ -249,7 +249,7 @@ semantic source of truth.
    * - :class:`najaeda.naja.SNLOccurrence`
      - ``isInstanceOccurrence``, ``getPath``, ``getInstance``, ``getInstTerm``, ``getNetComponent``, ``getDesign``
    * - :class:`najaeda.naja.SNLEquipotential`
-     - ``getTerms``, ``getInstTermOccurrences``, ``isConst0``, ``isConst1``, ``dumpDotFile``
+     - ``Mode``, ``getTerms``, ``getInstTermOccurrences``, ``isConst0``, ``isConst1``, ``dumpDotFile``
    * - :class:`najaeda.naja.NLID`
      - ``from_string``, ``toTuple``, ``getType``, ``getDBID``, ``getLibraryID``, ``getDesignID``, ``getDesignObjectID``, ``getInstanceID``, ``getBit``, ``isDesign``, ``isInstance``, ``isNet``, ``isTerm``
    * - :class:`najaeda.naja.LogicCone`
@@ -428,6 +428,10 @@ expert reference above.
       :members:
       :undoc-members:
 
+      Pass ``mode=SNLEquipotential.Mode.TraverseAssigns`` to the constructor
+      to cross Assign instances and omit their instance terminals.  The
+      default is ``SNLEquipotential.Mode.Standard``.
+
    .. autoclass:: najaeda.naja.SNLNetComponent
       :members:
       :undoc-members:
@@ -447,6 +451,7 @@ expert reference above.
 
       SNLTerm.Direction
       SNLNet.Type
+      SNLEquipotential.Mode
       SNLTermRole
       SNLActiveLevel
 
@@ -455,6 +460,10 @@ expert reference above.
       :undoc-members:
 
    .. autoclass:: najaeda.naja.SNLNet.Type
+      :members:
+      :undoc-members:
+
+   .. autoclass:: najaeda.naja.SNLEquipotential.Mode
       :members:
       :undoc-members:
 
