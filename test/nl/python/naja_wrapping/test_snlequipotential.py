@@ -2,15 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import tempfile
 import unittest
 import naja
 
 class SNLEquiTest(unittest.TestCase):
   def setUp(self):
     universe = naja.NLUniverse.create()
-    db = naja.NLDB.create(universe)
-    lib = naja.NLLibrary.create(db)
-    self.primitives = naja.NLLibrary.createPrimitives(db)
+    self.db = naja.NLDB.create(universe)
+    lib = naja.NLLibrary.create(self.db)
+    self.primitives = naja.NLLibrary.createPrimitives(self.db)
     self.top = naja.SNLDesign.create(lib)
     self.top_out = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Output, "OUT")
     self.model = naja.SNLDesign.create(lib, "model")
@@ -94,6 +96,46 @@ class SNLEquiTest(unittest.TestCase):
     equi_z = naja.SNLEquipotential(self.top_out)
     self.assertTrue(equi_z.isConstZ())
     self.assertFalse(equi_z.isConstX())
+
+  def testTraverseAssigns(self):
+    with tempfile.NamedTemporaryFile("w", suffix=".v", delete=False) as source:
+      source.write(
+        "module assign_top(input i, output o); "
+        "wire n; assign n = i; assign o = n; endmodule\n")
+      source_path = source.name
+    try:
+      top = self.db.loadVerilog([source_path])
+      input_term = top.getScalarTerm("i")
+      output_term = top.getScalarTerm("o")
+
+      standard = naja.SNLEquipotential(input_term)
+      self.assertListEqual([input_term], list(standard.getTerms()))
+      assign_occurrences = list(standard.getInstTermOccurrences())
+      self.assertEqual(1, len(assign_occurrences))
+      self.assertEqual(
+        standard,
+        naja.SNLEquipotential(
+          input_term, mode=naja.SNLEquipotential.Mode.Standard))
+
+      traversed = naja.SNLEquipotential(
+        input_term, mode=naja.SNLEquipotential.Mode.TraverseAssigns)
+      self.assertCountEqual(
+        [input_term, output_term], list(traversed.getTerms()))
+      self.assertListEqual([], list(traversed.getInstTermOccurrences()))
+      self.assertEqual(
+        traversed,
+        naja.SNLEquipotential(
+          output_term, naja.SNLEquipotential.Mode.TraverseAssigns))
+      self.assertEqual(
+        traversed,
+        naja.SNLEquipotential(
+          assign_occurrences[0],
+          mode=naja.SNLEquipotential.Mode.TraverseAssigns))
+      with self.assertRaisesRegex(
+          RuntimeError, "invalid SNLEquipotential.Mode value"):
+        naja.SNLEquipotential(input_term, mode=99)
+    finally:
+      os.remove(source_path)
 
   def testErrors(self):
     ins = naja.SNLInstance.create(self.model, self.submodel, "ins")
