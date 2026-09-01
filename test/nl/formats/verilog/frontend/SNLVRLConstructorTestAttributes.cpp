@@ -13,6 +13,7 @@ using ::testing::ElementsAre;
 
 #include "SNLScalarTerm.h"
 #include "SNLAttributes.h"
+#include "SNLDesignModeling.h"
 
 #include "SNLVRLConstructor.h"
 
@@ -237,6 +238,50 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
       SNLAttributeValue("Wire connecting OR gate output to top output")),
     orWireAttributes[0]
   );
+}
+
+TEST_F(SNLVRLConstructorTestAttributes,
+       testAttributedEmptyPortOnlyModuleIsSafe) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath /= "attributed_empty_port_only_blackbox";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto verilogPath = outPath / "example_rf.v";
+  std::ofstream verilogFile(verilogPath);
+  ASSERT_TRUE(verilogFile.good());
+  verilogFile << "(* blackbox = 1 *)\n"
+              << "module example_rf(q_o, d_i);\n"
+              << "  output q_o;\n"
+              << "  input d_i;\n"
+              << "endmodule\n";
+  verilogFile.close();
+
+  constructor.construct(verilogPath);
+
+  auto exampleRF = library_->getSNLDesign(NLName("example_rf"));
+  ASSERT_NE(exampleRF, nullptr);
+  EXPECT_TRUE(exampleRF->isUserBlackBox());
+  EXPECT_TRUE(exampleRF->isBlackBox());
+
+  const std::vector<SNLAttribute> attributes(
+      SNLAttributes::getAttributes(exampleRF).begin(),
+      SNLAttributes::getAttributes(exampleRF).end());
+  ASSERT_EQ(1, attributes.size());
+  EXPECT_EQ(NLName("blackbox"), attributes[0].getName());
+  EXPECT_TRUE(attributes[0].getValue().isNumber());
+  EXPECT_EQ("1", attributes[0].getValue().getString());
+
+  auto output = exampleRF->getScalarTerm(NLName("q_o"));
+  ASSERT_NE(output, nullptr);
+  EXPECT_EQ(0, SNLDesignModeling::getTruthTableCount(exampleRF));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(exampleRF).isInitialized());
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(exampleRF, output->getOrderID())
+          .isInitialized());
 }
 
 TEST_F(SNLVRLConstructorTestAttributes, testDisableAttributes) {

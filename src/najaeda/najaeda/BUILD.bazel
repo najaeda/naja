@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Exposes the najaeda pure-Python package sources as data for the
+# test/najaeda and src/najaeda/examples sh_tests, both of which copy
+# them into a scratch dir and drop naja.so alongside them (mirrors
+# test/najaeda/setup_test_env.cmake). docs/ (Sphinx sources) is
+# excluded: not imported at runtime.
+
+filegroup(
+    name = "sources",
+    srcs = glob(
+        ["**/*.py"],
+        exclude = ["docs/**"],
+    ),
+    visibility = [
+        "//src/najaeda:__subpackages__",
+        "//test:__subpackages__",
+    ],
+)

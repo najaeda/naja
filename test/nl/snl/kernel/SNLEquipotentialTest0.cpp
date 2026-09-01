@@ -7,6 +7,7 @@
 using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
+#include "NLDB0.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
@@ -122,4 +123,44 @@ TEST_F(SNLEquipotentialTest0, test) {
   EXPECT_EQ(equipotentialTopI0 > equipotentialTopOut, false);
   EXPECT_EQ(equipotentialTopI1 > equipotentialTopOut, false);
   EXPECT_EQ(equipotentialTopI0 != equipotentialTopI1, false);
+}
+
+TEST_F(SNLEquipotentialTest0, testTraverseAssigns) {
+  auto lib = db_->getLibrary(NLID::LibraryID(1));
+  ASSERT_NE(nullptr, lib);
+  auto design = SNLDesign::create(lib, NLName("ASSIGN_TOP"));
+  auto input = SNLScalarTerm::create(
+    design, SNLTerm::Direction::Input, NLName("input"));
+  auto output = SNLScalarTerm::create(
+    design, SNLTerm::Direction::Output, NLName("output"));
+  auto inputNet = SNLScalarNet::create(design, NLName("input_net"));
+  auto middleNet = SNLScalarNet::create(design, NLName("middle_net"));
+  auto outputNet = SNLScalarNet::create(design, NLName("output_net"));
+  inputNet->setType(SNLNet::Type::Assign1);
+  input->setNet(inputNet);
+  output->setNet(outputNet);
+
+  auto assign0 = SNLInstance::create(design, NLDB0::getAssign());
+  assign0->getInstTerm(NLDB0::getAssignInput())->setNet(inputNet);
+  assign0->getInstTerm(NLDB0::getAssignOutput())->setNet(middleNet);
+  auto assign1 = SNLInstance::create(design, NLDB0::getAssign());
+  assign1->getInstTerm(NLDB0::getAssignInput())->setNet(middleNet);
+  assign1->getInstTerm(NLDB0::getAssignOutput())->setNet(outputNet);
+
+  SNLEquipotential standard(input);
+  EXPECT_THAT(standard.getTermsSet(), ElementsAre(input));
+  EXPECT_THAT(
+    standard.getInstTermOccurrencesSet(),
+    ElementsAre(SNLOccurrence(assign0->getInstTerm(NLDB0::getAssignInput()))));
+
+  SNLEquipotential traversed(
+    input, SNLEquipotential::Mode::TraverseAssigns);
+  EXPECT_THAT(traversed.getTermsSet(), ElementsAre(input, output));
+  EXPECT_TRUE(traversed.getInstTermOccurrencesSet().empty());
+  EXPECT_TRUE(traversed.isConst1());
+
+  SNLEquipotential traversedFromOutput(
+    output, SNLEquipotential::Mode::TraverseAssigns);
+  EXPECT_EQ(traversed, traversedFromOutput);
+  EXPECT_TRUE(traversedFromOutput.isConst1());
 }

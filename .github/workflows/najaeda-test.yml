@@ -11,9 +11,9 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         submodules: true
@@ -32,7 +32,7 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v7
       with:
         python-version: 3.13
     - name: Install dependencies
@@ -54,7 +54,7 @@ jobs:
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       if: github.repository == 'najaeda/naja' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       with:
         directory: ${{github.workspace}}/test/najaeda/

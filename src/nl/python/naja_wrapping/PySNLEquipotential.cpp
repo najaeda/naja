@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLEquipotential.h"
+#include "PySNLEquipotentialMode.h"
 
 #include "PyInterface.h"
 #include "PySNLNetComponent.h"
@@ -25,11 +26,35 @@ using namespace naja::NL;
 static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyObject* kwargs) {
   SNLEquipotential* equipotential = nullptr;
   PyObject* arg0 = nullptr;
+  PyObject* modeObject = nullptr;
+  static const char* keywords[] = {"net_component", "mode", nullptr};
 
-  //SNLEquipotential has three types of constructors:
-  if (not PyArg_ParseTuple(args, "O:SNLEquipotential", &arg0)) {
+  if (not PyArg_ParseTupleAndKeywords(
+      args,
+      kwargs,
+      "O|O:SNLEquipotential",
+      const_cast<char**>(keywords),
+      &arg0,
+      &modeObject)) {
     setError("malformed SNLEquipotential create method");
     return -1;
+  }
+  auto mode = SNLEquipotential::Mode::Standard;
+  if (modeObject) {
+    if (not PyLong_Check(modeObject)) {
+      setError("SNLEquipotential mode must be an SNLEquipotential.Mode");
+      return -1;
+    }
+    switch (PyLong_AsLong(modeObject)) {
+      case static_cast<long>(SNLEquipotential::Mode::Standard):
+        break;
+      case static_cast<long>(SNLEquipotential::Mode::TraverseAssigns):
+        mode = SNLEquipotential::Mode::TraverseAssigns;
+        break;
+      default:
+        setError("invalid SNLEquipotential.Mode value");
+        return -1;
+    }
   }
   if (IsPySNLOccurrence(arg0)) {
     const auto occurrence = PYSNLOccurrence_O(arg0);
@@ -37,9 +62,9 @@ static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyO
       setError("SNLOccurrence passed to SNLEquipotential constructor is not a SNLNetComponentOccurrence");
       return -1;
     }
-    equipotential = new SNLEquipotential(*occurrence);
+    equipotential = new SNLEquipotential(*occurrence, mode);
   } else if (IsPySNLNetComponent(arg0)) {
-    equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
+    equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0), mode);
   } else {
     setError("SNLEquipotential create accepts SNLNetComponent or SNLNetComponentOccurrence as only argument");
     return -1;
@@ -98,5 +123,13 @@ PyMethodDef PySNLEquipotential_Methods[] = {
 
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLEquipotential)
 PyTypeObjectDefinitions(SNLEquipotential)
+
+void PySNLEquipotential_postModuleInit() {
+  PySNLEquipotentialMode_postModuleInit();
+  PyDict_SetItemString(
+    PyTypeSNLEquipotential.tp_dict,
+    "Mode",
+    reinterpret_cast<PyObject*>(&PyTypeSNLEquipotentialMode));
+}
 
 }  // namespace PYNAJA

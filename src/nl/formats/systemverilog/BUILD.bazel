@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the
+# `naja_snl_systemverilog` library, plus the `_test` variant (CMake's
+# EXCLUDE_FROM_ALL naja_snl_systemverilog_test, built with
+# -DNAJA_SVCONSTRUCTOR_TEST_DETAIL to expose extra test-only accessors)
+# needed by test/nl/formats/systemverilog/frontend (Phase 5, task #20).
+# See internal/bazel-migration-plan.md (Phase 4, task #17).
+
+_HDRS = [
+    "frontend/SNLSVConstructor.h",
+    "frontend/SNLSVConstructorException.h",
+    "frontend/SNLSVConstructorTestDetail.h",
+    "frontend/SNLSVIntent.h",
+]
+
+_SRCS = [
+    "frontend/SNLSVConstructor.cpp",
+    "frontend/SNLSVIntent.cpp",
+]
+
+_DEPS = [
+    "//src/core:naja_core",
+    "//src/nl/netlist:naja_nl",
+    "@slang//:slang",
+]
+
+cc_library(
+    name = "naja_snl_systemverilog",
+    srcs = _SRCS,
+    hdrs = _HDRS,
+    includes = ["frontend"],
+    visibility = ["//visibility:public"],
+    deps = _DEPS,
+)
+
+cc_library(
+    name = "naja_snl_systemverilog_test",
+    srcs = _SRCS,
+    hdrs = _HDRS,
+    defines = ["NAJA_SVCONSTRUCTOR_TEST_DETAIL"],
+    includes = ["frontend"],
+    visibility = ["//visibility:public"],
+    deps = _DEPS,
+)

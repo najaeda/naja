@@ -1,0 +1,124 @@
+library (FF_sequential_coverage) {
+  cell (FF_CLEAR_PRESET_L) {
+    ff (IQ, IQN) {
+      clocked_on : "CK";
+      next_state : "D";
+      clear : "!RN";
+      preset : "!SN";
+      clear_preset_var1 : "L";
+    }
+    pin (D) {
+      direction : input;
+      timing () {
+        related_pin : "CK";
+        timing_type : setup_rising;
+      }
+    }
+    pin (RN) {
+      direction : input;
+    }
+    pin (SN) {
+      direction : input;
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+      timing () {
+        related_pin : "CK";
+        timing_type : rising_edge;
+      }
+    }
+    pin (QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+
+  cell (FF_VALUE_H) {
+    ff (IQ) {
+      clocked_on : "CK";
+      next_state : "D";
+      clear_preset_var1 : "H";
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+
+  cell (FF_VALUE_N) {
+    ff (IQ) {
+      clocked_on : "CK";
+      next_state : "D";
+      clear_preset_var1 : "N";
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+
+  cell (FF_VALUE_T) {
+    ff (IQ) {
+      clocked_on : "CK";
+      next_state : "D";
+      clear_preset_var1 : "T";
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+
+  cell (FF_VALUE_UNKNOWN) {
+    ff (IQ) {
+      clocked_on : "CK";
+      next_state : "D";
+      clear_preset_var1 : "X";
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+
+  cell (FF_MISSING_NEXT_STATE) {
+    ff (IQ) {
+      clocked_on : "CK";
+    }
+    pin (CK) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+}

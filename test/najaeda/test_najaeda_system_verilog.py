@@ -188,8 +188,8 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def test_load_system_verilog_with_non_string_top_raises(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         with self.assertRaisesRegex(
-                ValueError,
-                r"SystemVerilogConfig\.top must be a str \(got int\)"):
+                TypeError,
+                r"SystemVerilogConfig\.top must be a str or None \(got int\)"):
             netlist.load_system_verilog(
                 design_files,
                 config=netlist.SystemVerilogConfig(top=123),
@@ -208,7 +208,7 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def test_load_system_verilog_with_invalid_ast_link_option_raises(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         with self.assertRaisesRegex(
-                ValueError,
+                TypeError,
                 r"SystemVerilogConfig\.keep_ast_link must be a bool \(got str\)"):
             netlist.load_system_verilog(
                 design_files,
@@ -218,7 +218,7 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def test_load_system_verilog_with_invalid_blackbox_unknown_modules_raises(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         with self.assertRaisesRegex(
-                ValueError,
+                TypeError,
                 r"SystemVerilogConfig\.blackbox_unknown_modules "
                 r"must be a bool \(got str\)"):
             netlist.load_system_verilog(
@@ -231,28 +231,70 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         cases = [
             (
                 "SYNTHESIS",
-                r"SystemVerilogConfig\.defines must be a list \(got str\)",
+                TypeError,
+                r"SystemVerilogConfig\.defines must be a list\[str\] or None "
+                r"\(got str\)",
             ),
             (
                 [1],
-                r"SystemVerilogConfig\.defines items must be strings",
+                TypeError,
+                r"SystemVerilogConfig\.defines\[0\] must be a str \(got int\)",
             ),
             (
                 [""],
-                r"SystemVerilogConfig\.defines items must not be empty",
+                ValueError,
+                r"SystemVerilogConfig\.defines\[0\] must not be empty",
             ),
             (
                 ["HAS SPACE"],
-                r"SystemVerilogConfig\.defines items must not contain whitespace",
+                ValueError,
+                r"SystemVerilogConfig\.defines\[0\] must not contain whitespace",
             ),
         ]
-        for defines, message in cases:
+        for defines, exception_type, message in cases:
             with self.subTest(defines=defines):
-                with self.assertRaisesRegex(ValueError, message):
+                with self.assertRaisesRegex(exception_type, message):
                     netlist.load_system_verilog(
                         design_files,
                         config=netlist.SystemVerilogConfig(defines=defines),
                     )
+
+    def test_load_system_verilog_configuration_errors_are_actionable(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        cases = [
+            (
+                {"diagnostics_report_path": ""},
+                ValueError,
+                r"diagnostics_report_path must not be empty",
+            ),
+            (
+                {"suppress_warnings": [1]},
+                TypeError,
+                r"suppress_warnings\[0\] must be a str \(got int\)",
+            ),
+            (
+                {"suppress_warnings": ["-Wno-width-trunc"]},
+                ValueError,
+                r"without a -W/-Wno- prefix; got '-Wno-width-trunc'",
+            ),
+        ]
+        for kwargs, exception_type, message in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(exception_type, message):
+                    netlist.load_system_verilog(
+                        design_files,
+                        config=netlist.SystemVerilogConfig(**kwargs),
+                    )
+
+        missing_flist = os.path.join(
+            najaeda_test_path, "missing-systemverilog-command-file.f")
+        with self.assertRaises(FileNotFoundError) as context:
+            netlist.load_system_verilog(
+                [],
+                config=netlist.SystemVerilogConfig(flist=missing_flist),
+            )
+        self.assertIn("SystemVerilogConfig.flist", str(context.exception))
+        self.assertIn(repr(missing_flist), str(context.exception))
 
     def test_load_system_verilog_with_flist_top_and_define(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:

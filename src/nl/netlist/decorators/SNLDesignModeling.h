@@ -6,6 +6,7 @@
 #pragma once
 #include <cstddef>
 #include <list>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -30,7 +31,7 @@ class SNLDesignModeling {
     enum class SNLTermRole {
       Clock, DataInput, DataOutput, AsyncReset, AsyncSet, SyncReset, SyncSet, Enable,
       MemoryReadAddress, MemoryReadData, MemoryWriteAddress,
-      MemoryWriteData, MemoryWriteEnable, Other
+      MemoryWriteData, MemoryWriteEnable, Other, ScanInput, ScanEnable
     };
     enum class SNLActiveLevel { High, Low, NA };
     struct TermRole {
@@ -95,6 +96,63 @@ class SNLDesignModeling {
       }
     };
 
+    struct BooleanExpression {
+      using NodeID = size_t;
+      static constexpr NodeID InvalidNode = std::numeric_limits<NodeID>::max();
+      enum class Operator { Constant, Term, State, Not, And, Or, Xor };
+      struct Node {
+        Operator operation {Operator::Constant};
+        bool constant {false};
+        SNLBitTerm* term {nullptr};
+        size_t state {0};
+        std::vector<NodeID> operands {};
+      };
+
+      NodeID addConstant(bool value) {
+        nodes.push_back({Operator::Constant, value});
+        return nodes.size() - 1;
+      }
+      NodeID addTerm(SNLBitTerm* term) {
+        nodes.push_back({Operator::Term, false, term});
+        return nodes.size() - 1;
+      }
+      NodeID addState(size_t state) {
+        nodes.push_back({Operator::State, false, nullptr, state});
+        return nodes.size() - 1;
+      }
+      NodeID addOperation(Operator operation, std::vector<NodeID> operands) {
+        nodes.push_back({operation, false, nullptr, 0, std::move(operands)});
+        return nodes.size() - 1;
+      }
+      bool isValid() const { return root < nodes.size(); }
+
+      std::vector<Node> nodes {};
+      NodeID root {InvalidNode};
+    };
+
+    struct SequentialState {
+      enum class ClearPresetValue { Zero, One, Hold, Toggle, Unknown };
+      BooleanExpression nextState {};
+      std::optional<BooleanExpression> clear {};
+      std::optional<BooleanExpression> preset {};
+      ClearPresetValue clearPresetValue {ClearPresetValue::Unknown};
+    };
+    struct SequentialOutput {
+      SNLBitTerm* term {nullptr};
+      BooleanExpression function {};
+    };
+    struct SequentialModel {
+      enum class Kind { FlipFlop, Latch };
+      Kind kind {Kind::FlipFlop};
+      BooleanExpression clockedOn {};
+      std::vector<SequentialState> states {};
+      std::vector<SequentialOutput> outputs {};
+
+      bool isValid() const {
+        return clockedOn.isValid() && !states.empty() && !outputs.empty();
+      }
+    };
+
     //In case the Timing Modeling of a design depends on a parameter
     //Following method must be called prior to others
     static void setParameter(SNLDesign* design, const std::string& name, const std::string& defaultValue);
@@ -152,6 +210,9 @@ class SNLDesignModeling {
     static bool hasMemoryInterface(const SNLDesign* design);
     static MemoryInterface getMemoryInterface(const SNLDesign* design);
     static MemoryInterface getMemoryInterface(const SNLInstance* instance);
+    static void setSequentialModel(SNLDesign* design, const SequentialModel& model);
+    static bool hasSequentialModel(const SNLDesign* design);
+    static const SequentialModel& getSequentialModel(const SNLDesign* design);
 
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
@@ -198,6 +259,9 @@ class SNLDesignModeling {
     void setMemoryInterface_(const MemoryInterface& memInterface) { memoryInterface_ = memInterface; }
     bool hasMemoryInterface_() const { return memoryInterface_.has_value(); }
     MemoryInterface getMemoryInterface_() const { return *memoryInterface_; }
+    void setSequentialModel_(const SequentialModel& model) { sequentialModel_ = model; }
+    bool hasSequentialModel_() const { return sequentialModel_.has_value(); }
+    const SequentialModel& getSequentialModel_() const { return *sequentialModel_; }
     void setTermRole_(SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
       termRoles_[term] = {role, activeLevel};
     }
@@ -209,6 +273,7 @@ class SNLDesignModeling {
     Parameter     parameter_  {};
     TimingModel   model_      {};
     std::optional<MemoryInterface> memoryInterface_ {};
+    std::optional<SequentialModel> sequentialModel_ {};
     std::map<SNLBitTerm*, TermRole, SNLBitTerm::InDesignLess> termRoles_ {};
 };
 

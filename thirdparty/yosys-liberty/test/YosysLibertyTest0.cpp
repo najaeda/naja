@@ -50,13 +50,16 @@ TEST(YosysLibertyTest0, test0) {
   auto ast = parser->ast;
   ASSERT_NE(nullptr, ast);
   EXPECT_EQ(ast->id, "library");
+  EXPECT_EQ(1, ast->line);
   ASSERT_EQ(3, ast->children.size());
   auto child0 = ast->children[0];
   EXPECT_EQ("delay_model", child0->id);
+  EXPECT_EQ(2, child0->line);
   EXPECT_EQ("table_lookup", child0->value);
   EXPECT_TRUE(child0->children.empty());
   auto child1 = ast->children[1];
   EXPECT_EQ("define", child1->id);
+  EXPECT_EQ(3, child1->line);
   EXPECT_TRUE(child1->children.empty());
   EXPECT_EQ(3, child1->args.size());
   EXPECT_EQ("process_corner", child1->args[0]);
@@ -64,14 +67,92 @@ TEST(YosysLibertyTest0, test0) {
   EXPECT_EQ("string", child1->args[2]);
   auto child2 = ast->children[2];
   EXPECT_EQ("cell", child2->id);
+  EXPECT_EQ(4, child2->line);
   EXPECT_EQ(1, child2->args.size());
   EXPECT_EQ("AND2_X1", child2->args[0]);
   EXPECT_EQ(1, child2->children.size());
   auto child2_0 = child2->children[0];
   EXPECT_EQ("drive_strength", child2_0->id);
+  EXPECT_EQ(6, child2_0->line);
   EXPECT_TRUE(child2_0->args.empty());
   EXPECT_TRUE(child2_0->children.empty());
   EXPECT_EQ("1", child2_0->value);
+}
+
+TEST(YosysLibertyTest0, punctuatedArgumentIdentifiers) {
+  std::istringstream inFile(R"liberty(
+library(test) {
+  cell(C) {
+    pin(A) {
+      direction:input;
+      input_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net1:15";
+      }
+      timing() {
+        active_input_ccb(cell_cond__!A&!B&!C__1, vendor:block:b);
+        active_output_ccb(cell_cond__!A&!B&!C__1);
+      }
+    }
+    pin(Y) {
+      direction:output;
+      output_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net2:16";
+      }
+    }
+    bus(DATA[7:0]) {
+      direction:input;
+    }
+  }
+}
+)liberty");
+
+  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
+  ASSERT_NE(nullptr, parser);
+  auto ast = parser->ast;
+  ASSERT_NE(nullptr, ast);
+
+  auto cell = findChild(ast, "cell");
+  ASSERT_NE(nullptr, cell);
+  auto pin = findChild(cell, "pin");
+  ASSERT_NE(nullptr, pin);
+
+  auto direction = findChild(pin, "direction");
+  ASSERT_NE(nullptr, direction);
+  EXPECT_EQ("input", direction->value);
+
+  auto inputCCB = findChild(pin, "input_ccb");
+  ASSERT_NE(nullptr, inputCCB);
+  ASSERT_EQ(1, inputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", inputCCB->args[0]);
+
+  auto relatedCCBNode = findChild(inputCCB, "related_ccb_node");
+  ASSERT_NE(nullptr, relatedCCBNode);
+  EXPECT_EQ("net1:15", relatedCCBNode->value);
+
+  auto timing = findChild(pin, "timing");
+  ASSERT_NE(nullptr, timing);
+  auto activeInputCCB = findChild(timing, "active_input_ccb");
+  ASSERT_NE(nullptr, activeInputCCB);
+  ASSERT_EQ(2, activeInputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", activeInputCCB->args[0]);
+  EXPECT_EQ("vendor:block:b", activeInputCCB->args[1]);
+
+  auto activeOutputCCB = findChild(timing, "active_output_ccb");
+  ASSERT_NE(nullptr, activeOutputCCB);
+  ASSERT_EQ(1, activeOutputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", activeOutputCCB->args[0]);
+
+  auto outputPin = cell->children[1];
+  ASSERT_EQ("pin", outputPin->id);
+  auto outputCCB = findChild(outputPin, "output_ccb");
+  ASSERT_NE(nullptr, outputCCB);
+  ASSERT_EQ(1, outputCCB->args.size());
+  EXPECT_EQ("cell_cond__!A&!B&!C__1", outputCCB->args[0]);
+
+  auto bus = findChild(cell, "bus");
+  ASSERT_NE(nullptr, bus);
+  ASSERT_EQ(1, bus->args.size());
+  EXPECT_EQ("DATA", bus->args[0]);
 }
 
 TEST(YosysLibertyTest0, structuralModeSkipsNonStructuralGroups) {
@@ -99,11 +180,15 @@ library(test) {
     }
     pin(A) {
       direction : input;
+      nextstate_type : data;
       capacitance : 0.1;
       internal_power() {
         rise_power(power_template) {
           values("1, 2, 3");
         }
+      }
+      input_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net1:15";
       }
     }
     pin(Y) {
@@ -113,6 +198,8 @@ library(test) {
         related_pin : "A";
         timing_type : combinational;
         timing_sense : positive_unate;
+        active_input_ccb(cell_cond__!A&!B&!C__1, vendor:block:b);
+        active_output_ccb(cell_cond__!A&!B&!C__1);
         cell_rise(delay_template) {
           values("1, 2, 3");
         }
@@ -125,6 +212,14 @@ library(test) {
           values("1, 2, 3");
         }
       }
+      output_ccb(cell_cond__!A&!B&!C__1) {
+        related_ccb_node : "net2:16";
+      }
+    }
+    ff(IQ, IQN) {
+      clocked_on : "CLK";
+      next_state : "D";
+      clear_preset_var1 : L;
     }
   }
 }
@@ -154,9 +249,16 @@ library(test) {
   EXPECT_EQ(nullptr, findChild(cell, "area"));
   EXPECT_EQ(nullptr, findChild(cell, "leakage_power"));
 
+  auto ff = findChild(cell, "ff");
+  ASSERT_NE(nullptr, ff);
+  auto clearPresetValue = findChild(ff, "clear_preset_var1");
+  ASSERT_NE(nullptr, clearPresetValue);
+  EXPECT_EQ("L", clearPresetValue->value);
+
   auto pinA = cell->children[0];
   ASSERT_EQ("pin", pinA->id);
   EXPECT_NE(nullptr, findChild(pinA, "direction"));
+  EXPECT_NE(nullptr, findChild(pinA, "nextstate_type"));
   EXPECT_EQ(nullptr, findChild(pinA, "capacitance"));
   EXPECT_EQ(nullptr, findChild(pinA, "internal_power"));
 

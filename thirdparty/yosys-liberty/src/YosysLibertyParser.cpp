@@ -224,6 +224,7 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "pin")
 		return childId == "direction" || childId == "function" ||
+				childId == "nextstate_type" ||
 				childId == "memory_read" || childId == "memory_write" ||
 				childId == "timing";
 
@@ -251,7 +252,8 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "ff")
 		return childId == "clocked_on" || childId == "next_state" ||
-				childId == "clear" || childId == "preset";
+				childId == "clear" || childId == "preset" ||
+				childId == "clear_preset_var1";
 
 	if (parentId == "latch")
 		return childId == "enable" || childId == "data_in" ||
@@ -318,6 +320,7 @@ LibertyAst *LibertyParser::parse()
 
 	LibertyAst *ast = new LibertyAst;
 	ast->id = str;
+	ast->line = line;
 
 	while (1)
 	{
@@ -367,18 +370,43 @@ LibertyAst *LibertyParser::parse()
 		}
 
 		if (tok == '(') {
+			bool canExtendArgument = false;
+			bool needsArgumentContinuation = false;
 			while (1) {
 				std::string arg;
 				tok = lexer(arg);
-				if (tok == ',')
+				if (tok == ',') {
+					if (needsArgumentContinuation) {
+						delete ast;
+						error("Expected an identifier after punctuation in an argument.");
+					}
+					canExtendArgument = false;
 					continue;
-				if (tok == ')')
+				}
+				if (tok == ')') {
+					if (needsArgumentContinuation) {
+						delete ast;
+						error("Expected an identifier after punctuation in an argument.");
+					}
 					break;
+				}
+
+				// Some Liberty producers use punctuation in unquoted CCB names and
+				// references (for example, `input_ccb(cell_cond__!A&!B)` or
+				// `input_ccb(example:a)`). Keep these characters as lexer tokens so
+				// they can retain their normal meaning in attributes and vector
+				// ranges, and combine them only within an argument here.
+				if ((tok == ':' || tok == '!' || tok == '&') && canExtendArgument) {
+					ast->args.back() += static_cast<char>(tok);
+					needsArgumentContinuation = true;
+					continue;
+				}
 				
 				// FIXME: the AST needs to be extended to store
 				//        these vector ranges.
 				if (tok == '[')
 				{
+					canExtendArgument = false;
 					// parse vector range [A] or [A:B]
 					std::string arg;
 					tok = lexer(arg);
@@ -442,7 +470,13 @@ LibertyAst *LibertyParser::parse()
 						error();
 					}
 				}
-				ast->args.push_back(arg);
+				if (needsArgumentContinuation) {
+					ast->args.back() += arg;
+					needsArgumentContinuation = false;
+				} else {
+					ast->args.push_back(arg);
+				}
+				canExtendArgument = true;
 			}
 			continue;
 		}

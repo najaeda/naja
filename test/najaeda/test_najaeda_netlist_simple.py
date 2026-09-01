@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import faulthandler
+import importlib
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import najaeda
 from najaeda import netlist
@@ -26,6 +28,39 @@ class NajaNetlistTestSimple(unittest.TestCase):
         hash = najaeda.git_hash()
         self.assertIsNotNone(hash)
 
+    def test_native_extension_import_fallback(self):
+        missing_package_extension = ModuleNotFoundError(
+            "No module named 'najaeda.naja'",
+            name="najaeda.naja",
+        )
+        with mock.patch.object(
+            importlib,
+            "import_module",
+            side_effect=(missing_package_extension, naja),
+        ) as import_module:
+            self.assertIs(najaeda._load_naja(), naja)
+        self.assertEqual(
+            import_module.call_args_list,
+            [
+                mock.call(".naja", "najaeda"),
+                mock.call("naja"),
+            ],
+        )
+
+    def test_native_extension_import_propagates_dependency_error(self):
+        dependency_error = ModuleNotFoundError(
+            "No module named 'missing_native_dependency'",
+            name="missing_native_dependency",
+        )
+        with mock.patch.object(
+            importlib,
+            "import_module",
+            side_effect=dependency_error,
+        ):
+            with self.assertRaises(ModuleNotFoundError) as context:
+                najaeda._load_naja()
+        self.assertIs(context.exception, dependency_error)
+
     def test_local_naja_module_does_not_shadow_native_extension(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             Path(temp_dir, "naja.py").write_text(
@@ -33,7 +68,7 @@ class NajaNetlistTestSimple(unittest.TestCase):
                 encoding="utf-8",
             )
             environment = os.environ.copy()
-            package_parent = str(Path(najaeda.__file__).resolve().parent.parent)
+            package_parent = environment["NAJAEDA_TEST_PATH"]
             current_pythonpath = environment.get("PYTHONPATH")
             environment["PYTHONPATH"] = os.pathsep.join(
                 filter(None, (package_parent, current_pythonpath))

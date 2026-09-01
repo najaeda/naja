@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "bneTests",
+    srcs = ["BNETests.cpp"],
+    deps = [
+        "//src/bne:naja_bne",
+        "//src/dnl:naja_dnl",
+        "@googletest//:gtest_main",
+    ],
+)

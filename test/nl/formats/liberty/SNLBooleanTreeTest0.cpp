@@ -315,7 +315,7 @@ TEST_F(SNLBooleanTreeTest0, testImplicitAndExpression) {
 }
 
 TEST_F(SNLBooleanTreeTest0, testEmptyTreeError) {
-  auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("TEST"));
+  SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("TEST"));
   auto tree = std::make_unique<SNLBooleanTree>();
   EXPECT_THROW(tree->getTruthTable(SNLBooleanTree::Terms()), SNLLibertyConstructorException);
 }

@@ -92,12 +92,64 @@ make && make test && make install
 - Python usage after install needs `export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python`.
 - Build deps (macOS): `brew install cmake capnp tbb bison flex boost` and put flex/bison on `PATH`.
 
+## Build systems: CMake (primary) + Bazel (validated smoke test)
+
+CMake is naja's primary build system — it's what CI, packaging (wheels,
+Docker images), and most workflows use, and it's the one to reach for by
+default. Bazel (`MODULE.bazel`, `BUILD.bazel` throughout the tree) is
+kept in parallel as a validated smoke test only, via `ubuntu-bazel.yml`/
+`macos-bazel.yml` (`bazel build //... && bazel test //...`, no
+submodules — bzlmod fetches its own copies of shared dependencies). It
+is **not** CI's primary gate and doesn't need to track every workflow's
+behavior (sanitizer suppressions, coverage flags, etc.) — just prove the
+Bazel side keeps compiling and passing tests.
+
+**Keep submodule pins and Bazel pins in sync.** CMake pins shared
+upstream dependencies via git submodules (`.gitmodules`, `thirdparty/*`);
+Bazel pins its own copies of the *same* dependencies via
+`git_override()`/`git_repository()` commits in `MODULE.bazel`. Nothing
+forces these to move together — bumping one without the other silently
+makes the two build systems test different upstream code. When you bump
+a submodule commit (or vice versa), update the matching `MODULE.bazel`
+pin in the same change:
+
+- `cpptrace`, `slang`: must be an **exact** commit match.
+- `naja-if`, `naja-verilog`: these are the project's own forks, and
+  Bazel tracks a separate `bazel-support` branch (native Bazel BUILD
+  files added on top) rather than the branch CMake tracks — so an exact
+  match isn't meaningful. Instead, the submodule's pinned commit must be
+  an **ancestor of (or equal to)** the `bazel-support` pin, i.e.
+  `bazel-support` must never fall behind main.
+- `googletest`: deliberately excluded — CMake pins an old submodule dev
+  commit, Bazel takes a BCR release (`1.17.0.bcr.2`). Different
+  dependency-sourcing mechanisms entirely; not meant to track in
+  lockstep.
+
+This is enforced automatically: `ci/check_submodule_bazel_sync.py`
+(run by `.github/workflows/dependency-sync-check.yml` on every push/PR)
+checks exactly this and fails CI if a pin has drifted. Run it locally
+after bumping any of these dependencies: `python3
+ci/check_submodule_bazel_sync.py`.
+
 ## Conventions
 
 - Match the surrounding code's style, naming, and comment density — the SNL layer uses `NL*`/`SNL*` prefixes; follow the local idiom.
 - The SystemVerilog frontend is built on **slang**; sequential lowering and always-block handling live in `SNLSVConstructor` and the "Sequential Assignment Lowering" community — query the graph before touching them.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
+
+## Primitive timing-model alignment
+
+`SNLDesignModeling.h` is the canonical C++ primitive timing-model API. Timing
+metadata can be populated by the Liberty frontend, by direct C++ construction
+of NLDB0 primitives, and by the Python primitive libraries under
+`src/najaeda/najaeda/primitives/`. Keep these three paths aligned: when adding
+or changing timing arcs, timing parameters, term roles, active levels, or
+related queries, verify that the raw `najaeda.naja` bindings expose the feature
+needed to express the same model from Python and update the Python primitive
+loaders where applicable. Add or update focused tests for both the raw bindings
+and the affected Python primitive libraries so that equivalent decorations do
+not silently drift apart.
 
 ## najaeda Python API documentation
 

@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "NajaPrivateProperty.h"
+
 namespace slang::ast {
 class Compilation;
 class Symbol;
@@ -54,6 +56,37 @@ class SNLSVLiveASTLink {
   private:
     std::unordered_map<const NLObject*, const slang::ast::Symbol*> symbolByObject_ {};
     std::unordered_map<const slang::ast::Symbol*, Objects> objectsBySymbol_ {};
+};
+
+/// \brief Owns an SNLSVLiveASTLink as a private property of the NLDB it was
+/// built for, instead of a process-global map keyed by NLDB*.
+///
+/// This ties the (heavy: slang Driver/Compilation/SyntaxTrees) AST state's
+/// lifetime directly to its NLDB's own lifetime via NajaPrivateProperty's
+/// existing onReleasedBy/preDestroy hooks: when the NLDB is destroyed, this
+/// property is destroyed automatically as part of that same object graph,
+/// with no separate bookkeeping to forget. This also makes multiple
+/// concurrently-loaded SystemVerilog designs safe by construction -- each
+/// NLDB carries its own link, so there's no shared global state one load
+/// could clobber for another.
+class SNLSVLiveASTLinkProperty: public naja::NajaPrivateProperty {
+  public:
+    using super = naja::NajaPrivateProperty;
+    static const inline std::string Name = "SNLSVLiveASTLink";
+
+    static SNLSVLiveASTLinkProperty* create(NLDB* db, std::unique_ptr<SNLSVLiveASTLink> link);
+
+    std::string getName() const override { return Name; }
+    std::string getString() const override { return Name; }
+
+    SNLSVLiveASTLink* getLink() const { return link_.get(); }
+
+  protected:
+    SNLSVLiveASTLinkProperty(std::unique_ptr<SNLSVLiveASTLink> link);
+    void preDestroy() override;
+
+  private:
+    std::unique_ptr<SNLSVLiveASTLink> link_;
 };
 
 class SNLSVLiveASTLinkRegistry {

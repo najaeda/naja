@@ -31,6 +31,7 @@ namespace Yosys
 	struct LibertyAst
 	{
 		std::string id, value;
+		int line = 0;
 		std::vector<std::string> args;
 		std::vector<LibertyAst*> children;
 		~LibertyAst();

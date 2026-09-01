@@ -280,6 +280,103 @@ namespace {
     return bitTerms;
   }
 
+  naja::NL::SNLDesignModeling::BooleanExpression makeTermExpression(
+      naja::NL::SNLBitTerm* term,
+      bool inverted = false) {
+    using Expression = naja::NL::SNLDesignModeling::BooleanExpression;
+    Expression expression;
+    auto root = expression.addTerm(term);
+    if (inverted) {
+      root = expression.addOperation(Expression::Operator::Not, {root});
+    }
+    expression.root = root;
+    return expression;
+  }
+
+  naja::NL::SNLDesignModeling::SequentialModel makeDB0SequentialModel(
+      const naja::NL::SNLDesign* design,
+      naja::NL::SNLBitTerm* clock,
+      naja::NL::SNLDesignModeling::SequentialModel::Kind kind,
+      bool invertedClock = false) {
+    using Modeling = naja::NL::SNLDesignModeling;
+    using Expression = Modeling::BooleanExpression;
+    using Role = Modeling::SNLTermRole;
+    Modeling::SequentialModel model;
+    model.kind = kind;
+    model.clockedOn = makeTermExpression(clock, invertedClock);
+
+    std::vector<naja::NL::SNLBitTerm*> dataTerms;
+    std::vector<naja::NL::SNLBitTerm*> outputTerms;
+    naja::NL::SNLBitTerm* enable = nullptr;
+    naja::NL::SNLBitTerm* clear = nullptr;
+    naja::NL::SNLBitTerm* preset = nullptr;
+    for (auto* term : design->getBitTerms()) {
+      const auto role = Modeling::getTermRole(term);
+      if (role == Role::DataInput) {
+        dataTerms.push_back(term);
+      } else if (role == Role::DataOutput) {
+        outputTerms.push_back(term);
+      } else if (role == Role::Enable && term != clock) {
+        enable = term;
+      } else if (role == Role::AsyncReset || role == Role::SyncReset) {
+        clear = term;
+      } else if (role == Role::AsyncSet || role == Role::SyncSet) {
+        preset = term;
+      }
+    }
+    if (dataTerms.size() != outputTerms.size() || dataTerms.empty()) {
+      throw naja::NL::NLException("Invalid DB0 sequential primitive interface");
+    }
+
+    for (size_t stateIndex = 0; stateIndex < outputTerms.size(); ++stateIndex) {
+      Modeling::SequentialState state;
+      auto data = state.nextState.addTerm(dataTerms[stateIndex]);
+      if (enable != nullptr) {
+        auto enableNode = state.nextState.addTerm(enable);
+        auto current = state.nextState.addState(stateIndex);
+        auto enabledData = state.nextState.addOperation(
+            Expression::Operator::And, {enableNode, data});
+        auto disabled = state.nextState.addOperation(
+            Expression::Operator::Not, {enableNode});
+        auto heldState = state.nextState.addOperation(
+            Expression::Operator::And, {disabled, current});
+        data = state.nextState.addOperation(
+            Expression::Operator::Or, {enabledData, heldState});
+      }
+      state.nextState.root = data;
+      if (clear != nullptr) {
+        state.clear = makeTermExpression(
+            clear,
+            Modeling::getResetActiveLevel(clear) ==
+                Modeling::SNLActiveLevel::Low);
+      }
+      if (preset != nullptr) {
+        state.preset = makeTermExpression(
+            preset,
+            Modeling::getResetActiveLevel(preset) ==
+                Modeling::SNLActiveLevel::Low);
+      }
+      state.clearPresetValue =
+          Modeling::SequentialState::ClearPresetValue::One;
+      model.states.push_back(std::move(state));
+
+      Modeling::SequentialOutput output;
+      output.term = outputTerms[stateIndex];
+      output.function.root = output.function.addState(stateIndex);
+      model.outputs.push_back(std::move(output));
+    }
+    return model;
+  }
+
+  void setDB0SequentialModel(
+      naja::NL::SNLDesign* design,
+      naja::NL::SNLBitTerm* clock,
+      naja::NL::SNLDesignModeling::SequentialModel::Kind kind,
+      bool invertedClock = false) {
+    naja::NL::SNLDesignModeling::setSequentialModel(
+      design, makeDB0SequentialModel(design, clock, kind, invertedClock));
+  }
+
   std::string getMemoryResetModeSuffix(naja::NL::NLDB0::MemoryResetMode mode) {
     switch (mode) {
       case naja::NL::NLDB0::MemoryResetMode::None:
@@ -529,6 +626,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffClock, SNLDesignModeling::SNLTermRole::Clock);
     SNLDesignModeling::setTermRole(dffData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    setDB0SequentialModel(
+      dff, dffClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDLatchPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -547,6 +646,8 @@ namespace {
     SNLDesignModeling::setTermRole(dlatchEnable, SNLDesignModeling::SNLTermRole::Enable);
     SNLDesignModeling::setTermRole(dlatchData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dlatchOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    setDB0SequentialModel(
+      dlatch, dlatchEnable, SNLDesignModeling::SequentialModel::Kind::Latch);
   }
 
   void createDFFNPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -566,6 +667,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffnClock, SNLDesignModeling::SNLTermRole::Clock);
     SNLDesignModeling::setTermRole(dffnData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffnOutput, SNLDesignModeling::SNLTermRole::DataOutput);
+    setDB0SequentialModel(
+      dffn, dffnClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop, true);
   }
 
   void createDFFRNPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -587,6 +690,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffrnData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffrnOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffrnResetN, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::Low);
+    setDB0SequentialModel(
+      dffrn, dffrnClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDFFRPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -608,6 +713,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffrData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffrOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffrReset, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::High);
+    setDB0SequentialModel(
+      dffr, dffrClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDFFSPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -629,6 +736,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffsData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffsOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffsSet, SNLDesignModeling::SNLTermRole::AsyncSet, SNLDesignModeling::SNLActiveLevel::High);
+    setDB0SequentialModel(
+      dffs, dffsClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDFFEPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -650,6 +759,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffeData, SNLDesignModeling::SNLTermRole::DataInput);
     SNLDesignModeling::setTermRole(dffeOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffeEnable, SNLDesignModeling::SNLTermRole::Enable);
+    setDB0SequentialModel(
+      dffe, dffeClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDFFREPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -673,6 +784,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffreOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffreEnable, SNLDesignModeling::SNLTermRole::Enable);
     SNLDesignModeling::setTermRole(dffreReset, SNLDesignModeling::SNLTermRole::AsyncReset, SNLDesignModeling::SNLActiveLevel::High);
+    setDB0SequentialModel(
+      dffre, dffreClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createDFFSEPrimitive(naja::NL::NLLibrary* rootLibrary) {
@@ -696,6 +809,8 @@ namespace {
     SNLDesignModeling::setTermRole(dffseOutput, SNLDesignModeling::SNLTermRole::DataOutput);
     SNLDesignModeling::setTermRole(dffseEnable, SNLDesignModeling::SNLTermRole::Enable);
     SNLDesignModeling::setTermRole(dffseSet, SNLDesignModeling::SNLTermRole::AsyncSet, SNLDesignModeling::SNLActiveLevel::High);
+    setDB0SequentialModel(
+      dffse, dffseClock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createSequentialWidthPrimitive(
@@ -707,7 +822,8 @@ namespace {
     naja::NL::SNLDesignModeling::SNLTermRole asyncControlRole =
       naja::NL::SNLDesignModeling::SNLTermRole::Other,
     naja::NL::SNLDesignModeling::SNLActiveLevel asyncControlLevel =
-      naja::NL::SNLDesignModeling::SNLActiveLevel::NA) {
+      naja::NL::SNLDesignModeling::SNLActiveLevel::NA,
+    bool invertedClock = false) {
     using namespace naja::NL;
     auto seq = SNLDesign::create(
       rootLibrary,
@@ -765,6 +881,11 @@ namespace {
     if (asyncControl) {
       SNLDesignModeling::setTermRole(asyncControl, asyncControlRole, asyncControlLevel);
     }
+    setDB0SequentialModel(
+      seq,
+      clock,
+      SNLDesignModeling::SequentialModel::Kind::FlipFlop,
+      invertedClock);
   }
 
   void createSyncDFFPrimitive(
@@ -811,6 +932,8 @@ namespace {
       SNLDesignModeling::setTermRole(enable, SNLDesignModeling::SNLTermRole::Enable);
     }
     SNLDesignModeling::setTermRole(control, controlRole, controlLevel);
+    setDB0SequentialModel(
+      seq, clock, SNLDesignModeling::SequentialModel::Kind::FlipFlop);
   }
 
   void createSequentialWidthPrimitive(
@@ -842,6 +965,8 @@ namespace {
     for (auto* term : outputBits) {
       SNLDesignModeling::setTermRole(term, SNLDesignModeling::SNLTermRole::DataOutput);
     }
+    setDB0SequentialModel(
+      seq, enable, SNLDesignModeling::SequentialModel::Kind::Latch);
   }
 
   void createMux2Primitive(naja::NL::NLLibrary* rootLibrary, size_t width) {
@@ -1526,6 +1651,67 @@ SNLBusTerm* NLDB0::getDivModRemainder(const SNLDesign* design) {
   return design->getBusTerm(Term3ID);
 }
 
+SNLTruthTable NLDB0::getDivModTruthTable(
+    const SNLDesign* design,
+    size_t flatTermID) {
+  if (!isDivMod(design)) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: design is not a divmod primitive");
+  }
+
+  const auto signature = getDivModSignature(design);
+  if (signature.width == 0 ||
+      signature.width > std::numeric_limits<uint32_t>::max()) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: width does not fit truth table metadata");
+  }
+
+  const SNLBitTerm* outputTerm = nullptr;
+  for (const auto* term : design->getBitTerms()) {
+    if (term->getOrderID() == flatTermID) {
+      outputTerm = term;
+      break;
+    }
+  }
+  const auto* quotient = getDivModQuotient(design);
+  const auto* remainder = getDivModRemainder(design);
+  if (!outputTerm ||
+      outputTerm->getDirection() != SNLTerm::Direction::Output ||
+      (outputTerm->getID() != quotient->getID() &&
+       outputTerm->getID() != remainder->getID())) {
+    std::ostringstream reason;
+    reason << "Term ID " << flatTermID
+           << " is not an output in divmod design <"
+           << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+
+  const auto outputBit = static_cast<size_t>(outputTerm->getBit());
+  if (outputBit >= signature.width) {
+    throw NLException(
+        "NLDB0::getDivModTruthTable: output bit is out of range");
+  }
+
+  std::vector<size_t> dependencies;
+  dependencies.reserve(signature.width * 2);
+  for (const auto* operand :
+       {getDivModDividend(design), getDivModDivisor(design)}) {
+    for (const auto* bit : operand->getBits()) {
+      dependencies.push_back(bit->getOrderID());
+    }
+  }
+
+  const auto result = outputTerm->getID() == quotient->getID()
+      ? SNLTruthTable::DivModResult::QUOTIENT
+      : SNLTruthTable::DivModResult::REMAINDER;
+  return SNLTruthTable::DivMod(
+      static_cast<uint32_t>(signature.width),
+      signature.isSigned,
+      result,
+      static_cast<uint32_t>(outputBit),
+      NLBitDependencies::encodeBits(dependencies));
+}
+
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isMemory(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
@@ -1941,7 +2127,15 @@ SNLDesign* NLDB0::getOrCreateDFFN(size_t width) {
     DFFNPrefix,
     width,
     [](NLLibrary* primitives, size_t width) {
-      createSequentialWidthPrimitive(primitives, DFFNPrefix, width, nullptr, false);
+      createSequentialWidthPrimitive(
+        primitives,
+        DFFNPrefix,
+        width,
+        nullptr,
+        false,
+        SNLDesignModeling::SNLTermRole::Other,
+        SNLDesignModeling::SNLActiveLevel::NA,
+        true);
     });
 }
 

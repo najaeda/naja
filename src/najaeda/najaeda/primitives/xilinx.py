@@ -106,7 +106,21 @@ def constructDSP48E1(lib):
     naja.SNLParameter.create_boolean(dsp48e1, "USE_DPORT", False)
     naja.SNLParameter.create_string(dsp48e1, "USE_MULT", "MULTIPLY")
     naja.SNLParameter.create_string(dsp48e1, "USE_SIMD", "ONE48")
-    utils.constructSequentialPrimitive(dsp48e1, clk)
+    term_roles = {}
+    for name in (
+        "CEA1", "CEA2", "CEAD", "CEALUMODE", "CEB1", "CEB2", "CEC",
+        "CECARRYIN", "CECTRL", "CED", "CEINMODE", "CEM", "CEP"
+    ):
+        term_roles[dsp48e1.getScalarTerm(name)] = naja.SNLTermRole.Enable
+    for name in (
+        "RSTA", "RSTALLCARRYIN", "RSTALUMODE", "RSTB", "RSTC", "RSTCTRL",
+        "RSTD", "RSTINMODE", "RSTM", "RSTP"
+    ):
+        term_roles[dsp48e1.getScalarTerm(name)] = (
+            naja.SNLTermRole.SyncReset,
+            naja.SNLActiveLevel.High,
+        )
+    utils.constructSequentialPrimitive(dsp48e1, clk, term_roles)
 
 
 def constructINV(lib):
@@ -229,8 +243,8 @@ def constructMUXF8(lib):
 
 def constructSRL16E(lib):
     srl16e = naja.SNLDesign.createPrimitive(lib, "SRL16E")
-    naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "CE")
-    naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "CLK")
+    ce = naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "CE")
+    clk = naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "CLK")
     naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "D")
     naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "A0")
@@ -239,54 +253,81 @@ def constructSRL16E(lib):
     naja.SNLScalarTerm.create(srl16e, naja.SNLTerm.Direction.Input, "A3")
     naja.SNLParameter.create_binary(srl16e, "INIT", 16, 0x0000)
     naja.SNLParameter.create_binary(srl16e, "IS_CLK_INVERTED", 1, 0)
+    utils.constructSequentialPrimitive(
+        srl16e, clk, {ce: naja.SNLTermRole.Enable}
+    )
 
 
 def constructFDCE(lib):
     fdce = naja.SNLDesign.createPrimitive(lib, "FDCE")
-    q = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "CE")
     clr = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "CLR")
-    d = naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdce, "INIT", 1, 0b0)
-    naja.SNLDesign.addInputsToClockArcs([ce, clr, d], c)
-    naja.SNLDesign.addClockToOutputsArcs(c, q)
+    utils.constructSequentialPrimitive(
+        fdce,
+        c,
+        {
+            ce: naja.SNLTermRole.Enable,
+            clr: (naja.SNLTermRole.AsyncReset, naja.SNLActiveLevel.High),
+        },
+    )
 
 
 def constructFDPE(lib):
     fdpe = naja.SNLDesign.createPrimitive(lib, "FDPE")
-    q = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "CE")
     pre = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "PRE")
-    d = naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdpe, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdpe, "INIT", 1, 0b1)
-    naja.SNLDesign.addInputsToClockArcs([ce, pre, d], c)
-    naja.SNLDesign.addClockToOutputsArcs(c, q)
+    utils.constructSequentialPrimitive(
+        fdpe,
+        c,
+        {
+            ce: naja.SNLTermRole.Enable,
+            pre: (naja.SNLTermRole.AsyncSet, naja.SNLActiveLevel.High),
+        },
+    )
 
 
 def constructFDRE(lib):
     fdre = naja.SNLDesign.createPrimitive(lib, "FDRE")
-    q = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "CE")
     r = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "R")
-    d = naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdre, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdre, "INIT", 1, 0b0)
-    naja.SNLDesign.addInputsToClockArcs([ce, r, d], c)
-    naja.SNLDesign.addClockToOutputsArcs(c, q)
+    utils.constructSequentialPrimitive(
+        fdre,
+        c,
+        {
+            ce: naja.SNLTermRole.Enable,
+            r: (naja.SNLTermRole.SyncReset, naja.SNLActiveLevel.High),
+        },
+    )
 
 
 def constructFDSE(lib):
     fdse = naja.SNLDesign.createPrimitive(lib, "FDSE")
-    q = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Output, "Q")
     c = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "C")
     ce = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "CE")
     s = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "S")
-    d = naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(fdse, naja.SNLTerm.Direction.Input, "D")
     naja.SNLParameter.create_binary(fdse, "INIT", 1, 0b0)
-    naja.SNLDesign.addInputsToClockArcs([ce, s, d], c)
-    naja.SNLDesign.addClockToOutputsArcs(c, q)
+    utils.constructSequentialPrimitive(
+        fdse,
+        c,
+        {
+            ce: naja.SNLTermRole.Enable,
+            s: (naja.SNLTermRole.SyncSet, naja.SNLActiveLevel.High),
+        },
+    )
 
 
 def constructRAM32M(lib):
@@ -310,6 +351,13 @@ def constructRAM32M(lib):
     wclk = naja.SNLScalarTerm.create(ram32m, naja.SNLTerm.Direction.Input, "WCLK")
     we = naja.SNLScalarTerm.create(ram32m, naja.SNLTerm.Direction.Input, "WE")
     naja.SNLDesign.addInputsToClockArcs([dia, dib, dic, did, we], wclk)
+    utils.setTermRole(wclk, naja.SNLTermRole.Clock)
+    utils.setTermRole(
+        [addra, addrb, addrc, addrd], naja.SNLTermRole.MemoryReadAddress
+    )
+    utils.setTermRole([doa, dob, doc, dod], naja.SNLTermRole.MemoryReadData)
+    utils.setTermRole([dia, dib, dic, did], naja.SNLTermRole.MemoryWriteData)
+    utils.setTermRole(we, naja.SNLTermRole.MemoryWriteEnable)
     naja.SNLParameter.create_binary(ram32m, "INIT_A", 64, 0)
     naja.SNLParameter.create_binary(ram32m, "INIT_B", 64, 0)
     naja.SNLParameter.create_binary(ram32m, "INIT_C", 64, 0)
@@ -337,6 +385,13 @@ def constructRAM64M(lib):
     wclk = naja.SNLScalarTerm.create(ram64m, naja.SNLTerm.Direction.Input, "WCLK")
     we = naja.SNLScalarTerm.create(ram64m, naja.SNLTerm.Direction.Input, "WE")
     naja.SNLDesign.addInputsToClockArcs([dia, dib, dic, did, we], wclk)
+    utils.setTermRole(wclk, naja.SNLTermRole.Clock)
+    utils.setTermRole(
+        [addra, addrb, addrc, addrd], naja.SNLTermRole.MemoryReadAddress
+    )
+    utils.setTermRole([doa, dob, doc, dod], naja.SNLTermRole.MemoryReadData)
+    utils.setTermRole([dia, dib, dic, did], naja.SNLTermRole.MemoryWriteData)
+    utils.setTermRole(we, naja.SNLTermRole.MemoryWriteEnable)
     naja.SNLParameter.create_binary(ram64m, "INIT_A", 64, 0)
     naja.SNLParameter.create_binary(ram64m, "INIT_B", 64, 0)
     naja.SNLParameter.create_binary(ram64m, "INIT_C", 64, 0)
@@ -415,6 +470,23 @@ def constructRAMB18E1(lib):
     naja.SNLDesign.addInputsToClockArcs(b_inputs, clkb)
     naja.SNLDesign.addClockToOutputsArcs(clka, a_outputs)
     naja.SNLDesign.addClockToOutputsArcs(clkb, b_outputs)
+    utils.setTermRole(a_inputs + b_inputs, naja.SNLTermRole.DataInput)
+    utils.setTermRole(a_outputs + b_outputs, naja.SNLTermRole.DataOutput)
+    utils.setTermRole([clka, clkb], naja.SNLTermRole.Clock)
+    utils.setTermRole([addra, addrb], naja.SNLTermRole.MemoryReadAddress)
+    utils.setTermRole(
+        [diadi, dibdi, dipadip, dipbdip], naja.SNLTermRole.MemoryWriteData
+    )
+    utils.setTermRole(
+        [doado, dobdo, dopadop, dopbdop], naja.SNLTermRole.MemoryReadData
+    )
+    utils.setTermRole([enarden, enbwren, regcear, regceb], naja.SNLTermRole.Enable)
+    utils.setTermRole(
+        [rstrama, rstramb, rstregar, rstregb],
+        naja.SNLTermRole.SyncReset,
+        naja.SNLActiveLevel.High,
+    )
+    utils.setTermRole([wea, webwe], naja.SNLTermRole.MemoryWriteEnable)
 
 
 def constructRAMB36E1(lib):
@@ -498,6 +570,25 @@ def constructRAMB36E1(lib):
     naja.SNLDesign.addInputsToClockArcs(b_inputs, clkb)
     naja.SNLDesign.addClockToOutputsArcs(clka, a_outputs)
     naja.SNLDesign.addClockToOutputsArcs(clkb, b_outputs)
+    utils.setTermRole(a_inputs + b_inputs, naja.SNLTermRole.DataInput)
+    utils.setTermRole(a_outputs + b_outputs, naja.SNLTermRole.DataOutput)
+    utils.setTermRole([clka, clkb], naja.SNLTermRole.Clock)
+    utils.setTermRole([addra, addrb], naja.SNLTermRole.MemoryReadAddress)
+    utils.setTermRole(
+        [diadi, dibdi, dipadip, dipbdip], naja.SNLTermRole.MemoryWriteData
+    )
+    utils.setTermRole(
+        [doado, dobdo, dopadop, dopbdop], naja.SNLTermRole.MemoryReadData
+    )
+    utils.setTermRole(
+        [enarden, enbwren, regcearegce, regceb], naja.SNLTermRole.Enable
+    )
+    utils.setTermRole(
+        [rstramarstram, rstramb, rstregarstreg, rstregb],
+        naja.SNLTermRole.SyncReset,
+        naja.SNLActiveLevel.High,
+    )
+    utils.setTermRole([wea, webwe], naja.SNLTermRole.MemoryWriteEnable)
     naja.SNLParameter.create_decimal(ramb36e1, "DOA_REG", 0)
     naja.SNLParameter.create_decimal(ramb36e1, "DOB_REG", 0)
     naja.SNLParameter.create_binary(ramb36e1, "INIT_A", 36, 0)

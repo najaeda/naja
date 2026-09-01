@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# check_primitives.py resolves this as '../../benchmarks' relative to its
+# own subdirectory under src/najaeda/examples -- needs to exist at this
+# same relative path in the sh_test's runfiles tree, hence its own
+# filegroup rather than folding it into najaeda/najaeda's :sources.
+
+filegroup(
+    name = "benchmarks",
+    srcs = glob(["**"], exclude = ["**/__pycache__/**"]),
+    visibility = ["//src/najaeda:__subpackages__"],
+)

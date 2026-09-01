@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
         submodules: true
@@ -76,8 +76,8 @@ jobs:
         lcov ${LCOV_RC_ARGS} --ignore-errors ${LCOV_IGNORE_ERRORS} --summary coverage.info
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v6
-      if: github.repository == 'najaeda/naja' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      uses: codecov/codecov-action@v7
+      if: github.repository == 'najaeda/naja'
       with:
         fail_ci_if_error: true
         files: ${{ github.workspace }}/build/coverage.info

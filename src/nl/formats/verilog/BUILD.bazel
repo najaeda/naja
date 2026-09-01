@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Mirrors this directory's own CMakeLists.txt: builds the `naja_snl_verilog`
+# library. See internal/bazel-migration-plan.md (Phase 4, task #17).
+
+cc_library(
+    name = "naja_snl_verilog",
+    srcs = [
+        "frontend/SNLVRLConstructor.cpp",
+        "frontend/SNLVRLConstructorUtils.cpp",
+        "backend/SNLVRLDumper.cpp",
+    ],
+    hdrs = [
+        "frontend/SNLVRLConstructor.h",
+        "frontend/SNLVRLConstructorException.h",
+        "frontend/SNLVRLConstructorUtils.h",
+        "backend/SNLVRLDumper.h",
+    ],
+    includes = [
+        "backend",
+        "frontend",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/core:naja_core",
+        "//src/nl/netlist:naja_nl",
+        "@naja-verilog//:naja_verilog",
+    ],
+)

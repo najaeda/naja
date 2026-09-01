@@ -32,6 +32,74 @@ static PyObject* PySNLBitTerm_getResetActiveLevel(PySNLBitTerm* self) {
   return PyLong_FromLong(static_cast<long>(SNLDesignModeling::getResetActiveLevel(selfObject)));
 }
 
+static bool parseTermRole(
+    PyObject* object,
+    SNLDesignModeling::SNLTermRole& role) {
+  if (not PyLong_Check(object)) {
+    return false;
+  }
+  using Role = SNLDesignModeling::SNLTermRole;
+  switch (PyLong_AsLong(object)) {
+    case static_cast<long>(Role::Clock): role = Role::Clock; return true;
+    case static_cast<long>(Role::DataInput): role = Role::DataInput; return true;
+    case static_cast<long>(Role::DataOutput): role = Role::DataOutput; return true;
+    case static_cast<long>(Role::AsyncReset): role = Role::AsyncReset; return true;
+    case static_cast<long>(Role::AsyncSet): role = Role::AsyncSet; return true;
+    case static_cast<long>(Role::SyncReset): role = Role::SyncReset; return true;
+    case static_cast<long>(Role::SyncSet): role = Role::SyncSet; return true;
+    case static_cast<long>(Role::Enable): role = Role::Enable; return true;
+    case static_cast<long>(Role::MemoryReadAddress): role = Role::MemoryReadAddress; return true;
+    case static_cast<long>(Role::MemoryReadData): role = Role::MemoryReadData; return true;
+    case static_cast<long>(Role::MemoryWriteAddress): role = Role::MemoryWriteAddress; return true;
+    case static_cast<long>(Role::MemoryWriteData): role = Role::MemoryWriteData; return true;
+    case static_cast<long>(Role::MemoryWriteEnable): role = Role::MemoryWriteEnable; return true;
+    case static_cast<long>(Role::Other): role = Role::Other; return true;
+    case static_cast<long>(Role::ScanInput): role = Role::ScanInput; return true;
+    case static_cast<long>(Role::ScanEnable): role = Role::ScanEnable; return true;
+    default: return false;
+  }
+}
+
+static bool parseActiveLevel(
+    PyObject* object,
+    SNLDesignModeling::SNLActiveLevel& activeLevel) {
+  if (not PyLong_Check(object)) {
+    return false;
+  }
+  using Level = SNLDesignModeling::SNLActiveLevel;
+  switch (PyLong_AsLong(object)) {
+    case static_cast<long>(Level::High): activeLevel = Level::High; return true;
+    case static_cast<long>(Level::Low): activeLevel = Level::Low; return true;
+    case static_cast<long>(Level::NA): activeLevel = Level::NA; return true;
+    default: return false;
+  }
+}
+
+static PyObject* PySNLBitTerm_setRole(PySNLBitTerm* self, PyObject* args) {
+  PyObject* roleObject = nullptr;
+  PyObject* activeLevelObject = nullptr;
+  if (not PyArg_ParseTuple(
+      args, "O|O:SNLBitTerm.setRole", &roleObject, &activeLevelObject)) {
+    setError("SNLBitTerm.setRole() expects a role and an optional active level");
+    return nullptr;
+  }
+  auto role = SNLDesignModeling::SNLTermRole::Other;
+  if (not parseTermRole(roleObject, role)) {
+    setError("SNLBitTerm.setRole() expects a valid SNLTermRole");
+    return nullptr;
+  }
+  auto activeLevel = SNLDesignModeling::SNLActiveLevel::NA;
+  if (activeLevelObject and not parseActiveLevel(activeLevelObject, activeLevel)) {
+    setError("SNLBitTerm.setRole() expects a valid SNLActiveLevel");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLBitTerm.setRole()")
+  TRY
+  SNLDesignModeling::setTermRole(selfObject, role, activeLevel);
+  NLCATCH
+  Py_RETURN_NONE;
+}
+
 #define TERM_ROLE_PREDICATE(PYNAME, CPPNAME)                        \
   static PyObject* PySNLBitTerm_##PYNAME(PySNLBitTerm* self) {      \
     METHOD_HEAD("SNLBitTerm." #PYNAME "()")                         \
@@ -60,6 +128,8 @@ static PyObject* PySNLBitTerm_is_data(PySNLBitTerm* self) {
 
 PyMethodDef PySNLBitTerm_Methods[] = {
   {"getRole", (PyCFunction)PySNLBitTerm_getRole, METH_NOARGS, "get the primitive term role."},
+  {"setRole", (PyCFunction)PySNLBitTerm_setRole, METH_VARARGS,
+    "set the primitive term role and optional active level."},
   {"getResetActiveLevel", (PyCFunction)PySNLBitTerm_getResetActiveLevel, METH_NOARGS, "get reset/set active level."},
   {"is_clock", (PyCFunction)PySNLBitTerm_is_clock, METH_NOARGS, "whether this term is a clock."},
   {"is_async_reset", (PyCFunction)PySNLBitTerm_is_async_reset, METH_NOARGS, "whether this term is an asynchronous reset."},

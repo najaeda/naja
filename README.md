@@ -81,12 +81,20 @@ Regression suite: [naja-regress](https://github.com/najaeda/naja-regress)
 
 ## Building from Source
 
-### Dependencies
+CMake is Naja's primary build, test, and install workflow. Bazel is maintained
+as a build-and-test smoke path; it does not replace the CMake install and
+packaging workflows.
+
+### CMake
+
+#### Dependencies
 
 **Ubuntu:**
 
 ```bash
-sudo apt-get install g++ libboost-dev python3-dev capnproto libcapnp-dev libtbb-dev pkg-config bison flex
+sudo apt-get update
+sudo apt-get install build-essential cmake git libboost-dev python3-dev \
+  capnproto libcapnp-dev libtbb-dev pkg-config bison flex
 ```
 
 **macOS (Homebrew):**
@@ -99,19 +107,74 @@ export PATH="/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH"
 **Nix:**
 
 ```bash
-nix-shell -p cmake boost python3 capnproto bison flex pkg-config tbb_2021_8
+nix-shell -p cmake gnumake boost python3 capnproto bison flex pkg-config tbb_2021_8
 ```
 
-### Build
+#### Build, test, and install
 
 ```bash
 git clone --recurse-submodules https://github.com/najaeda/naja.git
-export NAJA_INSTALL=<install-dir>
-mkdir build && cd build
-cmake ../naja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
-make && make test && make install
-# Add to your environment after install:
-export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
+cd naja
+export NAJA_INSTALL="$PWD/install"
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$NAJA_INSTALL"
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+cmake --install build
+
+# Add the installed Python package to your environment.
+export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$NAJA_INSTALL/lib/python"
+```
+
+### Bazel smoke build
+
+The Bazel build covers the repository's build and test targets on Ubuntu and
+macOS. The version is pinned in [`.bazelversion`](./.bazelversion); using
+[Bazelisk](https://github.com/bazelbuild/bazelisk) as the `bazel` command
+automatically selects it.
+
+Bazel fetches its own pinned copies of the shared source dependencies, so a
+Bazel-only checkout does not need Git submodules. It still uses system
+toolchains and libraries for parts of the build.
+
+**Ubuntu:**
+
+```bash
+sudo apt-get update
+sudo apt-get install build-essential cmake libboost-dev libfl-dev libtbb-dev \
+  bison flex m4 pkg-config python3-dev git
+```
+
+**macOS (Homebrew):**
+
+Install the Xcode Command Line Tools, then:
+
+```bash
+brew install cmake capnp tbb bison flex boost fmt tomlplusplus pkg-config
+export PATH="$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$PATH"
+```
+
+Build and test from the repository root:
+
+```bash
+git clone https://github.com/najaeda/naja.git
+cd naja
+bazel build //... --jobs=auto
+bazel test //... --test_output=errors --jobs=auto
+```
+
+These are the same smoke commands used by
+[`ubuntu-bazel.yml`](./.github/workflows/ubuntu-bazel.yml) and
+[`macos-bazel.yml`](./.github/workflows/macos-bazel.yml). There is no Bazel
+install target; use the CMake workflow above when you need an installed
+library, Python package, or packaged artifact.
+
+When changing a shared dependency pin, keep the Git submodule and
+[`MODULE.bazel`](./MODULE.bazel) entries synchronized, then run:
+
+```bash
+python3 ci/check_submodule_bazel_sync.py
 ```
 
 ## C++ API

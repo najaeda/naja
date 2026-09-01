@@ -116,18 +116,32 @@ class Equipotential:
     some of the snl occurrence API.
     """
 
-    def __init__(self, term):
+    class Mode(Enum):
+        """Traversal mode for equipotential construction."""
+        STANDARD = naja.SNLEquipotential.Mode.Standard
+        TRAVERSE_ASSIGNS = naja.SNLEquipotential.Mode.TraverseAssigns
+
+    def __init__(self, term, mode: Mode = Mode.STANDARD):
+        """Construct the equipotential containing ``term``.
+
+        :param Term term: term from which to start the traversal.
+        :param Equipotential.Mode mode: traversal mode.
+        """
+        if not isinstance(mode, Equipotential.Mode):
+            raise TypeError("mode must be an Equipotential.Mode")
         path = get_snl_path_from_id_list(term.pathIDs)
         snl_term = get_snl_term_for_ids_with_path(path, term.termID, term.bit)
         if isinstance(snl_term, naja.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
         if len(term.pathIDs) == 0:
-            self.equi = naja.SNLEquipotential(snl_term)
+            self.equi = naja.SNLEquipotential(
+                snl_term, mode=mode.value)
         else:
             ito = naja.SNLOccurrence(
                 path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
             )
-            self.equi = naja.SNLEquipotential(ito)
+            self.equi = naja.SNLEquipotential(
+                ito, mode=mode.value)
 
     def __eq__(self, value):
         return self.equi == value.equi
@@ -1003,12 +1017,16 @@ class Term:
     def count_flat_fanout(self, filter=None):
         return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
-    def get_equipotential(self) -> Equipotential:
+    def get_equipotential(
+        self,
+        mode: Equipotential.Mode = Equipotential.Mode.STANDARD
+    ) -> Equipotential:
         """
+        :param Equipotential.Mode mode: traversal mode.
         :return: the Equipotential of this Term.
         :rtype: Equipotential
         """
-        return Equipotential(self)
+        return Equipotential(self, mode=mode)
 
     def is_input(self) -> bool:
         """
@@ -1972,13 +1990,7 @@ class VerilogConfig:
     allow_unknown_designs: bool = None
 
     def __post_init__(self):
-        allowed = {"forbid", "first", "last", "verify"}
-        if self.conflicting_design_name_policy not in allowed:
-            raise ValueError(
-                "Invalid conflicting_design_name_policy: "
-                f"{self.conflicting_design_name_policy!r}. "
-                "Expected one of: forbid, first, last, verify."
-            )
+        self.validate()
         if self.allow_unknown_designs is not None:
             warnings.warn(
                 "VerilogConfig.allow_unknown_designs is deprecated; "
@@ -1988,6 +2000,31 @@ class VerilogConfig:
             )
             self.blackbox_unknown_modules = (
                 self.blackbox_unknown_modules or self.allow_unknown_designs)
+
+    def validate(self):
+        for field_name in (
+                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled"):
+            value = getattr(self, field_name)
+            if not isinstance(value, bool):
+                raise TypeError(
+                    f"VerilogConfig.{field_name} must be a bool "
+                    f"(got {type(value).__name__})")
+        allowed = {"forbid", "first", "last", "verify"}
+        if not isinstance(self.conflicting_design_name_policy, str):
+            raise TypeError(
+                "VerilogConfig.conflicting_design_name_policy must be a str "
+                f"(got {type(self.conflicting_design_name_policy).__name__})")
+        if self.conflicting_design_name_policy not in allowed:
+            raise ValueError(
+                "Invalid conflicting_design_name_policy: "
+                f"{self.conflicting_design_name_policy!r}. "
+                "Expected one of: forbid, first, last, verify."
+            )
+        if self.allow_unknown_designs is not None:
+            if not isinstance(self.allow_unknown_designs, bool):
+                raise TypeError(
+                    "VerilogConfig.allow_unknown_designs must be a bool or None "
+                    f"(got {type(self.allow_unknown_designs).__name__})")
 
 
 @dataclass
@@ -2024,6 +2061,116 @@ class SystemVerilogConfig:
     # connections (direction InOut, width from the connected expression).
     blackbox_unknown_modules: bool = False
 
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        for field_name in (
+                "keep_assigns",
+                "pretty_print_elaborated_ast_json",
+                "include_source_info_in_elaborated_ast_json",
+                "keep_ast_link",
+                "blackbox_unknown_modules"):
+            value = getattr(self, field_name)
+            if not isinstance(value, bool):
+                raise TypeError(
+                    f"SystemVerilogConfig.{field_name} must be a bool "
+                    f"(got {type(value).__name__})")
+
+        for field_name in (
+                "elaborated_ast_json_path", "diagnostics_report_path", "flist"):
+            value = getattr(self, field_name)
+            if value is None:
+                continue
+            if not isinstance(value, (str, os.PathLike)):
+                raise TypeError(
+                    f"SystemVerilogConfig.{field_name} must be a path string or None "
+                    f"(got {type(value).__name__})")
+            path = os.fspath(value)
+            if not path.strip():
+                raise ValueError(
+                    f"SystemVerilogConfig.{field_name} must not be empty")
+
+        if self.top is not None:
+            if not isinstance(self.top, str):
+                raise TypeError(
+                    "SystemVerilogConfig.top must be a str or None "
+                    f"(got {type(self.top).__name__})")
+            if not self.top.strip():
+                raise ValueError("SystemVerilogConfig.top must not be empty")
+
+        self._validate_string_list("defines", allow_whitespace=False)
+        self._validate_string_list("suppress_warnings", allow_whitespace=False)
+        if self.suppress_warnings:
+            for index, warning in enumerate(self.suppress_warnings):
+                if warning.startswith("-W"):
+                    raise ValueError(
+                        "SystemVerilogConfig.suppress_warnings"
+                        f"[{index}] must be the warning name without a -W/-Wno- "
+                        f"prefix; got {warning!r}")
+
+    def _validate_string_list(self, field_name: str, allow_whitespace: bool):
+        values = getattr(self, field_name)
+        if values is None:
+            return
+        if not isinstance(values, list):
+            raise TypeError(
+                f"SystemVerilogConfig.{field_name} must be a list[str] or None "
+                f"(got {type(values).__name__})")
+        for index, value in enumerate(values):
+            if not isinstance(value, str):
+                raise TypeError(
+                    f"SystemVerilogConfig.{field_name}[{index}] must be a str "
+                    f"(got {type(value).__name__})")
+            if not value.strip():
+                raise ValueError(
+                    f"SystemVerilogConfig.{field_name}[{index}] must not be empty")
+            if not allow_whitespace and any(char.isspace() for char in value):
+                raise ValueError(
+                    f"SystemVerilogConfig.{field_name}[{index}] must not contain "
+                    f"whitespace; got {value!r}")
+
+
+def _normalize_input_files(
+        files,
+        format_name: str,
+        *,
+        allow_empty: bool = False) -> List[str]:
+    """Validate public loader input before native state is mutated."""
+    if isinstance(files, (str, os.PathLike)):
+        candidates = [files]
+    elif isinstance(files, list):
+        candidates = files
+    else:
+        raise TypeError(
+            f"{format_name} files must be a path string or list of path strings "
+            f"(got {type(files).__name__})")
+
+    if not candidates and not allow_empty:
+        raise ValueError(f"No {format_name} input files were provided")
+
+    normalized = []
+    for index, candidate in enumerate(candidates):
+        if not isinstance(candidate, (str, os.PathLike)):
+            raise TypeError(
+                f"{format_name} files[{index}] must be a path string "
+                f"(got {type(candidate).__name__})")
+        path = os.fspath(candidate)
+        if not path.strip():
+            raise ValueError(f"{format_name} files[{index}] must not be empty")
+        normalized.append(path)
+
+    for index, path in enumerate(normalized):
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"{format_name} input file does not exist: {path!r} "
+                f"(files[{index}], resolved to {os.path.abspath(path)!r})")
+        if not os.path.isfile(path):
+            raise ValueError(
+                f"{format_name} input path is not a file: {path!r} "
+                f"(files[{index}], resolved to {os.path.abspath(path)!r})")
+    return normalized
+
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
     """Load verilog files into the top design.
@@ -2032,14 +2179,19 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     :param config: the configuration to use when loading the files.
     :return: the top Instance.
     :rtype: Instance
-    :raises Exception: if no files are provided.
+    :raises TypeError: if files or config have the wrong type.
+    :raises ValueError: if no files are provided or a path is empty.
+    :raises FileNotFoundError: if an input file does not exist.
     """
-    if isinstance(files, str):
-        files = [files]
-    if not files or len(files) == 0:
-        raise Exception("No verilog files provided")
     if config is None:
         config = VerilogConfig()  # Use default settings
+    elif not isinstance(config, VerilogConfig):
+        raise TypeError(
+            "load_verilog config must be a VerilogConfig or None "
+            f"(got {type(config).__name__})")
+    # Revalidate in case callers mutated a config after constructing it.
+    config.validate()
+    files = _normalize_input_files(files, "Verilog")
     start_time = time.time()
     logger.info(f"Starting structural Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
@@ -2066,16 +2218,34 @@ def load_system_verilog(
     :param config: the configuration to use when loading the files.
     :return: the top Instance.
     :rtype: Instance
-    :raises Exception: if no files are provided.
+    :raises TypeError: if files or config have the wrong type.
+    :raises ValueError: if no files and no flist are provided, or configuration is empty.
+    :raises FileNotFoundError: if an input file or flist does not exist.
     """
     if config is None:
         config = SystemVerilogConfig()
-    if isinstance(files, str):
-        files = [files]
-    if not files or len(files) == 0:
-        if not config.flist:
-            raise Exception("No systemverilog files provided")
-        files = []
+    elif not isinstance(config, SystemVerilogConfig):
+        raise TypeError(
+            "load_system_verilog config must be a SystemVerilogConfig or None "
+            f"(got {type(config).__name__})")
+    # Revalidate in case callers mutated a config after constructing it.
+    config.validate()
+    files = _normalize_input_files(files, "SystemVerilog", allow_empty=True)
+    if not files and not config.flist:
+        raise ValueError(
+            "No SystemVerilog inputs were provided; pass at least one file "
+            "or set SystemVerilogConfig.flist")
+    if config.flist:
+        flist_path = os.fspath(config.flist)
+        if not os.path.exists(flist_path):
+            raise FileNotFoundError(
+                "SystemVerilog command file does not exist: "
+                f"{flist_path!r} (SystemVerilogConfig.flist, resolved to "
+                f"{os.path.abspath(flist_path)!r})")
+        if not os.path.isfile(flist_path):
+            raise ValueError(
+                "SystemVerilogConfig.flist is not a file: "
+                f"{flist_path!r} (resolved to {os.path.abspath(flist_path)!r})")
     start_time = time.time()
     if files:
         logger.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
@@ -2083,34 +2253,6 @@ def load_system_verilog(
         logger.info(f"Starting SystemVerilog loading from flist: {config.flist}")
     if config.top is not None:
         logger.info(f"SystemVerilog loading top override requested: {config.top}")
-
-    if config.top is not None and not isinstance(config.top, str):
-        raise ValueError(
-            "SystemVerilogConfig.top must be a str "
-            f"(got {type(config.top).__name__})")
-    if isinstance(config.top, str) and not config.top.strip():
-        raise ValueError("SystemVerilogConfig.top must not be empty")
-    if not isinstance(config.keep_ast_link, bool):
-        raise ValueError(
-            "SystemVerilogConfig.keep_ast_link must be a bool "
-            f"(got {type(config.keep_ast_link).__name__})")
-    if not isinstance(config.blackbox_unknown_modules, bool):
-        raise ValueError(
-            "SystemVerilogConfig.blackbox_unknown_modules must be a bool "
-            f"(got {type(config.blackbox_unknown_modules).__name__})")
-    if config.defines is not None:
-        if not isinstance(config.defines, list):
-            raise ValueError(
-                "SystemVerilogConfig.defines must be a list "
-                f"(got {type(config.defines).__name__})")
-        for define in config.defines:
-            if not isinstance(define, str):
-                raise ValueError("SystemVerilogConfig.defines items must be strings")
-            if not define.strip():
-                raise ValueError("SystemVerilogConfig.defines items must not be empty")
-            if any(char.isspace() for char in define):
-                raise ValueError(
-                    "SystemVerilogConfig.defines items must not contain whitespace")
 
     effective_flist = config.flist
     temp_flist_path = None
@@ -2122,7 +2264,8 @@ def load_system_verilog(
             temp_flist_path = top_flist.name
             top_flist.write(f"--top {config.top}\n")
             if config.flist:
-                quoted_flist = config.flist.replace("\\", "\\\\").replace("\"", "\\\"")
+                quoted_flist = os.fspath(config.flist).replace(
+                    "\\", "\\\\").replace("\"", "\\\"")
                 top_flist.write(f"-f \"{quoted_flist}\"\n")
         effective_flist = temp_flist_path
 
@@ -2130,12 +2273,18 @@ def load_system_verilog(
         __get_top_db().loadSystemVerilog(
             files,
             keep_assigns=config.keep_assigns,
-            elaborated_ast_json_path=config.elaborated_ast_json_path,
-            diagnostics_report_path=config.diagnostics_report_path,
+            elaborated_ast_json_path=(
+                None if config.elaborated_ast_json_path is None
+                else os.fspath(config.elaborated_ast_json_path)),
+            diagnostics_report_path=(
+                None if config.diagnostics_report_path is None
+                else os.fspath(config.diagnostics_report_path)),
             pretty_print_elaborated_ast_json=config.pretty_print_elaborated_ast_json,
             include_source_info_in_elaborated_ast_json=(
                 config.include_source_info_in_elaborated_ast_json),
-            flist=effective_flist,
+            flist=(
+                None if effective_flist is None
+                else os.fspath(effective_flist)),
             defines=config.defines,
             blackbox_unknown_modules=config.blackbox_unknown_modules,
             suppress_warnings=config.suppress_warnings,
@@ -2157,12 +2306,11 @@ def load_liberty(files: Union[str, List[str]]):
 
     :param files: a list of liberty files to load or a single file.
     :rtype: None
-    :raises Exception: if no liberty files are provided.
+    :raises TypeError: if files has the wrong type.
+    :raises ValueError: if no files are provided or a path is empty.
+    :raises FileNotFoundError: if an input file does not exist.
     """
-    if isinstance(files, str):
-        files = [files]
-    if not files or len(files) == 0:
-        raise Exception("No liberty files provided")
+    files = _normalize_input_files(files, "Liberty")
     logger.info(f"Loading liberty files: {', '.join(files)}")
     __get_top_db().loadLibertyPrimitives(files)
 

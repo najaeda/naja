@@ -692,9 +692,8 @@ static const std::string SNLDesignTruthTablePropertyName =
 
 naja::NajaDumpableProperty* getTruthTableProperty(
     const naja::NL::SNLDesign* design) {
-  auto property = static_cast<naja::NajaDumpableProperty*>(
+  return dynamic_cast<naja::NajaDumpableProperty*>(
       design->getProperty(SNLDesignTruthTablePropertyName));
-  return property;
 }
 
 size_t getDependencyChunkCount(const naja::NL::SNLDesign* design) {
@@ -1463,6 +1462,33 @@ void SNLDesignModeling::setMemoryInterface(
   property->getModeling()->setMemoryInterface_(memInterface);
 }
 
+void SNLDesignModeling::setSequentialModel(
+    SNLDesign* design,
+    const SequentialModel& model) {
+  if (!design || !design->isPrimitive()) {
+    throw NLException("Cannot add sequential model on non-primitive design");
+  }
+  if (!model.isValid()) {
+    throw NLException("Cannot add invalid sequential model");
+  }
+  auto property = getOrCreateProperty(design, NO_PARAMETER);
+  property->getModeling()->setSequentialModel_(model);
+}
+
+bool SNLDesignModeling::hasSequentialModel(const SNLDesign* design) {
+  auto property = design ? getProperty(design) : nullptr;
+  return property && property->getModeling()->hasSequentialModel_();
+}
+
+const SNLDesignModeling::SequentialModel&
+SNLDesignModeling::getSequentialModel(const SNLDesign* design) {
+  auto property = design ? getProperty(design) : nullptr;
+  if (!property || !property->getModeling()->hasSequentialModel_()) {
+    throw NLException("Design has no sequential model");
+  }
+  return property->getModeling()->getSequentialModel_();
+}
+
 void SNLDesignModeling::setTermRole(
     SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
   if (!term || !term->getDesign()->isLeaf()) return;
@@ -1799,7 +1825,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
     }
-    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design)) {
+    if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design) ||
+        NLDB0::isDivMod(design)) {
       size_t tableCount = 0;
       for (const auto* term : design->getBitTerms()) {
         if (term->getDirection() != SNLTerm::Direction::Input) {
@@ -1856,7 +1883,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+        NLDB0::isDivMod(design)) {
       return SNLTruthTable();
     }
     if (NLDB0::isTableSelect(design)) {
@@ -2013,6 +2041,15 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
       return NLDB0::getTableSelectTruthTable(design, flatTermID);
+    } else if (NLDB0::isDivMod(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in divmod design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getDivModTruthTable(design, flatTermID);
     } else {
       if (outputCount != 1) {
         std::ostringstream reason;
@@ -2121,6 +2158,9 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
   auto property = getProperty(design);
   if (property) {
     auto modeling = property->getModeling();
+    if (modeling->hasSequentialModel_()) {
+      return true;
+    }
     const auto arcs = modeling->getTimingArcs();
     return not arcs->inputToClockArcs_.empty() or
            not arcs->clockToInputArcs_.empty();

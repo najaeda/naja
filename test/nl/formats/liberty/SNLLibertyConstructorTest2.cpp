@@ -10,6 +10,8 @@
 #include "NLUniverse.h"
 
 #include "SNLBundleTerm.h"
+#include "SNLDesign.h"
+#include "SNLInstance.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 
@@ -391,28 +393,118 @@ TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryInterfaceCapturesMaskAndCont
   EXPECT_EQ(1u, enableTerms.count(ceIn));
 }
 
-TEST_F(SNLLibertyConstructorTest2, testLibertySequentialClockConflictsAreRejected) {
+TEST_F(SNLLibertyConstructorTest2, testLibertySequentialTimingPreservesDistinctClocks) {
   auto tempPath = std::filesystem::temp_directory_path()
-                  / "naja_liberty_conflicting_sequential_clocks.lib";
+                  / "naja_liberty_distinct_sequential_clocks.lib";
   {
     std::ofstream output(tempPath, std::ios::binary);
     output << R"(library(seqlib) {
-  cell(ff_conflict) {
+  cell(ff_multi_clock) {
     ff(IQ, IQN) { clocked_on : "clk0"; next_state : "d"; }
     pin(clk0) { direction : input; clock : true; }
     pin(clk1) { direction : input; clock : true; }
-    pin(d) { direction : input; }
+    pin(mode) { direction : input; }
+    pin(d) {
+      direction : input;
+      timing() { related_pin : "clk0"; timing_type : setup_rising; when : "mode"; }
+      timing() { related_pin : "clk0"; timing_type : hold_rising; when : "mode"; }
+      timing() { related_pin : "clk0"; timing_type : setup_rising; when : "!mode"; }
+      timing() { related_pin : "clk1"; timing_type : setup_rising; when : "!mode"; }
+      timing() { related_pin : "clk1"; timing_type : hold_rising; when : "!mode"; }
+    }
     pin(q) {
       direction : output;
-      timing() { related_pin : "clk0"; timing_type : rising_edge; }
-      timing() { related_pin : "clk1"; timing_type : rising_edge; }
+      function : "IQ";
+      timing() { related_pin : "clk0"; timing_type : rising_edge; when : "mode"; }
+      timing() { related_pin : "clk1"; timing_type : rising_edge; when : "!mode"; }
+      timing() { related_pin : "clk1"; timing_type : rising_edge; when : "mode"; }
     }
   }
 })";
   }
 
   SNLLibertyConstructor constructor(library_);
-  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+  constructor.construct(tempPath);
+
+  auto* primitive = library_->getSNLDesign(NLName("ff_multi_clock"));
+  ASSERT_NE(nullptr, primitive);
+  auto* clk0 = primitive->getScalarTerm(NLName("clk0"));
+  auto* clk1 = primitive->getScalarTerm(NLName("clk1"));
+  auto* d = primitive->getScalarTerm(NLName("d"));
+  auto* q = primitive->getScalarTerm(NLName("q"));
+  ASSERT_NE(nullptr, clk0);
+  ASSERT_NE(nullptr, clk1);
+  ASSERT_NE(nullptr, d);
+  ASSERT_NE(nullptr, q);
+
+  const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> expectedClocks{
+      clk0, clk1};
+  const auto inputRelatedClocks =
+      SNLDesignModeling::getInputRelatedClocks(d);
+  const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> inputClockSet(
+      inputRelatedClocks.begin(), inputRelatedClocks.end());
+  EXPECT_EQ(expectedClocks, inputClockSet);
+  const auto outputRelatedClocks =
+      SNLDesignModeling::getOutputRelatedClocks(q);
+  const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> outputClockSet(
+      outputRelatedClocks.begin(), outputRelatedClocks.end());
+  EXPECT_EQ(expectedClocks, outputClockSet);
+
+  auto* standardLibrary = NLLibrary::create(
+      db_, NLLibrary::Type::Standard, NLName("standard"));
+  auto* top = SNLDesign::create(standardLibrary, NLName("top"));
+  auto* instance = SNLInstance::create(top, primitive, NLName("u0"));
+  auto* id = instance->getInstTerm(d);
+  auto* iq = instance->getInstTerm(q);
+  auto* iclk0 = instance->getInstTerm(clk0);
+  auto* iclk1 = instance->getInstTerm(clk1);
+  const std::set<SNLInstTerm*> expectedInstanceClocks{iclk0, iclk1};
+  const auto inputRelatedInstanceClocks =
+      SNLDesignModeling::getInputRelatedClocks(id);
+  const std::set<SNLInstTerm*> inputInstanceClockSet(
+      inputRelatedInstanceClocks.begin(), inputRelatedInstanceClocks.end());
+  EXPECT_EQ(expectedInstanceClocks, inputInstanceClockSet);
+  const auto outputRelatedInstanceClocks =
+      SNLDesignModeling::getOutputRelatedClocks(iq);
+  const std::set<SNLInstTerm*> outputInstanceClockSet(
+      outputRelatedInstanceClocks.begin(), outputRelatedInstanceClocks.end());
+  EXPECT_EQ(expectedInstanceClocks, outputInstanceClockSet);
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest2, testLibertySequentialTimingRejectsUnknownRelatedPin) {
+  auto tempPath = std::filesystem::temp_directory_path()
+                  / "naja_liberty_unknown_sequential_related_pin.lib";
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << R"(library(seqlib) {
+  cell(ff_bad_clock) {
+    ff(IQ, IQN) { clocked_on : "clk"; next_state : "d"; }
+    pin(clk) { direction : input; clock : true; }
+    pin(d) {
+      direction : input;
+      timing() { related_pin : "missing_clk"; timing_type : setup_rising; }
+    }
+    pin(q) { direction : output; function : "IQ"; }
+  }
+})";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  try {
+    constructor.construct(tempPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "`missing_clk` for term `d` does not resolve to a scalar input term"));
+  }
+
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
 }
 
 TEST_F(SNLLibertyConstructorTest2, testLibertyMemoryRequiresReadAddress) {

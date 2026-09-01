@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import tempfile
 import unittest
 import faulthandler
 from najaeda import netlist
@@ -401,6 +402,42 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNotNone(sub_instance)
         sub_instance.delete()
         with self.assertRaises(Exception) as context: instance.delete_instance("")
+
+    def test_equipotential_traverse_assigns(self):
+        with tempfile.NamedTemporaryFile(
+                "w", suffix=".v", delete=False) as source:
+            source.write(
+                "module assign_top(input i, output o); "
+                "wire n; assign n = i; assign o = n; endmodule\n")
+            source_path = source.name
+        try:
+            top = netlist.load_verilog(source_path)
+            input_term = top.get_term("i")
+            output_term = top.get_term("o")
+
+            standard = input_term.get_equipotential()
+            self.assertListEqual(
+                ["i"], [term.get_name() for term in standard.get_top_terms()])
+            self.assertEqual(1, len(list(standard.get_inst_terms())))
+            self.assertEqual(
+                standard,
+                input_term.get_equipotential(
+                    mode=netlist.Equipotential.Mode.STANDARD))
+
+            mode = netlist.Equipotential.Mode.TRAVERSE_ASSIGNS
+            traversed = input_term.get_equipotential(mode=mode)
+            self.assertCountEqual(
+                ["i", "o"],
+                [term.get_name() for term in traversed.get_top_terms()])
+            self.assertListEqual([], list(traversed.get_inst_terms()))
+            self.assertEqual(
+                traversed,
+                netlist.Equipotential(output_term, mode=mode))
+            with self.assertRaisesRegex(
+                    TypeError, "mode must be an Equipotential.Mode"):
+                input_term.get_equipotential(mode=1)
+        finally:
+            os.remove(source_path)
 
     def testTopTerm(self):
         universe = naja.NLUniverse.create()

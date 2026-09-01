@@ -1,0 +1,68 @@
+library(testlib) {
+  cell("INV") {
+    pin (A) {
+      direction: input;
+    }
+    pin (Y) {
+      direction: output;
+      function: "!A";
+    }
+  }
+  cell ("badcell") {
+    dont_use : true;
+    ff (IQ0,IQN0) {
+      clocked_on : "(!CK0)";
+      next_state : "((!S)&(!IQ1))";
+    }
+    ff (IQ1,IQN1) {
+      clocked_on : "(!CK1)";
+      next_state : "(S&(!IQ0))";
+    }
+    pin (CK0) {
+      clock : true;
+      direction : input;
+    }
+    pin (CK1) {
+      clock : true;
+      direction : input;
+    }
+    pin (S) {
+      direction : input;
+      nextstate_type : data;
+    }
+    pin (X) {
+      direction : output;
+      function : "((IQ1&CK1)|(IQ0&CK0))";
+    }
+  }
+  cell ("MULTI_STATE_FF") {
+    ff (IQ0,IQN0) {
+      clocked_on : "CK";
+      next_state : "D0";
+    }
+    ff (IQ1,IQN1) {
+      clocked_on : "CK";
+      next_state : "(D1&IQ0)";
+    }
+    pin (CK) {
+      clock : true;
+      direction : input;
+    }
+    pin (D0) {
+      direction : input;
+      nextstate_type : data;
+    }
+    pin (D1) {
+      direction : input;
+      nextstate_type : data;
+    }
+    pin (Q0) {
+      direction : output;
+      function : "IQ0";
+    }
+    pin (Q1) {
+      direction : output;
+      function : "IQ1";
+    }
+  }
+}

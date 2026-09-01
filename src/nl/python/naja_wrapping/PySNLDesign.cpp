@@ -178,35 +178,52 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
 }
 
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
-  PyObject* arg0 = nullptr;
-  PyObject* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "OO:SNLDesign.addCombinatorialArcs", &arg0, &arg1)) {
+  const char* parameterValue = nullptr;
+  PyObject* inputsObject = nullptr;
+  PyObject* outputsObject = nullptr;
+  if (PyTuple_Size(args) == 2) {
+    if (not PyArg_ParseTuple(
+        args, "OO:SNLDesign.addCombinatorialArcs",
+        &inputsObject, &outputsObject)) {
+      // LCOV_EXCL_START defensive: "O" accepts any Python object
+      setError("malformed SNLDesign.addCombinatorialArcs method");
+      return nullptr;
+      // LCOV_EXCL_STOP
+    }
+  } else if (PyTuple_Size(args) == 3) {
+    if (not PyArg_ParseTuple(
+        args, "sOO:SNLDesign.addCombinatorialArcs",
+        &parameterValue, &inputsObject, &outputsObject)) {
+      setError("malformed SNLDesign.addCombinatorialArcs method");
+      return nullptr;
+    }
+  } else {
     setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
   SNLDesignModeling::BitTerms terms0;
   SNLDesignModeling::BitTerms terms1;
-  if (IsPySNLBitTerm(arg0)) {
-    terms0.push_back(PYSNLBitTerm_O(arg0));
-  } else if (IsPySNLBusTerm(arg0)) {
-    auto bus = PYSNLBusTerm_O(arg0);
+  if (IsPySNLBitTerm(inputsObject)) {
+    terms0.push_back(PYSNLBitTerm_O(inputsObject));
+  } else if (IsPySNLBusTerm(inputsObject)) {
+    auto bus = PYSNLBusTerm_O(inputsObject);
     terms0.insert(terms0.begin(), bus->getBits().begin(), bus->getBits().end());
-  } else if (not PyList_Check(arg0)) {
+  } else if (not PyList_Check(inputsObject)) {
     setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
-  if (IsPySNLBitTerm(arg1)) {
-    terms1.push_back(PYSNLBitTerm_O(arg1));
-  } else if (IsPySNLBusTerm(arg1)) {
-    auto bus = PYSNLBusTerm_O(arg1);
+  if (IsPySNLBitTerm(outputsObject)) {
+    terms1.push_back(PYSNLBitTerm_O(outputsObject));
+  } else if (IsPySNLBusTerm(outputsObject)) {
+    auto bus = PYSNLBusTerm_O(outputsObject);
     terms1.insert(terms1.begin(), bus->getBits().begin(), bus->getBits().end());
-  } else if (not PyList_Check(arg1)) {
+  } else if (not PyList_Check(outputsObject)) {
     setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
   if (terms0.empty()) {
-    for (int i=0; i<PyList_Size(arg0); ++i) {
-      PyObject* object = PyList_GetItem(arg0, i);
+    for (int i=0; i<PyList_Size(inputsObject); ++i) {
+      PyObject* object = PyList_GetItem(inputsObject, i);
       if (IsPySNLBitTerm(object)) {
         terms0.push_back(PYSNLBitTerm_O(object));
       } else if (IsPySNLBusTerm(object)) {
@@ -219,8 +236,8 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
     }
   }
   if (terms1.empty()) {
-    for (int j=0; j<PyList_Size(arg1); ++j) {
-      PyObject* object = PyList_GetItem(arg1, j);
+    for (int j=0; j<PyList_Size(outputsObject); ++j) {
+      PyObject* object = PyList_GetItem(outputsObject, j);
       if (IsPySNLBitTerm(object)) {
         terms1.push_back(PYSNLBitTerm_O(object));
       } else if (IsPySNLBusTerm(object)) {
@@ -233,7 +250,30 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
     }
   }
   TRY
-  SNLDesignModeling::addCombinatorialArcs(terms0, terms1);
+  if (parameterValue) {
+    SNLDesignModeling::addCombinatorialArcs(parameterValue, terms0, terms1);
+  } else {
+    SNLDesignModeling::addCombinatorialArcs(terms0, terms1);
+  }
+  NLCATCH
+  Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_setTimingModelParameter(
+    PySNLDesign* self,
+    PyObject* args) {
+  const char* name = nullptr;
+  const char* defaultValue = nullptr;
+  if (not PyArg_ParseTuple(
+      args, "ss:SNLDesign.setTimingModelParameter", &name, &defaultValue)) {
+    setError(
+      "SNLDesign.setTimingModelParameter() expects a parameter name "
+      "and default value");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.setTimingModelParameter()")
+  TRY
+  SNLDesignModeling::setParameter(selfObject, name, defaultValue);
   NLCATCH
   Py_RETURN_NONE;
 }
@@ -552,6 +592,14 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
   GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedOutputs, SNLDesign)
 }
 
+static PyObject* PySNLDesign_getInputRelatedClocks(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getInputRelatedClocks, SNLDesign)
+}
+
+static PyObject* PySNLDesign_getOutputRelatedClocks(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getOutputRelatedClocks, SNLDesign)
+}
+
 #define DESIGN_ROLE_TERMS(NAME)                                           \
   static PyObject* PySNLDesign_##NAME(PySNLDesign* self) {                \
     METHOD_HEAD("SNLDesign." #NAME "()")                                  \
@@ -646,13 +694,13 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
-    "add combinatorial arcs"},
+    "add combinatorial arcs, optionally for a timing parameter value"},
+  { "setTimingModelParameter", (PyCFunction)PySNLDesign_setTimingModelParameter, METH_VARARGS,
+    "select the parameter and default value used by parameterized timing arcs"},
   { "addInputsToClockArcs", (PyCFunction)PySNLDesign_addInputsToClockArcs, METH_VARARGS|METH_STATIC,
     "add inputs to clock arcs"}, 
   { "addClockToOutputsArcs", (PyCFunction)PySNLDesign_addClockToOutputsArcs, METH_VARARGS|METH_STATIC,
     "add inputs to clock arcs"}, 
-  { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
-    "add combinatorial arcs"},
   { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of a term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,
@@ -661,6 +709,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get inputs related to a clock"},
   { "getClockRelatedOutputs", (PyCFunction)PySNLDesign_getClockRelatedOutputs, METH_O|METH_STATIC,
     "get outputs related to a clock"},
+  { "getInputRelatedClocks", (PyCFunction)PySNLDesign_getInputRelatedClocks, METH_O|METH_STATIC,
+    "get clocks related to an input"},
+  { "getOutputRelatedClocks", (PyCFunction)PySNLDesign_getOutputRelatedClocks, METH_O|METH_STATIC,
+    "get clocks related to an output"},
   { "getClockTerms", (PyCFunction)PySNLDesign_getClockTerms, METH_NOARGS,
     "get primitive clock terms"},
   { "getAsyncResetTerms", (PyCFunction)PySNLDesign_getAsyncResetTerms, METH_NOARGS,
