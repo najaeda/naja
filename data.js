@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788265485529,
+  "lastUpdate": 1788285134087,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -12240,6 +12240,108 @@ window.BENCHMARK_DATA = {
             "value": 400203.1617132421,
             "unit": "ns/iter",
             "extra": "iterations: 1750\ncpu: 400120.55828574335 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "noam.chn1@gmail.com",
+            "name": "Noam Cohen",
+            "username": "nanocoh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b995833c7242f167134461c19b0521556047a068",
+          "message": "Enhance python api + parameter truth table + liberty fix (#427)\n\n* Model divmod outputs with generic truth tables\n\n* Add Python sequential model API\n\n* Add instance-parameterized truth tables\n\n* Share Naja runtime with Python extension in Bazel\n\n* Fix Bazel Python test runtime loading\n\n* Link TBB into Bazel shared runtime\n\n* Keep mixed FF/latch Liberty cells loadable\n\n* Fix Liberty state cells getting constant truth tables\n\n* Preserve timing for opaque Liberty state cells\n\n* test: improve Naja API coverage\n\n* test: cover remaining modeling branches",
+          "timestamp": "2026-09-01T19:49:45+02:00",
+          "tree_id": "15211a8f44fa49581900a8674c0b305d5a798511",
+          "url": "https://github.com/najaeda/naja/commit/b995833c7242f167134461c19b0521556047a068"
+        },
+        "date": 1788285133221,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 215279.52140198788,
+            "unit": "ns/iter",
+            "extra": "iterations: 3224\ncpu: 215249.2186724566 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 306973.50680122117,
+            "unit": "ns/iter",
+            "extra": "iterations: 2279\ncpu: 306927.8670469504 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1812525.6497462303,
+            "unit": "ns/iter",
+            "extra": "iterations: 394\ncpu: 1812223.0355329947 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17178097.102563817,
+            "unit": "ns/iter",
+            "extra": "iterations: 39\ncpu: 17175692.461538464 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1244.0182558784657,
+            "unit": "ns/iter",
+            "extra": "iterations: 560477\ncpu: 1243.9085832246458 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 12294.424830533586,
+            "unit": "ns/iter",
+            "extra": "iterations: 57091\ncpu: 12292.197491723742 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 157985.2697339737,
+            "unit": "ns/iter",
+            "extra": "iterations: 4586\ncpu: 157960.33515045795 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 478214.54135339375,
+            "unit": "ns/iter",
+            "extra": "iterations: 1463\ncpu: 478132.16951469553 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 431783.87708460586,
+            "unit": "ns/iter",
+            "extra": "iterations: 1619\ncpu: 431766.0420012354 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 352909.35169277777,
+            "unit": "ns/iter",
+            "extra": "iterations: 1979\ncpu: 352856.4926730668 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 67392147.22222187,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 67390915.66666666 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 20193.340861298908,
+            "unit": "ns/iter",
+            "extra": "iterations: 34715\ncpu: 20189.40265015124 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 398531.2094483188,
+            "unit": "ns/iter",
+            "extra": "iterations: 1757\ncpu: 398368.6260671168 ns\nthreads: 1"
           }
         ]
       }
