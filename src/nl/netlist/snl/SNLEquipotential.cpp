@@ -7,8 +7,10 @@
 #include "SNLPath.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
+#include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
+#include "NLDB0.h"
 #include <sstream>  
 
 namespace {
@@ -19,10 +21,12 @@ struct SNLEquipotentialExtractor {
   explicit SNLEquipotentialExtractor(
     SNLEquipotential::InstTermOccurrences& instTermOccurrences,
     SNLEquipotential::Terms& terms,
-    SNLNet::Type& type
+    SNLNet::Type& type,
+    SNLEquipotential::Mode mode
   ): instTermOccurrences_(instTermOccurrences),
     terms_(terms),
-    type_(type)
+    type_(type),
+    mode_(mode)
   {}
 
   void extractNetComponentsFromNetOccurrence(
@@ -52,6 +56,18 @@ struct SNLEquipotentialExtractor {
       if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
         auto instance = instTerm->getInstance();
         if (instance->isLeaf()) {
+          if (mode_ == SNLEquipotential::Mode::TraverseAssigns and
+              NLDB0::isAssign(instance->getModel())) {
+            auto assignInput = NLDB0::getAssignInput();
+            auto assignOutput = NLDB0::getAssignOutput();
+            auto oppositeTerm = instTerm->getBitTerm() == assignInput
+              ? assignOutput
+              : assignInput;
+            auto oppositeInstTerm = instance->getInstTerm(oppositeTerm);
+            extractNetFromNetComponentOccurrence(
+              naja::NL::SNLOccurrence(path, oppositeInstTerm), false);
+            continue;
+          }
           //construct InstTerm Occurrences
           instTermOccurrences_.emplace(naja::NL::SNLOccurrence(path, instTerm));
         } else {
@@ -128,6 +144,7 @@ struct SNLEquipotentialExtractor {
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
     SNLNet::Type&                           type_;
+    SNLEquipotential::Mode                  mode_;
     bool                                    hasDrivingType_    {false};
     using NetOccurrences = std::set<SNLOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
@@ -137,12 +154,27 @@ struct SNLEquipotentialExtractor {
 
 namespace naja::NL {
 
-SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
-  SNLEquipotential(SNLOccurrence(netComponent))
+SNLEquipotential::SNLEquipotential(
+  SNLNetComponent* netComponent):
+  SNLEquipotential(netComponent, Mode::Standard)
 {}
 
-SNLEquipotential::SNLEquipotential(const SNLOccurrence& netComponentOccurrence) {
-  SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_, type_);
+SNLEquipotential::SNLEquipotential(
+  SNLNetComponent* netComponent,
+  Mode mode):
+  SNLEquipotential(SNLOccurrence(netComponent), mode)
+{}
+
+SNLEquipotential::SNLEquipotential(
+  const SNLOccurrence& netComponentOccurrence):
+  SNLEquipotential(netComponentOccurrence, Mode::Standard)
+{}
+
+SNLEquipotential::SNLEquipotential(
+  const SNLOccurrence& netComponentOccurrence,
+  Mode mode) {
+  SNLEquipotentialExtractor extractor(
+    instTermOccurrences_, terms_, type_, mode);
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
 }
 

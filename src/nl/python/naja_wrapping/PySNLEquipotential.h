@@ -22,6 +22,7 @@ NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLEquipotential;
 
 extern PyObject*  PySNLEquipotential_Link(naja::NL::SNLEquipotential* equipotential);
 extern void       PySNLEquipotential_LinkPyType();
+extern void       PySNLEquipotential_postModuleInit();
 
 #define IsPySNLEquipotential(v) (PyObject_TypeCheck(v, &PyTypeSNLEquipotential))
 #define PYSNLEquipotential(v)   ((PySNLEquipotential*)(v))

@@ -54,6 +54,7 @@
 #include "PySNLPath.h"
 #include "PySNLOccurrence.h"
 #include "PySNLEquipotential.h"
+#include "PySNLEquipotentialMode.h"
 #include "PyLogicCone.h"
 #include "PySNLOccurrences.h"
 #include "PySNLUniquifier.h"
@@ -748,6 +749,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLPath_LinkPyType();
   PySNLUniquifier_LinkPyType();
   PySNLEquipotential_LinkPyType();
+  PySNLEquipotentialMode_LinkPyType();
   PyLogicCone_LinkPyType();
   PySNLOccurrence_LinkPyType();
 
@@ -799,6 +801,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
 
   PYTYPE_READY(SNLPath);
   PYTYPE_READY(SNLUniquifier);
+  PYTYPE_READY(SNLEquipotentialMode);
   PYTYPE_READY(SNLEquipotential);
   PYTYPE_READY(LogicCone);
   PYTYPE_READY(SNLOccurrence);
@@ -892,6 +895,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyNLID_postModuleInit();
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
+  PySNLEquipotential_postModuleInit();
   PyLogicCone_postModuleInit();
   PySNLTermRole_postModuleInit();
   PySNLActiveLevel_postModuleInit();
