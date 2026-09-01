@@ -1,4 +1,12 @@
 library (statetable_state_function_test) {
+  type (bus_1_0) {
+    base_type : array;
+    data_type : bit;
+    bit_width : 2;
+    bit_from : 1;
+    bit_to : 0;
+    downto : true;
+  }
   cell (ICG) {
     clock_gating_integrated_cell : latch_posedge_precontrol;
     statetable ("CLK ENA SE", "IQ") {
@@ -72,6 +80,34 @@ library (statetable_state_function_test) {
       timing () {
         related_pin : "CLK";
         timing_type : rising_edge;
+      }
+    }
+  }
+  cell (STATE_BUS_TIMING) {
+    statetable ("ENABLE", "IQ") {
+      table : "L : - : L,
+               H : - : H";
+    }
+    pin (IQ) {
+      direction : internal;
+      internal_node : "IQ";
+    }
+    pin (ENABLE) {
+      direction : input;
+    }
+    bus (D) {
+      bus_type : bus_1_0;
+      direction : input;
+    }
+    bus (Q) {
+      bus_type : bus_1_0;
+      direction : output;
+      timing () {
+        related_pin : "D";
+        timing_type : combinational_rise;
+      }
+      timing () {
+        timing_type : combinational_fall;
       }
     }
   }

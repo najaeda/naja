@@ -730,6 +730,7 @@ TEST_F(SNLLibertyConstructorTest1, testStateTableFunctionIsOpaque) {
   EXPECT_NE(std::string::npos, diagnostics.find("cell ICG"));
   EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_FUNCTION_ONLY"));
   EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_RISING_OUTPUT"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_BUS_TIMING"));
   EXPECT_NE(std::string::npos, diagnostics.find("cell FF_WITH_STATE_FUNCTION"));
   EXPECT_NE(
       std::string::npos,
@@ -810,6 +811,28 @@ TEST_F(SNLLibertyConstructorTest1, testStateTableFunctionIsOpaque) {
   ASSERT_EQ(1u, risingOutputClocks.size());
   EXPECT_EQ(stateClock, *risingOutputClocks.begin());
 
+  auto* stateBusTiming =
+      library_->getSNLDesign(NLName("STATE_BUS_TIMING"));
+  ASSERT_NE(nullptr, stateBusTiming);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(stateBusTiming));
+  auto* stateBusData = stateBusTiming->getBusTerm(NLName("D"));
+  auto* stateBusOutput = stateBusTiming->getBusTerm(NLName("Q"));
+  ASSERT_NE(nullptr, stateBusData);
+  ASSERT_NE(nullptr, stateBusOutput);
+  const auto stateBusDataBits = stateBusData->getBits();
+  const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> expectedDataBits(
+      stateBusDataBits.begin(), stateBusDataBits.end());
+  ASSERT_EQ(2u, expectedDataBits.size());
+  const auto stateBusOutputBits = stateBusOutput->getBits();
+  ASSERT_EQ(2u, stateBusOutputBits.size());
+  for (auto* outputBit : stateBusOutputBits) {
+    const auto combinatorialInputs =
+        SNLDesignModeling::getCombinatorialInputs(outputBit);
+    const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> actualInputs(
+        combinatorialInputs.begin(), combinatorialInputs.end());
+    EXPECT_EQ(expectedDataBits, actualInputs);
+  }
+
   auto* ffWithStateFunction =
       library_->getSNLDesign(NLName("FF_WITH_STATE_FUNCTION"));
   ASSERT_NE(nullptr, ffWithStateFunction);
@@ -829,6 +852,43 @@ TEST_F(SNLLibertyConstructorTest1, testStateTableFunctionIsOpaque) {
   ASSERT_EQ(1u, ffOutputClocks.size());
   EXPECT_EQ(ffClk, *ffInputClocks.begin());
   EXPECT_EQ(ffClk, *ffOutputClocks.begin());
+}
+
+TEST_F(SNLLibertyConstructorTest1,
+       testStateTableTimingRejectsOutputRelatedPin) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "errors" / "timing_only_related_output_error.lib";
+
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Combinational timing `related_pin` `Q` for term `Q` "
+            "resolves to an output term"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest1,
+       testStateTableTimingRejectsUnknownRelatedPin) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "errors" /
+      "timing_only_unknown_related_pin_error.lib";
+
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Combinational timing `related_pin` `MISSING` for term `Q` "
+            "does not resolve to an input or inout term"));
+  }
 }
 
 TEST_F(SNLLibertyConstructorTest1, testFFScanModel) {

@@ -103,6 +103,40 @@ class SNLDesignModelingTest(unittest.TestCase):
       outputs=[(q, "IQ"), (qn, "IQN")])
     self.assertTrue(reg.hasSequentialModel())
 
+  def testSequentialModelOutputErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "REG")
+    q = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+    for name in ("CLK", "D"):
+      naja.SNLScalarTerm.create(
+        reg, naja.SNLTerm.Direction.Input, name)
+    states = [{"name": "IQ", "next_state": "D"}]
+
+    def set_outputs(outputs):
+      reg.setSequentialModel(
+        clocked_on="CLK", states=states, outputs=outputs)
+
+    with self.assertRaisesRegex(
+        RuntimeError, "expects lists for states and outputs"):
+      set_outputs(((q, "IQ"),))
+    for outputs in ([q], [(q,)]):
+      with self.assertRaisesRegex(
+          RuntimeError,
+          r"outputs must be \(SNLBitTerm, expression\) tuples"):
+        set_outputs(outputs)
+    for outputs in ([("Q", "IQ")], [(q, 0)]):
+      with self.assertRaisesRegex(
+          RuntimeError,
+          r"outputs must be \(SNLBitTerm, expression\) tuples"):
+        set_outputs(outputs)
+
+    foreign = naja.SNLDesign.createPrimitive(self.primitives, "FOREIGN")
+    foreign_q = naja.SNLScalarTerm.create(
+      foreign, naja.SNLTerm.Direction.Output, "Q")
+    with self.assertRaisesRegex(
+        RuntimeError, "output term belongs to another design"):
+      set_outputs([(foreign_q, "IQ")])
+
   def testLoweredSequentialTermRoles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)

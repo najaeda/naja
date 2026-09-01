@@ -163,10 +163,13 @@ uint64_t parseTruthTableParameterValue(
 
 uint64_t getParameterTruthTableBits(
     const std::string& value, size_t inputCount, size_t parameterBitOffset) {
+  // LCOV_EXCL_START
+  // Public callers reject more than six inputs before reaching this helper.
   if (inputCount > 6) {
     throw naja::NL::NLException(
         "Parameter-derived truth tables support at most 6 inputs");
   }
+  // LCOV_EXCL_STOP
   const size_t tableBitCount = size_t{1} << inputCount;
   if (parameterBitOffset > 64 - tableBitCount) {
     throw naja::NL::NLException(
@@ -1187,9 +1190,12 @@ SNLTruthTable SNLDesignModeling::getTruthTable_(
   }
 
   const auto* parameterTruthTable = getTruthTableFromParameter_(flatTermID);
+  // LCOV_EXCL_START
+  // Public callers only enter this helper after finding the same metadata.
   if (!parameterTruthTable) {
     return SNLTruthTable();
   }
+  // LCOV_EXCL_STOP
   std::string value = parameterTruthTable->parameter->getValue();
   if (auto* instanceParameter =
           instance->getInstParameter(parameterTruthTable->parameter->getName())) {
@@ -2441,7 +2447,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(
       return getTruthTable(instance, term->getOrderID());
     }
   }
-  return SNLTruthTable();
+  return SNLTruthTable();  // LCOV_EXCL_LINE: a valid single table has an output
 }
 
 SNLTruthTable SNLDesignModeling::getTruthTable(
