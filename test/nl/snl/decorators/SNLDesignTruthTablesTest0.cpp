@@ -263,6 +263,50 @@ TEST_F(SNLDesignTruthTableTest0,
           SNLDesignModeling::getTruthTable(sixInputLut.design).bits()));
 }
 
+TEST_F(SNLDesignTruthTableTest0, testTruthTableParameterLiteralEdgeCases) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* primitives = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* library = NLLibrary::create(db, NLName("designs"));
+  auto lut = createParameterTruthTableDesign(
+      primitives, "literal_edge_cases", 2, "4'h0");
+  SNLDesignModeling::setTruthTableFromParameter(
+      lut.design, lut.output, lut.getInputs(), lut.parameter);
+  auto* top = SNLDesign::create(library, NLName("top"));
+
+  size_t instanceIndex = 0;
+  auto getInstanceTable = [&](const std::string& value) {
+    auto* instance = SNLInstance::create(
+        top, lut.design,
+        NLName("literal_" + std::to_string(instanceIndex++)));
+    SNLInstParameter::create(instance, lut.parameter, value);
+    return SNLDesignModeling::getTruthTable(instance);
+  };
+
+  EXPECT_EQ(
+      0xA,
+      static_cast<uint64_t>(getInstanceTable("4' h_A").bits()));
+  EXPECT_EQ(
+      0xA,
+      static_cast<uint64_t>(getInstanceTable("4'So12").bits()));
+  EXPECT_EQ(
+      0xF,
+      static_cast<uint64_t>(getInstanceTable("'1").bits()));
+  EXPECT_EQ(
+      0,
+      static_cast<uint64_t>(getInstanceTable("'0").bits()));
+
+  EXPECT_THROW(getInstanceTable("4'h"), NLException);
+  EXPECT_THROW(getInstanceTable("4'hg"), NLException);
+  EXPECT_THROW(getInstanceTable("4'b2"), NLException);
+  EXPECT_THROW(
+      getInstanceTable("18446744073709551616"),
+      NLException);
+  EXPECT_THROW(getInstanceTable(" _ \t\n"), NLException);
+  EXPECT_THROW(getInstanceTable("4'"), NLException);
+  EXPECT_THROW(getInstanceTable("'x"), NLException);
+}
+
 TEST_F(SNLDesignTruthTableTest0,
        testTruthTableParameterValidationErrors) {
   NLUniverse::create();
@@ -338,6 +382,63 @@ TEST_F(SNLDesignTruthTableTest0,
       SNLDesignModeling::setTruthTableFromParameter(
           invalidRadix.design, invalidRadix.output, invalidRadix.getInputs(),
           invalidRadix.parameter),
+      NLException);
+}
+
+TEST_F(SNLDesignTruthTableTest0,
+       testTruthTableParameterArgumentValidation) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* primitives = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* library = NLLibrary::create(db, NLName("designs"));
+  auto target = createParameterTruthTableDesign(
+      primitives, "argument_target", 2, "4'h6");
+  auto foreign = createParameterTruthTableDesign(
+      primitives, "argument_foreign", 1, "2'b01");
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          nullptr, target.output, target.getInputs(), target.parameter),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, nullptr, target.getInputs(), target.parameter),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, target.output, target.getInputs(), nullptr),
+      NLException);
+
+  auto* nonPrimitive = SNLDesign::create(library, NLName("non_primitive"));
+  auto* nonPrimitiveInput = SNLScalarTerm::create(
+      nonPrimitive, SNLTerm::Direction::Input, NLName("I"));
+  auto* nonPrimitiveOutput = SNLScalarTerm::create(
+      nonPrimitive, SNLTerm::Direction::Output, NLName("O"));
+  auto* nonPrimitiveParameter = SNLParameter::create(
+      nonPrimitive, NLName("INIT"), SNLParameter::Type::Binary, "2'b01");
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          nonPrimitive, nonPrimitiveOutput, {nonPrimitiveInput},
+          nonPrimitiveParameter),
+      NLException);
+
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, target.inputs[0], target.getInputs(),
+          target.parameter),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, foreign.output, target.getInputs(), target.parameter),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, target.output, target.getInputs(), foreign.parameter),
+      NLException);
+  EXPECT_THROW(
+      SNLDesignModeling::setTruthTableFromParameter(
+          target.design, target.output, {target.inputs[0], nullptr},
+          target.parameter),
       NLException);
 }
 
