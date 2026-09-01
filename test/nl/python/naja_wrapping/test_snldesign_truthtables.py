@@ -88,6 +88,52 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
   def testPrimitiveTruthTableErrors(self):
     prim = naja.SNLDesign.createPrimitive(self.primitives, "AND2")
     with self.assertRaises(RuntimeError) as context: prim.setTruthTable("ERROR")
+
+  def testTruthTableFromParameter(self):
+    prim = naja.SNLDesign.createPrimitive(self.primitives, "LUT2")
+    i0 = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Input, "I1")
+    output = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Output, "O")
+    init = naja.SNLParameter.create_binary(prim, "INIT", 4, 0)
+
+    prim.setTruthTableFromParameter(output, [i0, i1], init)
+
+    self.assertEqual([2, 0], prim.getTruthTable())
+
+  def testTruthTableFromParameterErrors(self):
+    prim = naja.SNLDesign.createPrimitive(self.primitives, "LUT2_ERRORS")
+    i0 = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Input, "I0")
+    output = naja.SNLScalarTerm.create(
+        prim, naja.SNLTerm.Direction.Output, "O")
+    init = naja.SNLParameter.create_binary(prim, "INIT", 2, 0)
+
+    with self.assertRaisesRegex(
+        RuntimeError,
+        "malformed SNLDesign.setTruthTableFromParameter method"):
+      prim.setTruthTableFromParameter()
+
+    invalid_arguments = (
+      (prim, [i0], init),
+      (output, (i0,), init),
+      (output, [i0], prim),
+    )
+    for arguments in invalid_arguments:
+      with self.assertRaisesRegex(
+          RuntimeError,
+          "setTruthTableFromParameter expects output, inputs, parameter"):
+        prim.setTruthTableFromParameter(*arguments)
+
+    with self.assertRaisesRegex(
+        RuntimeError, "inputs must be SNLBitTerm objects"):
+      prim.setTruthTableFromParameter(output, [prim], init)
+
+    with self.assertRaisesRegex(
+        RuntimeError, "require between 1 and 6 inputs"):
+      prim.setTruthTableFromParameter(output, [], init)
    
 if __name__ == '__main__':
   unittest.main()

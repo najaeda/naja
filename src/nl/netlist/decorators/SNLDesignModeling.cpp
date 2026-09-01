@@ -6,6 +6,8 @@
 #include "SNLDesignModeling.h"
 
 #include <algorithm>
+#include <cctype>
+#include <limits>
 #include <sstream>
 
 #include "NLBitDependencies.h"
@@ -18,7 +20,10 @@
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstance.h"
+#include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
+#include "SNLParameter.h"
 #include "SNLScalarTerm.h"
 
 // Common macros to unify repeated calculations without changing behavior
@@ -41,6 +46,142 @@
   } while (0)
 
 namespace {
+
+uint64_t widthMask(size_t width) {
+  return width >= 64 ? std::numeric_limits<uint64_t>::max()
+                     : ((uint64_t{1} << width) - 1);
+}
+
+uint64_t parseUnsignedDigits(
+    const std::string& digits, unsigned base, const std::string& literal) {
+  if (digits.empty()) {
+    throw naja::NL::NLException(
+        "Empty truth-table parameter value <" + literal + ">");
+  }
+  uint64_t value = 0;
+  for (char character : digits) {
+    const char lower = static_cast<char>(
+        std::tolower(static_cast<unsigned char>(character)));
+    if (lower == 'x' || lower == 'z' || lower == '?') {
+      throw naja::NL::NLException(
+          "Unknown bits are not supported in truth-table parameter value <" +
+          literal + ">");
+    }
+    unsigned digit = 0;
+    if (lower >= '0' && lower <= '9') {
+      digit = static_cast<unsigned>(lower - '0');
+    } else if (lower >= 'a' && lower <= 'f') {
+      digit = static_cast<unsigned>(lower - 'a' + 10);
+    } else {
+      throw naja::NL::NLException(
+          "Invalid truth-table parameter value <" + literal + ">");
+    }
+    if (digit >= base ||
+        value > (std::numeric_limits<uint64_t>::max() - digit) / base) {
+      throw naja::NL::NLException(
+          "Truth-table parameter value does not fit in 64 bits <" + literal +
+          ">");
+    }
+    value = value * base + digit;
+  }
+  return value;
+}
+
+uint64_t parseTruthTableParameterValue(
+    const std::string& literal, size_t contextualWidth) {
+  std::string normalized;
+  normalized.reserve(literal.size());
+  for (char character : literal) {
+    if (character != '_' &&
+        !std::isspace(static_cast<unsigned char>(character))) {
+      normalized.push_back(character);
+    }
+  }
+  if (normalized.empty()) {
+    throw naja::NL::NLException("Empty truth-table parameter value");
+  }
+
+  size_t declaredWidth = 0;
+  bool hasDeclaredWidth = false;
+  unsigned base = 10;
+  std::string digits;
+  const auto quote = normalized.find('\'');
+  if (quote != std::string::npos) {
+    if (quote > 0) {
+      declaredWidth = static_cast<size_t>(parseUnsignedDigits(
+          normalized.substr(0, quote), 10, literal));
+      hasDeclaredWidth = true;
+    }
+    size_t position = quote + 1;
+    if (position < normalized.size() &&
+        (normalized[position] == 's' || normalized[position] == 'S')) {
+      ++position;
+    }
+    if (position + 1 == normalized.size() &&
+        (normalized[position] == '0' || normalized[position] == '1' ||
+         normalized[position] == 'x' || normalized[position] == 'X' ||
+         normalized[position] == 'z' || normalized[position] == 'Z' ||
+         normalized[position] == '?')) {
+      if (normalized[position] != '0' && normalized[position] != '1') {
+        throw naja::NL::NLException(
+            "Unknown bits are not supported in truth-table parameter value <" +
+            literal + ">");
+      }
+      return normalized[position] == '1' ? widthMask(contextualWidth) : 0;
+    }
+    if (position >= normalized.size()) {
+      throw naja::NL::NLException(
+          "Invalid truth-table parameter value <" + literal + ">");
+    }
+    switch (static_cast<char>(std::tolower(
+        static_cast<unsigned char>(normalized[position])))) {
+      case 'b': base = 2; break;
+      case 'o': base = 8; break;
+      case 'd': base = 10; break;
+      case 'h': base = 16; break;
+      default:
+        throw naja::NL::NLException(
+            "Invalid truth-table parameter radix in <" + literal + ">");
+    }
+    digits = normalized.substr(position + 1);
+  } else {
+    if (normalized.size() > 2 && normalized[0] == '0' &&
+        (normalized[1] == 'x' || normalized[1] == 'X')) {
+      base = 16;
+      digits = normalized.substr(2);
+    } else {
+      digits = normalized;
+    }
+  }
+
+  uint64_t value = parseUnsignedDigits(digits, base, literal);
+  if (hasDeclaredWidth && declaredWidth < 64) {
+    value &= widthMask(declaredWidth);
+  }
+  return value;
+}
+
+uint64_t getParameterTruthTableBits(
+    const std::string& value, size_t inputCount, size_t parameterBitOffset) {
+  // LCOV_EXCL_START
+  // Public callers reject more than six inputs before reaching this helper.
+  if (inputCount > 6) {
+    throw naja::NL::NLException(
+        "Parameter-derived truth tables support at most 6 inputs");
+  }
+  // LCOV_EXCL_STOP
+  const size_t tableBitCount = size_t{1} << inputCount;
+  if (parameterBitOffset > 64 - tableBitCount) {
+    throw naja::NL::NLException(
+        "Parameter-derived truth table exceeds the 64-bit parameter range");
+  }
+  const uint64_t parameterValue = parseTruthTableParameterValue(
+      value, parameterBitOffset + tableBitCount);
+  if (tableBitCount == 64) {
+    return parameterValue;
+  }
+  return (parameterValue >> parameterBitOffset) & widthMask(tableBitCount);
+}
 
 bool isDB0SequentialPrimitive(const naja::NL::SNLDesign* design) {
   return design &&
@@ -1025,6 +1166,56 @@ SNLDesignModeling::SNLDesignModeling(Type type) : type_(type) {
   }
 }
 
+void SNLDesignModeling::setTruthTableFromParameter_(
+    size_t flatTermID, const ParameterTruthTable& truthTable) {
+  std::lock_guard<std::mutex> lock(instanceTruthTablesMutex_);
+  if (!parameterTruthTables_.emplace(flatTermID, truthTable).second) {
+    throw NLException("Design output already has a parameter-derived truth table");
+  }
+}
+
+const SNLDesignModeling::ParameterTruthTable*
+SNLDesignModeling::getTruthTableFromParameter_(size_t flatTermID) const {
+  auto it = parameterTruthTables_.find(flatTermID);
+  return it == parameterTruthTables_.end() ? nullptr : &it->second;
+}
+
+SNLTruthTable SNLDesignModeling::getTruthTable_(
+    const SNLInstance* instance, size_t flatTermID) const {
+  std::lock_guard<std::mutex> lock(instanceTruthTablesMutex_);
+  auto& instanceTables = instanceTruthTables_[instance];
+  if (auto cached = instanceTables.find(flatTermID);
+      cached != instanceTables.end()) {
+    return cached->second;
+  }
+
+  const auto* parameterTruthTable = getTruthTableFromParameter_(flatTermID);
+  // LCOV_EXCL_START
+  // Public callers only enter this helper after finding the same metadata.
+  if (!parameterTruthTable) {
+    return SNLTruthTable();
+  }
+  // LCOV_EXCL_STOP
+  std::string value = parameterTruthTable->parameter->getValue();
+  if (auto* instanceParameter =
+          instance->getInstParameter(parameterTruthTable->parameter->getName())) {
+    value = instanceParameter->getValue();
+  }
+  const auto& defaultTable = parameterTruthTable->defaultTruthTable;
+  const uint64_t bits = getParameterTruthTableBits(
+      value, defaultTable.size(), parameterTruthTable->parameterBitOffset);
+  SNLTruthTable resolvedTable(
+      defaultTable.size(), bits, defaultTable.getDependencies());
+  return instanceTables.emplace(flatTermID, std::move(resolvedTable))
+      .first->second;
+}
+
+void SNLDesignModeling::invalidateTruthTableCache_(
+    const SNLInstance* instance) const {
+  std::lock_guard<std::mutex> lock(instanceTruthTablesMutex_);
+  instanceTruthTables_.erase(instance);
+}
+
 void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input,
                                              SNLBitTerm* output) {
   TimingArcs* arcs = getOrCreateTimingArcs();
@@ -1738,6 +1929,74 @@ SNLDesignModeling::MemoryInterface SNLDesignModeling::getMemoryInterface(
   return memInterface;
 }
 
+void SNLDesignModeling::setTruthTableFromParameter(
+    SNLDesign* design,
+    SNLBitTerm* output,
+    const BitTerms& inputs,
+    SNLParameter* parameter,
+    size_t parameterBitOffset) {
+  if (!design || !output || !parameter) {
+    throw NLException(
+        "SNLDesignModeling::setTruthTableFromParameter: null argument");
+  }
+  if (!design->isPrimitive()) {
+    throw NLException(
+        "Cannot add parameter-derived truth table on non-primitive design");
+  }
+  if (output->getDesign() != design ||
+      output->getDirection() == SNLTerm::Direction::Input) {
+    throw NLException(
+        "Parameter-derived truth table output is not an output of the design");
+  }
+  if (parameter->getDesign() != design) {
+    throw NLException(
+        "Parameter-derived truth table parameter belongs to another design");
+  }
+  if (inputs.empty() || inputs.size() > 6) {
+    throw NLException(
+        "Parameter-derived truth tables require between 1 and 6 inputs");
+  }
+  if (getTruthTableProperty(design)) {
+    throw NLException("Design already has a Truth Table");
+  }
+
+  std::vector<size_t> dependencies;
+  dependencies.reserve(inputs.size());
+  for (auto* input : inputs) {
+    if (!input || input->getDesign() != design ||
+        input->getDirection() == SNLTerm::Direction::Output) {
+      throw NLException(
+          "Parameter-derived truth table input is not an input of the design");
+    }
+    if (!dependencies.empty() &&
+        input->getOrderID() <= dependencies.back()) {
+      throw NLException(
+          "Parameter-derived truth table inputs must follow design order");
+    }
+    dependencies.push_back(input->getOrderID());
+  }
+
+  const uint64_t defaultBits = getParameterTruthTableBits(
+      parameter->getValue(), inputs.size(), parameterBitOffset);
+  ParameterTruthTable parameterTruthTable{
+      parameter,
+      parameterBitOffset,
+      SNLTruthTable(
+          inputs.size(), defaultBits,
+          NLBitDependencies::encodeBits(dependencies))};
+  auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
+  if (property->getModelingType() != Type::NO_PARAMETER) {
+    throw NLException(
+        "Parameter-derived truth tables require non-parameterized timing arcs");
+  }
+  auto* modeling = property->getModeling();
+  modeling->setTruthTableFromParameter_(
+      output->getOrderID(), parameterTruthTable);
+  for (auto* input : inputs) {
+    modeling->addCombinatorialArc_(input, output);
+  }
+}
+
 void SNLDesignModeling::setTruthTable(SNLDesign* design,
                                       const SNLTruthTable& truthTable) {
   if (!design->isPrimitive()) {
@@ -1746,6 +2005,11 @@ void SNLDesignModeling::setTruthTable(SNLDesign* design,
   // Check no truth table already exists
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
+  }
+  if (auto property = getProperty(design);
+      property &&
+      !property->getModeling()->parameterTruthTables_.empty()) {
+    throw NLException("Design already has a parameter-derived Truth Table");
   }
   const auto& outputs =
       design->getBitTerms().getSubCollection([](const SNLBitTerm* t) {
@@ -1770,6 +2034,11 @@ void SNLDesignModeling::setTruthTables(
   // Check no truth table already exists
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
+  }
+  if (auto property = getProperty(design);
+      property &&
+      !property->getModeling()->parameterTruthTables_.empty()) {
+    throw NLException("Design already has a parameter-derived Truth Table");
   }
   const auto& outputs =
       design->getBitTerms().getSubCollection([](const SNLBitTerm* t) {
@@ -1847,6 +2116,13 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
     }
     return tableCount;
   }
+  if (auto modelingProperty = getProperty(design)) {
+    const auto parameterTableCount =
+        modelingProperty->getModeling()->parameterTruthTables_.size();
+    if (parameterTableCount != 0) {
+      return parameterTableCount;
+    }
+  }
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
   if (property != nullptr) {
@@ -1903,6 +2179,17 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
                         : SNLTruthTable();
     }
     return NLDB0::getPrimitiveTruthTable(design);
+  }
+  if (auto modelingProperty = getProperty(design)) {
+    const auto& parameterTruthTables =
+        modelingProperty->getModeling()->parameterTruthTables_;
+    if (parameterTruthTables.size() == 1) {
+      return parameterTruthTables.begin()->second.defaultTruthTable;
+    }
+    if (parameterTruthTables.size() > 1) {
+      throw NLException(
+          "SNLDesignModeling::getTruthTable: design has per-output truth tables");
+    }
   }
   auto property = getTruthTableProperty(design);
   if (property) {
@@ -2068,6 +2355,13 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
     throw NLException(reason.str());
   }
 
+  if (auto modelingProperty = getProperty(design)) {
+    if (const auto* parameterTruthTable = modelingProperty->getModeling()
+            ->getTruthTableFromParameter_(flatTermID)) {
+      return parameterTruthTable->defaultTruthTable;
+    }
+  }
+
   if (property) {
     if (!NLDB0::isDB0Primitive(design) && getTruthTableCount(design) == 1) {
       return getTruthTable(design);
@@ -2137,6 +2431,57 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
   }
 
   return SNLTruthTable();
+}
+
+SNLTruthTable SNLDesignModeling::getTruthTable(
+    const SNLInstance* instance) {
+  if (!instance) {
+    throw NLException("SNLDesignModeling::getTruthTable: null instance");
+  }
+  const auto* model = instance->getModel();
+  if (getTruthTableCount(model) != 1) {
+    return getTruthTable(model);
+  }
+  for (auto* term : model->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Input) {
+      return getTruthTable(instance, term->getOrderID());
+    }
+  }
+  return SNLTruthTable();  // LCOV_EXCL_LINE: a valid single table has an output
+}
+
+SNLTruthTable SNLDesignModeling::getTruthTable(
+    const SNLInstance* instance, size_t flatTermID) {
+  if (!instance) {
+    throw NLException("SNLDesignModeling::getTruthTable: null instance");
+  }
+  const auto* model = instance->getModel();
+  if (auto property = getProperty(model)) {
+    auto* modeling = property->getModeling();
+    if (modeling->getTruthTableFromParameter_(flatTermID)) {
+      return modeling->getTruthTable_(instance, flatTermID);
+    }
+  }
+  return getTruthTable(model, flatTermID);
+}
+
+bool SNLDesignModeling::hasTruthTableFromParameter(
+    const SNLDesign* design, size_t flatTermID) {
+  if (auto property = getProperty(design)) {
+    return property->getModeling()->getTruthTableFromParameter_(flatTermID) !=
+           nullptr;
+  }
+  return false;
+}
+
+void SNLDesignModeling::invalidateTruthTableCache(
+    const SNLInstance* instance) {
+  if (!instance) {
+    return;
+  }
+  if (auto property = getProperty(instance->getModel())) {
+    property->getModeling()->invalidateTruthTableCache_(instance);
+  }
 }
 
 bool SNLDesignModeling::hasModeling(const SNLDesign* design) {

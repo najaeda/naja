@@ -10,6 +10,7 @@
 #include "NLException.h"
 
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLInstance.h"
 #include "SNLBusTerm.h"
 #include "SNLBundleTerm.h"
@@ -349,6 +350,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
 
 void SNLInstance::commonPreDestroy() {
   NAJA_LOG_TRACE("commonPreDestroy {}", getDescription());
+  SNLDesignModeling::invalidateTruthTableCache(this);
 
   for (const auto& sharedPathsElement: sharedPaths_) {
     sharedPathsElement.second->destroyFromInstance();
@@ -605,6 +607,7 @@ void SNLInstance::setModel(SNLDesign* model) {
   if (not model->isPrimitive()) {
     model->addSlaveInstance(this);
   }
+  SNLDesignModeling::invalidateTruthTableCache(this);
   model_ = model;
 }
 

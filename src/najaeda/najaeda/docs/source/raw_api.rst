@@ -201,6 +201,12 @@ The built-in loaders under :mod:`najaeda.primitives` use the same API, so
 Python-defined primitives expose the same arc, role, and active-level
 metadata as primitives constructed by the C++ DB0 and Liberty paths.
 
+For primitives such as FPGA lookup tables whose function is held in an
+instance parameter, use ``setTruthTableFromParameter(output, inputs,
+parameter, bit_offset=0)``. The input list must follow design order and may
+contain up to six terms. Naja resolves the instance override on first use and
+caches the resulting truth table for that instance.
+
 Liberty loading preserves every distinct sequential dependency declared by
 setup, hold, or edge timing groups.  Consequently,
 ``getInputRelatedClocks()`` and ``getOutputRelatedClocks()`` can return more
@@ -231,7 +237,7 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLLibrary`
      - ``create``, ``createPrimitives``, ``getDB``, ``getID``, ``getNLID``, ``getName``, ``setName``, ``isStandard``, ``isPrimitives``, ``getSNLDesign``, ``getSNLDesigns``, ``getLibrary``
    * - :class:`najaeda.naja.SNLDesign`
-     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``addCombinatorialArcs``, ``addInputsToClockArcs``, ``addClockToOutputsArcs``, ``setTimingModelParameter``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``, ``getClockRelatedInputs``, ``getClockRelatedOutputs``, ``getInputRelatedClocks``, ``getOutputRelatedClocks``, ``getClockTerms``, ``getAsyncResetTerms``, ``getAsyncSetTerms``, ``getSyncResetTerms``, ``getSyncSetTerms``, ``getDataInputTerms``, ``getOutputTerms``, ``setTruthTable``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``isMux``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
+     - ``create``, ``createPrimitive``, ``clone``, ``destroy``, ``getName``, ``setName``, ``getDB``, ``getLibrary``, ``getID``, ``getNLID``, ``getRevisionCount``, ``getTerms``, ``getTerm``, ``getTermByID``, ``getScalarTerms``, ``getBusTerms``, ``getBundleTerms``, ``getNets``, ``getNet``, ``getScalarNets``, ``getBusNets``, ``getInstances``, ``getInstance``, ``getInstanceByID``, ``getInstanceByIDList``, ``getParameters``, ``getParameter``, ``addCombinatorialArcs``, ``addInputsToClockArcs``, ``addClockToOutputsArcs``, ``setTimingModelParameter``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``, ``getClockRelatedInputs``, ``getClockRelatedOutputs``, ``getInputRelatedClocks``, ``getOutputRelatedClocks``, ``getClockTerms``, ``getAsyncResetTerms``, ``getAsyncSetTerms``, ``getSyncResetTerms``, ``getSyncSetTerms``, ``getDataInputTerms``, ``getOutputTerms``, ``setTruthTable``, ``setTruthTableFromParameter``, ``setTruthTables``, ``getTruthTable``, ``getTruthTableByOutputID``, ``isConst0``, ``isConst1``, ``isConst``, ``isBuf``, ``isInv``, ``isAnd``, ``isNand``, ``isOr``, ``isNor``, ``isXor``, ``isXnor``, ``isMux``, ``dumpVerilog``, ``dumpFullDotFile``, ``dumpContextDotFile``
    * - :class:`najaeda.naja.SNLInstance`
      - ``create``, ``destroy``, ``getName``, ``setName``, ``getID``, ``getNLID``, ``getDesign``, ``getModel``, ``getInstTerm``, ``getInstTerms``, ``getInstParameter``, ``getInstParameters``, ``getCombinatorialInputs``, ``getCombinatorialOutputs``, ``getClockRelatedInputs``, ``getClockRelatedOutputs``, ``getInputRelatedClocks``, ``getOutputRelatedClocks``
    * - :class:`najaeda.naja.SNLTerm` and term subclasses

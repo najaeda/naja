@@ -160,7 +160,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     throw SNLException(reason.str());
   }*/
   SNLTruthTable invTruthTable =
-      SNLDesignModeling::getTruthTable(uniquifiedCandidate->getModel());
+      SNLDesignModeling::getTruthTable(uniquifiedCandidate);
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -230,7 +230,7 @@ void ReductionOptimization::
                        .begin());
   auto inst = getInstanceForPath(std::get<0>(candidate));
   SNLTruthTable invTruthTable =
-      SNLDesignModeling::getTruthTable(inst->getModel());
+      SNLDesignModeling::getTruthTable(inst);
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

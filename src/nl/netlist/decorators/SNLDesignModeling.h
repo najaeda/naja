@@ -8,6 +8,7 @@
 #include <list>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
@@ -22,6 +23,7 @@ namespace naja::NL {
 class SNLInstance;
 class SNLInstTerm;
 class SNLDesign;
+class SNLParameter;
 
 /**
  * \brief SNLDesignModeling allows to add timing informations on primitives and blackboxes.
@@ -216,8 +218,20 @@ class SNLDesignModeling {
 
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
+    static void setTruthTableFromParameter(
+        SNLDesign* design,
+        SNLBitTerm* output,
+        const BitTerms& inputs,
+        SNLParameter* parameter,
+        size_t parameterBitOffset = 0);
     static SNLTruthTable getTruthTable(const SNLDesign* design);
     static SNLTruthTable getTruthTable(const SNLDesign* design, size_t flatTermID);
+    static SNLTruthTable getTruthTable(const SNLInstance* instance);
+    static SNLTruthTable getTruthTable(
+        const SNLInstance* instance, size_t flatTermID);
+    static bool hasTruthTableFromParameter(
+        const SNLDesign* design, size_t flatTermID);
+    static void invalidateTruthTableCache(const SNLInstance* instance);
     static bool hasModeling(const SNLDesign* design);
     static bool isSequential(const SNLDesign* design);
     static bool isConst0(const SNLDesign* design);
@@ -269,12 +283,28 @@ class SNLDesignModeling {
       auto it = termRoles_.find(const_cast<SNLBitTerm*>(term));
       return it == termRoles_.end() ? TermRole{} : it->second;
     }
+    struct ParameterTruthTable {
+      SNLParameter* parameter {nullptr};
+      size_t parameterBitOffset {0};
+      SNLTruthTable defaultTruthTable {};
+    };
+    void setTruthTableFromParameter_(
+        size_t flatTermID, const ParameterTruthTable& truthTable);
+    const ParameterTruthTable* getTruthTableFromParameter_(
+        size_t flatTermID) const;
+    SNLTruthTable getTruthTable_(
+        const SNLInstance* instance, size_t flatTermID) const;
+    void invalidateTruthTableCache_(const SNLInstance* instance) const;
     Type          type_       { NO_PARAMETER };
     Parameter     parameter_  {};
     TimingModel   model_      {};
     std::optional<MemoryInterface> memoryInterface_ {};
     std::optional<SequentialModel> sequentialModel_ {};
     std::map<SNLBitTerm*, TermRole, SNLBitTerm::InDesignLess> termRoles_ {};
+    std::map<size_t, ParameterTruthTable> parameterTruthTables_ {};
+    mutable std::map<const SNLInstance*, std::map<size_t, SNLTruthTable>>
+        instanceTruthTables_ {};
+    mutable std::mutex instanceTruthTablesMutex_ {};
 };
 
 }  // namespace naja::NL

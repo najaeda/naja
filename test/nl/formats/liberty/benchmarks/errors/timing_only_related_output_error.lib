@@ -1,0 +1,15 @@
+library (timing_only_related_output_error) {
+  cell (BAD_RELATED_OUTPUT) {
+    pin (A) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      state_function : "A";
+      timing () {
+        related_pin : "Q";
+        timing_type : combinational;
+      }
+    }
+  }
+}

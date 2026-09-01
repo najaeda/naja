@@ -195,7 +195,7 @@ void ConstantPropagation::collectConstants() {
 unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
   const SNLTruthTable& truthTable =
-      SNLDesignModeling::getTruthTable(instance.getSNLInstance()->getModel());
+      SNLDesignModeling::getTruthTable(instance.getSNLInstance());
   if (not truthTable.isInitialized()) {
     // LCOV_EXCL_START
     return (unsigned)-1;

@@ -320,6 +320,28 @@ TEST_F(SNLBooleanTreeTest0, testEmptyTreeError) {
   EXPECT_THROW(tree->getTruthTable(SNLBooleanTree::Terms()), SNLLibertyConstructorException);
 }
 
+TEST_F(SNLBooleanTreeTest0, testTruthTableRejectsNonInputReference) {
+  auto* design =
+      SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("SELF"));
+  auto* input = SNLScalarTerm::create(
+      design, SNLTerm::Direction::Input, NLName("A"));
+  SNLScalarTerm::create(
+      design, SNLTerm::Direction::Output, NLName("Y"));
+  SNLBooleanTree tree;
+  tree.parse(design, "Y");
+
+  try {
+    tree.getTruthTable({input});
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Term `Y` referenced by Boolean expression `Y` is not a truth "
+            "table input."));
+  }
+}
+
 TEST_F(SNLBooleanTreeTest0, test7Inputs) {
   auto oai222 = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("OAI222"));
   SNLBooleanTree::Terms inputs;
