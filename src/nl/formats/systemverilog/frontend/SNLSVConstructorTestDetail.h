@@ -10,6 +10,14 @@
 #include <string>
 #include <vector>
 
+namespace slang::ast {
+class Symbol;
+}
+
+namespace naja::NL {
+class SNLInstance;
+}
+
 namespace naja::NL::detail {
 
 struct InferredMemoryGuardDefaults {
@@ -226,5 +234,9 @@ std::string testSVConstructorFormatDescribedFailure(
 std::string testSVConstructorFormatQuotedDescriptionFailure(
   const std::string& prefix,
   const std::string& description);
+
+bool testSVConstructorTryCollapseAnonymousAssignAlias(
+  SNLInstance* assignInstance,
+  const slang::ast::Symbol* associatedSymbol = nullptr);
 
 }  // namespace naja::NL::detail

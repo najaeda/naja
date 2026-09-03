@@ -857,6 +857,7 @@ class SNLSVConstructorImpl {
       std::chrono::nanoseconds createContinuousAssignsDuration {0};
       std::chrono::nanoseconds createInstancesDuration {0};
       std::chrono::nanoseconds createSequentialLogicDuration {0};
+      std::chrono::nanoseconds collapseAnonymousAssignAliasesDuration {0};
       std::chrono::nanoseconds annotateSourceInfoDuration {0};
       std::chrono::nanoseconds cloneRTLInfosDuration {0};
 
@@ -873,6 +874,8 @@ class SNLSVConstructorImpl {
       size_t createContinuousAssignsCalls {0};
       size_t createInstancesCalls {0};
       size_t createSequentialLogicCalls {0};
+      size_t anonymousAssignAliasCandidates {0};
+      size_t anonymousAssignAliasesCollapsed {0};
       size_t annotateSourceInfoCalls {0};
       size_t rtlInfoCreateDesignCalls {0};
       size_t rtlInfoCreateDesignObjectCalls {0};
@@ -1214,6 +1217,10 @@ class SNLSVConstructorImpl {
              << toMilliseconds(
                   durationWithActiveTimers(svPerfReport_.createSequentialLogicDuration))
              << "\n";
+      output << "time.lowering.collapse_anonymous_assign_aliases_ms="
+             << toMilliseconds(durationWithActiveTimers(
+                  svPerfReport_.collapseAnonymousAssignAliasesDuration))
+             << "\n";
       output << "time.lowering.annotate_source_info_ms="
              << toMilliseconds(
                   durationWithActiveTimers(svPerfReport_.annotateSourceInfoDuration))
@@ -1241,6 +1248,10 @@ class SNLSVConstructorImpl {
              << svPerfReport_.createInstancesCalls << "\n";
       output << "count.lowering.create_sequential_logic_calls="
              << svPerfReport_.createSequentialLogicCalls << "\n";
+      output << "count.lowering.anonymous_assign_alias_candidates="
+             << svPerfReport_.anonymousAssignAliasCandidates << "\n";
+      output << "count.lowering.anonymous_assign_aliases_collapsed="
+             << svPerfReport_.anonymousAssignAliasesCollapsed << "\n";
       output << "count.lowering.annotate_source_info_calls="
              << svPerfReport_.annotateSourceInfoCalls << "\n";
       output << "count.rtl_info.create_design_calls="
@@ -1386,6 +1397,7 @@ class SNLSVConstructorImpl {
       loweredVariableInitializers_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
+      anonymousAssignAliasCandidates_.clear();
       initializeDiagnosticsReport();
       const auto diagnosticsReportGuard = slang::ScopeGuard([&]() {
         if (!diagnosticsReportFinalized_) {
@@ -1468,6 +1480,17 @@ class SNLSVConstructorImpl {
 #endif
           }
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
+
+        // Expression lowering caches can retain pointers to compiler-generated
+        // nets. No construction path consults them after all top designs have
+        // been built, so release them before deleting redundant alias nets.
+        dynamicElementSelectCache_.clear();
+        gateOutputCache_.clear();
+        equalitySelectorsByNet_.clear();
+        collapseAnonymousAssignAliases();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
 #endif
@@ -2878,6 +2901,14 @@ endmodule
       const std::string& prefix,
       const std::string& description) const {
       return formatQuotedDescriptionFailure(prefix, description);
+    }
+
+    bool testTryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
+      return tryCollapseAnonymousAssignAlias(assignInstance);
+    }
+
+    void testBindLiveASTLink(NLObject* object, const Symbol& symbol) {
+      bindLiveASTLink(object, symbol);
     }
     // LCOV_EXCL_STOP
 #endif
@@ -9177,6 +9208,141 @@ endmodule
       return nullptr; // LCOV_EXCL_LINE
     }
 
+    bool hasNonTransferableAliasMetadata(const SNLDesignObject* object) const {
+      if (!object ||
+          !object->getAttributes().empty() ||
+          !object->getProperties().empty()) {
+        return true;
+      }
+      if (liveASTLink_ && liveASTLink_->getSymbol(object)) {
+        return true;
+      }
+      const auto* rtlInfos = object->getRTLInfos();
+      return rtlInfos && !rtlInfos->getInfos().empty();
+    }
+
+    void retainAliasSourceLocation(
+      const SNLDesignObject* from,
+      SNLDesignObject* producer) const {
+      if (!from || !producer) {
+        return; // LCOV_EXCL_LINE
+      }
+      const auto* fromInfos = from->getRTLInfos();
+      if (!fromInfos || !fromInfos->hasSourceLoc()) {
+        return;
+      }
+      auto* producerInfos = producer->getRTLInfos();
+      if (producerInfos && producerInfos->hasSourceLoc()) {
+        return;
+      }
+      producerInfos = getOrCreateRTLInfos(producer);
+      producerInfos->setSourceLoc(*fromInfos->getSourceLoc());
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      svPerfReport_.rtlInfoSetCalls += 5;
+      noteSVPerfProgress();
+#endif
+    }
+
+    bool tryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
+      if (!assignInstance || !NLDB0::isAssign(assignInstance->getModel())) {
+        return false;
+      }
+      auto* assignInput = assignInstance->getInstTerm(NLDB0::getAssignInput());
+      auto* assignOutput = assignInstance->getInstTerm(NLDB0::getAssignOutput());
+      if (!assignInput || !assignOutput) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      // Restrict fusion to whole anonymous scalar nets. A bus bit can encode a
+      // slice, concatenation, reordering, extension, or truncation decision,
+      // and its owning bus cannot be removed independently.
+      auto* aliasNet = dynamic_cast<SNLScalarNet*>(assignInput->getNet());
+      auto* destinationNet = dynamic_cast<SNLBitNet*>(assignOutput->getNet());
+      if (!aliasNet ||
+          !destinationNet ||
+          aliasNet == destinationNet ||
+          !aliasNet->isUnnamed() ||
+          aliasNet->getType() != SNLNet::Type::Standard ||
+          destinationNet->getType() != SNLNet::Type::Standard ||
+          !aliasNet->getBitTerms().empty() ||
+          hasNonTransferableAliasMetadata(aliasNet) ||
+          hasNonTransferableAliasMetadata(assignInstance)) {
+        return false;
+      }
+
+      // The alias must have exactly one producer and exactly one consumer: the
+      // assign input being removed. Direct incident-component traversal keeps
+      // this proportional to the connectivity of the candidate net.
+      if (aliasNet->getComponents().size() != 2) {
+        return false;
+      }
+      SNLInstTerm* producerOutput = nullptr;
+      for (auto* component : aliasNet->getComponents()) {
+        auto* instTerm = dynamic_cast<SNLInstTerm*>(component);
+        if (!instTerm) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (instTerm == assignInput) {
+          continue;
+        }
+        if (producerOutput ||
+            instTerm->getDirection() != SNLTerm::Direction::Output ||
+            !instTerm->getInstance() ||
+            NLDB0::isAssign(instTerm->getInstance()->getModel())) {
+          return false;
+        }
+        producerOutput = instTerm;
+      }
+      if (!producerOutput) {
+        // With exactly two unique components, one is assignInput and the other
+        // either becomes producerOutput or returns from the loop above.
+        return false; // LCOV_EXCL_LINE defensive: component invariant
+      }
+
+      // The destination may have loads and an output port, but the candidate
+      // assign must be its only driver. Input/inout design ports are themselves
+      // externally driven and therefore cannot accept the producer directly.
+      for (auto* instTerm : destinationNet->getInstTerms()) {
+        if (instTerm == assignOutput) {
+          continue;
+        }
+        if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Input) {
+          return false;
+        }
+      }
+      for (auto* bitTerm : destinationNet->getBitTerms()) {
+        if (!bitTerm || bitTerm->getDirection() != SNLTerm::Direction::Output) {
+          return false;
+        }
+      }
+
+      auto* producer = producerOutput->getInstance();
+      retainAliasSourceLocation(aliasNet, producer);
+      retainAliasSourceLocation(assignInstance, producer);
+      producerOutput->setNet(destinationNet);
+      assignInstance->destroy();
+      aliasNet->destroy();
+      return true;
+    }
+
+    void collapseAnonymousAssignAliases() {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const SVPerfScopedTimer timer(
+        svPerfReport_,
+        svPerfReport_.collapseAnonymousAssignAliasesDuration);
+      svPerfReport_.anonymousAssignAliasCandidates =
+        anonymousAssignAliasCandidates_.size();
+#endif
+      for (auto* candidate : anonymousAssignAliasCandidates_) {
+        if (tryCollapseAnonymousAssignAlias(candidate)) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.anonymousAssignAliasesCollapsed;
+#endif
+        }
+      }
+      anonymousAssignAliasCandidates_.clear();
+    }
+
     SNLInstance* createAssignInstance(
       SNLDesign* design,
       SNLNet* inNet,
@@ -9213,6 +9379,10 @@ endmodule
         if (auto outTerm = assignInst->getInstTerm(assignOutput)) {
           outTerm->setNet(outNet);
         }
+      }
+      if (auto* scalarInput = dynamic_cast<SNLScalarNet*>(inNet);
+          scalarInput && scalarInput->isUnnamed()) {
+        anonymousAssignAliasCandidates_.push_back(assignInst);
       }
       return assignInst;
     }
@@ -34546,6 +34716,7 @@ endmodule
     std::unordered_map<GateOutputCacheKey, SNLNet*, GateOutputCacheKeyHash>
       gateOutputCache_ {};
     std::unordered_map<SNLBitNet*, EqualitySelectorInfo> equalitySelectorsByNet_ {};
+    std::vector<SNLInstance*> anonymousAssignAliasCandidates_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
@@ -34906,6 +35077,23 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
+}
+
+bool testSVConstructorTryCollapseAnonymousAssignAlias(
+  SNLInstance* assignInstance,
+  const Symbol* associatedSymbol) {
+  SNLSVConstructor::ConstructOptions options;
+  options.keepASTLink = associatedSymbol != nullptr;
+  SNLSVConstructorImpl impl(
+    assignInstance ? assignInstance->getLibrary() : nullptr,
+    options);
+  if (assignInstance && associatedSymbol) {
+    auto* assignInput = assignInstance->getInstTerm(NLDB0::getAssignInput());
+    if (assignInput && assignInput->getNet()) {
+      impl.testBindLiveASTLink(assignInput->getNet(), *associatedSymbol);
+    }
+  }
+  return impl.testTryCollapseAnonymousAssignAlias(assignInstance);
 }
 // LCOV_EXCL_STOP
 
