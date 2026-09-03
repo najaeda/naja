@@ -144,15 +144,10 @@ size_t getPrimitiveWidth(const SNLInstance* instance) {
   return 1;
 }
 
-size_t countAssignDrivers(const SNLDesign* design, const SNLBitNet* net) {
+size_t countInstanceDrivers(const SNLBitNet* net) {
   size_t count = 0;
-  auto assignOutput = NLDB0::getAssignOutput();
-  for (auto inst : design->getInstances()) {
-    if (!NLDB0::isAssign(inst->getModel())) {
-      continue;
-    }
-    auto instTerm = inst->getInstTerm(assignOutput);
-    if (instTerm && instTerm->getNet() == net) {
+  for (auto* instTerm : net->getInstTerms()) {
+    if (instTerm && instTerm->getDirection() == SNLTerm::Direction::Output) {
       ++count;
     }
   }
@@ -2524,7 +2519,7 @@ endmodule
       continue;
     }
     ++checkedWriteEnableNets;
-    EXPECT_EQ(1u, countAssignDrivers(top, bitNet)) << name;
+    EXPECT_EQ(1u, countInstanceDrivers(bitNet)) << name;
   }
   EXPECT_EQ(2u, checkedWriteEnableNets);
 }

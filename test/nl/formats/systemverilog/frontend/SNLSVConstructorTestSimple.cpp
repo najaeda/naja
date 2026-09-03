@@ -25,6 +25,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBitNet.h"
+#include "SNLAttributes.h"
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
@@ -996,6 +997,37 @@ std::vector<std::string> collectNetNamesContaining(
   }
   std::sort(names.begin(), names.end());
   return names;
+}
+
+struct AnonymousAssignAliasFixture {
+  SNLScalarNet* input {nullptr};
+  SNLScalarNet* alias {nullptr};
+  SNLScalarNet* destination {nullptr};
+  SNLInstance* producer {nullptr};
+  SNLInstTerm* producerOutput {nullptr};
+  SNLInstance* assign {nullptr};
+};
+
+AnonymousAssignAliasFixture createAnonymousAssignAliasFixture(
+  SNLDesign* design,
+  const NLName& aliasName = NLName()) {
+  AnonymousAssignAliasFixture fixture;
+  fixture.input = SNLScalarNet::create(design, NLName("input"));
+  fixture.alias = SNLScalarNet::create(design, aliasName);
+  fixture.destination = SNLScalarNet::create(design, NLName("destination"));
+
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  fixture.producer = SNLInstance::create(design, buffer);
+  fixture.producer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(fixture.input);
+  auto* outputs = NLDB0::getGateNTerms(buffer);
+  fixture.producerOutput =
+    fixture.producer->getInstTerm(outputs->getBitAtPosition(0));
+  fixture.producerOutput->setNet(fixture.alias);
+
+  fixture.assign = SNLInstance::create(design, NLDB0::getAssign());
+  fixture.assign->getInstTerm(NLDB0::getAssignInput())->setNet(fixture.alias);
+  fixture.assign->getInstTerm(NLDB0::getAssignOutput())->setNet(fixture.destination);
+  return fixture;
 }
 
 void expectUnsupportedConstruct(
@@ -12473,7 +12505,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
 
   EXPECT_EQ(3u, andGateCount);
   EXPECT_EQ(5u, xnorGateCount);
-  EXPECT_EQ(4u, assignCount);
+  EXPECT_EQ(0u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12526,7 +12558,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
   EXPECT_EQ(3u, andGateCount);
   EXPECT_EQ(5u, xnorGateCount);
   EXPECT_EQ(5u, notGateCount);
-  EXPECT_EQ(4u, assignCount);
+  EXPECT_EQ(0u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -14013,12 +14045,11 @@ endmodule
     NLDB0::TableSelectSignature {1, 8, 3}));
 
   auto findDrivingTableSelect = [](SNLScalarNet* output) -> SNLInstance* {
-    auto* selectedNet = dynamic_cast<SNLBitNet*>(getSingleAssignInputDriving(output));
-    if (!selectedNet) {
+    if (!output) {
       return nullptr;
     }
     SNLInstance* found = nullptr;
-    for (auto* instTerm : selectedNet->getInstTerms()) {
+    for (auto* instTerm : output->getInstTerms()) {
       if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
         continue;
       }
@@ -14063,6 +14094,34 @@ endmodule
     findDrivingTableSelect(qAfter),
     top->getBusNet(NLName("b")));
 
+  size_t assignCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (instance && NLDB0::isAssign(instance->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(0u, assignCount);
+
+  size_t anonymousStandardScalarNetCount = 0;
+  for (auto* net : top->getNets()) {
+    auto* scalar = dynamic_cast<SNLScalarNet*>(net);
+    if (scalar && scalar->isUnnamed() &&
+        scalar->getType() == SNLNet::Type::Standard) {
+      ++anonymousStandardScalarNetCount;
+    }
+  }
+  EXPECT_EQ(0u, anonymousStandardScalarNetCount);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_comb_automatic_variable_multiple_versions_use_replay_values_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find("wire net_"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_before"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_after"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".Y(q_before)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".Y(q_after)"));
+
   // The automatic local exists only as successive procedural replay values;
   // static-selection probing must not leave behind an undriven source-named net.
   EXPECT_EQ(nullptr, top->getBusNet(NLName(
@@ -14104,6 +14163,135 @@ endmodule
   for (NLID::Bit bit = 1; bit < 8; ++bit) {
     EXPECT_EQ(a->getBit(bit), getSingleAssignInputDriving(q->getBit(bit))) << bit;
   }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithMultipleConsumersIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_multiple_consumers"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* secondConsumer = SNLInstance::create(
+    design,
+    NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1));
+  secondConsumer->getInstTerm(
+    NLDB0::getGateSingleTerm(secondConsumer->getModel()))->setNet(fixture.alias);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(3u, fixture.alias->getComponents().size());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  namedRTLAssignAliasIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_named_rtl"));
+  auto fixture = createAnonymousAssignAliasFixture(design, NLName("declared_signal"));
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_NE(nullptr, design->getScalarNet(NLName("declared_signal")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousBusBitAssignMappingIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_bus_bit_mapping"));
+  auto* input = SNLScalarNet::create(design, NLName("input"));
+  auto* aliasBus = SNLBusNet::create(design, 0, 1);
+  auto* destination = SNLScalarNet::create(design, NLName("destination"));
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  auto* producer = SNLInstance::create(design, buffer);
+  producer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(input);
+  auto* producerOutput = producer->getInstTerm(
+    NLDB0::getGateNTerms(buffer)->getBitAtPosition(0));
+  producerOutput->setNet(aliasBus->getBit(1));
+  auto* assign = SNLInstance::create(design, NLDB0::getAssign());
+  assign->getInstTerm(NLDB0::getAssignInput())->setNet(aliasBus->getBit(1));
+  assign->getInstTerm(NLDB0::getAssignOutput())->setNet(destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(assign));
+  EXPECT_EQ(aliasBus->getBit(1), producerOutput->getNet());
+  EXPECT_EQ(2u, aliasBus->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithExistingDestinationDriverIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_existing_driver"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* otherInput = SNLScalarNet::create(design, NLName("other_input"));
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  auto* otherProducer = SNLInstance::create(design, buffer);
+  otherProducer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(otherInput);
+  otherProducer->getInstTerm(
+    NLDB0::getGateNTerms(buffer)->getBitAtPosition(0))->setNet(fixture.destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithAttributeIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_attribute"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  SNLAttributes::addAttribute(
+    fixture.alias,
+    SNLAttribute(NLName("keep"), SNLAttributeValue("true")));
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_FALSE(fixture.alias->getAttributes().empty());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithNonSourceRTLMetadataIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_rtl_metadata"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* rtlInfos = SNLRTLInfos::create(fixture.alias);
+  rtlInfos->setInfo(NLName("rtl_symbol"), "temporary_value");
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ("temporary_value", rtlInfos->getInfo(NLName("rtl_symbol")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasSourceLocationIsTransferred) {
+  auto* design = SNLDesign::create(library_, NLName("alias_source_location"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* aliasInfos = SNLRTLInfos::create(fixture.alias);
+  aliasInfos->setSourceLoc({NLName("source.sv"), 17, 17, 4, 12});
+
+  EXPECT_TRUE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.destination, fixture.producerOutput->getNet());
+  EXPECT_EQ(2u, design->getNets().size());
+  EXPECT_EQ(1u, design->getInstances().size());
+  const auto* producerInfos = fixture.producer->getRTLInfos();
+  ASSERT_NE(nullptr, producerInfos);
+  ASSERT_TRUE(producerInfos->hasSourceLoc());
+  ASSERT_TRUE(producerInfos->getSourceLoc());
+  EXPECT_EQ("source.sv", producerInfos->getSourceLoc()->file.getString());
+  EXPECT_EQ(17u, producerInfos->getSourceLoc()->line);
+  EXPECT_EQ(4u, producerInfos->getSourceLoc()->column);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousPortAssignAliasIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_port"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* port = SNLScalarTerm::create(
+    design,
+    SNLTerm::Direction::Input,
+    NLName("port"));
+  port->setNet(fixture.alias);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(fixture.alias, port->getNet());
 }
 
 TEST_F(
