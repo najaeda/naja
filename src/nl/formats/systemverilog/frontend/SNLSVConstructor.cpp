@@ -2286,6 +2286,16 @@ class SNLSVConstructorImpl {
       return result;
     }
 
+    bool testAutomaticLocalReplayLHSReuseEligibility(
+      bool wholeLHS,
+      bool automaticLocal,
+      bool hasReplayBits) const {
+      return canUseReplayBitsAsAutomaticLocalLHS(
+        wholeLHS,
+        automaticLocal,
+        hasReplayBits);
+    }
+
     std::optional<detail::ProceduralReplayEnvMergeTestResult>
     testMergeProceduralReplayEnvs() {
       auto syntaxTree = slang::syntax::SyntaxTree::fromText(
@@ -10814,6 +10824,15 @@ endmodule
 
       const auto resolveBaseBits = [&](const Expression& baseExpr,
                                        std::vector<SNLBitNet*>& baseBits) {
+        baseBits.clear();
+        // A failed static-selection probe must not materialize a stable net
+        // for a procedural local that already has a current replay value.
+        if (auto baseWidth = getIntegralExpressionBitWidth(baseExpr);
+            baseWidth && *baseWidth > 0 &&
+            resolveActiveProceduralReplayBits(baseExpr, *baseWidth, baseBits) &&
+            baseBits.size() == *baseWidth) {
+          return true;
+        }
         baseBits.clear();
         auto* baseNet = resolveExpressionNet(design, baseExpr);
         if (!baseNet) {
@@ -26583,6 +26602,13 @@ endmodule
       return true;
     }
 
+    bool canUseReplayBitsAsAutomaticLocalLHS(
+      bool wholeLHS,
+      bool automaticLocal,
+      bool hasReplayBits) const {
+      return wholeLHS && automaticLocal && hasReplayBits;
+    }
+
     bool applyCombinationalAssignmentToReplaySymbol(
       SNLDesign* design,
       const Expression& assignedLHS,
@@ -26604,12 +26630,26 @@ endmodule
       }
 
       std::vector<SNLBitNet*> replayLhsBits;
-      if (!resolveAssignmentLHSBits(
-            design,
-            *replayLhs,
-            replayLhsBits,
-            &failureReason,
-            true)) {
+      auto found = activeProceduralReplayEnv_->find(replaySymbol);
+      const bool useAutomaticLocalReplayLhs =
+        canUseReplayBitsAsAutomaticLocalLHS(
+          sameLhs(&assignedLHS, replayLhs),
+          replaySymbol->kind == slang::ast::SymbolKind::Variable &&
+            replaySymbol->as<slang::ast::VariableSymbol>().lifetime ==
+              slang::ast::VariableLifetime::Automatic,
+          found != activeProceduralReplayEnv_->end() &&
+            !found->second.empty());
+      // A replay entry is the current value of a whole automatic-local LHS.
+      // Resolving that source expression first would materialize an unused
+      // stable net for a value whose successive versions exist only in replay.
+      if (useAutomaticLocalReplayLhs) {
+        replayLhsBits = found->second;
+      } else if (!resolveAssignmentLHSBits(
+                   design,
+                   *replayLhs,
+                   replayLhsBits,
+                   &failureReason,
+                   true)) {
         return false; // LCOV_EXCL_LINE: replay LHS came from a resolved assignment.
       }
       if (replayLhsBits.empty()) {
@@ -26617,7 +26657,6 @@ endmodule
       }
 
       std::vector<SNLBitNet*> replayBits = replayLhsBits;
-      auto found = activeProceduralReplayEnv_->find(replaySymbol);
       if (found != activeProceduralReplayEnv_->end() &&
           found->second.size() == replayLhsBits.size()) {
         replayBits = found->second;
@@ -34750,6 +34789,18 @@ testSVConstructorMergeProceduralReplayEnvs() {
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, options);
   return impl.testMergeProceduralReplayEnvs();
+}
+
+bool testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+  bool wholeLHS,
+  bool automaticLocal,
+  bool hasReplayBits) {
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, options);
+  return impl.testAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    hasReplayBits);
 }
 
 std::optional<ActiveForLoopConstantHelpersTestResult>

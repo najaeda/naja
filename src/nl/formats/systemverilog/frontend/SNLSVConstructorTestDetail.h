@@ -176,6 +176,11 @@ testSVConstructorGetSingleLHSFallbackPathAssignmentMaxFromProceduralBlock(
 std::optional<ProceduralReplayEnvMergeTestResult>
 testSVConstructorMergeProceduralReplayEnvs();
 
+bool testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+  bool wholeLHS,
+  bool automaticLocal,
+  bool hasReplayBits);
+
 std::optional<ActiveForLoopConstantHelpersTestResult>
 testSVConstructorActiveForLoopConstantHelpers();
 

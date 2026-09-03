@@ -10350,6 +10350,34 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  automaticLocalReplayLHSReuseEligibilityIsNarrow) {
+  constexpr bool wholeLHS = true;
+  constexpr bool selectedLHS = false;
+  constexpr bool automaticLocal = true;
+  constexpr bool staticLocal = false;
+  constexpr bool hasReplayBits = true;
+  constexpr bool missingReplayBits = false;
+
+  EXPECT_TRUE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    staticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    selectedLHS,
+    automaticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    missingReplayBits));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   activeForLoopConstantHelpersHandleNamesSourcesParametersAndOverflow) {
   const auto result = detail::testSVConstructorActiveForLoopConstantHelpers();
   ASSERT_TRUE(result.has_value());
@@ -13951,6 +13979,131 @@ endmodule
 
   const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
   EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableMultipleVersionsUseReplayValues) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_multiple_versions_use_replay_values",
+    R"(module always_comb_automatic_variable_multiple_versions_use_replay_values(
+  input  logic [2:0] sel,
+  input  logic [7:0] a,
+  input  logic [7:0] b,
+  output logic       q_before,
+  output logic       q_after
+);
+  always_comb begin
+    automatic logic [7:0] tbl = a;
+    q_before = tbl[sel];
+    tbl = b;
+    q_after = tbl[sel];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_multiple_versions_use_replay_values"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(2u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {1, 8, 3}));
+
+  auto findDrivingTableSelect = [](SNLScalarNet* output) -> SNLInstance* {
+    auto* selectedNet = dynamic_cast<SNLBitNet*>(getSingleAssignInputDriving(output));
+    if (!selectedNet) {
+      return nullptr;
+    }
+    SNLInstance* found = nullptr;
+    for (auto* instTerm : selectedNet->getInstTerms()) {
+      if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
+        continue;
+      }
+      auto* instance = instTerm->getInstance();
+      if (!instance || !NLDB0::isTableSelect(instance->getModel())) {
+        continue;
+      }
+      EXPECT_EQ(found, nullptr);
+      found = instance;
+    }
+    EXPECT_NE(found, nullptr);
+    return found;
+  };
+
+  auto expectTableDataFrom = [](SNLInstance* tableSelect, SNLBusNet* source) {
+    ASSERT_NE(tableSelect, nullptr);
+    ASSERT_NE(source, nullptr);
+    auto* dataTerm = NLDB0::getTableSelectData(tableSelect->getModel());
+    ASSERT_NE(dataTerm, nullptr);
+    ASSERT_EQ(dataTerm->getWidth(), source->getWidth());
+    for (NLID::Bit bit = 0;
+         bit < static_cast<NLID::Bit>(source->getWidth());
+         ++bit) {
+      auto* sourceBit = source->getBit(bit);
+      auto* dataBit = dataTerm->getBit(bit);
+      ASSERT_NE(sourceBit, nullptr);
+      ASSERT_NE(dataBit, nullptr);
+      auto* dataInstTerm = tableSelect->getInstTerm(dataBit);
+      ASSERT_NE(dataInstTerm, nullptr);
+      EXPECT_EQ(dataInstTerm->getNet(), sourceBit);
+    }
+  };
+
+  auto* qBefore = top->getScalarNet(NLName("q_before"));
+  auto* qAfter = top->getScalarNet(NLName("q_after"));
+  ASSERT_NE(qBefore, nullptr);
+  ASSERT_NE(qAfter, nullptr);
+  expectTableDataFrom(
+    findDrivingTableSelect(qBefore),
+    top->getBusNet(NLName("a")));
+  expectTableDataFrom(
+    findDrivingTableSelect(qAfter),
+    top->getBusNet(NLName("b")));
+
+  // The automatic local exists only as successive procedural replay values;
+  // static-selection probing must not leave behind an undriven source-named net.
+  EXPECT_EQ(nullptr, top->getBusNet(NLName(
+    "always_comb_automatic_variable_multiple_versions_use_replay_values_tbl")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariablePartialWriteUsesReplayBase) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_partial_write_uses_replay_base",
+    R"(module always_comb_automatic_variable_partial_write_uses_replay_base(
+  input  logic [7:0] a,
+  input  logic       b,
+  output logic [7:0] q
+);
+  always_comb begin
+    automatic logic [7:0] tbl = a;
+    tbl[0] = b;
+    q = tbl;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_partial_write_uses_replay_base"));
+  ASSERT_NE(top, nullptr);
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getScalarNet(NLName("b"));
+  auto* q = top->getBusNet(NLName("q"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(q, nullptr);
+
+  EXPECT_EQ(b, getSingleAssignInputDriving(q->getBit(0)));
+  for (NLID::Bit bit = 1; bit < 8; ++bit) {
+    EXPECT_EQ(a->getBit(bit), getSingleAssignInputDriving(q->getBit(bit))) << bit;
+  }
 }
 
 TEST_F(
