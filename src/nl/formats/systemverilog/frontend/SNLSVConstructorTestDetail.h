@@ -10,6 +10,10 @@
 #include <string>
 #include <vector>
 
+namespace slang::ast {
+class Symbol;
+}
+
 namespace naja::NL {
 class SNLInstance;
 }
@@ -232,6 +236,7 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
   const std::string& description);
 
 bool testSVConstructorTryCollapseAnonymousAssignAlias(
-  SNLInstance* assignInstance);
+  SNLInstance* assignInstance,
+  const slang::ast::Symbol* associatedSymbol = nullptr);
 
 }  // namespace naja::NL::detail

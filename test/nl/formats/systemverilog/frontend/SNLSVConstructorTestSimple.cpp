@@ -14183,6 +14183,18 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  invalidAnonymousAssignAliasCandidatesAreRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_invalid_candidates"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(nullptr));
+  EXPECT_FALSE(
+    detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.producer));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   namedRTLAssignAliasIsRetained) {
   auto* design = SNLDesign::create(library_, NLName("alias_named_rtl"));
   auto fixture = createAnonymousAssignAliasFixture(design, NLName("declared_signal"));
@@ -14259,6 +14271,32 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithLiveASTAssociationIsRetained) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.keepASTLink = true;
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* sourceNet = top->getScalarNet(NLName("a"));
+  ASSERT_NE(nullptr, sourceNet);
+  const auto* liveASTLink = SNLSVLiveASTLinkRegistry::get(library_->getDB());
+  ASSERT_NE(nullptr, liveASTLink);
+  const auto* sourceSymbol = liveASTLink->getSymbol(sourceNet);
+  ASSERT_NE(nullptr, sourceSymbol);
+
+  auto* design = SNLDesign::create(library_, NLName("alias_live_ast"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(
+    fixture.assign,
+    sourceSymbol));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   anonymousAssignAliasSourceLocationIsTransferred) {
   auto* design = SNLDesign::create(library_, NLName("alias_source_location"));
   auto fixture = createAnonymousAssignAliasFixture(design);
@@ -14292,6 +14330,22 @@ TEST_F(
   EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
   EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
   EXPECT_EQ(fixture.alias, port->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithInputDestinationPortIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_destination_port"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* port = SNLScalarTerm::create(
+    design,
+    SNLTerm::Direction::Input,
+    NLName("port"));
+  port->setNet(fixture.destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(fixture.destination, port->getNet());
 }
 
 TEST_F(

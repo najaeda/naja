@@ -2906,6 +2906,10 @@ endmodule
     bool testTryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
       return tryCollapseAnonymousAssignAlias(assignInstance);
     }
+
+    void testBindLiveASTLink(NLObject* object, const Symbol& symbol) {
+      bindLiveASTLink(object, symbol);
+    }
     // LCOV_EXCL_STOP
 #endif
 
@@ -9290,7 +9294,9 @@ endmodule
         producerOutput = instTerm;
       }
       if (!producerOutput) {
-        return false;
+        // With exactly two unique components, one is assignInput and the other
+        // either becomes producerOutput or returns from the loop above.
+        return false; // LCOV_EXCL_LINE defensive: component invariant
       }
 
       // The destination may have loads and an output port, but the candidate
@@ -35074,11 +35080,19 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
 }
 
 bool testSVConstructorTryCollapseAnonymousAssignAlias(
-  SNLInstance* assignInstance) {
+  SNLInstance* assignInstance,
+  const Symbol* associatedSymbol) {
   SNLSVConstructor::ConstructOptions options;
+  options.keepASTLink = associatedSymbol != nullptr;
   SNLSVConstructorImpl impl(
     assignInstance ? assignInstance->getLibrary() : nullptr,
     options);
+  if (assignInstance && associatedSymbol) {
+    auto* assignInput = assignInstance->getInstTerm(NLDB0::getAssignInput());
+    if (assignInput && assignInput->getNet()) {
+      impl.testBindLiveASTLink(assignInput->getNet(), *associatedSymbol);
+    }
+  }
   return impl.testTryCollapseAnonymousAssignAlias(assignInstance);
 }
 // LCOV_EXCL_STOP
