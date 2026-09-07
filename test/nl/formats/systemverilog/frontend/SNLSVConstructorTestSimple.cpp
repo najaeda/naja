@@ -14015,6 +14015,136 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialAutomaticVariableInitializersUseReplayValues) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "sequential_automatic_variable_initializers_use_replay_values",
+    R"(module sequential_automatic_variable_initializers_use_replay_values(
+  input  logic            clk,
+  input  logic [2:0]      flat_sel,
+  input  logic [7:0]      flat,
+  input  logic [1:0]      packed_sel,
+  input  logic [3:0][7:0] packed_i,
+  output logic            flat_q,
+  output logic [7:0]      packed_q
+);
+  always @(posedge clk) begin
+    automatic logic [7:0] flat_tbl = flat;
+    automatic logic [3:0][7:0] packed_tbl = packed_i;
+    flat_q <= flat_tbl[flat_sel];
+    packed_q <= packed_tbl[packed_sel];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_automatic_variable_initializers_use_replay_values"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {1, 8, 3}));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 4, 2}));
+
+  auto* flatQ = top->getScalarNet(NLName("flat_q"));
+  auto* flatNet = top->getBusNet(NLName("flat"));
+  auto* flatSel = top->getBusNet(NLName("flat_sel"));
+  auto* packedQ = top->getBusNet(NLName("packed_q"));
+  auto* packedNet = top->getBusNet(NLName("packed_i"));
+  auto* packedSel = top->getBusNet(NLName("packed_sel"));
+  ASSERT_NE(flatQ, nullptr);
+  ASSERT_NE(flatNet, nullptr);
+  ASSERT_NE(flatSel, nullptr);
+  ASSERT_NE(packedQ, nullptr);
+  ASSERT_NE(packedNet, nullptr);
+  ASSERT_NE(packedSel, nullptr);
+  EXPECT_TRUE(netDependsOn(flatQ, flatNet->getBit(0)));
+  EXPECT_TRUE(netDependsOn(flatQ, flatNet->getBit(7)));
+  EXPECT_TRUE(netDependsOn(flatQ, flatSel->getBit(0)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedNet->getBit(0)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedNet->getBit(31)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedSel->getBit(0)));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysFFAutomaticVariableInitializerConditionUsesReplayValue) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_ff_automatic_variable_initializer_condition_uses_replay_value",
+    R"(module always_ff_automatic_variable_initializer_condition_uses_replay_value(
+  input  logic clk,
+  input  logic en,
+  input  logic a,
+  output logic s
+);
+  always_ff @(posedge clk) begin
+    automatic logic d = en & a;
+    if (d)
+      s <= ~s;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_ff_automatic_variable_initializer_condition_uses_replay_value"));
+  ASSERT_NE(top, nullptr);
+
+  auto* state = top->getScalarNet(NLName("s"));
+  auto* enable = top->getScalarNet(NLName("en"));
+  auto* input = top->getScalarNet(NLName("a"));
+  ASSERT_NE(state, nullptr);
+  ASSERT_NE(enable, nullptr);
+  ASSERT_NE(input, nullptr);
+  EXPECT_TRUE(netDependsOn(state, enable));
+  EXPECT_TRUE(netDependsOn(state, input));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialAutomaticVariableInitializerUnsupportedIsDiagnosed) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "sequential_automatic_variable_initializer_unsupported_is_diagnosed",
+    R"(module sequential_automatic_variable_initializer_unsupported_is_diagnosed(
+  input  logic       clk,
+  input  logic [3:0] a,
+  output logic       q
+);
+  function automatic logic bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      4'b1???: bad_fn = 1'b1;
+      default: bad_fn = 1'b0;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk) begin
+    automatic logic d = bad_fn(a);
+    q <= d;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"sequential procedural scheduling replay failed",
+     "unable to resolve procedural initializer bits for local 'd'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableMultipleVersionsUseReplayValues) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
@@ -14387,7 +14517,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unable to resolve always_comb initializer bits for local 'tmp'"});
+    {"unable to resolve procedural initializer bits for local 'tmp'"});
 }
 
 TEST_F(

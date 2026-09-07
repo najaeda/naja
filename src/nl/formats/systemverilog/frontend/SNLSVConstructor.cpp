@@ -22087,15 +22087,74 @@ endmodule
       const Statement* current = unwrapStatement(stmt);
       if (!current ||
           isIgnorableSequentialTimingStatement(*current) ||
-          current->kind == slang::ast::StatementKind::Empty ||
-          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+          current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& variable =
+          current->as<slang::ast::VariableDeclStatement>().symbol;
+        if (!variable.getInitializer() ||
+            variable.lifetime != slang::ast::VariableLifetime::Automatic ||
+            (ignoredSymbols && ignoredSymbols->contains(&variable))) {
+          return true;
+        }
+
+        // An automatic declaration initializer executes as a blocking
+        // procedural assignment whenever control reaches the declaration. Make
+        // it visible to scheduling analysis so sequential lowering selects the
+        // dependency-aware replay path instead of resolving consumers through
+        // the declaration's otherwise undriven design net.
+        summary.hasBlocking = true;
+        summary.schedulingBySymbol[&variable] |= 1u;
+        const uint8_t currentMasks =
+          pathState.contains(&variable) ? pathState[&variable] : 1u;
+        uint8_t nextMasks = 0u;
+        for (uint8_t mask = 0; mask < 4; ++mask) {
+          if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+            continue;
+          }
+          const auto nextMask = static_cast<uint8_t>(mask | 1u);
+          nextMasks |= static_cast<uint8_t>(1u << nextMask);
+        }
+        pathState[&variable] = nextMasks;
         return true;
       }
 
       if (current->kind == slang::ast::StatementKind::List) {
+        // Slang represents `for (int i = ...; ...)` with a surrounding list
+        // that contains both i's declaration statement and the ForLoop node;
+        // the loop also references i through loopVars. That declaration is
+        // static elaboration bookkeeping for unrolling, not a runtime blocking
+        // assignment that should select scheduling replay.
+        std::unordered_set<const slang::ast::ValueSymbol*> effectiveIgnoredSymbols;
+        bool foundLoopVariable = false;
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          const auto* listItem = item ? unwrapStatement(*item) : nullptr;
+          if (!listItem || listItem->kind != slang::ast::StatementKind::ForLoop) {
+            continue;
+          }
+          for (const auto* loopVar :
+               listItem->as<slang::ast::ForLoopStatement>().loopVars) {
+            if (loopVar) {
+              if (!foundLoopVariable && ignoredSymbols) {
+                effectiveIgnoredSymbols = *ignoredSymbols;
+              }
+              foundLoopVariable = true;
+              effectiveIgnoredSymbols.insert(loopVar);
+            }
+          }
+        }
+        const auto* effectiveIgnoredSymbolsPtr = foundLoopVariable
+          ? &effectiveIgnoredSymbols
+          : ignoredSymbols;
         for (const auto* item : current->as<slang::ast::StatementList>().list) {
           if (item && !analyzeProceduralAssignmentScheduling(
-                *item, summary, pathState, failureReason, ignoredSymbols)) {
+                *item,
+                summary,
+                pathState,
+                failureReason,
+                effectiveIgnoredSymbolsPtr)) {
             return false;
           }
         }
@@ -23922,9 +23981,10 @@ endmodule
       }
 
       if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
-        // Local variable declarations in always_comb (including initializer forms
-        // like "int i = 0" used by for-loop indices) do not directly write tracked
-        // design LHS targets and can be ignored by assignment collection.
+        // Local variable declarations in procedural blocks (including
+        // initializer forms like "int i = 0" used by for-loop indices) do not
+        // directly write tracked design LHS targets and can be ignored by
+        // assignment collection. Dependency-aware replay handles their values.
         return true;
       }
 
@@ -27969,7 +28029,7 @@ endmodule
               !resolveExpressionBits(design, *initializer, static_cast<size_t>(*width), initBits) ||
               initBits.size() != static_cast<size_t>(*width)) {
             std::ostringstream reason;
-            reason << "unable to resolve always_comb initializer bits for local '"
+            reason << "unable to resolve procedural initializer bits for local '"
                    << std::string(declStmt.symbol.name) << "'";
             failureReason = reason.str();
             return false;
@@ -27982,10 +28042,10 @@ endmodule
             !slang::ast::ValueExpressionBase::isKind(strippedTrackedLHS->kind) ||
             &strippedTrackedLHS->as<slang::ast::ValueExpressionBase>().symbol != &declStmt.symbol) {
           // LCOV_EXCL_START
-          // Local variable declarations in always_comb are usually bookkeeping
-          // only from the point of view of tracked LHS rewriting. In current
-          // parser-backed lowering they are skipped earlier by subtree-summary
-          // pruning before this fallback is reached.
+          // Local variable declarations are usually bookkeeping only from the
+          // point of view of tracked LHS rewriting. In current parser-backed
+          // lowering they are skipped earlier by subtree-summary pruning before
+          // this fallback is reached.
           return true;
           // LCOV_EXCL_STOP
         }
@@ -27995,7 +28055,7 @@ endmodule
           // LCOV_EXCL_START
           // This fallback tracks an already resolved local LHS at lhsBits width.
           std::ostringstream reason;
-          reason << "unable to resolve always_comb initializer bits for local '"
+          reason << "unable to resolve procedural initializer bits for local '"
                  << std::string(declStmt.symbol.name) << "'";
           failureReason = reason.str();
           return false;
