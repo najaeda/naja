@@ -1844,7 +1844,7 @@ endmodule
     svPath,
     {
       "Unsupported combinational block",
-      "unable to resolve always_comb initializer bits for local 'tmp'"
+      "unable to resolve procedural initializer bits for local 'tmp'"
     });
 }
 
