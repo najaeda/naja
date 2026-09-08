@@ -55,6 +55,20 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
             sync_set.getScalarTerm("R").getResetActiveLevel(),
         )
 
+    def test_primitive_rejects_child_instance(self):
+        top = netlist.create_top("Top")
+        db = naja.NLUniverse.get().getTopDB()
+        primitive_library = naja.NLLibrary.createPrimitives(db, "PRIMITIVES")
+        naja.SNLDesign.createPrimitive(primitive_library, "primitive")
+        naja.SNLDesign.create(
+            naja.NLUniverse.get().getTopDesign().getLibrary(), "child")
+
+        primitive = top.create_child_instance("primitive", "primitive")
+        with self.assertRaisesRegex(
+            RuntimeError, "Cannot create SNLInstance in primitive design"):
+            primitive.create_child_instance("child", "nested")
+        self.assertEqual(0, primitive.count_child_instances())
+
     def test_gate_family_predicates(self):
         top = netlist.create_top('Top')
         primitives = naja.NLLibrary.createPrimitives(

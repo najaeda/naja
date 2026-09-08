@@ -144,6 +144,10 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const NLN
     reason << " has a NULL model argument";
     throw NLException(reason.str());
   }
+  if (design->isPrimitive()) {
+    throw NLException(
+      "Cannot create SNLInstance in primitive design: " + design->getString());
+  }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
     throw NLException(reason);

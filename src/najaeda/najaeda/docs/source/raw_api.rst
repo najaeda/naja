@@ -154,6 +154,13 @@ Use the raw API when defining a primitive library in Python.  The high-level
 :mod:`najaeda.netlist` API loads and consumes primitive libraries, while the
 raw objects expose the definition-time timing decorators.
 
+Primitive designs are hierarchy leaves.  Their interface, parameters, and
+timing metadata can be defined directly, but they cannot contain instances.
+Accordingly, ``SNLInstance.create(owner, model, name)`` raises
+``RuntimeError`` when ``owner`` is primitive.  Passing a primitive as
+``model`` remains the normal way to instantiate that primitive in a
+non-primitive design.
+
 Sequential primitives should declare both their timing arcs and the role of
 each bit term:
 
