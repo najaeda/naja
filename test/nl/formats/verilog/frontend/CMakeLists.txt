@@ -17,6 +17,7 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorTestImplicitNets.cpp
     SNLVRLConstructorTestConflictingNameModules.cpp
     SNLVRLConstructorTestPreprocess.cpp
+    SNLVRLConstructorTestSignedNets.cpp
 )
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
 target_compile_definitions(snlVRLConstructorTests PRIVATE
