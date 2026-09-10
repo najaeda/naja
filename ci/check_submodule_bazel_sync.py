@@ -42,7 +42,7 @@ MODULE_BAZEL = REPO_ROOT / "MODULE.bazel"
 # be an ancestor of, or equal to, the MODULE.bazel commit).
 SYNC_SPECS = {
     "thirdparty/cpptrace": ("cpptrace", "https://github.com/jeremy-rifkin/cpptrace", "exact"),
-    "thirdparty/slang": ("slang", "https://github.com/najaeda/slang", "exact"),
+    "thirdparty/slang": ("slang", "https://github.com/MikePopoloski/slang", "exact"),
     "thirdparty/naja-if": ("naja-if", "https://github.com/najaeda/naja-if", "ancestor"),
     "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "exact"),
 }

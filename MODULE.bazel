@@ -96,14 +96,10 @@ git_override(
     commit = "be6544b128e229ce2aee814e795c1e49b02caf5c",  # main
 )
 
-# --- slang (task #7): also a najaeda-org fork, but its build (Python
-# codegen-driven, FetchContent for fmt/mimalloc/Catch2/Boost.regex/
-# tomlplusplus) is the single highest-risk item in this migration --
-# deliberately kept as the Phase 1 non-module git_repository + placeholder
-# overlay rather than attempting a native upstream port at the same time
-# (see the Phase 3 scope decision in internal/bazel-migration-plan.md).
-# Real build target: task #14, shelling out to slang's own CMake build via
-# rules_foreign_cc (bazel/thirdparty/slang/BUILD.bazel). ---
+# --- slang (task #7): its build is Python-codegen-driven and uses
+# FetchContent for fmt/mimalloc/Catch2/Boost.regex/tomlplusplus, so keep it as
+# a non-module git_repository and shell out to its own CMake build via
+# rules_foreign_cc (bazel/thirdparty/slang_overlay.BUILD). ---
 
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 
@@ -121,8 +117,8 @@ git_repository = use_repo_rule(
 
 git_repository(
     name = "slang",
-    remote = "https://github.com/najaeda/slang",
-    commit = "512c327c209d3043aa98ecfd02d06a1b73fcd5fb",
+    remote = "https://github.com/MikePopoloski/slang",
+    commit = "b60d729d66b9cdeec158b800f898461a138d505e",
     build_file = "//bazel/thirdparty:slang_overlay.BUILD",
 )
 

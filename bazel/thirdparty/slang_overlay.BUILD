@@ -61,7 +61,7 @@ cmake(
         "SLANG_INCLUDE_PYLIB": "OFF",
         "SLANG_INCLUDE_DOCS": "OFF",
         "SLANG_USE_MIMALLOC": "OFF",
-        "SLANG_PIC_ON": "ON",
+        "CMAKE_POSITION_INDEPENDENT_CODE": "ON",
         # Pin this regardless of Bazel's own -c dbg/opt/fastbuild: without
         # it, rules_foreign_cc's cmake_script.bzl defaults CMAKE_BUILD_TYPE
         # to "Debug" whenever Bazel's compilation mode is dbg (true for both
