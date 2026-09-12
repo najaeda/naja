@@ -16,8 +16,9 @@ set -euo pipefail
 
 najaeda_src_dir="$1"
 naja_so="$2"
-python3_bin="$3"
-examples_dir="$4"
+naja_runtime="$3"
+python3_bin="$4"
+examples_dir="$5"
 
 runfiles_root="$PWD"
 abspath() { echo "${runfiles_root}/$1"; }
@@ -29,7 +30,10 @@ cp -R "$(abspath "${najaeda_src_dir}")" "${scratch}/najaeda"
 cp "$(abspath "${naja_so}")" "${scratch}/najaeda/naja.so"
 
 python3_abs="$(abspath "${python3_bin}")"
+runtime_dir="$(dirname "$(abspath "${naja_runtime}")")"
 
+export DYLD_LIBRARY_PATH="${runtime_dir}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="${runtime_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 export PYTHONPATH="${scratch}"
 export PATH="$(dirname "${python3_abs}"):${PATH:-}"
 

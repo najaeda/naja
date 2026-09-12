@@ -194,6 +194,7 @@ library(test) {
     pin(Y) {
       direction : output;
       function : "A";
+      state_function : "A & IQ";
       timing() {
         related_pin : "A";
         timing_type : combinational;
@@ -220,6 +221,9 @@ library(test) {
       clocked_on : "CLK";
       next_state : "D";
       clear_preset_var1 : L;
+    }
+    statetable ("A", "IQ") {
+      table : "L : - : L, H : - : H";
     }
   }
 }
@@ -255,6 +259,12 @@ library(test) {
   ASSERT_NE(nullptr, clearPresetValue);
   EXPECT_EQ("L", clearPresetValue->value);
 
+  auto stateTable = findChild(cell, "statetable");
+  ASSERT_NE(nullptr, stateTable);
+  ASSERT_EQ(2, stateTable->args.size());
+  EXPECT_EQ("A", stateTable->args[0]);
+  EXPECT_EQ("IQ", stateTable->args[1]);
+
   auto pinA = cell->children[0];
   ASSERT_EQ("pin", pinA->id);
   EXPECT_NE(nullptr, findChild(pinA, "direction"));
@@ -266,6 +276,9 @@ library(test) {
   ASSERT_EQ("pin", pinY->id);
   EXPECT_NE(nullptr, findChild(pinY, "direction"));
   EXPECT_NE(nullptr, findChild(pinY, "function"));
+  auto stateFunction = findChild(pinY, "state_function");
+  ASSERT_NE(nullptr, stateFunction);
+  EXPECT_EQ("A & IQ", stateFunction->value);
   EXPECT_EQ(nullptr, findChild(pinY, "internal_power"));
 
   auto timing = findChild(pinY, "timing");

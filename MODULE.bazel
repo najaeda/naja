@@ -25,8 +25,22 @@ module(
 
 # --- Bazel Central Registry dependencies (Phase 0) ---
 
+bazel_dep(name = "rules_cc", version = "0.2.17")
+
 # Used by test/ (cc_test targets land in Phase 5, task #20).
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "googletest")
+
+# naja-verilog's googletest 1.18.0 dependency uses abseil-cpp
+# 20260526.0 at compatibility level 0, while protobuf 29.0 uses
+# 20250814.1 at compatibility level 1. Overrides declared by dependency
+# modules do not apply to the root module, so permit both versions here.
+multiple_version_override(
+    module_name = "abseil-cpp",
+    versions = [
+        "20250814.1",
+        "20260526.0",
+    ],
+)
 
 # Used by bench/ (task #28) -- mirrors CMake's `find_package(benchmark
 # REQUIRED)` (bench/CMakeLists.txt), gated there behind -DBUILD_BENCHMARKS=ON;
@@ -79,17 +93,13 @@ bazel_dep(name = "naja-verilog", version = "0.0.0")
 git_override(
     module_name = "naja-verilog",
     remote = "https://github.com/najaeda/naja-verilog",
-    commit = "5da040bb34f0e4e5bb8d67223b999a0132fb401f",  # main
+    commit = "be6544b128e229ce2aee814e795c1e49b02caf5c",  # main
 )
 
-# --- slang (task #7): also a najaeda-org fork, but its build (Python
-# codegen-driven, FetchContent for fmt/mimalloc/Catch2/Boost.regex/
-# tomlplusplus) is the single highest-risk item in this migration --
-# deliberately kept as the Phase 1 non-module git_repository + placeholder
-# overlay rather than attempting a native upstream port at the same time
-# (see the Phase 3 scope decision in internal/bazel-migration-plan.md).
-# Real build target: task #14, shelling out to slang's own CMake build via
-# rules_foreign_cc (bazel/thirdparty/slang/BUILD.bazel). ---
+# --- slang (task #7): its build is Python-codegen-driven and uses
+# FetchContent for fmt/mimalloc/Catch2/Boost.regex/tomlplusplus, so keep it as
+# a non-module git_repository and shell out to its own CMake build via
+# rules_foreign_cc (bazel/thirdparty/slang_overlay.BUILD). ---
 
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 
@@ -107,8 +117,8 @@ git_repository = use_repo_rule(
 
 git_repository(
     name = "slang",
-    remote = "https://github.com/najaeda/slang",
-    commit = "512c327c209d3043aa98ecfd02d06a1b73fcd5fb",
+    remote = "https://github.com/MikePopoloski/slang",
+    commit = "b60d729d66b9cdeec158b800f898461a138d505e",
     build_file = "//bazel/thirdparty:slang_overlay.BUILD",
 )
 

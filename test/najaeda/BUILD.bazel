@@ -10,8 +10,8 @@
 # najaeda/src/najaeda/najaeda and test/najaeda are passed as workspace-
 # relative string constants (matching test/nl/formats/verilog/frontend's
 # SNL_VRL_BENCHMARKS_PATH pattern) since Bazel's runfiles tree mirrors the
-# workspace's source layout 1:1; only naja.so and python3 (an actual
-# build output and an external-repo tool, respectively) need $(rootpath).
+# workspace's source layout 1:1; naja.so, its shared runtime, and python3
+# need $(rootpath).
 
 filegroup(
     name = "test_sources",
@@ -27,6 +27,7 @@ sh_test(
     args = [
         "src/najaeda/najaeda",
         "$(rootpath //src/nl/python/naja_wrapping:naja.so)",
+        "$(rootpath //src/nl/python/naja_wrapping:naja_runtime)",
         "$(rootpath @python3_tool//:python3)",
         "test/najaeda",
         "test/nl/formats/verilog/benchmarks",
@@ -37,6 +38,7 @@ sh_test(
         ":test_sources",
         "//src/najaeda/najaeda:sources",
         "//src/nl/python/naja_wrapping:naja.so",
+        "//src/nl/python/naja_wrapping:naja_runtime",
         "//test/nl/formats/liberty:benchmarks",
         "//test/nl/formats/systemverilog:benchmarks",
         "//test/nl/formats/verilog:benchmarks",

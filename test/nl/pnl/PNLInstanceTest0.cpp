@@ -51,6 +51,13 @@ TEST_F(PNLInstanceTest0, testCreation) {
   auto ins = PNLInstance::create(design, model, NLName("name"));
   EXPECT_THROW(PNLInstance::create(design, model, NLName("name")), NLException);
   ins->destroy();
+
+  auto primitives =
+    NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+  auto primitive = PNLDesign::create(
+    primitives, PNLDesign::Type::Primitive, NLName("primitive"));
+  EXPECT_THROW(PNLInstance::create(primitive, model), NLException);
+  EXPECT_TRUE(primitive->getInstances().empty());
 }
 
 TEST_F(PNLInstanceTest0, testInstTermRenameError) {

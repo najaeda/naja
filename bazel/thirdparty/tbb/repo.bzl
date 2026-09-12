@@ -21,16 +21,16 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "tbb",
+    srcs = ["lib/libtbb{shared_library_suffix}"],
     hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
-    linkopts = ["-L{libdir}", "-ltbb"],
 )
 
 cc_library(
     name = "tbbmalloc",
+    srcs = ["lib/libtbbmalloc{shared_library_suffix}"],
     hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
-    linkopts = ["-L{libdir}", "-ltbbmalloc"],
 )
 """
 
@@ -62,9 +62,12 @@ def _tbb_repository_impl(repository_ctx):
     # silently shadowing Bazel's own fetched @googletest headers.
     repository_ctx.symlink(includedir + "/tbb", "include/tbb")
     repository_ctx.symlink(includedir + "/oneapi", "include/oneapi")
+    shared_library_suffix = ".dylib" if repository_ctx.os.name.startswith("mac") else ".so"
+    repository_ctx.symlink(libdir + "/libtbb" + shared_library_suffix, "lib/libtbb" + shared_library_suffix)
+    repository_ctx.symlink(libdir + "/libtbbmalloc" + shared_library_suffix, "lib/libtbbmalloc" + shared_library_suffix)
     repository_ctx.file(
         "BUILD.bazel",
-        _BUILD_TEMPLATE.format(libdir = libdir),
+        _BUILD_TEMPLATE.format(shared_library_suffix = shared_library_suffix),
     )
 
 tbb_repository = repository_rule(

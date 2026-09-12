@@ -220,17 +220,19 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "cell")
 		return childId == "pin" || childId == "bus" || childId == "bundle" ||
-				childId == "ff" || childId == "latch" || childId == "memory";
+				childId == "ff" || childId == "latch" || childId == "memory" ||
+				childId == "statetable";
 
 	if (parentId == "pin")
 		return childId == "direction" || childId == "function" ||
-				childId == "nextstate_type" ||
+				childId == "state_function" || childId == "nextstate_type" ||
 				childId == "memory_read" || childId == "memory_write" ||
 				childId == "timing";
 
 	if (parentId == "bus")
 		return childId == "direction" || childId == "bus_type" ||
-				childId == "function" || childId == "pin" ||
+				childId == "function" || childId == "state_function" ||
+				childId == "pin" ||
 				childId == "memory_read" || childId == "memory_write" ||
 				childId == "timing";
 

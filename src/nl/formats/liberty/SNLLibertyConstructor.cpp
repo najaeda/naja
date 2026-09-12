@@ -67,6 +67,17 @@ const Yosys::LibertyAst* findDirectChild(const Yosys::LibertyAst* node, const st
   return nullptr;
 }
 
+bool containsLibertyNode(
+    const Yosys::LibertyAst* node,
+    const std::string& id) {
+  for (auto* child : node->children) {
+    if (child->id == id || containsLibertyNode(child, id)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const Yosys::LibertyAst* findDirectionNode(const Yosys::LibertyAst* node) {
   auto directionNode = findDirectChild(node, "direction");
   if (directionNode != nullptr or node->id != "bus") {
@@ -107,6 +118,8 @@ using TermSourceLines = std::map<SNLScalarTerm*, int, SNLScalarTerm::PointerLess
 using SequentialClockNames = std::set<std::string>;
 using SequentialTermClocks =
   std::map<SNLBitTerm*, SequentialClockNames, SNLBitTerm::InDesignLess>;
+using TimingOnlyOutputInputs =
+  std::map<SNLBitTerm*, std::set<std::string>, SNLBitTerm::InDesignLess>;
 
 struct ConstructedTerm {
   SNLScalarTerm* scalar{nullptr};
@@ -156,9 +169,20 @@ BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
 
 enum class FunctionParsingType {
   Ignore,
+  TimingOnly,
   Sequential,
   Combinational
 };
+
+bool shouldParseSequentialTiming(FunctionParsingType type) {
+  return type == FunctionParsingType::TimingOnly ||
+         type == FunctionParsingType::Sequential;
+}
+
+bool shouldParseOutputFunctions(FunctionParsingType type) {
+  return type == FunctionParsingType::Sequential ||
+         type == FunctionParsingType::Combinational;
+}
 
 std::string buildFunctionParseErrorReason(
   const std::string& pinName,
@@ -307,6 +331,36 @@ void registerSequentialClockFromTiming(
   }
 }
 
+bool isCombinationalOutputTiming(const Yosys::LibertyAst* timingNode) {
+  auto timingType = findDirectChild(timingNode, "timing_type");
+  return timingType == nullptr ||
+         timingType->value.rfind("combinational", 0) == 0;
+}
+
+void registerTimingOnlyOutputInputs(
+    const Yosys::LibertyAst* child,
+    SNLBitTerm* output,
+    TimingOnlyOutputInputs& outputInputs) {
+  if (output == nullptr ||
+      output->getDirection() == SNLTerm::Direction::Input) {
+    return;
+  }
+  for (auto* timingNode : child->children) {
+    if (timingNode->id != "timing" ||
+        !isCombinationalOutputTiming(timingNode)) {
+      continue;
+    }
+    auto relatedPin = findDirectChild(timingNode, "related_pin");
+    if (relatedPin == nullptr) {
+      continue;
+    }
+    std::istringstream pinNames(relatedPin->value);
+    for (std::string pinName; pinNames >> pinName;) {
+      outputInputs[output].insert(pinName);
+    }
+  }
+}
+
 std::string getChildValueOrThrow(
     const Yosys::LibertyAst* node,
     const std::string& childID,
@@ -400,6 +454,7 @@ void registerConstructedTermModeling(
   TermPins& termFunctionPins,
   TermSourceLines& termFunctionLines,
   SequentialTermClocks& seqTermClocks,
+  TimingOnlyOutputInputs& timingOnlyOutputInputs,
   LibertyMemoryInterface& memoryInterface) {
   auto registerNextStateRole = [&](SNLBitTerm* term) {
     auto nextStateType = findDirectChild(child, "nextstate_type");
@@ -422,12 +477,23 @@ void registerConstructedTermModeling(
     }
   }
 
-  if (functionParsingType == FunctionParsingType::Sequential) {
+  if (shouldParseSequentialTiming(functionParsingType)) {
     if (constructedScalarTerm) {
       registerSequentialClockFromTiming(child, constructedScalarTerm, seqTermClocks);
     } else if (constructedBusTerm) {
       for (auto* bit : constructedBusTerm->getBits()) {
         registerSequentialClockFromTiming(child, bit, seqTermClocks);
+      }
+    }
+  }
+
+  if (functionParsingType == FunctionParsingType::TimingOnly) {
+    if (constructedScalarTerm) {
+      registerTimingOnlyOutputInputs(
+          child, constructedScalarTerm, timingOnlyOutputInputs);
+    } else if (constructedBusTerm) {
+      for (auto* bit : constructedBusTerm->getBits()) {
+        registerTimingOnlyOutputInputs(child, bit, timingOnlyOutputInputs);
       }
     }
   }
@@ -442,7 +508,7 @@ void registerConstructedTermModeling(
       memoryInterface.writeBuses.push_back(*writeBus);
     }
   }
-  if (functionParsingType != FunctionParsingType::Ignore
+  if (shouldParseOutputFunctions(functionParsingType)
     and constructedScalarTerm
     and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
     termFunctionPins[constructedScalarTerm] = pinName;
@@ -450,17 +516,74 @@ void registerConstructedTermModeling(
     if (functionNode) {
       termFunctions[constructedScalarTerm] = functionNode->value;
       termFunctionLines[constructedScalarTerm] = functionNode->line;
-    } else if (functionParsingType == FunctionParsingType::Combinational) {
-      termFunctions[constructedScalarTerm] = pinName;
-      termFunctionLines[constructedScalarTerm] = child->line;
     }
-  } else if (functionParsingType != FunctionParsingType::Ignore
+  } else if (shouldParseOutputFunctions(functionParsingType)
     and constructedBusTerm
     and constructedBusTerm->getDirection() == SNLTerm::Direction::Output
     and const_cast<Yosys::LibertyAst*>(child)->find("function") != nullptr) {
     std::ostringstream reason;
     reason << "No support for function for bus term while processing " << child->id << " " << pinName;
     throw SNLLibertyConstructorException(reason.str());
+  }
+}
+
+void addTimingOnlyCombinatorialArcs(
+    SNLDesign* primitive,
+    const std::vector<SNLBitTerm*>& outputs,
+    const TimingOnlyOutputInputs& declaredOutputInputs,
+    const SequentialTermClocks& sequentialTermClocks) {
+  std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> allInputs;
+  for (auto* term : primitive->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Output) {
+      allInputs.insert(term);
+    }
+  }
+
+  for (auto* output : outputs) {
+    std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> inputs;
+    if (auto declared = declaredOutputInputs.find(output);
+        declared != declaredOutputInputs.end()) {
+      for (const auto& inputName : declared->second) {
+        auto* relatedTerm = primitive->getTerm(NLName(inputName));
+        auto addInput = [&](SNLBitTerm* input) {
+          if (input->getDirection() == SNLTerm::Direction::Output) {
+            std::ostringstream reason;
+            reason << "Combinational timing `related_pin` `" << inputName
+                   << "` for term `" << output->getName().getString()
+                   << "` resolves to an output term";
+            throw SNLLibertyConstructorException(reason.str());
+          }
+          if (input != output) {
+            inputs.insert(input);
+          }
+        };
+        if (auto* scalar = dynamic_cast<SNLScalarTerm*>(relatedTerm)) {
+          addInput(scalar);
+        } else if (auto* bus = dynamic_cast<SNLBusTerm*>(relatedTerm)) {
+          for (auto* bit : bus->getBits()) {
+            addInput(bit);
+          }
+        } else {
+          std::ostringstream reason;
+          reason << "Combinational timing `related_pin` `" << inputName
+                 << "` for term `" << output->getName().getString()
+                 << "` does not resolve to an input or inout term";
+          throw SNLLibertyConstructorException(reason.str());
+        }
+      }
+    } else if (sequentialTermClocks.find(output) ==
+               sequentialTermClocks.end()) {
+      // Timing arcs create an explicit modeling property, which disables the
+      // normal opaque-cell fallback in dependency queries. Preserve that
+      // conservative fallback for outputs with no usable declared timing.
+      inputs = allInputs;
+      inputs.erase(output);
+    }
+
+    if (!inputs.empty()) {
+      SNLDesignModeling::BitTerms inputTerms(inputs.begin(), inputs.end());
+      SNLDesignModeling::addCombinatorialArcs(inputTerms, {output});
+    }
   }
 }
 
@@ -681,6 +804,13 @@ void populateSequentialModel(
     return;
   }
 
+  if (findDirectChild(cell, "latch") != nullptr) {
+    // SequentialModel has one shared control and cannot faithfully represent
+    // mixed flip-flop and latch state. Keep the cell loadable instead of
+    // attaching a partial model that omits the latch state.
+    return;
+  }
+
   SNLBooleanTree::StateIdentifiers stateIdentifiers;
   const Yosys::LibertyAst* firstClockedOn = nullptr;
   for (size_t stateIndex = 0; stateIndex < ffs.size(); ++stateIndex) {
@@ -770,6 +900,7 @@ void parseTerms(
   TermPins termFunctionPins;
   TermSourceLines termFunctionLines;
   SequentialTermClocks seqTermClocks;
+  TimingOnlyOutputInputs timingOnlyOutputInputs;
   LibertyMemoryInterface memoryInterface;
   populateMemoryInterfaceHeader(cell, memoryInterface);
   for (auto child: cell->children) {
@@ -791,6 +922,7 @@ void parseTerms(
           termFunctionPins,
           termFunctionLines,
           seqTermClocks,
+          timingOnlyOutputInputs,
           memoryInterface);
       } else if (child->id == "bundle") {
         auto bundleDirectionNode = findDirectionNode(child);
@@ -823,6 +955,7 @@ void parseTerms(
             termFunctionPins,
             termFunctionLines,
             seqTermClocks,
+            timingOnlyOutputInputs,
             memoryInterface);
         }
       }
@@ -850,6 +983,20 @@ void parseTerms(
       outputs.push_back(term);
     }
   }
+  if (functionParsingType == FunctionParsingType::Combinational &&
+      termFunctions.size() != outputs.size()) {
+    NAJA_LOG_WARN(
+      "In SNLLibertyConstructor, cell {} defines a `function` for {} of {} "
+      "non-input terms; leaving all truth tables uninitialized.",
+      primitive->getName().getString(),
+      termFunctions.size(),
+      outputs.size());
+    return;
+  }
+  if (functionParsingType == FunctionParsingType::TimingOnly) {
+    addTimingOnlyCombinatorialArcs(
+        primitive, outputs, timingOnlyOutputInputs, seqTermClocks);
+  }
   if (seqTermClocks.size() > 0) {
     for (const auto& [term, clockNames]: seqTermClocks) {
       for (const auto& clockName: clockNames) {
@@ -862,6 +1009,10 @@ void parseTerms(
                  << "` for term `" << term->getName().getString()
                  << "` does not resolve to a scalar input term";
           throw SNLLibertyConstructorException(reason.str());
+        }
+        if (functionParsingType == FunctionParsingType::TimingOnly) {
+          SNLDesignModeling::setTermRole(
+              clock, SNLDesignModeling::SNLTermRole::Clock);
         }
         if (term->getDirection() == SNLTerm::Direction::Input) {
           SNLDesignModeling::addInputsToClockArcs({term}, clock);
@@ -1005,22 +1156,13 @@ void parseTerms(
   } else if (functionParsingType == FunctionParsingType::Combinational &&
              termFunctions.size() > 0) {
     std::vector<SNLTruthTable> truthTables;
-    // Assuming termFunctions is ordered based on termIDs!
     for (auto term: primitive->getBitTerms()) {
       if (term->getDirection() == SNLTerm::Direction::Input) {
         continue;
       }
-      SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
-      if (scalarTerm == nullptr) {
-        truthTables.push_back(SNLTruthTable()); //push empty table for non-scalar terms
-        continue;
-      }
-      if (termFunctions.find(scalarTerm) == termFunctions.end()) {
-        truthTables.push_back(SNLTruthTable()); //push empty table for terms without function
-        continue;
-      }
-      auto& function = termFunctions[scalarTerm];
-      auto pinName = termFunctionPins[scalarTerm];
+      auto* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
+      auto& function = termFunctions.at(scalarTerm);
+      auto pinName = termFunctionPins.at(scalarTerm);
       auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
       try {
         //std::cerr << "Parsing function: " << function << std::endl;
@@ -1036,7 +1178,7 @@ void parseTerms(
         truthTables.push_back(truthTable);
       } catch (const SNLLibertyConstructorException& e) {
         auto reason = buildFunctionParseErrorReason(
-          pinName, termFunctionLines[scalarTerm], function, e.getReason());
+          pinName, termFunctionLines.at(scalarTerm), function, e.getReason());
         throw SNLLibertyConstructorException(reason);
       }
     }
@@ -1081,11 +1223,25 @@ void parseCell(
     }
     auto primitive = SNLDesign::create(
         library, SNLDesign::Type::Primitive, NLName(cellName));
+    const bool hasUnsupportedStateModel =
+        containsLibertyNode(cell, "statetable") ||
+        containsLibertyNode(cell, "state_function");
+    if (hasUnsupportedStateModel) {
+      NAJA_LOG_WARN(
+        "In SNLLibertyConstructor, cell {} from {} uses unsupported Liberty "
+        "statetable/state_function behavioral modeling; leaving its truth "
+        "table uninitialized while preserving independently supported "
+        "timing/modeling.",
+        cellName,
+        sourcePath.string());
+    }
     FunctionParsingType type = FunctionParsingType::Combinational;
     if (cell->find("ff") || cell->find("memory")) {
       type = FunctionParsingType::Sequential;
     } else if (cell->find("latch")) {
-      type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
+      type = FunctionParsingType::Ignore;
+    } else if (hasUnsupportedStateModel) {
+      type = FunctionParsingType::TimingOnly;
     }
     parseTerms(primitive, top, cell, type);
   } catch (const SNLLibertyConstructorException& e) {

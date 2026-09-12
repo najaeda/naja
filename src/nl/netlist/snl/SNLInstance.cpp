@@ -10,6 +10,7 @@
 #include "NLException.h"
 
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLInstance.h"
 #include "SNLBusTerm.h"
 #include "SNLBundleTerm.h"
@@ -142,6 +143,10 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const NLN
     reason << " in design: " << design->getString();
     reason << " has a NULL model argument";
     throw NLException(reason.str());
+  }
+  if (design->isPrimitive()) {
+    throw NLException(
+      "Cannot create SNLInstance in primitive design: " + design->getString());
   }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
@@ -349,6 +354,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
 
 void SNLInstance::commonPreDestroy() {
   NAJA_LOG_TRACE("commonPreDestroy {}", getDescription());
+  SNLDesignModeling::invalidateTruthTableCache(this);
 
   for (const auto& sharedPathsElement: sharedPaths_) {
     sharedPathsElement.second->destroyFromInstance();
@@ -605,6 +611,7 @@ void SNLInstance::setModel(SNLDesign* model) {
   if (not model->isPrimitive()) {
     model->addSlaveInstance(this);
   }
+  SNLDesignModeling::invalidateTruthTableCache(this);
   model_ = model;
 }
 

@@ -525,6 +525,16 @@ TEST_F(SNLInstanceTest0, testErrors) {
   EXPECT_THROW(SNLInstance::create(design, model, NLName("name")), NLException);
   EXPECT_THROW(SNLInstance::create(design, model, NLID::DesignObjectID(0)), NLException);
 
+  auto primitives =
+    NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+  auto primitive = SNLDesign::create(
+    primitives, SNLDesign::Type::Primitive, NLName("primitive"));
+  EXPECT_THROW(SNLInstance::create(primitive, model), NLException);
+  EXPECT_THROW(
+    SNLInstance::create(primitive, model, NLID::DesignObjectID(0)),
+    NLException);
+  EXPECT_TRUE(primitive->getInstances().empty());
+
   //Add non existing Param on instance
   //EXPECT_THROW(ins->addParameterValue(NLName("ERROR"), "ERROR"), NLException);
 }

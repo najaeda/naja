@@ -25,6 +25,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBitNet.h"
+#include "SNLAttributes.h"
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
@@ -996,6 +997,37 @@ std::vector<std::string> collectNetNamesContaining(
   }
   std::sort(names.begin(), names.end());
   return names;
+}
+
+struct AnonymousAssignAliasFixture {
+  SNLScalarNet* input {nullptr};
+  SNLScalarNet* alias {nullptr};
+  SNLScalarNet* destination {nullptr};
+  SNLInstance* producer {nullptr};
+  SNLInstTerm* producerOutput {nullptr};
+  SNLInstance* assign {nullptr};
+};
+
+AnonymousAssignAliasFixture createAnonymousAssignAliasFixture(
+  SNLDesign* design,
+  const NLName& aliasName = NLName()) {
+  AnonymousAssignAliasFixture fixture;
+  fixture.input = SNLScalarNet::create(design, NLName("input"));
+  fixture.alias = SNLScalarNet::create(design, aliasName);
+  fixture.destination = SNLScalarNet::create(design, NLName("destination"));
+
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  fixture.producer = SNLInstance::create(design, buffer);
+  fixture.producer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(fixture.input);
+  auto* outputs = NLDB0::getGateNTerms(buffer);
+  fixture.producerOutput =
+    fixture.producer->getInstTerm(outputs->getBitAtPosition(0));
+  fixture.producerOutput->setNet(fixture.alias);
+
+  fixture.assign = SNLInstance::create(design, NLDB0::getAssign());
+  fixture.assign->getInstTerm(NLDB0::getAssignInput())->setNet(fixture.alias);
+  fixture.assign->getInstTerm(NLDB0::getAssignOutput())->setNet(fixture.destination);
+  return fixture;
 }
 
 void expectUnsupportedConstruct(
@@ -10350,6 +10382,34 @@ TEST_F(
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  automaticLocalReplayLHSReuseEligibilityIsNarrow) {
+  constexpr bool wholeLHS = true;
+  constexpr bool selectedLHS = false;
+  constexpr bool automaticLocal = true;
+  constexpr bool staticLocal = false;
+  constexpr bool hasReplayBits = true;
+  constexpr bool missingReplayBits = false;
+
+  EXPECT_TRUE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    staticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    selectedLHS,
+    automaticLocal,
+    hasReplayBits));
+  EXPECT_FALSE(detail::testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    missingReplayBits));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   activeForLoopConstantHelpersHandleNamesSourcesParametersAndOverflow) {
   const auto result = detail::testSVConstructorActiveForLoopConstantHelpers();
   ASSERT_TRUE(result.has_value());
@@ -12445,7 +12505,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
 
   EXPECT_EQ(3u, andGateCount);
   EXPECT_EQ(5u, xnorGateCount);
-  EXPECT_EQ(4u, assignCount);
+  EXPECT_EQ(0u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12498,7 +12558,7 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
   EXPECT_EQ(3u, andGateCount);
   EXPECT_EQ(5u, xnorGateCount);
   EXPECT_EQ(5u, notGateCount);
-  EXPECT_EQ(4u, assignCount);
+  EXPECT_EQ(0u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13955,6 +14015,471 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseSequentialAutomaticVariableInitializersUseReplayValues) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "sequential_automatic_variable_initializers_use_replay_values",
+    R"(module sequential_automatic_variable_initializers_use_replay_values(
+  input  logic            clk,
+  input  logic [2:0]      flat_sel,
+  input  logic [7:0]      flat,
+  input  logic [1:0]      packed_sel,
+  input  logic [3:0][7:0] packed_i,
+  output logic            flat_q,
+  output logic [7:0]      packed_q
+);
+  always @(posedge clk) begin
+    automatic logic [7:0] flat_tbl = flat;
+    automatic logic [3:0][7:0] packed_tbl = packed_i;
+    flat_q <= flat_tbl[flat_sel];
+    packed_q <= packed_tbl[packed_sel];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("sequential_automatic_variable_initializers_use_replay_values"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {1, 8, 3}));
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {8, 4, 2}));
+
+  auto* flatQ = top->getScalarNet(NLName("flat_q"));
+  auto* flatNet = top->getBusNet(NLName("flat"));
+  auto* flatSel = top->getBusNet(NLName("flat_sel"));
+  auto* packedQ = top->getBusNet(NLName("packed_q"));
+  auto* packedNet = top->getBusNet(NLName("packed_i"));
+  auto* packedSel = top->getBusNet(NLName("packed_sel"));
+  ASSERT_NE(flatQ, nullptr);
+  ASSERT_NE(flatNet, nullptr);
+  ASSERT_NE(flatSel, nullptr);
+  ASSERT_NE(packedQ, nullptr);
+  ASSERT_NE(packedNet, nullptr);
+  ASSERT_NE(packedSel, nullptr);
+  EXPECT_TRUE(netDependsOn(flatQ, flatNet->getBit(0)));
+  EXPECT_TRUE(netDependsOn(flatQ, flatNet->getBit(7)));
+  EXPECT_TRUE(netDependsOn(flatQ, flatSel->getBit(0)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedNet->getBit(0)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedNet->getBit(31)));
+  EXPECT_TRUE(netDependsOn(packedQ->getBit(0), packedSel->getBit(0)));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysFFAutomaticVariableInitializerConditionUsesReplayValue) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_ff_automatic_variable_initializer_condition_uses_replay_value",
+    R"(module always_ff_automatic_variable_initializer_condition_uses_replay_value(
+  input  logic clk,
+  input  logic en,
+  input  logic a,
+  output logic s
+);
+  always_ff @(posedge clk) begin
+    automatic logic d = en & a;
+    if (d)
+      s <= ~s;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_ff_automatic_variable_initializer_condition_uses_replay_value"));
+  ASSERT_NE(top, nullptr);
+
+  auto* state = top->getScalarNet(NLName("s"));
+  auto* enable = top->getScalarNet(NLName("en"));
+  auto* input = top->getScalarNet(NLName("a"));
+  ASSERT_NE(state, nullptr);
+  ASSERT_NE(enable, nullptr);
+  ASSERT_NE(input, nullptr);
+  EXPECT_TRUE(netDependsOn(state, enable));
+  EXPECT_TRUE(netDependsOn(state, input));
+
+  const auto noDrivers = collectNoDrivenInternalInputTerms(top, "");
+  EXPECT_TRUE(noDrivers.empty()) << formatStringVector(noDrivers);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialAutomaticVariableInitializerUnsupportedIsDiagnosed) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "sequential_automatic_variable_initializer_unsupported_is_diagnosed",
+    R"(module sequential_automatic_variable_initializer_unsupported_is_diagnosed(
+  input  logic       clk,
+  input  logic [3:0] a,
+  output logic       q
+);
+  function automatic logic bad_fn(input logic [3:0] op_i);
+    case (op_i) inside
+      4'b1???: bad_fn = 1'b1;
+      default: bad_fn = 1'b0;
+    endcase
+  endfunction
+
+  always_ff @(posedge clk) begin
+    automatic logic d = bad_fn(a);
+    q <= d;
+  end
+endmodule
+)");
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"sequential procedural scheduling replay failed",
+     "unable to resolve procedural initializer bits for local 'd'"});
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableMultipleVersionsUseReplayValues) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_multiple_versions_use_replay_values",
+    R"(module always_comb_automatic_variable_multiple_versions_use_replay_values(
+  input  logic [2:0] sel,
+  input  logic [7:0] a,
+  input  logic [7:0] b,
+  output logic       q_before,
+  output logic       q_after
+);
+  always_comb begin
+    automatic logic [7:0] tbl = a;
+    q_before = tbl[sel];
+    tbl = b;
+    q_after = tbl[sel];
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_multiple_versions_use_replay_values"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(2u, countTableSelectInstances(
+    top,
+    NLDB0::TableSelectSignature {1, 8, 3}));
+
+  auto findDrivingTableSelect = [](SNLScalarNet* output) -> SNLInstance* {
+    if (!output) {
+      return nullptr;
+    }
+    SNLInstance* found = nullptr;
+    for (auto* instTerm : output->getInstTerms()) {
+      if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Output) {
+        continue;
+      }
+      auto* instance = instTerm->getInstance();
+      if (!instance || !NLDB0::isTableSelect(instance->getModel())) {
+        continue;
+      }
+      EXPECT_EQ(found, nullptr);
+      found = instance;
+    }
+    EXPECT_NE(found, nullptr);
+    return found;
+  };
+
+  auto expectTableDataFrom = [](SNLInstance* tableSelect, SNLBusNet* source) {
+    ASSERT_NE(tableSelect, nullptr);
+    ASSERT_NE(source, nullptr);
+    auto* dataTerm = NLDB0::getTableSelectData(tableSelect->getModel());
+    ASSERT_NE(dataTerm, nullptr);
+    ASSERT_EQ(dataTerm->getWidth(), source->getWidth());
+    for (NLID::Bit bit = 0;
+         bit < static_cast<NLID::Bit>(source->getWidth());
+         ++bit) {
+      auto* sourceBit = source->getBit(bit);
+      auto* dataBit = dataTerm->getBit(bit);
+      ASSERT_NE(sourceBit, nullptr);
+      ASSERT_NE(dataBit, nullptr);
+      auto* dataInstTerm = tableSelect->getInstTerm(dataBit);
+      ASSERT_NE(dataInstTerm, nullptr);
+      EXPECT_EQ(dataInstTerm->getNet(), sourceBit);
+    }
+  };
+
+  auto* qBefore = top->getScalarNet(NLName("q_before"));
+  auto* qAfter = top->getScalarNet(NLName("q_after"));
+  ASSERT_NE(qBefore, nullptr);
+  ASSERT_NE(qAfter, nullptr);
+  expectTableDataFrom(
+    findDrivingTableSelect(qBefore),
+    top->getBusNet(NLName("a")));
+  expectTableDataFrom(
+    findDrivingTableSelect(qAfter),
+    top->getBusNet(NLName("b")));
+
+  size_t assignCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (instance && NLDB0::isAssign(instance->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(0u, assignCount);
+
+  size_t anonymousStandardScalarNetCount = 0;
+  for (auto* net : top->getNets()) {
+    auto* scalar = dynamic_cast<SNLScalarNet*>(net);
+    if (scalar && scalar->isUnnamed() &&
+        scalar->getType() == SNLNet::Type::Standard) {
+      ++anonymousStandardScalarNetCount;
+    }
+  }
+  EXPECT_EQ(0u, anonymousStandardScalarNetCount);
+
+  const auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "always_comb_automatic_variable_multiple_versions_use_replay_values_dump");
+  const auto dumpedText = readTextFile(dumpedVerilog);
+  EXPECT_EQ(std::string::npos, dumpedText.find("wire net_"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_before"));
+  EXPECT_EQ(std::string::npos, dumpedText.find("assign q_after"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".Y(q_before)"));
+  EXPECT_NE(std::string::npos, dumpedText.find(".Y(q_after)"));
+
+  // The automatic local exists only as successive procedural replay values;
+  // static-selection probing must not leave behind an undriven source-named net.
+  EXPECT_EQ(nullptr, top->getBusNet(NLName(
+    "always_comb_automatic_variable_multiple_versions_use_replay_values_tbl")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariablePartialWriteUsesReplayBase) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "always_comb_automatic_variable_partial_write_uses_replay_base",
+    R"(module always_comb_automatic_variable_partial_write_uses_replay_base(
+  input  logic [7:0] a,
+  input  logic       b,
+  output logic [7:0] q
+);
+  always_comb begin
+    automatic logic [7:0] tbl = a;
+    tbl[0] = b;
+    q = tbl;
+  end
+endmodule
+)");
+
+  constructor.construct(svPath);
+
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_automatic_variable_partial_write_uses_replay_base"));
+  ASSERT_NE(top, nullptr);
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getScalarNet(NLName("b"));
+  auto* q = top->getBusNet(NLName("q"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(q, nullptr);
+
+  EXPECT_EQ(b, getSingleAssignInputDriving(q->getBit(0)));
+  for (NLID::Bit bit = 1; bit < 8; ++bit) {
+    EXPECT_EQ(a->getBit(bit), getSingleAssignInputDriving(q->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithMultipleConsumersIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_multiple_consumers"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* secondConsumer = SNLInstance::create(
+    design,
+    NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1));
+  secondConsumer->getInstTerm(
+    NLDB0::getGateSingleTerm(secondConsumer->getModel()))->setNet(fixture.alias);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(3u, fixture.alias->getComponents().size());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  invalidAnonymousAssignAliasCandidatesAreRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_invalid_candidates"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(nullptr));
+  EXPECT_FALSE(
+    detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.producer));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  namedRTLAssignAliasIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_named_rtl"));
+  auto fixture = createAnonymousAssignAliasFixture(design, NLName("declared_signal"));
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_NE(nullptr, design->getScalarNet(NLName("declared_signal")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousBusBitAssignMappingIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_bus_bit_mapping"));
+  auto* input = SNLScalarNet::create(design, NLName("input"));
+  auto* aliasBus = SNLBusNet::create(design, 0, 1);
+  auto* destination = SNLScalarNet::create(design, NLName("destination"));
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  auto* producer = SNLInstance::create(design, buffer);
+  producer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(input);
+  auto* producerOutput = producer->getInstTerm(
+    NLDB0::getGateNTerms(buffer)->getBitAtPosition(0));
+  producerOutput->setNet(aliasBus->getBit(1));
+  auto* assign = SNLInstance::create(design, NLDB0::getAssign());
+  assign->getInstTerm(NLDB0::getAssignInput())->setNet(aliasBus->getBit(1));
+  assign->getInstTerm(NLDB0::getAssignOutput())->setNet(destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(assign));
+  EXPECT_EQ(aliasBus->getBit(1), producerOutput->getNet());
+  EXPECT_EQ(2u, aliasBus->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithExistingDestinationDriverIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_existing_driver"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* otherInput = SNLScalarNet::create(design, NLName("other_input"));
+  auto* buffer = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  auto* otherProducer = SNLInstance::create(design, buffer);
+  otherProducer->getInstTerm(NLDB0::getGateSingleTerm(buffer))->setNet(otherInput);
+  otherProducer->getInstTerm(
+    NLDB0::getGateNTerms(buffer)->getBitAtPosition(0))->setNet(fixture.destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithAttributeIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_attribute"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  SNLAttributes::addAttribute(
+    fixture.alias,
+    SNLAttribute(NLName("keep"), SNLAttributeValue("true")));
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_FALSE(fixture.alias->getAttributes().empty());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithNonSourceRTLMetadataIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_rtl_metadata"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* rtlInfos = SNLRTLInfos::create(fixture.alias);
+  rtlInfos->setInfo(NLName("rtl_symbol"), "temporary_value");
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ("temporary_value", rtlInfos->getInfo(NLName("rtl_symbol")));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithLiveASTAssociationIsRetained) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.keepASTLink = true;
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* sourceNet = top->getScalarNet(NLName("a"));
+  ASSERT_NE(nullptr, sourceNet);
+  const auto* liveASTLink = SNLSVLiveASTLinkRegistry::get(library_->getDB());
+  ASSERT_NE(nullptr, liveASTLink);
+  const auto* sourceSymbol = liveASTLink->getSymbol(sourceNet);
+  ASSERT_NE(nullptr, sourceSymbol);
+
+  auto* design = SNLDesign::create(library_, NLName("alias_live_ast"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(
+    fixture.assign,
+    sourceSymbol));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasSourceLocationIsTransferred) {
+  auto* design = SNLDesign::create(library_, NLName("alias_source_location"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* aliasInfos = SNLRTLInfos::create(fixture.alias);
+  aliasInfos->setSourceLoc({NLName("source.sv"), 17, 17, 4, 12});
+
+  EXPECT_TRUE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.destination, fixture.producerOutput->getNet());
+  EXPECT_EQ(2u, design->getNets().size());
+  EXPECT_EQ(1u, design->getInstances().size());
+  const auto* producerInfos = fixture.producer->getRTLInfos();
+  ASSERT_NE(nullptr, producerInfos);
+  ASSERT_TRUE(producerInfos->hasSourceLoc());
+  ASSERT_TRUE(producerInfos->getSourceLoc());
+  EXPECT_EQ("source.sv", producerInfos->getSourceLoc()->file.getString());
+  EXPECT_EQ(17u, producerInfos->getSourceLoc()->line);
+  EXPECT_EQ(4u, producerInfos->getSourceLoc()->column);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousPortAssignAliasIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_port"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* port = SNLScalarTerm::create(
+    design,
+    SNLTerm::Direction::Input,
+    NLName("port"));
+  port->setNet(fixture.alias);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(fixture.alias, port->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  anonymousAssignAliasWithInputDestinationPortIsRetained) {
+  auto* design = SNLDesign::create(library_, NLName("alias_destination_port"));
+  auto fixture = createAnonymousAssignAliasFixture(design);
+  auto* port = SNLScalarTerm::create(
+    design,
+    SNLTerm::Direction::Input,
+    NLName("port"));
+  port->setNet(fixture.destination);
+
+  EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assign));
+  EXPECT_EQ(fixture.alias, fixture.producerOutput->getNet());
+  EXPECT_EQ(fixture.destination, port->getNet());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableDeclarationInitializerUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -13992,7 +14517,7 @@ endmodule
   expectUnsupportedConstruct(
     constructor,
     svPath,
-    {"unable to resolve always_comb initializer bits for local 'tmp'"});
+    {"unable to resolve procedural initializer bits for local 'tmp'"});
 }
 
 TEST_F(

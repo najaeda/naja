@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBooleanTree.h"
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <set>
@@ -403,6 +404,15 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     if (input != nullptr) {
       inputs.push_back(input);
       deps.push_back(term->getOrderID());
+    }
+  }
+  for (const auto& [term, _] : inputs_) {
+    if (std::find(terms.begin(), terms.end(), term) == terms.end()) {
+      std::ostringstream reason;
+      reason << "Term `" << term->getName().getString()
+             << "` referenced by Boolean expression `" << function_
+             << "` is not a truth table input.";
+      throw SNLLibertyConstructorException(reason.str());
     }
   }
   int n = inputs.size();

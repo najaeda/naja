@@ -857,6 +857,7 @@ class SNLSVConstructorImpl {
       std::chrono::nanoseconds createContinuousAssignsDuration {0};
       std::chrono::nanoseconds createInstancesDuration {0};
       std::chrono::nanoseconds createSequentialLogicDuration {0};
+      std::chrono::nanoseconds collapseAnonymousAssignAliasesDuration {0};
       std::chrono::nanoseconds annotateSourceInfoDuration {0};
       std::chrono::nanoseconds cloneRTLInfosDuration {0};
 
@@ -873,6 +874,8 @@ class SNLSVConstructorImpl {
       size_t createContinuousAssignsCalls {0};
       size_t createInstancesCalls {0};
       size_t createSequentialLogicCalls {0};
+      size_t anonymousAssignAliasCandidates {0};
+      size_t anonymousAssignAliasesCollapsed {0};
       size_t annotateSourceInfoCalls {0};
       size_t rtlInfoCreateDesignCalls {0};
       size_t rtlInfoCreateDesignObjectCalls {0};
@@ -1214,6 +1217,10 @@ class SNLSVConstructorImpl {
              << toMilliseconds(
                   durationWithActiveTimers(svPerfReport_.createSequentialLogicDuration))
              << "\n";
+      output << "time.lowering.collapse_anonymous_assign_aliases_ms="
+             << toMilliseconds(durationWithActiveTimers(
+                  svPerfReport_.collapseAnonymousAssignAliasesDuration))
+             << "\n";
       output << "time.lowering.annotate_source_info_ms="
              << toMilliseconds(
                   durationWithActiveTimers(svPerfReport_.annotateSourceInfoDuration))
@@ -1241,6 +1248,10 @@ class SNLSVConstructorImpl {
              << svPerfReport_.createInstancesCalls << "\n";
       output << "count.lowering.create_sequential_logic_calls="
              << svPerfReport_.createSequentialLogicCalls << "\n";
+      output << "count.lowering.anonymous_assign_alias_candidates="
+             << svPerfReport_.anonymousAssignAliasCandidates << "\n";
+      output << "count.lowering.anonymous_assign_aliases_collapsed="
+             << svPerfReport_.anonymousAssignAliasesCollapsed << "\n";
       output << "count.lowering.annotate_source_info_calls="
              << svPerfReport_.annotateSourceInfoCalls << "\n";
       output << "count.rtl_info.create_design_calls="
@@ -1386,6 +1397,7 @@ class SNLSVConstructorImpl {
       loweredVariableInitializers_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
+      anonymousAssignAliasCandidates_.clear();
       initializeDiagnosticsReport();
       const auto diagnosticsReportGuard = slang::ScopeGuard([&]() {
         if (!diagnosticsReportFinalized_) {
@@ -1468,6 +1480,17 @@ class SNLSVConstructorImpl {
 #endif
           }
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        maybeWriteSVPerfReportSnapshot();
+#endif
+
+        // Expression lowering caches can retain pointers to compiler-generated
+        // nets. No construction path consults them after all top designs have
+        // been built, so release them before deleting redundant alias nets.
+        dynamicElementSelectCache_.clear();
+        gateOutputCache_.clear();
+        equalitySelectorsByNet_.clear();
+        collapseAnonymousAssignAliases();
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         maybeWriteSVPerfReportSnapshot();
 #endif
@@ -2286,6 +2309,16 @@ class SNLSVConstructorImpl {
       return result;
     }
 
+    bool testAutomaticLocalReplayLHSReuseEligibility(
+      bool wholeLHS,
+      bool automaticLocal,
+      bool hasReplayBits) const {
+      return canUseReplayBitsAsAutomaticLocalLHS(
+        wholeLHS,
+        automaticLocal,
+        hasReplayBits);
+    }
+
     std::optional<detail::ProceduralReplayEnvMergeTestResult>
     testMergeProceduralReplayEnvs() {
       auto syntaxTree = slang::syntax::SyntaxTree::fromText(
@@ -2868,6 +2901,14 @@ endmodule
       const std::string& prefix,
       const std::string& description) const {
       return formatQuotedDescriptionFailure(prefix, description);
+    }
+
+    bool testTryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
+      return tryCollapseAnonymousAssignAlias(assignInstance);
+    }
+
+    void testBindLiveASTLink(NLObject* object, const Symbol& symbol) {
+      bindLiveASTLink(object, symbol);
     }
     // LCOV_EXCL_STOP
 #endif
@@ -9167,6 +9208,141 @@ endmodule
       return nullptr; // LCOV_EXCL_LINE
     }
 
+    bool hasNonTransferableAliasMetadata(const SNLDesignObject* object) const {
+      if (!object ||
+          !object->getAttributes().empty() ||
+          !object->getProperties().empty()) {
+        return true;
+      }
+      if (liveASTLink_ && liveASTLink_->getSymbol(object)) {
+        return true;
+      }
+      const auto* rtlInfos = object->getRTLInfos();
+      return rtlInfos && !rtlInfos->getInfos().empty();
+    }
+
+    void retainAliasSourceLocation(
+      const SNLDesignObject* from,
+      SNLDesignObject* producer) const {
+      if (!from || !producer) {
+        return; // LCOV_EXCL_LINE
+      }
+      const auto* fromInfos = from->getRTLInfos();
+      if (!fromInfos || !fromInfos->hasSourceLoc()) {
+        return;
+      }
+      auto* producerInfos = producer->getRTLInfos();
+      if (producerInfos && producerInfos->hasSourceLoc()) {
+        return;
+      }
+      producerInfos = getOrCreateRTLInfos(producer);
+      producerInfos->setSourceLoc(*fromInfos->getSourceLoc());
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      svPerfReport_.rtlInfoSetCalls += 5;
+      noteSVPerfProgress();
+#endif
+    }
+
+    bool tryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
+      if (!assignInstance || !NLDB0::isAssign(assignInstance->getModel())) {
+        return false;
+      }
+      auto* assignInput = assignInstance->getInstTerm(NLDB0::getAssignInput());
+      auto* assignOutput = assignInstance->getInstTerm(NLDB0::getAssignOutput());
+      if (!assignInput || !assignOutput) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      // Restrict fusion to whole anonymous scalar nets. A bus bit can encode a
+      // slice, concatenation, reordering, extension, or truncation decision,
+      // and its owning bus cannot be removed independently.
+      auto* aliasNet = dynamic_cast<SNLScalarNet*>(assignInput->getNet());
+      auto* destinationNet = dynamic_cast<SNLBitNet*>(assignOutput->getNet());
+      if (!aliasNet ||
+          !destinationNet ||
+          aliasNet == destinationNet ||
+          !aliasNet->isUnnamed() ||
+          aliasNet->getType() != SNLNet::Type::Standard ||
+          destinationNet->getType() != SNLNet::Type::Standard ||
+          !aliasNet->getBitTerms().empty() ||
+          hasNonTransferableAliasMetadata(aliasNet) ||
+          hasNonTransferableAliasMetadata(assignInstance)) {
+        return false;
+      }
+
+      // The alias must have exactly one producer and exactly one consumer: the
+      // assign input being removed. Direct incident-component traversal keeps
+      // this proportional to the connectivity of the candidate net.
+      if (aliasNet->getComponents().size() != 2) {
+        return false;
+      }
+      SNLInstTerm* producerOutput = nullptr;
+      for (auto* component : aliasNet->getComponents()) {
+        auto* instTerm = dynamic_cast<SNLInstTerm*>(component);
+        if (!instTerm) {
+          return false; // LCOV_EXCL_LINE
+        }
+        if (instTerm == assignInput) {
+          continue;
+        }
+        if (producerOutput ||
+            instTerm->getDirection() != SNLTerm::Direction::Output ||
+            !instTerm->getInstance() ||
+            NLDB0::isAssign(instTerm->getInstance()->getModel())) {
+          return false;
+        }
+        producerOutput = instTerm;
+      }
+      if (!producerOutput) {
+        // With exactly two unique components, one is assignInput and the other
+        // either becomes producerOutput or returns from the loop above.
+        return false; // LCOV_EXCL_LINE defensive: component invariant
+      }
+
+      // The destination may have loads and an output port, but the candidate
+      // assign must be its only driver. Input/inout design ports are themselves
+      // externally driven and therefore cannot accept the producer directly.
+      for (auto* instTerm : destinationNet->getInstTerms()) {
+        if (instTerm == assignOutput) {
+          continue;
+        }
+        if (!instTerm || instTerm->getDirection() != SNLTerm::Direction::Input) {
+          return false;
+        }
+      }
+      for (auto* bitTerm : destinationNet->getBitTerms()) {
+        if (!bitTerm || bitTerm->getDirection() != SNLTerm::Direction::Output) {
+          return false;
+        }
+      }
+
+      auto* producer = producerOutput->getInstance();
+      retainAliasSourceLocation(aliasNet, producer);
+      retainAliasSourceLocation(assignInstance, producer);
+      producerOutput->setNet(destinationNet);
+      assignInstance->destroy();
+      aliasNet->destroy();
+      return true;
+    }
+
+    void collapseAnonymousAssignAliases() {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const SVPerfScopedTimer timer(
+        svPerfReport_,
+        svPerfReport_.collapseAnonymousAssignAliasesDuration);
+      svPerfReport_.anonymousAssignAliasCandidates =
+        anonymousAssignAliasCandidates_.size();
+#endif
+      for (auto* candidate : anonymousAssignAliasCandidates_) {
+        if (tryCollapseAnonymousAssignAlias(candidate)) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.anonymousAssignAliasesCollapsed;
+#endif
+        }
+      }
+      anonymousAssignAliasCandidates_.clear();
+    }
+
     SNLInstance* createAssignInstance(
       SNLDesign* design,
       SNLNet* inNet,
@@ -9203,6 +9379,10 @@ endmodule
         if (auto outTerm = assignInst->getInstTerm(assignOutput)) {
           outTerm->setNet(outNet);
         }
+      }
+      if (auto* scalarInput = dynamic_cast<SNLScalarNet*>(inNet);
+          scalarInput && scalarInput->isUnnamed()) {
+        anonymousAssignAliasCandidates_.push_back(assignInst);
       }
       return assignInst;
     }
@@ -10814,6 +10994,15 @@ endmodule
 
       const auto resolveBaseBits = [&](const Expression& baseExpr,
                                        std::vector<SNLBitNet*>& baseBits) {
+        baseBits.clear();
+        // A failed static-selection probe must not materialize a stable net
+        // for a procedural local that already has a current replay value.
+        if (auto baseWidth = getIntegralExpressionBitWidth(baseExpr);
+            baseWidth && *baseWidth > 0 &&
+            resolveActiveProceduralReplayBits(baseExpr, *baseWidth, baseBits) &&
+            baseBits.size() == *baseWidth) {
+          return true;
+        }
         baseBits.clear();
         auto* baseNet = resolveExpressionNet(design, baseExpr);
         if (!baseNet) {
@@ -21898,15 +22087,74 @@ endmodule
       const Statement* current = unwrapStatement(stmt);
       if (!current ||
           isIgnorableSequentialTimingStatement(*current) ||
-          current->kind == slang::ast::StatementKind::Empty ||
-          current->kind == slang::ast::StatementKind::VariableDeclaration) {
+          current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& variable =
+          current->as<slang::ast::VariableDeclStatement>().symbol;
+        if (!variable.getInitializer() ||
+            variable.lifetime != slang::ast::VariableLifetime::Automatic ||
+            (ignoredSymbols && ignoredSymbols->contains(&variable))) {
+          return true;
+        }
+
+        // An automatic declaration initializer executes as a blocking
+        // procedural assignment whenever control reaches the declaration. Make
+        // it visible to scheduling analysis so sequential lowering selects the
+        // dependency-aware replay path instead of resolving consumers through
+        // the declaration's otherwise undriven design net.
+        summary.hasBlocking = true;
+        summary.schedulingBySymbol[&variable] |= 1u;
+        const uint8_t currentMasks =
+          pathState.contains(&variable) ? pathState[&variable] : 1u;
+        uint8_t nextMasks = 0u;
+        for (uint8_t mask = 0; mask < 4; ++mask) {
+          if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+            continue;
+          }
+          const auto nextMask = static_cast<uint8_t>(mask | 1u);
+          nextMasks |= static_cast<uint8_t>(1u << nextMask);
+        }
+        pathState[&variable] = nextMasks;
         return true;
       }
 
       if (current->kind == slang::ast::StatementKind::List) {
+        // Slang represents `for (int i = ...; ...)` with a surrounding list
+        // that contains both i's declaration statement and the ForLoop node;
+        // the loop also references i through loopVars. That declaration is
+        // static elaboration bookkeeping for unrolling, not a runtime blocking
+        // assignment that should select scheduling replay.
+        std::unordered_set<const slang::ast::ValueSymbol*> effectiveIgnoredSymbols;
+        bool foundLoopVariable = false;
+        for (const auto* item : current->as<slang::ast::StatementList>().list) {
+          const auto* listItem = item ? unwrapStatement(*item) : nullptr;
+          if (!listItem || listItem->kind != slang::ast::StatementKind::ForLoop) {
+            continue;
+          }
+          for (const auto* loopVar :
+               listItem->as<slang::ast::ForLoopStatement>().loopVars) {
+            if (loopVar) {
+              if (!foundLoopVariable && ignoredSymbols) {
+                effectiveIgnoredSymbols = *ignoredSymbols;
+              }
+              foundLoopVariable = true;
+              effectiveIgnoredSymbols.insert(loopVar);
+            }
+          }
+        }
+        const auto* effectiveIgnoredSymbolsPtr = foundLoopVariable
+          ? &effectiveIgnoredSymbols
+          : ignoredSymbols;
         for (const auto* item : current->as<slang::ast::StatementList>().list) {
           if (item && !analyzeProceduralAssignmentScheduling(
-                *item, summary, pathState, failureReason, ignoredSymbols)) {
+                *item,
+                summary,
+                pathState,
+                failureReason,
+                effectiveIgnoredSymbolsPtr)) {
             return false;
           }
         }
@@ -23733,9 +23981,10 @@ endmodule
       }
 
       if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
-        // Local variable declarations in always_comb (including initializer forms
-        // like "int i = 0" used by for-loop indices) do not directly write tracked
-        // design LHS targets and can be ignored by assignment collection.
+        // Local variable declarations in procedural blocks (including
+        // initializer forms like "int i = 0" used by for-loop indices) do not
+        // directly write tracked design LHS targets and can be ignored by
+        // assignment collection. Dependency-aware replay handles their values.
         return true;
       }
 
@@ -26583,6 +26832,13 @@ endmodule
       return true;
     }
 
+    bool canUseReplayBitsAsAutomaticLocalLHS(
+      bool wholeLHS,
+      bool automaticLocal,
+      bool hasReplayBits) const {
+      return wholeLHS && automaticLocal && hasReplayBits;
+    }
+
     bool applyCombinationalAssignmentToReplaySymbol(
       SNLDesign* design,
       const Expression& assignedLHS,
@@ -26604,12 +26860,26 @@ endmodule
       }
 
       std::vector<SNLBitNet*> replayLhsBits;
-      if (!resolveAssignmentLHSBits(
-            design,
-            *replayLhs,
-            replayLhsBits,
-            &failureReason,
-            true)) {
+      auto found = activeProceduralReplayEnv_->find(replaySymbol);
+      const bool useAutomaticLocalReplayLhs =
+        canUseReplayBitsAsAutomaticLocalLHS(
+          sameLhs(&assignedLHS, replayLhs),
+          replaySymbol->kind == slang::ast::SymbolKind::Variable &&
+            replaySymbol->as<slang::ast::VariableSymbol>().lifetime ==
+              slang::ast::VariableLifetime::Automatic,
+          found != activeProceduralReplayEnv_->end() &&
+            !found->second.empty());
+      // A replay entry is the current value of a whole automatic-local LHS.
+      // Resolving that source expression first would materialize an unused
+      // stable net for a value whose successive versions exist only in replay.
+      if (useAutomaticLocalReplayLhs) {
+        replayLhsBits = found->second;
+      } else if (!resolveAssignmentLHSBits(
+                   design,
+                   *replayLhs,
+                   replayLhsBits,
+                   &failureReason,
+                   true)) {
         return false; // LCOV_EXCL_LINE: replay LHS came from a resolved assignment.
       }
       if (replayLhsBits.empty()) {
@@ -26617,7 +26887,6 @@ endmodule
       }
 
       std::vector<SNLBitNet*> replayBits = replayLhsBits;
-      auto found = activeProceduralReplayEnv_->find(replaySymbol);
       if (found != activeProceduralReplayEnv_->end() &&
           found->second.size() == replayLhsBits.size()) {
         replayBits = found->second;
@@ -27760,7 +28029,7 @@ endmodule
               !resolveExpressionBits(design, *initializer, static_cast<size_t>(*width), initBits) ||
               initBits.size() != static_cast<size_t>(*width)) {
             std::ostringstream reason;
-            reason << "unable to resolve always_comb initializer bits for local '"
+            reason << "unable to resolve procedural initializer bits for local '"
                    << std::string(declStmt.symbol.name) << "'";
             failureReason = reason.str();
             return false;
@@ -27773,10 +28042,10 @@ endmodule
             !slang::ast::ValueExpressionBase::isKind(strippedTrackedLHS->kind) ||
             &strippedTrackedLHS->as<slang::ast::ValueExpressionBase>().symbol != &declStmt.symbol) {
           // LCOV_EXCL_START
-          // Local variable declarations in always_comb are usually bookkeeping
-          // only from the point of view of tracked LHS rewriting. In current
-          // parser-backed lowering they are skipped earlier by subtree-summary
-          // pruning before this fallback is reached.
+          // Local variable declarations are usually bookkeeping only from the
+          // point of view of tracked LHS rewriting. In current parser-backed
+          // lowering they are skipped earlier by subtree-summary pruning before
+          // this fallback is reached.
           return true;
           // LCOV_EXCL_STOP
         }
@@ -27786,7 +28055,7 @@ endmodule
           // LCOV_EXCL_START
           // This fallback tracks an already resolved local LHS at lhsBits width.
           std::ostringstream reason;
-          reason << "unable to resolve always_comb initializer bits for local '"
+          reason << "unable to resolve procedural initializer bits for local '"
                  << std::string(declStmt.symbol.name) << "'";
           failureReason = reason.str();
           return false;
@@ -34507,6 +34776,7 @@ endmodule
     std::unordered_map<GateOutputCacheKey, SNLNet*, GateOutputCacheKeyHash>
       gateOutputCache_ {};
     std::unordered_map<SNLBitNet*, EqualitySelectorInfo> equalitySelectorsByNet_ {};
+    std::vector<SNLInstance*> anonymousAssignAliasCandidates_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
@@ -34752,6 +35022,18 @@ testSVConstructorMergeProceduralReplayEnvs() {
   return impl.testMergeProceduralReplayEnvs();
 }
 
+bool testSVConstructorAutomaticLocalReplayLHSReuseEligibility(
+  bool wholeLHS,
+  bool automaticLocal,
+  bool hasReplayBits) {
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(nullptr, options);
+  return impl.testAutomaticLocalReplayLHSReuseEligibility(
+    wholeLHS,
+    automaticLocal,
+    hasReplayBits);
+}
+
 std::optional<ActiveForLoopConstantHelpersTestResult>
 testSVConstructorActiveForLoopConstantHelpers() {
   SNLSVConstructor::ConstructOptions options;
@@ -34855,6 +35137,23 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
+}
+
+bool testSVConstructorTryCollapseAnonymousAssignAlias(
+  SNLInstance* assignInstance,
+  const Symbol* associatedSymbol) {
+  SNLSVConstructor::ConstructOptions options;
+  options.keepASTLink = associatedSymbol != nullptr;
+  SNLSVConstructorImpl impl(
+    assignInstance ? assignInstance->getLibrary() : nullptr,
+    options);
+  if (assignInstance && associatedSymbol) {
+    auto* assignInput = assignInstance->getInstTerm(NLDB0::getAssignInput());
+    if (assignInput && assignInput->getNet()) {
+      impl.testBindLiveASTLink(assignInput->getNet(), *associatedSymbol);
+    }
+  }
+  return impl.testTryCollapseAnonymousAssignAlias(assignInstance);
 }
 // LCOV_EXCL_STOP
 

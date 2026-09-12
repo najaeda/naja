@@ -258,6 +258,19 @@ def constructSRL16E(lib):
     )
 
 
+def _set_flip_flop_model(primitive, next_state, clear=None, preset=None):
+    state = {"name": "IQ", "next_state": next_state}
+    if clear is not None:
+        state["clear"] = clear
+    if preset is not None:
+        state["preset"] = preset
+    primitive.setSequentialModel(
+        clocked_on="C",
+        states=[state],
+        outputs=[(primitive.getScalarTerm("Q"), "IQ")],
+    )
+
+
 def constructFDCE(lib):
     fdce = naja.SNLDesign.createPrimitive(lib, "FDCE")
     naja.SNLScalarTerm.create(fdce, naja.SNLTerm.Direction.Output, "Q")
@@ -274,6 +287,7 @@ def constructFDCE(lib):
             clr: (naja.SNLTermRole.AsyncReset, naja.SNLActiveLevel.High),
         },
     )
+    _set_flip_flop_model(fdce, "(CE & D) | (!CE & IQ)", clear="CLR")
 
 
 def constructFDPE(lib):
@@ -292,6 +306,7 @@ def constructFDPE(lib):
             pre: (naja.SNLTermRole.AsyncSet, naja.SNLActiveLevel.High),
         },
     )
+    _set_flip_flop_model(fdpe, "(CE & D) | (!CE & IQ)", preset="PRE")
 
 
 def constructFDRE(lib):
@@ -310,6 +325,7 @@ def constructFDRE(lib):
             r: (naja.SNLTermRole.SyncReset, naja.SNLActiveLevel.High),
         },
     )
+    _set_flip_flop_model(fdre, "(!R) & ((CE & D) | (!CE & IQ))")
 
 
 def constructFDSE(lib):
@@ -328,6 +344,7 @@ def constructFDSE(lib):
             s: (naja.SNLTermRole.SyncSet, naja.SNLActiveLevel.High),
         },
     )
+    _set_flip_flop_model(fdse, "S | ((CE & D) | (!CE & IQ))")
 
 
 def constructRAM32M(lib):

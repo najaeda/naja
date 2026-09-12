@@ -74,6 +74,10 @@ void PNLInstance::preCreate(PNLDesign* design, const PNLDesign* model, const NLN
     reason << " has a NULL model argument";
     throw NLException(reason.str());
   }
+  if (design->isPrimitive()) {
+    throw NLException(
+      "Cannot create PNLInstance in primitive design: " + design->getString());
+  }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason =
         "PNLDesign " + design->getString() +

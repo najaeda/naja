@@ -20,6 +20,7 @@ sh_test(
     args = [
         "src/najaeda/najaeda",
         "$(rootpath //src/nl/python/naja_wrapping:naja.so)",
+        "$(rootpath //src/nl/python/naja_wrapping:naja_runtime)",
         "$(rootpath @python3_tool//:python3)",
         "src/najaeda/examples",
     ],
@@ -28,6 +29,7 @@ sh_test(
         "//src/najaeda/benchmarks",
         "//src/najaeda/najaeda:sources",
         "//src/nl/python/naja_wrapping:naja.so",
+        "//src/nl/python/naja_wrapping:naja_runtime",
         "@python3_tool//:python3",
     ],
     # Not gtest/ctest-shaped output; run_regress.py's own logging is the

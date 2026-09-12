@@ -31,6 +31,14 @@ because they preserve occurrence context.
    term = top.get_child_instance("u_reg").get_term("CLK")
    term.set_net(src)
 
+Child instances
+---------------
+
+Create an instance below the selected occurrence with
+:meth:`najaeda.netlist.Instance.create_child_instance`.  Primitive models are
+hierarchy leaves, so attempting to create a child inside one raises
+``RuntimeError``.
+
 Deletion
 --------
 

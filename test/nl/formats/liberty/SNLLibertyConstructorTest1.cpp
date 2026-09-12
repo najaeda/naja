@@ -6,6 +6,7 @@
 #include "gmock/gmock.h"
 #include <algorithm>
 #include <set>
+#include "NajaLog.h"
 #include "NLUniverse.h"
 
 #include "SNLBitNet.h"
@@ -716,6 +717,178 @@ TEST_F(SNLLibertyConstructorTest1, testFF) {
   EXPECT_EQ(
       model.outputs[0].function.nodes[model.outputs[0].function.root].operation,
       SNLDesignModeling::BooleanExpression::Operator::State);
+}
+
+TEST_F(SNLLibertyConstructorTest1, testStateTableFunctionIsOpaque) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "statetable_state_function.lib";
+  testing::internal::CaptureStdout();
+  constructor.construct(testPath);
+  naja::log::get()->flush();
+  const auto diagnostics = testing::internal::GetCapturedStdout();
+  EXPECT_NE(std::string::npos, diagnostics.find("cell ICG"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_FUNCTION_ONLY"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_RISING_OUTPUT"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell STATE_BUS_TIMING"));
+  EXPECT_NE(std::string::npos, diagnostics.find("cell FF_WITH_STATE_FUNCTION"));
+  EXPECT_NE(
+      std::string::npos,
+      diagnostics.find(
+          "unsupported Liberty statetable/state_function behavioral modeling"));
+
+  auto* icg = library_->getSNLDesign(NLName("ICG"));
+  ASSERT_NE(nullptr, icg);
+  EXPECT_EQ(4, icg->getTerms().size());
+  EXPECT_EQ(4, icg->getScalarTerms().size());
+  EXPECT_TRUE(icg->getBusTerms().empty());
+
+  auto* clk = icg->getScalarTerm(NLName("CLK"));
+  auto* ena = icg->getScalarTerm(NLName("ENA"));
+  auto* se = icg->getScalarTerm(NLName("SE"));
+  ASSERT_NE(nullptr, clk);
+  ASSERT_NE(nullptr, ena);
+  ASSERT_NE(nullptr, se);
+  EXPECT_EQ(SNLTerm::Direction::Input, clk->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, ena->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, se->getDirection());
+  auto* gclk = icg->getScalarTerm(NLName("GCLK"));
+  ASSERT_NE(nullptr, gclk);
+  EXPECT_EQ(SNLTerm::Direction::Output, gclk->getDirection());
+
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(icg));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(icg).isInitialized());
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(icg, gclk->getFlatID()).isInitialized());
+  EXPECT_FALSE(SNLDesignModeling::isConst0(icg));
+  EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(icg));
+  EXPECT_TRUE(SNLDesignModeling::isSequential(icg));
+  EXPECT_TRUE(SNLDesignModeling::isClock(clk));
+
+  const auto clockRelatedInputs =
+      SNLDesignModeling::getClockRelatedInputs(clk);
+  const std::set<SNLBitTerm*> clockRelatedInputSet(
+      clockRelatedInputs.begin(), clockRelatedInputs.end());
+  EXPECT_EQ((std::set<SNLBitTerm*>{ena, se}), clockRelatedInputSet);
+  for (auto* input : {ena, se}) {
+    const auto relatedClocks = SNLDesignModeling::getInputRelatedClocks(input);
+    ASSERT_EQ(1u, relatedClocks.size());
+    EXPECT_EQ(clk, *relatedClocks.begin());
+  }
+  const auto gclkCombinatorialInputs =
+      SNLDesignModeling::getCombinatorialInputs(gclk);
+  ASSERT_EQ(1u, gclkCombinatorialInputs.size());
+  EXPECT_EQ(clk, *gclkCombinatorialInputs.begin());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(gclk).empty());
+
+  auto* stateFunctionOnly =
+      library_->getSNLDesign(NLName("STATE_FUNCTION_ONLY"));
+  ASSERT_NE(nullptr, stateFunctionOnly);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(stateFunctionOnly));
+  EXPECT_FALSE(
+      SNLDesignModeling::getTruthTable(stateFunctionOnly).isInitialized());
+  auto* stateInput = stateFunctionOnly->getScalarTerm(NLName("D"));
+  auto* stateOutput = stateFunctionOnly->getScalarTerm(NLName("Q"));
+  ASSERT_NE(nullptr, stateInput);
+  ASSERT_NE(nullptr, stateOutput);
+  const auto stateCombinatorialInputs =
+      SNLDesignModeling::getCombinatorialInputs(stateOutput);
+  ASSERT_EQ(1u, stateCombinatorialInputs.size());
+  EXPECT_EQ(stateInput, *stateCombinatorialInputs.begin());
+
+  auto* stateRisingOutput =
+      library_->getSNLDesign(NLName("STATE_RISING_OUTPUT"));
+  ASSERT_NE(nullptr, stateRisingOutput);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(stateRisingOutput));
+  auto* stateClock = stateRisingOutput->getScalarTerm(NLName("CLK"));
+  auto* risingOutput = stateRisingOutput->getScalarTerm(NLName("Q"));
+  ASSERT_NE(nullptr, stateClock);
+  ASSERT_NE(nullptr, risingOutput);
+  EXPECT_TRUE(
+      SNLDesignModeling::getCombinatorialInputs(risingOutput).empty());
+  const auto risingOutputClocks =
+      SNLDesignModeling::getOutputRelatedClocks(risingOutput);
+  ASSERT_EQ(1u, risingOutputClocks.size());
+  EXPECT_EQ(stateClock, *risingOutputClocks.begin());
+
+  auto* stateBusTiming =
+      library_->getSNLDesign(NLName("STATE_BUS_TIMING"));
+  ASSERT_NE(nullptr, stateBusTiming);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(stateBusTiming));
+  auto* stateBusData = stateBusTiming->getBusTerm(NLName("D"));
+  auto* stateBusOutput = stateBusTiming->getBusTerm(NLName("Q"));
+  ASSERT_NE(nullptr, stateBusData);
+  ASSERT_NE(nullptr, stateBusOutput);
+  const auto stateBusDataBits = stateBusData->getBits();
+  const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> expectedDataBits(
+      stateBusDataBits.begin(), stateBusDataBits.end());
+  ASSERT_EQ(2u, expectedDataBits.size());
+  const auto stateBusOutputBits = stateBusOutput->getBits();
+  ASSERT_EQ(2u, stateBusOutputBits.size());
+  for (auto* outputBit : stateBusOutputBits) {
+    const auto combinatorialInputs =
+        SNLDesignModeling::getCombinatorialInputs(outputBit);
+    const std::set<SNLBitTerm*, SNLBitTerm::InDesignLess> actualInputs(
+        combinatorialInputs.begin(), combinatorialInputs.end());
+    EXPECT_EQ(expectedDataBits, actualInputs);
+  }
+
+  auto* ffWithStateFunction =
+      library_->getSNLDesign(NLName("FF_WITH_STATE_FUNCTION"));
+  ASSERT_NE(nullptr, ffWithStateFunction);
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(ffWithStateFunction));
+  EXPECT_TRUE(SNLDesignModeling::hasSequentialModel(ffWithStateFunction));
+  auto* ffClk = ffWithStateFunction->getScalarTerm(NLName("CLK"));
+  auto* ffData = ffWithStateFunction->getScalarTerm(NLName("D"));
+  auto* ffOutput = ffWithStateFunction->getScalarTerm(NLName("Q"));
+  ASSERT_NE(nullptr, ffClk);
+  ASSERT_NE(nullptr, ffData);
+  ASSERT_NE(nullptr, ffOutput);
+  const auto ffInputClocks =
+      SNLDesignModeling::getInputRelatedClocks(ffData);
+  const auto ffOutputClocks =
+      SNLDesignModeling::getOutputRelatedClocks(ffOutput);
+  ASSERT_EQ(1u, ffInputClocks.size());
+  ASSERT_EQ(1u, ffOutputClocks.size());
+  EXPECT_EQ(ffClk, *ffInputClocks.begin());
+  EXPECT_EQ(ffClk, *ffOutputClocks.begin());
+}
+
+TEST_F(SNLLibertyConstructorTest1,
+       testStateTableTimingRejectsOutputRelatedPin) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "errors" / "timing_only_related_output_error.lib";
+
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Combinational timing `related_pin` `Q` for term `Q` "
+            "resolves to an output term"));
+  }
+}
+
+TEST_F(SNLLibertyConstructorTest1,
+       testStateTableTimingRejectsUnknownRelatedPin) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "errors" /
+      "timing_only_unknown_related_pin_error.lib";
+
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(
+        std::string::npos,
+        e.getReason().find(
+            "Combinational timing `related_pin` `MISSING` for term `Q` "
+            "does not resolve to an input or inout term"));
+  }
 }
 
 TEST_F(SNLLibertyConstructorTest1, testFFScanModel) {

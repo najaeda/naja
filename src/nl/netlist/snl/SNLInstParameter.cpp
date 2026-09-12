@@ -10,6 +10,7 @@
 
 #include "SNLInstance.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLParameter.h"
 
 namespace naja::NL {
@@ -27,6 +28,7 @@ SNLInstParameter* SNLInstParameter::create(SNLInstance* instance, SNLParameter* 
 
 void SNLInstParameter::postCreate() {
   instance_->addInstParameter(this);
+  SNLDesignModeling::invalidateTruthTableCache(instance_);
 }
 
 void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter) {
@@ -42,6 +44,7 @@ void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter)
 }
 
 void SNLInstParameter::preDestroy() {
+  SNLDesignModeling::invalidateTruthTableCache(instance_);
   instance_->removeInstParameter(this);
   super::preDestroy();
 }
@@ -52,6 +55,11 @@ void SNLInstParameter::destroyFromInstance() {
 
 NLName SNLInstParameter::getName() const {
   return parameter_->getName(); 
+}
+
+void SNLInstParameter::setValue(const std::string& value) {
+  value_ = value;
+  SNLDesignModeling::invalidateTruthTableCache(instance_);
 }
 
 bool SNLInstParameter::deepCompare(const SNLInstParameter* other, std::string& reason) const {

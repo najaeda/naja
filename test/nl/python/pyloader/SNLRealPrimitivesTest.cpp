@@ -6,6 +6,7 @@
 
 #include "NLUniverse.h"
 #include "NLException.h"
+#include "SNLDesignModeling.h"
 #include "SNLPyLoader.h"
 
 using namespace naja::NL;
@@ -38,6 +39,11 @@ TEST_F(SNLRealPrimitivesTest, testXilinx) {
   auto lut6 = library->getSNLDesign(NLName("LUT6"));
   EXPECT_NE(nullptr, lut6);
   EXPECT_TRUE(lut6->isPrimitive());
+  for (const auto* name: {"FDCE", "FDPE", "FDRE", "FDSE"}) {
+    auto primitive = library->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, primitive);
+    EXPECT_TRUE(SNLDesignModeling::hasSequentialModel(primitive));
+  }
 }
 
 TEST_F(SNLRealPrimitivesTest, testYosys) {

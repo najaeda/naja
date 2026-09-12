@@ -165,6 +165,14 @@ class SNLInstanceTest(unittest.TestCase):
 
     ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")
     with self.assertRaises(RuntimeError) as context: ins1.getInstTerm("ERROR")
+
+  def testCreateInPrimitive(self):
+    primitives = naja.NLLibrary.createPrimitives(self.top.getDB(), "PRIMITIVES")
+    primitive = naja.SNLDesign.createPrimitive(primitives, "primitive")
+    with self.assertRaisesRegex(
+        RuntimeError, "Cannot create SNLInstance in primitive design"):
+      naja.SNLInstance.create(primitive, self.model, "nested")
+    self.assertFalse(any(primitive.getInstances()))
     
 if __name__ == '__main__':
   unittest.main()

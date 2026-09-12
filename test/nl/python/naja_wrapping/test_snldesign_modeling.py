@@ -81,6 +81,132 @@ class SNLDesignModelingTest(unittest.TestCase):
     with self.assertRaises(RuntimeError):
       clock.setRole(naja.SNLTermRole.Clock, 1000)
 
+  def testSequentialModel(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "SCAN_REG")
+    q = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+    qn = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "QN")
+    for name in ("CLK", "D", "SE", "SI", "RESET_B", "PRESET"):
+      naja.SNLScalarTerm.create(
+        reg, naja.SNLTerm.Direction.Input, name)
+
+    self.assertFalse(reg.hasSequentialModel())
+    reg.setSequentialModel(
+      clocked_on="CLK",
+      states=[{
+        "name": "IQ",
+        "inverted_name": "IQN",
+        "next_state": "(SE & SI) | (!SE & D)",
+        "clear": "!RESET_B",
+        "preset": "PRESET",
+      }],
+      outputs=[(q, "IQ"), (qn, "IQN")])
+    self.assertTrue(reg.hasSequentialModel())
+
+  def testSequentialModelStateOptions(self):
+    clear_preset_values = ("zero", "one", "hold", "toggle", "unknown")
+    for index, clear_preset_value in enumerate(clear_preset_values):
+      with self.subTest(clear_preset_value=clear_preset_value):
+        reg = naja.SNLDesign.createPrimitive(
+          self.primitives, f"STATE_OPTIONS_{index}")
+        q = naja.SNLScalarTerm.create(
+          reg, naja.SNLTerm.Direction.Output, "Q")
+        for name in ("CLK", "D", "PRESET"):
+          naja.SNLScalarTerm.create(
+            reg, naja.SNLTerm.Direction.Input, name)
+
+        reg.setSequentialModel(
+          clocked_on="CLK",
+          states=[{
+            "name": "IQ",
+            "inverted_name": None,
+            "next_state": "D",
+            "clear": None,
+            "preset": "PRESET" if index == 0 else None,
+            "clear_preset_value": clear_preset_value,
+          }],
+          outputs=[(q, "IQ")],
+          kind="latch" if index == 0 else "flip_flop")
+        self.assertTrue(reg.hasSequentialModel())
+
+  def testSequentialModelStateErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "STATE_ERRORS")
+    q = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+    for name in ("CLK", "D"):
+      naja.SNLScalarTerm.create(
+        reg, naja.SNLTerm.Direction.Input, name)
+
+    def set_states(states, kind="flip_flop"):
+      reg.setSequentialModel(
+        clocked_on="CLK", states=states, outputs=[(q, "IQ")], kind=kind)
+
+    with self.assertRaisesRegex(
+        RuntimeError, "malformed SNLDesign.setSequentialModel method"):
+      reg.setSequentialModel()
+    with self.assertRaisesRegex(
+        RuntimeError, "states must be dictionaries"):
+      set_states([None])
+    with self.assertRaisesRegex(RuntimeError, r"state requires `name`"):
+      set_states([{"next_state": "D"}])
+    with self.assertRaisesRegex(RuntimeError, r"`name` must be a string"):
+      set_states([{"name": 0, "next_state": "D"}])
+    with self.assertRaisesRegex(
+        RuntimeError, r"`inverted_name` must be a string"):
+      set_states([{"name": "IQ", "inverted_name": 0, "next_state": "D"}])
+    with self.assertRaisesRegex(
+        RuntimeError, r"duplicate state name `IQ`"):
+      set_states([
+        {"name": "IQ", "next_state": "D"},
+        {"name": "IQ", "next_state": "D"},
+      ])
+    with self.assertRaisesRegex(
+        RuntimeError, "kind must be flip_flop or latch"):
+      set_states([{"name": "IQ", "next_state": "D"}], kind="register")
+    with self.assertRaisesRegex(
+        RuntimeError,
+        "`clear_preset_value` must be zero, one, hold, toggle, or unknown"):
+      set_states([{
+        "name": "IQ",
+        "next_state": "D",
+        "clear_preset_value": "invalid",
+      }])
+
+  def testSequentialModelOutputErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "REG")
+    q = naja.SNLScalarTerm.create(
+      reg, naja.SNLTerm.Direction.Output, "Q")
+    for name in ("CLK", "D"):
+      naja.SNLScalarTerm.create(
+        reg, naja.SNLTerm.Direction.Input, name)
+    states = [{"name": "IQ", "next_state": "D"}]
+
+    def set_outputs(outputs):
+      reg.setSequentialModel(
+        clocked_on="CLK", states=states, outputs=outputs)
+
+    with self.assertRaisesRegex(
+        RuntimeError, "expects lists for states and outputs"):
+      set_outputs(((q, "IQ"),))
+    for outputs in ([q], [(q,)]):
+      with self.assertRaisesRegex(
+          RuntimeError,
+          r"outputs must be \(SNLBitTerm, expression\) tuples"):
+        set_outputs(outputs)
+    for outputs in ([("Q", "IQ")], [(q, 0)]):
+      with self.assertRaisesRegex(
+          RuntimeError,
+          r"outputs must be \(SNLBitTerm, expression\) tuples"):
+        set_outputs(outputs)
+
+    foreign = naja.SNLDesign.createPrimitive(self.primitives, "FOREIGN")
+    foreign_q = naja.SNLScalarTerm.create(
+      foreign, naja.SNLTerm.Direction.Output, "Q")
+    with self.assertRaisesRegex(
+        RuntimeError, "output term belongs to another design"):
+      set_outputs([(foreign_q, "IQ")])
+
   def testLoweredSequentialTermRoles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)

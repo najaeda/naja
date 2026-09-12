@@ -4,10 +4,11 @@
 
 add_subdirectory(yosys-liberty)
 add_subdirectory(naja-verilog)
-# libnaja_python is dlopened by Python; on musl (Alpine), slang+mimalloc can
-# trigger "initial-exec TLS resolves to dynamic definition" relocation errors.
+# libnaja_python is dlopened by Python, so embedded static libraries must use
+# position-independent code. On musl (Alpine), slang+mimalloc can also trigger
+# "initial-exec TLS resolves to dynamic definition" relocation errors.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(SLANG_USE_MIMALLOC OFF CACHE BOOL "Disable mimalloc in embedded slang" FORCE)
-set(SLANG_PIC_ON ON CACHE BOOL "Enable position independent code for slang" FORCE)
 add_subdirectory(slang)
 if(TARGET boost_unordered)
   # Slang's Boost fallback combines a vendored boost_unordered.hpp with a
