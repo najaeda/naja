@@ -33,6 +33,11 @@ set(SOURCES
   NajaPythonProperty.cpp
 )
 
+add_library(naja_python_native_api INTERFACE)
+target_include_directories(naja_python_native_api
+  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${Python3_INCLUDE_DIRS}
+)
+
 add_library(naja_python SHARED ${SOURCES})
 if (BUILD_NAJA_PYTHON)
   target_link_libraries(naja_python

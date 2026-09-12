@@ -20,6 +20,12 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+option(BUILD_NAJA_PYSLANG
+  "Build the Naja-owned pyslang module for the Python package"
+  ${BUILD_NAJA_PYTHON})
+if(BUILD_NAJA_PYSLANG AND NOT BUILD_NAJA_PYTHON)
+  message(FATAL_ERROR "BUILD_NAJA_PYSLANG requires BUILD_NAJA_PYTHON")
+endif()
 if(BUILD_NAJA_PYTHON AND WIN32)
   # Make imported targets from find_package() globally visible so parent
   # directories can consume fmt exported by thirdparty/slang.

@@ -19,6 +19,18 @@ load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
 # time the way CMake's option toggle does.
 
 cc_library(
+    name = "naja_native_api",
+    hdrs = [
+        "NajaNativeAPI.h",
+        "NajaPyslangAPI.h",
+        "NajaPythonAPI.h",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = ["@python//:headers"],
+)
+
+cc_library(
     name = "naja_python",
     srcs = [
         "PyNLID.cpp",
@@ -76,7 +88,14 @@ cc_library(
         "PySNLUniquifier.cpp",
         "NajaPythonProperty.cpp",
     ],
-    hdrs = glob(["*.h"]),
+    hdrs = glob(
+        ["*.h"],
+        exclude = [
+            "NajaNativeAPI.h",
+            "NajaPyslangAPI.h",
+            "NajaPythonAPI.h",
+        ],
+    ),
     defines = ["NAJA_PYTHON_EXPORTS"],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -88,6 +107,7 @@ cc_library(
         "//src/nl/netlist:naja_snl_visual",
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
         "//src/optimization:naja_opt",
+        ":naja_native_api",
         "@python//:headers",
     ],
 )

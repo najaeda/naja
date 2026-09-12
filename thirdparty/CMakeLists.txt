@@ -9,7 +9,51 @@ add_subdirectory(naja-verilog)
 # "initial-exec TLS resolves to dynamic definition" relocation errors.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(SLANG_USE_MIMALLOC OFF CACHE BOOL "Disable mimalloc in embedded slang" FORCE)
+set(_NAJA_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
+if(BUILD_NAJA_PYSLANG)
+  # The Naja frontend and bundled pyslang must resolve slang objects through
+  # one shared image. A private output name prevents collisions with an
+  # independently installed upstream pyslang distribution.
+  set(BUILD_SHARED_LIBS ON)
+  if(DEFINED SLANG_LIB_NAME)
+    set(_NAJA_SLANG_LIB_NAME_WAS_DEFINED ON)
+    set(_NAJA_SLANG_LIB_NAME "${SLANG_LIB_NAME}")
+  else()
+    set(_NAJA_SLANG_LIB_NAME_WAS_DEFINED OFF)
+  endif()
+  # Keep the override directory-scoped. A cache entry would poison a later
+  # standalone reconfigure if dependency setup failed before restoration.
+  set(SLANG_LIB_NAME "naja_slang")
+endif()
 add_subdirectory(slang)
+set(BUILD_SHARED_LIBS "${_NAJA_BUILD_SHARED_LIBS}")
+unset(_NAJA_BUILD_SHARED_LIBS)
+if(BUILD_NAJA_PYSLANG)
+  # Do not leave the private name visible to later third-party subdirectories.
+  if(_NAJA_SLANG_LIB_NAME_WAS_DEFINED)
+    set(SLANG_LIB_NAME "${_NAJA_SLANG_LIB_NAME}")
+  else()
+    unset(SLANG_LIB_NAME)
+  endif()
+  unset(_NAJA_SLANG_LIB_NAME)
+  unset(_NAJA_SLANG_LIB_NAME_WAS_DEFINED)
+  target_sources(slang_slang PRIVATE
+    ${PROJECT_SOURCE_DIR}/thirdparty/pyslang/NajaSlangRuntime.cpp)
+  target_compile_definitions(slang_slang PRIVATE NAJA_SLANG_RUNTIME_EXPORTS)
+  target_include_directories(slang_slang PRIVATE
+    ${PROJECT_SOURCE_DIR}/thirdparty/pyslang)
+  # Wheel archives do not preserve shared-library symlinks. Since this runtime
+  # is private and compatibility is gated by the capsule build ID, suppress the
+  # usual VERSION/SOVERSION alias chain and package one physical library.
+  # An empty VERSION is not equivalent to an unset property on macOS: it
+  # produces a `libnaja_slang..dylib` install artifact.
+  set_property(TARGET slang_slang PROPERTY VERSION)
+  set_property(TARGET slang_slang PROPERTY SOVERSION)
+  install(TARGETS slang_slang
+    LIBRARY DESTINATION najaeda
+    RUNTIME DESTINATION najaeda
+  )
+endif()
 if(TARGET boost_unordered)
   # Slang's Boost fallback combines a vendored boost_unordered.hpp with a
   # standalone Boost.Regex checkout. If an older system Boost is also present,

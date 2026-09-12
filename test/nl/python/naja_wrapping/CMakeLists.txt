@@ -16,6 +16,19 @@ set_tests_properties(naja-python-tests
     "PYTHONPATH=${PROJECT_BINARY_DIR}/src/nl/python/naja_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};FORMATS_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../../formats"
 )
 
+add_executable(najaNativeAPIC NajaNativeAPICTest.c)
+target_link_libraries(najaNativeAPIC PRIVATE naja_python_native_api)
+add_test(NAME najaNativeAPIC COMMAND najaNativeAPIC)
+
+add_executable(najaNativeAPICXX NajaNativeAPICXXTest.cpp)
+target_link_libraries(najaNativeAPICXX PRIVATE naja_python_native_api)
+add_test(NAME najaNativeAPICXX COMMAND najaNativeAPICXX)
+
+Python3_add_library(
+  naja_native_api_consumer MODULE NajaNativeAPIConsumer.cpp)
+target_link_libraries(
+  naja_native_api_consumer PRIVATE naja_python_native_api naja_nl)
+
 SET(naja_python_property_tests
   NajaPythonPropertyTest.cpp
 )

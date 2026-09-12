@@ -18,6 +18,18 @@
 # a second, embed-linked copy of the whole naja_python library.
 
 cc_test(
+    name = "naja_native_api_c_test",
+    srcs = ["NajaNativeAPICTest.c"],
+    deps = ["//src/nl/python/naja_wrapping:naja_native_api"],
+)
+
+cc_test(
+    name = "naja_native_api_cxx_test",
+    srcs = ["NajaNativeAPICXXTest.cpp"],
+    deps = ["//src/nl/python/naja_wrapping:naja_native_api"],
+)
+
+cc_test(
     name = "najaPythonPropertyTests",
     srcs = ["NajaPythonPropertyTest.cpp"],
     deps = [

@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["scikit-build-core>=0.11.3,<0.12"]
+requires = [
+    "scikit-build-core>=0.11.3,<0.12",
+    "pybind11==3.0.4",
+    "pybind11-stubgen==2.5.5",
+]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -34,6 +38,7 @@ classifiers = [
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
+BUILD_NAJA_PYSLANG="ON"
 PREGENERATED_PARSER_SOURCES="ON"
 
 [tool.scikit-build.sdist]

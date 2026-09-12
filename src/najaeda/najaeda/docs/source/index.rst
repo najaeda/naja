@@ -16,6 +16,9 @@ The package has two Python API levels:
   underlying SNL objects almost directly and is intended for experts,
   debugging, and features that have not yet been wrapped by
   :mod:`najaeda.netlist`.
+* :mod:`najaeda.pyslang` is the bundled source-level API.  It is built from the
+  same pinned slang checkout and resolves the same private shared slang runtime
+  as Naja's SystemVerilog frontend.
 
 Most users should start with the high-level API and drop to the raw API only
 when they need exact SNL semantics or access to a native feature not yet

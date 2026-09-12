@@ -1,11 +1,14 @@
 Expert Raw API
 ==============
 
-``najaeda`` ships two Python API levels:
+``najaeda`` ships two Python API levels for Naja objects:
 
 * :mod:`najaeda.netlist` is the supported high-level API for most tools.
 * :mod:`najaeda.naja` is the raw compiled extension module, historically also
   importable as top-level ``naja`` in some build layouts.
+
+Python wheels also ship :mod:`najaeda.pyslang`, the source-level companion API
+built from the exact slang checkout used by Naja's SystemVerilog frontend.
 
 The raw layer is useful, but it is intentionally not the first documentation
 entry point.  It exposes native SNL objects directly and assumes that callers
@@ -21,6 +24,8 @@ Use :mod:`najaeda.naja` when you need to:
 * call a native method that is not wrapped by :mod:`najaeda.netlist`;
 * inspect exact SNL IDs, paths, occurrences, libraries, or databases;
 * use live SystemVerilog frontend intent helpers;
+* inspect native interoperability build information when diagnosing an
+  extension compatibility problem;
 * debug the high-level API or compare wrapper behavior against native state.
 
 Prefer :mod:`najaeda.netlist` for application code that edits hierarchical
@@ -128,6 +133,61 @@ The raw API also exposes shared model state.  Renaming, reconnecting, or
 destroying an object through a raw handle mutates the underlying SNL object
 directly.  If the same model is instantiated in multiple places, that change
 can affect all occurrences unless you explicitly uniquify first.
+
+Native extension interoperability
+---------------------------------
+
+``naja.naja_build_info()`` returns diagnostic information for native extension
+consumers: the provider name, C API version, Naja version, Git hash, exact
+native build ID, and runtime kind. It deliberately does not expose the
+process-local runtime identity address to Python code.
+
+The module's private ``_C_API`` capsule is for compiled extensions such as
+future ``pykepler_formal``. Consumers must use ``NajaPythonAPI.h`` and validate
+the capsule name, API version, table size, exact build ID, runtime identity,
+and function table before accepting or returning a Naja object. Python
+application code must not inspect or pass this capsule. Matching package
+versions alone is not a native compatibility guarantee.
+
+The current ``live_compilation`` and symbol capsules are legacy expert handles,
+not a supported route for passing objects to an independently installed
+top-level pyslang module. The unified integration will return objects from the
+bundled ``najaeda.pyslang`` provider instead.
+
+Bundled pyslang
+---------------
+
+Use :mod:`najaeda.pyslang` for syntax trees, diagnostics, compilation objects,
+and semantic symbols that must interoperate with Naja's SystemVerilog
+frontend. It exposes the upstream pyslang API beneath the ``najaeda``
+namespace:
+
+.. code-block:: python
+
+   from najaeda import naja, pyslang
+
+   tree = pyslang.syntax.SyntaxTree.fromText("module top; endmodule")
+   compilation = pyslang.ast.Compilation()
+   compilation.addSyntaxTree(tree)
+   root = compilation.getRoot()
+
+   print(type(root).__module__)  # najaeda.pyslang.ast
+   print(pyslang.slang_build_info())
+
+The bundled extension and Naja's frontend resolve one private shared slang
+library named for Naja. Its pybind11 namespace and internal registries are also
+private. An independently installed top-level :mod:`pyslang` may therefore be
+imported in the same process, but its Python classes are intentionally distinct
+from :mod:`najaeda.pyslang` classes. Passing an external-pyslang object to a
+Naja bridge is unsupported and will fail type validation rather than exchange
+its native pointer.
+
+``slang_build_info()`` reports the bundled slang version, Git hash, native
+build ID, and runtime kind. The private ``najaeda.pyslang._C_API`` capsule is
+for the Naja frontend bridge; Python applications must not inspect or pass it.
+The wheel includes reproducibly generated PEP 561 type stubs for the root
+module and its ``analysis``, ``ast``, ``driver``, ``parsing``, and ``syntax``
+submodules.
 
 SystemVerilog frontend intent helpers
 -------------------------------------
@@ -269,6 +329,7 @@ semantic source of truth.
      - ``FanIn``, ``FanOut``, ``getDirection``, ``getRoot``, ``getNodes``, ``getLeaves``, ``getNodeCount`` and snake_case aliases
    * - Module functions
      - :func:`najaeda.naja.getVersion`, :func:`najaeda.naja.getGitHash`,
+       :func:`najaeda.naja.naja_build_info`,
        :func:`najaeda.naja.snapshot_manifest`,
        :func:`najaeda.naja.setLogLevel`, :func:`najaeda.naja.addLogFile`,
        :func:`najaeda.naja.clearLogSinks`,
@@ -500,6 +561,7 @@ expert reference above.
 
       getVersion
       getGitHash
+      naja_build_info
       snapshot_manifest
       setLogLevel
       addLogFile
@@ -519,6 +581,7 @@ expert reference above.
 
    .. autofunction:: najaeda.naja.getVersion
    .. autofunction:: najaeda.naja.getGitHash
+   .. autofunction:: najaeda.naja.naja_build_info
 
    ``snapshot_manifest(path)`` reads only a snapshot's ``snl.mf`` manifest;
    it does not load the Cap'n Proto payload or create an ``NLUniverse``.  It

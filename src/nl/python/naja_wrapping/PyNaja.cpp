@@ -11,6 +11,7 @@
 
 #include "NajaLog.h"
 #include "NajaPerf.h"
+#include "NajaPythonAPI.h"
 
 #include "PyNLUniverse.h"
 #include "PyNLID.h"
@@ -60,6 +61,7 @@
 #include "PySNLUniquifier.h"
 
 #include "NajaVersion.h"
+#include "NajaRuntime.h"
 #include "NLObject.h"
 #include "SNLSVConstructor.h"
 #include "SNLSVIntent.h"
@@ -101,6 +103,74 @@ PyObject* wrapNLObject(naja::NL::NLObject* object) {
   }
   Py_RETURN_NONE;
   // LCOV_EXCL_STOP
+}
+
+PyObject* wrapNativeNLObject(void* object) {
+  if (!object) {
+    PyErr_SetString(PyExc_ValueError, "cannot wrap a null Naja object");
+    return nullptr;
+  }
+  PyObject* result = wrapNLObject(static_cast<naja::NL::NLObject*>(object));
+  if (result == Py_None) {
+    Py_DECREF(result);
+    PyErr_SetString(PyExc_TypeError, "unsupported Naja object kind");
+    return nullptr;
+  }
+  return result;
+}
+
+int unwrapNativeNLObject(PyObject* object, void** outObject) {
+  if (!outObject) {
+    PyErr_SetString(PyExc_ValueError, "Naja object output pointer is null");
+    return -1;
+  }
+  *outObject = nullptr;
+  if (IsPySNLDesign(object)) {
+    *outObject = PYSNLDesign_O(object);
+  } else if (IsPySNLDesignObject(object)) {
+    *outObject = PYSNLDesignObject_O(object);
+  } else {
+    PyErr_SetString(
+      PyExc_TypeError,
+      "expected a raw najaeda.naja SNLDesign or SNLDesignObject");
+    return -1;
+  }
+  if (!*outObject) {
+    PyErr_SetString(PyExc_ReferenceError, "Naja object has been destroyed");
+    return -1;
+  }
+  return 0;
+}
+
+int unwrapNativeSNLDesign(PyObject* object, void** outDesign) {
+  if (!outDesign) {
+    PyErr_SetString(PyExc_ValueError, "SNLDesign output pointer is null");
+    return -1;
+  }
+  *outDesign = nullptr;
+  if (!IsPySNLDesign(object)) {
+    PyErr_SetString(PyExc_TypeError, "expected a raw najaeda.naja SNLDesign");
+    return -1;
+  }
+  *outDesign = PYSNLDesign_O(object);
+  if (!*outDesign) {
+    PyErr_SetString(PyExc_ReferenceError, "SNLDesign has been destroyed");
+    return -1;
+  }
+  return 0;
+}
+
+const NajaPythonAPI_v1& getNajaPythonAPI() {
+  static const NajaPythonAPI_v1 api {
+    NAJA_PYTHON_API_VERSION,
+    sizeof(NajaPythonAPI_v1),
+    Naja_GetNativeBuildID(),
+    Naja_GetRuntimeIdentity(),
+    wrapNativeNLObject,
+    unwrapNativeNLObject,
+    unwrapNativeSNLDesign
+  };
+  return api;
 }
 
 std::string formatIntentSourceLoc(const naja::NL::SNLSourceLoc& loc) {
@@ -297,6 +367,27 @@ static PyObject* getVersion(PyObject* self, PyObject* args) {
 
 static PyObject* getGitHash(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
+}
+
+static PyObject* getNajaBuildInfo(PyObject*, PyObject*) {
+  PyObject* info = PyDict_New();
+  if (!info) {
+    return nullptr;
+  }
+  if (setDictItem(info, "provider", PyUnicode_FromString("najaeda.naja")) < 0 ||
+      setDictItem(
+        info, "api_version", PyLong_FromUnsignedLong(NAJA_PYTHON_API_VERSION)) < 0 ||
+      setDictItem(
+        info, "naja_version", PyUnicode_FromString(naja::NAJA_VERSION.c_str())) < 0 ||
+      setDictItem(
+        info, "git_hash", PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str())) < 0 ||
+      setDictItem(
+        info, "build_id", PyUnicode_FromString(Naja_GetNativeBuildID())) < 0 ||
+      setDictItem(info, "runtime_kind", PyUnicode_FromString("shared")) < 0) {
+    Py_DECREF(info);
+    return nullptr;
+  }
+  return info;
 }
 
 static bool parseLogLevel_(const char* levelName,
@@ -675,6 +766,8 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
+  { "naja_build_info", getNajaBuildInfo, METH_NOARGS,
+    "Return native interoperability build information." },
   { "snapshot_manifest", PyNLDB_snapshotManifest, METH_VARARGS,
     "read a NajaIF snapshot manifest without loading the snapshot" },
   { "log", logMessage, METH_VARARGS, "log a message at the requested level" },
@@ -859,6 +952,18 @@ PyMODINIT_FUNC PyInit_naja(void) {
     Py_DECREF(mod);
     return nullptr;
     // LCOV_EXCL_STOP
+  }
+
+  const auto& nativeAPI = getNajaPythonAPI();
+  PyObject* nativeAPICapsule = PyCapsule_New(
+    const_cast<NajaPythonAPI_v1*>(&nativeAPI),
+    NAJA_PYTHON_API_CAPSULE_NAME,
+    nullptr);
+  if (!nativeAPICapsule ||
+      PyModule_AddObject(mod, "_C_API", nativeAPICapsule) < 0) {
+    Py_XDECREF(nativeAPICapsule);
+    Py_DECREF(mod);
+    return nullptr;
   }
 
   PyModule_AddType(mod, &PyTypeSNLAttribute);
