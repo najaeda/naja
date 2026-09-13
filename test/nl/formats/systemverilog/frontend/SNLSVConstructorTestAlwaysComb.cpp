@@ -17,10 +17,13 @@
 #include "SNLBitNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLNet.h"
+#include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 
 #include "SNLSVConstructor.h"
@@ -787,8 +790,20 @@ endmodule
 
   for (NLID::Bit bit = 0; bit < 3; ++bit) {
     ASSERT_NE(s->getBit(bit), nullptr);
-    EXPECT_NE(nullptr, getSingleAssignInputDriving(s->getBit(bit)))
-      << "bit " << bit;
+    std::vector<SNLInstTerm*> drivers;
+    for (auto* term : s->getBit(bit)->getInstTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Output) {
+        drivers.push_back(term);
+      }
+    }
+    ASSERT_EQ(1u, drivers.size()) << "bit " << bit;
+    auto* mux = drivers.front()->getInstance();
+    ASSERT_TRUE(NLDB0::isMux2(mux->getModel()));
+    EXPECT_EQ(top->getBusNet(NLName("miss_i"))->getBit(bit),
+      mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
+    EXPECT_EQ(bit == 0 ? static_cast<SNLBitNet*>(top->getScalarNet(NLName("lru_i"))) :
+      static_cast<SNLBitNet*>(top->getBusNet(NLName("dirty_i"))->getBit(bit - 1)),
+      mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet());
   }
 }
 

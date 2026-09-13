@@ -1030,6 +1030,29 @@ AnonymousAssignAliasFixture createAnonymousAssignAliasFixture(
   return fixture;
 }
 
+struct AnonymousBusAssignAliasFixture {
+  SNLBusNet* alias {nullptr};
+  SNLBusNet* destination {nullptr};
+  SNLInstance* producer {nullptr};
+  std::vector<SNLInstance*> assigns;
+};
+
+AnonymousBusAssignAliasFixture createAnonymousBusAssignAliasFixture(SNLDesign* design) {
+  AnonymousBusAssignAliasFixture fixture;
+  fixture.alias = SNLBusNet::create(design, 3, 0);
+  fixture.destination = SNLBusNet::create(design, 8, 11, NLName("destination"));
+  auto* model = NLDB0::getOrCreateDivMod(NLDB0::DivModSignature{4, false});
+  fixture.producer = SNLInstance::create(design, model);
+  fixture.producer->setTermNet(NLDB0::getDivModQuotient(model), fixture.alias);
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    auto* assign = SNLInstance::create(design, NLDB0::getAssign());
+    assign->getInstTerm(NLDB0::getAssignInput())->setNet(fixture.alias->getBit(bit));
+    assign->getInstTerm(NLDB0::getAssignOutput())->setNet(fixture.destination->getBit(11 - bit));
+    fixture.assigns.push_back(assign);
+  }
+  return fixture;
+}
+
 void expectUnsupportedConstruct(
   SNLSVConstructor& constructor,
   const std::filesystem::path& svPath,
@@ -3588,6 +3611,279 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y_true")), nullptr);
   EXPECT_NE(top->getNet(NLName("y_false")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMuxDirectConstantsAndDestinations) {
+  const auto svPath = writeSVTestFile(
+    "continuous_mux_direct_constants",
+    R"(module continuous_mux_direct_constants(
+  input logic [0:3] a,
+  input logic sel,
+  output logic [8:11] yx,
+  output logic [7:4] yz,
+  output logic [3:0] y0, y1, ym
+);
+  assign yx = sel ? a : 4'bx;
+  assign yz = sel ? a : 'z;
+  assign y0 = sel ? a : '0;
+  assign y1 = sel ? a : '1;
+  assign ym = sel ? a : 4'b10xz;
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("continuous_mux_direct_constants"));
+  ASSERT_NE(nullptr, top);
+  const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "continuous_mux_direct_constants_dump"));
+  EXPECT_EQ(5u, countMux2Instances(top, 4));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
+  auto* a = top->getBusNet(NLName("a"));
+  ASSERT_NE(nullptr, a);
+  for (const auto* mux : top->getInstances()) {
+    ASSERT_TRUE(NLDB0::isMux2(mux->getModel()));
+    auto* model = mux->getModel();
+    auto* output = dynamic_cast<SNLBusNetBit*>(
+      mux->getInstTerm(NLDB0::getMux2Output(model)->getBit(0))->getNet());
+    ASSERT_NE(nullptr, output);
+    auto* y = output->getBus();
+    const auto name = y->getName().getString();
+    ASSERT_TRUE(name == "yx" || name == "yz" || name == "y0" ||
+                name == "y1" || name == "ym") << name;
+    const std::string digits = name == "yx" ? "xxxx" : name == "yz" ? "zzzz" :
+      name == "y0" ? "0000" : name == "y1" ? "1111" : "10xz";
+    for (NLID::Bit bit = 0; bit < 4; ++bit) {
+      EXPECT_EQ(a->getBit(3 - bit),
+        mux->getInstTerm(NLDB0::getMux2InputB(model)->getBit(bit))->getNet());
+      EXPECT_EQ(y->getBit(y->getLSB() + (y->getMSB() > y->getLSB() ? bit : -bit)),
+        mux->getInstTerm(NLDB0::getMux2Output(model)->getBit(bit))->getNet());
+      auto* constant = mux->getInstTerm(NLDB0::getMux2InputA(model)->getBit(bit))->getNet();
+      ASSERT_NE(nullptr, constant);
+      switch (digits[3 - bit]) {
+        case '0': EXPECT_TRUE(constant->isAssign0()); break;
+        case '1': EXPECT_TRUE(constant->isAssign1()); break;
+        case 'x': EXPECT_TRUE(constant->isAssignX()); break;
+        case 'z': EXPECT_TRUE(constant->isAssignZ()); break;
+      }
+    }
+  }
+  EXPECT_EQ(std::string::npos, text.find("net_"));
+  EXPECT_NE(std::string::npos, text.find(".A(4'bxxxx)"));
+  EXPECT_NE(std::string::npos, text.find(".A(4'b10xz)"));
+  EXPECT_NE(std::string::npos, text.find(".Y(yx)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMuxDirectReorderedInputs) {
+  const auto svPath = writeSVTestFile(
+    "continuous_mux_direct_reordered_inputs",
+    R"(module continuous_mux_direct_reordered_inputs(
+  input logic [2:0] a, b,
+  input logic sel,
+  output logic [2:0] y
+);
+  assign y = sel ? {a[0], a[2], a[0]} : {b[1:0], 1'b0};
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("continuous_mux_direct_reordered_inputs"));
+  ASSERT_NE(nullptr, top);
+  auto* mux = findOnlyPrimitiveInstance(top, NLDB0::isMux2);
+  ASSERT_NE(nullptr, mux);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getBusNet(NLName("b"));
+  auto* y = top->getBusNet(NLName("y"));
+  ASSERT_NE(nullptr, a);
+  ASSERT_NE(nullptr, b);
+  ASSERT_NE(nullptr, y);
+  const std::array<NLID::Bit, 3> aIndices{0, 2, 0};
+  for (NLID::Bit bit = 0; bit < 3; ++bit) {
+    EXPECT_EQ(a->getBit(aIndices[bit]),
+      mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
+    auto* inA = mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet();
+    if (bit == 0) {
+      ASSERT_NE(nullptr, inA);
+      EXPECT_TRUE(inA->isAssign0());
+    } else {
+      EXPECT_EQ(b->getBit(bit - 1), inA);
+    }
+    EXPECT_EQ(y->getBit(bit),
+      mux->getInstTerm(NLDB0::getMux2Output(mux->getModel())->getBit(bit))->getNet());
+  }
+  const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "continuous_mux_direct_reordered_inputs_dump"));
+  EXPECT_NE(std::string::npos, text.find(".B({a[0], a[2], a[0]})"));
+  EXPECT_EQ(std::string::npos, text.find("net_"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMuxDirectMemoryRead) {
+  const auto svPath = writeSVTestFile(
+    "continuous_mux_direct_memory_read",
+    R"(module continuous_mux_direct_memory_read(
+  input logic clk, W_en, R_en,
+  input logic [3:0] W_addr, R_addr,
+  input logic [31:0] W_data,
+  output logic [31:0] R_data
+);
+  logic [31:0] Memory [0:15];
+  always_ff @(posedge clk)
+    if (W_en) Memory[W_addr] <= W_data;
+  assign R_data = R_en ? Memory[R_addr] : 32'bx;
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("continuous_mux_direct_memory_read"));
+  ASSERT_NE(nullptr, top);
+  ASSERT_NE(nullptr, findOnlyPrimitiveInstance(top, NLDB0::isMemory));
+  auto* mux = findOnlyPrimitiveInstance(top, NLDB0::isMux2);
+  ASSERT_NE(nullptr, mux);
+  auto* y = top->getBusNet(NLName("R_data"));
+  auto* readData = top->getBusNet(NLName("Memory_mem_rdata_0"));
+  ASSERT_NE(nullptr, y);
+  ASSERT_NE(nullptr, readData);
+  for (NLID::Bit bit = 0; bit < 32; ++bit) {
+    auto* inA = mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet();
+    ASSERT_NE(nullptr, inA);
+    EXPECT_TRUE(inA->isAssignX());
+    EXPECT_EQ(readData->getBit(bit),
+      mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
+    EXPECT_EQ(y->getBit(bit),
+      mux->getInstTerm(NLDB0::getMux2Output(mux->getModel())->getBit(bit))->getNet());
+  }
+  const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "continuous_mux_direct_memory_read_dump"));
+  EXPECT_NE(std::string::npos, text.find(".A(32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)"));
+  EXPECT_NE(std::string::npos, text.find(".B(Memory_mem_rdata_0)"));
+  EXPECT_NE(std::string::npos, text.find(".Y(R_data)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMuxWidthConversionsAndSlices) {
+  const auto svPath = writeSVTestFile(
+    "continuous_mux_width_conversions_and_slices",
+    R"(module continuous_mux_width_conversions_and_slices(
+  input logic signed [3:0] a, b,
+  input logic sel,
+  output logic signed [7:0] wide,
+  output logic [1:0] narrow,
+  output logic [7:0] sliced
+);
+  assign wide = $signed(sel ? a : b);
+  assign narrow = 2'(sel ? a : b);
+  assign sliced[5:2] = sel ? a : b;
+  assign sliced[7:6] = 2'b10;
+  assign sliced[1:0] = 2'b01;
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("continuous_mux_width_conversions_and_slices"));
+  ASSERT_NE(nullptr, top);
+  auto* wide = top->getBusNet(NLName("wide"));
+  auto* narrow = top->getBusNet(NLName("narrow"));
+  auto* sliced = top->getBusNet(NLName("sliced"));
+  ASSERT_NE(nullptr, wide);
+  ASSERT_NE(nullptr, narrow);
+  ASSERT_NE(nullptr, sliced);
+  auto* sign = getSingleAssignInputDriving(wide->getBit(3));
+  for (NLID::Bit bit = 4; bit < 8; ++bit) {
+    EXPECT_EQ(sign, getSingleAssignInputDriving(wide->getBit(bit)));
+  }
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(wide->getBit(bit), sliced->getBit(bit + 2)));
+  }
+  EXPECT_EQ(1u, countMux2Instances(top, 2));
+  for (const auto* mux : top->getInstances()) {
+    if (!NLDB0::isMux2(mux->getModel()) || getPrimitiveWidth(mux) != 2) {
+      continue;
+    }
+    for (NLID::Bit bit = 0; bit < 2; ++bit) {
+      EXPECT_EQ(top->getBusNet(NLName("b"))->getBit(bit),
+        mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet());
+      EXPECT_EQ(top->getBusNet(NLName("a"))->getBit(bit),
+        mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
+      EXPECT_EQ(narrow->getBit(bit),
+        mux->getInstTerm(NLDB0::getMux2Output(mux->getModel())->getBit(bit))->getNet());
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseTableSelectDirectConstantsAndReorderedAddress) {
+  const auto svPath = writeSVTestFile(
+    "table_select_direct_bits",
+    R"(module table_select_direct_bits(
+  input logic [1:0] sel,
+  output logic [3:0] y
+);
+  localparam logic [3:0][3:0] TABLE = 16'hC5A3;
+  assign y = TABLE[{sel[0], sel[1]}];
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("table_select_direct_bits"));
+  ASSERT_NE(nullptr, top);
+  auto* table = findOnlyPrimitiveInstance(top, NLDB0::isTableSelect);
+  ASSERT_NE(nullptr, table);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
+  auto* model = table->getModel();
+  auto* sel = top->getBusNet(NLName("sel"));
+  auto* y = top->getBusNet(NLName("y"));
+  ASSERT_NE(nullptr, sel);
+  ASSERT_NE(nullptr, y);
+  for (NLID::Bit bit = 0; bit < 16; ++bit) {
+    auto* net = table->getInstTerm(NLDB0::getTableSelectData(model)->getBit(bit))->getNet();
+    ASSERT_NE(nullptr, net);
+    EXPECT_TRUE((0xC5A3 >> bit) & 1 ? net->isAssign1() : net->isAssign0());
+  }
+  for (NLID::Bit bit = 0; bit < 2; ++bit) {
+    EXPECT_EQ(sel->getBit(1 - bit),
+      table->getInstTerm(NLDB0::getTableSelectAddress(model)->getBit(bit))->getNet());
+  }
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(y->getBit(bit),
+      table->getInstTerm(NLDB0::getTableSelectOutput(model)->getBit(bit))->getNet());
+  }
+  const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "table_select_direct_bits_dump"));
+  EXPECT_EQ(std::string::npos, text.find("net_"));
+  EXPECT_NE(std::string::npos, text.find(".Y(y)"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseVectorFlopDirectMixedDataBits) {
+  const auto svPath = writeSVTestFile(
+    "vector_flop_direct_bits",
+    R"(module vector_flop_direct_bits(
+  input logic clk,
+  input logic [3:0] a,
+  output logic [7:4] q
+);
+  always_ff @(posedge clk) q <= {a[0], 1'bx, a[3], 1'b1};
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("vector_flop_direct_bits"));
+  ASSERT_NE(nullptr, top);
+  auto* flop = findOnlyPrimitiveInstance(top, NLDB0::isDFF);
+  ASSERT_NE(nullptr, flop);
+  EXPECT_EQ(4u, getPrimitiveWidth(flop));
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
+  auto* data = flop->getModel()->getBusTerm(NLName("D"));
+  auto* a = top->getBusNet(NLName("a"));
+  auto* q = top->getBusNet(NLName("q"));
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, a);
+  ASSERT_NE(nullptr, q);
+  EXPECT_TRUE(flop->getInstTerm(data->getBit(0))->getNet()->isAssign1());
+  EXPECT_EQ(a->getBit(3), flop->getInstTerm(data->getBit(1))->getNet());
+  EXPECT_TRUE(flop->getInstTerm(data->getBit(2))->getNet()->isAssignX());
+  EXPECT_EQ(a->getBit(0), flop->getInstTerm(data->getBit(3))->getNet());
+  auto* output = flop->getModel()->getBusTerm(NLName("Q"));
+  ASSERT_NE(nullptr, output);
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(q->getBit(bit + 4), flop->getInstTerm(output->getBit(bit))->getNet());
+  }
+  const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "vector_flop_direct_bits_dump"));
+  EXPECT_EQ(std::string::npos, text.find("net_"));
+  EXPECT_NE(std::string::npos, text.find(".D({a[0], 1'bx, a[3], 1'b1})"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalIdenticalBranchesSupported) {
@@ -14292,6 +14588,68 @@ endmodule
   EXPECT_EQ(b, getSingleAssignInputDriving(q->getBit(0)));
   for (NLID::Bit bit = 1; bit < 8; ++bit) {
     EXPECT_EQ(a->getBit(bit), getSingleAssignInputDriving(q->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, anonymousBusAssignAliasIsCollapsedForArithmeticProducer) {
+  auto* design = SNLDesign::create(library_, NLName("bus_alias_arithmetic"));
+  auto fixture = createAnonymousBusAssignAliasFixture(design);
+  SNLRTLInfos::create(fixture.alias)->setSourceLoc({NLName("arithmetic.sv"), 7, 7, 2, 12});
+  auto* output = NLDB0::getDivModQuotient(fixture.producer->getModel());
+  EXPECT_TRUE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assigns[0]));
+  EXPECT_EQ(1u, design->getNets().size());
+  EXPECT_EQ(1u, design->getInstances().size());
+  for (NLID::Bit bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(fixture.destination->getBit(11 - bit),
+      fixture.producer->getInstTerm(output->getBit(bit))->getNet());
+  }
+  const auto* infos = fixture.producer->getRTLInfos();
+  ASSERT_NE(nullptr, infos);
+  ASSERT_TRUE(infos->hasSourceLoc());
+  EXPECT_EQ("arithmetic.sv", infos->getSourceLoc()->file.getString());
+}
+
+TEST_F(SNLSVConstructorTestSimple, anonymousBusAssignAliasUnsafeMappingsAreRetained) {
+  for (const std::string scenario : {"named", "partial", "reordered", "extra_consumer",
+       "extra_driver", "input_port", "alias_port", "bus_metadata", "bit_metadata",
+       "assign_metadata", "constant", "feedback"}) {
+    SCOPED_TRACE(scenario);
+    auto* design = SNLDesign::create(library_, NLName("bus_alias_" + scenario));
+    auto fixture = createAnonymousBusAssignAliasFixture(design);
+    auto* output = NLDB0::getDivModQuotient(fixture.producer->getModel());
+    if (scenario == "named") {
+      fixture.alias->setName(NLName("named_alias"));
+    } else if (scenario == "partial") {
+      fixture.assigns[3]->destroy();
+    } else if (scenario == "reordered") {
+      fixture.assigns[0]->getInstTerm(NLDB0::getAssignOutput())->setNet(fixture.destination->getBit(10));
+      fixture.assigns[1]->getInstTerm(NLDB0::getAssignOutput())->setNet(fixture.destination->getBit(11));
+    } else if (scenario == "extra_consumer") {
+      fixture.producer->getInstTerm(NLDB0::getDivModDividend(fixture.producer->getModel())->getBit(3))->setNet(fixture.alias->getBit(3));
+    } else if (scenario == "extra_driver") {
+      auto* other = SNLInstance::create(design, fixture.producer->getModel());
+      other->getInstTerm(output->getBit(3))->setNet(fixture.destination->getBit(8));
+    } else if (scenario == "input_port" || scenario == "alias_port") {
+      auto* port = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("input"));
+      port->setNet(scenario == "input_port" ? fixture.destination->getBit(8) : fixture.alias->getBit(3));
+    } else if (scenario == "bus_metadata") {
+      SNLRTLInfos::create(fixture.alias)->setInfo(NLName("symbol"), "keep");
+    } else if (scenario == "bit_metadata") {
+      SNLAttributes::addAttribute(fixture.alias->getBit(3),
+        SNLAttribute(NLName("keep"), SNLAttributeValue("true")));
+    } else if (scenario == "assign_metadata") {
+      SNLAttributes::addAttribute(fixture.assigns[3],
+        SNLAttribute(NLName("keep"), SNLAttributeValue("true")));
+    } else if (scenario == "constant") {
+      fixture.alias->getBit(3)->setType(SNLNet::Type::AssignX);
+    } else if (scenario == "feedback") {
+      fixture.producer->getInstTerm(NLDB0::getDivModDividend(fixture.producer->getModel())->getBit(3))->setNet(fixture.destination->getBit(8));
+    }
+    EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assigns[0]));
+    for (NLID::Bit bit = 0; bit < 4; ++bit) {
+      EXPECT_EQ(fixture.alias->getBit(bit),
+        fixture.producer->getInstTerm(output->getBit(bit))->getNet());
+    }
   }
 }
 
