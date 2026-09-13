@@ -44,7 +44,8 @@ remain unchanged too.
 
 GitHub CI installs the Python dependencies and uses Dockerized Verilator. The
 `External SV Regress` workflow runs lint for the small external designs and
-load/dump checks for the large BlackParrot and CVA6 designs. The `External SV
+load/dump checks for the large BlackParrot and CVA6 designs, plus Borg's
+load/dump, lint, and pin-level cocotb regression. The `External SV
 Simulation` workflow runs the checked-in Ibex and CV32E40P smoke simulations
 plus the Ibex helloworld simulation, SecureIbex diagnostics, the CV32E40P
 helloworld simulation, and an upstream CV32E40P interrupt simulation.
@@ -57,7 +58,7 @@ python3 regress/sv/sv_regress.py list
 
 ## Borg ASIC Semantic Round-Trip
 
-The opt-in `borg` case pins gonsolo/Borg to
+The `borg` case pins gonsolo/Borg to
 `fe915b3763768c7f49be18cc541ad6c96e9de5d8` and targets
 `tt_um_gonsolo_borg`. The flow is Chisel-emitted ASIC SystemVerilog → Naja
 load/elaboration → structural Verilog dump → upstream pin-level cocotb tests.
@@ -192,11 +193,14 @@ seconds, local lint 21–27 seconds (about 2 GB allocated), and the complete
 cocotb adapter about 110 seconds (including compile/startup). Both tests passed:
 core smoke about 39 seconds and peripheral math about 47 seconds.
 
-The runtime is practical for regular CI once its generation/tools environment
-is provisioned. Initially use this as an opt-in/manual or scheduled tier while
-verifying Linux CI setup; the existing PR workflows are unchanged and do not
-silently skip Borg. A future required CI job must provision the versioned
-generation dependencies and use `--require-firmware-sim-tools`.
+The central `External SV Regress` workflow (`.github/workflows/sv-regress.yml`)
+runs all three Borg stages on pull requests and pushes to `main`, and supports
+manual dispatch. It installs Icarus, the pinned Mill 1.1.2 launcher, and
+`cases/borg/requirements.txt` in a separate Python 3.13 environment. Only Mill
+and `cocotb-config` are added to PATH, preserving the runner's Python 3.12
+interpreter and Naja bindings. The job uses `--require-firmware-sim-tools`, so
+missing simulation tools fail rather than skip. Borg's logs and test results
+are included in the workflow's always-uploaded `sv-regress-artifacts` artifact.
 
 For a second tier, BorgSimTop plus the existing Verilator `cts-uart` replay and
 `compare_ppm.py` golden-image comparison is a practical candidate. At this pin,
