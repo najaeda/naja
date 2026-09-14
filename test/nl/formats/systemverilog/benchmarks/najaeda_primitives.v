@@ -40,7 +40,8 @@ module naja_table_select #(
     input [ABITS-1:0] addr;
     integer i;
     begin
-      select_data = {WIDTH{1'b0}};
+      // Match SV packed indexing for unknown and out-of-range addresses.
+      select_data = {WIDTH{1'bx}};
       for (i = 0; i < DEPTH; i = i + 1) begin
         if (addr == i[ABITS-1:0]) begin
           select_data = data[i*WIDTH +: WIDTH];

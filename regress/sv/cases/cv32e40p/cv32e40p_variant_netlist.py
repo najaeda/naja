@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate parameterized Ibex Naja netlists for simple-system diagnostics."""
+"""Generate parameterized CV32E40P Naja netlists for example_tb simulations."""
 
 from __future__ import annotations
 
@@ -13,37 +13,20 @@ from pathlib import Path
 import sys
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 REGRESS_SV_ROOT = REPO_ROOT / "regress" / "sv"
 DEFAULT_NAJAEDA_PATH = REPO_ROOT / "build" / "test" / "najaeda"
-DEFAULT_OUTPUT_NAME = "ibex_secure_naja.v"
-SECURE_PASS_MARKER = "IBEX_SECURE_NETLIST_PASS"
-PMP_PASS_MARKER = "IBEX_PMP_NETLIST_PASS"
+PULP_PASS_MARKER = "CV32E40P_PULP_NETLIST_PASS"
 
 VARIANTS = {
-    "secure": {
-        "params": ["SecureIbex=1"],
-        "default_output": DEFAULT_OUTPUT_NAME,
-        "flist": "ibex_secure.flist",
-        "diagnostics": "ibex_secure_diagnostics.log",
-        "pass_marker": SECURE_PASS_MARKER,
+    "pulp": {
+        "params": ["COREV_PULP=1"],
+        "default_output": "cv32e40p_pulp_naja.v",
+        "flist": "cv32e40p_pulp.flist",
+        "diagnostics": "cv32e40p_pulp_diagnostics.log",
+        "pass_marker": PULP_PASS_MARKER,
         "required_text": [
-            "module ibex_dummy_instr",
-            "module ibex_lockstep",
-        ],
-        "forbidden_text": [
-            "gen_no_dummy_instr",
-            "dummy_instr_id_o = 1'b0",
-        ],
-    },
-    "pmp": {
-        "params": ["PMPEnable=1"],
-        "default_output": "ibex_pmp_naja.v",
-        "flist": "ibex_pmp.flist",
-        "diagnostics": "ibex_pmp_diagnostics.log",
-        "pass_marker": PMP_PASS_MARKER,
-        "required_text": [
-            "module ibex_pmp",
+            "module cv32e40p_hwloop_regs",
         ],
         "forbidden_text": [],
     },
@@ -60,13 +43,19 @@ def write_if_changed(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def variant_flist_content(vc_path: Path, params: list[str]) -> str:
+def normalize_manifest_flist(flist_path: Path, *, rtl_dir: Path) -> str:
+    lines: list[str] = []
+    for raw_line in flist_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("//"):
+            continue
+        lines.append(line.replace("${DESIGN_RTL_DIR}", str(rtl_dir)))
+    return "\n".join(lines) + "\n"
+
+
+def variant_flist_content(flist_path: Path, params: list[str], *, rtl_dir: Path) -> str:
     parameter_lines = "".join(f"-G{param}\n" for param in params)
-    return parameter_lines + sv_regress.normalize_fusesoc_vc(vc_path)
-
-
-def secure_flist_content(vc_path: Path) -> str:
-    return variant_flist_content(vc_path, VARIANTS["secure"]["params"])
+    return parameter_lines + normalize_manifest_flist(flist_path, rtl_dir=rtl_dir)
 
 
 def netlist_is_current(output_path: Path, dependencies: list[Path]) -> bool:
@@ -82,24 +71,15 @@ def check_variant_netlist(output_path: Path, variant: dict[str, object]) -> None
     for forbidden in variant["forbidden_text"]:
         if forbidden in text:
             raise SystemExit(
-                f"{output_path} does not look like the requested Ibex elaboration: "
+                f"{output_path} does not look like the requested CV32E40P elaboration: "
                 f"found forbidden text {forbidden!r}"
             )
     for required in variant["required_text"]:
         if required not in text:
             raise SystemExit(
-                f"{output_path} does not look like the requested Ibex elaboration: "
+                f"{output_path} does not look like the requested CV32E40P elaboration: "
                 f"missing required text {required!r}"
             )
-
-
-def check_secure_netlist(output_path: Path) -> None:
-    try:
-        check_variant_netlist(output_path, VARIANTS["secure"])
-    except SystemExit as exc:
-        raise SystemExit(
-            f"{output_path} does not look like a SecureIbex elaboration: {exc}"
-        ) from exc
 
 
 def generate_variant_netlist(
@@ -116,15 +96,17 @@ def generate_variant_netlist(
             "build target 'naja' and prepare build/test/najaeda first"
         )
     variant = VARIANTS[variant_name]
-    vc_path = next((repo_dir / "build" / "fusesoc").glob("**/lint-verilator/*.vc"), None)
-    if vc_path is None:
-        raise SystemExit(
-            f"missing Ibex fusesoc lint-verilator command file under {repo_dir / 'build' / 'fusesoc'}"
-        )
+    source_flist_path = repo_dir / "cv32e40p_manifest.flist"
+    if not source_flist_path.exists():
+        raise SystemExit(f"missing CV32E40P manifest: {source_flist_path}")
 
+    rtl_dir = repo_dir / "rtl"
     flist_path = artifacts_dir / str(variant["flist"])
     diagnostics_path = artifacts_dir / str(variant["diagnostics"])
-    write_if_changed(flist_path, variant_flist_content(vc_path, variant["params"]))
+    write_if_changed(
+        flist_path,
+        variant_flist_content(source_flist_path, variant["params"], rtl_dir=rtl_dir),
+    )
 
     constructor_source = (
         REPO_ROOT / "src" / "nl" / "formats" / "systemverilog" / "frontend" /
@@ -146,7 +128,7 @@ def generate_variant_netlist(
     )
     netlist.reset()
     svconfig = netlist.SystemVerilogConfig(
-        top="ibex_top",
+        top="cv32e40p_top",
         flist=str(flist_path),
         diagnostics_report_path=str(diagnostics_path),
     )
@@ -161,28 +143,12 @@ def generate_variant_netlist(
     print(f"{variant['pass_marker']} {output_path}")
 
 
-def generate_secure_netlist(
-    *,
-    repo_dir: Path,
-    artifacts_dir: Path,
-    najaeda_path: Path,
-    output_path: Path,
-) -> None:
-    generate_variant_netlist(
-        repo_dir=repo_dir,
-        artifacts_dir=artifacts_dir,
-        najaeda_path=najaeda_path,
-        output_path=output_path,
-        variant_name="secure",
-    )
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--najaeda-pythonpath", type=Path, default=DEFAULT_NAJAEDA_PATH)
-    parser.add_argument("--variant", choices=sorted(VARIANTS), default="secure")
+    parser.add_argument("--variant", choices=sorted(VARIANTS), default="pulp")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
