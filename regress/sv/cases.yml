@@ -41,14 +41,14 @@ cases:
       - term: noc_req_o
         direction: fanin
         expected:
-          nodes: 17864
-          edges: 33496
+          nodes: 13941
+          edges: 27142
           leaves: 93
           roots: 471
           registers: 86
           ports: 3
           blackboxes: 4
-          internal: 17300
+          internal: 13377
       - term: noc_req_o
         bit: 468
         direction: fanin
