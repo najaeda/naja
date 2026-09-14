@@ -3640,6 +3640,7 @@ endmodule
   EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
   auto* a = top->getBusNet(NLName("a"));
   ASSERT_NE(nullptr, a);
+  SNLBitNet* cachedZero = nullptr;
   for (const auto* mux : top->getInstances()) {
     ASSERT_TRUE(NLDB0::isMux2(mux->getModel()));
     auto* model = mux->getModel();
@@ -3660,13 +3661,20 @@ endmodule
       auto* constant = mux->getInstTerm(NLDB0::getMux2InputA(model)->getBit(bit))->getNet();
       ASSERT_NE(nullptr, constant);
       switch (digits[3 - bit]) {
-        case '0': EXPECT_TRUE(constant->isAssign0()); break;
+        case '0':
+          EXPECT_TRUE(constant->isAssign0());
+          if (!cachedZero) {
+            cachedZero = constant;
+          }
+          EXPECT_EQ(cachedZero, constant);
+          break;
         case '1': EXPECT_TRUE(constant->isAssign1()); break;
         case 'x': EXPECT_TRUE(constant->isAssignX()); break;
         case 'z': EXPECT_TRUE(constant->isAssignZ()); break;
       }
     }
   }
+  ASSERT_NE(nullptr, cachedZero);
   EXPECT_EQ(std::string::npos, text.find("net_"));
   EXPECT_NE(std::string::npos, text.find(".A(4'bxxxx)"));
   EXPECT_NE(std::string::npos, text.find(".A(4'b10xz)"));
@@ -14613,7 +14621,7 @@ TEST_F(SNLSVConstructorTestSimple, anonymousBusAssignAliasIsCollapsedForArithmet
 TEST_F(SNLSVConstructorTestSimple, anonymousBusAssignAliasUnsafeMappingsAreRetained) {
   for (const std::string scenario : {"named", "partial", "reordered", "extra_consumer",
        "extra_driver", "input_port", "alias_port", "bus_metadata", "bit_metadata",
-       "assign_metadata", "constant", "feedback"}) {
+       "assign_metadata", "constant", "feedback", "split_destination"}) {
     SCOPED_TRACE(scenario);
     auto* design = SNLDesign::create(library_, NLName("bus_alias_" + scenario));
     auto fixture = createAnonymousBusAssignAliasFixture(design);
@@ -14645,11 +14653,30 @@ TEST_F(SNLSVConstructorTestSimple, anonymousBusAssignAliasUnsafeMappingsAreRetai
       fixture.alias->getBit(3)->setType(SNLNet::Type::AssignX);
     } else if (scenario == "feedback") {
       fixture.producer->getInstTerm(NLDB0::getDivModDividend(fixture.producer->getModel())->getBit(3))->setNet(fixture.destination->getBit(8));
+    } else if (scenario == "split_destination") {
+      auto* otherDestination = SNLBusNet::create(design, 1, 0, NLName("other_destination"));
+      fixture.assigns[3]->getInstTerm(NLDB0::getAssignOutput())->setNet(otherDestination->getBit(0));
+    }
+    std::vector<SNLBitNet*> destinations;
+    if (scenario == "split_destination") {
+      for (auto* assign : fixture.assigns) {
+        destinations.push_back(assign->getInstTerm(NLDB0::getAssignOutput())->getNet());
+      }
     }
     EXPECT_FALSE(detail::testSVConstructorTryCollapseAnonymousAssignAlias(fixture.assigns[0]));
     for (NLID::Bit bit = 0; bit < 4; ++bit) {
       EXPECT_EQ(fixture.alias->getBit(bit),
         fixture.producer->getInstTerm(output->getBit(bit))->getNet());
+      if (scenario == "split_destination") {
+        EXPECT_EQ(fixture.alias->getBit(bit),
+          fixture.assigns[bit]->getInstTerm(NLDB0::getAssignInput())->getNet());
+        EXPECT_EQ(destinations[bit],
+          fixture.assigns[bit]->getInstTerm(NLDB0::getAssignOutput())->getNet());
+      }
+    }
+    if (scenario == "split_destination") {
+      EXPECT_EQ(3u, design->getNets().size());
+      EXPECT_EQ(5u, design->getInstances().size());
     }
   }
 }

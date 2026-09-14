@@ -9348,7 +9348,7 @@ endmodule
         for (auto* component : bit->getComponents()) {
           auto* term = dynamic_cast<SNLInstTerm*>(component);
           if (!term || !term->getInstance()) {
-            return false;
+            return false; // LCOV_EXCL_LINE defensive: no design terms, inst terms have owners
           }
           if (NLDB0::isAssign(term->getInstance()->getModel()) &&
               term->getBitTerm() == NLDB0::getAssignInput()) {
@@ -17684,7 +17684,8 @@ endmodule
             bus->getLSB() + step * static_cast<NLID::Bit>(bit)));
         }
       } else {
-        orderedTerms.push_back(static_cast<SNLBitTerm*>(term));
+        // Current callers connect only DB0 bus terminals, including width one.
+        orderedTerms.push_back(static_cast<SNLBitTerm*>(term)); // LCOV_EXCL_LINE alternate scalar terminal
       }
       instance->setTermsNets(orderedTerms, bits);
     }
