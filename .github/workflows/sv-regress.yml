@@ -29,12 +29,37 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Borg tools Python
+        uses: actions/setup-python@v7
+        id: borg-python
+        with:
+          python-version: "3.13"
+          update-environment: false
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+          sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev iverilog
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
+
+      - name: Install Borg generation and simulation tools
+        env:
+          BORG_TOOLS_PYTHON: ${{ steps.borg-python.outputs.python-path }}
+          BORG_PYTHON: ${{ runner.temp }}/borg-tools/bin/python
+          BORG_MILL: ${{ runner.temp }}/borg-bin/mill
+        run: |
+          "${BORG_TOOLS_PYTHON}" -m venv "${RUNNER_TEMP}/borg-tools"
+          "${BORG_PYTHON}" -m pip install -r regress/sv/cases/borg/requirements.txt
+          mkdir -p "${RUNNER_TEMP}/borg-bin"
+          curl -L --fail --retry 3 \
+            https://repo.maven.apache.org/maven2/com/lihaoyi/mill-dist/1.1.2/mill-dist-1.1.2-mill.sh \
+            -o "${BORG_MILL}"
+          chmod +x "${BORG_MILL}"
+          ln -s "${RUNNER_TEMP}/borg-tools/bin/cocotb-config" "${RUNNER_TEMP}/borg-bin/cocotb-config"
+          echo "${RUNNER_TEMP}/borg-bin" >> "${GITHUB_PATH}"
+          echo "BORG_PYTHON=${BORG_PYTHON}" >> "${GITHUB_ENV}"
+          echo "BORG_MILL=${BORG_MILL}" >> "${GITHUB_ENV}"
 
       - name: Install bender
         run: cargo install bender
@@ -61,6 +86,15 @@ jobs:
 
       - name: Run external SV regress lint
         run: python3 ${{ github.workspace }}/regress/sv/sv_regress.py run --case ibex --case cv32e40p --stage lint
+
+      - name: Run Borg load, dump, lint, and cocotb simulation
+        run: >-
+          python3 ${{ github.workspace }}/regress/sv/sv_regress.py run
+          --case borg
+          --stage load_dump
+          --stage lint
+          --stage borg_cocotb_sim
+          --require-firmware-sim-tools
 
       - name: Run Z-Core load, dump, lint, and simulation
         run: >-
