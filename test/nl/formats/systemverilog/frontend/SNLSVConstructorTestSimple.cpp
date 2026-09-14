@@ -15,6 +15,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_set>
 
 #include "DNL.h"
@@ -32805,6 +32806,115 @@ endmodule
   const auto primitivesText = readTextFile(primitivesPath);
   EXPECT_NE(std::string::npos, primitivesText.find("module naja_table_select"));
 }
+
+class SNLSVTableSelectTest: public SNLSVConstructorTestSimple,
+  public ::testing::WithParamInterface<std::tuple<size_t, size_t, bool>> {};
+
+TEST_P(SNLSVTableSelectTest, packedIndexFourStateSimulation) {
+  const auto [width, depth, ascending] = GetParam();
+  const size_t abits = depth <= 4 ? 2 : 3;
+  const auto testName = "table_select_w" + std::to_string(width) +
+    "_d" + std::to_string(depth) + (ascending ? "_ascending" : "_descending");
+  std::ostringstream source;
+  source << "module " << testName << "(input logic ["
+    << (ascending ? 0 : depth - 1) << ":" << (ascending ? depth - 1 : 0) << "]";
+  if (width > 1) {
+    source << "[" << width - 1 << ":0]";
+  }
+  source << " DATA, input logic [" << abits - 1 << ":0] ADDR, output logic ";
+  if (width > 1) {
+    source << "[" << width - 1 << ":0] ";
+  }
+  source << "Y);\n  assign Y = DATA[ADDR];\nendmodule\n";
+  const auto svPath = writeSVTestFile(testName, source.str());
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName(testName));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countTableSelectInstances(
+    top, NLDB0::TableSelectSignature {width, depth, abits}));
+  const auto dumpedPath = dumpTopAndGetVerilogPath(top, testName + "_dump");
+  const auto primitivesPath = dumpedPath.parent_path() / "naja_primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitivesPath));
+
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+  }
+
+  // Simulate the original SV indexing alongside the lowered, dumped netlist.
+  auto reference = source.str();
+  reference.replace(reference.find(testName), testName.size(), "table_select_reference");
+  const auto tbPath = svPath.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  ASSERT_TRUE(tb.good());
+  tb << reference << "module tb;\n"
+    << "  localparam WIDTH = " << width << ", DEPTH = " << depth
+    << ", ABITS = " << abits << ";\n"
+    << "  reg [WIDTH*DEPTH-1:0] data;\n"
+    << "  reg [ABITS-1:0] addr;\n"
+    << "  wire [WIDTH-1:0] actual, expected;\n"
+    << "  " << testName << " dut (.DATA(data), .ADDR(addr), .Y(actual));\n"
+    << "  table_select_reference ref_index (.DATA(data), .ADDR(addr), .Y(expected));\n"
+    << R"(  integer pattern, code, bit_index;
+  initial begin
+    // Identical rows catch accidental mux merging of unknown addresses;
+    // mixed data also checks that valid reads preserve individual X/Z bits.
+    for (pattern = 0; pattern < 5; pattern = pattern + 1) begin
+      case (pattern)
+        0: data = '0;
+        1: data = '1;
+        2: data = 'x;
+        3: data = 'z;
+        4: for (bit_index = 0; bit_index < WIDTH*DEPTH; bit_index = bit_index + 1)
+          case ((bit_index + bit_index / WIDTH) % 4)
+            0: data[bit_index] = 1'b0;
+            1: data[bit_index] = 1'b1;
+            2: data[bit_index] = 1'bx;
+            3: data[bit_index] = 1'bz;
+          endcase
+      endcase
+      // Exhaust every 0/1/X/Z address, including partially unknown and OOB.
+      for (code = 0; code < (1 << (2*ABITS)); code = code + 1) begin
+        for (bit_index = 0; bit_index < ABITS; bit_index = bit_index + 1)
+          case ((code >> (2*bit_index)) & 3)
+            0: addr[bit_index] = 1'b0;
+            1: addr[bit_index] = 1'b1;
+            2: addr[bit_index] = 1'bx;
+            3: addr[bit_index] = 1'bz;
+          endcase
+        #1;
+        if (actual !== expected)
+          $fatal(1, "addr=%b data=%b actual=%b SV=%b", addr, data, actual, expected);
+        // Check invalid-index semantics independently of the equivalence check.
+        if (((^addr) === 1'bx) || addr >= DEPTH)
+          if (expected !== {WIDTH{1'bx}})
+            $fatal(1, "invalid packed index did not produce X: addr=%b SV=%b", addr, expected);
+      end
+    end
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto quotePath = [](const std::filesystem::path& path) {
+    std::string quoted = "'";
+    for (char c: path.string()) {
+      quoted += c == '\'' ? "'\\''" : std::string(1, c);
+    }
+    return quoted + "'";
+  };
+  const auto executablePath = svPath.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quotePath(executablePath) +
+    " " + quotePath(tbPath) + " " + quotePath(dumpedPath) + " " + quotePath(primitivesPath);
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quotePath(executablePath)).c_str()));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  ScalarAndVector, SNLSVTableSelectTest,
+  ::testing::Combine(::testing::Values(size_t {1}, size_t {4}),
+    ::testing::Values(size_t {3}, size_t {4}, size_t {5}), ::testing::Bool()));
 
 TEST_F(
   SNLSVConstructorTestSimple,
