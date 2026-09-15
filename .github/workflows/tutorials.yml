@@ -8,10 +8,11 @@ on:
 
 env:
   BUILD_TYPE: Release
+  NAJA_INSTALL: ${{ github.workspace }}/naja-install
 
 jobs:
   run:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v7
       with:
@@ -21,21 +22,21 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev graphviz
+        sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev graphviz
 
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
+    - name: Set up canonical Linux Release toolchain
+      uses: ./.github/actions/setup-linux-release
+      with:
+        cache-scope: full
 
-    - name: Build
+    - name: Configure canonical Release build
+      run: bash .github/scripts/configure-linux-release.sh
+
+    - name: Build Naja Release tree
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
     - name: Run najaeda tests
       run: ctest --test-dir ${{github.workspace}}/build --parallel $(nproc) -C ${{env.BUILD_TYPE}} -R najaeda --output-on-failure
-
-    - name: Set up Python
-      uses: actions/setup-python@v7
-      with:
-        python-version: '3.13'
 
     - name: Install Python dependencies
       run: pip install nbmake nbstripout pandas matplotlib 'fusesoc>=2.4'
@@ -65,3 +66,7 @@ jobs:
         NAJAEDA_TUTORIALS_BENCHMARKS: ${{github.workspace}}/tutorials/benchmarks
         IBEX_REPO: /tmp/ibex
       run: pytest --nbmake tutorials/notebooks/
+
+    - name: Show ccache statistics
+      if: always()
+      run: ccache --show-stats

@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  NAJA_INSTALL: ${{ github.workspace }}/naja-install
 
 jobs:
   build:
@@ -17,33 +18,29 @@ jobs:
       with:
         fetch-depth: 0
         submodules: true
-    # install dependencies
-    - name: Install boost & capnproto
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
-    - name: Build
-      # Build your program with the given configuration
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+    - name: Set up canonical Linux Release toolchain
+      uses: ./.github/actions/setup-linux-release
+      with:
+        cache-scope: full
+    - name: Configure canonical Release build
+      run: bash .github/scripts/configure-linux-release.sh
+    - name: Build Naja Release tree
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
-    - name: Test
+    - name: Run Naja test suite
       working-directory: ${{github.workspace}}/build
       run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
-    - name: Set up Python
-      uses: actions/setup-python@v7
-      with:
-        python-version: 3.13
-    - name: Install dependencies
+    - name: Install Python test dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8
         pip install "coverage>=7.2"
-    - name: Lint with flake8
+    - name: Lint Python sources with flake8
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8 --max-line-length=100 --ignore E128,W504,W503 --exclude docs,examples,native_examples,README
-    - name: Run najaeda testing with pytest
+    - name: Run najaeda tests with coverage
       working-directory: ${{github.workspace}}/test/najaeda
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
@@ -65,3 +62,6 @@ jobs:
         name: codecov-umbrella
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
+    - name: Show ccache statistics
+      if: always()
+      run: ccache --show-stats

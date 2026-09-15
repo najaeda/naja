@@ -16,7 +16,7 @@ env:
 
 jobs:
   regress:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v5
@@ -24,12 +24,17 @@ jobs:
         submodules: true
 
     - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev rsync
+      run: sudo apt-get update && sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev rsync
 
-    - name: Configure
-      run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_INSTALL_PREFIX=${{ env.NAJA_INSTALL }} -DENABLE_SANITIZERS=OFF
+    - name: Set up canonical Linux Release toolchain
+      uses: ./.github/actions/setup-linux-release
+      with:
+        cache-scope: full
 
-    - name: Build and install
+    - name: Configure canonical Release build
+      run: bash .github/scripts/configure-linux-release.sh
+
+    - name: Build and install Naja Release tree
       run: |
         cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --parallel $(nproc)
         cmake --install ${{ github.workspace }}/build
@@ -38,3 +43,7 @@ jobs:
       run: make -C ${{ github.workspace }}/regress/designs/verilog/megaboom
       env:
         NAJA_INSTALL: ${{ env.NAJA_INSTALL }}
+
+    - name: Show ccache statistics
+      if: always()
+      run: ccache --show-stats

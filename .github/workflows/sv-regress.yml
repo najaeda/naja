@@ -24,10 +24,15 @@ jobs:
         with:
           submodules: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev iverilog
+
+      - name: Set up canonical Linux Release toolchain
+        uses: ./.github/actions/setup-linux-release
         with:
-          python-version: "3.12"
+          cache-scope: naja-module
 
       - name: Set up Borg tools Python
         uses: actions/setup-python@v7
@@ -36,10 +41,8 @@ jobs:
           python-version: "3.13"
           update-environment: false
 
-      - name: Install build dependencies
+      - name: Install Python dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev iverilog
           python3 -m pip install --upgrade pip
           python3 -m pip install pyyaml fusesoc
 
@@ -61,18 +64,13 @@ jobs:
           echo "BORG_PYTHON=${BORG_PYTHON}" >> "${GITHUB_ENV}"
           echo "BORG_MILL=${BORG_MILL}" >> "${GITHUB_ENV}"
 
-      - name: Install bender
+      - name: Install Bender
         run: cargo install bender
 
-      - name: Configure CMake
-        run: |
-          cmake -B ${{ github.workspace }}/build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_SANITIZERS=OFF \
-            -DLONG_TESTS=OFF \
-            -DPython3_EXECUTABLE=$(which python3)
+      - name: Configure canonical Release build
+        run: bash .github/scripts/configure-linux-release.sh
 
-      - name: Build naja Python module
+      - name: Build najaeda Python extension
         run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
 
       - name: Prepare najaeda Python package for script execution
@@ -119,3 +117,7 @@ jobs:
         with:
           name: sv-regress-artifacts
           path: ${{ github.workspace }}/build/sv-regress
+
+      - name: Show ccache statistics
+        if: always()
+        run: ccache --show-stats
