@@ -2941,7 +2941,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
 }
 
 std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
-  size_t missingZeros = 4-binStr.size()%4;
+  size_t missingZeros = (4-binStr.size()%4)%4;
   for (size_t i=0; i<missingZeros; i++) {
     binStr = '0' + binStr;
   }
