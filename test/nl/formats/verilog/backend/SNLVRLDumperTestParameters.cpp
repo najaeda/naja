@@ -620,6 +620,21 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
   EXPECT_NE(std::string::npos, dumped.find(".A({2'b10, source_bus})")) << dumped;
 }
 
+TEST_F(SNLVRLDumperTestParameters, testNibbleAlignedConstantBusInputDump) {
+  ASSERT_NE(nullptr, createWideMux2Instance());
+  auto* a = top_->getBusNet(NLName("mux_a"));
+  ASSERT_NE(nullptr, a);
+  a->setType(SNLNet::Type::Assign0);
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".A(8'h00)")) << dumped;
+  EXPECT_EQ(std::string::npos, dumped.find(".A(8'h000)")) << dumped;
+}
+
 TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxInstanceDumpOmitsDefaultWidth) {
   ASSERT_NE(nullptr, createWideMux2Instance(1));
 
