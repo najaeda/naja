@@ -7,17 +7,12 @@ on:
     branches: [ main ]
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  NAJA_INSTALL: ${{github.workspace}}/naja_install
+  NAJA_INSTALL: ${{ github.workspace }}/naja-install
 
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v5
@@ -25,42 +20,45 @@ jobs:
         fetch-depth: 0
         submodules: true
 
-    - name: Install boost & capnproto
-      # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.NAJA_INSTALL}}
+    - name: Set up canonical Linux Release toolchain
+      uses: ./.github/actions/setup-linux-release
+      with:
+        cache-scope: full
 
-    - name: Build
-      # Build your program with the given configuration
+    - name: Configure canonical Release build
+      run: bash .github/scripts/configure-linux-release.sh
+
+    - name: Build Naja Release tree
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
 
-    - name: Test
+    - name: Run Naja test suite
       working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --parallel $(nproc) -VV -C ${{env.BUILD_TYPE}}
 
-    - name: CreateDirs and copy script
+    - name: Prepare Python snippet workspace
       run: |
            mkdir -p ${{env.NAJA_INSTALL}}
            mkdir -p ${{github.workspace}}/najapythonapp
 
-    - name: Copy Python app
+    - name: Copy Python snippet app
       working-directory: ${{github.workspace}}/najapythonapp
       run: |
            cp ${{github.workspace}}/src/nl/snippets/python/naja_snippet.py .
 
-    - name: Install
+    - name: Install Naja Release tree
       working-directory: ${{github.workspace}}/build
       run: make install
 
-    - name: Execute Python snippet app
+    - name: Run Python snippet app
       working-directory: ${{github.workspace}}/najapythonapp
       env:
         LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
         PYTHONPATH: ${{env.PYTHONPATH}}:${{env.NAJA_INSTALL}}/lib/python
       run: python3 naja_snippet.py
+
+    - name: Show ccache statistics
+      if: always()
+      run: ccache --show-stats

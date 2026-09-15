@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Set up canonical Linux Release toolchain
+description: Set up Python 3.12 and the shared ccache used by ordinary Linux Release jobs.
+
+inputs:
+  cache-scope:
+    description: Build coverage represented by the cache (full or naja-module).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+
+    - name: Identify compiler and Python ABI
+      id: toolchain
+      shell: bash
+      run: |
+        echo "gcc_version=$(gcc -dumpfullversion -dumpversion)" >> "${GITHUB_OUTPUT}"
+        python3 - <<'PY' >> "${GITHUB_OUTPUT}"
+        import sys
+        print(f"python_abi={sys.implementation.cache_tag}")
+        PY
+
+    - name: Restore shared ccache
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/.ccache
+        key: >-
+          naja-ccache-v1-${{ runner.os }}-ubuntu24-${{ runner.arch }}-gcc${{ steps.toolchain.outputs.gcc_version }}-${{ steps.toolchain.outputs.python_abi }}-Release-sanOFF-tsanOFF-longOFF-covOFF-benchOFF-svperfOFF-pypkgOFF-libdirlib-${{ hashFiles('.github/scripts/configure-linux-release.sh') }}-${{ inputs['cache-scope'] }}-${{ github.sha }}
+        restore-keys: |
+          naja-ccache-v1-${{ runner.os }}-ubuntu24-${{ runner.arch }}-gcc${{ steps.toolchain.outputs.gcc_version }}-${{ steps.toolchain.outputs.python_abi }}-Release-sanOFF-tsanOFF-longOFF-covOFF-benchOFF-svperfOFF-pypkgOFF-libdirlib-${{ hashFiles('.github/scripts/configure-linux-release.sh') }}-${{ inputs['cache-scope'] }}-
+
+    - name: Configure ccache
+      shell: bash
+      env:
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
+        CCACHE_BASEDIR: ${{ github.workspace }}
+        CCACHE_NOHASHDIR: "true"
+        CCACHE_COMPILERCHECK: content
+      run: |
+        echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "${GITHUB_ENV}"
+        echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}" >> "${GITHUB_ENV}"
+        echo "CCACHE_NOHASHDIR=true" >> "${GITHUB_ENV}"
+        echo "CCACHE_COMPILERCHECK=content" >> "${GITHUB_ENV}"
+        ccache --max-size=2G
+        ccache --set-config=compression=true
+        ccache --zero-stats
