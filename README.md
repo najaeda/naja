@@ -32,6 +32,12 @@ The best entry point is the [`najaeda`](https://pypi.org/project/najaeda/) Pytho
 pip install najaeda
 ```
 
+Requires Python 3.10 or later. Pre-built wheels are published for:
+
+- Linux x86_64 and AArch64 (`manylinux_2_28`; glibc 2.28 or later)
+- macOS Apple Silicon (arm64), macOS 11 or later
+- Windows x86_64
+
 Full documentation: [najaeda.readthedocs.io](https://najaeda.readthedocs.io/en/latest/)
 
 For AI-assisted design exploration, [`naja-scope`](https://github.com/najaeda/naja-scope)
