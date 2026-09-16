@@ -42,6 +42,10 @@ integrate around Naja's C++ netlist engine:
   [`naja-schematic`](https://github.com/najaeda/naja-schematic), and
   [`naja-scope`](https://github.com/najaeda/naja-scope).
 
+In the diagram, cylinders represent formats and model sources; orange marks the
+SystemVerilog frontend, red the core engine, teal the Python API, and purple the
+tools built around Naja.
+
 ```mermaid
 ---
 config:
@@ -54,35 +58,34 @@ config:
     lineColor: '#64748b'
     clusterBkg: '#f8fafc'
     clusterBorder: '#cbd5e1'
+  flowchart:
+    htmlLabels: true
+    nodeSpacing: 40
+    rankSpacing: 70
+    padding: 18
 ---
 flowchart LR
-    sv["`**SystemVerilog**`"] ==> slang(["`**slang**<br>SystemVerilog Frontend`"])
-    verilog["`**gate-level Verilog**`"] <==> naja["`**naja C++ · netlist engine**<br><br>hierarchy · buses<br>bit-level nets &amp; terms · connectivity<br>Primitive Functional Models`"]
-    najaif@{ label: "**naja-if**<br>Logical View Interchange Format<br>Cap'n Proto" } <==> naja
-    slang =="`**Elaboration**`"==> naja
-    naja <==> najaeda["`**najaeda**<br>Python API`"]
-    naja ==> kf("`**kepler-formal**<br>Formal Comparison`") & ns("`**naja-schematic**<br>Schematic Viewer`")
-    najaeda ==> scope("`**naja-scope**<br>MCP server`")
-    lib["`**Liberty**`"] ==> naja
-    pythonlibs["`**Python libraries**<br>naja representation`"] ==> naja
+    sv[("<b>SystemVerilog</b>")] ==> slang(["<b>slang</b><br/>SystemVerilog frontend"])
+    verilog[("<b>Gate-level Verilog</b>")] <==> naja("<b>Naja C++ netlist engine</b><br/><br/>Hierarchy · buses<br/>Bit-level nets and terms<br/>Connectivity · primitive models")
+    najaif[("<b>naja-if</b><br/>Logical-view interchange<br/>Cap'n Proto")] <==> naja
+    slang =="<b>Elaboration</b>"==> naja
+    naja <==> najaeda["<b>najaeda</b><br/>Python API"]
+    naja ==> kf("<b>kepler-formal</b><br/>Formal comparison") & ns("<b>naja-schematic</b><br/>Schematic viewer")
+    najaeda ==> scope("<b>naja-scope</b><br/>MCP server")
+    lib[("<b>Liberty</b>")] ==> naja
+    pythonlibs[("<b>Python primitive libraries</b><br/>Naja models")] ==> naja
 
-    sv@{ shape: disk}
-    verilog@{ shape: disk}
-    naja@{ shape: rounded}
-    najaif@{ shape: disk}
-    lib@{ shape: disk}
-    pythonlibs@{ shape: disk}
-     sv:::input
-     slang:::frontend
-     verilog:::input
-     naja:::core
-     najaif:::input
-     najaeda:::api
-     kf:::tool
-     ns:::tool
-     scope:::tool
-     lib:::input
-     pythonlibs:::input
+    sv:::input
+    slang:::frontend
+    verilog:::input
+    naja:::core
+    najaif:::input
+    najaeda:::api
+    kf:::tool
+    ns:::tool
+    scope:::tool
+    lib:::input
+    pythonlibs:::input
     classDef input fill:#eef2ff,stroke:#6366f1,color:#1e1b4b,stroke-width:2px
     classDef frontend fill:#fff7ed,stroke:#f97316,color:#431407,stroke-width:2px
     classDef core fill:#fef2f2,stroke:#ef4444,color:#450a0a,stroke-width:3px
@@ -95,16 +98,6 @@ flowchart LR
     click kf "https://github.com/keplertech/kepler-formal"
     click ns "https://github.com/najaeda/naja-schematic"
     click scope "https://github.com/najaeda/naja-scope"
-
-    subgraph Legend
-        direction LR
-        L1[Format]:::input
-        L1@{ shape: disk}
-        L2[Frontend]:::frontend
-        L3[Tool]:::tool
-        L4[API]:::api
-        L5[Core Engine]:::core
-    end
 ```
 
 ## Get Started
