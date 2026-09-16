@@ -6,6 +6,7 @@
 
 #include "PyInterface.h"
 #include "PyNLDB.h"
+#include "PyNLLibraries.h"
 #include "PySNLDesign.h"
 #include "PySNLDesigns.h"
 
@@ -83,6 +84,7 @@ GetBoolAttribute(NLLibrary, isPrimitives)
 SetNameMethod(NLLibrary)
 GetNameMethod(NLLibrary)
 
+GetContainerMethod(NLLibrary, NLLibrary*, NLLibraries, Libraries)
 GetContainerMethod(NLLibrary, SNLDesign*, SNLDesigns, SNLDesigns)
 
 DBoDeallocMethod(NLLibrary)
@@ -111,6 +113,8 @@ PyMethodDef PyNLLibrary_Methods[] = {
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PyNLLibrary_getLibrary, METH_VARARGS,
     "retrieve a NLLibrary."},
+  { "getLibraries", (PyCFunction)PyNLLibrary_getLibraries, METH_NOARGS,
+    "iterate over the child NLLibraries."},
   { "getSNLDesign", (PyCFunction)PyNLLibrary_getSNLDesign, METH_O,
     "retrieve a SNLDesign."},
   { "getSNLDesigns", (PyCFunction)PyNLLibrary_getSNLDesigns, METH_NOARGS,
