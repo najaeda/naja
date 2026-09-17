@@ -30,9 +30,10 @@ without compatibility work. The spike had to:
 * make the nominally public parser target externally visible; and
 * mirror XLS's Bazel 8.7, C++20, and empty-glob settings.
 
-Those adjustments are isolated under this study's ``MODULE.bazel``,
-``.bazelrc``, and ``patches/`` directory. They are evidence, not patches that
-Naja should silently maintain in its production build.
+Those adjustments were isolated in the disposable dependency spike. Their
+results are recorded here, but the build files and patches are not retained:
+they are evidence, not compatibility code that Naja should silently maintain
+in its production build.
 
 Decision
 --------
@@ -53,10 +54,10 @@ Naja's CMake targets should consume the bridge output and must not directly
 link XLS or inherit its dependency graph. Bazel may build and test the bridge,
 while CMake contract tests receive the executable path as a tool dependency.
 
-The probe in this directory demonstrates that boundary with JSON schema
-version 1. JSON is convenient for the study, not the final schema choice.
-Cap'n Proto is a natural production candidate because Naja already uses it,
-but the schema must remain Naja-owned and independent from XLS C++ layouts.
+The discarded probe demonstrated that boundary with an experimental JSON
+schema. JSON was convenient for the study, not a final schema choice. Cap'n
+Proto is a natural production candidate because Naja already uses it, but the
+schema must remain Naja-owned and independent from XLS C++ layouts.
 
 Consequences
 ------------
@@ -86,11 +87,11 @@ any XLS node into SNL.
 Update policy
 -------------
 
-An XLS pin update is a reviewed compatibility change. Update the commit in
-``MODULE.bazel``, the probe's reported revision, and the contract test
-together. Run every fixture plus negative malformed-input tests, inspect the
-interchange diff, and add a support-matrix row for any new operation or type.
-No floating branch or unreported runtime XLS revision is accepted.
+An XLS pin update is a reviewed compatibility change. Update the production
+bridge pin, its reported revision, and its contract test together. Run every
+fixture plus negative malformed-input tests, inspect the interchange diff,
+and add a support-matrix row for any new operation or type. No floating branch
+or unreported runtime XLS revision is accepted.
 
 Licensing and platforms
 -----------------------
