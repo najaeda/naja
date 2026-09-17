@@ -1,0 +1,17 @@
+area,construct,phase_0_status,proposed_mvp_status,fixture_or_reason
+entity,function,parsed,supported,combinational.ir
+entity,block,parsed,supported,registered_block.ir
+entity,proc,parsed,rejected,proc conversion and scheduling remain owned by XLS
+type,bits,parsed,supported,combinational.ir
+type,array,parsed,planned,tuple_array.ir requires a flattening contract
+type,tuple,parsed,planned,tuple_array.ir requires a flattening contract
+type,token,not exercised,rejected,direct proc lowering is deferred
+operation,combinational arithmetic and select,parsed,supported,combinational.ir
+operation,register read and write,parsed,planned,registered_block.ir
+operation,block instantiation,parsed,planned,hierarchy.ir
+operation,channels and proc state,parsed,rejected,proc.ir documents the boundary
+instantiation,block,parsed,planned,hierarchy.ir
+instantiation,external,not exercised,planned,requires an explicit blackbox signature contract
+instantiation,FIFO or delay line,not exercised,rejected,no faithful SNL mapping selected
+metadata,node id and source location,serialized,supported,xls_ir_probe schema version 1
+diagnostic,malformed or unresolved IR,rejected,supported,malformed.ir
