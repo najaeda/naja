@@ -1,0 +1,15 @@
+// Copyright 2026 The Naja Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package phase0_register
+
+top block pipeline(clk: clock, rst: bits[1], input: bits[16], output: bits[16]) {
+  #![reset(port="rst", asynchronous=false, active_low=false)]
+  reg state(bits[16], reset_value=0)
+  rst: bits[1] = input_port(name=rst, id=1)
+  input: bits[16] = input_port(name=input, id=2)
+  state_q: bits[16] = register_read(register=state, id=3)
+  sum: bits[16] = add(input, state_q, id=4)
+  state_d: () = register_write(sum, register=state, reset=rst, id=5)
+  output: () = output_port(state_q, name=output, id=6)
+}

@@ -1,0 +1,18 @@
+// Copyright 2026 The Naja Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package phase0_hierarchy
+
+block child(input: bits[8], output: bits[8]) {
+  input: bits[8] = input_port(name=input, id=1)
+  inverted: bits[8] = not(input, id=2)
+  output: () = output_port(inverted, name=output, id=3)
+}
+
+top block parent(input: bits[8], output: bits[8]) {
+  instantiation child_instance(block=child, kind=block)
+  input: bits[8] = input_port(name=input, id=4)
+  child_input: () = instantiation_input(input, instantiation=child_instance, port_name=input, id=5)
+  child_output: bits[8] = instantiation_output(instantiation=child_instance, port_name=output, id=6)
+  output: () = output_port(child_output, name=output, id=7)
+}
