@@ -9,7 +9,8 @@ and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
 record the first evidence. Shared mux/register construction is implemented.
 Phase 0 is partially complete; native VHDL parsing and elaboration, a second
 independent runtime simulator, corpus rights review, and contributor/API
-decisions remain open.
+decisions remain open. Phase 1 has started with a standalone C++20 lexer under
+`src/vhdl/`; no syntax parser or analyzer is implemented yet.
 
 ## Recommendation
 

@@ -1,14 +1,28 @@
 # Independent VHDL frontend
 
-This directory is the future standalone repository root. It currently contains
-the first feasibility artifact: executable VHDL-2008 semantic probes and a
-Python-standard-library runner. There is no native VHDL parser or analyzer yet.
-Nothing here imports, links or discovers Naja/SNL, or requires the parent build.
+This directory is the future standalone repository root. It contains the
+VHDL-2008 semantic probes and a Python-standard-library runner, plus the first
+native frontend slice: a handwritten C++20 lexer. Parsing, semantic analysis
+and elaboration are not implemented yet. Nothing here imports, links or
+discovers Naja/SNL, or requires the parent build.
 
-The planned C++ frontend will use handwritten lexing and recursive descent.
+The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The
 Naja adapter and shared SV/VHDL hardware construction will remain outside this
 directory. In-tree hosting is temporary; extraction is a required milestone.
+
+## Build the standalone C++ slice
+
+```sh
+cmake -S . -B /tmp/naja-vhdl-build -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/naja-vhdl-build
+ctest --test-dir /tmp/naja-vhdl-build --output-on-failure
+```
+
+The exported CMake target is `vhdl::frontend`. The lexer test covers basic
+identifier case handling, extended identifiers, literal/apostrophe distinction,
+compound symbols, locations and malformed-input progress. It does not imply
+parser or language-conformance coverage.
 
 ## Run the reference probes
 
@@ -44,8 +58,8 @@ area, not implemented frontend support.
 All cases are locally authored under Apache-2.0. Standard packages come from the
 selected reference installation; they are not copied into this tree. These tests
 establish a reference baseline, not standards conformance or Naja VHDL support.
-A second independent reference and a real RTL corpus remain necessary.
+A second independent runtime reference remains necessary.
 
 To check independence, copy this directory alone to a temporary location and run
 the same commands there. A future standalone CMake library/exported consumer
-check will complement this executable test boundary when native code is added.
+check will complement this executable test boundary as native code grows.
