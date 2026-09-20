@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "reference": "GHDL 6.0.0",
+  "version_pattern": "^GHDL 6\\.0\\.0(?:\\s|$)",
+  "standard": "2008",
+  "probes": [
+    {
+      "id": "basic_identifier_case",
+      "topic": "Basic identifiers are case insensitive",
+      "sources": [
+        "cases/basic_identifier_case.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "extended_identifiers",
+      "topic": "Extended identifiers preserve case",
+      "sources": [
+        "cases/extended_identifiers.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "based_literals",
+      "topic": "Based literals and bit-string literals",
+      "sources": [
+        "cases/based_literals.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "return_type_overload",
+      "topic": "Expected type resolves return-type overloads",
+      "sources": [
+        "cases/return_type_overload.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "operator_overload",
+      "topic": "Operators are resolved declarations",
+      "sources": [
+        "cases/operator_overload.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "ascending_array",
+      "topic": "Ascending bounds and attributes",
+      "sources": [
+        "cases/ascending_array.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "nonzero_descending_array",
+      "topic": "Nonzero descending bounds",
+      "sources": [
+        "cases/nonzero_descending_array.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "positional_array_assignment",
+      "topic": "Assignment associates elements by position",
+      "sources": [
+        "cases/positional_array_assignment.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "null_array",
+      "topic": "Null ranges have zero elements",
+      "sources": [
+        "cases/null_array.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "unconstrained_function",
+      "topic": "Function arguments preserve actual bounds",
+      "sources": [
+        "cases/unconstrained_function.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "signed_resize",
+      "topic": "Signed extension differs from unsigned extension",
+      "sources": [
+        "cases/signed_resize.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "mod_rem",
+      "topic": "MOD and REM differ for negative operands",
+      "sources": [
+        "cases/mod_rem.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "record_aggregate",
+      "topic": "Records preserve declared field types",
+      "sources": [
+        "cases/record_aggregate.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "named_array_aggregate",
+      "topic": "Named choices use source indices",
+      "sources": [
+        "cases/named_array_aggregate.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "deferred_constant",
+      "topic": "Package body completes deferred constant",
+      "sources": [
+        "cases/deferred_constant.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "generic_generate",
+      "topic": "Generic specialization and generate expansion",
+      "sources": [
+        "cases/generic_generate.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "architecture_selection",
+      "topic": "Explicit architecture binding",
+      "sources": [
+        "cases/architecture_selection.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "component_binding",
+      "topic": "Configuration specification chooses architecture",
+      "sources": [
+        "cases/component_binding.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "work_library",
+      "topic": "WORK denotes the current library",
+      "sources": [
+        "cases/work_library.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "library": "probelib"
+    },
+    {
+      "id": "signal_variable_scheduling",
+      "topic": "Signal reads old value; variable reads immediate update",
+      "sources": [
+        "cases/signal_variable_scheduling.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "partial_assignment_priority",
+      "topic": "Later signal assignment overrides overlapping bits",
+      "sources": [
+        "cases/partial_assignment_priority.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "variable_retention",
+      "topic": "Process variables retain state across activations",
+      "sources": [
+        "cases/variable_retention.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "process_all",
+      "topic": "PROCESS(ALL) reacts to both read signals",
+      "sources": [
+        "cases/process_all.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "reset_enable",
+      "topic": "Asynchronous reset precedes clock enable",
+      "sources": [
+        "cases/reset_enable.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    },
+    {
+      "id": "resolved_drivers",
+      "topic": "Resolved drivers produce non-binary values",
+      "sources": [
+        "cases/resolved_drivers.vhd"
+      ],
+      "top": "probe",
+      "profile": "analysis_only"
+    },
+    {
+      "id": "weak_clock_edge",
+      "topic": "RISING_EDGE recognizes weak low-to-high transition",
+      "sources": [
+        "cases/weak_clock_edge.vhd"
+      ],
+      "top": "probe",
+      "profile": "analysis_only"
+    },
+    {
+      "id": "initial_values",
+      "topic": "Explicit initialization and enumeration default",
+      "sources": [
+        "cases/initial_values.vhd"
+      ],
+      "top": "probe",
+      "profile": "analysis_only"
+    },
+    {
+      "id": "missing_declaration",
+      "topic": "Undeclared names are rejected",
+      "sources": [
+        "cases/missing_declaration.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "analyze"
+        ],
+        "diagnostic": "no declaration for.*missing"
+      }
+    },
+    {
+      "id": "ambiguous_overload",
+      "topic": "Unconstrained overload candidates are rejected",
+      "sources": [
+        "cases/ambiguous_overload.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "analyze"
+        ],
+        "diagnostic": "overload|ambiguous"
+      }
+    },
+    {
+      "id": "distinct_array_types",
+      "topic": "Distinct array types need explicit conversion",
+      "sources": [
+        "cases/distinct_array_types.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "analyze"
+        ],
+        "diagnostic": "type|match"
+      }
+    },
+    {
+      "id": "runtime_range_check",
+      "topic": "Dynamic subtype bounds are checked",
+      "sources": [
+        "cases/runtime_range_check.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "run"
+        ],
+        "diagnostic": "bound check|range check"
+      }
+    },
+    {
+      "id": "runtime_length_check",
+      "topic": "Array length mismatch is not implicit truncation",
+      "sources": [
+        "cases/runtime_length_check.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "run"
+        ],
+        "diagnostic": "bound check|length"
+      }
+    },
+    {
+      "id": "unresolved_drivers",
+      "topic": "Unresolved signals reject multiple drivers",
+      "sources": [
+        "cases/unresolved_drivers.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "elaborate",
+          "run"
+        ],
+        "diagnostic": "several sources|multiple.*driver|unresolved"
+      }
+    },
+    {
+      "id": "duplicate_declaration",
+      "topic": "Duplicate declarations are rejected",
+      "sources": [
+        "cases/duplicate_declaration.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl",
+      "failure": {
+        "stages": [
+          "analyze"
+        ],
+        "diagnostic": "already used|already declared|duplicate"
+      }
+    },
+    {
+      "id": "unary_precedence",
+      "topic": "Unary sign precedence differs from a negative operand",
+      "sources": [
+        "cases/unary_precedence.vhd"
+      ],
+      "top": "probe",
+      "profile": "rtl"
+    }
+  ]
+}
