@@ -3,10 +3,13 @@
 Status: architecture proposal, not an implementation commitment. Repository
 baseline: `51461f00`. Research date: 2026-09-20.
 
-First feasibility increment: see the [boundary contract](vhdl_frontend_contract.md)
-and [standalone semantic probes](../src/vhdl/README.md). The implementation now
-has shared mux/register construction and reference probes; native VHDL parsing,
-analysis and the wider Phase 0 decisions remain open.
+Feasibility status: the [boundary contract](vhdl_frontend_contract.md),
+[semantic probes](../src/vhdl/README.md), [corpus inventory](../src/vhdl/tests/corpus/manifest.json),
+and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
+record the first evidence. Shared mux/register construction is implemented.
+Phase 0 is partially complete; native VHDL parsing and elaboration, a second
+independent runtime simulator, broader corpus validation, and several policy
+decisions remain open.
 
 ## Recommendation
 
@@ -290,15 +293,17 @@ not all be prerequisites for the first end-to-end proof.
 
 ## Existing VHDL implementations: evidence and options
 
-These sources inform alternatives and validation; no external implementation was
-built or benchmarked for this study.
+These sources inform alternatives and validation. GHDL was used for semantic
+probes and two RTL corpus samples. The VHDL-LS command-line release was used for
+a bounded static-analysis comparison; no external implementation was integrated
+or benchmarked for throughput.
 
 | Option | Evidence | Assessment for this project |
 | --- | --- | --- |
 | Native C++ library | Fits the repository's C++20 build and the proposed public API | Recommended working hypothesis; largest semantic implementation effort, best control over common Naja elaboration |
 | GHDL integration | Its documented architecture includes reusable components through `libghdl`; its synthesis frontend can produce netlists | Evaluate as a differential reference and an optional import path. Importing a completed netlist does not provide the requested shared elaboration architecture. Direct reuse needs an API, dependency and license assessment. |
-| VHDL-LS analysis library | Rust frontend separates parsing and semantic analysis and supports tooling-oriented diagnostics | Worth a bounded reuse experiment. Rust/C++ ownership, generic specialization and a supported elaboration interface must be demonstrated; analysis coverage alone is insufficient. |
-| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | Useful independent semantic oracle; not a ready SNL hardware backend. |
+| VHDL-LS analysis library | Rust frontend separates parsing and semantic analysis and supports tooling-oriented diagnostics | Version 0.88.0 accepted/rejected the 35 probe sources at the expected analysis stage. Its public crate is Rust and supplies no C ABI or hardware-lowering interface; an FFI or process boundary and further specialization/API study would be required. Static agreement does not establish runtime behavior or suitability as the standalone C++ library. |
+| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | A suitable candidate for an independent runtime oracle, but source-build validation could not complete in this environment because the local Apple toolchain requires an unavailable Xcode license. GHDL remains the only runtime reference executed so far. |
 
 Primary sources: [GHDL architecture](https://ghdl.github.io/ghdl/internals/index.html),
 [GHDL synthesis](https://ghdl.github.io/ghdl/using/Synthesis.html),
@@ -336,13 +341,17 @@ for an engineer familiar with compiler and HDL semantics, not a delivery promise
   provenance, specialization identity and failure handling.
 - Prototype the dependency boundary around one mux or arithmetic builder and one
   register builder, retaining the existing SV path as the regression baseline.
-- Time-box native versus VHDL-LS reuse feasibility with the same small inputs;
-  report build complexity, analysis gaps, diagnostic quality and API suitability.
+- Compare VHDL-LS static-analysis disposition on the same 35 probes and record
+  API/build boundaries; defer diagnostic-quality and throughput conclusions.
+- Recheck corpus licensing and add an independent runtime simulator before
+  closing the reference-tool decision.
 
-Exit: a recorded build/reuse decision, explicit MVP semantics, executable probes,
-and evidence that shared construction can accept neutral inputs. Stop expansion
-and revise the interface if it still requires SV AST pointers or hidden process
-state. Re-estimate later phases using measured results.
+Exit: the current artifacts establish a provisional native C++ direction and a
+narrow shared-construction boundary, but Phase 0 is not closed. Close it after
+the corpus includes a separately verified medium design and the complete large
+design, rights are reviewed, the runtime oracle decision and standard-package
+provenance are settled, and binary-domain policy is explicit. Then record the
+build/reuse decision and re-estimate later phases using measured results.
 
 ### Phase 1: vertical proof
 
