@@ -24,6 +24,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLTerm.h"
 #include "SNLXLSConstructorException.h"
+#include "SNLXLSIRReader.h"
 
 namespace naja::NL {
 
@@ -268,6 +269,11 @@ SNLDesign* SNLXLSConstructor::construct(const SNLXLSIRFunction& function) {
     design->destroy();
     throw;
   }
+}
+
+SNLDesign* SNLXLSConstructor::construct(
+  const std::filesystem::path& bridgePayload) {
+  return construct(SNLXLSIRReader::load(bridgePayload));
 }
 
 }  // namespace naja::NL

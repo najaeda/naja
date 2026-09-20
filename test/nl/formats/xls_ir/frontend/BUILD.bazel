@@ -6,6 +6,7 @@ cc_test(
     name = "snlXLSConstructorTests",
     srcs = ["SNLXLSConstructorTest.cpp"],
     deps = [
+        "//src/nl/formats/xls_ir:naja_xls_ir_bridge_capnp",
         "//src/nl/formats/xls_ir:naja_snl_xls_ir",
         "@googletest//:gtest_main",
     ],

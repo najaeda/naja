@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -52,6 +53,7 @@ class SNLXLSConstructor {
     explicit SNLXLSConstructor(NLLibrary* library);
 
     SNLDesign* construct(const SNLXLSIRFunction& function);
+    SNLDesign* construct(const std::filesystem::path& bridgePayload);
 
   private:
     NLLibrary* library_{nullptr};

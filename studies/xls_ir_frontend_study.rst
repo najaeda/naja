@@ -360,11 +360,15 @@ the common library has no slang dependency.
 Phase 2: first XLS vertical slice
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Status on 2026-09-17: ``src/nl/formats/xls_ir/frontend`` contains the initial
-``SNLXLSConstructor``. It consumes a validated, width-explicit function record
-and lowers bits-only ``add``, ``sub``, and two-case ``sel`` nodes through
-``SNLDesignBuilder``. Bridge execution and interchange deserialization remain
-to be connected; this slice does not parse XLS text independently.
+Status on 2026-09-19: ``src/nl/formats/xls_ir/frontend`` contains the initial
+``SNLXLSConstructor`` and ``SNLXLSIRReader``. A Naja-owned, versioned Cap'n
+Proto schema carries bridge output into a validated, width-explicit function
+record. The reader enforces the schema version, exact pinned XLS revision,
+selected function top, and bits-only type boundary before the constructor
+lowers ``add``, ``sub``, and two-case ``sel`` nodes through
+``SNLDesignBuilder``. The separately built XLS bridge still needs to emit this
+schema and be connected to an end-to-end XLS text fixture; Naja does not parse
+XLS text independently.
 
 #. Add ``SNLXLSConstructor`` behind a build option if XLS support is optional.
 #. Import a bits-only, combinational top function.
@@ -536,3 +540,9 @@ Decision log
   consumer must reproduce a large dependency graph, root-only overrides,
   compiler settings, and two upstream visibility/dependency fixes. Keep
   direct linkage as a future controlled-build option.
+
+2026-09-19
+  Adopt a Naja-owned packed Cap'n Proto bridge schema. Version 1 records the
+  exact XLS producer revision and represents entity and type families
+  explicitly; the first reader fails closed unless the selected top is a
+  bits-only function from the pinned XLS revision.

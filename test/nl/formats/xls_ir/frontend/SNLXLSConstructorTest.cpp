@@ -4,6 +4,13 @@
 
 #include "gtest/gtest.h"
 
+#include <capnp/message.h>
+#include <capnp/serialize-packed.h>
+#include <kj/io.h>
+#include <kj/std/iostream.h>
+
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "NLDB.h"
@@ -17,8 +24,67 @@
 #include "SNLTerm.h"
 #include "SNLXLSConstructor.h"
 #include "SNLXLSConstructorException.h"
+#include "SNLXLSIRReader.h"
+#include "xls_ir_bridge.capnp.h"
 
 using namespace naja::NL;
+
+namespace {
+
+struct BridgePayloadOptions {
+  uint32_t schemaVersion{SNLXLSIRReader::SchemaVersion};
+  std::string xlsRevision{SNLXLSIRReader::XLSRevision};
+  XLSIRBridge::EntityKind kind{XLSIRBridge::EntityKind::FUNCTION};
+  bool tupleNode{false};
+};
+
+void writeBridgePayload(
+  const std::filesystem::path& path,
+  const BridgePayloadOptions& options = {}) {
+  ::capnp::MallocMessageBuilder message;
+  auto payload = message.initRoot<XLSIRBridge::BridgePayload>();
+  payload.setSchemaVersion(options.schemaVersion);
+  payload.setXlsRevision(options.xlsRevision);
+  payload.setPackageName("bridge_test");
+
+  auto entity = payload.initEntities(1)[0];
+  entity.setKind(options.kind);
+  entity.setName("bridge_add");
+  entity.setIsTop(true);
+  entity.setResult("sum");
+  entity.setOutputName("result");
+
+  auto parameters = entity.initParameters(2);
+  parameters[0].setName("a");
+  parameters[0].initType().setBits(8);
+  parameters[1].setName("b");
+  parameters[1].initType().setBits(8);
+
+  auto node = entity.initNodes(1)[0];
+  node.setId(3);
+  node.setName("sum");
+  node.setOp("add");
+  if (options.tupleNode) {
+    node.initType().initTuple(0);
+  } else {
+    node.initType().setBits(8);
+  }
+  auto operands = node.initOperands(2);
+  operands.set(0, "a");
+  operands.set(1, "b");
+  node.setSource("bridge_test.ir:7");
+
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  ASSERT_TRUE(output);
+  kj::std::StdOutputStream rawOutput(output);
+  kj::BufferedOutputStreamWrapper bufferedOutput(rawOutput);
+  ::capnp::writePackedMessage(bufferedOutput, message);
+  bufferedOutput.flush();
+  output.flush();
+  ASSERT_TRUE(output);
+}
+
+}  // namespace
 
 class SNLXLSConstructorTest : public ::testing::Test {
   protected:
@@ -26,9 +92,16 @@ class SNLXLSConstructorTest : public ::testing::Test {
       auto* universe = NLUniverse::create();
       auto* db = NLDB::create(universe);
       library_ = NLLibrary::create(db, NLName("WORK"));
+      const auto* testInfo =
+        ::testing::UnitTest::GetInstance()->current_test_info();
+      bridgePath_ = std::filesystem::temp_directory_path() /
+        (std::string("naja_") + testInfo->test_suite_name() + "_" +
+          testInfo->name() + ".capnp");
     }
 
     void TearDown() override {
+      std::error_code error;
+      std::filesystem::remove(bridgePath_, error);
       if (NLUniverse::get()) {
         NLUniverse::get()->destroy();
       }
@@ -36,7 +109,112 @@ class SNLXLSConstructorTest : public ::testing::Test {
     }
 
     NLLibrary* library_{nullptr};
+    std::filesystem::path bridgePath_{};
 };
+
+TEST_F(SNLXLSConstructorTest, ConstructsFromVersionedBridgePayload) {
+  writeBridgePayload(bridgePath_);
+
+  SNLXLSConstructor constructor(library_);
+  auto* design = constructor.construct(bridgePath_);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(NLName("bridge_add"), design->getName());
+  ASSERT_NE(nullptr, design->getBusTerm(NLName("a")));
+  ASSERT_NE(nullptr, design->getBusTerm(NLName("b")));
+  ASSERT_NE(nullptr, design->getBusTerm(NLName("result")));
+
+  size_t fullAdders = 0;
+  for (auto* instance : design->getInstances()) {
+    if (instance->getModel() == NLDB0::getFA()) {
+      ++fullAdders;
+    }
+  }
+  EXPECT_EQ(8, fullAdders);
+}
+
+TEST_F(SNLXLSConstructorTest, RejectsIncompatibleBridgeSchema) {
+  BridgePayloadOptions options;
+  options.schemaVersion = SNLXLSIRReader::SchemaVersion + 1;
+  writeBridgePayload(bridgePath_, options);
+
+  SNLXLSConstructor constructor(library_);
+  try {
+    constructor.construct(bridgePath_);
+    FAIL() << "incompatible bridge schema was accepted";
+  } catch (const SNLXLSConstructorException& exception) {
+    EXPECT_NE(std::string::npos,
+      std::string(exception.what()).find("incompatible schema version"));
+  }
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("bridge_add")));
+}
+
+TEST_F(SNLXLSConstructorTest, RejectsIncompatibleXLSRevision) {
+  BridgePayloadOptions options;
+  options.xlsRevision = "different-xls-revision";
+  writeBridgePayload(bridgePath_, options);
+
+  SNLXLSConstructor constructor(library_);
+  try {
+    constructor.construct(bridgePath_);
+    FAIL() << "incompatible XLS revision was accepted";
+  } catch (const SNLXLSConstructorException& exception) {
+    EXPECT_NE(std::string::npos,
+      std::string(exception.what()).find("incompatible XLS revision"));
+  }
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("bridge_add")));
+}
+
+TEST_F(SNLXLSConstructorTest, RejectsNonFunctionBridgeTop) {
+  BridgePayloadOptions options;
+  options.kind = XLSIRBridge::EntityKind::BLOCK;
+  writeBridgePayload(bridgePath_, options);
+
+  SNLXLSConstructor constructor(library_);
+  try {
+    constructor.construct(bridgePath_);
+    FAIL() << "block top was accepted by the function importer";
+  } catch (const SNLXLSConstructorException& exception) {
+    const std::string message = exception.what();
+    EXPECT_NE(std::string::npos, message.find("is a block"));
+    EXPECT_NE(std::string::npos, message.find("expected a function"));
+  }
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("bridge_add")));
+}
+
+TEST_F(SNLXLSConstructorTest, RejectsUnsupportedBridgeType) {
+  BridgePayloadOptions options;
+  options.tupleNode = true;
+  writeBridgePayload(bridgePath_, options);
+
+  SNLXLSConstructor constructor(library_);
+  try {
+    constructor.construct(bridgePath_);
+    FAIL() << "tuple node was accepted by the bits-only importer";
+  } catch (const SNLXLSConstructorException& exception) {
+    const std::string message = exception.what();
+    EXPECT_NE(std::string::npos, message.find("node 'sum'"));
+    EXPECT_NE(std::string::npos, message.find("unsupported type tuple"));
+  }
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("bridge_add")));
+}
+
+TEST_F(SNLXLSConstructorTest, RejectsMalformedBridgePayload) {
+  {
+    std::ofstream output(bridgePath_, std::ios::binary | std::ios::trunc);
+    ASSERT_TRUE(output);
+    output << "not a packed Cap'n Proto message";
+  }
+
+  SNLXLSConstructor constructor(library_);
+  try {
+    constructor.construct(bridgePath_);
+    FAIL() << "malformed bridge payload was accepted";
+  } catch (const SNLXLSConstructorException& exception) {
+    EXPECT_NE(std::string::npos,
+      std::string(exception.what()).find("malformed Cap'n Proto message"));
+  }
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("bridge_add")));
+}
 
 TEST_F(SNLXLSConstructorTest, ConstructsBitsOnlyAddSubSelectFunction) {
   SNLXLSIRFunction function;

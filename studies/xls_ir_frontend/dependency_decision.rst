@@ -1,8 +1,8 @@
 Phase 0 dependency decision: use a pinned XLS bridge
 ====================================================
 
-:Status: Proposed for the first vertical slice
-:Date: 2026-09-17
+:Status: Accepted for the first vertical slice
+:Date: 2026-09-19
 :XLS revision: ``0a7c502ccaaa650cb2da1929c536c4ab100eafda``
 
 Context
@@ -58,6 +58,24 @@ The discarded probe demonstrated that boundary with an experimental JSON
 schema. JSON was convenient for the study, not a final schema choice. Cap'n
 Proto is a natural production candidate because Naja already uses it, but the
 schema must remain Naja-owned and independent from XLS C++ layouts.
+
+Implemented interchange contract
+--------------------------------
+
+The first production contract is the Naja-owned packed Cap'n Proto schema at
+``src/nl/formats/xls_ir/frontend/xls_ir_bridge.capnp``. Schema version 1
+carries the producer XLS revision, package and entity identity, top selection,
+types, node IDs, operations, operands, and source provenance. It can represent
+function, block, and proc entities and the bits, tuple, array, and token type
+families, even though the first importer intentionally accepts only a selected
+bits-only function.
+
+``SNLXLSIRReader`` requires schema version 1 and the exact XLS revision stated
+above. It rejects malformed messages, a missing or ambiguous top, a non-function
+top, and unsupported types before ``SNLXLSConstructor`` creates an SNL design.
+Both CMake and Bazel generate and link the schema without linking any XLS
+library. The separately built XLS bridge must still be changed from its study
+JSON output to this contract.
 
 Consequences
 ------------
