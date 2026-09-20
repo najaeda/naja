@@ -11,5 +11,6 @@
     "lib/ghdl/src/ieee2008/std_logic_1164-body.vhdl": "6534fe4842c1133199db93725e36a9e973ea8e2ab03890433c013af813d5ce2c",
     "lib/ghdl/src/ieee2008/numeric_std.vhdl": "318b999d6df570f08b284123348ef5bcfe93720b2471df6905bbbb9b02accd4d",
     "lib/ghdl/src/ieee2008/numeric_std-body.vhdl": "e7148f94642f8f3a5b13d4853b38892b875e3890cea995c10eacdebf1274328b"
-  }
+  },
+  "package_provenance": "IEEE P1076 WG package sources bundled in the pinned GHDL 6.0.0 archive; package headers identify Apache-2.0 licensing. Hashes above identify the exact VHDL-2008 std_logic_1164 and numeric_std declarations and bodies used by the reference run. No package source is copied into the frontend."
 }

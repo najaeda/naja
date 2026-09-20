@@ -8,7 +8,7 @@ Feasibility status: the [boundary contract](vhdl_frontend_contract.md),
 and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
 record the first evidence. Shared mux/register construction is implemented.
 Phase 0 is partially complete; native VHDL parsing and elaboration, a second
-independent runtime simulator, broader corpus validation, and several policy
+independent runtime simulator, corpus rights review, and contributor/API
 decisions remain open.
 
 ## Recommendation
@@ -294,16 +294,16 @@ not all be prerequisites for the first end-to-end proof.
 ## Existing VHDL implementations: evidence and options
 
 These sources inform alternatives and validation. GHDL was used for semantic
-probes and two RTL corpus samples. The VHDL-LS command-line release was used for
-a bounded static-analysis comparison; no external implementation was integrated
-or benchmarked for throughput.
+probes and small, medium and large RTL corpus samples. The VHDL-LS command-line
+release was used for a bounded static-analysis comparison; no external
+implementation was integrated or benchmarked for throughput.
 
 | Option | Evidence | Assessment for this project |
 | --- | --- | --- |
 | Native C++ library | Fits the repository's C++20 build and the proposed public API | Recommended working hypothesis; largest semantic implementation effort, best control over common Naja elaboration |
 | GHDL integration | Its documented architecture includes reusable components through `libghdl`; its synthesis frontend can produce netlists | Evaluate as a differential reference and an optional import path. Importing a completed netlist does not provide the requested shared elaboration architecture. Direct reuse needs an API, dependency and license assessment. |
 | VHDL-LS analysis library | Rust frontend separates parsing and semantic analysis and supports tooling-oriented diagnostics | Version 0.88.0 accepted/rejected the 35 probe sources at the expected analysis stage. Its public crate is Rust and supplies no C ABI or hardware-lowering interface; an FFI or process boundary and further specialization/API study would be required. Static agreement does not establish runtime behavior or suitability as the standalone C++ library. |
-| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | A suitable candidate for an independent runtime oracle, but source-build validation could not complete in this environment because the local Apple toolchain requires an unavailable Xcode license. GHDL remains the only runtime reference executed so far. |
+| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | A suitable independent runtime oracle. Homebrew installation was blocked because the local Apple toolchain requires an unavailable Xcode license. GHDL remains the only runtime reference executed so far. |
 
 Primary sources: [GHDL architecture](https://ghdl.github.io/ghdl/internals/index.html),
 [GHDL synthesis](https://ghdl.github.io/ghdl/using/Synthesis.html),
@@ -322,8 +322,9 @@ The language reference is
 [IEEE 1076-2019](https://standards.ieee.org/ieee/1076/5179/), with the relevant
 revision's clauses governing each supported mode. This study has not performed
 a clause-by-clause standards audit. Compiler agreement is evidence, not the
-definition of language semantics. Standard-package sourcing and exact revision
-selection remain an initial study task.
+definition of language semantics. The current reference pins the VHDL-2008
+`std_logic_1164` and `numeric_std` source files used by probes; selecting the
+supported package subset and policy for redistribution remain open.
 
 ## Work plan and acceptance gates
 
@@ -346,11 +347,16 @@ for an engineer familiar with compiler and HDL semantics, not a delivery promise
 - Recheck corpus licensing and add an independent runtime simulator before
   closing the reference-tool decision.
 
-Exit: the current artifacts establish a provisional native C++ direction and a
-narrow shared-construction boundary, but Phase 0 is not closed. Close it after
-the corpus includes a separately verified medium design and the complete large
-design, rights are reviewed, the runtime oracle decision and standard-package
-provenance are settled, and binary-domain policy is explicit. Then record the
+Exit: the current artifacts establish a provisional native C++ direction, a
+narrow shared-construction boundary and successful GHDL analysis/hierarchy
+checks for small, medium and large RTL samples. Phase 0 remains open until
+corpus test rights are reviewed, a second runtime oracle is available, and
+contributor capacity and the first public API are agreed. Standard-package
+source hashes and notices are recorded in the reference manifest. The proposed
+initial hardware domain is binary: permit single-source `std_logic` signals as
+binary hardware values, but reject multiple drivers and behavior that depends
+on `U`, `X`, `Z`, weak values or resolution. Validate this synthesis-profile
+assumption against the corpus before claiming compatibility. Then record the
 build/reuse decision and re-estimate later phases using measured results.
 
 ### Phase 1: vertical proof

@@ -19,6 +19,19 @@
       "result": "GHDL analysis/import and elaboration-order query passed"
     },
     {
+      "name": "Domipheus RPU RV32I core",
+      "repository": "https://github.com/Domipheus/RPU",
+      "revision": "200284e361c667f21fb571809050ba4e0343d7ce",
+      "revision_date": "2020-09-12",
+      "license": "Apache-2.0",
+      "standard": "VHDL-2008",
+      "scope": ["vhdl/*.vhd"],
+      "source_files": 11,
+      "source_bytes": 119156,
+      "entry": "core",
+      "result": "GHDL analysis/import and elaboration-order query passed"
+    },
+    {
       "name": "NEORV32 core",
       "repository": "https://github.com/stnolting/neorv32",
       "revision": "e25059f2d7fa948342516c0722bbf2b19039ab3c",
@@ -42,8 +55,8 @@
       "source_bytes": 1150319,
       "library": "neorv32",
       "entry": "neorv32_top",
-      "result": "Core-only elaboration-order query passed; complete RTL VHDL scope inventoried but not separately analyzed"
+      "result": "GHDL analysis/import and elaboration-order query passed for all 61 RTL VHDL files"
     }
   ],
-  "limitations": "These are two projects, with the larger project represented by core and complete-RTL scope inventories. The complete RTL scope result is not a pass. Counts include VHDL files only. Recheck repository revisions, file scopes and any upstream test rights before redistributing source or using it in CI."
+  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. Recheck repository revisions, file scopes and upstream test rights before redistributing source or using it in CI. The validation checks analysis and hierarchy resolution, not simulation equivalence or hardware synthesis."
 }

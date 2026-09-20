@@ -111,26 +111,26 @@ direct primitive tests and existing SV constructor regressions. Preserve source
 metadata and initialization via the existing intent/sequential tests. Run the
 reference bundle from a standalone copy to establish its extraction boundary.
 
-Phase 0 evidence now includes pinned UART and NEORV32 revisions and scopes in
+Phase 0 evidence now includes pinned UART, RPU and NEORV32 revisions and scopes in
 `src/vhdl/tests/corpus/manifest.json`, plus a 35-probe static-analysis comparison
 in `src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json`. GHDL imported and
-resolved the UART core (VHDL-1993) and NEORV32 core (VHDL-2008). The complete
-NEORV32 RTL scope is inventoried but not separately analyzed, and no distinct
-medium design has yet been validated. Review corpus test rights before CI use.
+resolved the UART core (VHDL-1993), RPU core (VHDL-2008), and all 61 NEORV32
+RTL VHDL files (VHDL-2008). Review corpus test rights before CI use.
 
 The comparison frontend matched the expected analysis acceptance/rejection for
 all 35 cases. It correctly accepts three sources whose expected failures occur
 only during elaboration or simulation; this is not a runtime comparison. Its
 Rust API has no C ABI or hardware-lowering interface, so adoption would need an
-FFI or process boundary and more study of generic specialization. NVC could not
-be built locally because the available Apple toolchain requires an unavailable
-Xcode license; GHDL is the only runtime oracle exercised so far.
+FFI or process boundary and more study of generic specialization. NVC installation
+could not proceed because the available Apple toolchain requires an unavailable
+Xcode license; GHDL is the only runtime oracle exercised so far. The GHDL archive,
+standard-package source hashes and Apache-2.0 package notices are recorded in
+`src/vhdl/tests/semantic/reference.json`.
 
-Before declaring Phase 0 complete: separately validate medium and full large
-corpus scopes, review use rights, select a second runtime oracle, finalize
-standard-package provenance and the binary hardware profile, and record the
-build/reuse decision. The handwritten C++ frontend remains a provisional
-working direction; these experiments do not settle the decision.
+Before declaring Phase 0 complete: review corpus use rights, select a second
+runtime oracle, confirm the binary hardware profile against the corpus, and
+record the build/reuse decision. The handwritten C++ frontend remains a
+provisional working direction; these experiments do not settle the decision.
 
 ## Validation of this increment
 
