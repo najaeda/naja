@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "snlDesignBuilderTests",
+    srcs = ["SNLDesignBuilderTest.cpp"],
+    deps = [
+        "//src/nl/formats/common:naja_nl_frontend_common",
+        "@googletest//:gtest_main",
+    ],
+)

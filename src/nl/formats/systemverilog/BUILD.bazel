@@ -23,6 +23,7 @@ _SRCS = [
 
 _DEPS = [
     "//src/core:naja_core",
+    "//src/nl/formats/common:naja_nl_frontend_common",
     "//src/nl/netlist:naja_nl",
     "@slang//:slang",
 ]

@@ -36,6 +36,7 @@
 #include "NajaPerf.h"
 #include "NajaPrivateProperty.h"
 
+#include "SNLDesignBuilder.h"
 #include "NLID.h"
 #include "NLDB0.h"
 #include "NLException.h"
@@ -16295,38 +16296,35 @@ endmodule
       return true;
     }
 
+    SNLDesignBuilder makeSNLDesignBuilder(
+      SNLDesign* design,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      SNLDesignBuilder::Hooks hooks;
+      hooks.getConstant = [this, design](bool one) {
+        return static_cast<SNLBitNet*>(getConstNet(design, one));
+      };
+      hooks.createNot = [this, design, sourceRange](SNLBitNet* input) {
+        return static_cast<SNLBitNet*>(createUnaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::Not),
+          input,
+          nullptr,
+          sourceRange));
+      };
+      hooks.objectCreated = [this, sourceRange](NLObject* object) {
+        annotateSourceInfo(object, sourceRange);
+      };
+      return SNLDesignBuilder(design, std::move(hooks));
+    }
+
     bool addBitVectors(
       SNLDesign* design,
       const std::vector<SNLBitNet*>& leftBits,
       const std::vector<SNLBitNet*>& rightBits,
       std::vector<SNLBitNet*>& sumBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (leftBits.size() != rightBits.size()) {
-        return false; // LCOV_EXCL_LINE
-      }
-
-      sumBits.clear();
-      sumBits.reserve(leftBits.size());
-      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
-      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
-        auto* sumBit = SNLScalarNet::create(design);
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(sumBit, sourceRange);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              rightBits[bitIndex],
-              carry,
-              sumBit,
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        sumBits.push_back(sumBit);
-        carry = carryOut;
-      }
-      return true;
+      auto builder = makeSNLDesignBuilder(design, sourceRange);
+      return builder.add(leftBits, rightBits, sumBits);
     }
 
     bool subtractBitVectors(
@@ -16335,58 +16333,8 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       std::vector<SNLBitNet*>& differenceBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (leftBits.size() != rightBits.size()) {
-        return false; // LCOV_EXCL_LINE
-      }
-
-      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-      std::vector<SNLBitNet*> invertedRightBits;
-      invertedRightBits.reserve(rightBits.size());
-      for (auto* rightBit : rightBits) {
-        if (rightBit == const0) {
-          invertedRightBits.push_back(const1);
-          continue;
-        }
-        if (rightBit == const1) {
-          invertedRightBits.push_back(const0);
-          continue;
-        }
-        auto* invertedBit = SNLScalarNet::create(design);
-        annotateSourceInfo(invertedBit, sourceRange);
-        if (!createUnaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Not),
-              rightBit,
-              invertedBit,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        invertedRightBits.push_back(invertedBit);
-      }
-
-      differenceBits.clear();
-      differenceBits.reserve(leftBits.size());
-      auto* carry = const1;
-      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
-        auto* diffBit = SNLScalarNet::create(design);
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(diffBit, sourceRange);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              invertedRightBits[bitIndex],
-              carry,
-              diffBit,
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        differenceBits.push_back(diffBit);
-        carry = carryOut;
-      }
-      return true;
+      auto builder = makeSNLDesignBuilder(design, sourceRange);
+      return builder.subtract(leftBits, rightBits, differenceBits);
     }
 
     bool createPowerOfTwoBits(
@@ -18716,39 +18664,8 @@ endmodule
           return true;
         }
       }
-      SNLNet* outNet = explicitOutNet;
-      if (outNet) {
-        // Width-checked explicit output nets are screened by the callers before
-        // they choose this generic mux-builder helper. Keep the mismatch guard
-        // only as a defensive backstop for future call paths.
-        // LCOV_EXCL_START
-        if (static_cast<size_t>(outNet->getWidth()) != inA.size()) {
-          return false;
-        }
-        // LCOV_EXCL_STOP
-      } else if (inA.size() == 1) {
-        auto* outBit = SNLScalarNet::create(design);
-        annotateSourceInfo(outBit, sourceRange);
-        outNet = outBit;
-      } else {
-        auto* outBus = SNLBusNet::create(
-          design,
-          static_cast<NLID::Bit>(inA.size() - 1),
-          0);
-        annotateSourceInfo(outBus, sourceRange);
-        outNet = outBus;
-      }
-      // Connect input bits directly, including constants, concatenations, and
-      // reordered slices. They do not need an intermediate packed bus.
-      auto* mux2 = NLDB0::getOrCreateMux2(inA.size());
-      auto* inst = SNLInstance::create(design, mux2);
-      annotateSourceInfo(inst, sourceRange);
-      connectInstanceTermBits(inst, NLDB0::getMux2InputA(mux2), inA);
-      connectInstanceTermBits(inst, NLDB0::getMux2InputB(mux2), inB);
-      inst->setTermNet(NLDB0::getMux2Select(mux2), select);
-      inst->setTermNet(NLDB0::getMux2Output(mux2), outNet);
-      outBits = collectBits(outNet);
-      return true;
+      auto builder = makeSNLDesignBuilder(design, sourceRange);
+      return builder.mux(select, inA, inB, outBits, explicitOutNet);
     }
 
     bool createTableSelectInstance(

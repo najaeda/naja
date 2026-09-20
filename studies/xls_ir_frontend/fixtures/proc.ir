@@ -1,0 +1,11 @@
+// Copyright 2026 The Naja Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package phase0_proc
+
+top proc counter<>(state: bits[8], init={0}) {
+  state: bits[8] = state_read(state_element=state, id=1)
+  one: bits[8] = literal(value=1, id=2)
+  incremented: bits[8] = add(state, one, id=3)
+  next_value.4: () = next_value(state_element=state, value=incremented, id=4)
+}

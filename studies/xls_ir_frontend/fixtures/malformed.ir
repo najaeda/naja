@@ -1,0 +1,8 @@
+// Copyright 2026 The Naja Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package phase0_malformed
+
+top fn truncated(a: bits[8]) -> bits[8] {
+  ret result: bits[8] = add(a, missing_operand, id=2)
+}

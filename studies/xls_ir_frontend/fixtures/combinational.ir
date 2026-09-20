@@ -1,0 +1,10 @@
+// Copyright 2026 The Naja Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package phase0_comb
+
+top fn add_select(a: bits[8], b: bits[8], select: bits[1]) -> bits[8] {
+  sum: bits[8] = add(a, b, id=4)
+  difference: bits[8] = sub(a, b, id=5)
+  ret result: bits[8] = sel(select, cases=[sum, difference], id=6)
+}

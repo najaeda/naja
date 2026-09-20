@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+load("@capnp-cpp//src/capnp:cc_capnp_library.bzl", "cc_capnp_library")
+
+cc_capnp_library(
+    name = "naja_xls_ir_bridge_capnp",
+    srcs = ["frontend/xls_ir_bridge.capnp"],
+    includes = ["frontend"],
+    src_prefix = "src/nl/formats/xls_ir/frontend",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "naja_snl_xls_ir",
+    srcs = [
+        "frontend/SNLXLSConstructor.cpp",
+        "frontend/SNLXLSIRReader.cpp",
+    ],
+    hdrs = [
+        "frontend/SNLXLSConstructor.h",
+        "frontend/SNLXLSConstructorException.h",
+        "frontend/SNLXLSIRReader.h",
+    ],
+    includes = ["frontend"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/nl/formats/common:naja_nl_frontend_common",
+        "//src/nl/netlist:naja_nl",
+        ":naja_xls_ir_bridge_capnp",
+    ],
+)
