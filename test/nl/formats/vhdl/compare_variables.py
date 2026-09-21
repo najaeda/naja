@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 # SPDX-License-Identifier: Apache-2.0
 """Compare immediate variable and scheduled signal values with NVC."""
 import argparse

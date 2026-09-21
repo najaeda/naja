@@ -119,6 +119,7 @@ ci/check_submodule_bazel_sync.py`.
 
 ## Conventions
 
+- Every new file, including test fixtures and helper scripts, must have both copyright and licensing information. For Naja-authored files, add `SPDX-FileCopyrightText: <year> The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>` and `SPDX-License-Identifier: Apache-2.0` using the file format's comment syntax. Preserve third-party attribution and licenses. For files that cannot contain comments, add coverage in `.reuse/dep5`. Before finishing a change that adds files or changes licensing metadata, run `reuse lint` and fix any missing copyright or licensing information introduced by the change.
 - Match the surrounding code's style, naming, and comment density — the SNL layer uses `NL*`/`SNL*` prefixes; follow the local idiom.
 - The SystemVerilog frontend is built on **slang**; sequential lowering and always-block handling live in `SNLSVConstructor` and the "Sequential Assignment Lowering" community — query the graph before touching them.
 - Post-elaboration netlists must never silently encode an unsupported construct incorrectly. If faithful lowering is not available, reject the construct or emit a clear diagnostic rather than dropping a value, leaving a net undriven, or otherwise producing a plausible but wrong netlist.
