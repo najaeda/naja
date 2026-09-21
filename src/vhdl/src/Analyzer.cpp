@@ -10,27 +10,51 @@
 namespace vhdl {
 namespace {
 
-using Declarations = std::unordered_map<std::string, ScalarType>;
+struct CheckedType {
+    ScalarType kind = ScalarType::Unknown;
+    std::optional<DiscreteRange> range;
+};
+
+using Declarations = std::unordered_map<std::string, CheckedType>;
 
 std::string_view key(const Name& name) {
     return name.canonical.empty() ? std::string_view(name.spelling)
                                   : std::string_view(name.canonical);
 }
 
-ScalarType declarationType(const TypeMark& type) {
+CheckedType declarationType(const TypeMark& type) {
+    if (type.name.canonical == "bit_vector" && type.constraint)
+        return {ScalarType::BitVector, type.constraint};
     if (type.constraint)
-        return ScalarType::Unknown;
+        return {};
     if (type.name.canonical == "bit")
-        return ScalarType::Bit;
+        return {ScalarType::Bit, std::nullopt};
     if (type.name.canonical == "boolean")
-        return ScalarType::Boolean;
+        return {ScalarType::Boolean, std::nullopt};
     if (type.name.canonical == "integer")
-        return ScalarType::Integer;
+        return {ScalarType::Integer, std::nullopt};
     if (type.name.canonical == "real")
-        return ScalarType::Real;
+        return {ScalarType::Real, std::nullopt};
     if (type.name.canonical == "string")
-        return ScalarType::String;
-    return ScalarType::Unknown;
+        return {ScalarType::String, std::nullopt};
+    return {};
+}
+
+std::uint64_t rangeWidth(const DiscreteRange& range) {
+    if ((range.ascending && range.left > range.right) ||
+        (!range.ascending && range.left < range.right))
+        return 0;
+    const auto left = static_cast<std::uint64_t>(range.left);
+    const auto right = static_cast<std::uint64_t>(range.right);
+    return (range.left > range.right ? left - right : right - left) + 1;
+}
+
+bool compatible(const CheckedType& left, const CheckedType& right) {
+    if (left.kind == ScalarType::Unknown || left.kind != right.kind)
+        return false;
+    if (left.kind != ScalarType::BitVector)
+        return true;
+    return left.range && right.range && rangeWidth(*left.range) == rangeWidth(*right.range);
 }
 
 bool isLogical(std::string_view op) {
@@ -41,6 +65,7 @@ bool isLogical(std::string_view op) {
 const char* typeName(ScalarType type) {
     switch (type) {
         case ScalarType::Bit: return "bit";
+        case ScalarType::BitVector: return "bit_vector";
         case ScalarType::Boolean: return "boolean";
         case ScalarType::Integer: return "integer";
         case ScalarType::Real: return "real";
@@ -50,12 +75,14 @@ const char* typeName(ScalarType type) {
     return "unknown";
 }
 
-ScalarType checkExpression(const Expression& expression,
-                           const Declarations& declarations,
-                           ScalarType expected,
-                           AnalysisResult& result) {
-    const auto record = [&](ScalarType type) {
-        result.expressionTypes[&expression] = type;
+CheckedType checkExpression(const Expression& expression,
+                            const Declarations& declarations,
+                            CheckedType expected,
+                            AnalysisResult& result) {
+    const auto record = [&](CheckedType type) {
+        result.expressionTypes[&expression] = type.kind;
+        if (type.range)
+            result.expressionRanges[&expression] = *type.range;
         return type;
     };
     switch (expression.kind) {
@@ -66,59 +93,61 @@ ScalarType checkExpression(const Expression& expression,
             if (found == declarations.end()) {
                 result.diagnostics.push_back(
                     {"no declaration for name '" + expression.text + "'", expression.span});
-                return record(ScalarType::Unknown);
+                return record({});
             }
-            if (found->second == ScalarType::Unknown) {
+            if (found->second.kind == ScalarType::Unknown) {
                 result.diagnostics.push_back(
-                    {"unsupported scalar type for name '" + expression.text + "'", expression.span});
+                    {"unsupported type for name '" + expression.text + "'", expression.span});
             }
             return record(found->second);
         }
         case Expression::Kind::IntegerLiteral:
-            return record(ScalarType::Integer);
+            return record({ScalarType::Integer, std::nullopt});
         case Expression::Kind::RealLiteral:
-            return record(ScalarType::Real);
+            return record({ScalarType::Real, std::nullopt});
         case Expression::Kind::StringLiteral:
-            return record(ScalarType::String);
+            return record({ScalarType::String, std::nullopt});
         case Expression::Kind::CharacterLiteral:
-            if (expected == ScalarType::Bit &&
+            if (expected.kind == ScalarType::Bit &&
                 (expression.text == "'0'" || expression.text == "'1'"))
-                return record(ScalarType::Bit);
-            if (expected == ScalarType::Unknown)
-                return record(ScalarType::Unknown);
+                return record({ScalarType::Bit, std::nullopt});
+            if (expected.kind == ScalarType::Unknown)
+                return record({});
             result.diagnostics.push_back(
                 {"character literal requires a supported scalar bit context", expression.span});
-            return record(ScalarType::Unknown);
+            return record({});
         case Expression::Kind::Unary: {
             const auto operand = checkExpression(*expression.left, declarations, expected, result);
             if (expression.text == "not" &&
-                (operand == ScalarType::Bit || operand == ScalarType::Boolean))
+                (operand.kind == ScalarType::Bit || operand.kind == ScalarType::BitVector ||
+                 operand.kind == ScalarType::Boolean))
                 return record(operand);
-            if (operand == ScalarType::Unknown)
-                return record(ScalarType::Unknown);
+            if (operand.kind == ScalarType::Unknown)
+                return record({});
             result.diagnostics.push_back(
-                {"operator '" + expression.text + "' is not supported for scalar type '" +
-                     typeName(operand) + "'", expression.span});
-            return record(ScalarType::Unknown);
+                {"operator '" + expression.text + "' is not supported for type '" +
+                     typeName(operand.kind) + "'", expression.span});
+            return record({});
         }
         case Expression::Kind::Binary: {
             if (isLogical(expression.text)) {
                 const auto operandExpected =
-                    expected == ScalarType::Bit || expected == ScalarType::Boolean
-                    ? expected : ScalarType::Unknown;
+                    expected.kind == ScalarType::Bit || expected.kind == ScalarType::BitVector ||
+                    expected.kind == ScalarType::Boolean ? expected : CheckedType{};
                 const auto left = checkExpression(
                     *expression.left, declarations, operandExpected, result);
-                const auto rightExpected = left == ScalarType::Unknown ? operandExpected : left;
+                const auto rightExpected = left.kind == ScalarType::Unknown ? operandExpected : left;
                 const auto right = checkExpression(
                     *expression.right, declarations, rightExpected, result);
-                if ((left == ScalarType::Bit || left == ScalarType::Boolean) && left == right)
+                if ((left.kind == ScalarType::Bit || left.kind == ScalarType::BitVector ||
+                     left.kind == ScalarType::Boolean) && compatible(left, right))
                     return record(left);
-                if (left == ScalarType::Unknown || right == ScalarType::Unknown)
-                    return record(ScalarType::Unknown);
+                if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                    return record({});
                 result.diagnostics.push_back(
                     {"logical operator '" + expression.text +
-                         "' requires matching bit or boolean operands", expression.span});
-                return record(ScalarType::Unknown);
+                         "' requires matching bit, bit_vector or boolean operands", expression.span});
+                return record({});
             }
             if (expression.text == "=" || expression.text == "/=") {
                 const bool leftCharacter =
@@ -130,60 +159,61 @@ ScalarType checkExpression(const Expression& expression,
                         {"equality between character literals needs a declared scalar context",
                          expression.span});
                     checkExpression(*expression.left, declarations,
-                                    ScalarType::Unknown, result);
+                                    {}, result);
                     checkExpression(*expression.right, declarations,
-                                    ScalarType::Unknown, result);
-                    return record(ScalarType::Unknown);
+                                    {}, result);
+                    return record({});
                 }
-                ScalarType left = ScalarType::Unknown;
-                ScalarType right = ScalarType::Unknown;
+                CheckedType left;
+                CheckedType right;
                 if (leftCharacter && !rightCharacter) {
                     right = checkExpression(*expression.right, declarations,
-                                            ScalarType::Unknown, result);
+                                            {}, result);
                     left = checkExpression(*expression.left, declarations, right, result);
                 } else {
                     left = checkExpression(*expression.left, declarations,
-                                           ScalarType::Unknown, result);
+                                           {}, result);
                     right = checkExpression(*expression.right, declarations, left, result);
                 }
-                if (left != ScalarType::Unknown && left == right)
-                    return record(ScalarType::Boolean);
-                if (left == ScalarType::Unknown || right == ScalarType::Unknown)
-                    return record(ScalarType::Unknown);
+                if (compatible(left, right))
+                    return record({ScalarType::Boolean, std::nullopt});
+                if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                    return record({});
                 result.diagnostics.push_back(
                     {"equality operator requires matching supported scalar operands",
                      expression.span});
-                return record(ScalarType::Unknown);
+                return record({});
             }
             // Visit operands so name errors are still complete before reporting
             // the unsupported operator itself.
-            checkExpression(*expression.left, declarations, ScalarType::Unknown, result);
-            checkExpression(*expression.right, declarations, ScalarType::Unknown, result);
+            checkExpression(*expression.left, declarations, {}, result);
+            checkExpression(*expression.right, declarations, {}, result);
             result.diagnostics.push_back(
                 {"binary operator '" + expression.text +
                      "' is not supported by scalar type analysis", expression.span});
-            return record(ScalarType::Unknown);
+            return record({});
         }
         case Expression::Kind::Conditional: {
             const auto condition = checkExpression(
-                *expression.condition, declarations, ScalarType::Boolean, result);
+                *expression.condition, declarations,
+                {ScalarType::Boolean, std::nullopt}, result);
             const auto whenTrue = checkExpression(
                 *expression.left, declarations, expected, result);
             const auto whenFalse = checkExpression(
                 *expression.right, declarations, expected, result);
-            if (condition == ScalarType::Boolean && whenTrue != ScalarType::Unknown &&
-                whenTrue == whenFalse)
-                return record(whenTrue);
-            if (condition == ScalarType::Unknown || whenTrue == ScalarType::Unknown ||
-                whenFalse == ScalarType::Unknown)
-                return record(ScalarType::Unknown);
+            if (condition.kind == ScalarType::Boolean && compatible(whenTrue, whenFalse))
+                return record(expected.kind != ScalarType::Unknown &&
+                              compatible(expected, whenTrue) ? expected : whenTrue);
+            if (condition.kind == ScalarType::Unknown ||
+                whenTrue.kind == ScalarType::Unknown || whenFalse.kind == ScalarType::Unknown)
+                return record({});
             result.diagnostics.push_back(
                 {"conditional expression requires a boolean condition and matching branches",
                  expression.span});
-            return record(ScalarType::Unknown);
+            return record({});
         }
     }
-    return record(ScalarType::Unknown);
+    return record({});
 }
 
 } // namespace
@@ -250,17 +280,17 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                 result.diagnostics.push_back(
                     {"no declaration for assignment target '" + assignment.target.spelling + "'",
                      assignment.target.span});
-                checkExpression(*assignment.value, declarations, ScalarType::Unknown, result);
+                checkExpression(*assignment.value, declarations, {}, result);
                 return;
             }
             const auto value = checkExpression(
                 *assignment.value, declarations, target->second, result);
-            if (target->second != ScalarType::Unknown && value != ScalarType::Unknown &&
-                target->second != value) {
+            if (target->second.kind != ScalarType::Unknown &&
+                value.kind != ScalarType::Unknown && !compatible(target->second, value)) {
                 result.diagnostics.push_back(
                     {"assignment type mismatch: target is '" +
-                         std::string(typeName(target->second)) + "' but value is '" +
-                         typeName(value) + "'", assignment.span});
+                         std::string(typeName(target->second.kind)) + "' but value is '" +
+                         typeName(value.kind) + "'", assignment.span});
             }
         };
         for (const auto& assignment : architecture.assignments)
@@ -287,7 +317,7 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                 if (found == declarations.end())
                     result.diagnostics.push_back(
                         {"no declaration for clock name '" + name->spelling + "'", name->span});
-                else if (found->second != ScalarType::Bit)
+                else if (found->second.kind != ScalarType::Bit)
                     result.diagnostics.push_back(
                         {"clock name must have scalar bit type: '" + name->spelling + "'",
                          name->span});
@@ -304,15 +334,15 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                         {"assignment operator does not match object class for '" +
                              assignment.target.spelling + "'", assignment.target.span});
                 const auto expected = targetDeclaration == localDeclarations.end()
-                    ? ScalarType::Unknown : targetDeclaration->second;
+                    ? CheckedType{} : targetDeclaration->second;
                 const auto value = checkExpression(
                     *assignment.value, localDeclarations, expected, result);
-                if (expected != ScalarType::Unknown && value != ScalarType::Unknown &&
-                    expected != value)
+                if (expected.kind != ScalarType::Unknown &&
+                    value.kind != ScalarType::Unknown && !compatible(expected, value))
                     result.diagnostics.push_back(
                         {"assignment type mismatch: target is '" +
-                             std::string(typeName(expected)) + "' but value is '" +
-                             typeName(value) + "'", assignment.span});
+                             std::string(typeName(expected.kind)) + "' but value is '" +
+                             typeName(value.kind) + "'", assignment.span});
             }
         }
     }

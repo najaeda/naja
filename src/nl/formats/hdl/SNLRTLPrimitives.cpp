@@ -7,6 +7,8 @@
 #include "NLDB0.h"
 #include "NLException.h"
 #include "SNLBitNet.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstance.h"
@@ -44,6 +46,15 @@ NLDB0::GateType gateType(SNLRTLPrimitives::GateKind kind) {
     case SNLRTLPrimitives::GateKind::Not: return NLDB0::GateType::Not;
   }
   throw NLException("SNLRTLPrimitives::createGate: invalid gate kind");
+}
+
+SNLBitNet* bitAtHardwarePosition(SNLNet* net, size_t position) {
+  if (auto* bit = dynamic_cast<SNLBitNet*>(net))
+    return position == 0 ? bit : nullptr;
+  auto* bus = dynamic_cast<SNLBusNet*>(net);
+  if (!bus || position >= static_cast<size_t>(bus->getWidth()))
+    return nullptr;
+  return bus->getBitAtPosition(static_cast<size_t>(bus->getWidth()) - 1 - position);
 }
 
 }  // namespace
@@ -109,6 +120,32 @@ SNLInstance* SNLRTLPrimitives::createGate(
     instance->setTermNet(NLDB0::getGateSingleTerm(model), output);
   }
   return instance;
+}
+
+std::vector<SNLInstance*> SNLRTLPrimitives::createBitwiseGate(
+  SNLDesign* design, GateKind kind,
+  const std::vector<SNLNet*>& inputs, SNLNet* output) {
+  const auto width = output ? static_cast<size_t>(output->getWidth()) : 0;
+  if (!validNet(design, output, width) || width == 0 || inputs.empty() ||
+      ((kind == GateKind::Buf || kind == GateKind::Not) && inputs.size() != 1) ||
+      std::any_of(inputs.begin(), inputs.end(), [design, width](auto* input) {
+        return !validNet(design, input, width);
+      })) {
+    throw NLException(
+      "SNLRTLPrimitives::createBitwiseGate: invalid nets, widths, or fan-in");
+  }
+  gateType(kind);
+  std::vector<SNLInstance*> instances;
+  instances.reserve(width);
+  for (size_t position = 0; position < width; ++position) {
+    std::vector<SNLNet*> inputBits;
+    inputBits.reserve(inputs.size());
+    for (auto* input : inputs)
+      inputBits.push_back(bitAtHardwarePosition(input, position));
+    instances.push_back(createGate(
+      design, kind, inputBits, bitAtHardwarePosition(output, position)));
+  }
+  return instances;
 }
 
 }  // namespace naja::NL

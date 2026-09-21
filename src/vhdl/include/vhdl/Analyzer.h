@@ -15,15 +15,20 @@ struct AnalysisDiagnostic {
     SourceSpan span;
 };
 
-enum class ScalarType { Unknown, Bit, Boolean, Integer, Real, String };
+enum class ScalarType { Unknown, Bit, BitVector, Boolean, Integer, Real, String };
 
 struct AnalysisResult {
     std::vector<AnalysisDiagnostic> diagnostics;
     std::unordered_map<const Expression*, ScalarType> expressionTypes;
+    std::unordered_map<const Expression*, DiscreteRange> expressionRanges;
     bool hasErrors() const { return !diagnostics.empty(); }
     ScalarType getType(const Expression& expression) const {
         const auto found = expressionTypes.find(&expression);
         return found == expressionTypes.end() ? ScalarType::Unknown : found->second;
+    }
+    const DiscreteRange* getRange(const Expression& expression) const {
+        const auto found = expressionRanges.find(&expression);
+        return found == expressionRanges.end() ? nullptr : &found->second;
     }
 };
 
@@ -41,8 +46,8 @@ struct ScheduleResult {
     bool hasErrors() const { return !diagnostics.empty(); }
 };
 
-/// Performs name binding and scalar expression type checking for the parser's
-/// initial entity/architecture slice. Expression type entries remain valid only
+/// Performs name binding and restricted scalar/constrained-vector expression
+/// type checking. Expression type and range entries remain valid only
 /// while the analyzed DesignFile and its expression nodes remain alive.
 class Analyzer {
 public:

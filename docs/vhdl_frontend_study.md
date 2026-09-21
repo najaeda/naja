@@ -390,9 +390,9 @@ tests confirm its SNL wiring and that an equivalent SV design uses the same
 canonical mux model. The adapter rejects `std_logic` and unsupported port or
 assignment shapes before design creation. This is a lowering proof, not general
 VHDL type analysis. Scalar registers, internal-signal pipeline scheduling, and
-retained scalar process-variable storage and type-checked scalar logical
-expressions are now implemented (see below). Extend the proof to ascending and
-descending vectors and a small hierarchy.
+retained scalar process-variable storage, type-checked scalar logical
+expressions, and constrained ascending/descending `bit_vector` expressions are
+now implemented (see below). Extend the proof to a small hierarchy.
 
 Exit: expected connectivity and cycle behavior agree; unsupported constructs
 fail with source locations; malformed input terminates; failed loads publish no
@@ -661,10 +661,32 @@ may contain the same expressions and still use the shared mux builder; the narro
 condition profile remains `name = '1'`. A SystemVerilog fixture verifies use of
 the same canonical And, Not and Xor models, while NVC supplies the truth-table
 reference. Boolean hardware, arithmetic, general equality lowering, logical
-expressions in clocked assignments, vectors and conversions remain unsupported
+expressions in clocked assignments, vector selection and conversions remain unsupported
 and are rejected before design publication.
 
 Scalar-expression validation (2026-09-21): all 52 focused lexer, parser,
 analyzer, shared-primitive, adapter, SystemVerilog and NVC reference tests
 passed. All 26 standalone tests passed from an isolated copy; installation and
 a separate client using `ScalarType` through only `vhdl::frontend` also passed.
+
+## Constrained ascending/descending vector proof
+
+The analyzer recognizes one-dimensional constrained `bit_vector` declarations,
+preserves left/right bounds and direction, and accepts logical, conditional and
+assignment operands when their lengths match. Direction and index values may
+differ because VHDL array assignment is positional; mismatched lengths,
+unconstrained or null arrays and non-binary vector types are rejected.
+
+The adapter creates SNL buses with the source bounds intact. Shared
+`createBitwiseGate()` lowering maps each rightmost source element to hardware
+position zero for both `to` and `downto`; `createMux()` consumes the same
+least-significant-bit-first boundary. NVC checks the positional mapping and an
+equivalent SystemVerilog fixture checks the canonical width-four mux model. This
+slice supports concurrent vector expressions only. Vector clocked state,
+indexing, slicing, concatenation, aggregates and string-literal hardware remain
+future work.
+
+Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
+SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
+from an isolated copy, followed by installation and a separate client reading
+the preserved vector range through only `vhdl::frontend`.

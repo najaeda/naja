@@ -96,6 +96,34 @@ TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
     }
 }
 
+TEST(VHDLAnalyzerTest, TypeChecksConstrainedBitVectorsByLength) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity vectors is port (
+  a : in bit_vector(0 to 3);
+  b : in bit_vector(7 downto 4);
+  y : out bit_vector(3 downto 0));
+end;
+architecture rtl of vectors is begin y <= a xor not b; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::BitVector);
+    ASSERT_NE(result.getRange(expression), nullptr);
+    EXPECT_EQ(result.getRange(expression)->left, 0);
+    EXPECT_EQ(result.getRange(expression)->right, 3);
+
+    EXPECT_TRUE(analyze(R"(
+entity vectors is port (
+  a : in bit_vector(0 to 3);
+  b : in bit_vector(2 downto 0);
+  y : out bit_vector(3 downto 0));
+end;
+architecture rtl of vectors is begin y <= a and b; end;
+)").hasErrors());
+}
+
 } // namespace
 
 TEST(VHDLAnalyzerTest, ResolvesAllClockedProcessNames) {

@@ -338,3 +338,22 @@ Scalar-expression validation (2026-09-21): all 52 focused lexer, parser,
 analyzer, shared-primitive, adapter, SystemVerilog and NVC reference tests
 passed. All 26 standalone tests passed from an isolated copy; installation and
 a separate client using `ScalarType` through only `vhdl::frontend` also passed.
+
+## Constrained vector proof
+
+The frontend now retains bounds and direction for one-dimensional constrained
+`bit_vector` expression types and uses equal length, rather than equal index
+labels or direction, for positional assignment compatibility. The adapter keeps
+source bounds on SNL terms and nets while normalizing the rightmost source
+element to hardware position zero at the shared primitive boundary.
+
+`SNLRTLPrimitives::createBitwiseGate()` validates equal nonzero widths before
+creating one canonical scalar gate per hardware position. Vector mux inputs use
+the same least-significant-bit-first convention. Unconstrained and non-binary
+vectors, null ranges, mismatched lengths, vector clocked state and vector selection operations
+remain unsupported and fail before design publication.
+
+Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
+SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
+from an isolated copy, followed by installation and a separate client reading
+the preserved vector range through only `vhdl::frontend`.

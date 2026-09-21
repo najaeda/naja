@@ -36,6 +36,13 @@ class SNLRTLPrimitives {
     static SNLInstance* createGate(
       SNLDesign* design, GateKind kind,
       const std::vector<SNLNet*>& inputs, SNLNet* output);
+
+    /// Apply a canonical gate independently at every hardware bit position.
+    /// Vector position zero is the rightmost declared source bit. Inputs and
+    /// output must have the same nonzero width.
+    static std::vector<SNLInstance*> createBitwiseGate(
+      SNLDesign* design, GateKind kind,
+      const std::vector<SNLNet*>& inputs, SNLNet* output);
 };
 
 }  // namespace naja::NL

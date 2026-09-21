@@ -8,12 +8,12 @@ assignments, and multiple scheduled writes in a restricted event-guarded process
 resolves names in assignment values, conditions, clock guards and process-local
 variables; its restricted scheduler resolves immediate assignments and identifies
 straight-line retained variable state. It type-checks a deliberately narrow set
-of scalar expressions; general VHDL type analysis and elaboration are not
+of scalar and constrained `bit_vector` expressions; general VHDL type analysis and elaboration are not
 implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
 Naja currently has a deliberately narrow integration proof in
-`src/nl/formats/vhdl`: scalar `bit` expressions and concurrent conditional
+`src/nl/formats/vhdl`: scalar `bit` and constrained `bit_vector` expressions and concurrent conditional
 assignments are lowered to shared canonical SNL gates and the mux primitive. One clocked process
 with internal signals, retained scalar variables and distinct scheduled targets
 uses the shared DFF builder. The proof rejects
@@ -258,10 +258,30 @@ logical operators through `SNLRTLPrimitives::createGate()`. Conditional branches
 may contain the same expressions and still use the shared mux builder; the narrow
 condition profile remains `name = '1'`. Canonical gate models are shared with the
 SystemVerilog frontend. Boolean hardware, arithmetic, general equality lowering,
-logical expressions in clocked assignments, vectors and conversions remain
+logical expressions in clocked assignments, vector selection and conversions remain
 unsupported and are rejected before design publication.
 
 Scalar-expression validation (2026-09-21): all 52 focused lexer, parser,
 analyzer, shared-primitive, adapter, SystemVerilog and NVC reference tests
 passed. All 26 standalone tests passed from an isolated copy; installation and
 a separate client using `ScalarType` through only `vhdl::frontend` also passed.
+
+## Constrained vector proof
+
+The analyzer recognizes one-dimensional constrained `bit_vector` declarations,
+preserves left/right bounds and direction, and accepts logical, conditional and
+assignment operands when their lengths match. Direction and index values may
+differ because VHDL array assignment is positional; mismatched lengths,
+unconstrained or null arrays and non-binary vector types are rejected.
+
+The adapter creates SNL buses with the source bounds intact. Shared bitwise gate
+lowering maps each rightmost source element to hardware position zero, for both
+`to` and `downto`, while the vector mux consumes the same least-significant-bit-
+first boundary. This slice supports concurrent vector expressions only; vector
+clocked state, indexing, slicing, concatenation, aggregates and string-literal
+hardware remain future work.
+
+Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
+SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
+from an isolated copy, followed by installation and a separate client reading
+the preserved vector range through only `vhdl::frontend`.

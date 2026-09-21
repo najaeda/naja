@@ -98,6 +98,24 @@ TEST_F(SNLRTLPrimitivesTest, GatesUseCanonicalModelsAndCallerOutput) {
                 NLDB0::getGateNTerms(notModel)->getBitAtPosition(0))->getNet(), notOut);
 }
 
+TEST_F(SNLRTLPrimitivesTest, BitwiseGateMapsRightmostBitsToHardwarePositionZero) {
+  auto* input = SNLBusNet::create(design_, -1, 2);
+  auto* output = SNLBusNet::create(design_, 5, 2);
+  const auto instances = SNLRTLPrimitives::createBitwiseGate(
+      design_, SNLRTLPrimitives::GateKind::Buf, {input}, output);
+  ASSERT_EQ(instances.size(), 4);
+  auto* model = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 1);
+  for (size_t position = 0; position < instances.size(); ++position) {
+    auto* instance = instances[position];
+    EXPECT_EQ(instance->getModel(), model);
+    EXPECT_EQ(instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet(),
+              input->getBitAtPosition(3 - position));
+    EXPECT_EQ(instance->getInstTerm(
+                  NLDB0::getGateNTerms(model)->getBitAtPosition(0))->getNet(),
+              output->getBitAtPosition(3 - position));
+  }
+}
+
 TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
   auto* bit = SNLScalarNet::create(design_);
   auto* bus = SNLBusNet::create(design_, 1, 0);
@@ -122,5 +140,7 @@ TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
       design_, SNLRTLPrimitives::GateKind::And, {bit, foreign}, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createGate(
       design_, SNLRTLPrimitives::GateKind::And, {bit}, bus), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createBitwiseGate(
+      design_, SNLRTLPrimitives::GateKind::And, {bus, bit}, bus), NLException);
   EXPECT_TRUE(design_->getInstances().empty());
 }

@@ -10,6 +10,7 @@
 #include "NLUniverse.h"
 #include "SNLBusTerm.h"
 #include "SNLBitNet.h"
+#include "SNLBusNet.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -94,6 +95,97 @@ TEST_F(VHDLConstructorTest, LowersTypedScalarLogicalOperators) {
   ASSERT_EQ(design->getInstances().size(), 1);
   EXPECT_EQ((*design->getInstances().begin())->getModel(),
             NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1));
+}
+
+TEST_F(VHDLConstructorTest, PreservesVectorRangesAndPositionalMuxMapping) {
+  std::ifstream fixture(SNL_VHDL_VECTORS);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  auto* a = design->getBusTerm(NLName("a"));
+  auto* b = design->getBusTerm(NLName("b"));
+  auto* y = design->getBusTerm(NLName("y"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(b, nullptr);
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(a->getMSB(), 0);
+  EXPECT_EQ(a->getLSB(), 3);
+  EXPECT_EQ(b->getMSB(), 7);
+  EXPECT_EQ(b->getLSB(), 4);
+  EXPECT_EQ(y->getMSB(), 3);
+  EXPECT_EQ(y->getLSB(), 0);
+  ASSERT_EQ(design->getInstances().size(), 1);
+  auto* mux = *design->getInstances().begin();
+  auto* model = NLDB0::getOrCreateMux2(4);
+  ASSERT_EQ(mux->getModel(), model);
+  for (size_t position = 0; position < 4; ++position) {
+    EXPECT_EQ(mux->getInstTerm(
+                  NLDB0::getMux2InputA(model)->getBitAtPosition(3 - position))->getNet(),
+              a->getBitAtPosition(3 - position)->getNet());
+    EXPECT_EQ(mux->getInstTerm(
+                  NLDB0::getMux2InputB(model)->getBitAtPosition(3 - position))->getNet(),
+              b->getBitAtPosition(3 - position)->getNet());
+    EXPECT_EQ(mux->getInstTerm(
+                  NLDB0::getMux2Output(model)->getBitAtPosition(3 - position))->getNet(),
+              y->getBitAtPosition(3 - position)->getNet());
+  }
+  if (const auto* path = std::getenv("VHDL_VECTOR_REFERENCE")) {
+    std::ifstream reference(path);
+    ASSERT_TRUE(reference);
+    std::vector<std::string> values;
+    for (std::string value; reference >> value;)
+      values.push_back(value);
+    EXPECT_EQ(values, (std::vector<std::string>{"0110", "1001", "0011"}));
+  }
+}
+
+TEST_F(VHDLConstructorTest, LowersBitwiseVectorExpressionsByPosition) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity vector_logic is port (
+  a : in bit_vector(0 to 3);
+  b : in bit_vector(7 downto 4);
+  y : out bit_vector(3 downto 0));
+end;
+architecture rtl of vector_logic is begin y <= a xor not b; end;
+)");
+  std::unordered_map<SNLDesign*, size_t> models;
+  for (auto* instance : design->getInstances())
+    ++models[instance->getModel()];
+  EXPECT_EQ(models[NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1)], 4);
+  EXPECT_EQ(models[NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 2)], 4);
+  EXPECT_EQ(design->getInstances().size(), 8);
+}
+
+TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameVectorMuxModel) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_VHDL_EQUIVALENT_VECTOR_MUX_SV));
+  auto* design = library_->getSNLDesign(NLName("vector_mux_sv"));
+  ASSERT_NE(design, nullptr);
+  ASSERT_EQ(design->getInstances().size(), 1);
+  EXPECT_EQ((*design->getInstances().begin())->getModel(), NLDB0::getOrCreateMux2(4));
+}
+
+TEST_F(VHDLConstructorTest, UnsupportedVectorShapesPublishNoDesign) {
+  for (const auto* source : {
+      "entity bad_vector is port(a : in bit_vector(0 to 3); "
+      "y : out bit_vector(2 downto 0)); end; "
+      "architecture rtl of bad_vector is begin y <= a; end;",
+      "entity bad_vector is port(a : in bit_vector; y : out bit_vector); end; "
+      "architecture rtl of bad_vector is begin y <= a; end;",
+      "entity bad_vector is port(a : in std_logic_vector(3 downto 0); "
+      "y : out std_logic_vector(3 downto 0)); end; "
+      "architecture rtl of bad_vector is begin y <= a; end;",
+      "entity bad_vector is port(a : in bit_vector(3 to 0); "
+      "y : out bit_vector(3 to 0)); end; "
+      "architecture rtl of bad_vector is begin y <= a; end;",
+      "entity bad_vector is port(clk : in bit; d : in bit_vector(3 downto 0); "
+      "q : out bit_vector(3 downto 0)); end; architecture rtl of bad_vector is begin "
+      "process(clk) begin if clk'event and clk = '1' then q <= d; end if; "
+      "end process; end;"}) {
+    SCOPED_TRACE(source);
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("bad_vector")), nullptr);
+  }
 }
 
 TEST_F(VHDLConstructorTest, NestedLogicalExpressionConnectivity) {
