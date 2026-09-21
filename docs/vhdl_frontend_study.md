@@ -392,7 +392,9 @@ assignment shapes before design creation. This is a lowering proof, not general
 VHDL type analysis. Scalar registers, internal-signal pipeline scheduling, and
 retained scalar process-variable storage, type-checked scalar logical
 expressions, and constrained ascending/descending `bit_vector` expressions are
-now implemented (see below). Extend the proof to a small hierarchy.
+now implemented (see below). A one-level, explicitly selected hierarchy using
+direct `work` entity instantiation and positional name associations completes
+the current vertical proof.
 
 Exit: expected connectivity and cycle behavior agree; unsupported constructs
 fail with source locations; malformed input terminates; failed loads publish no
@@ -554,9 +556,9 @@ registers, unassigned retained variables, repeated targets, multiple drivers, un
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, clocked assignment expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
-publication. This remains a narrow scheduling proof: general type analysis,
-hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
-coverage remain future work.
+publication. This remains a narrow scheduling proof; vectors and one-level
+hierarchy are covered separately below, while general type analysis and
+source-rich adapter diagnostics remain future work.
 
 Validation (2026-09-21): 29 focused CMake tests passed in
 `build-vhdl-feasibility`, including the NVC 1.23.0 reference comparison for both
@@ -690,3 +692,25 @@ Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
 SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
 from an isolated copy, followed by installation and a separate client reading
 the preserved vector range through only `vhdl::frontend`.
+
+## One-level direct-entity hierarchy proof
+
+The parser retains labeled `entity work.<name> port map (...)` statements with
+positional, name-only actuals. The analyzer binds the target entity, checks
+instance-label uniqueness, arity, declarations and scalar/vector width
+compatibility. `VHDLConstructor::construct(source, top)` requires an explicit
+top, one architecture per used entity and leaf children. It creates each leaf
+with the existing behavioral adapter, then creates the structural top and
+connects whole SNL terms to top ports or internal nets by position.
+
+The proof supports one hierarchy level, `bit` and constrained non-null
+`bit_vector` ports/signals, `in`/`out` modes, and the `work` library only. Named
+associations, `open`, components/configurations, nested hierarchy, behavioral
+logic in the structural top, multiple drivers and undriven structural signals
+are rejected before publication. Unexpected construction failures roll back all
+designs created by that call. NVC independently checks a two-instance vector
+chain whose bounds and directions differ at every boundary.
+
+Hierarchy validation (2026-09-21): all 60 VHDL lexer, parser, analyzer,
+adapter and NVC reference tests passed in the integrated build. All 31
+standalone frontend tests passed from a separate build tree.

@@ -95,12 +95,21 @@ struct EntityDeclaration {
     SourceSpan span;
 };
 
+struct EntityInstantiation {
+    Name label;
+    Name library;
+    Name entity;
+    std::vector<Name> actuals;
+    SourceSpan span;
+};
+
 struct ArchitectureBody {
     Name name;
     Name entity;
     std::vector<Assignment> assignments;
     std::vector<ClockedProcess> processes;
     std::vector<SignalDeclaration> signals;
+    std::vector<EntityInstantiation> instantiations;
     SourceSpan span;
 };
 

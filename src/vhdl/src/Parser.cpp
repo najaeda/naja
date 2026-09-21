@@ -277,7 +277,8 @@ private:
         auto entity = parseName();
         if (!entity || !expectWord("is"))
             return std::nullopt;
-        ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, {}, {}, start};
+        ArchitectureBody architecture{
+            std::move(*name), std::move(*entity), {}, {}, {}, {}, start};
         while (acceptWord("signal")) {
             auto declaration = parseObjectDeclaration();
             if (!declaration)
@@ -288,7 +289,15 @@ private:
             return std::nullopt;
         while (!atEnd() && !word("end")) {
             const auto before = current().span.start.offset;
-            if (word("process")) {
+            if (isNameToken() && look().kind == TokenKind::Symbol && look().text == ":" &&
+                look(2).kind == TokenKind::Identifier && look(2).canonical == "entity") {
+                auto instantiation = parseEntityInstantiation();
+                if (instantiation)
+                    architecture.instantiations.push_back(std::move(*instantiation));
+                else
+                    synchronize("end");
+            }
+            else if (word("process")) {
                 auto process = parseClockedProcess();
                 if (process)
                     architecture.processes.push_back(std::move(*process));
@@ -317,6 +326,37 @@ private:
             return std::nullopt;
         architecture.span = join(start, lexed_.tokens[index_ - 1].span);
         return architecture;
+    }
+
+    std::optional<EntityInstantiation> parseEntityInstantiation() {
+        const auto start = current().span;
+        auto label = parseName();
+        if (!label || !expectSymbol(":") || !expectWord("entity"))
+            return std::nullopt;
+        auto library = parseName();
+        if (!library || !expectSymbol("."))
+            return std::nullopt;
+        auto entity = parseName();
+        if (!entity || !expectWord("port") || !expectWord("map") || !expectSymbol("("))
+            return std::nullopt;
+        std::vector<Name> actuals;
+        if (!symbol(")")) {
+            do {
+                if (word("open")) {
+                    error("open port associations are not supported", current().span);
+                    return std::nullopt;
+                }
+                auto actual = parseName();
+                if (!actual)
+                    return std::nullopt;
+                actuals.push_back(std::move(*actual));
+            } while (acceptSymbol(","));
+        }
+        if (!expectSymbol(")") || !expectSymbol(";"))
+            return std::nullopt;
+        return EntityInstantiation{std::move(*label), std::move(*library),
+            std::move(*entity), std::move(actuals),
+            join(start, lexed_.tokens[index_ - 1].span)};
     }
 
     std::optional<ClockedProcess> parseClockedProcess() {

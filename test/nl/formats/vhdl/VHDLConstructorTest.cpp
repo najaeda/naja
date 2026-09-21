@@ -11,6 +11,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBitNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -627,6 +628,100 @@ TEST_F(VHDLConstructorTest, UnsupportedVariablesPublishNoDesign) {
         "architecture rtl of p is begin process(clk) " + declarations +
         " begin if clk'event and clk = '1' then " + body + " end if; end process; end;";
     EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, LowersOneLevelDirectEntityHierarchy) {
+  std::ifstream fixture(SNL_VHDL_HIERARCHY);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* top = VHDLConstructor(library_).construct(source, "HIERARCHY_TOP");
+  ASSERT_NE(top, nullptr);
+  auto* model = library_->getSNLDesign(NLName("inv4"));
+  ASSERT_NE(model, nullptr);
+  EXPECT_EQ(model->getInstances().size(), 4);
+  ASSERT_EQ(top->getInstances().size(), 2);
+  auto* u0 = top->getInstance(NLName("u0"));
+  auto* u1 = top->getInstance(NLName("u1"));
+  ASSERT_NE(u0, nullptr);
+  ASSERT_NE(u1, nullptr);
+  EXPECT_EQ(u0->getModel(), model);
+  EXPECT_EQ(u1->getModel(), model);
+  auto* a = top->getBusTerm(NLName("a"));
+  auto* y = top->getBusTerm(NLName("y"));
+  auto* mid = dynamic_cast<SNLBusNet*>(top->getNet(NLName("mid")));
+  auto* modelA = model->getBusTerm(NLName("a"));
+  auto* modelY = model->getBusTerm(NLName("y"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+  ASSERT_NE(mid, nullptr);
+  for (std::size_t position = 0; position < 4; ++position) {
+    EXPECT_EQ(u0->getInstTerm(modelA->getBitAtPosition(position))->getNet(),
+              a->getBitAtPosition(position)->getNet());
+    EXPECT_EQ(u0->getInstTerm(modelY->getBitAtPosition(position))->getNet(),
+              static_cast<SNLNet*>(mid->getBitAtPosition(position)));
+    EXPECT_EQ(u1->getInstTerm(modelA->getBitAtPosition(position))->getNet(),
+              static_cast<SNLNet*>(mid->getBitAtPosition(position)));
+    EXPECT_EQ(u1->getInstTerm(modelY->getBitAtPosition(position))->getNet(),
+              y->getBitAtPosition(position)->getNet());
+  }
+  if (const auto* path = std::getenv("VHDL_HIERARCHY_REFERENCE")) {
+    std::ifstream reference(path);
+    ASSERT_TRUE(reference);
+    std::vector<std::string> values;
+    for (std::string value; reference >> value;) values.push_back(value);
+    EXPECT_EQ(values, (std::vector<std::string>{"1001", "0110", "0011"}));
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidHierarchyPublishesNoDesign) {
+  constexpr auto valid = R"(
+entity leaf is port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture structural of top is begin
+  u0: entity work.leaf port map(a, y);
+end;
+)";
+  EXPECT_THROW(VHDLConstructor(library_).construct(valid), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+  EXPECT_THROW(VHDLConstructor(library_).construct(valid, "missing"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+
+  for (const auto* source : {
+      R"(entity leaf is port(a : in bit; y : out bit); end;
+          architecture rtl of leaf is begin y <= not a; end;
+          entity top is port(a : in bit; y : out bit); end;
+          architecture structural of top is begin
+          u: entity work.leaf port map(y, a); end;)",
+      R"(entity leaf is port(a : in bit; y : out bit); end;
+          architecture rtl of leaf is begin y <= not a; end;
+          entity top is port(a : in bit; y : out bit); end;
+          architecture structural of top is signal spare : bit; begin
+          u: entity work.leaf port map(a, y); end;)",
+      R"(entity leaf is port(a : in bit; y : out bit); end;
+          architecture rtl of leaf is begin y <= not a; end;
+          entity top is port(a : in bit; y : out bit); end;
+          architecture structural of top is begin
+          u0: entity work.leaf port map(a, y);
+          u1: entity work.leaf port map(a, y); end;)",
+      R"(entity leaf is port(a : in bit; y : out bit); end;
+          architecture rtl of leaf is begin y <= not a; end;
+          architecture other of leaf is begin y <= a; end;
+          entity top is port(a : in bit; y : out bit); end;
+          architecture structural of top is begin
+          u: entity work.leaf port map(a, y); end;)",
+      R"(entity leaf is port(a : in bit; y : out bit); end;
+          architecture rtl of leaf is begin y <= not a; end;
+          entity middle is port(a : in bit; y : out bit); end;
+          architecture structural of middle is begin
+          u: entity work.leaf port map(a, y); end;
+          entity top is port(a : in bit; y : out bit); end;
+          architecture structural of top is begin
+          u: entity work.middle port map(a, y); end;)"}) {
+    SCOPED_TRACE(source);
+    EXPECT_THROW(VHDLConstructor(library_).construct(source, "top"), NLException);
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }

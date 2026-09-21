@@ -11,8 +11,8 @@ namespace naja::NL {
 
 class SNLDesign;
 
-/// Temporary Naja adapter for scalar/vector combinational and scalar
-/// clocked-register proofs.
+/// Temporary Naja adapter for scalar/vector combinational, scalar
+/// clocked-register, and one-level direct-entity hierarchy proofs.
 /// The standalone VHDL frontend remains independent of this class and SNL.
 class VHDLConstructor {
   public:
@@ -26,6 +26,11 @@ class VHDLConstructor {
     /// Scalar process variables may be temporary or retained state; retained
     /// variables must be assigned on every activation.
     SNLDesign* construct(std::string_view source) const;
+
+    /// Parse a multi-unit source and lower the selected structural top plus its
+    /// directly instantiated leaf entities. The hierarchy slice accepts
+    /// positional, name-only `entity work.<name> port map (...)` associations.
+    SNLDesign* construct(std::string_view source, std::string_view top) const;
 
   private:
     NLLibrary* library_;

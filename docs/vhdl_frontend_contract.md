@@ -100,11 +100,12 @@ reordered inputs, ascending/nonzero outputs and rejection without partial instan
 creation. This proves a narrow backend boundary; it is not a VHDL adapter or a
 complete shared elaborator.
 
-Precondition rejection is atomic for these two builders. Full construction is
-not yet transactional: allocation failures, metadata failures and other frontend
-paths can still leave partially constructed state. The future coordinator must
-stage a complete design in a privately owned database/library and publish it only
-after validation; exact ownership and rollback integration remain Phase 1 work.
+Precondition rejection is atomic for these two builders. The one-level hierarchy
+adapter also rolls back every leaf and top design created by its call. General
+construction is not yet transactional: allocation failures, metadata failures
+and other frontend paths can still leave partially constructed state. A future
+coordinator should stage a complete design in a privately owned database/library
+and publish it only after validation.
 
 ## Acceptance and remaining feasibility work
 
@@ -231,9 +232,9 @@ registers, unassigned retained variables, repeated targets, multiple drivers, un
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, clocked assignment expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
-publication. This remains a narrow scheduling proof: general type analysis,
-hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
-coverage remain future work.
+publication. This remains a narrow scheduling proof; vectors and one-level
+hierarchy are covered separately below, while general type analysis and
+source-rich adapter diagnostics remain future work.
 
 Validation (2026-09-21): 29 focused CMake tests passed in
 `build-vhdl-feasibility`, including the NVC 1.23.0 reference comparison for both
@@ -357,3 +358,23 @@ Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
 SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
 from an isolated copy, followed by installation and a separate client reading
 the preserved vector range through only `vhdl::frontend`.
+
+## One-level hierarchy construction proof
+
+The standalone syntax model represents labeled direct entity instantiations and
+their positional name actuals. Analysis resolves `work` entities and validates
+labels, arity, actual declarations, and equal scalar/vector widths without an
+SNL dependency. The Naja adapter entry point
+`VHDLConstructor::construct(source, top)` requires an explicit top and lowers a
+structural top over behavioral leaf designs. Whole terms and nets are connected
+by position, so differing legal vector bounds and directions remain faithful.
+
+This boundary deliberately excludes named or `open` associations, component and
+configuration binding, nested hierarchy, multiple architectures for a used
+entity, mixed behavioral/structural top bodies, and multiple or missing drivers.
+All such shapes fail before design publication; construction exceptions destroy
+the top and leaf designs created during the call.
+
+Hierarchy validation (2026-09-21): all 60 VHDL lexer, parser, analyzer,
+adapter and NVC reference tests passed in the integrated build. All 31
+standalone frontend tests passed from a separate build tree.

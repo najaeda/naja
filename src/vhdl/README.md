@@ -152,9 +152,9 @@ registers, unassigned retained variables, repeated targets, multiple drivers, un
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, clocked assignment expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
-publication. This remains a narrow scheduling proof: general type analysis,
-hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
-coverage remain future work.
+publication. This remains a narrow scheduling proof; vectors and one-level
+hierarchy are covered separately below, while general type analysis and
+source-rich adapter diagnostics remain future work.
 
 Validation (2026-09-21): 29 focused CMake tests passed in
 `build-vhdl-feasibility`, including the NVC 1.23.0 reference comparison for both
@@ -285,3 +285,25 @@ Vector validation (2026-09-21): all 59 focused frontend, primitive, adapter,
 SystemVerilog and NVC reference tests passed. All 27 standalone tests passed
 from an isolated copy, followed by installation and a separate client reading
 the preserved vector range through only `vhdl::frontend`.
+
+## One-level direct-entity hierarchy proof
+
+The standalone parser and analyzer now retain and bind labeled
+`entity work.<name> port map (...)` statements with positional name-only
+actuals. They diagnose duplicate labels, missing entities or actuals, wrong
+arity, unsupported libraries, and scalar/vector width mismatches without any
+Naja dependency.
+
+The Naja adapter overload `construct(source, top)` requires an explicit top and
+lowers one structural level: existing behavioral lowering builds each leaf,
+then the adapter creates the top instances and connects complete terms and nets
+by position. Supported interfaces and internal signals are `bit` or constrained
+non-null `bit_vector` with `in`/`out` ports. Named and `open` associations,
+components/configurations, nested hierarchy, ambiguous architectures, mixed
+behavior in the top, and missing or multiple drivers are rejected before any
+design is published. A two-inverter vector fixture exercises different bounds
+and directions and is compared with NVC.
+
+Hierarchy validation (2026-09-21): all 60 VHDL lexer, parser, analyzer,
+adapter and NVC reference tests passed in the integrated build. All 31
+standalone frontend tests passed from a separate build tree.

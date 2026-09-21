@@ -3,6 +3,7 @@
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
   SNL_VHDL_LOGICAL="${CMAKE_CURRENT_SOURCE_DIR}/logical.vhd"
+  SNL_VHDL_HIERARCHY="${CMAKE_CURRENT_SOURCE_DIR}/hierarchy.vhd"
   SNL_VHDL_VECTORS="${CMAKE_CURRENT_SOURCE_DIR}/vectors.vhd"
   SNL_VHDL_EQUIVALENT_LOGICAL_SV="${CMAKE_CURRENT_SOURCE_DIR}/logical_equivalent.sv"
   SNL_VHDL_EQUIVALENT_VECTOR_MUX_SV="${CMAKE_CURRENT_SOURCE_DIR}/vector_mux_equivalent.sv"
@@ -35,7 +36,11 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
   add_test(NAME VHDLVectorReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_vectors.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
+  add_test(NAME VHDLHierarchyReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_hierarchy.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
   set_tests_properties(VHDLPipelineReference VHDLVariableReference
     VHDLRetainedVariableReference VHDLLogicalReference VHDLVectorReference
+    VHDLHierarchyReference
     PROPERTIES TIMEOUT 180)
 endif()

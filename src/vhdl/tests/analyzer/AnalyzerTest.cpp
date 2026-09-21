@@ -237,3 +237,34 @@ TEST(VHDLAnalyzerTest, SchedulesRetainedVariableStateAfterSignalReads) {
     EXPECT_EQ(scheduled.writes[1].source, "d");
     EXPECT_EQ(scheduled.writes[1].kind, vhdl::AssignmentKind::Variable);
 }
+
+TEST(VHDLAnalyzerTest, BindsDirectEntityInstancesByPositionAndWidth) {
+    EXPECT_FALSE(analyze(R"(
+entity leaf is port(a : in bit_vector(0 to 3); y : out bit_vector(7 downto 4)); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit_vector(3 downto 0); y : out bit_vector(0 to 3)); end;
+architecture structural of top is signal mid : bit_vector(-2 to 1); begin
+  u0: entity work.leaf port map(a, mid);
+  u1: entity WORK.LEAF port map(mid, y);
+end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, RejectsInvalidDirectEntityBindings) {
+    for (const auto* instance : {
+        "u: entity other.leaf port map(a, y);",
+        "u: entity work.missing port map(a, y);",
+        "u: entity work.leaf port map(a);",
+        "u: entity work.leaf port map(a, missing);",
+        "u: entity work.leaf port map(a, narrow);",
+        "u: entity work.leaf port map(a, y); U: entity work.leaf port map(a, y);"}) {
+        SCOPED_TRACE(instance);
+        const std::string source = std::string(R"(
+entity leaf is port(a : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture structural of top is signal narrow : bit_vector(2 downto 0); begin
+)") + instance + " end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}

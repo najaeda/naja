@@ -10,12 +10,15 @@
 #include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
 #include "SNLDesign.h"
+#include "SNLInstance.h"
 #include "SNLRTLPrimitives.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
+#include "SNLTerm.h"
 #include "vhdl/Analyzer.h"
 #include "vhdl/Parser.h"
 
+#include <cctype>
 #include <functional>
 #include <limits>
 #include <string>
@@ -44,9 +47,36 @@ SNLRTLPrimitives::GateKind logicGateKind(std::string_view op) {
   unsupported("unsupported scalar logical operator: " + std::string(op));
 }
 
+std::string canonicalBasicName(std::string_view name) {
+  std::string canonical(name);
+  for (auto& character : canonical) {
+    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+  }
+  return canonical;
+}
+
+std::optional<std::size_t> supportedWidth(const vhdl::TypeMark& type) {
+  if (type.name.canonical == "bit" && !type.constraint) return 1;
+  if (type.name.canonical != "bit_vector" || !type.constraint) return std::nullopt;
+  const auto& range = *type.constraint;
+  if ((range.ascending && range.left > range.right) ||
+      (!range.ascending && range.left < range.right)) return std::nullopt;
+  if (range.left < std::numeric_limits<NLID::Bit>::min() ||
+      range.left > std::numeric_limits<NLID::Bit>::max() ||
+      range.right < std::numeric_limits<NLID::Bit>::min() ||
+      range.right > std::numeric_limits<NLID::Bit>::max()) return std::nullopt;
+  return static_cast<std::size_t>(range.left > range.right
+      ? range.left - range.right + 1 : range.right - range.left + 1);
+}
+
 }  // namespace
 
 SNLDesign* VHDLConstructor::construct(std::string_view source) const {
+  return construct(source, {});
+}
+
+SNLDesign* VHDLConstructor::construct(
+    std::string_view source, std::string_view top) const {
   if (!library_) {
     unsupported("null library");
   }
@@ -59,11 +89,196 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   if (analyzed.hasErrors()) {
     unsupported("analysis failed: " + analyzed.diagnostics.front().message);
   }
+  const bool hierarchy = parsed.syntax.entities.size() != 1 ||
+      parsed.syntax.architectures.size() != 1 ||
+      (!parsed.syntax.architectures.empty() &&
+       !parsed.syntax.architectures.front().instantiations.empty());
+  if (hierarchy) {
+    if (top.empty()) {
+      unsupported("an explicit top entity is required for hierarchy");
+    }
+    const auto topKey = canonicalBasicName(top);
+    std::unordered_map<std::string, const vhdl::EntityDeclaration*> entities;
+    std::unordered_map<std::string, std::vector<const vhdl::ArchitectureBody*>> architectures;
+    for (const auto& entity : parsed.syntax.entities)
+      entities.emplace(std::string(nameKey(entity.name)), &entity);
+    for (const auto& architecture : parsed.syntax.architectures)
+      architectures[std::string(nameKey(architecture.entity))].push_back(&architecture);
+    const auto topEntityIt = entities.find(topKey);
+    if (topEntityIt == entities.end())
+      unsupported("no entity declaration for selected top '" + std::string(top) + "'");
+    const auto topArchitectures = architectures.find(topKey);
+    if (topArchitectures == architectures.end() || topArchitectures->second.size() != 1)
+      unsupported("selected top must have exactly one architecture");
+    const auto* topEntity = topEntityIt->second;
+    const auto* topArchitecture = topArchitectures->second.front();
+    if (!topArchitecture->assignments.empty() || !topArchitecture->processes.empty())
+      unsupported("a structural top cannot mix behavior and entity instances");
+    if (topArchitecture->instantiations.empty())
+      unsupported("selected hierarchy top has no entity instances");
+
+    struct ObjectInfo {
+      const vhdl::TypeMark* type;
+      std::optional<vhdl::PortMode> mode;
+    };
+    std::unordered_map<std::string, ObjectInfo> objects;
+    std::unordered_map<std::string, std::size_t> drivers;
+    for (const auto& port : topEntity->ports) {
+      if (!supportedWidth(port.type) ||
+          (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out))
+        unsupported("hierarchy ports must be in/out bit or constrained non-null bit_vector");
+      for (const auto& name : port.names) {
+        objects.emplace(std::string(nameKey(name)),
+            ObjectInfo{&port.type, port.mode});
+        if (port.mode == vhdl::PortMode::Out) drivers.emplace(nameKey(name), 0);
+      }
+    }
+    for (const auto& signal : topArchitecture->signals) {
+      if (!supportedWidth(signal.type))
+        unsupported("hierarchy signals must be bit or constrained non-null bit_vector");
+      for (const auto& name : signal.names) {
+        objects.emplace(std::string(nameKey(name)),
+            ObjectInfo{&signal.type, std::nullopt});
+        drivers.emplace(nameKey(name), 0);
+      }
+    }
+
+    struct BoundInstance {
+      const vhdl::EntityInstantiation* syntax;
+      const vhdl::EntityDeclaration* entity;
+    };
+    std::vector<BoundInstance> boundInstances;
+    std::vector<std::string> childKeys;
+    std::unordered_set<std::string> seenChildKeys;
+    for (const auto& instantiation : topArchitecture->instantiations) {
+      const auto childKey = std::string(nameKey(instantiation.entity));
+      if (childKey == topKey)
+        unsupported("recursive hierarchy is not supported");
+      const auto childEntityIt = entities.find(childKey);
+      const auto childArchitectureIt = architectures.find(childKey);
+      if (childEntityIt == entities.end() || childArchitectureIt == architectures.end() ||
+          childArchitectureIt->second.size() != 1)
+        unsupported("each instantiated entity must have exactly one architecture");
+      const auto* childArchitecture = childArchitectureIt->second.front();
+      if (!childArchitecture->instantiations.empty())
+        unsupported("only one level of hierarchy is supported");
+      std::vector<std::pair<const vhdl::PortDeclaration*, const vhdl::Name*>> formals;
+      for (const auto& port : childEntityIt->second->ports) {
+        if (!supportedWidth(port.type) ||
+            (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out))
+          unsupported("child ports must be in/out bit or constrained non-null bit_vector");
+        for (const auto& name : port.names) formals.emplace_back(&port, &name);
+      }
+      if (formals.size() != instantiation.actuals.size())
+        unsupported("positional port-map arity mismatch");
+      for (std::size_t index = 0; index < formals.size(); ++index) {
+        const auto actual = objects.find(std::string(nameKey(instantiation.actuals[index])));
+        if (actual == objects.end()) unsupported("port-map actual has no declaration");
+        if (actual->second.type->constraint.has_value() !=
+                formals[index].first->type.constraint.has_value() ||
+            supportedWidth(*actual->second.type) != supportedWidth(formals[index].first->type))
+          unsupported("port-map actual and formal widths differ");
+        const auto formalMode = formals[index].first->mode;
+        if (formalMode == vhdl::PortMode::In &&
+            actual->second.mode == vhdl::PortMode::Out)
+          unsupported("an input formal cannot read a top output port");
+        if (formalMode == vhdl::PortMode::Out) {
+          if (actual->second.mode == vhdl::PortMode::In)
+            unsupported("an output formal cannot drive a top input port");
+          if (++drivers[std::string(nameKey(instantiation.actuals[index]))] != 1)
+            unsupported("multiple hierarchy drivers for one actual are not supported");
+        }
+      }
+      if (seenChildKeys.insert(childKey).second) childKeys.push_back(childKey);
+      boundInstances.push_back({&instantiation, childEntityIt->second});
+    }
+    for (const auto& [name, count] : drivers)
+      if (count != 1) unsupported("hierarchy signal has no supported driver: " + name);
+    for (const auto& childKey : childKeys)
+      if (library_->getSNLDesign(NLName(entities.at(childKey)->name.spelling)))
+        unsupported("a design with the child entity name already exists");
+    if (library_->getSNLDesign(NLName(topEntity->name.spelling)))
+      unsupported("a design with the top entity name already exists");
+
+    try {
+      std::unordered_map<std::string, SNLDesign*> models;
+      for (const auto& childKey : childKeys) {
+        const auto* childEntity = entities.at(childKey);
+        const auto* childArchitecture = architectures.at(childKey).front();
+        const auto entityStart = childEntity->span.start.offset;
+        const auto architectureStart = childArchitecture->span.start.offset;
+        std::string childSource(source.substr(
+            entityStart, childEntity->span.end.offset - entityStart));
+        childSource.push_back('\n');
+        childSource.append(source.substr(architectureStart,
+            childArchitecture->span.end.offset - architectureStart));
+        auto* model = construct(childSource);
+        models.emplace(childKey, model);
+      }
+      auto* design = SNLDesign::create(library_, NLName(topEntity->name.spelling));
+      std::unordered_map<std::string, SNLNet*> nets;
+      for (const auto& port : topEntity->ports) {
+        const auto direction = port.mode == vhdl::PortMode::In
+            ? SNLTerm::Direction::Input : SNLTerm::Direction::Output;
+        for (const auto& name : port.names) {
+          SNLNet* net = nullptr;
+          if (port.type.constraint) {
+            const auto left = static_cast<NLID::Bit>(port.type.constraint->left);
+            const auto right = static_cast<NLID::Bit>(port.type.constraint->right);
+            auto* term = SNLBusTerm::create(design, direction, left, right, NLName(name.spelling));
+            net = SNLBusNet::create(design, left, right, NLName(name.spelling));
+            term->setNet(net);
+          } else {
+            auto* term = SNLScalarTerm::create(design, direction, NLName(name.spelling));
+            net = SNLScalarNet::create(design, NLName(name.spelling));
+            term->setNet(net);
+          }
+          nets.emplace(std::string(nameKey(name)), net);
+        }
+      }
+      for (const auto& signal : topArchitecture->signals) {
+        for (const auto& name : signal.names) {
+          SNLNet* net = nullptr;
+          if (signal.type.constraint) {
+            net = SNLBusNet::create(design,
+                static_cast<NLID::Bit>(signal.type.constraint->left),
+                static_cast<NLID::Bit>(signal.type.constraint->right), NLName(name.spelling));
+          } else {
+            net = SNLScalarNet::create(design, NLName(name.spelling));
+          }
+          nets.emplace(std::string(nameKey(name)), net);
+        }
+      }
+      for (const auto& bound : boundInstances) {
+        auto* instance = SNLInstance::create(design,
+            models.at(std::string(nameKey(bound.entity->name))),
+            NLName(bound.syntax->label.spelling));
+        std::size_t index = 0;
+        for (const auto& port : bound.entity->ports) {
+          for (const auto& formal : port.names) {
+            auto* term = instance->getModel()->getTerm(NLName(formal.spelling));
+            auto* net = nets.at(std::string(nameKey(bound.syntax->actuals[index++])));
+            instance->setTermNet(term, net);
+          }
+        }
+      }
+      return design;
+    } catch (...) {
+      if (auto* design = library_->getSNLDesign(NLName(topEntity->name.spelling)))
+        design->destroy();
+      for (const auto& childKey : childKeys)
+        if (auto* design = library_->getSNLDesign(NLName(entities.at(childKey)->name.spelling)))
+          design->destroy();
+      throw;
+    }
+  }
   if (parsed.syntax.entities.size() != 1 || parsed.syntax.architectures.size() != 1) {
     unsupported("exactly one entity and one architecture are supported");
   }
 
   const auto& entity = parsed.syntax.entities.front();
+  if (!top.empty() && canonicalBasicName(top) != nameKey(entity.name))
+    unsupported("selected top does not match the source entity");
   const auto& architecture = parsed.syntax.architectures.front();
   if (nameKey(entity.name) != nameKey(architecture.entity)) {
     unsupported("architecture does not belong to the entity");

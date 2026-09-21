@@ -274,6 +274,58 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                         {"duplicate signal declaration '" + name.spelling + "'", name.span});
             }
         }
+        std::unordered_set<std::string> instanceLabels;
+        for (const auto& instantiation : architecture.instantiations) {
+            if (!instanceLabels.insert(std::string(key(instantiation.label))).second) {
+                result.diagnostics.push_back(
+                    {"duplicate instance label '" + instantiation.label.spelling + "'",
+                     instantiation.label.span});
+            }
+            if (key(instantiation.library) != "work") {
+                result.diagnostics.push_back(
+                    {"only direct entity instantiation from library 'work' is supported",
+                     instantiation.library.span});
+                continue;
+            }
+            const auto model = entities.find(std::string(key(instantiation.entity)));
+            if (model == entities.end()) {
+                result.diagnostics.push_back(
+                    {"no entity declaration for instantiated entity '" +
+                         instantiation.entity.spelling + "'",
+                     instantiation.entity.span});
+                continue;
+            }
+            std::vector<std::pair<const Name*, CheckedType>> formals;
+            for (const auto& port : model->second->ports) {
+                const auto type = declarationType(port.type);
+                for (const auto& name : port.names)
+                    formals.emplace_back(&name, type);
+            }
+            if (formals.size() != instantiation.actuals.size()) {
+                result.diagnostics.push_back(
+                    {"port map for entity '" + instantiation.entity.spelling + "' has " +
+                         std::to_string(instantiation.actuals.size()) + " actuals but " +
+                         std::to_string(formals.size()) + " are required",
+                     instantiation.span});
+                continue;
+            }
+            for (std::size_t index = 0; index < formals.size(); ++index) {
+                const auto& actual = instantiation.actuals[index];
+                const auto declaration = declarations.find(std::string(key(actual)));
+                if (declaration == declarations.end()) {
+                    result.diagnostics.push_back(
+                        {"no declaration for port-map actual '" + actual.spelling + "'",
+                         actual.span});
+                    continue;
+                }
+                if (!compatible(formals[index].second, declaration->second)) {
+                    result.diagnostics.push_back(
+                        {"port-map type mismatch for formal '" +
+                             formals[index].first->spelling + "'",
+                         actual.span});
+                }
+            }
+        }
         const auto checkAssignment = [&](const Assignment& assignment) {
             const auto target = declarations.find(std::string(key(assignment.target)));
             if (target == declarations.end()) {

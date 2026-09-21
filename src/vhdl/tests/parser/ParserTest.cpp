@@ -175,3 +175,41 @@ TEST(VHDLParserTest, RejectsVariableInitializationAndUnsupportedDeclarations) {
     }
     EXPECT_TRUE(vhdl::Parser::parse("entity p is end; architecture rtl of p is begin v := d; end;").hasErrors());
 }
+
+TEST(VHDLParserTest, PreservesDirectEntityInstantiationAndPositionalActuals) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity leaf is port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture structural of top is signal Mid : bit; begin
+  U0: entity WORK.Leaf port map(a, MID);
+  u1: entity work.leaf port map(mid, y);
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.syntax.architectures.size(), 2);
+    const auto& instances = parsed.syntax.architectures[1].instantiations;
+    ASSERT_EQ(instances.size(), 2);
+    EXPECT_EQ(instances[0].label.canonical, "u0");
+    EXPECT_EQ(instances[0].library.canonical, "work");
+    EXPECT_EQ(instances[0].entity.canonical, "leaf");
+    ASSERT_EQ(instances[0].actuals.size(), 2);
+    EXPECT_EQ(instances[0].actuals[1].canonical, "mid");
+    EXPECT_LT(instances[0].span.start.offset, instances[0].span.end.offset);
+    EXPECT_LT(instances[0].span.end.offset, instances[1].span.start.offset);
+}
+
+TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
+    for (const auto* mapping : {"a => a, y => y", "open, y", "work.leaf(rtl)"}) {
+        SCOPED_TRACE(mapping);
+        const std::string source = std::string(
+            "entity top is port(a : in bit; y : out bit); end; "
+            "architecture rtl of top is begin u: entity work.leaf port map(") +
+            mapping + "); end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+    EXPECT_TRUE(vhdl::Parser::parse(
+        "entity top is port(a : in bit; y : out bit); end; "
+        "architecture rtl of top is begin "
+        "u: entity work.leaf(rtl) port map(a, y); end;").hasErrors());
+}
