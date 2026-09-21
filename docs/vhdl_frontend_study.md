@@ -7,8 +7,11 @@ Feasibility status: the [boundary contract](vhdl_frontend_contract.md),
 [semantic probes](../src/vhdl/README.md), [corpus inventory](../src/vhdl/tests/corpus/manifest.json),
 and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
 record the first evidence. Shared mux/register construction is implemented.
-Phase 0 is partially complete; native VHDL parsing and elaboration, corpus
-rights review, and contributor/API decisions remain open. The semantic probe
+Phase 0 is partially complete; native VHDL parsing and elaboration, a
+pinned-revision notice audit before source redistribution, and contributor/API
+decisions remain open. The corpus's repository-level licenses indicate no
+blocker for reference validation or ephemeral test use; see the inventory's
+rights review. The semantic probe
 corpus has now been run with a second independent runtime simulator; see the
 versioned NVC report alongside the GHDL baseline. Phase 1 has started with a
 standalone C++20 lexer, bounded recursive-descent parser, and initial name
@@ -347,14 +350,17 @@ for an engineer familiar with compiler and HDL semantics, not a delivery promise
   register builder, retaining the existing SV path as the regression baseline.
 - Compare VHDL-LS static-analysis disposition on the same 35 probes and record
   API/build boundaries; defer diagnostic-quality and throughput conclusions.
-- Recheck corpus licensing and confirm the binary hardware profile against
-  representative designs before closing the feasibility decisions.
+- Record repository-level corpus licenses and notice conditions; confirm the
+  binary hardware profile against representative designs before closing the
+  feasibility decisions. Check exact pinned-file notices before redistribution.
 
 Exit: the current artifacts establish a provisional native C++ direction, a
 narrow shared-construction boundary, successful GHDL analysis/hierarchy checks
-for small, medium and large RTL samples, and a second runtime oracle. Phase 0
-remains open until corpus test rights and the binary hardware profile are
-reviewed, and contributor capacity and the first public API are agreed.
+for small, medium and large RTL samples, a second runtime oracle, and a
+repository-level review of corpus licenses for reference/test use. Phase 0
+remains open until the binary hardware profile is reviewed, and contributor
+capacity and the first public API are agreed. Check exact pinned-file notices
+before redistributing source.
 Standard-package source hashes and notices are recorded in the reference
 manifest. The proposed
 initial hardware domain is binary: permit single-source `std_logic` signals as

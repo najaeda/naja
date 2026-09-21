@@ -58,5 +58,30 @@
       "result": "GHDL analysis/import and elaboration-order query passed for all 61 RTL VHDL files"
     }
   ],
-  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. Recheck repository revisions, file scopes and upstream test rights before redistributing source or using it in CI. The validation checks analysis and hierarchy resolution, not simulation equivalence or hardware synthesis."
+  "rights_review": {
+    "reviewed_date": "2026-09-21",
+    "scope": "Reference validation and ephemeral test use; no upstream RTL is vendored in this repository.",
+    "findings": [
+      {
+        "name": "uart-for-fpga core",
+        "license": "MIT",
+        "evidence": "https://github.com/jakubcabal/uart-for-fpga/blob/master/LICENSE",
+        "condition": "Retain the copyright and license notice when redistributing source or substantial portions."
+      },
+      {
+        "name": "Domipheus RPU RV32I core",
+        "license": "Apache-2.0",
+        "evidence": "https://github.com/Domipheus/RPU",
+        "condition": "Preserve the license, applicable copyright and NOTICE information, and mark modified files if source is redistributed."
+      },
+      {
+        "name": "NEORV32 core and complete RTL",
+        "license": "BSD-3-Clause",
+        "evidence": "https://github.com/stnolting/neorv32/blob/main/LICENSE",
+        "condition": "Retain notices, license conditions and disclaimer; do not use contributor names for endorsement."
+      }
+    ],
+    "limitation": "This is a repository-level review, not a line-by-line audit of every file at each pinned revision. Recheck the exact revision and file-level notices before vendoring or redistributing source or generated artifacts."
+  },
+  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. The licenses indicate no apparent blocker for reference validation or ephemeral test use when their terms are followed. Do not add upstream RTL to source distributions without checking exact pinned-revision notices. The validation checks analysis and hierarchy resolution, not simulation equivalence or hardware synthesis."
 }

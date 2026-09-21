@@ -115,7 +115,10 @@ Phase 0 evidence now includes pinned UART, RPU and NEORV32 revisions and scopes 
 `src/vhdl/tests/corpus/manifest.json`, plus a 35-probe static-analysis comparison
 in `src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json`. GHDL imported and
 resolved the UART core (VHDL-1993), RPU core (VHDL-2008), and all 61 NEORV32
-RTL VHDL files (VHDL-2008). Review corpus test rights before CI use.
+RTL VHDL files (VHDL-2008). Repository-level licenses for these references are
+MIT, Apache-2.0 and BSD-3-Clause; the review and notice conditions are recorded
+in the corpus manifest. No upstream RTL is vendored. Verify notices at the
+exact pinned revisions before copying source into distributions.
 
 The comparison frontend matched the expected analysis acceptance/rejection for
 all 35 cases. It correctly accepts three sources whose expected failures occur
@@ -128,8 +131,10 @@ versioned reports and NVC-specific diagnostic/stage expectations are under
 and Apache-2.0 package notices are recorded in
 `src/vhdl/tests/semantic/reference.json`.
 
-Before declaring Phase 0 complete: review corpus use rights, confirm the binary
-hardware profile against the corpus, and record the build/reuse decision. The
+Before declaring Phase 0 complete: confirm the binary hardware profile against
+the corpus and record the build/reuse decision. Repository-level corpus rights
+are reviewed for reference/test use; inspect exact pinned-file notices before
+redistributing source. The
 handwritten C++ frontend remains a provisional working direction; these
 experiments do not settle the decision.
 
