@@ -376,19 +376,35 @@ private:
         }
         if (!expectWord("begin") || !expectWord("if"))
             return std::nullopt;
-        auto eventSignal = parseName();
-        if (!eventSignal || !expectSymbol("'") || !expectWord("event") ||
-            !expectWord("and"))
-            return std::nullopt;
-        auto levelSignal = parseName();
-        if (!levelSignal || !expectSymbol("="))
-            return std::nullopt;
-        const auto level = current();
-        if (level.kind != TokenKind::CharacterLiteral) {
-            error("expected a clock level character literal", level.span);
-            return std::nullopt;
+        ClockEdgeForm edgeForm = ClockEdgeForm::EventAndLevel;
+        std::optional<Name> eventSignal;
+        std::optional<Name> levelSignal;
+        std::string level;
+        if (acceptWord("rising_edge")) {
+            edgeForm = ClockEdgeForm::RisingEdgeCall;
+            if (!expectSymbol("("))
+                return std::nullopt;
+            eventSignal = parseName();
+            if (!eventSignal || !expectSymbol(")"))
+                return std::nullopt;
+            levelSignal = *eventSignal;
+            level = "'1'";
+        } else {
+            eventSignal = parseName();
+            if (!eventSignal || !expectSymbol("'") || !expectWord("event") ||
+                !expectWord("and"))
+                return std::nullopt;
+            levelSignal = parseName();
+            if (!levelSignal || !expectSymbol("="))
+                return std::nullopt;
+            const auto levelToken = current();
+            if (levelToken.kind != TokenKind::CharacterLiteral) {
+                error("expected a clock level character literal", levelToken.span);
+                return std::nullopt;
+            }
+            advance();
+            level = levelToken.text;
         }
-        advance();
         if (!expectWord("then"))
             return std::nullopt;
         std::vector<Assignment> assignments;
@@ -403,7 +419,8 @@ private:
             !expectSymbol(";"))
             return std::nullopt;
         return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
-            std::move(*levelSignal), level.text, std::move(assignments), std::move(variables),
+            std::move(*levelSignal), std::move(level), std::move(assignments),
+            std::move(variables), edgeForm,
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 

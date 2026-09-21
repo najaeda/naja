@@ -495,7 +495,7 @@ development begins.
 
 ## Scalar clocked scheduling proof
 
-The Phase 1 adapter accepts one event-guarded process over scalar `bit`
+The Phase 1 adapter accepts one positive-edge process over scalar `bit`
 ports and internal scalar `bit` signals, including grouped declarations:
 
 ```vhdl
@@ -514,7 +514,9 @@ begin
 end;
 ```
 
-The sensitivity, event and level names must resolve to the same input port.
+The clock may use `rising_edge(clk)` or the equivalent
+`clk'event and clk = '1'` guard. The sensitivity, event and level names must
+resolve to the same input port.
 Each assignment targets a distinct output port or internal signal; its RHS is
 an input port, internal signal or assigned local variable name (parentheses are accepted). Every internal
 signal must have exactly one assignment in this process. Basic names are case
@@ -554,8 +556,8 @@ and the reference comparison starts after two rising edges. Explicit initializer
 Unsupported forms include reset/enable or other nested control flow, falling-edge
 registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
-nine-valued types, clocked assignment expressions beyond names, and function calls (including
-`rising_edge`). Parser errors or adapter diagnostics reject these before design
+nine-valued types, clocked assignment expressions beyond names, and function
+calls other than the supported `rising_edge` clock guard. Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof; vectors and one-level
 hierarchy are covered separately below, while general type analysis and
 source-rich adapter diagnostics remain future work.
@@ -714,3 +716,18 @@ chain whose bounds and directions differ at every boundary.
 Hierarchy validation (2026-09-21): all 60 VHDL lexer, parser, analyzer,
 adapter and NVC reference tests passed in the integrated build. All 31
 standalone frontend tests passed from a separate build tree.
+
+## Standard rising-edge clock proof
+
+The first bounded Phase 2 process-profile increment accepts
+`if rising_edge(clk) then` alongside the explicit event-and-level guard. The AST
+retains the source form, but both paths resolve the same scalar `bit` clock and
+use the already proven canonical DFF lowering. Malformed calls and compound
+conditions are rejected rather than treated as a generic function expression.
+The pipeline fixture now exercises `rising_edge` through the existing NVC cycle
+comparison, while explicit `'event` tests remain. Reset, enable, falling-edge
+and general function-call semantics remain future work.
+
+Rising-edge validation (2026-09-21): all 63 integrated VHDL tests passed,
+including the NVC pipeline comparison. All 33 standalone frontend tests passed
+from a separate build tree.

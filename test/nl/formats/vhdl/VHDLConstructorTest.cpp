@@ -345,10 +345,32 @@ end;
             design->getScalarTerm(NLName("q"))->getNet());
 }
 
+TEST_F(VHDLConstructorTest, RisingEdgeRegisterWiring) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity rising_reg is port (clk, d : in bit; q : out bit); end;
+architecture rtl of rising_reg is begin
+  process(clk) begin
+    if rising_edge(clk) then q <= d; end if;
+  end process;
+end;
+)");
+  ASSERT_EQ(design->getInstances().size(), 1);
+  auto* instance = *design->getInstances().begin();
+  EXPECT_EQ(instance->getModel(), NLDB0::getDFF());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFClock())->getNet(),
+            design->getScalarTerm(NLName("clk"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFData())->getNet(),
+            design->getScalarTerm(NLName("d"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFOutput())->getNet(),
+            design->getScalarTerm(NLName("q"))->getNet());
+}
+
 TEST_F(VHDLConstructorTest, UnsupportedClockedProcessesPublishNoDesign) {
   for (const auto* body : {
       "process(clk) begin if clk'event and clk = '0' then q <= d; end if; end process;",
       "process(d) begin if clk'event and clk = '1' then q <= d; end if; end process;",
+      "process(d) begin if rising_edge(clk) then q <= d; end if; end process;",
+      "process(clk) begin if rising_edge(missing) then q <= d; end if; end process;",
       "process(clk) begin if clk'event and d = '1' then q <= d; end if; end process;",
       "process(clk) begin if missing'event and clk = '1' then q <= d; end if; end process;",
       "process(clk) begin if clk'event and clk = '1' then q <= missing; end if; end process;",
@@ -356,7 +378,6 @@ TEST_F(VHDLConstructorTest, UnsupportedClockedProcessesPublishNoDesign) {
       "process(clk) begin if clk'event and clk = '1' then q <= d after 1 ns; end if; end process;",
       "process(clk) begin if clk'event and clk = '1' then q <= d; else q <= '0'; end if; end process;",
       "process(clk) begin if clk'event and clk = '1' then q <= d; q <= clk; end if; end process;",
-      "process(clk) begin if rising_edge(clk) then q <= d; end if; end process;",
       "process(clk) begin if clk'event and clk = '1' then q <= d when clk = '1' else clk; end if; end process;"}) {
     SCOPED_TRACE(body);
     const std::string source = std::string(

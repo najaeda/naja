@@ -78,7 +78,9 @@ struct Assignment {
     AssignmentKind kind = AssignmentKind::Signal;
 };
 
-// Restricted event-guarded process syntax; names remain unresolved here.
+// Restricted positive-edge process syntax; names remain unresolved here.
+enum class ClockEdgeForm { EventAndLevel, RisingEdgeCall };
+
 struct ClockedProcess {
     Name sensitivity;
     Name eventSignal;
@@ -86,6 +88,7 @@ struct ClockedProcess {
     std::string level;
     std::vector<Assignment> assignments;
     std::vector<VariableDeclaration> variables;
+    ClockEdgeForm edgeForm = ClockEdgeForm::EventAndLevel;
     SourceSpan span;
 };
 

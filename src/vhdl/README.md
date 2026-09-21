@@ -4,7 +4,7 @@ This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
 ports, internal signal declarations, concurrent and conditional signal
-assignments, and multiple scheduled writes in a restricted event-guarded process. The initial analyzer binds architectures to entities and
+assignments, and multiple scheduled writes in a restricted positive-edge process. The initial analyzer binds architectures to entities and
 resolves names in assignment values, conditions, clock guards and process-local
 variables; its restricted scheduler resolves immediate assignments and identifies
 straight-line retained variable state. It type-checks a deliberately narrow set
@@ -91,7 +91,7 @@ and consumed without any Naja/SNL dependency.
 
 ## Scalar clocked scheduling proof
 
-The Phase 1 adapter accepts one event-guarded process over scalar `bit`
+The Phase 1 adapter accepts one positive-edge process over scalar `bit`
 ports and internal scalar `bit` signals, including grouped declarations:
 
 ```vhdl
@@ -110,7 +110,9 @@ begin
 end;
 ```
 
-The sensitivity, event and level names must resolve to the same input port.
+The clock may use `rising_edge(clk)` or the equivalent
+`clk'event and clk = '1'` guard. The sensitivity, event and level names must
+resolve to the same input port.
 Each assignment targets a distinct output port or internal signal; its RHS is
 an input port, internal signal or assigned local variable name (parentheses are accepted). Every internal
 signal must have exactly one assignment in this process. Basic names are case
@@ -150,8 +152,8 @@ and the reference comparison starts after two rising edges. Explicit initializer
 Unsupported forms include reset/enable or other nested control flow, falling-edge
 registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
-nine-valued types, clocked assignment expressions beyond names, and function calls (including
-`rising_edge`). Parser errors or adapter diagnostics reject these before design
+nine-valued types, clocked assignment expressions beyond names, and function
+calls other than the supported `rising_edge` clock guard. Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof; vectors and one-level
 hierarchy are covered separately below, while general type analysis and
 source-rich adapter diagnostics remain future work.
@@ -307,3 +309,18 @@ and directions and is compared with NVC.
 Hierarchy validation (2026-09-21): all 60 VHDL lexer, parser, analyzer,
 adapter and NVC reference tests passed in the integrated build. All 31
 standalone frontend tests passed from a separate build tree.
+
+## Standard rising-edge clock proof
+
+Clocked processes now accept `if rising_edge(clk) then` in addition to the
+explicit event-and-level idiom. The AST records which spelling was used while
+name analysis and lowering share the same positive-edge clock semantics. Calls
+with missing, multiple, literal or compound arguments remain parser errors.
+The pipeline fixture now uses `rising_edge`, so its multi-register scheduling
+and cycle behavior are checked against NVC; explicit `'event` tests remain in
+place as regressions. Reset, enable, falling-edge and general function-call
+semantics remain unsupported.
+
+Rising-edge validation (2026-09-21): all 63 integrated VHDL tests passed,
+including the NVC pipeline comparison. All 33 standalone frontend tests passed
+from a separate build tree.

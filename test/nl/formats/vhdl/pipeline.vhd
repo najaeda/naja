@@ -8,7 +8,7 @@ architecture rtl of pipeline is
   signal stage : bit;
 begin
   process(clk) begin
-    if clk'event and clk = '1' then
+    if rising_edge(clk) then
       stage <= d;
       q <= stage;
     end if;

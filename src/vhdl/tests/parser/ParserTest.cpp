@@ -102,6 +102,35 @@ end;
     EXPECT_LT(processes.front().span.start.offset, processes.front().span.end.offset);
 }
 
+TEST(VHDLParserTest, PreservesRisingEdgeCall) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity reg is port(clk, d : in bit; q : out bit); end;
+architecture rtl of reg is begin
+process(CLK) begin if rising_edge(clk) then q <= d; end if; end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& process = parsed.syntax.architectures.front().processes.front();
+    EXPECT_EQ(process.edgeForm, vhdl::ClockEdgeForm::RisingEdgeCall);
+    EXPECT_EQ(process.sensitivity.canonical, "clk");
+    EXPECT_EQ(process.eventSignal.canonical, "clk");
+    EXPECT_EQ(process.levelSignal.canonical, "clk");
+    EXPECT_EQ(process.level, "'1'");
+}
+
+TEST(VHDLParserTest, RejectsMalformedRisingEdgeCalls) {
+    for (const auto* condition : {
+        "rising_edge()", "rising_edge(clk, d)", "rising_edge('1')",
+        "rising_edge(clk) and d = '1'"}) {
+        SCOPED_TRACE(condition);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin if ") + condition +
+            " then q <= d; end if; end process; end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+}
+
 TEST(VHDLParserTest, InternalDeclarationsAndOrderedScheduledWrites) {
     const auto parsed = vhdl::Parser::parse(R"(
 entity pipeline is port(clk, d : in bit; q : out bit); end;
