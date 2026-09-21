@@ -383,11 +383,13 @@ full driver counts, reachability, observability, or equivalence.
 ### Phase 1: vertical proof
 
 Build the frontend-only target, source/diagnostic infrastructure, minimal parser
-and analyzer. The parser now preserves conditional signal assignments in its
-syntax tree and the analyzer resolves names in their conditions. This is the
-first syntax slice for a mux, not yet a hardware lowering path. Next, type and
-lower a single-bit conditional assignment into the shared mux builder, then
-compare its SNL structure with equivalent SV. Extend the proof to a clocked
+and analyzer. The parser now preserves conditional signal assignments and the
+analyzer resolves names in their conditions. A narrow Naja adapter lowers one
+single-bit conditional assignment over `bit` ports into the shared mux builder;
+tests confirm its SNL wiring and that an equivalent SV design uses the same
+canonical mux model. The adapter rejects `std_logic` and unsupported port or
+assignment shapes before design creation. This is a lowering proof, not general
+VHDL type analysis. Extend it to type-checked scalar expressions, a clocked
 register, ascending and descending vectors, a small hierarchy, and the
 signal-versus-variable example above.
 

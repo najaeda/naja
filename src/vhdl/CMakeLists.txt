@@ -36,7 +36,9 @@ if(BUILD_TESTING)
   endif()
   set(VHDL_GTEST_SOURCE_DIR "${_vhdl_gtest_default}" CACHE PATH
       "Path to a GoogleTest source checkout; otherwise GTest must be installed")
-  if(VHDL_GTEST_SOURCE_DIR)
+  if(TARGET gtest_main)
+    set(VHDL_GTEST_MAIN_TARGET gtest_main)
+  elseif(VHDL_GTEST_SOURCE_DIR)
     set(BUILD_GMOCK OFF CACHE BOOL "Build GoogleMock" FORCE)
     set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest with this project" FORCE)
     add_subdirectory("${VHDL_GTEST_SOURCE_DIR}"

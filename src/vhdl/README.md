@@ -9,6 +9,12 @@ resolves names in assignment values and conditions. Type analysis and
 elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
+Naja currently has a deliberately narrow integration proof in
+`src/nl/formats/vhdl`: scalar `bit` ports and one concurrent conditional
+assignment are lowered to the shared SNL mux primitive. The proof rejects
+nine-valued `std_logic` ports and every unsupported shape before creating a
+design. It does not provide general VHDL type analysis or elaboration.
+
 The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The
 Naja adapter and shared SV/VHDL hardware construction will remain outside this

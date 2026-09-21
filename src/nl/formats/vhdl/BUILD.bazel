@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+
+cc_library(
+    name = "naja_snl_vhdl",
+    srcs = ["VHDLConstructor.cpp"],
+    hdrs = ["VHDLConstructor.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/nl/formats/hdl:naja_snl_hdl",
+        "//src/nl/netlist:naja_nl",
+        "//src/vhdl:vhdl_frontend",
+    ],
+)
