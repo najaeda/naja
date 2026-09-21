@@ -1,10 +1,11 @@
 # Independent VHDL frontend
 
 This directory is the future standalone repository root. It contains the
-VHDL-2008 semantic probes and a Python-standard-library runner, plus the first
-native frontend slice: a handwritten C++20 lexer. Parsing, semantic analysis
-and elaboration are not implemented yet. Nothing here imports, links or
-discovers Naja/SNL, or requires the parent build.
+VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
+handwritten C++20 lexer and recursive-descent parser. The parser handles entity
+ports, simple architecture bodies and concurrent assignments. Semantic analysis
+and elaboration are not implemented yet. Nothing here imports, links or discovers
+Naja/SNL, or requires the parent build.
 
 The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The
@@ -14,15 +15,20 @@ directory. In-tree hosting is temporary; extraction is a required milestone.
 ## Build the standalone C++ slice
 
 ```sh
-cmake -S . -B /tmp/naja-vhdl-build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B /tmp/naja-vhdl-build -DCMAKE_BUILD_TYPE=Release \
+  -DVHDL_GTEST_SOURCE_DIR=/path/to/googletest
 cmake --build /tmp/naja-vhdl-build
 ctest --test-dir /tmp/naja-vhdl-build --output-on-failure
 ```
 
-The exported CMake target is `vhdl::frontend`. The lexer test covers basic
-identifier case handling, extended identifiers, literal/apostrophe distinction,
-compound symbols, locations and malformed-input progress. It does not imply
-parser or language-conformance coverage.
+Tests use GoogleTest. Provide an installed CMake package for GTest, or point
+`VHDL_GTEST_SOURCE_DIR` at a GoogleTest checkout when configuring. The extracted
+repository will pin GoogleTest as its own test-only dependency (the current Naja
+checkout pins commit `063de7e9578f82b369302001269680b4b1553359`). The exported
+CMake target is `vhdl::frontend`. Tests cover basic identifier case
+handling, extended identifiers, literal/apostrophe distinction, compound symbols,
+source locations, port groups and ranges, expression precedence, and malformed
+input recovery. They do not imply broad language-conformance coverage.
 
 ## Run the reference probes
 

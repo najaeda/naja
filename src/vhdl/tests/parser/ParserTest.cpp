@@ -1,0 +1,67 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+
+#include "vhdl/Parser.h"
+#include <gtest/gtest.h>
+
+TEST(VHDLParserTest, EntityArchitectureAndExpressionTree) {
+    const auto result = vhdl::Parser::parse(R"(
+entity top is
+  port (
+    clk : in std_logic;
+    a, b : in bit;
+    data : in std_logic_vector(7 downto 0);
+    y : out bit
+  );
+end entity top;
+
+architecture rtl of top is
+begin
+  y <= a + b * 2;
+end architecture rtl;
+)");
+    EXPECT_FALSE(result.hasErrors());
+    ASSERT_EQ(result.syntax.entities.size(), 1);
+    const auto& entity = result.syntax.entities[0];
+    EXPECT_EQ(entity.name.canonical, "top");
+    ASSERT_EQ(entity.ports.size(), 4);
+    EXPECT_EQ(entity.ports[1].names.size(), 2);
+    EXPECT_EQ(entity.ports[1].mode, vhdl::PortMode::In);
+    const auto& vectorType = entity.ports[2].type;
+    EXPECT_EQ(vectorType.name.canonical, "std_logic_vector");
+    ASSERT_TRUE(vectorType.constraint.has_value());
+    EXPECT_EQ(vectorType.constraint->left, 7);
+    EXPECT_EQ(vectorType.constraint->right, 0);
+    EXPECT_FALSE(vectorType.constraint->ascending);
+
+    ASSERT_EQ(result.syntax.architectures.size(), 1);
+    const auto& architecture = result.syntax.architectures[0];
+    EXPECT_EQ(architecture.name.canonical, "rtl");
+    EXPECT_EQ(architecture.entity.canonical, "top");
+    ASSERT_EQ(architecture.assignments.size(), 1);
+    const auto& expression = *architecture.assignments[0].value;
+    ASSERT_EQ(expression.kind, vhdl::Expression::Kind::Binary);
+    EXPECT_EQ(expression.text, "+");
+    ASSERT_TRUE(expression.right);
+    EXPECT_EQ(expression.right->kind, vhdl::Expression::Kind::Binary);
+    EXPECT_EQ(expression.right->text, "*");
+}
+
+TEST(VHDLParserTest, UnsupportedConstructIsDiagnosed) {
+    const auto result = vhdl::Parser::parse(R"(
+entity top is end entity top;
+architecture rtl of top is
+  signal internal : bit;
+begin
+  internal <= '1';
+end architecture rtl;
+)");
+    EXPECT_TRUE(result.hasErrors());
+    EXPECT_FALSE(result.syntax.architectures.empty());
+}
+
+TEST(VHDLParserTest, MalformedPortProgresses) {
+    const auto result = vhdl::Parser::parse("entity top is port (a in bit); end entity top;");
+    EXPECT_TRUE(result.hasErrors());
+    EXPECT_FALSE(result.diagnostics.empty());
+}
