@@ -390,9 +390,9 @@ tests confirm its SNL wiring and that an equivalent SV design uses the same
 canonical mux model. The adapter rejects `std_logic` and unsupported port or
 assignment shapes before design creation. This is a lowering proof, not general
 VHDL type analysis. Scalar registers, internal-signal pipeline scheduling, and
-retained scalar process-variable storage are now implemented (see below).
-Extend the proof to type-checked scalar expressions, ascending and descending
-vectors, and a small hierarchy.
+retained scalar process-variable storage and type-checked scalar logical
+expressions are now implemented (see below). Extend the proof to ascending and
+descending vectors and a small hierarchy.
 
 Exit: expected connectivity and cycle behavior agree; unsupported constructs
 fail with source locations; malformed input terminates; failed loads publish no
@@ -552,7 +552,7 @@ and the reference comparison starts after two rising edges. Explicit initializer
 Unsupported forms include reset/enable or other nested control flow, falling-edge
 registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
-nine-valued types, expressions beyond names, and function calls (including
+nine-valued types, clocked assignment expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof: general type analysis,
 hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
@@ -646,3 +646,25 @@ Retained-state validation (2026-09-21): all 40 focused lexer, parser, analyzer,
 adapter and NVC reference tests passed. All 24 standalone tests also passed from
 an isolated copy, followed by installation and a separate client linked only to
 the exported `vhdl::frontend` target.
+
+## Typed scalar expression proof
+
+The standalone analyzer records scalar expression types for `bit`, `boolean`,
+`integer`, `real` and `string` declarations and literals. It checks assignment
+compatibility, boolean conditional guards, equality operands, `not`, and matching
+`bit` or `boolean` operands for `and`, `nand`, `or`, `nor`, `xor` and `xnor`.
+Unsupported operators, types and ambiguous character literals are diagnosed.
+
+The Naja adapter lowers nested scalar `bit` names, `'0'`/`'1'` literals and those
+logical operators through `SNLRTLPrimitives::createGate()`. Conditional branches
+may contain the same expressions and still use the shared mux builder; the narrow
+condition profile remains `name = '1'`. A SystemVerilog fixture verifies use of
+the same canonical And, Not and Xor models, while NVC supplies the truth-table
+reference. Boolean hardware, arithmetic, general equality lowering, logical
+expressions in clocked assignments, vectors and conversions remain unsupported
+and are rejected before design publication.
+
+Scalar-expression validation (2026-09-21): all 52 focused lexer, parser,
+analyzer, shared-primitive, adapter, SystemVerilog and NVC reference tests
+passed. All 26 standalone tests passed from an isolated copy; installation and
+a separate client using `ScalarType` through only `vhdl::frontend` also passed.

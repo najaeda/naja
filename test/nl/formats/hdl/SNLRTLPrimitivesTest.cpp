@@ -74,6 +74,30 @@ TEST_F(SNLRTLPrimitivesTest, DFFAcceptsOneBitBusesWithoutFrontendState) {
   EXPECT_EQ(out->getBit(-2), instance->getInstTerm(NLDB0::getDFFOutput())->getNet());
 }
 
+TEST_F(SNLRTLPrimitivesTest, GatesUseCanonicalModelsAndCallerOutput) {
+  auto* a = SNLScalarNet::create(design_);
+  auto* b = SNLScalarNet::create(design_);
+  auto* andOut = SNLScalarNet::create(design_);
+  auto* notOut = SNLScalarNet::create(design_);
+  auto* andInstance = SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::And, {a, b}, andOut);
+  auto* andModel = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2);
+  EXPECT_EQ(andInstance->getModel(), andModel);
+  EXPECT_EQ(andInstance->getInstTerm(
+                NLDB0::getGateNTerms(andModel)->getBitAtPosition(0))->getNet(), a);
+  EXPECT_EQ(andInstance->getInstTerm(
+                NLDB0::getGateNTerms(andModel)->getBitAtPosition(1))->getNet(), b);
+  EXPECT_EQ(andInstance->getInstTerm(NLDB0::getGateSingleTerm(andModel))->getNet(), andOut);
+
+  auto* notInstance = SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::Not, {andOut}, notOut);
+  auto* notModel = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1);
+  EXPECT_EQ(notInstance->getModel(), notModel);
+  EXPECT_EQ(notInstance->getInstTerm(NLDB0::getGateSingleTerm(notModel))->getNet(), andOut);
+  EXPECT_EQ(notInstance->getInstTerm(
+                NLDB0::getGateNTerms(notModel)->getBitAtPosition(0))->getNet(), notOut);
+}
+
 TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
   auto* bit = SNLScalarNet::create(design_);
   auto* bus = SNLBusNet::create(design_, 1, 0);
@@ -90,5 +114,13 @@ TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, bit, bus, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, foreign, bit, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, bit, bit, nullptr), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::And, {}, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::Not, {bit, bit}, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::And, {bit, foreign}, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createGate(
+      design_, SNLRTLPrimitives::GateKind::And, {bit}, bus), NLException);
   EXPECT_TRUE(design_->getInstances().empty());
 }

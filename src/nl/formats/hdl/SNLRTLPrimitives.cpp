@@ -32,6 +32,20 @@ void connectBits(
   instance->setTermsNets(terms, bits);
 }
 
+NLDB0::GateType gateType(SNLRTLPrimitives::GateKind kind) {
+  switch (kind) {
+    case SNLRTLPrimitives::GateKind::And: return NLDB0::GateType::And;
+    case SNLRTLPrimitives::GateKind::Nand: return NLDB0::GateType::Nand;
+    case SNLRTLPrimitives::GateKind::Or: return NLDB0::GateType::Or;
+    case SNLRTLPrimitives::GateKind::Nor: return NLDB0::GateType::Nor;
+    case SNLRTLPrimitives::GateKind::Xor: return NLDB0::GateType::Xor;
+    case SNLRTLPrimitives::GateKind::Xnor: return NLDB0::GateType::Xnor;
+    case SNLRTLPrimitives::GateKind::Buf: return NLDB0::GateType::Buf;
+    case SNLRTLPrimitives::GateKind::Not: return NLDB0::GateType::Not;
+  }
+  throw NLException("SNLRTLPrimitives::createGate: invalid gate kind");
+}
+
 }  // namespace
 
 SNLInstance* SNLRTLPrimitives::createMux(
@@ -66,6 +80,34 @@ SNLInstance* SNLRTLPrimitives::createDFF(
   instance->setTermNet(NLDB0::getDFFClock(), clock);
   instance->setTermNet(NLDB0::getDFFData(), data);
   instance->setTermNet(NLDB0::getDFFOutput(), output);
+  return instance;
+}
+
+SNLInstance* SNLRTLPrimitives::createGate(
+  SNLDesign* design, GateKind kind,
+  const std::vector<SNLNet*>& inputs, SNLNet* output) {
+  if (!validNet(design, output, 1) || inputs.empty() ||
+      ((kind == GateKind::Buf || kind == GateKind::Not) && inputs.size() != 1) ||
+      std::any_of(inputs.begin(), inputs.end(), [design](auto* input) {
+        return !validNet(design, input, 1);
+      })) {
+    throw NLException("SNLRTLPrimitives::createGate: invalid nets, widths, or fan-in");
+  }
+  const auto type = gateType(kind);
+  const bool nOutput = kind == GateKind::Buf || kind == GateKind::Not;
+  auto* model = nOutput
+      ? NLDB0::getOrCreateNOutputGate(type, 1)
+      : NLDB0::getOrCreateNInputGate(type, inputs.size());
+  auto* instance = SNLInstance::create(design, model);
+  if (nOutput) {
+    instance->setTermNet(NLDB0::getGateSingleTerm(model), inputs.front());
+    instance->setTermNet(NLDB0::getGateNTerms(model)->getBitAtPosition(0), output);
+  } else {
+    auto* inputTerms = NLDB0::getGateNTerms(model);
+    for (size_t position = 0; position < inputs.size(); ++position)
+      instance->setTermNet(inputTerms->getBitAtPosition(position), inputs[position]);
+    instance->setTermNet(NLDB0::getGateSingleTerm(model), output);
+  }
   return instance;
 }
 

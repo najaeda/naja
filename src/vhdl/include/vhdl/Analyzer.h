@@ -5,6 +5,7 @@
 
 #include "vhdl/Parser.h"
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace vhdl {
@@ -14,9 +15,16 @@ struct AnalysisDiagnostic {
     SourceSpan span;
 };
 
+enum class ScalarType { Unknown, Bit, Boolean, Integer, Real, String };
+
 struct AnalysisResult {
     std::vector<AnalysisDiagnostic> diagnostics;
+    std::unordered_map<const Expression*, ScalarType> expressionTypes;
     bool hasErrors() const { return !diagnostics.empty(); }
+    ScalarType getType(const Expression& expression) const {
+        const auto found = expressionTypes.find(&expression);
+        return found == expressionTypes.end() ? ScalarType::Unknown : found->second;
+    }
 };
 
 struct ScheduledWrite {
@@ -33,7 +41,9 @@ struct ScheduleResult {
     bool hasErrors() const { return !diagnostics.empty(); }
 };
 
-/// Performs name binding for the parser's initial entity/architecture slice.
+/// Performs name binding and scalar expression type checking for the parser's
+/// initial entity/architecture slice. Expression type entries remain valid only
+/// while the analyzed DesignFile and its expression nodes remain alive.
 class Analyzer {
 public:
     static AnalysisResult analyze(const DesignFile& syntax);

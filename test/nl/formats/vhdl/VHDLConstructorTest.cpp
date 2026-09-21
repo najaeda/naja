@@ -23,6 +23,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace naja::NL;
@@ -69,6 +70,136 @@ end architecture rtl;
             design->getScalarTerm(NLName("sel"))->getNet());
   EXPECT_EQ(instance->getInstTerm(muxOutput->getBit(0))->getNet(),
             design->getScalarTerm(NLName("y"))->getNet());
+}
+
+TEST_F(VHDLConstructorTest, LowersTypedScalarLogicalOperators) {
+  const std::vector<std::pair<std::string, NLDB0::GateType::GateTypeEnum>> operators{
+      {"and", NLDB0::GateType::And}, {"nand", NLDB0::GateType::Nand},
+      {"or", NLDB0::GateType::Or}, {"nor", NLDB0::GateType::Nor},
+      {"xor", NLDB0::GateType::Xor}, {"xnor", NLDB0::GateType::Xnor}};
+  for (const auto& [op, gateType] : operators) {
+    SCOPED_TRACE(op);
+    const std::string source =
+        "entity logic is port(a, b : in bit; y : out bit); end; "
+        "architecture rtl of logic is begin y <= a " + op + " b; end;";
+    auto* design = VHDLConstructor(library_).construct(source);
+    ASSERT_EQ(design->getInstances().size(), 1);
+    EXPECT_EQ((*design->getInstances().begin())->getModel(),
+              NLDB0::getOrCreateNInputGate(gateType, 2));
+    design->destroy();
+  }
+  auto* design = VHDLConstructor(library_).construct(
+      "entity logic is port(a : in bit; y : out bit); end; "
+      "architecture rtl of logic is begin y <= not a; end;");
+  ASSERT_EQ(design->getInstances().size(), 1);
+  EXPECT_EQ((*design->getInstances().begin())->getModel(),
+            NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1));
+}
+
+TEST_F(VHDLConstructorTest, NestedLogicalExpressionConnectivity) {
+  std::ifstream fixture(SNL_VHDL_LOGICAL);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 3);
+  auto* a = design->getScalarTerm(NLName("a"))->getNet();
+  auto* b = design->getScalarTerm(NLName("b"))->getNet();
+  auto* c = design->getScalarTerm(NLName("c"))->getNet();
+  auto* y = design->getScalarTerm(NLName("y"))->getNet();
+  SNLNet* andOutput = nullptr;
+  SNLNet* notOutput = nullptr;
+  SNLInstance* xorInstance = nullptr;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    if (model == NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2)) {
+      auto* inputs = NLDB0::getGateNTerms(model);
+      std::unordered_set<SNLNet*> nets{
+          instance->getInstTerm(inputs->getBitAtPosition(0))->getNet(),
+          instance->getInstTerm(inputs->getBitAtPosition(1))->getNet()};
+      EXPECT_EQ(nets, (std::unordered_set<SNLNet*>{a, b}));
+      andOutput = instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet();
+    } else if (model == NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1)) {
+      EXPECT_EQ(instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet(), c);
+      notOutput = instance->getInstTerm(
+          NLDB0::getGateNTerms(model)->getBitAtPosition(0))->getNet();
+    } else if (model == NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 2)) {
+      xorInstance = instance;
+      EXPECT_EQ(instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet(), y);
+    }
+  }
+  ASSERT_NE(andOutput, nullptr);
+  ASSERT_NE(notOutput, nullptr);
+  ASSERT_NE(xorInstance, nullptr);
+  auto* xorInputs = NLDB0::getGateNTerms(xorInstance->getModel());
+  EXPECT_EQ((std::unordered_set<SNLNet*>{
+                xorInstance->getInstTerm(xorInputs->getBitAtPosition(0))->getNet(),
+                xorInstance->getInstTerm(xorInputs->getBitAtPosition(1))->getNet()}),
+            (std::unordered_set<SNLNet*>{andOutput, notOutput}));
+
+  std::ifstream reference;
+  if (const auto* path = std::getenv("VHDL_LOGICAL_REFERENCE")) {
+    reference.open(path);
+    ASSERT_TRUE(reference);
+  }
+  for (int stimulus = 0; stimulus < 8; ++stimulus) {
+    std::unordered_map<SNLNet*, int> values{
+        {a, (stimulus >> 2) & 1}, {b, (stimulus >> 1) & 1}, {c, stimulus & 1}};
+    for (std::size_t pass = 0; pass < design->getInstances().size(); ++pass) {
+      for (auto* instance : design->getInstances()) {
+        auto* model = instance->getModel();
+        const auto gate = NLDB0::getGateName(model);
+        if (NLDB0::isNInputGate(model)) {
+          auto* inputs = NLDB0::getGateNTerms(model);
+          auto* lhs = instance->getInstTerm(inputs->getBitAtPosition(0))->getNet();
+          auto* rhs = instance->getInstTerm(inputs->getBitAtPosition(1))->getNet();
+          if (!values.contains(lhs) || !values.contains(rhs)) continue;
+          const int value = gate == "and" ? values[lhs] & values[rhs]
+                                           : values[lhs] ^ values[rhs];
+          values[instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet()] = value;
+        } else {
+          auto* input = instance->getInstTerm(NLDB0::getGateSingleTerm(model))->getNet();
+          if (!values.contains(input)) continue;
+          values[instance->getInstTerm(
+              NLDB0::getGateNTerms(model)->getBitAtPosition(0))->getNet()] = 1 - values[input];
+        }
+      }
+    }
+    ASSERT_TRUE(values.contains(y));
+    EXPECT_EQ(values[y], ((values[a] & values[b]) ^ (1 - values[c])));
+    if (reference.is_open()) {
+      int expected = -1;
+      ASSERT_TRUE(reference >> expected);
+      EXPECT_EQ(values[y], expected);
+    }
+  }
+  if (reference.is_open()) {
+    std::string trailing;
+    EXPECT_FALSE(reference >> trailing);
+  }
+}
+
+TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameLogicalModels) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_VHDL_EQUIVALENT_LOGICAL_SV));
+  auto* design = library_->getSNLDesign(NLName("logic_nested_sv"));
+  ASSERT_NE(design, nullptr);
+  std::unordered_map<SNLDesign*, std::size_t> models;
+  for (auto* instance : design->getInstances()) ++models[instance->getModel()];
+  EXPECT_EQ(models[NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2)], 1);
+  EXPECT_EQ(models[NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 2)], 1);
+  EXPECT_EQ(models[NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Not, 1)], 1);
+}
+
+TEST_F(VHDLConstructorTest, ScalarExpressionTypeErrorsPublishNoDesign) {
+  for (const auto* expression : {
+      "a = b", "a and flag", "'Z'", "'1' = '0'", "a + b"}) {
+    SCOPED_TRACE(expression);
+    const std::string source = std::string(
+        "entity bad_logic is port(a, b : in bit; flag : in boolean; y : out bit); end; "
+        "architecture rtl of bad_logic is begin y <= ") + expression + "; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("bad_logic")), nullptr);
+  }
 }
 
 TEST_F(VHDLConstructorTest, UnsupportedPortShapeDoesNotCreateDesign) {

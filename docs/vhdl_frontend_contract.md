@@ -86,12 +86,14 @@ SNL objects and no dependency on Naja's live AST registry.
 vectors and an existing output net. It preserves the input vector ordering and
 the output net's declared ordering, and returns the created canonical primitive
 instance. `createDFF()` takes a design and width-one clock/data/output nets and
-returns a positive-edge register. Both validate net ownership and widths before
-creating an instance. Neither receives source AST objects or reads active frontend
-process state.
+returns a positive-edge register. `createGate()` takes a canonical scalar gate
+kind, explicit width-one inputs and an existing output net. All three validate
+net ownership, widths and arity before creating an instance. None receives source
+AST objects or reads active frontend process state.
 
 The existing SV vector-mux and positive-edge-register helpers now call these
-shared functions. They still perform language-specific normalization, source
+shared functions. The VHDL adapter uses the same gate models for its typed scalar
+logical expressions. The language adapters still perform language-specific normalization, source
 annotation, retained AST binding and initialization attachment. Direct C++ tests
 exercise the same interface without any language compiler dependency, including
 reordered inputs, ascending/nonzero outputs and rejection without partial instance
@@ -227,7 +229,7 @@ and the reference comparison starts after two rising edges. Explicit initializer
 Unsupported forms include reset/enable or other nested control flow, falling-edge
 registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
-nine-valued types, expressions beyond names, and function calls (including
+nine-valued types, clocked assignment expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof: general type analysis,
 hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
@@ -320,3 +322,19 @@ Retained-state validation (2026-09-21): all 40 focused lexer, parser, analyzer,
 adapter and NVC reference tests passed. All 24 standalone tests also passed from
 an isolated copy, followed by installation and a separate client linked only to
 the exported `vhdl::frontend` target.
+
+## Typed scalar expression proof
+
+The standalone analyzer records narrow scalar types independently of Naja and
+checks assignment compatibility, conditions, equality and the scalar logical
+operators. The adapter consumes those checked types and lowers nested scalar
+`bit` logic through the shared canonical gate builder. Conditional branches may
+contain the same expressions; the supported select condition remains `name = '1'`.
+Equivalent VHDL and SystemVerilog fixtures use the same canonical And, Not and
+Xor models. Unsupported operators, mismatched scalar types and non-binary
+character literals are rejected before the adapter publishes a design.
+
+Scalar-expression validation (2026-09-21): all 52 focused lexer, parser,
+analyzer, shared-primitive, adapter, SystemVerilog and NVC reference tests
+passed. All 26 standalone tests passed from an isolated copy; installation and
+a separate client using `ScalarType` through only `vhdl::frontend` also passed.

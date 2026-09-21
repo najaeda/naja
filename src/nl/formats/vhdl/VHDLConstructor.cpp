@@ -5,6 +5,7 @@
 
 #include "NLException.h"
 #include "NLName.h"
+#include "SNLBitNet.h"
 #include "SNLDesign.h"
 #include "SNLRTLPrimitives.h"
 #include "SNLScalarNet.h"
@@ -12,6 +13,7 @@
 #include "vhdl/Analyzer.h"
 #include "vhdl/Parser.h"
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,6 +28,16 @@ std::string_view nameKey(const vhdl::Name& name) {
 
 [[noreturn]] void unsupported(const std::string& message) {
   throw NLException("VHDL constructor: " + message);
+}
+
+SNLRTLPrimitives::GateKind logicGateKind(std::string_view op) {
+  if (op == "and") return SNLRTLPrimitives::GateKind::And;
+  if (op == "nand") return SNLRTLPrimitives::GateKind::Nand;
+  if (op == "or") return SNLRTLPrimitives::GateKind::Or;
+  if (op == "nor") return SNLRTLPrimitives::GateKind::Nor;
+  if (op == "xor") return SNLRTLPrimitives::GateKind::Xor;
+  if (op == "xnor") return SNLRTLPrimitives::GateKind::Xnor;
+  unsupported("unsupported scalar logical operator: " + std::string(op));
 }
 
 }  // namespace
@@ -65,7 +77,7 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     return expression.canonical.empty() ? std::string_view(expression.text)
                                         : std::string_view(expression.canonical);
   };
-  std::string_view selectName, trueName, falseName;
+  std::string selectName;
   if (clocked) {
     const auto& process = architecture.processes.front();
     if (nameKey(process.sensitivity) != nameKey(process.eventSignal) ||
@@ -76,25 +88,24 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     selectName = nameKey(process.eventSignal);
   } else {
     const auto& value = *assignment.value;
-    if (value.kind != vhdl::Expression::Kind::Conditional || !value.condition ||
-        value.condition->kind != vhdl::Expression::Kind::Binary ||
-        value.condition->text != "=") {
-      unsupported("expected a conditional assignment with an equality condition");
+    if (analyzed.getType(value) != vhdl::ScalarType::Bit) {
+      unsupported("concurrent assignment value must have scalar bit type");
     }
-
-    const vhdl::Expression* selectExpression = value.condition->left.get();
-    const vhdl::Expression* literalExpression = value.condition->right.get();
-    if (selectExpression->kind != vhdl::Expression::Kind::Name ||
-        literalExpression->kind != vhdl::Expression::Kind::CharacterLiteral ||
-        literalExpression->text != "'1'") {
-      unsupported("the condition must compare a scalar name with '1'");
+    if (value.kind == vhdl::Expression::Kind::Conditional) {
+      if (!value.condition || value.condition->kind != vhdl::Expression::Kind::Binary ||
+          value.condition->text != "=") {
+        unsupported("expected an equality condition");
+      }
+      const auto* selectExpression = value.condition->left.get();
+      const auto* literalExpression = value.condition->right.get();
+      if (selectExpression->kind != vhdl::Expression::Kind::Name ||
+          literalExpression->kind != vhdl::Expression::Kind::CharacterLiteral ||
+          literalExpression->text != "'1'") {
+        unsupported("the condition must compare a scalar name with '1'");
+      }
+      selectName = selectExpression->canonical.empty()
+          ? selectExpression->text : selectExpression->canonical;
     }
-    trueName = requireName(*value.left);
-    falseName = requireName(*value.right);
-
-    selectName = selectExpression->canonical.empty()
-        ? std::string_view(selectExpression->text)
-        : std::string_view(selectExpression->canonical);
   }
   std::unordered_map<std::string, vhdl::PortMode> portModes;
   for (const auto& port : entity.ports) {
@@ -172,12 +183,44 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     if (!internals.empty())
       unsupported("internal signals currently require a clocked process");
     checkMode(nameKey(assignment.target), vhdl::PortMode::Out, "assignment target");
+    const auto validateExpression = [&](const auto& self,
+                                        const vhdl::Expression& expression) -> void {
+      switch (expression.kind) {
+        case vhdl::Expression::Kind::Name: {
+          const auto name = expression.canonical.empty()
+              ? std::string_view(expression.text)
+              : std::string_view(expression.canonical);
+          checkMode(name, vhdl::PortMode::In, "expression operand");
+          return;
+        }
+        case vhdl::Expression::Kind::CharacterLiteral:
+          if (expression.text != "'0'" && expression.text != "'1'")
+            unsupported("only bit character literals '0' and '1' are supported");
+          return;
+        case vhdl::Expression::Kind::Unary:
+          if (expression.text != "not")
+            unsupported("unsupported scalar unary expression");
+          self(self, *expression.left);
+          return;
+        case vhdl::Expression::Kind::Binary:
+          logicGateKind(expression.text);
+          self(self, *expression.left);
+          self(self, *expression.right);
+          return;
+        default:
+          unsupported("unsupported scalar bit expression shape");
+      }
+    };
+    if (assignment.value->kind == vhdl::Expression::Kind::Conditional) {
+      checkMode(selectName, vhdl::PortMode::In, "select");
+      validateExpression(validateExpression, *assignment.value->left);
+      validateExpression(validateExpression, *assignment.value->right);
+    } else {
+      validateExpression(validateExpression, *assignment.value);
+    }
   }
-  checkMode(selectName, vhdl::PortMode::In, clocked ? "clock" : "select");
-  if (!clocked) {
-    checkMode(trueName, vhdl::PortMode::In, "true branch");
-    checkMode(falseName, vhdl::PortMode::In, "false branch");
-  }
+  if (clocked)
+    checkMode(selectName, vhdl::PortMode::In, "clock");
 
   struct Signal {
     SNLScalarNet* net;
@@ -220,8 +263,8 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     }
     return it->second;
   };
-  auto& select = findSignal(selectName);
   if (clocked) {
+    auto& select = findSignal(selectName);
     // The frontend has frozen RHS values at each scheduled write, applying
     // immediate variable assignments without forwarding scheduled signal writes.
     for (const auto& write : schedule.writes)
@@ -229,10 +272,58 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
           findSignal(write.source).net, findSignal(write.target).net);
   } else {
     auto& output = findSignal(nameKey(assignment.target));
-    auto& whenTrue = findSignal(trueName);
-    auto& whenFalse = findSignal(falseName);
-    SNLRTLPrimitives::createMux(design, select.net, {whenTrue.net},
-                                {whenFalse.net}, output.net);
+    std::function<SNLNet*(const vhdl::Expression&, SNLNet*)> lowerExpression;
+    lowerExpression = [&](const vhdl::Expression& expression,
+                          SNLNet* requestedOutput) -> SNLNet* {
+      if (expression.kind == vhdl::Expression::Kind::Name) {
+        const auto name = expression.canonical.empty()
+            ? std::string_view(expression.text)
+            : std::string_view(expression.canonical);
+        auto* input = findSignal(name).net;
+        if (!requestedOutput)
+          return input;
+        SNLRTLPrimitives::createGate(
+            design, SNLRTLPrimitives::GateKind::Buf, {input}, requestedOutput);
+        return requestedOutput;
+      }
+      if (expression.kind == vhdl::Expression::Kind::CharacterLiteral) {
+        auto* constant = requestedOutput
+            ? requestedOutput : SNLScalarNet::create(design);
+        constant->setType(expression.text == "'1'"
+            ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+        return constant;
+      }
+      if (expression.kind == vhdl::Expression::Kind::Unary) {
+        auto* input = lowerExpression(*expression.left, nullptr);
+        auto* result = requestedOutput
+            ? requestedOutput : SNLScalarNet::create(design);
+        SNLRTLPrimitives::createGate(
+            design, SNLRTLPrimitives::GateKind::Not, {input}, result);
+        return result;
+      }
+      if (expression.kind == vhdl::Expression::Kind::Binary) {
+        auto* left = lowerExpression(*expression.left, nullptr);
+        auto* right = lowerExpression(*expression.right, nullptr);
+        auto* result = requestedOutput
+            ? requestedOutput : SNLScalarNet::create(design);
+        SNLRTLPrimitives::createGate(
+            design, logicGateKind(expression.text), {left, right}, result);
+        return result;
+      }
+      if (expression.kind == vhdl::Expression::Kind::Conditional) {
+        auto* whenTrue = lowerExpression(*expression.left, nullptr);
+        auto* whenFalse = lowerExpression(*expression.right, nullptr);
+        auto* result = requestedOutput
+            ? requestedOutput : SNLScalarNet::create(design);
+        SNLRTLPrimitives::createMux(
+            design, findSignal(selectName).net,
+            {static_cast<SNLBitNet*>(whenTrue)},
+            {static_cast<SNLBitNet*>(whenFalse)}, result);
+        return result;
+      }
+      unsupported("unsupported scalar bit expression during lowering");
+    };
+    lowerExpression(*assignment.value, output.net);
   }
   return design;
 }

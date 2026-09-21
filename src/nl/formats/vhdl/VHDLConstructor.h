@@ -11,15 +11,16 @@ namespace naja::NL {
 
 class SNLDesign;
 
-/// Temporary Naja adapter for the scalar mux and clocked-register proof.
+/// Temporary Naja adapter for scalar combinational and clocked-register proofs.
 /// The standalone VHDL frontend remains independent of this class and SNL.
 class VHDLConstructor {
   public:
     explicit VHDLConstructor(NLLibrary* library) : library_(library) {}
 
-    /// Parse and lower one entity/architecture with one scalar conditional
-    /// assignment or one positive-edge event-guarded process over bit ports
-    /// and internal signals, with one scheduled write per signal destination.
+    /// Parse and lower one entity/architecture with one scalar bit expression,
+    /// including logical gates and a conditional assignment, or one positive-edge
+    /// event-guarded process over bit ports and internal signals, with one
+    /// scheduled write per signal destination.
     /// Scalar process variables may be temporary or retained state; retained
     /// variables must be assigned on every activation.
     SNLDesign* construct(std::string_view source) const;

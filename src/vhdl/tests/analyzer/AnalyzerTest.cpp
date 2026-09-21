@@ -72,6 +72,30 @@ end architecture rtl;
     EXPECT_NE(result.diagnostics[0].message.find("missing"), std::string::npos);
 }
 
+TEST(VHDLAnalyzerTest, TypeChecksScalarBitLogicalExpressions) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity logic is port (a, b, c : in bit; y : out bit); end;
+architecture rtl of logic is begin y <= (a and b) xor not c; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::Bit);
+    EXPECT_EQ(result.getType(*expression.left), vhdl::ScalarType::Bit);
+    EXPECT_EQ(result.getType(*expression.right), vhdl::ScalarType::Bit);
+}
+
+TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
+    for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
+        const auto parsed = vhdl::Parser::parse(std::string(
+            "entity logic is port(a, b : in bit; flag : in boolean; y : out bit); end; "
+            "architecture rtl of logic is begin y <= ") + expression + "; end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+}
+
 } // namespace
 
 TEST(VHDLAnalyzerTest, ResolvesAllClockedProcessNames) {
