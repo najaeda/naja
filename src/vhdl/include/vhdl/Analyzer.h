@@ -19,10 +19,25 @@ struct AnalysisResult {
     bool hasErrors() const { return !diagnostics.empty(); }
 };
 
+struct ScheduledWrite {
+    std::string target;
+    std::string source;
+    SourceSpan span;
+};
+
+struct ScheduleResult {
+    std::vector<ScheduledWrite> writes;
+    std::vector<AnalysisDiagnostic> diagnostics;
+    bool hasErrors() const { return !diagnostics.empty(); }
+};
+
 /// Performs name binding for the parser's initial entity/architecture slice.
 class Analyzer {
 public:
     static AnalysisResult analyze(const DesignFile& syntax);
+    /// Resolve immediate variable values and freeze scheduled signal RHS names.
+    /// Call after name analysis; only scalar-name, straight-line bodies qualify.
+    static ScheduleResult schedule(const ClockedProcess& process);
 };
 
 } // namespace vhdl

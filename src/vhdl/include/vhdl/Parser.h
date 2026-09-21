@@ -40,11 +40,14 @@ struct PortDeclaration {
     SourceSpan span;
 };
 
-struct SignalDeclaration {
+struct ObjectDeclaration {
     std::vector<Name> names;
     TypeMark type;
     SourceSpan span;
 };
+
+using SignalDeclaration = ObjectDeclaration;
+using VariableDeclaration = ObjectDeclaration;
 
 struct Expression {
     enum class Kind {
@@ -66,10 +69,13 @@ struct Expression {
     std::unique_ptr<Expression> condition;
 };
 
-struct ConcurrentAssignment {
+enum class AssignmentKind { Signal, Variable };
+
+struct Assignment {
     Name target;
     std::unique_ptr<Expression> value;
     SourceSpan span;
+    AssignmentKind kind = AssignmentKind::Signal;
 };
 
 // Restricted event-guarded process syntax; names remain unresolved here.
@@ -78,7 +84,8 @@ struct ClockedProcess {
     Name eventSignal;
     Name levelSignal;
     std::string level;
-    std::vector<ConcurrentAssignment> assignments;
+    std::vector<Assignment> assignments;
+    std::vector<VariableDeclaration> variables;
     SourceSpan span;
 };
 
@@ -91,7 +98,7 @@ struct EntityDeclaration {
 struct ArchitectureBody {
     Name name;
     Name entity;
-    std::vector<ConcurrentAssignment> assignments;
+    std::vector<Assignment> assignments;
     std::vector<ClockedProcess> processes;
     std::vector<SignalDeclaration> signals;
     SourceSpan span;

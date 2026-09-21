@@ -278,3 +278,85 @@ TEST_F(VHDLConstructorTest, PipelineUnsupportedSemanticsPublishNoDesign) {
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }
+
+TEST_F(VHDLConstructorTest, VariableSchedulingConnectivityAndCycles) {
+  std::ifstream fixture(SNL_VHDL_VARIABLES);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 4);
+  EXPECT_EQ(design->getNet(NLName("temp")), nullptr);
+  EXPECT_EQ(design->getNet(NLName("copy")), nullptr);
+  auto* clk = design->getScalarTerm(NLName("clk"))->getNet();
+  auto* d = design->getScalarTerm(NLName("d"))->getNet();
+  auto* stage = design->getNet(NLName("stage"));
+  auto* delayed = design->getScalarTerm(NLName("delayed"))->getNet();
+  auto* immediate = design->getScalarTerm(NLName("immediate"))->getNet();
+  auto* captured = design->getScalarTerm(NLName("captured"))->getNet();
+  std::unordered_map<SNLNet*, SNLNet*> drivers;
+  for (auto* instance : design->getInstances()) {
+    ASSERT_EQ(instance->getModel(), NLDB0::getDFF());
+    EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFClock())->getNet(), clk);
+    drivers.emplace(instance->getInstTerm(NLDB0::getDFFOutput())->getNet(),
+                    instance->getInstTerm(NLDB0::getDFFData())->getNet());
+  }
+  EXPECT_EQ(drivers.at(stage), d);
+  EXPECT_EQ(drivers.at(delayed), stage);
+  EXPECT_EQ(drivers.at(immediate), d);
+  EXPECT_EQ(drivers.at(captured), stage);
+  std::unordered_map<SNLNet*, int> values;
+  for (const auto& [output, data] : drivers) values[output] = -1;
+  std::ifstream reference;
+  if (const auto* path = std::getenv("VHDL_VARIABLE_REFERENCE")) {
+    reference.open(path);
+    ASSERT_TRUE(reference);
+  }
+  const std::vector<int> stimulus{1, 0, 1, 1, 0, 0, 1, 0};
+  for (std::size_t cycle = 0; cycle < stimulus.size(); ++cycle) {
+    values[d] = stimulus[cycle];
+    auto next = values;
+    for (const auto& [output, data] : drivers) next[output] = values.at(data);
+    values = next;
+    EXPECT_EQ(values.at(immediate), stimulus[cycle]);
+    EXPECT_EQ(values.at(delayed), cycle ? stimulus[cycle - 1] : -1);
+    EXPECT_EQ(values.at(captured), values.at(delayed));
+    if (cycle && reference.is_open()) {
+      for (auto* output : {delayed, immediate, captured}) {
+        int expected = -1;
+        ASSERT_TRUE(reference >> expected);
+        EXPECT_EQ(values.at(output), expected);
+      }
+    }
+  }
+  if (reference.is_open()) {
+    std::string trailing;
+    EXPECT_FALSE(reference >> trailing);
+  }
+}
+
+TEST_F(VHDLConstructorTest, UnsupportedVariablesPublishNoDesign) {
+  for (const auto& [declarations, body] : std::vector<std::pair<std::string, std::string>>{
+      {"variable v : bit;", "q <= v; v := d;"},
+      {"variable v : bit;", "v := v; q <= v;"},
+      {"variable v : bit := '0';", "v := d; q <= v;"},
+      {"variable v : std_logic;", "v := d; q <= v;"},
+      {"variable v : bit_vector(1 downto 0);", "v := d; q <= v;"},
+      {"variable v : bit;", "v <= d; q <= v;"},
+      {"variable v : bit;", "d := v; q <= d;"},
+      {"variable v : bit;", "v := missing; q <= v;"},
+      {"variable v, V : bit;", "v := d; q <= v;"},
+      {"variable clk : bit;", "clk := d; q <= clk;"},
+      {"variable v : bit;", "v := not d; q <= v;"},
+      {"variable v : bit;", "v := d after 1 ns; q <= v;"},
+      {"variable v : bit;", "if d = '1' then v := d; end if; q <= v;"},
+      {"variable v : bit;", "v := d; q <= v; q <= d;"},
+      {"variable v : bit;", "v := q; v := d; q <= v;"},
+      {"variable v : bit;", "v := d;"}}) {
+    SCOPED_TRACE(declarations + body);
+    const std::string source = "entity p is port(clk, d : in bit; q : out bit); end; "
+        "architecture rtl of p is begin process(clk) " + declarations +
+        " begin if clk'event and clk = '1' then " + body + " end if; end process; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}

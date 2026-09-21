@@ -124,14 +124,33 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
       internals.emplace(nameKey(name));
   }
   std::unordered_set<std::string> written;
+  vhdl::ScheduleResult schedule;
   if (clocked) {
-    for (const auto& write : architecture.processes.front().assignments) {
-      const std::string target(nameKey(write.target));
+    const auto& process = architecture.processes.front();
+    std::unordered_set<std::string> variables;
+    for (const auto& variable : process.variables) {
+      if (variable.type.constraint || variable.type.name.canonical != "bit")
+        unsupported("only scalar bit process variables are supported");
+      for (const auto& name : variable.names)
+        variables.emplace(nameKey(name));
+    }
+    for (const auto& statement : process.assignments) {
+      const auto data = requireName(*statement.value);
+      if (!variables.contains(std::string(data)) && !internals.contains(std::string(data)))
+        checkMode(data, vhdl::PortMode::In, "data");
+    }
+    schedule = vhdl::Analyzer::schedule(process);
+    if (schedule.hasErrors())
+      unsupported("scheduling failed: " + schedule.diagnostics.front().message);
+    if (schedule.writes.empty())
+      unsupported("a clocked process must schedule a signal write");
+    for (const auto& write : schedule.writes) {
+      const auto& target = write.target;
       if (!internals.contains(target))
         checkMode(target, vhdl::PortMode::Out, "assignment target");
       if (!written.insert(target).second)
         unsupported("multiple scheduled writes to one target are not supported");
-      const auto data = requireName(*write.value);
+      const auto& data = write.source;
       if (!internals.contains(std::string(data)))
         checkMode(data, vhdl::PortMode::In, "data");
     }
@@ -181,12 +200,11 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   };
   auto& select = findSignal(selectName);
   if (clocked) {
-    // Resolve every RHS to the current signal net, never to an earlier RHS.
-    // DFFs sample those nets together: source order cannot bypass a stage.
-    for (const auto& write : architecture.processes.front().assignments)
+    // The frontend has frozen RHS values at each scheduled write, applying
+    // immediate variable assignments without forwarding scheduled signal writes.
+    for (const auto& write : schedule.writes)
       SNLRTLPrimitives::createDFF(design, select.net,
-          findSignal(requireName(*write.value)).net,
-          findSignal(nameKey(write.target)).net);
+          findSignal(write.source).net, findSignal(write.target).net);
   } else {
     auto& output = findSignal(nameKey(assignment.target));
     auto& whenTrue = findSignal(trueName);

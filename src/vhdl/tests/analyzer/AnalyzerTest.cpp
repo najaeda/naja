@@ -105,3 +105,66 @@ stage <= missing; unknown <= stage; end if; end process; end;
     EXPECT_NE(result.diagnostics[2].message.find("missing"), std::string::npos);
     EXPECT_NE(result.diagnostics[3].message.find("unknown"), std::string::npos);
 }
+
+namespace {
+vhdl::ParseResult variableProcess(const std::string& declarations, const std::string& body) {
+    return vhdl::Parser::parse("entity p is port(clk, d, e : in bit; q, r : out bit); end; "
+        "architecture rtl of p is signal stage : bit; begin process(clk) " + declarations +
+        " begin if clk'event and clk = '1' then " + body + " end if; end process; end;");
+}
+}
+
+TEST(VHDLAnalyzerTest, SchedulesImmediateVariablesAndCurrentSignalsSeparately) {
+    const auto parsed = variableProcess("variable v, copy : bit;",
+        "stage <= d; v := stage; copy := v; q <= copy; v := e; r <= v; copy := d;");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    const auto scheduled = vhdl::Analyzer::schedule(parsed.syntax.architectures[0].processes[0]);
+    ASSERT_FALSE(scheduled.hasErrors());
+    ASSERT_EQ(scheduled.writes.size(), 3);
+    EXPECT_EQ(scheduled.writes[0].target, "stage");
+    EXPECT_EQ(scheduled.writes[0].source, "d");
+    EXPECT_EQ(scheduled.writes[1].target, "q");
+    EXPECT_EQ(scheduled.writes[1].source, "stage");
+    EXPECT_EQ(scheduled.writes[2].target, "r");
+    EXPECT_EQ(scheduled.writes[2].source, "e");
+    EXPECT_LT(scheduled.writes[0].span.end.offset, scheduled.writes[1].span.start.offset);
+}
+
+TEST(VHDLAnalyzerTest, RejectsVariableObjectClassAndScopeErrors) {
+    for (const auto& [decl, body] : std::vector<std::pair<std::string, std::string>>{
+        {"variable v : bit;", "v <= d; q <= v;"},
+        {"variable v : bit;", "stage := d; q <= stage;"},
+        {"variable v : bit;", "missing := d; q <= v;"},
+        {"variable v, V : bit;", "v := d; q <= v;"},
+        {"variable stage : bit;", "stage := d; q <= stage;"},
+        {"variable clk : bit;", "clk := d; q <= clk;"},
+        {"variable v : bit;", "v := missing; q <= v;"}}) {
+        const auto parsed = variableProcess(decl, body);
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+    const auto parsed = vhdl::Parser::parse(R"(
+entity p is port(clk, d : in bit; q, r : out bit); end;
+architecture rtl of p is begin
+process(clk) variable v : bit; begin if clk'event and clk = '1' then
+v := d; q <= v; end if; end process;
+process(clk) begin if clk'event and clk = '1' then r <= v; end if; end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, RejectsRetainedVariableReadsWithoutPartialSchedule) {
+    for (const auto* body : {"q <= v; v := d;", "v := v; q <= v;",
+                            "q <= d; copy := v; v := d;", "v := not d; q <= v;"}) {
+        const auto parsed = variableProcess("variable v, copy : bit;", body);
+        ASSERT_FALSE(parsed.hasErrors());
+        ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+        const auto scheduled = vhdl::Analyzer::schedule(parsed.syntax.architectures[0].processes[0]);
+        EXPECT_TRUE(scheduled.hasErrors());
+        EXPECT_TRUE(scheduled.writes.empty());
+        EXPECT_LT(scheduled.diagnostics[0].span.start.offset, scheduled.diagnostics[0].span.end.offset);
+    }
+}

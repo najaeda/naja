@@ -90,7 +90,7 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                         {"duplicate signal declaration '" + name.spelling + "'", name.span});
             }
         }
-        const auto checkAssignment = [&](const ConcurrentAssignment& assignment) {
+        const auto checkAssignment = [&](const Assignment& assignment) {
             if (!declarations.contains(std::string(key(assignment.target)))) {
                 result.diagnostics.push_back(
                     {"no declaration for assignment target '" + assignment.target.spelling + "'",
@@ -101,16 +101,75 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
         for (const auto& assignment : architecture.assignments)
             checkAssignment(assignment);
         for (const auto& process : architecture.processes) {
+            auto localDeclarations = declarations;
+            std::unordered_set<std::string> variables;
+            for (const auto& declaration : process.variables) {
+                for (const auto& name : declaration.names) {
+                    const std::string variable(key(name));
+                    if (!variables.insert(variable).second)
+                        result.diagnostics.push_back(
+                            {"duplicate variable declaration '" + name.spelling + "'", name.span});
+                    // Shadowing needs proper scoped binding throughout the adapter.
+                    if (!localDeclarations.insert(variable).second && declarations.contains(variable))
+                        result.diagnostics.push_back(
+                            {"variable shadowing is not supported: '" + name.spelling + "'", name.span});
+                }
+            }
             for (const auto* name : {&process.sensitivity, &process.eventSignal,
                                      &process.levelSignal}) {
                 if (!declarations.contains(std::string(key(*name))))
                     result.diagnostics.push_back(
                         {"no declaration for clock name '" + name->spelling + "'", name->span});
             }
-            for (const auto& assignment : process.assignments)
-                checkAssignment(assignment);
+            for (const auto& assignment : process.assignments) {
+                const std::string target(key(assignment.target));
+                if (!localDeclarations.contains(target))
+                    result.diagnostics.push_back(
+                        {"no declaration for assignment target '" + assignment.target.spelling + "'",
+                         assignment.target.span});
+                else if ((assignment.kind == AssignmentKind::Variable) != variables.contains(target))
+                    result.diagnostics.push_back(
+                        {"assignment operator does not match object class for '" +
+                             assignment.target.spelling + "'", assignment.target.span});
+                checkExpression(*assignment.value, localDeclarations, result);
+            }
         }
     }
+    return result;
+}
+
+ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
+    ScheduleResult result;
+    std::unordered_set<std::string> variables;
+    for (const auto& declaration : process.variables)
+        for (const auto& name : declaration.names)
+            variables.emplace(key(name));
+    std::unordered_map<std::string, std::string> values;
+    for (const auto& assignment : process.assignments) {
+        const auto& expression = *assignment.value;
+        if (expression.kind != Expression::Kind::Name) {
+            result.diagnostics.push_back({"scheduled data values must be scalar names", expression.span});
+            continue;
+        }
+        std::string source = expression.canonical.empty() ? expression.text : expression.canonical;
+        if (variables.contains(source)) {
+            const auto value = values.find(source);
+            if (value == values.end()) {
+                result.diagnostics.push_back(
+                    {"variable read before assignment requires unsupported retained state: '" +
+                         expression.text + "'", expression.span});
+                continue;
+            }
+            source = value->second;
+        }
+        const std::string target(key(assignment.target));
+        if (assignment.kind == AssignmentKind::Variable)
+            values[target] = source;
+        else
+            result.writes.push_back({target, source, assignment.span});
+    }
+    if (result.hasErrors())
+        result.writes.clear();
     return result;
 }
 

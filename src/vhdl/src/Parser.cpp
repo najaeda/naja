@@ -241,6 +241,34 @@ private:
         return DiscreteRange{*left, *right, ascending, join(start, lexed_.tokens[index_ - 1].span)};
     }
 
+    std::optional<ObjectDeclaration> parseObjectDeclaration() {
+        const auto start = lexed_.tokens[index_ - 1].span;
+        std::vector<Name> names;
+        do {
+            auto name = parseName();
+            if (!name)
+                return std::nullopt;
+            names.push_back(std::move(*name));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(":"))
+            return std::nullopt;
+        auto typeName = parseName();
+        if (!typeName)
+            return std::nullopt;
+        TypeMark type{std::move(*typeName), std::nullopt};
+        if (acceptSymbol("(")) {
+            auto range = parseDiscreteRange();
+            if (!range || !expectSymbol(")"))
+                return std::nullopt;
+            type.constraint = *range;
+        }
+        // Initializers and other declaration semantics are not discarded.
+        if (!expectSymbol(";"))
+            return std::nullopt;
+        return ObjectDeclaration{std::move(names), std::move(type),
+            join(start, lexed_.tokens[index_ - 1].span)};
+    }
+
     std::optional<ArchitectureBody> parseArchitecture() {
         const auto start = advance().span;
         auto name = parseName();
@@ -251,32 +279,10 @@ private:
             return std::nullopt;
         ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, {}, {}, start};
         while (acceptWord("signal")) {
-            const auto signalStart = lexed_.tokens[index_ - 1].span;
-            std::vector<Name> names;
-            do {
-                auto signalName = parseName();
-                if (!signalName)
-                    return std::nullopt;
-                names.push_back(std::move(*signalName));
-            } while (acceptSymbol(","));
-            if (!expectSymbol(":"))
+            auto declaration = parseObjectDeclaration();
+            if (!declaration)
                 return std::nullopt;
-            auto typeName = parseName();
-            if (!typeName)
-                return std::nullopt;
-            TypeMark type{std::move(*typeName), std::nullopt};
-            if (acceptSymbol("(")) {
-                auto range = parseDiscreteRange();
-                if (!range || !expectSymbol(")"))
-                    return std::nullopt;
-                type.constraint = *range;
-            }
-            // Initializers, signal kinds, and other declaration semantics must
-            // not be skipped: the proof has no representation for them.
-            if (!expectSymbol(";"))
-                return std::nullopt;
-            architecture.signals.push_back({std::move(names), std::move(type),
-                join(signalStart, lexed_.tokens[index_ - 1].span)});
+            architecture.signals.push_back(std::move(*declaration));
         }
         if (!expectWord("begin"))
             return std::nullopt;
@@ -290,7 +296,7 @@ private:
                     synchronize("end");
             }
             else {
-                auto assignment = parseConcurrentAssignment();
+                auto assignment = parseAssignment();
                 if (assignment)
                     architecture.assignments.push_back(std::move(*assignment));
                 else
@@ -321,6 +327,13 @@ private:
         if (!sensitivity || !expectSymbol(")"))
             return std::nullopt;
         acceptWord("is");
+        std::vector<VariableDeclaration> variables;
+        while (acceptWord("variable")) {
+            auto declaration = parseObjectDeclaration();
+            if (!declaration)
+                return std::nullopt;
+            variables.push_back(std::move(*declaration));
+        }
         if (!expectWord("begin") || !expectWord("if"))
             return std::nullopt;
         auto eventSignal = parseName();
@@ -338,9 +351,9 @@ private:
         advance();
         if (!expectWord("then"))
             return std::nullopt;
-        std::vector<ConcurrentAssignment> assignments;
+        std::vector<Assignment> assignments;
         do {
-            auto assignment = parseConcurrentAssignment();
+            auto assignment = parseAssignment(true);
             if (!assignment)
                 return std::nullopt;
             assignments.push_back(std::move(*assignment));
@@ -350,14 +363,18 @@ private:
             !expectSymbol(";"))
             return std::nullopt;
         return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
-            std::move(*levelSignal), level.text, std::move(assignments),
+            std::move(*levelSignal), level.text, std::move(assignments), std::move(variables),
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 
-    std::optional<ConcurrentAssignment> parseConcurrentAssignment() {
+    std::optional<Assignment> parseAssignment(bool sequential = false) {
         const auto start = current().span;
         auto target = parseName();
-        if (!target || !expectSymbol("<="))
+        if (!target)
+            return std::nullopt;
+        const auto kind = sequential && acceptSymbol(":=")
+            ? AssignmentKind::Variable : AssignmentKind::Signal;
+        if (kind == AssignmentKind::Signal && !expectSymbol("<="))
             return std::nullopt;
         auto value = parseExpression(0);
         if (value && acceptWord("when")) {
@@ -377,8 +394,8 @@ private:
         }
         if (!value || !expectSymbol(";"))
             return std::nullopt;
-        return ConcurrentAssignment{std::move(*target), std::move(value),
-                                    join(start, lexed_.tokens[index_ - 1].span)};
+        return Assignment{std::move(*target), std::move(value),
+                                    join(start, lexed_.tokens[index_ - 1].span), kind};
     }
 
     int precedence() const {

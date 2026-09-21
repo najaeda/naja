@@ -5,7 +5,8 @@ VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
 ports, internal signal declarations, concurrent and conditional signal
 assignments, and multiple scheduled writes in a restricted event-guarded process. The initial analyzer binds architectures to entities and
-resolves names in assignment values, conditions, and clock guards. Type analysis and
+resolves names in assignment values, conditions, clock guards and process-local
+variables; its restricted scheduler resolves immediate variable assignments. Type analysis and
 elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
@@ -108,7 +109,7 @@ end;
 
 The sensitivity, event and level names must resolve to the same input port.
 Each assignment targets a distinct output port or internal signal; its RHS is
-an input port or internal signal name (parentheses are accepted). Every internal
+an input port, internal signal or assigned local variable name (parentheses are accepted). Every internal
 signal must have exactly one assignment in this process. Basic names are case
 insensitive. Output-port reads remain unsupported. Multiple processes and mixing
 concurrent assignments with the process are rejected, even for disjoint drivers.
@@ -118,7 +119,8 @@ spans; the analyzer resolves every internal name and diagnoses duplicates and
 missing declarations without importing Naja/SNL. The adapter validates all types,
 names, modes and supported driver patterns before creating any design. It creates
 all signal nets first, then calls `SNLRTLPrimitives::createDFF()` for each write.
-Every RHS connects to the current signal net, never an earlier assignment's RHS.
+Signal reads connect to the current signal net; local variable reads use the
+immediate-value environment described below.
 Consequently `q` captures the previous `stage` value in either source order.
 Repeated writes to one target are rejected rather than implementing VHDL's
 last-write scheduling rule incorrectly.
@@ -143,12 +145,12 @@ and the reference comparison starts after two rising edges. Explicit initializer
 (including `'0'`) are rejected. No initialization metadata is silently discarded.
 
 Unsupported forms include reset/enable or other nested control flow, falling-edge
-registers, variables, repeated targets, multiple drivers, undriven internal
+registers, retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof: general type analysis,
-variables, hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
+retained variables, hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
 coverage remain future work.
 
 Validation (2026-09-21): 29 focused CMake tests passed in
@@ -157,3 +159,61 @@ write orders and the existing SV mux/register checks. All 18 standalone tests
 passed from a temporary copy, followed by installation and a separate client
 linked only to the exported `vhdl::frontend` target. The local LLVM build used
 `-DCMAKE_CXX_SCAN_FOR_MODULES=OFF` to avoid a stale dependency-scanner path.
+
+## Immediate process-variable proof
+
+The clocked scalar proof now accepts process-local `variable` declarations and
+ordered `:=` assignments. Variables must be assigned before every read in the
+same activation. For example:
+
+```vhdl
+process(clk)
+  variable temp, copy : bit;
+begin
+  if clk'event and clk = '1' then
+    stage <= d;
+    temp := stage;
+    copy := temp;
+    delayed <= copy;
+    temp := d;
+    immediate <= temp;
+    captured <= copy;
+    copy := d;
+  end if;
+end process;
+```
+
+`delayed` and `captured` receive the previous `stage`; `immediate` receives `d`
+on this edge. Reassigning `temp` does not change the value already copied into
+`copy`, and reassigning `copy` does not change an earlier scheduled signal RHS.
+The four signal destinations use canonical DFFs; these temporary variables
+introduce no nets or additional storage.
+
+The standalone AST distinguishes signal and variable assignments and preserves
+source order, declaration groups and spans. Name analysis checks local scope,
+duplicates and assignment object class (`<=` for signals, `:=` for variables).
+`Analyzer::schedule()` uses a separate immediate-value environment and returns
+frozen source/target names for signal writes. The adapter validates scalar types
+and input/internal-signal reads before creating the design, then consumes that
+schedule through the shared DFF builder. No Naja/SNL dependency was added to the
+frontend.
+
+This is deliberately a temporary-variable profile. VHDL process variables can
+retain state across activations: a read before assignment, including `v := v`,
+is diagnosed as unsupported retained state, not treated as a wire or initialized
+to zero. Explicit initializers, shared variables, local shadowing, non-`bit`
+types, control flow and timing remain rejected. Variable reassignment is allowed;
+repeated signal targets remain unsupported. Reads of output ports remain outside
+this proof. Variable-only processes without a scheduled signal write are rejected.
+
+`VariableSchedulingConnectivityAndCycles` checks the four DFFs and compares a
+simultaneous-sampling evaluator against the shared `variables.vhd` fixture run
+by NVC. The testbench checks immediate and delayed values and stability between
+rising edges. `VHDLVariableReference` is enabled alongside the pipeline reference
+when NVC and Python are available. Comparisons retain the existing post-fill
+boundary; hardware power-up state is not promised.
+
+Variable-proof validation (2026-09-21): all 37 focused CMake tests passed,
+including pipeline and variable comparisons against NVC 1.23.0. All 23 standalone
+frontend tests passed from a temporary copy. An installed-target client also
+parsed, analyzed and scheduled `v := d; q <= v;` using only `vhdl::frontend`.

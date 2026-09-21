@@ -132,7 +132,7 @@ TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {
     for (const auto* body : {
         "stage <= d after 1 ns;", "stage <= transport d;",
         "stage <= reject 1 ns inertial d;", "stage <= d, d after 2 ns;",
-        "stage := d;", "wait;", "null;",
+        "wait;", "null;",
         "if d = '1' then stage <= d; end if;",
         "stage <= d; else stage <= d;", ""}) {
         SCOPED_TRACE(body);
@@ -141,4 +141,37 @@ TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {
             "if clk'event and clk = '1' then ") + body + " end if; end process; end;";
         EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
     }
+}
+
+TEST(VHDLParserTest, PreservesVariablesAndAssignmentKindsInSourceOrder) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity p is port(clk, d : in bit; q : out bit); end;
+architecture rtl of p is begin
+process(clk) is variable Temp, copy : bit; variable other : bit;
+begin if clk'event and clk = '1' then
+Temp := d; copy := (TEMP); q <= copy; Temp := other;
+end if; end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& process = parsed.syntax.architectures.front().processes.front();
+    ASSERT_EQ(process.variables.size(), 2);
+    ASSERT_EQ(process.variables[0].names.size(), 2);
+    EXPECT_EQ(process.variables[0].names[0].canonical, "temp");
+    EXPECT_EQ(process.variables[0].type.name.canonical, "bit");
+    ASSERT_EQ(process.assignments.size(), 4);
+    EXPECT_EQ(process.assignments[0].kind, vhdl::AssignmentKind::Variable);
+    EXPECT_EQ(process.assignments[2].kind, vhdl::AssignmentKind::Signal);
+    EXPECT_LT(process.variables[0].span.end.offset, process.assignments[0].span.start.offset);
+    EXPECT_LT(process.assignments[2].span.end.offset, process.assignments[3].span.start.offset);
+}
+
+TEST(VHDLParserTest, RejectsVariableInitializationAndUnsupportedDeclarations) {
+    for (const auto* declaration : {"variable v : bit := '0';",
+         "shared variable v : bit;", "constant v : bit := '1';"}) {
+        const std::string source = std::string("entity p is end; architecture rtl of p is begin "
+            "process(clk) ") + declaration +
+            " begin if clk'event and clk = '1' then v := d; end if; end process; end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+    EXPECT_TRUE(vhdl::Parser::parse("entity p is end; architecture rtl of p is begin v := d; end;").hasErrors());
 }
