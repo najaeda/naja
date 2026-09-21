@@ -40,6 +40,12 @@ struct PortDeclaration {
     SourceSpan span;
 };
 
+struct SignalDeclaration {
+    std::vector<Name> names;
+    TypeMark type;
+    SourceSpan span;
+};
+
 struct Expression {
     enum class Kind {
         Name,
@@ -72,7 +78,7 @@ struct ClockedProcess {
     Name eventSignal;
     Name levelSignal;
     std::string level;
-    ConcurrentAssignment assignment;
+    std::vector<ConcurrentAssignment> assignments;
     SourceSpan span;
 };
 
@@ -87,6 +93,7 @@ struct ArchitectureBody {
     Name entity;
     std::vector<ConcurrentAssignment> assignments;
     std::vector<ClockedProcess> processes;
+    std::vector<SignalDeclaration> signals;
     SourceSpan span;
 };
 

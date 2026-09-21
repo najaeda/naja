@@ -18,7 +18,8 @@ class VHDLConstructor {
     explicit VHDLConstructor(NLLibrary* library) : library_(library) {}
 
     /// Parse and lower one entity/architecture with one scalar conditional
-    /// assignment or one positive-edge event-guarded process over bit ports.
+    /// assignment or one positive-edge event-guarded process over bit ports
+    /// and internal signals, with one scheduled write per destination.
     SNLDesign* construct(std::string_view source) const;
 
   private:

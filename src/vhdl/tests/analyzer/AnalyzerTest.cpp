@@ -85,3 +85,23 @@ end;
 )");
     EXPECT_EQ(result.diagnostics.size(), 5);
 }
+
+TEST(VHDLAnalyzerTest, InternalSignalsResolveAcrossAllScheduledWrites) {
+    EXPECT_FALSE(analyze(R"(
+entity p is port(clk, d : in bit; q : out bit); end;
+architecture rtl of p is signal Stage : bit;
+begin process(clk) begin if clk'event and clk = '1' then
+q <= STAGE; stage <= d; end if; end process; end;
+)").hasErrors());
+    const auto result = analyze(R"(
+entity p is port(clk, d : in bit; q : out bit); end;
+architecture rtl of p is signal stage, STAGE : bit; signal D : bit;
+begin process(clk) begin if clk'event and clk = '1' then
+stage <= missing; unknown <= stage; end if; end process; end;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 4);
+    EXPECT_NE(result.diagnostics[0].message.find("duplicate signal"), std::string::npos);
+    EXPECT_NE(result.diagnostics[1].message.find("duplicate signal"), std::string::npos);
+    EXPECT_NE(result.diagnostics[2].message.find("missing"), std::string::npos);
+    EXPECT_NE(result.diagnostics[3].message.find("unknown"), std::string::npos);
+}

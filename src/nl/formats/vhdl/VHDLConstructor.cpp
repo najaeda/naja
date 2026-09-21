@@ -14,6 +14,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace naja::NL {
 namespace {
@@ -55,7 +56,7 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     unsupported("exactly one concurrent assignment or clocked process is supported");
   }
   const bool clocked = !architecture.processes.empty();
-  const auto& assignment = clocked ? architecture.processes.front().assignment
+  const auto& assignment = clocked ? architecture.processes.front().assignments.front()
                                    : architecture.assignments.front();
   const auto requireName = [](const vhdl::Expression& expression) -> std::string_view {
     if (expression.kind != vhdl::Expression::Kind::Name) {
@@ -73,7 +74,6 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
       unsupported("expected matching sensitivity/event/level clocks and positive edge");
     }
     selectName = nameKey(process.eventSignal);
-    trueName = requireName(*assignment.value);
   } else {
     const auto& value = *assignment.value;
     if (value.kind != vhdl::Expression::Kind::Conditional || !value.condition ||
@@ -116,11 +116,39 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
                   (mode == vhdl::PortMode::Out ? "out" : "in") + " port");
     }
   };
-  checkMode(nameKey(assignment.target), vhdl::PortMode::Out, "assignment target");
+  std::unordered_set<std::string> internals;
+  for (const auto& signal : architecture.signals) {
+    if (signal.type.constraint || signal.type.name.canonical != "bit")
+      unsupported("only scalar bit internal signals are supported");
+    for (const auto& name : signal.names)
+      internals.emplace(nameKey(name));
+  }
+  std::unordered_set<std::string> written;
+  if (clocked) {
+    for (const auto& write : architecture.processes.front().assignments) {
+      const std::string target(nameKey(write.target));
+      if (!internals.contains(target))
+        checkMode(target, vhdl::PortMode::Out, "assignment target");
+      if (!written.insert(target).second)
+        unsupported("multiple scheduled writes to one target are not supported");
+      const auto data = requireName(*write.value);
+      if (!internals.contains(std::string(data)))
+        checkMode(data, vhdl::PortMode::In, "data");
+    }
+    for (const auto& internal : internals) {
+      if (!written.contains(internal))
+        unsupported("internal signal has no supported driver: " + internal);
+    }
+  } else {
+    if (!internals.empty())
+      unsupported("internal signals currently require a clocked process");
+    checkMode(nameKey(assignment.target), vhdl::PortMode::Out, "assignment target");
+  }
   checkMode(selectName, vhdl::PortMode::In, clocked ? "clock" : "select");
-  checkMode(trueName, vhdl::PortMode::In, clocked ? "data" : "true branch");
-  if (!clocked)
+  if (!clocked) {
+    checkMode(trueName, vhdl::PortMode::In, "true branch");
     checkMode(falseName, vhdl::PortMode::In, "false branch");
+  }
 
   struct Signal {
     SNLScalarNet* net;
@@ -138,19 +166,30 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     }
   }
 
+  for (const auto& signal : architecture.signals) {
+    for (const auto& name : signal.names)
+      signals.emplace(std::string(nameKey(name)),
+          Signal{SNLScalarNet::create(design, NLName(name.spelling))});
+  }
+
   const auto findSignal = [&signals](std::string_view name) -> Signal& {
     const auto it = signals.find(std::string(name));
     if (it == signals.end()) {
-      unsupported("name is not a supported scalar port: " + std::string(name));
+      unsupported("name is not a supported scalar signal: " + std::string(name));
     }
     return it->second;
   };
-  auto& output = findSignal(nameKey(assignment.target));
   auto& select = findSignal(selectName);
-  auto& whenTrue = findSignal(trueName);
   if (clocked) {
-    SNLRTLPrimitives::createDFF(design, select.net, whenTrue.net, output.net);
+    // Resolve every RHS to the current signal net, never to an earlier RHS.
+    // DFFs sample those nets together: source order cannot bypass a stage.
+    for (const auto& write : architecture.processes.front().assignments)
+      SNLRTLPrimitives::createDFF(design, select.net,
+          findSignal(requireName(*write.value)).net,
+          findSignal(nameKey(write.target)).net);
   } else {
+    auto& output = findSignal(nameKey(assignment.target));
+    auto& whenTrue = findSignal(trueName);
     auto& whenFalse = findSignal(falseName);
     SNLRTLPrimitives::createMux(design, select.net, {whenTrue.net},
                                 {whenFalse.net}, output.net);

@@ -9,6 +9,7 @@
 #include "NLLibrary.h"
 #include "NLUniverse.h"
 #include "SNLBusTerm.h"
+#include "SNLBitNet.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -19,6 +20,10 @@
 #include "VHDLConstructor.h"
 
 #include <filesystem>
+#include <fstream>
+#include <cstdlib>
+#include <unordered_map>
+#include <vector>
 
 using namespace naja::NL;
 
@@ -167,5 +172,109 @@ TEST_F(VHDLConstructorTest, ClockedPortTypesAndInitializationAreRejected) {
         "end if; end process; end;";
     EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
     EXPECT_EQ(library_->getSNLDesign(NLName("reg")), nullptr);
+  }
+}
+
+namespace {
+std::string pipelineSource(const std::string& declarations, const std::string& writes) {
+  return "entity pipeline is port(clk, d : in bit; q : out bit); end; "
+      "architecture rtl of pipeline is " + declarations +
+      " begin process(clk) is begin if clk'event and clk = '1' then " +
+      writes + " end if; end process; end;";
+}
+}
+
+TEST_F(VHDLConstructorTest, PipelineConnectivityAndCycles) {
+  std::ifstream fixture(SNL_VHDL_PIPELINE);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  std::vector<std::string> sources{source,
+      pipelineSource("signal stage : bit;", "q <= STAGE; Stage <= (d);"),
+      pipelineSource("signal stage, extra : bit;", "extra <= stage; q <= stage; stage <= d;")};
+  for (const auto& input : sources) {
+    auto* design = VHDLConstructor(library_).construct(input);
+    const bool extra = input.find("extra") != std::string::npos;
+    ASSERT_EQ(design->getInstances().size(), extra ? 3 : 2);
+    auto* clk = design->getScalarTerm(NLName("clk"))->getNet();
+    auto* d = design->getScalarTerm(NLName("d"))->getNet();
+    auto* q = design->getScalarTerm(NLName("q"))->getNet();
+    auto* stage = design->getNet(NLName("stage"));
+    ASSERT_NE(stage, nullptr);
+    EXPECT_EQ(design->getScalarTerm(NLName("stage")), nullptr);
+    std::unordered_map<SNLNet*, SNLNet*> drivers;
+    for (auto* instance : design->getInstances()) {
+      ASSERT_EQ(instance->getModel(), NLDB0::getDFF());
+      EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFClock())->getNet(), clk);
+      drivers.emplace(instance->getInstTerm(NLDB0::getDFFOutput())->getNet(),
+                      instance->getInstTerm(NLDB0::getDFFData())->getNet());
+    }
+    EXPECT_EQ(drivers.at(stage), d);
+    EXPECT_EQ(drivers.at(q), stage);
+    if (extra) EXPECT_EQ(drivers.at(design->getNet(NLName("extra"))), stage);
+    // No DFF power-up state is promised. Start unknown, then compare only
+    // after two rising edges have filled both stages with known input data.
+    std::unordered_map<SNLNet*, int> values;
+    for (const auto& [output, data] : drivers) values[output] = -1;
+    const std::vector<int> stimulus{1, 0, 1, 1, 0, 0, 1, 0};
+    std::vector<int> observed;
+    for (std::size_t cycle = 0; cycle < stimulus.size(); ++cycle) {
+      values[d] = stimulus[cycle];
+      auto next = values;
+      for (const auto& [output, data] : drivers) next[output] = values.at(data);
+      values = next;
+      if (cycle) {
+        EXPECT_EQ(values.at(q), stimulus[cycle - 1]);
+        observed.push_back(values.at(q));
+      }
+      // Changing data with no rising edge leaves the sampled outputs intact.
+      values[d] = 1 - stimulus[cycle];
+      EXPECT_EQ(values.at(q), cycle ? stimulus[cycle - 1] : -1);
+    }
+    if (const auto* path = std::getenv("VHDL_PIPELINE_REFERENCE")) {
+      std::ifstream reference(path);
+      ASSERT_TRUE(reference);
+      for (int actual : observed) {
+        int expected = -1;
+        ASSERT_TRUE(reference >> expected);
+        EXPECT_EQ(actual, expected);
+      }
+      std::string trailing;
+      EXPECT_FALSE(reference >> trailing);
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, PipelineUnsupportedSemanticsPublishNoDesign) {
+  for (const auto& [declarations, writes] : std::vector<std::pair<std::string, std::string>>{
+      {"signal stage : bit := '1';", "stage <= d; q <= stage;"},
+      {"signal stage : bit := '0';", "stage <= d; q <= stage;"},
+      {"signal stage : std_logic;", "stage <= d; q <= stage;"},
+      {"signal stage : bit_vector(1 downto 0);", "stage <= d; q <= stage;"},
+      {"signal stage : bit bus;", "stage <= d; q <= stage;"},
+      {"signal stage, STAGE : bit;", "stage <= d; q <= stage;"},
+      {"signal d : bit;", "q <= d;"},
+      {"signal stage : bit;", "q <= stage;"},
+      {"signal stage : bit;", "stage <= d; q <= missing;"},
+      {"signal stage : bit;", "stage <= d; q <= stage; stage <= clk;"},
+      {"signal stage : bit;", "stage <= q; q <= stage;"},
+      {"signal stage : bit;", "stage <= d; d <= stage;"},
+      {"signal stage : bit;", "stage <= d; q <= stage after 1 ns;"},
+      {"signal stage : bit;", "stage <= transport d; q <= stage;"},
+      {"signal stage : bit;", "stage <= d; if d = '1' then q <= stage; end if;"},
+      {"signal stage : bit;", "stage <= d; q <= stage; else q <= d;"},
+      {"signal stage : bit;", "stage <= d; q <= stage; wait;"},
+      {"signal stage : bit;", "stage <= d; q <= stage + d;"}}) {
+    SCOPED_TRACE(declarations + writes);
+    EXPECT_THROW(VHDLConstructor(library_).construct(pipelineSource(declarations, writes)), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+  for (const auto* suffix : {
+      "stage <= d;",
+      "process(clk) begin if clk'event and clk = '1' then stage <= d; end if; end process;"}) {
+    auto source = pipelineSource("signal stage : bit;", "stage <= d; q <= stage;");
+    source.insert(source.rfind("end;"), suffix);
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }

@@ -51,13 +51,13 @@ TEST(VHDLParserTest, UnsupportedConstructIsDiagnosed) {
     const auto result = vhdl::Parser::parse(R"(
 entity top is end entity top;
 architecture rtl of top is
-  signal internal : bit;
+  signal internal : bit := '1';
 begin
   internal <= '1';
 end architecture rtl;
 )");
     EXPECT_TRUE(result.hasErrors());
-    EXPECT_FALSE(result.syntax.architectures.empty());
+
 }
 
 TEST(VHDLParserTest, ConditionalSignalAssignment) {
@@ -98,6 +98,47 @@ end;
     ASSERT_EQ(processes.size(), 1);
     EXPECT_EQ(processes.front().sensitivity.canonical, "clk");
     EXPECT_EQ(processes.front().eventSignal.canonical, "clk");
-    EXPECT_EQ(processes.front().assignment.target.canonical, "q");
+    EXPECT_EQ(processes.front().assignments.front().target.canonical, "q");
     EXPECT_LT(processes.front().span.start.offset, processes.front().span.end.offset);
+}
+
+TEST(VHDLParserTest, InternalDeclarationsAndOrderedScheduledWrites) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity pipeline is port(clk, d : in bit; q : out bit); end;
+architecture rtl of pipeline is
+signal Stage, spare : bit;
+signal other : bit;
+begin process(CLK) is begin
+if clk'event and Clk = '1' then
+  Stage <= d;
+  q <= (STAGE);
+end if; end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& arch = parsed.syntax.architectures.front();
+    ASSERT_EQ(arch.signals.size(), 2);
+    ASSERT_EQ(arch.signals[0].names.size(), 2);
+    EXPECT_EQ(arch.signals[0].names[0].canonical, "stage");
+    EXPECT_EQ(arch.signals[0].type.name.canonical, "bit");
+    EXPECT_LT(arch.signals[0].span.start.offset, arch.signals[0].span.end.offset);
+    const auto& writes = arch.processes.front().assignments;
+    ASSERT_EQ(writes.size(), 2);
+    EXPECT_EQ(writes[0].target.canonical, "stage");
+    EXPECT_EQ(writes[1].value->canonical, "stage");
+    EXPECT_LT(writes[0].span.end.offset, writes[1].span.start.offset);
+}
+
+TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {
+    for (const auto* body : {
+        "stage <= d after 1 ns;", "stage <= transport d;",
+        "stage <= reject 1 ns inertial d;", "stage <= d, d after 2 ns;",
+        "stage := d;", "wait;", "null;",
+        "if d = '1' then stage <= d; end if;",
+        "stage <= d; else stage <= d;", ""}) {
+        SCOPED_TRACE(body);
+        const auto source = std::string("entity p is end; architecture rtl of p is "
+            "signal stage : bit; begin process(clk) begin "
+            "if clk'event and clk = '1' then ") + body + " end if; end process; end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
 }

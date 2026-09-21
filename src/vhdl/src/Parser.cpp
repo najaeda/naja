@@ -249,14 +249,37 @@ private:
         auto entity = parseName();
         if (!entity || !expectWord("is"))
             return std::nullopt;
-        if (!word("begin")) {
-            error("architecture declarations are not supported in this parser slice",
-                  current().span);
-            synchronize("begin");
+        ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, {}, {}, start};
+        while (acceptWord("signal")) {
+            const auto signalStart = lexed_.tokens[index_ - 1].span;
+            std::vector<Name> names;
+            do {
+                auto signalName = parseName();
+                if (!signalName)
+                    return std::nullopt;
+                names.push_back(std::move(*signalName));
+            } while (acceptSymbol(","));
+            if (!expectSymbol(":"))
+                return std::nullopt;
+            auto typeName = parseName();
+            if (!typeName)
+                return std::nullopt;
+            TypeMark type{std::move(*typeName), std::nullopt};
+            if (acceptSymbol("(")) {
+                auto range = parseDiscreteRange();
+                if (!range || !expectSymbol(")"))
+                    return std::nullopt;
+                type.constraint = *range;
+            }
+            // Initializers, signal kinds, and other declaration semantics must
+            // not be skipped: the proof has no representation for them.
+            if (!expectSymbol(";"))
+                return std::nullopt;
+            architecture.signals.push_back({std::move(names), std::move(type),
+                join(signalStart, lexed_.tokens[index_ - 1].span)});
         }
         if (!expectWord("begin"))
             return std::nullopt;
-        ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, {}, start};
         while (!atEnd() && !word("end")) {
             const auto before = current().span.start.offset;
             if (word("process")) {
@@ -315,13 +338,19 @@ private:
         advance();
         if (!expectWord("then"))
             return std::nullopt;
-        auto assignment = parseConcurrentAssignment();
-        if (!assignment || !expectWord("end") || !expectWord("if") ||
+        std::vector<ConcurrentAssignment> assignments;
+        do {
+            auto assignment = parseConcurrentAssignment();
+            if (!assignment)
+                return std::nullopt;
+            assignments.push_back(std::move(*assignment));
+        } while (!atEnd() && !word("end"));
+        if (!expectWord("end") || !expectWord("if") ||
             !expectSymbol(";") || !expectWord("end") || !expectWord("process") ||
             !expectSymbol(";"))
             return std::nullopt;
         return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
-            std::move(*levelSignal), level.text, std::move(*assignment),
+            std::move(*levelSignal), level.text, std::move(assignments),
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 

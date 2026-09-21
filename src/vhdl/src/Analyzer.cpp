@@ -83,6 +83,13 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
             for (const auto& name : port.names)
                 declarations.insert(std::string(key(name)));
         }
+        for (const auto& signal : architecture.signals) {
+            for (const auto& name : signal.names) {
+                if (!declarations.insert(std::string(key(name))).second)
+                    result.diagnostics.push_back(
+                        {"duplicate signal declaration '" + name.spelling + "'", name.span});
+            }
+        }
         const auto checkAssignment = [&](const ConcurrentAssignment& assignment) {
             if (!declarations.contains(std::string(key(assignment.target)))) {
                 result.diagnostics.push_back(
@@ -100,7 +107,8 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                     result.diagnostics.push_back(
                         {"no declaration for clock name '" + name->spelling + "'", name->span});
             }
-            checkAssignment(process.assignment);
+            for (const auto& assignment : process.assignments)
+                checkAssignment(assignment);
         }
     }
     return result;

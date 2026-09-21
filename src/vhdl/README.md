@@ -3,15 +3,16 @@
 This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
-ports, simple architecture bodies, concurrent assignments and conditional
-signal assignments, and a restricted event-guarded clocked process. The initial analyzer binds architectures to entities and
+ports, internal signal declarations, concurrent and conditional signal
+assignments, and multiple scheduled writes in a restricted event-guarded process. The initial analyzer binds architectures to entities and
 resolves names in assignment values, conditions, and clock guards. Type analysis and
 elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
 Naja currently has a deliberately narrow integration proof in
 `src/nl/formats/vhdl`: scalar `bit` ports and one concurrent conditional
-assignment are lowered to the shared SNL mux primitive. The proof rejects
+assignment are lowered to the shared SNL mux primitive. One clocked process
+with internal signals and distinct scheduled targets uses the shared DFF builder. The proof rejects
 nine-valued `std_logic` ports and every unsupported shape before creating a
 design. It does not provide general VHDL type analysis or elaboration.
 
@@ -81,30 +82,78 @@ pins version 1.23.0 and records its version-specific diagnostic and stage
 overrides in `tests/semantic/nvc_expectations.json`.
 
 To check independence, copy this directory alone to a temporary location and run
-the same commands there. A future standalone CMake library/exported consumer
-check will complement this executable test boundary as native code grows.
+the same commands there. The standalone CMake library and exported target can also be built, installed
+and consumed without any Naja/SNL dependency.
 
-## Scalar clocked-register proof
+## Scalar clocked scheduling proof
 
-The Phase 1 adapter also accepts one event-guarded process over scalar `bit`
-ports:
+The Phase 1 adapter accepts one event-guarded process over scalar `bit`
+ports and internal scalar `bit` signals, including grouped declarations:
 
 ```vhdl
-process(clk) begin
-  if clk'event and clk = '1' then q <= d; end if;
-end process;
+entity pipeline is
+  port (clk, d : in bit; q : out bit);
+end;
+architecture rtl of pipeline is
+  signal stage : bit;
+begin
+  process(clk) begin
+    if clk'event and clk = '1' then
+      stage <= d;
+      q <= stage;
+    end if;
+  end process;
+end;
 ```
 
-The sensitivity, event and level names must resolve to the same input port;
-`d` must be an input and `q` an output. Basic names are case insensitive.
-The parser retains these names and source spans, and the standalone analyzer
-checks their declarations. The adapter validates the binary type, port modes
-and process shape before creating a design, then calls the shared
-`SNLRTLPrimitives::createDFF()` positive-edge builder. Tests compare clock/data/
-output wiring with the canonical DFF also used by equivalent SystemVerilog.
+The sensitivity, event and level names must resolve to the same input port.
+Each assignment targets a distinct output port or internal signal; its RHS is
+an input port or internal signal name (parentheses are accepted). Every internal
+signal must have exactly one assignment in this process. Basic names are case
+insensitive. Output-port reads remain unsupported. Multiple processes and mixing
+concurrent assignments with the process are rejected, even for disjoint drivers.
 
-This deliberately restricted template does not support reset, enable, falling
-edges, variables, multiple writes, initialization, delays, vector registers or
-function calls (including `rising_edge`). Unsupported forms are diagnosed;
-edge functions await declaration/signature resolution. This is a connectivity
-proof, not general process analysis or completed Phase 1 cycle validation.
+The standalone parser retains declaration groups, ordered assignments and source
+spans; the analyzer resolves every internal name and diagnoses duplicates and
+missing declarations without importing Naja/SNL. The adapter validates all types,
+names, modes and supported driver patterns before creating any design. It creates
+all signal nets first, then calls `SNLRTLPrimitives::createDFF()` for each write.
+Every RHS connects to the current signal net, never an earlier assignment's RHS.
+Consequently `q` captures the previous `stage` value in either source order.
+Repeated writes to one target are rejected rather than implementing VHDL's
+last-write scheduling rule incorrectly.
+
+`PipelineConnectivityAndCycles` verifies both canonical DFF models, shared clock,
+and data/output connectivity, reversed writes, case variations, parentheses and
+multiple internal signals. A small test evaluator samples all canonical DFF data
+nets together. `VHDLPipelineReference` compares its output against NVC for both
+source orders using the same `pipeline.vhd` fixture and eight input cycles; the
+reference also checks stability on data changes and falling edges. CMake enables
+this comparison when NVC and Python are available. From the Naja repository root, run it explicitly with:
+
+```sh
+python3 test/nl/formats/vhdl/compare_pipeline.py --nvc /path/to/nvc \
+  --adapter build-vhdl-feasibility/test/nl/formats/vhdl/snlVHDLConstructorTests
+```
+
+This proof promises clocked behavior after the pipeline fills, not power-up
+state equivalence. VHDL `bit` defaults to `'0'`; the canonical hardware DFF has
+no initialization guarantee. The evaluator begins with unknown register values
+and the reference comparison starts after two rising edges. Explicit initializers
+(including `'0'`) are rejected. No initialization metadata is silently discarded.
+
+Unsupported forms include reset/enable or other nested control flow, falling-edge
+registers, variables, repeated targets, multiple drivers, undriven internal
+signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
+nine-valued types, expressions beyond names, and function calls (including
+`rising_edge`). Parser errors or adapter diagnostics reject these before design
+publication. This remains a narrow scheduling proof: general type analysis,
+variables, hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
+coverage remain future work.
+
+Validation (2026-09-21): 29 focused CMake tests passed in
+`build-vhdl-feasibility`, including the NVC 1.23.0 reference comparison for both
+write orders and the existing SV mux/register checks. All 18 standalone tests
+passed from a temporary copy, followed by installation and a separate client
+linked only to the exported `vhdl::frontend` target. The local LLVM build used
+`-DCMAKE_CXX_SCAN_FOR_MODULES=OFF` to avoid a stale dependency-scanner path.
