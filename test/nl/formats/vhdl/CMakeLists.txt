@@ -2,6 +2,7 @@
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_RETAINED_VARIABLES="${CMAKE_CURRENT_SOURCE_DIR}/retained_variables.vhd"
   SNL_VHDL_VARIABLES="${CMAKE_CURRENT_SOURCE_DIR}/variables.vhd"
   SNL_VHDL_PIPELINE="${CMAKE_CURRENT_SOURCE_DIR}/pipeline.vhd"
   SNL_VHDL_EQUIVALENT_MUX_SV="${CMAKE_CURRENT_SOURCE_DIR}/mux_equivalent.sv"
@@ -21,5 +22,9 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
   add_test(NAME VHDLVariableReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_variables.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
-  set_tests_properties(VHDLPipelineReference VHDLVariableReference PROPERTIES TIMEOUT 180)
+  add_test(NAME VHDLRetainedVariableReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_retained_variables.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
+  set_tests_properties(VHDLPipelineReference VHDLVariableReference
+    VHDLRetainedVariableReference PROPERTIES TIMEOUT 180)
 endif()

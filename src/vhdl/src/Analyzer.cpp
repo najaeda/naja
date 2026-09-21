@@ -145,6 +145,7 @@ ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
         for (const auto& name : declaration.names)
             variables.emplace(key(name));
     std::unordered_map<std::string, std::string> values;
+    std::unordered_set<std::string> retained;
     for (const auto& assignment : process.assignments) {
         const auto& expression = *assignment.value;
         if (expression.kind != Expression::Kind::Name) {
@@ -155,21 +156,44 @@ ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
         if (variables.contains(source)) {
             const auto value = values.find(source);
             if (value == values.end()) {
-                result.diagnostics.push_back(
-                    {"variable read before assignment requires unsupported retained state: '" +
-                         expression.text + "'", expression.span});
-                continue;
+                retained.insert(source);
+            } else {
+                source = value->second;
             }
-            source = value->second;
         }
         const std::string target(key(assignment.target));
         if (assignment.kind == AssignmentKind::Variable)
             values[target] = source;
         else
-            result.writes.push_back({target, source, assignment.span});
+            result.writes.push_back({target, source, assignment.span, AssignmentKind::Signal});
     }
-    if (result.hasErrors())
+    for (const auto& declaration : process.variables) {
+        for (const auto& name : declaration.names) {
+            const std::string variable(key(name));
+            if (!retained.contains(variable))
+                continue;
+            result.retainedVariables.push_back(variable);
+            const auto value = values.find(variable);
+            if (value == values.end()) {
+                result.diagnostics.push_back(
+                    {"retained variable must be assigned on every activation: '" +
+                         name.spelling + "'", name.span});
+                continue;
+            }
+            if (retained.contains(value->second)) {
+                result.diagnostics.push_back(
+                    {"retained variable next value must resolve to a non-retained scalar name: '" +
+                         name.spelling + "'", name.span});
+                continue;
+            }
+            result.writes.push_back(
+                {variable, value->second, name.span, AssignmentKind::Variable});
+        }
+    }
+    if (result.hasErrors()) {
         result.writes.clear();
+        result.retainedVariables.clear();
+    }
     return result;
 }
 

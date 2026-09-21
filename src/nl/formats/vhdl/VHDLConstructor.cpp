@@ -142,16 +142,26 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     schedule = vhdl::Analyzer::schedule(process);
     if (schedule.hasErrors())
       unsupported("scheduling failed: " + schedule.diagnostics.front().message);
-    if (schedule.writes.empty())
+    const std::unordered_set<std::string> retained(
+        schedule.retainedVariables.begin(), schedule.retainedVariables.end());
+    std::size_t signalWrites = 0;
+    for (const auto& write : schedule.writes)
+      signalWrites += write.kind == vhdl::AssignmentKind::Signal;
+    if (signalWrites == 0)
       unsupported("a clocked process must schedule a signal write");
     for (const auto& write : schedule.writes) {
       const auto& target = write.target;
-      if (!internals.contains(target))
-        checkMode(target, vhdl::PortMode::Out, "assignment target");
-      if (!written.insert(target).second)
-        unsupported("multiple scheduled writes to one target are not supported");
+      if (write.kind == vhdl::AssignmentKind::Variable) {
+        if (!retained.contains(target))
+          unsupported("variable state write does not name retained storage");
+      } else {
+        if (!internals.contains(target))
+          checkMode(target, vhdl::PortMode::Out, "assignment target");
+        if (!written.insert(target).second)
+          unsupported("multiple scheduled writes to one target are not supported");
+      }
       const auto& data = write.source;
-      if (!internals.contains(std::string(data)))
+      if (!internals.contains(std::string(data)) && !retained.contains(data))
         checkMode(data, vhdl::PortMode::In, "data");
     }
     for (const auto& internal : internals) {
@@ -189,6 +199,18 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     for (const auto& name : signal.names)
       signals.emplace(std::string(nameKey(name)),
           Signal{SNLScalarNet::create(design, NLName(name.spelling))});
+  }
+
+  if (clocked) {
+    const std::unordered_set<std::string> retained(
+        schedule.retainedVariables.begin(), schedule.retainedVariables.end());
+    for (const auto& declaration : architecture.processes.front().variables) {
+      for (const auto& name : declaration.names) {
+        if (retained.contains(std::string(nameKey(name))))
+          signals.emplace(std::string(nameKey(name)),
+              Signal{SNLScalarNet::create(design, NLName(name.spelling))});
+      }
+    }
   }
 
   const auto findSignal = [&signals](std::string_view name) -> Signal& {

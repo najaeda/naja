@@ -6,14 +6,16 @@ handwritten C++20 lexer and recursive-descent parser. The parser handles entity
 ports, internal signal declarations, concurrent and conditional signal
 assignments, and multiple scheduled writes in a restricted event-guarded process. The initial analyzer binds architectures to entities and
 resolves names in assignment values, conditions, clock guards and process-local
-variables; its restricted scheduler resolves immediate variable assignments. Type analysis and
+variables; its restricted scheduler resolves immediate assignments and identifies
+straight-line retained variable state. Type analysis and
 elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
 Naja currently has a deliberately narrow integration proof in
 `src/nl/formats/vhdl`: scalar `bit` ports and one concurrent conditional
 assignment are lowered to the shared SNL mux primitive. One clocked process
-with internal signals and distinct scheduled targets uses the shared DFF builder. The proof rejects
+with internal signals, retained scalar variables and distinct scheduled targets
+uses the shared DFF builder. The proof rejects
 nine-valued `std_logic` ports and every unsupported shape before creating a
 design. It does not provide general VHDL type analysis or elaboration.
 
@@ -145,12 +147,12 @@ and the reference comparison starts after two rising edges. Explicit initializer
 (including `'0'`) are rejected. No initialization metadata is silently discarded.
 
 Unsupported forms include reset/enable or other nested control flow, falling-edge
-registers, retained variables, repeated targets, multiple drivers, undriven internal
+registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, expressions beyond names, and function calls (including
 `rising_edge`). Parser errors or adapter diagnostics reject these before design
 publication. This remains a narrow scheduling proof: general type analysis,
-retained variables, hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
+hierarchy, vectors, source-rich adapter diagnostics, and full Phase 1
 coverage remain future work.
 
 Validation (2026-09-21): 29 focused CMake tests passed in
@@ -162,9 +164,9 @@ linked only to the exported `vhdl::frontend` target. The local LLVM build used
 
 ## Immediate process-variable proof
 
-The clocked scalar proof now accepts process-local `variable` declarations and
-ordered `:=` assignments. Variables must be assigned before every read in the
-same activation. For example:
+The clocked scalar proof accepts process-local `variable` declarations and
+ordered `:=` assignments. Variables assigned before every read in the same
+activation remain temporary values. For example:
 
 ```vhdl
 process(clk)
@@ -198,10 +200,8 @@ and input/internal-signal reads before creating the design, then consumes that
 schedule through the shared DFF builder. No Naja/SNL dependency was added to the
 frontend.
 
-This is deliberately a temporary-variable profile. VHDL process variables can
-retain state across activations: a read before assignment, including `v := v`,
-is diagnosed as unsupported retained state, not treated as a wire or initialized
-to zero. Explicit initializers, shared variables, local shadowing, non-`bit`
+VHDL process variables that are read before assignment use the retained-state
+profile below. Explicit initializers, shared variables, local shadowing, non-`bit`
 types, control flow and timing remain rejected. Variable reassignment is allowed;
 repeated signal targets remain unsupported. Reads of output ports remain outside
 this proof. Variable-only processes without a scheduled signal write are rejected.
@@ -217,3 +217,28 @@ Variable-proof validation (2026-09-21): all 37 focused CMake tests passed,
 including pipeline and variable comparisons against NVC 1.23.0. All 23 standalone
 frontend tests passed from a temporary copy. An installed-target client also
 parsed, analyzed and scheduled `v := d; q <= v;` using only `vhdl::frontend`.
+
+## Retained process-variable proof
+
+A scalar `bit` variable read before its first assignment in an activation is now
+identified as retained state. For `q <= retained; retained := d;`, the scheduler
+freezes `q`'s source as the variable's current value and emits one final state
+write for `retained`. The adapter creates a private scalar net and canonical DFF
+for that variable, alongside the DFF for `q`; temporary variables still create no
+storage. Retained variables must be assigned on every supported activation.
+Their final next value must resolve to a non-retained scalar name; retained-state
+self-feedback and cycles remain rejected because implicit initialization is not
+yet represented in hardware.
+
+`RetainedVariableConnectivityAndCycles` checks both DFFs and simultaneous edge
+sampling. `VHDLRetainedVariableReference` compares the post-fill output sequence
+and between-edge stability with NVC 1.23.0. Implicit VHDL `bit` initialization is
+not claimed: the hardware evaluator begins with unknown state and comparison starts
+after the retained pipeline has filled. Initializers, conditional state updates,
+non-name expressions, and retained variable state of non-`bit` types remain
+rejected before design publication.
+
+Retained-state validation (2026-09-21): all 40 focused lexer, parser, analyzer,
+adapter and NVC reference tests passed. All 24 standalone tests also passed from
+an isolated copy, followed by installation and a separate client linked only to
+the exported `vhdl::frontend` target.

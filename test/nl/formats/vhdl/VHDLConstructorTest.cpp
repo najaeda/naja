@@ -334,9 +334,56 @@ TEST_F(VHDLConstructorTest, VariableSchedulingConnectivityAndCycles) {
   }
 }
 
+TEST_F(VHDLConstructorTest, RetainedVariableConnectivityAndCycles) {
+  std::ifstream fixture(SNL_VHDL_RETAINED_VARIABLES);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 2);
+  auto* clk = design->getScalarTerm(NLName("clk"))->getNet();
+  auto* d = design->getScalarTerm(NLName("d"))->getNet();
+  auto* q = design->getScalarTerm(NLName("q"))->getNet();
+  auto* retained = design->getNet(NLName("retained"));
+  ASSERT_NE(retained, nullptr);
+  EXPECT_EQ(design->getScalarTerm(NLName("retained")), nullptr);
+  std::unordered_map<SNLNet*, SNLNet*> drivers;
+  for (auto* instance : design->getInstances()) {
+    ASSERT_EQ(instance->getModel(), NLDB0::getDFF());
+    EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFClock())->getNet(), clk);
+    drivers.emplace(instance->getInstTerm(NLDB0::getDFFOutput())->getNet(),
+                    instance->getInstTerm(NLDB0::getDFFData())->getNet());
+  }
+  EXPECT_EQ(drivers.at(retained), d);
+  EXPECT_EQ(drivers.at(q), retained);
+  std::unordered_map<SNLNet*, int> values{{retained, -1}, {q, -1}};
+  std::ifstream reference;
+  if (const auto* path = std::getenv("VHDL_RETAINED_VARIABLE_REFERENCE")) {
+    reference.open(path);
+    ASSERT_TRUE(reference);
+  }
+  const std::vector<int> stimulus{1, 0, 1, 1, 0, 0, 1, 0};
+  for (std::size_t cycle = 0; cycle < stimulus.size(); ++cycle) {
+    values[d] = stimulus[cycle];
+    auto next = values;
+    for (const auto& [output, data] : drivers) next[output] = values.at(data);
+    values = next;
+    EXPECT_EQ(values.at(retained), stimulus[cycle]);
+    EXPECT_EQ(values.at(q), cycle ? stimulus[cycle - 1] : -1);
+    if (cycle && reference.is_open()) {
+      int expected = -1;
+      ASSERT_TRUE(reference >> expected);
+      EXPECT_EQ(values.at(q), expected);
+    }
+  }
+  if (reference.is_open()) {
+    std::string trailing;
+    EXPECT_FALSE(reference >> trailing);
+  }
+}
+
 TEST_F(VHDLConstructorTest, UnsupportedVariablesPublishNoDesign) {
   for (const auto& [declarations, body] : std::vector<std::pair<std::string, std::string>>{
-      {"variable v : bit;", "q <= v; v := d;"},
+      {"variable v : bit;", "q <= v;"},
       {"variable v : bit;", "v := v; q <= v;"},
       {"variable v : bit := '0';", "v := d; q <= v;"},
       {"variable v : std_logic;", "v := d; q <= v;"},

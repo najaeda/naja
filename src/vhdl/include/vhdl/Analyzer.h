@@ -23,10 +23,12 @@ struct ScheduledWrite {
     std::string target;
     std::string source;
     SourceSpan span;
+    AssignmentKind kind = AssignmentKind::Signal;
 };
 
 struct ScheduleResult {
     std::vector<ScheduledWrite> writes;
+    std::vector<std::string> retainedVariables;
     std::vector<AnalysisDiagnostic> diagnostics;
     bool hasErrors() const { return !diagnostics.empty(); }
 };
@@ -36,7 +38,9 @@ class Analyzer {
 public:
     static AnalysisResult analyze(const DesignFile& syntax);
     /// Resolve immediate variable values and freeze scheduled signal RHS names.
-    /// Call after name analysis; only scalar-name, straight-line bodies qualify.
+    /// Variables read before their first assignment are retained state; their
+    /// final value is returned as one variable write. Call after name analysis;
+    /// only scalar-name, straight-line bodies qualify.
     static ScheduleResult schedule(const ClockedProcess& process);
 };
 

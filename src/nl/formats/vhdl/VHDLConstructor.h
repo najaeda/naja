@@ -19,8 +19,9 @@ class VHDLConstructor {
 
     /// Parse and lower one entity/architecture with one scalar conditional
     /// assignment or one positive-edge event-guarded process over bit ports
-    /// and internal signals, with one scheduled write per destination.
-    /// Scalar process variables must be assigned before each read.
+    /// and internal signals, with one scheduled write per signal destination.
+    /// Scalar process variables may be temporary or retained state; retained
+    /// variables must be assigned on every activation.
     SNLDesign* construct(std::string_view source) const;
 
   private:

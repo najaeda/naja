@@ -157,8 +157,8 @@ end;
 }
 
 TEST(VHDLAnalyzerTest, RejectsRetainedVariableReadsWithoutPartialSchedule) {
-    for (const auto* body : {"q <= v; v := d;", "v := v; q <= v;",
-                            "q <= d; copy := v; v := d;", "v := not d; q <= v;"}) {
+    for (const auto* body : {"q <= v;", "v := v; q <= v;",
+                            "v := not d; q <= v;"}) {
         const auto parsed = variableProcess("variable v, copy : bit;", body);
         ASSERT_FALSE(parsed.hasErrors());
         ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
@@ -167,4 +167,21 @@ TEST(VHDLAnalyzerTest, RejectsRetainedVariableReadsWithoutPartialSchedule) {
         EXPECT_TRUE(scheduled.writes.empty());
         EXPECT_LT(scheduled.diagnostics[0].span.start.offset, scheduled.diagnostics[0].span.end.offset);
     }
+}
+
+TEST(VHDLAnalyzerTest, SchedulesRetainedVariableStateAfterSignalReads) {
+    const auto parsed = variableProcess("variable v : bit;", "q <= v; v := d;");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    const auto scheduled = vhdl::Analyzer::schedule(
+        parsed.syntax.architectures[0].processes[0]);
+    ASSERT_FALSE(scheduled.hasErrors());
+    ASSERT_EQ(scheduled.retainedVariables, std::vector<std::string>{"v"});
+    ASSERT_EQ(scheduled.writes.size(), 2);
+    EXPECT_EQ(scheduled.writes[0].target, "q");
+    EXPECT_EQ(scheduled.writes[0].source, "v");
+    EXPECT_EQ(scheduled.writes[0].kind, vhdl::AssignmentKind::Signal);
+    EXPECT_EQ(scheduled.writes[1].target, "v");
+    EXPECT_EQ(scheduled.writes[1].source, "d");
+    EXPECT_EQ(scheduled.writes[1].kind, vhdl::AssignmentKind::Variable);
 }
