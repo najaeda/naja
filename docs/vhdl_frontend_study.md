@@ -350,31 +350,45 @@ for an engineer familiar with compiler and HDL semantics, not a delivery promise
   register builder, retaining the existing SV path as the regression baseline.
 - Compare VHDL-LS static-analysis disposition on the same 35 probes and record
   API/build boundaries; defer diagnostic-quality and throughput conclusions.
-- Record repository-level corpus licenses and notice conditions; confirm the
-  binary hardware profile against representative designs before closing the
-  feasibility decisions. Check exact pinned-file notices before redistribution.
+- Record repository-level corpus licenses and notice conditions; define the
+  binary hardware profile and any explicit treatment of non-binary constructs.
+  Check exact pinned-file notices before redistribution.
 
 Exit: the current artifacts establish a provisional native C++ direction, a
 narrow shared-construction boundary, successful GHDL analysis/hierarchy checks
 for small, medium and large RTL samples, a second runtime oracle, and a
 repository-level review of corpus licenses for reference/test use. Phase 0
-remains open until the binary hardware profile is reviewed, and contributor
-capacity and the first public API are agreed. Check exact pinned-file notices
-before redistributing source.
+now has a preliminary corpus-based binary-profile review, but remains open
+until its policy for non-binary constructs, contributor capacity, and the
+first public API are agreed. Check exact pinned-file notices before
+redistributing source.
 Standard-package source hashes and notices are recorded in the reference
 manifest. The proposed
 initial hardware domain is binary: permit single-source `std_logic` signals as
 binary hardware values, but reject multiple drivers and behavior that depends
-on `U`, `X`, `Z`, weak values or resolution. Validate this synthesis-profile
-assumption against the corpus before claiming compatibility. Then record the
-build/reuse decision and re-estimate later phases using measured results.
+on `U`, `X`, `Z`, weak values or resolution. The preliminary profile review is
+recorded in the corpus manifest. GHDL synthesis completed for the UART, RPU and
+NEORV32 selected tops. The UART and RPU source scopes showed no explicit
+non-binary scalar logic literals in the reviewed scan. NEORV32 contains
+explicit undefined `X` results, don't-care `-` assignments, and weak `L`/`H`
+input defaults. Its use of `std_ulogic` prevents resolved multi-driver nets
+but does not make the type binary. Therefore this corpus does not support a
+claim that all three designs fit a strict binary profile. The initial frontend
+should preserve nine-valued VHDL semantics through analysis and reject
+unsupported non-binary hardware behavior, unless and until a deliberate
+synthesis policy defines which constructs may be treated as don't-cares and
+under what conditions. These source scans and synthesis runs do not establish
+full driver counts, reachability, observability, or equivalence.
 
 ### Phase 1: vertical proof
 
 Build the frontend-only target, source/diagnostic infrastructure, minimal parser
-and analyzer. Elaborate a small hierarchical VHDL design into the shared IR, then
-SNL. Use an equivalent SV design through the same extracted builders. Include a
-mux and a clocked register, both ascending and descending vector cases, and the
+and analyzer. The parser now preserves conditional signal assignments in its
+syntax tree and the analyzer resolves names in their conditions. This is the
+first syntax slice for a mux, not yet a hardware lowering path. Next, type and
+lower a single-bit conditional assignment into the shared mux builder, then
+compare its SNL structure with equivalent SV. Extend the proof to a clocked
+register, ascending and descending vectors, a small hierarchy, and the
 signal-versus-variable example above.
 
 Exit: expected connectivity and cycle behavior agree; unsupported constructs

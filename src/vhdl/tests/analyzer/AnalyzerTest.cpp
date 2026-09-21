@@ -60,4 +60,16 @@ architecture rtl of top is begin y <= \data\; end architecture rtl;
     EXPECT_NE(result.diagnostics[0].message.find("no declaration for name"), std::string::npos);
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNamesInConditionalAssignments) {
+    const auto result = analyze(R"(
+entity mux is port (a, b, sel : in bit; y : out bit); end entity mux;
+architecture rtl of mux is begin
+  y <= a when missing = '1' else b;
+end architecture rtl;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 1);
+    EXPECT_NE(result.diagnostics[0].message.find("no declaration for name"), std::string::npos);
+    EXPECT_NE(result.diagnostics[0].message.find("missing"), std::string::npos);
+}
+
 } // namespace

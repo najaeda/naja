@@ -3,9 +3,10 @@
 This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
-ports, simple architecture bodies and concurrent assignments. The initial
-analyzer binds architectures to entities and resolves names in those concurrent
-assignments. Type analysis and elaboration are not implemented yet. Nothing
+ports, simple architecture bodies, concurrent assignments and conditional
+signal assignments. The initial analyzer binds architectures to entities and
+resolves names in assignment values and conditions. Type analysis and
+elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
 The frontend uses handwritten lexing and will use recursive descent parsing.

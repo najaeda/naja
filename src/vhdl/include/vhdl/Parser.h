@@ -48,7 +48,8 @@ struct Expression {
         StringLiteral,
         CharacterLiteral,
         Unary,
-        Binary
+        Binary,
+        Conditional
     };
     Kind kind;
     std::string text;
@@ -56,6 +57,7 @@ struct Expression {
     SourceSpan span;
     std::unique_ptr<Expression> left;
     std::unique_ptr<Expression> right;
+    std::unique_ptr<Expression> condition;
 };
 
 struct ConcurrentAssignment {

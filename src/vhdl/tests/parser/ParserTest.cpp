@@ -60,6 +60,26 @@ end architecture rtl;
     EXPECT_FALSE(result.syntax.architectures.empty());
 }
 
+TEST(VHDLParserTest, ConditionalSignalAssignment) {
+    const auto result = vhdl::Parser::parse(R"(
+entity mux is
+  port (a, b, sel : in bit; y : out bit);
+end entity mux;
+architecture rtl of mux is
+begin
+  y <= a when sel = '1' else b;
+end architecture rtl;
+)");
+    ASSERT_FALSE(result.hasErrors());
+    ASSERT_EQ(result.syntax.architectures.size(), 1);
+    const auto& assignment = result.syntax.architectures[0].assignments[0];
+    ASSERT_EQ(assignment.value->kind, vhdl::Expression::Kind::Conditional);
+    ASSERT_EQ(assignment.value->left->text, "a");
+    ASSERT_EQ(assignment.value->right->text, "b");
+    ASSERT_EQ(assignment.value->condition->kind, vhdl::Expression::Kind::Binary);
+    EXPECT_EQ(assignment.value->condition->text, "=");
+}
+
 TEST(VHDLParserTest, MalformedPortProgresses) {
     const auto result = vhdl::Parser::parse("entity top is port (a in bit); end entity top;");
     EXPECT_TRUE(result.hasErrors());

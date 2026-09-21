@@ -287,6 +287,21 @@ private:
         if (!target || !expectSymbol("<="))
             return std::nullopt;
         auto value = parseExpression(0);
+        if (value && acceptWord("when")) {
+            auto condition = parseExpression(0);
+            if (!condition || !expectWord("else"))
+                return std::nullopt;
+            auto alternative = parseExpression(0);
+            if (!alternative)
+                return std::nullopt;
+            auto conditional = std::make_unique<Expression>();
+            conditional->kind = Expression::Kind::Conditional;
+            conditional->span = join(value->span, alternative->span);
+            conditional->left = std::move(value);
+            conditional->right = std::move(alternative);
+            conditional->condition = std::move(condition);
+            value = std::move(conditional);
+        }
         if (!value || !expectSymbol(";"))
             return std::nullopt;
         return ConcurrentAssignment{std::move(*target), std::move(value),

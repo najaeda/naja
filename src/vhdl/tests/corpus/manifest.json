@@ -83,5 +83,30 @@
     ],
     "limitation": "This is a repository-level review, not a line-by-line audit of every file at each pinned revision. Recheck the exact revision and file-level notices before vendoring or redistributing source or generated artifacts."
   },
-  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. The licenses indicate no apparent blocker for reference validation or ephemeral test use when their terms are followed. Do not add upstream RTL to source distributions without checking exact pinned-revision notices. The validation checks analysis and hierarchy resolution, not simulation equivalence or hardware synthesis."
+  "binary_profile_review": {
+    "reviewed_date": "2026-09-21",
+    "tool": "GHDL",
+    "version": "6.0.0 (6.0.0.r0.ge589c698c)",
+    "method": "Source review for scalar std_logic values outside '0'/'1', weak-value defaults, and dash assignments, followed by synthesis of each listed entry design. This is a feasibility check, not a complete driver or behavioral-equivalence audit.",
+    "findings": [
+      {
+        "name": "uart-for-fpga core",
+        "result": "GHDL synthesis completed for UART; source scan found no explicit U/X/Z/W/L/H/- scalar logic literals or input port defaults in the selected RTL scope.",
+        "implication": "No immediate value-domain obstacle was found in this small sample; driver and simulation behavior still require frontend-specific validation."
+      },
+      {
+        "name": "Domipheus RPU RV32I core",
+        "result": "GHDL synthesis completed for core after analyzing component units before the top; source scan found no explicit U/X/Z/W/L/H/- scalar logic literals or input port defaults in the selected RTL scope.",
+        "implication": "No immediate value-domain obstacle was found in this medium sample; synthesis success does not establish single-driver behavior or semantic equivalence."
+      },
+      {
+        "name": "NEORV32 core",
+        "result": "GHDL synthesis completed for neorv32_top. The reviewed RTL contains explicit 'X' undefined results in the ALU and LSU, '-' don't-care assignments in the SMC, and 'L'/'H' defaults on top-level inputs; its std_ulogic types remain nine-valued despite disallowing multiple resolved drivers.",
+        "implication": "This sample is not compatible with a strict binary-only profile without an explicit, documented synthesis policy for these constructs. Do not silently coerce them."
+      }
+    ],
+    "conclusion": "The corpus does not validate a blanket binary-only compatibility claim. A restricted binary hardware profile remains plausible for designs whose analyzed behavior is binary and single-driver, but the NEORV32 scope requires explicit policy or rejection. Static literal scans and successful GHDL synthesis do not prove driver counts, reachability, observability, or equivalence.",
+    "artifacts": "Temporary work libraries and generated synthesis output were kept outside the repository; no RTL or generated netlist was added."
+  },
+  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. The licenses indicate no apparent blocker for reference validation or ephemeral test use when their terms are followed. Do not add upstream RTL to source distributions without checking exact pinned-revision notices. Analysis, hierarchy resolution and synthesis checks do not establish simulation equivalence or frontend correctness."
 }

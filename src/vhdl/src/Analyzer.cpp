@@ -29,6 +29,8 @@ void checkExpression(const Expression& expression,
         checkExpression(*expression.left, declarations, result);
     if (expression.right)
         checkExpression(*expression.right, declarations, result);
+    if (expression.condition)
+        checkExpression(*expression.condition, declarations, result);
 }
 
 } // namespace
