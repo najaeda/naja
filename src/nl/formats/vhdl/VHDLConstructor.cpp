@@ -51,37 +51,51 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   if (nameKey(entity.name) != nameKey(architecture.entity)) {
     unsupported("architecture does not belong to the entity");
   }
-  if (architecture.assignments.size() != 1) {
-    unsupported("exactly one concurrent assignment is supported");
+  if (architecture.assignments.size() + architecture.processes.size() != 1) {
+    unsupported("exactly one concurrent assignment or clocked process is supported");
   }
-  const auto& assignment = architecture.assignments.front();
-  const auto& value = *assignment.value;
-  if (value.kind != vhdl::Expression::Kind::Conditional || !value.condition ||
-      value.condition->kind != vhdl::Expression::Kind::Binary ||
-      value.condition->text != "=") {
-    unsupported("expected a conditional assignment with an equality condition");
-  }
-
-  const vhdl::Expression* selectExpression = value.condition->left.get();
-  const vhdl::Expression* literalExpression = value.condition->right.get();
-  if (selectExpression->kind != vhdl::Expression::Kind::Name ||
-      literalExpression->kind != vhdl::Expression::Kind::CharacterLiteral ||
-      literalExpression->text != "'1'") {
-    unsupported("the condition must compare a scalar name with '1'");
-  }
+  const bool clocked = !architecture.processes.empty();
+  const auto& assignment = clocked ? architecture.processes.front().assignment
+                                   : architecture.assignments.front();
   const auto requireName = [](const vhdl::Expression& expression) -> std::string_view {
     if (expression.kind != vhdl::Expression::Kind::Name) {
-      unsupported("conditional branches must be scalar names");
+      unsupported("data values must be scalar names");
     }
     return expression.canonical.empty() ? std::string_view(expression.text)
                                         : std::string_view(expression.canonical);
   };
-  const auto trueName = requireName(*value.left);
-  const auto falseName = requireName(*value.right);
+  std::string_view selectName, trueName, falseName;
+  if (clocked) {
+    const auto& process = architecture.processes.front();
+    if (nameKey(process.sensitivity) != nameKey(process.eventSignal) ||
+        nameKey(process.eventSignal) != nameKey(process.levelSignal) ||
+        process.level != "'1'") {
+      unsupported("expected matching sensitivity/event/level clocks and positive edge");
+    }
+    selectName = nameKey(process.eventSignal);
+    trueName = requireName(*assignment.value);
+  } else {
+    const auto& value = *assignment.value;
+    if (value.kind != vhdl::Expression::Kind::Conditional || !value.condition ||
+        value.condition->kind != vhdl::Expression::Kind::Binary ||
+        value.condition->text != "=") {
+      unsupported("expected a conditional assignment with an equality condition");
+    }
 
-  const auto selectName = selectExpression->canonical.empty()
-      ? std::string_view(selectExpression->text)
-      : std::string_view(selectExpression->canonical);
+    const vhdl::Expression* selectExpression = value.condition->left.get();
+    const vhdl::Expression* literalExpression = value.condition->right.get();
+    if (selectExpression->kind != vhdl::Expression::Kind::Name ||
+        literalExpression->kind != vhdl::Expression::Kind::CharacterLiteral ||
+        literalExpression->text != "'1'") {
+      unsupported("the condition must compare a scalar name with '1'");
+    }
+    trueName = requireName(*value.left);
+    falseName = requireName(*value.right);
+
+    selectName = selectExpression->canonical.empty()
+        ? std::string_view(selectExpression->text)
+        : std::string_view(selectExpression->canonical);
+  }
   std::unordered_map<std::string, vhdl::PortMode> portModes;
   for (const auto& port : entity.ports) {
     if (port.type.constraint || port.type.name.canonical != "bit") {
@@ -103,9 +117,10 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
     }
   };
   checkMode(nameKey(assignment.target), vhdl::PortMode::Out, "assignment target");
-  checkMode(selectName, vhdl::PortMode::In, "select");
-  checkMode(trueName, vhdl::PortMode::In, "true branch");
-  checkMode(falseName, vhdl::PortMode::In, "false branch");
+  checkMode(selectName, vhdl::PortMode::In, clocked ? "clock" : "select");
+  checkMode(trueName, vhdl::PortMode::In, clocked ? "data" : "true branch");
+  if (!clocked)
+    checkMode(falseName, vhdl::PortMode::In, "false branch");
 
   struct Signal {
     SNLScalarNet* net;
@@ -133,9 +148,13 @@ SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   auto& output = findSignal(nameKey(assignment.target));
   auto& select = findSignal(selectName);
   auto& whenTrue = findSignal(trueName);
-  auto& whenFalse = findSignal(falseName);
-  SNLRTLPrimitives::createMux(design, select.net, {whenTrue.net},
-                              {whenFalse.net}, output.net);
+  if (clocked) {
+    SNLRTLPrimitives::createDFF(design, select.net, whenTrue.net, output.net);
+  } else {
+    auto& whenFalse = findSignal(falseName);
+    SNLRTLPrimitives::createMux(design, select.net, {whenTrue.net},
+                                {whenFalse.net}, output.net);
+  }
   return design;
 }
 

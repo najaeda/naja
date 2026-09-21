@@ -73,3 +73,15 @@ end architecture rtl;
 }
 
 } // namespace
+
+TEST(VHDLAnalyzerTest, ResolvesAllClockedProcessNames) {
+    const auto result = analyze(R"(
+entity reg is port(clk, d : in bit; q : out bit); end;
+architecture rtl of reg is begin
+process(missing_sensitivity) begin
+if missing_event'event and missing_level = '1' then missing_target <= missing_data;
+end if; end process;
+end;
+)");
+    EXPECT_EQ(result.diagnostics.size(), 5);
+}

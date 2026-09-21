@@ -66,6 +66,16 @@ struct ConcurrentAssignment {
     SourceSpan span;
 };
 
+// Restricted event-guarded process syntax; names remain unresolved here.
+struct ClockedProcess {
+    Name sensitivity;
+    Name eventSignal;
+    Name levelSignal;
+    std::string level;
+    ConcurrentAssignment assignment;
+    SourceSpan span;
+};
+
 struct EntityDeclaration {
     Name name;
     std::vector<PortDeclaration> ports;
@@ -76,6 +86,7 @@ struct ArchitectureBody {
     Name name;
     Name entity;
     std::vector<ConcurrentAssignment> assignments;
+    std::vector<ClockedProcess> processes;
     SourceSpan span;
 };
 

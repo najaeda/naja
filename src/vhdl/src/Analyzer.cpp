@@ -83,13 +83,24 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
             for (const auto& name : port.names)
                 declarations.insert(std::string(key(name)));
         }
-        for (const auto& assignment : architecture.assignments) {
+        const auto checkAssignment = [&](const ConcurrentAssignment& assignment) {
             if (!declarations.contains(std::string(key(assignment.target)))) {
                 result.diagnostics.push_back(
                     {"no declaration for assignment target '" + assignment.target.spelling + "'",
                      assignment.target.span});
             }
             checkExpression(*assignment.value, declarations, result);
+        };
+        for (const auto& assignment : architecture.assignments)
+            checkAssignment(assignment);
+        for (const auto& process : architecture.processes) {
+            for (const auto* name : {&process.sensitivity, &process.eventSignal,
+                                     &process.levelSignal}) {
+                if (!declarations.contains(std::string(key(*name))))
+                    result.diagnostics.push_back(
+                        {"no declaration for clock name '" + name->spelling + "'", name->span});
+            }
+            checkAssignment(process.assignment);
         }
     }
     return result;

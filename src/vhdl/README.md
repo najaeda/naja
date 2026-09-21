@@ -4,8 +4,8 @@ This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
 ports, simple architecture bodies, concurrent assignments and conditional
-signal assignments. The initial analyzer binds architectures to entities and
-resolves names in assignment values and conditions. Type analysis and
+signal assignments, and a restricted event-guarded clocked process. The initial analyzer binds architectures to entities and
+resolves names in assignment values, conditions, and clock guards. Type analysis and
 elaboration are not implemented yet. Nothing
 here imports, links or discovers Naja/SNL, or requires the parent build.
 
@@ -83,3 +83,28 @@ overrides in `tests/semantic/nvc_expectations.json`.
 To check independence, copy this directory alone to a temporary location and run
 the same commands there. A future standalone CMake library/exported consumer
 check will complement this executable test boundary as native code grows.
+
+## Scalar clocked-register proof
+
+The Phase 1 adapter also accepts one event-guarded process over scalar `bit`
+ports:
+
+```vhdl
+process(clk) begin
+  if clk'event and clk = '1' then q <= d; end if;
+end process;
+```
+
+The sensitivity, event and level names must resolve to the same input port;
+`d` must be an input and `q` an output. Basic names are case insensitive.
+The parser retains these names and source spans, and the standalone analyzer
+checks their declarations. The adapter validates the binary type, port modes
+and process shape before creating a design, then calls the shared
+`SNLRTLPrimitives::createDFF()` positive-edge builder. Tests compare clock/data/
+output wiring with the canonical DFF also used by equivalent SystemVerilog.
+
+This deliberately restricted template does not support reset, enable, falling
+edges, variables, multiple writes, initialization, delays, vector registers or
+function calls (including `rising_edge`). Unsupported forms are diagnosed;
+edge functions await declaration/signature resolution. This is a connectivity
+proof, not general process analysis or completed Phase 1 cycle validation.

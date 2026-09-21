@@ -85,3 +85,19 @@ TEST(VHDLParserTest, MalformedPortProgresses) {
     EXPECT_TRUE(result.hasErrors());
     EXPECT_FALSE(result.diagnostics.empty());
 }
+
+TEST(VHDLParserTest, PreservesClockedProcessNamesAndLocations) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity reg is port(clk, d : in bit; q : out bit); end;
+architecture rtl of reg is begin
+process(CLK) begin if clk'event and clk = '1' then q <= d; end if; end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& processes = parsed.syntax.architectures.front().processes;
+    ASSERT_EQ(processes.size(), 1);
+    EXPECT_EQ(processes.front().sensitivity.canonical, "clk");
+    EXPECT_EQ(processes.front().eventSignal.canonical, "clk");
+    EXPECT_EQ(processes.front().assignment.target.canonical, "q");
+    EXPECT_LT(processes.front().span.start.offset, processes.front().span.end.offset);
+}

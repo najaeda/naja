@@ -11,14 +11,14 @@ namespace naja::NL {
 
 class SNLDesign;
 
-/// Temporary Naja adapter for the first scalar conditional-assignment proof.
+/// Temporary Naja adapter for the scalar mux and clocked-register proof.
 /// The standalone VHDL frontend remains independent of this class and SNL.
 class VHDLConstructor {
   public:
     explicit VHDLConstructor(NLLibrary* library) : library_(library) {}
 
     /// Parse and lower one entity/architecture with one scalar conditional
-    /// assignment of the form y <= a when sel = '1' else b.
+    /// assignment or one positive-edge event-guarded process over bit ports.
     SNLDesign* construct(std::string_view source) const;
 
   private:

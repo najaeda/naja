@@ -256,14 +256,23 @@ private:
         }
         if (!expectWord("begin"))
             return std::nullopt;
-        ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, start};
+        ArchitectureBody architecture{std::move(*name), std::move(*entity), {}, {}, start};
         while (!atEnd() && !word("end")) {
             const auto before = current().span.start.offset;
-            auto assignment = parseConcurrentAssignment();
-            if (assignment)
-                architecture.assignments.push_back(std::move(*assignment));
-            else
-                synchronize("end");
+            if (word("process")) {
+                auto process = parseClockedProcess();
+                if (process)
+                    architecture.processes.push_back(std::move(*process));
+                else
+                    synchronize("end");
+            }
+            else {
+                auto assignment = parseConcurrentAssignment();
+                if (assignment)
+                    architecture.assignments.push_back(std::move(*assignment));
+                else
+                    synchronize("end");
+            }
             if (!atEnd() && !word("end") && current().span.start.offset == before)
                 advance();
         }
@@ -279,6 +288,41 @@ private:
             return std::nullopt;
         architecture.span = join(start, lexed_.tokens[index_ - 1].span);
         return architecture;
+    }
+
+    std::optional<ClockedProcess> parseClockedProcess() {
+        const auto start = advance().span;
+        if (!expectSymbol("("))
+            return std::nullopt;
+        auto sensitivity = parseName();
+        if (!sensitivity || !expectSymbol(")"))
+            return std::nullopt;
+        acceptWord("is");
+        if (!expectWord("begin") || !expectWord("if"))
+            return std::nullopt;
+        auto eventSignal = parseName();
+        if (!eventSignal || !expectSymbol("'") || !expectWord("event") ||
+            !expectWord("and"))
+            return std::nullopt;
+        auto levelSignal = parseName();
+        if (!levelSignal || !expectSymbol("="))
+            return std::nullopt;
+        const auto level = current();
+        if (level.kind != TokenKind::CharacterLiteral) {
+            error("expected a clock level character literal", level.span);
+            return std::nullopt;
+        }
+        advance();
+        if (!expectWord("then"))
+            return std::nullopt;
+        auto assignment = parseConcurrentAssignment();
+        if (!assignment || !expectWord("end") || !expectWord("if") ||
+            !expectSymbol(";") || !expectWord("end") || !expectWord("process") ||
+            !expectSymbol(";"))
+            return std::nullopt;
+        return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
+            std::move(*levelSignal), level.text, std::move(*assignment),
+            join(start, lexed_.tokens[index_ - 1].span)};
     }
 
     std::optional<ConcurrentAssignment> parseConcurrentAssignment() {

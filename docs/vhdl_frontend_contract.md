@@ -165,3 +165,28 @@ The new Bazel target was attempted, but the local LLVM/Apple SDK combination
 failed Bazel's external-header validation on `SDKSettings.json` while compiling
 the test framework. No Bazel test ran; this remains an environment validation
 limitation rather than a passing smoke result.
+
+## Scalar clocked-register proof
+
+The Phase 1 adapter also accepts one event-guarded process over scalar `bit`
+ports:
+
+```vhdl
+process(clk) begin
+  if clk'event and clk = '1' then q <= d; end if;
+end process;
+```
+
+The sensitivity, event and level names must resolve to the same input port;
+`d` must be an input and `q` an output. Basic names are case insensitive.
+The parser retains these names and source spans, and the standalone analyzer
+checks their declarations. The adapter validates the binary type, port modes
+and process shape before creating a design, then calls the shared
+`SNLRTLPrimitives::createDFF()` positive-edge builder. Tests compare clock/data/
+output wiring with the canonical DFF also used by equivalent SystemVerilog.
+
+This deliberately restricted template does not support reset, enable, falling
+edges, variables, multiple writes, initialization, delays, vector registers or
+function calls (including `rising_edge`). Unsupported forms are diagnosed;
+edge functions await declaration/signature resolution. This is a connectivity
+proof, not general process analysis or completed Phase 1 cycle validation.

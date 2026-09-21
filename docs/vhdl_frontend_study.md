@@ -389,8 +389,8 @@ single-bit conditional assignment over `bit` ports into the shared mux builder;
 tests confirm its SNL wiring and that an equivalent SV design uses the same
 canonical mux model. The adapter rejects `std_logic` and unsupported port or
 assignment shapes before design creation. This is a lowering proof, not general
-VHDL type analysis. Extend it to type-checked scalar expressions, a clocked
-register, ascending and descending vectors, a small hierarchy, and the
+VHDL type analysis. A scalar clocked-register path is now implemented (see below). Extend the proof
+to type-checked scalar expressions, ascending and descending vectors, a small hierarchy, and the
 signal-versus-variable example above.
 
 Exit: expected connectivity and cycle behavior agree; unsupported constructs
@@ -489,3 +489,35 @@ design corpus, precise package/revision profile, reuse experiment outcome,
 binary-domain policy, contributor capacity, and scope of the first public API.
 None of these requires rewriting the current SV semantic engine before VHDL
 development begins.
+
+## Scalar clocked-register proof
+
+The Phase 1 adapter also accepts one event-guarded process over scalar `bit`
+ports:
+
+```vhdl
+process(clk) begin
+  if clk'event and clk = '1' then q <= d; end if;
+end process;
+```
+
+The sensitivity, event and level names must resolve to the same input port;
+`d` must be an input and `q` an output. Basic names are case insensitive.
+The parser retains these names and source spans, and the standalone analyzer
+checks their declarations. The adapter validates the binary type, port modes
+and process shape before creating a design, then calls the shared
+`SNLRTLPrimitives::createDFF()` positive-edge builder. Tests compare clock/data/
+output wiring with the canonical DFF also used by equivalent SystemVerilog.
+
+This deliberately restricted template does not support reset, enable, falling
+edges, variables, multiple writes, initialization, delays, vector registers or
+function calls (including `rising_edge`). Unsupported forms are diagnosed;
+edge functions await declaration/signature resolution. This is a connectivity
+proof, not general process analysis or completed Phase 1 cycle validation.
+
+Validation (2026-09-21): all 19 focused parser, analyzer and Naja adapter tests
+passed in `build-vhdl-feasibility`; all 15 standalone frontend tests passed
+from a temporary copy of `src/vhdl`. The local LLVM 23.1.1 build required
+`-DCMAKE_CXX_SCAN_FOR_MODULES=OFF` to bypass a stale cached LLVM 23.1.0 scanner
+path. The adapter suite includes equivalent SV mux/register checks and rejects
+unsupported clock/process/type/initialization forms without publishing a design.
