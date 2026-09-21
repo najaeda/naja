@@ -377,6 +377,7 @@ private:
             auto expression = std::make_unique<Expression>();
             expression->kind = Expression::Kind::Name;
             expression->text = name->spelling;
+            expression->canonical = name->canonical;
             expression->span = name->span;
             return expression;
         }

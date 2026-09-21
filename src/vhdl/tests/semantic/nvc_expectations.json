@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "reference": "NVC 1.23.0",
+  "version_pattern": "^nvc 1\\.23\\.0(?:\\s|$)",
+  "overrides": {
+    "missing_declaration": {
+      "stages": ["analyze"],
+      "diagnostic": "no visible declaration for\\s+missing"
+    },
+    "runtime_range_check": {
+      "stages": ["run"],
+      "diagnostic": "outside of .* range"
+    },
+    "runtime_length_check": {
+      "stages": ["analyze"],
+      "diagnostic": "length of value .* does not match length of target"
+    }
+  }
+}

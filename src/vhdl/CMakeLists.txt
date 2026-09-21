@@ -6,7 +6,7 @@ project(VHDLFrontend VERSION 0.1.0 LANGUAGES CXX)
 include(GNUInstallDirs)
 include(CTest)
 
-add_library(vhdl_frontend STATIC src/Lexer.cpp src/Parser.cpp)
+add_library(vhdl_frontend STATIC src/Lexer.cpp src/Parser.cpp src/Analyzer.cpp)
 add_library(vhdl::frontend ALIAS vhdl_frontend)
 target_compile_features(vhdl_frontend PUBLIC cxx_std_20)
 target_include_directories(vhdl_frontend
@@ -56,4 +56,8 @@ if(BUILD_TESTING)
   add_executable(vhdl_parser_tests tests/parser/ParserTest.cpp)
   target_link_libraries(vhdl_parser_tests PRIVATE vhdl::frontend ${VHDL_GTEST_MAIN_TARGET})
   gtest_discover_tests(vhdl_parser_tests)
+
+  add_executable(vhdl_analyzer_tests tests/analyzer/AnalyzerTest.cpp)
+  target_link_libraries(vhdl_analyzer_tests PRIVATE vhdl::frontend ${VHDL_GTEST_MAIN_TARGET})
+  gtest_discover_tests(vhdl_analyzer_tests)
 endif()

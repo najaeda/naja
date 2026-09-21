@@ -7,11 +7,12 @@ Feasibility status: the [boundary contract](vhdl_frontend_contract.md),
 [semantic probes](../src/vhdl/README.md), [corpus inventory](../src/vhdl/tests/corpus/manifest.json),
 and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
 record the first evidence. Shared mux/register construction is implemented.
-Phase 0 is partially complete; native VHDL parsing and elaboration, a second
-independent runtime simulator, corpus rights review, and contributor/API
-decisions remain open. Phase 1 has started with a standalone C++20 lexer and a
-bounded recursive-descent parser for entity ports and concurrent assignments
-under `src/vhdl/`; semantic analysis and elaboration are not implemented yet.
+Phase 0 is partially complete; native VHDL parsing and elaboration, corpus
+rights review, and contributor/API decisions remain open. The semantic probe
+corpus has now been run with a second independent runtime simulator; see the
+versioned NVC report alongside the GHDL baseline. Phase 1 has started with a
+standalone C++20 lexer, bounded recursive-descent parser, and initial name
+binding pass under `src/vhdl/`; design elaboration is not implemented yet.
 
 ## Recommendation
 
@@ -305,7 +306,7 @@ implementation was integrated or benchmarked for throughput.
 | Native C++ library | Fits the repository's C++20 build and the proposed public API | Recommended working hypothesis; largest semantic implementation effort, best control over common Naja elaboration |
 | GHDL integration | Its documented architecture includes reusable components through `libghdl`; its synthesis frontend can produce netlists | Evaluate as a differential reference and an optional import path. Importing a completed netlist does not provide the requested shared elaboration architecture. Direct reuse needs an API, dependency and license assessment. |
 | VHDL-LS analysis library | Rust frontend separates parsing and semantic analysis and supports tooling-oriented diagnostics | Version 0.88.0 accepted/rejected the 35 probe sources at the expected analysis stage. Its public crate is Rust and supplies no C ABI or hardware-lowering interface; an FFI or process boundary and further specialization/API study would be required. Static agreement does not establish runtime behavior or suitability as the standalone C++ library. |
-| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | A suitable independent runtime oracle. Homebrew installation was blocked because the local Apple toolchain requires an unavailable Xcode license. GHDL remains the only runtime reference executed so far. |
+| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | Independent runtime comparison completed for all 35 semantic probes with NVC 1.23.0. See `src/vhdl/tests/semantic/reference_nvc_1.23.0.json`; 32 cases matched the GHDL harness stage and diagnostic rules exactly, and three showed diagnostic wording or detection-stage differences while still rejecting the intended invalid constructs. |
 
 Primary sources: [GHDL architecture](https://ghdl.github.io/ghdl/internals/index.html),
 [GHDL synthesis](https://ghdl.github.io/ghdl/using/Synthesis.html),
@@ -346,15 +347,16 @@ for an engineer familiar with compiler and HDL semantics, not a delivery promise
   register builder, retaining the existing SV path as the regression baseline.
 - Compare VHDL-LS static-analysis disposition on the same 35 probes and record
   API/build boundaries; defer diagnostic-quality and throughput conclusions.
-- Recheck corpus licensing and add an independent runtime simulator before
-  closing the reference-tool decision.
+- Recheck corpus licensing and confirm the binary hardware profile against
+  representative designs before closing the feasibility decisions.
 
 Exit: the current artifacts establish a provisional native C++ direction, a
-narrow shared-construction boundary and successful GHDL analysis/hierarchy
-checks for small, medium and large RTL samples. Phase 0 remains open until
-corpus test rights are reviewed, a second runtime oracle is available, and
-contributor capacity and the first public API are agreed. Standard-package
-source hashes and notices are recorded in the reference manifest. The proposed
+narrow shared-construction boundary, successful GHDL analysis/hierarchy checks
+for small, medium and large RTL samples, and a second runtime oracle. Phase 0
+remains open until corpus test rights and the binary hardware profile are
+reviewed, and contributor capacity and the first public API are agreed.
+Standard-package source hashes and notices are recorded in the reference
+manifest. The proposed
 initial hardware domain is binary: permit single-source `std_logic` signals as
 binary hardware values, but reject multiple drivers and behavior that depends
 on `U`, `X`, `Z`, weak values or resolution. Validate this synthesis-profile

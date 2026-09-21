@@ -52,6 +52,7 @@ struct Expression {
     };
     Kind kind;
     std::string text;
+    std::string canonical;
     SourceSpan span;
     std::unique_ptr<Expression> left;
     std::unique_ptr<Expression> right;

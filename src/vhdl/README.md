@@ -3,9 +3,10 @@
 This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
-ports, simple architecture bodies and concurrent assignments. Semantic analysis
-and elaboration are not implemented yet. Nothing here imports, links or discovers
-Naja/SNL, or requires the parent build.
+ports, simple architecture bodies and concurrent assignments. The initial
+analyzer binds architectures to entities and resolves names in those concurrent
+assignments. Type analysis and elaboration are not implemented yet. Nothing
+here imports, links or discovers Naja/SNL, or requires the parent build.
 
 The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The
@@ -36,6 +37,7 @@ Use an installed GHDL **6.0.0**, then run from this directory:
 
 ```sh
 python3 tests/semantic/run.py --ghdl /path/to/ghdl --report /tmp/vhdl-results.json
+python3 tests/semantic/run_nvc.py --nvc /path/to/nvc --report /tmp/vhdl-nvc-results.json
 python3 -m unittest discover -s tests/semantic -p test_runner.py
 ```
 
@@ -64,7 +66,12 @@ area, not implemented frontend support.
 All cases are locally authored under Apache-2.0. Standard packages come from the
 selected reference installation; they are not copied into this tree. These tests
 establish a reference baseline, not standards conformance or Naja VHDL support.
-A second independent runtime reference remains necessary.
+A second independent runtime comparison is recorded in
+`tests/semantic/reference_nvc_1.23.0.json`. It covers the same 35 probes; the
+report records three diagnostic or detection-stage differences from the GHDL
+baseline, so those should not be mistaken for frontend behavior. The NVC runner
+pins version 1.23.0 and records its version-specific diagnostic and stage
+overrides in `tests/semantic/nvc_expectations.json`.
 
 To check independence, copy this directory alone to a temporary location and run
 the same commands there. A future standalone CMake library/exported consumer

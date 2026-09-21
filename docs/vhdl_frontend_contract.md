@@ -121,23 +121,25 @@ The comparison frontend matched the expected analysis acceptance/rejection for
 all 35 cases. It correctly accepts three sources whose expected failures occur
 only during elaboration or simulation; this is not a runtime comparison. Its
 Rust API has no C ABI or hardware-lowering interface, so adoption would need an
-FFI or process boundary and more study of generic specialization. NVC installation
-could not proceed because the available Apple toolchain requires an unavailable
-Xcode license; GHDL is the only runtime oracle exercised so far. The GHDL archive,
-standard-package source hashes and Apache-2.0 package notices are recorded in
+FFI or process boundary and more study of generic specialization. GHDL 6.0.0
+and NVC 1.23.0 have now both run the semantic corpus; reproducible runners,
+versioned reports and NVC-specific diagnostic/stage expectations are under
+`src/vhdl/tests/semantic/`. The GHDL archive, standard-package source hashes
+and Apache-2.0 package notices are recorded in
 `src/vhdl/tests/semantic/reference.json`.
 
-Before declaring Phase 0 complete: review corpus use rights, select a second
-runtime oracle, confirm the binary hardware profile against the corpus, and
-record the build/reuse decision. The handwritten C++ frontend remains a
-provisional working direction; these experiments do not settle the decision.
+Before declaring Phase 0 complete: review corpus use rights, confirm the binary
+hardware profile against the corpus, and record the build/reuse decision. The
+handwritten C++ frontend remains a provisional working direction; these
+experiments do not settle the decision.
 
 ## Validation of this increment
 
 On 2026-09-20, GHDL 6.0.0 passed all 35 probes, including seven expected
 rejections. The same 35 probes passed from a copy of `src/vhdl/` outside the
-repository. Five runner tests passed, including checks against false passes from
-timeouts, compiler crashes, wrong diagnostics and missing completion markers.
+repository. GHDL and NVC 1.23.0 each pass all 35 probes with the pinned
+expectation sets. Eight runner tests check against false passes from timeouts,
+compiler crashes, wrong diagnostics and missing completion markers.
 The tested compiler archive and standard-package source hashes are recorded in
 `src/vhdl/tests/semantic/reference.json`.
 
