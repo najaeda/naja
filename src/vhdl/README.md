@@ -472,8 +472,9 @@ the dividend length; remainder and modulo return the divisor length. Results
 use canonical descending bounds.
 
 Mixed signedness, null operands, invisible overloads and unrepresentable result
-widths are diagnosed. Zero-divisor behavior remains a runtime package concern;
-scalar overloads and SNL lowering remain future work.
+widths are diagnosed. Zero-divisor behavior remains a runtime package concern.
+Scalar/vector overloads are described in their later section below; SNL
+lowering remains future work.
 
 Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
@@ -544,3 +545,20 @@ Scalar-multiplication validation (2026-09-22): all 97 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 60 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` scalar/vector division family
+
+The `/`, `rem` and `mod` operators resolve in either operand order between
+`unsigned` and `natural`, or between `signed` and `integer` (including
+`natural`), when `ieee.numeric_std.all` is visible. Each result retains the
+numeric vector operand's length with canonical descending bounds. Nonnegative
+integer literals resolve contextually as `natural` for unsigned operations.
+
+Unrestricted integer objects cannot satisfy unsigned overloads. Missing
+visibility, null vectors and incompatible scalar types are diagnosed. A literal
+zero divisor remains type-correct because divide-by-zero is a runtime package
+concern. Numeric-array SNL publication remains disabled.
+
+Scalar-division validation (2026-09-22): all 99 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 62 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
