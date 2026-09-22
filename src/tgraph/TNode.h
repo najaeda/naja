@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include <cstddef>
@@ -6,39 +11,39 @@
 
 namespace naja::TG {
 
-class NodeProxy;
-class Graph;
+class TNodeProxy;
+class TGraph;
 
-class Node {
+class TNode {
   public:
     using EdgeId = std::size_t;
 
-    ~Node();
+    ~TNode();
 
     std::size_t getIndex() const { return index_; }
     bool isAlive() const { return alive_; }
 
-    NodeProxy* getProxy() { return proxy_.get(); }
-    const NodeProxy* getProxy() const { return proxy_.get(); }
+    TNodeProxy* getProxy() { return proxy_.get(); }
+    const TNodeProxy* getProxy() const { return proxy_.get(); }
 
     const std::vector<EdgeId>& getInEdges() const { return inEdges_; }
     const std::vector<EdgeId>& getOutEdges() const { return outEdges_; }
     std::size_t getInDegree() const { return inEdges_.size(); }
     std::size_t getOutDegree() const { return outEdges_.size(); }
 
-    Node(Node&&);
-    Node& operator=(Node&&);
+    TNode(TNode&&);
+    TNode& operator=(TNode&&);
 
-    static Node create(std::size_t index, NodeProxy* proxy);
+    static TNode create(std::size_t index, TNodeProxy* proxy);
 
   private:
-    friend class Graph;
+    friend class TGraph;
 
-    Node(std::size_t index, NodeProxy* proxy);
-    Node(const Node&) = delete;
-    Node& operator=(const Node&) = delete;
+    TNode(std::size_t index, TNodeProxy* proxy);
+    TNode(const TNode&) = delete;
+    TNode& operator=(const TNode&) = delete;
 
-    void reset(std::size_t index, NodeProxy* proxy);
+    void reset(std::size_t index, TNodeProxy* proxy);
     void deactivate();
     void addInEdge(EdgeId edge);
     void addOutEdge(EdgeId edge);
@@ -47,7 +52,7 @@ class Node {
 
     std::size_t index_ {0};
     bool alive_ {false};
-    std::unique_ptr<NodeProxy> proxy_;
+    std::unique_ptr<TNodeProxy> proxy_;
     std::vector<EdgeId> inEdges_;
     std::vector<EdgeId> outEdges_;
 };

@@ -3,16 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(GRAPH_SOURCES
-  Edge.cpp
-  Graph.cpp
-  Node.cpp
+  TClock.cpp
+  TClockPropagator.cpp
+  TEdge.cpp
+  TGraph.cpp
+  TLoopBreaker.cpp
+  TNode.cpp
 )
 
 add_library(naja_tgraph SHARED ${GRAPH_SOURCES})
 
-#target_link_libraries(naja_tgraph PUBLIC naja_nl TBB::tbb TBB::tbbmalloc)
+# naja_nl is required by TClock, whose target is either a top terminal
+# (SNLBitTerm) or an instance terminal (SNLInstTerm).
+target_link_libraries(naja_tgraph PUBLIC naja_nl)
 
-target_compile_options(naja_tgraph BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
+target_compile_options(naja_tgraph BEFORE PRIVATE ${NAJA_CXX_WARNINGS})
+
+target_include_directories(naja_tgraph PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_tgraph
