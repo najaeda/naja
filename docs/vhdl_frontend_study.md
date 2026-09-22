@@ -893,3 +893,37 @@ overloads and SNL lowering remain outside this increment.
 Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed unary-negation analysis
+
+The next arithmetic increment resolves unary `-` for a `signed` vector when
+`ieee.numeric_std.all` is visible in the architecture. The result retains the
+operand length with canonical `length - 1 downto 0` bounds, including for an
+ascending or nonzero-based operand.
+
+Unsigned, null, invisible and unrepresentably wide operands are diagnosed.
+This closes the unary numeric overload without conflating it with integer unary
+arithmetic or authorizing numeric-array SNL publication.
+
+Signed-negation validation (2026-09-22): all 91 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 54 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` scalar/vector addition and subtraction
+
+The next overload-resolution increment distinguishes the predefined `natural`
+subtype from `integer`, including contextual resolution of nonnegative integer
+literals. Vector/scalar and scalar/vector `+` and `-` now resolve for
+`unsigned` with `natural`, and for `signed` with `integer` or its `natural`
+subtype. Results retain the vector operand length with canonical descending
+bounds, matching the IEEE package declarations.
+
+An arbitrary `integer` object is not accepted where the unsigned overload
+requires `natural`; this avoids assuming a nonnegative runtime value. Missing
+visibility, null vectors and incompatible scalar types are diagnosed. This is
+still analysis-only and does not authorize numeric arrays for SNL publication.
+
+Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

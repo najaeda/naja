@@ -548,3 +548,34 @@ this increment.
 Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed unary negation
+
+With `ieee.numeric_std.all` visible in the architecture, unary `-` resolves for
+a non-null `signed` vector. The result retains the operand length and uses the
+canonical range `length - 1 downto 0`. Unsigned, invisible, null and
+unrepresentably wide operands are deterministic errors.
+
+This semantic support does not authorize numeric-array SNL publication.
+
+Signed-negation validation (2026-09-22): all 91 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 54 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` scalar/vector addition and subtraction
+
+`natural` is represented as an integer subtype rather than being collapsed
+into unrestricted `integer`. With `ieee.numeric_std.all` visible, vector/scalar
+and scalar/vector `+` and `-` resolve for `unsigned` with `natural`, and for
+`signed` with `integer` or `natural`. A nonnegative integer literal resolves
+contextually to `natural` for an unsigned overload. The result retains the
+vector operand length and uses canonical descending bounds.
+
+An unrestricted integer object cannot satisfy a `natural` formal without
+subtype proof. Missing visibility, incompatible scalars and null vectors are
+errors, and numeric arrays remain outside SNL publication.
+
+Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

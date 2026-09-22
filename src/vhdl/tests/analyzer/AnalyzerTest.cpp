@@ -367,6 +367,106 @@ architecture rtl of p is begin y <= a mod b; end;
 )").hasErrors());
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNumericStdSignedUnaryNegation) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity negate is port(a : in signed(0 to 5); y : out signed(5 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of negate is begin y <= -a; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& negation = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(negation), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(negation), nullptr);
+    EXPECT_EQ(result.getRange(negation)->left, 5);
+    EXPECT_EQ(result.getRange(negation)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdUnaryNegation) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 downto 0); y : out signed(3 downto 0)); end;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 to 0); y : out signed(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorAdditionAndSubtraction) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_arithmetic is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uy0, uy1, uy2, uy3 : out unsigned(5 downto 0);
+  sy0, sy1, sy2, sy3 : out signed(7 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_arithmetic is begin
+  uy0 <= u + 1;
+  uy1 <= 2 + u;
+  uy2 <= u - n;
+  uy3 <= n - u;
+  sy0 <= s + i;
+  sy1 <= i + s;
+  sy2 <= s - n;
+  sy3 <= n - s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& value = *assignments[index].value;
+        EXPECT_EQ(result.getType(value),
+                  index < 4 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(value), nullptr);
+        EXPECT_EQ(result.getRange(value)->left, index < 4 ? 5 : 7);
+        EXPECT_EQ(result.getRange(value)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right), vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[1].value->left), vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorAddends) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u + i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= u - 1; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 to 0); n : in natural;
+                 y : out unsigned(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u + n; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
     for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
         const auto parsed = vhdl::Parser::parse(std::string(

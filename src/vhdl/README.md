@@ -477,3 +477,34 @@ scalar overloads and SNL lowering remain future work.
 Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed unary negation
+
+A non-null `signed` vector supports unary `-` when `ieee.numeric_std.all` is
+visible in the architecture. The result keeps the operand length and uses
+canonical descending bounds. Unsigned, invisible, null and unrepresentably
+wide operands are diagnosed.
+
+The Naja adapter continues to reject numeric-array hardware before SNL
+publication.
+
+Signed-negation validation (2026-09-22): all 91 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 54 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` scalar/vector addition and subtraction
+
+The analyzer distinguishes `natural` from unrestricted `integer` and resolves
+nonnegative integer literals contextually. With `ieee.numeric_std.all` visible,
+vector/scalar and scalar/vector `+` and `-` support `unsigned` with `natural`,
+and `signed` with `integer` or `natural`. Results retain the vector length with
+canonical descending bounds.
+
+An arbitrary integer object does not satisfy an unsigned overload requiring
+`natural`. Missing visibility, null vectors and incompatible scalar operands
+are diagnosed. Numeric-array SNL publication remains disabled.
+
+Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

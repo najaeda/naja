@@ -25,6 +25,7 @@ enum class ScalarType {
     Signed,
     Boolean,
     Integer,
+    Natural,
     Real,
     String
 };
