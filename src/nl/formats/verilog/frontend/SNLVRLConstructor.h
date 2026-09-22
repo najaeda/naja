@@ -7,6 +7,7 @@
 
 #include "VerilogConstructor.h"
 
+#include <optional>
 #include <unordered_map>
 
 #include "NLDB0.h"
@@ -154,7 +155,11 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     std::string         currentModelName_               {};
     GateInstance        currentGateInstance_            {};
     SNLInstance*        currentInstance_                {nullptr};
-    using ParameterValues = std::map<std::string, std::string>;
+    struct ParameterValue {
+      std::string                source;     // original source text
+      std::optional<std::string> canonical;  // canonical sized-binary form
+    };
+    using ParameterValues = std::map<std::string, ParameterValue>;
     ParameterValues     currentInstanceParameterValues_ {};
     SNLScalarNet*       currentModuleAssign0_           {nullptr};
     SNLScalarNet*       currentModuleAssign1_           {nullptr};
