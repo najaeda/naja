@@ -11,6 +11,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLScalarTerm.h"
 
@@ -91,6 +92,54 @@ SNLInstance* SNLRTLPrimitives::createDFF(
   instance->setTermNet(NLDB0::getDFFClock(), clock);
   instance->setTermNet(NLDB0::getDFFData(), data);
   instance->setTermNet(NLDB0::getDFFOutput(), output);
+  return instance;
+}
+
+SNLInstance* SNLRTLPrimitives::createDFFE(
+  SNLDesign* design, SNLNet* clock, SNLNet* data,
+  SNLNet* enable, SNLNet* output) {
+  if (!validNet(design, clock, 1) || !validNet(design, data, 1) ||
+      !validNet(design, enable, 1) || !validNet(design, output, 1)) {
+    throw NLException("SNLRTLPrimitives::createDFFE: invalid nets or widths");
+  }
+  auto* instance = SNLInstance::create(design, NLDB0::getDFFE());
+  instance->setTermNet(NLDB0::getDFFEClock(), clock);
+  instance->setTermNet(NLDB0::getDFFEData(), data);
+  instance->setTermNet(NLDB0::getDFFEEnable(), enable);
+  instance->setTermNet(NLDB0::getDFFEOutput(), output);
+  return instance;
+}
+
+SNLInstance* SNLRTLPrimitives::createDFFSR(
+  SNLDesign* design, SNLNet* clock, SNLNet* data,
+  SNLNet* reset, SNLNet* output) {
+  if (!validNet(design, clock, 1) || !validNet(design, data, 1) ||
+      !validNet(design, reset, 1) || !validNet(design, output, 1)) {
+    throw NLException("SNLRTLPrimitives::createDFFSR: invalid nets or widths");
+  }
+  auto* instance = SNLInstance::create(design, NLDB0::getDFFSR());
+  instance->setTermNet(NLDB0::getDFFSRClock(), clock);
+  instance->setTermNet(NLDB0::getDFFSRData(), data);
+  instance->setTermNet(NLDB0::getDFFSRReset(), reset);
+  instance->setTermNet(NLDB0::getDFFSROutput(), output);
+  return instance;
+}
+
+SNLInstance* SNLRTLPrimitives::createDFFSRE(
+  SNLDesign* design, SNLNet* clock, SNLNet* data,
+  SNLNet* enable, SNLNet* reset, SNLNet* output) {
+  if (!validNet(design, clock, 1) || !validNet(design, data, 1) ||
+      !validNet(design, enable, 1) || !validNet(design, reset, 1) ||
+      !validNet(design, output, 1)) {
+    throw NLException("SNLRTLPrimitives::createDFFSRE: invalid nets or widths");
+  }
+  auto* model = NLDB0::getDFFSRE();
+  auto* instance = SNLInstance::create(design, model);
+  instance->setTermNet(model->getScalarTerm(NLName("C")), clock);
+  instance->setTermNet(model->getScalarTerm(NLName("D")), data);
+  instance->setTermNet(model->getScalarTerm(NLName("E")), enable);
+  instance->setTermNet(model->getScalarTerm(NLName("R")), reset);
+  instance->setTermNet(model->getScalarTerm(NLName("Q")), output);
   return instance;
 }
 

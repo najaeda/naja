@@ -229,8 +229,10 @@ no initialization guarantee. The evaluator begins with unknown register values
 and the reference comparison starts after two rising edges. Explicit initializers
 (including `'0'`) are rejected. No initialization metadata is silently discarded.
 
-Unsupported forms include reset/enable or other nested control flow, falling-edge
-registers, unassigned retained variables, repeated targets, multiple drivers, undriven internal
+Unsupported forms include asynchronous reset or nested control flow beyond the
+supported active-high enable and synchronous reset-to-zero profiles, falling-edge
+registers, active-low controls, unassigned
+retained variables, repeated targets, multiple drivers, undriven internal
 signals, timing/waveforms (`after`, `transport`, `reject`, `wait`), vector and
 nine-valued types, clocked assignment expressions beyond names, and function
 calls other than the supported `rising_edge` clock guard. Parser errors or adapter diagnostics reject these before design
@@ -388,9 +390,112 @@ standard `rising_edge(clk)` call. Both resolve one scalar `bit` clock and lower
 through the same canonical DFF construction; the source form is not discarded
 by parsing. Only a single name argument is accepted. The pipeline NVC comparison
 now exercises the call form, while direct adapter tests retain both spellings.
-Reset, enable, falling-edge and general function-call semantics are outside this
-increment and continue to fail before design publication.
+The synchronous reset profile is covered below. Asynchronous reset,
+falling-edge, active-low control and general function-call semantics remain
+outside this increment and fail before design publication.
 
 Rising-edge validation (2026-09-21): all 63 integrated VHDL tests passed,
 including the NVC pipeline comparison. All 33 standalone frontend tests passed
 from a separate build tree.
+
+## Active-high clock-enable proof
+
+The accepted extension to a positive-edge process is exactly one nested
+`if en = '1' then ... end if;` around all scheduled writes. `ClockedProcess`
+retains the enable name and literal. Analysis resolves the name as a scalar
+`bit`; construction further requires an input port and the active-high literal
+`'1'` before publishing any design.
+
+Each enabled write lowers through `SNLRTLPrimitives::createDFFE()` to the
+canonical NLDB0 DFFE C/D/E/Q pins. The same enable gates every scheduled signal
+and retained-variable state element, so a false enable holds state without a
+feedback mux. The `enabled.vhd` NVC fixture checks enabled update, disabled hold
+and re-enabled update and produces `1, 1, 0` in both implementations. Active-low
+enables, deeper nesting and other enable forms remain outside the contract and
+are rejected before design publication. Reset-priority combination is accepted
+only by the profile below.
+
+Clock-enable validation (2026-09-22): all 68 integrated VHDL tests passed,
+including the NVC comparison; all 36 standalone frontend tests passed. The
+shared primitive and SystemVerilog regression passed all 1,119 tests.
+
+## Active-high synchronous reset proof
+
+The accepted reset shape is exactly one nested
+`if rst = '1' then ... else ... end if;` inside a supported positive-edge
+process. The AST retains the reset name, level and reset assignments. Analysis
+binds a scalar `bit` reset and type-checks both branches. Construction requires
+an input reset port, a high-active condition, and a reset branch assigning `'0'`
+to exactly the same scalar signal targets as the data branch.
+
+Every resulting state element uses `SNLRTLPrimitives::createDFFSR()` and the
+canonical NLDB0 DFFSR C/D/R/Q pins. The `reset.vhd` reference demonstrates
+synchronous behavior: asserting reset while the clock is low preserves Q until
+the rising edge, producing the trace `1, 1, 0, 1`; a two-target constructor case
+checks that one reset net controls all scheduled writes. Active-low,
+asynchronous, reset-to-one and process-variable forms are rejected before design
+publication.
+
+Synchronous-reset validation (2026-09-22): all 72 integrated VHDL tests passed,
+including the NVC comparison; all 38 standalone frontend tests passed. The
+shared primitive and SystemVerilog regression passed all 1,120 tests.
+
+## Synchronous reset with active-high clock enable
+
+The accepted combined shape is exactly
+`if rst = '1' then ... elsif en = '1' then ... end if;` inside a supported
+positive-edge process. `ClockedProcess` retains both controls and both branches,
+analysis resolves each control as scalar `bit`, and construction requires input
+ports with active-high levels. The reset branch retains reset priority and the
+same reset-to-zero, equal-target-set invariant as the reset-only profile.
+
+Every resulting state element uses `SNLRTLPrimitives::createDFFSRE()` and the
+canonical NLDB0 DFFSRE C/D/E/R/Q pins. The `reset_enable.vhd` reference checks
+enabled update, disabled hold, synchronous timing, reset-over-enable priority
+and re-enabled update, producing `1, 1, 1, 0, 0, 1`. Active-low controls, an
+additional else branch, deeper control flow and process-variable reset are
+rejected before design publication.
+
+Combined reset-enable validation (2026-09-22): all 81 focused VHDL/frontend and
+shared-primitive tests passed, including all nine NVC comparisons. The broad
+shared primitive and SystemVerilog regression passed all 1,137 tests.
+
+## Library context and nine-valued analysis foundation
+
+`ContextClause` is attached independently to each parsed entity and architecture.
+It retains `library` clauses and the complete selected names from `use` clauses;
+context never implicitly carries into the following design unit. The current
+analyzer recognizes whole-package imports of `ieee.std_logic_1164.all` and
+`ieee.numeric_std.all`. Missing library clauses, partial imports and unsupported
+packages are deterministic diagnostics.
+
+`std_logic` and constrained `std_logic_vector` resolve only when
+`std_logic_1164` is visible and remain distinct from `bit` and `bit_vector` in
+the semantic type system. Typed character literals retain the nine-value domain,
+and logical/equality operations preserve the imported type. This is analysis
+support, not a binary-lowering policy: the Naja adapter still rejects all
+`std_logic` hardware before publication. `numeric_std` package visibility is
+represented, while its declared types and overloads are not yet resolved.
+
+Context/type validation (2026-09-22): all 76 VHDL tests passed—36 integrated
+constructor/NVC tests and 40 standalone parser/analyzer tests. The previously run
+1,137-test shared primitive/SystemVerilog regression remains unchanged because
+this slice touches only the VHDL syntax and semantic layers.
+
+## `numeric_std` vector arithmetic analysis foundation
+
+With `ieee.numeric_std.all` visible, constrained `unsigned` and `signed` are
+distinct semantic types. Matching vector operands support the `+` and `-`
+overloads; the result has the maximum operand length and the canonical range
+`length - 1 downto 0`. The importing context belongs to the design unit, so an
+architecture using an overload must import it independently of its entity.
+
+This increment does not silently treat numeric arrays as binary SNL buses.
+Mixed signedness, invisible overloads, unconstrained or null arrays and
+unimplemented overload families are analysis errors, and the adapter rejects
+otherwise valid numeric hardware before publication until its value-domain and
+arithmetic lowering contracts are defined.
+
+Numeric-vector validation (2026-09-22): all 83 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 46 lexer/parser/analyzer tests. The
+standalone suite also passed from an isolated source copy.

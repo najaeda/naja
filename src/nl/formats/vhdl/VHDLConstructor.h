@@ -20,9 +20,10 @@ class VHDLConstructor {
 
     /// Parse and lower one entity/architecture with one bit or constrained
     /// bit_vector expression, including logical gates and a conditional assignment,
-    /// or one positive-edge
-    /// positive-edge process, using `rising_edge(clk)` or the equivalent
-    /// explicit event/level guard, over bit ports and internal signals, with one
+    /// or one positive-edge process, using `rising_edge(clk)` or the equivalent
+    /// explicit event/level guard, with an optional active-high scalar clock
+    /// enable or active-high synchronous reset-to-zero, over bit ports and
+    /// internal signals, with one
     /// scheduled write per signal destination.
     /// Scalar process variables may be temporary or retained state; retained
     /// variables must be assigned on every activation.

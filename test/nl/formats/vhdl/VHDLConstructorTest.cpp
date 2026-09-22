@@ -307,12 +307,30 @@ architecture rtl of mux is begin end architecture rtl;
 
 TEST_F(VHDLConstructorTest, NineValuedPortIsRejectedBeforeDesignCreation) {
   constexpr auto source = R"(
-entity mux_logic is port (a : in std_logic); end entity mux_logic;
-architecture rtl of mux_logic is begin end architecture rtl;
+library ieee;
+use ieee.std_logic_1164.all;
+entity mux_logic is port (a : in std_logic; y : out std_logic); end entity mux_logic;
+architecture rtl of mux_logic is begin y <= a; end architecture rtl;
 )";
   VHDLConstructor constructor(library_);
   EXPECT_THROW(constructor.construct(source), NLException);
   EXPECT_EQ(library_->getSNLDesign(NLName("mux_logic")), nullptr);
+}
+
+TEST_F(VHDLConstructorTest, NumericStdPortIsRejectedBeforeDesignCreation) {
+  constexpr auto source = R"(
+library ieee;
+use ieee.numeric_std.all;
+entity add_unsigned is port (
+  a, b : in unsigned(3 downto 0); y : out unsigned(3 downto 0));
+end entity add_unsigned;
+library ieee;
+use ieee.numeric_std.all;
+architecture rtl of add_unsigned is begin y <= a + b; end architecture rtl;
+)";
+  VHDLConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(source), NLException);
+  EXPECT_EQ(library_->getSNLDesign(NLName("add_unsigned")), nullptr);
 }
 
 TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameMuxModel) {
@@ -365,12 +383,122 @@ end;
             design->getScalarTerm(NLName("q"))->getNet());
 }
 
+TEST_F(VHDLConstructorTest, ClockEnableWiringAndCycles) {
+  std::ifstream fixture(SNL_VHDL_ENABLED);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 1);
+  auto* instance = *design->getInstances().begin();
+  EXPECT_EQ(instance->getModel(), NLDB0::getDFFE());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFEClock())->getNet(),
+            design->getScalarTerm(NLName("clk"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFEData())->getNet(),
+            design->getScalarTerm(NLName("d"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFEEnable())->getNet(),
+            design->getScalarTerm(NLName("en"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFEOutput())->getNet(),
+            design->getScalarTerm(NLName("q"))->getNet());
+  if (const auto* path = std::getenv("VHDL_ENABLE_REFERENCE")) {
+    std::ifstream reference(path);
+    ASSERT_TRUE(reference);
+    std::vector<int> values;
+    for (int value; reference >> value;) values.push_back(value);
+    EXPECT_EQ(values, (std::vector<int>{1, 1, 0}));
+  }
+}
+
+TEST_F(VHDLConstructorTest, SynchronousResetWiringAndCycles) {
+  std::ifstream fixture(SNL_VHDL_RESET);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 1);
+  auto* instance = *design->getInstances().begin();
+  EXPECT_EQ(instance->getModel(), NLDB0::getDFFSR());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFSRClock())->getNet(),
+            design->getScalarTerm(NLName("clk"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFSRData())->getNet(),
+            design->getScalarTerm(NLName("d"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFSRReset())->getNet(),
+            design->getScalarTerm(NLName("rst"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFSROutput())->getNet(),
+            design->getScalarTerm(NLName("q"))->getNet());
+  if (const auto* path = std::getenv("VHDL_RESET_REFERENCE")) {
+    std::ifstream reference(path);
+    ASSERT_TRUE(reference);
+    std::vector<int> values;
+    for (int value; reference >> value;) values.push_back(value);
+    EXPECT_EQ(values, (std::vector<int>{1, 1, 0, 1}));
+  }
+
+  auto* pair = VHDLConstructor(library_).construct(R"(
+entity reset_pair is
+  port(clk, rst, d0, d1 : in bit; q0, q1 : out bit);
+end;
+architecture rtl of reset_pair is begin
+  process(clk) begin
+    if rising_edge(clk) then
+      if rst = '1' then q0 <= '0'; q1 <= '0';
+      else q0 <= d0; q1 <= d1; end if;
+    end if;
+  end process;
+end;
+)");
+  ASSERT_EQ(pair->getInstances().size(), 2);
+  for (auto* resetFlop : pair->getInstances()) {
+    EXPECT_EQ(resetFlop->getModel(), NLDB0::getDFFSR());
+    EXPECT_EQ(resetFlop->getInstTerm(NLDB0::getDFFSRReset())->getNet(),
+              pair->getScalarTerm(NLName("rst"))->getNet());
+  }
+}
+
+TEST_F(VHDLConstructorTest, SynchronousResetWithEnableWiringAndCycles) {
+  std::ifstream fixture(SNL_VHDL_RESET_ENABLE);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_EQ(design->getInstances().size(), 1);
+  auto* instance = *design->getInstances().begin();
+  auto* model = NLDB0::getDFFSRE();
+  EXPECT_EQ(instance->getModel(), model);
+  EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("C")))->getNet(),
+            design->getScalarTerm(NLName("clk"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("D")))->getNet(),
+            design->getScalarTerm(NLName("d"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("E")))->getNet(),
+            design->getScalarTerm(NLName("en"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("R")))->getNet(),
+            design->getScalarTerm(NLName("rst"))->getNet());
+  EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("Q")))->getNet(),
+            design->getScalarTerm(NLName("q"))->getNet());
+  if (const auto* path = std::getenv("VHDL_RESET_ENABLE_REFERENCE")) {
+    std::ifstream reference(path);
+    ASSERT_TRUE(reference);
+    std::vector<int> values;
+    for (int value; reference >> value;) values.push_back(value);
+    EXPECT_EQ(values, (std::vector<int>{1, 1, 1, 0, 0, 1}));
+  }
+}
+
 TEST_F(VHDLConstructorTest, UnsupportedClockedProcessesPublishNoDesign) {
   for (const auto* body : {
       "process(clk) begin if clk'event and clk = '0' then q <= d; end if; end process;",
       "process(d) begin if clk'event and clk = '1' then q <= d; end if; end process;",
       "process(d) begin if rising_edge(clk) then q <= d; end if; end process;",
       "process(clk) begin if rising_edge(missing) then q <= d; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if d = '0' then q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if missing = '1' then q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if q = '1' then q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if d = '0' then q <= '0'; else q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if d = '1' then q <= '1'; else q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if missing = '1' then q <= '0'; else q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if q = '1' then q <= '0'; else q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if d = '1' then d <= '0'; else q <= d; end if; end if; end process;",
+      "process(clk) is variable v : bit; begin if rising_edge(clk) then if d = '1' then q <= '0'; else v := d; q <= v; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if rst = '0' then q <= '0'; elsif en = '1' then q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if rst = '1' then q <= '0'; elsif en = '0' then q <= d; end if; end if; end process;",
+      "process(clk) begin if rising_edge(clk) then if rst = '1' then q <= '1'; elsif en = '1' then q <= d; end if; end if; end process;",
       "process(clk) begin if clk'event and d = '1' then q <= d; end if; end process;",
       "process(clk) begin if missing'event and clk = '1' then q <= d; end if; end process;",
       "process(clk) begin if clk'event and clk = '1' then q <= missing; end if; end process;",

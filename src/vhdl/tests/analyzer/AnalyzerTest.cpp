@@ -86,6 +86,123 @@ architecture rtl of logic is begin y <= (a and b) xor not c; end;
     EXPECT_EQ(result.getType(*expression.right), vhdl::ScalarType::Bit);
 }
 
+TEST(VHDLAnalyzerTest, ResolvesImportedNineValuedLogicWithoutBinaryCollapse) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library IEEE;
+use IEEE.std_logic_1164.all, ieee.numeric_std.all;
+entity logic is port(a, b : in std_logic; y : out std_logic); end;
+architecture rtl of logic is begin y <= (a xor b) and 'X'; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::StdLogic);
+    EXPECT_EQ(result.getType(*expression.right), vhdl::ScalarType::StdLogic);
+
+    for (const auto* literal : {
+        "'U'", "'X'", "'0'", "'1'", "'Z'", "'W'", "'L'", "'H'", "'-'"}) {
+        SCOPED_TRACE(literal);
+        const std::string source = std::string(
+            "library ieee; use ieee.std_logic_1164.all; "
+            "entity p is port(y : out std_logic); end; "
+            "architecture rtl of p is begin y <= ") + literal + "; end;";
+        EXPECT_FALSE(analyze(source).hasErrors());
+    }
+    EXPECT_TRUE(analyze(
+        "library ieee; use ieee.std_logic_1164.all; "
+        "entity p is port(y : out std_logic); end; "
+        "architecture rtl of p is begin y <= 'x'; end;").hasErrors());
+
+    const auto vectors = vhdl::Parser::parse(R"(
+library ieee; use ieee.std_logic_1164.all;
+entity vectors is port(a, b : in std_logic_vector(3 downto 0);
+                       y : out std_logic_vector(0 to 3)); end;
+architecture rtl of vectors is begin y <= a xor b; end;
+)");
+    ASSERT_FALSE(vectors.hasErrors());
+    const auto vectorResult = vhdl::Analyzer::analyze(vectors.syntax);
+    ASSERT_FALSE(vectorResult.hasErrors());
+    EXPECT_EQ(vectorResult.getType(
+                  *vectors.syntax.architectures[0].assignments[0].value),
+              vhdl::ScalarType::StdLogicVector);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvisibleAndUnsupportedPackageTypes) {
+    for (const auto* source : {
+        "entity p is port(a : in std_logic; y : out std_logic); end; "
+        "architecture rtl of p is begin y <= a; end;",
+        "use ieee.std_logic_1164.all; entity p is end;",
+        "library ieee; use ieee.unknown.all; entity p is end;",
+        "library ieee; use ieee.std_logic_1164.std_logic; entity p is end;",
+        "library ieee; use ieee.std_logic_1164.all; entity p is end; "
+        "entity q is port(a : in std_logic); end;"}) {
+        SCOPED_TRACE(source);
+        const auto parsed = vhdl::Parser::parse(source);
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorsAndAdditionWidth) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity adders is port (
+  ua : in unsigned(0 to 2); ub : in unsigned(7 downto 4);
+  sy : out signed(1 downto 0); sa, sb : in signed(1 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of adders is
+  signal uy : unsigned(3 downto 0);
+begin
+  uy <= ua + ub;
+  sy <= sa - sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& addition = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(addition), vhdl::ScalarType::Unsigned);
+    ASSERT_NE(result.getRange(addition), nullptr);
+    EXPECT_EQ(result.getRange(addition)->left, 3);
+    EXPECT_EQ(result.getRange(addition)->right, 0);
+
+    const auto& subtraction = *parsed.syntax.architectures[0].assignments[1].value;
+    EXPECT_EQ(result.getType(subtraction), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(subtraction), nullptr);
+    EXPECT_EQ(result.getRange(subtraction)->left, 1);
+    EXPECT_EQ(result.getRange(subtraction)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesNumericStdVisibilityAndTypeMismatches) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(3 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+entity p is port(a : in unsigned(3 downto 0)); end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 to 0); y : out unsigned(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
     for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
         const auto parsed = vhdl::Parser::parse(std::string(
@@ -136,6 +253,62 @@ end if; end process;
 end;
 )");
     EXPECT_EQ(result.diagnostics.size(), 5);
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksClockEnable) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then if en = '1' then q <= d; end if; end if;
+end process; end;
+)").hasErrors());
+    for (const auto* enable : {"missing", "count"}) {
+        SCOPED_TRACE(enable);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if ") + enable +
+            " = '1' then q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksSynchronousReset) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, rst, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if rst = '1' then q <= '0'; else q <= d; end if;
+end if; end process; end;
+)").hasErrors());
+    for (const auto* reset : {"missing", "count"}) {
+        SCOPED_TRACE(reset);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if ") + reset +
+            " = '1' then q <= '0'; else q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksResetWithEnable) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, rst, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if rst = '1' then q <= '0'; elsif en = '1' then q <= d; end if;
+end if; end process; end;
+)").hasErrors());
+    for (const auto* enable : {"missing", "count"}) {
+        SCOPED_TRACE(enable);
+        const std::string source = std::string(
+            "entity reg is port(clk, rst, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if rst = '1' then q <= '0'; elsif ") + enable +
+            " = '1' then q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
 }
 
 TEST(VHDLAnalyzerTest, InternalSignalsResolveAcrossAllScheduledWrites) {

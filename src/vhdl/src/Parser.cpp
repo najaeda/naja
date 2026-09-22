@@ -5,6 +5,7 @@
 
 #include <charconv>
 #include <cstdint>
+#include <iterator>
 #include <string>
 
 namespace vhdl {
@@ -24,15 +25,32 @@ public:
     ParseResult run() {
         while (!atEnd()) {
             const auto before = current().span.start.offset;
+            ContextClause context;
+            while (word("library") || word("use")) {
+                if (word("library")) {
+                    auto clause = parseLibraryClause();
+                    if (clause)
+                        context.libraries.push_back(std::move(*clause));
+                } else {
+                    auto clauses = parseUseClause();
+                    context.uses.insert(context.uses.end(),
+                        std::make_move_iterator(clauses.begin()),
+                        std::make_move_iterator(clauses.end()));
+                }
+            }
             if (word("entity")) {
                 auto entity = parseEntity();
-                if (entity)
+                if (entity) {
+                    entity->context = std::move(context);
                     result_.syntax.entities.push_back(std::move(*entity));
+                }
             }
             else if (word("architecture")) {
                 auto architecture = parseArchitecture();
-                if (architecture)
+                if (architecture) {
+                    architecture->context = std::move(context);
                     result_.syntax.architectures.push_back(std::move(*architecture));
+                }
             }
             else {
                 error("expected an entity or architecture design unit", current().span);
@@ -106,6 +124,45 @@ private:
     bool isNameToken() const {
         return current().kind == TokenKind::Identifier ||
                current().kind == TokenKind::ExtendedIdentifier;
+    }
+
+    std::optional<LibraryClause> parseLibraryClause() {
+        const auto start = advance().span;
+        std::vector<Name> names;
+        do {
+            auto name = parseName();
+            if (!name)
+                return std::nullopt;
+            names.push_back(std::move(*name));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(";"))
+            return std::nullopt;
+        return LibraryClause{std::move(names),
+            join(start, lexed_.tokens[index_ - 1].span)};
+    }
+
+    std::vector<UseClause> parseUseClause() {
+        const auto start = advance().span;
+        std::vector<UseClause> clauses;
+        do {
+            std::vector<Name> selectedName;
+            auto name = parseName();
+            if (!name)
+                return clauses;
+            selectedName.push_back(std::move(*name));
+            while (acceptSymbol(".")) {
+                name = parseName();
+                if (!name)
+                    return clauses;
+                selectedName.push_back(std::move(*name));
+            }
+            clauses.push_back(UseClause{std::move(selectedName), start});
+        } while (acceptSymbol(","));
+        if (!expectSymbol(";"))
+            return clauses;
+        for (auto& clause : clauses)
+            clause.span = join(start, lexed_.tokens[index_ - 1].span);
+        return clauses;
     }
 
     std::optional<EntityDeclaration> parseEntity() {
@@ -407,20 +464,83 @@ private:
         }
         if (!expectWord("then"))
             return std::nullopt;
+        std::optional<Name> controlSignal;
+        std::string controlLevel;
+        if (acceptWord("if")) {
+            controlSignal = parseName();
+            if (!controlSignal || !expectSymbol("="))
+                return std::nullopt;
+            const auto controlToken = current();
+            if (controlToken.kind != TokenKind::CharacterLiteral) {
+                error("expected a control level character literal", controlToken.span);
+                return std::nullopt;
+            }
+            advance();
+            controlLevel = controlToken.text;
+            if (!expectWord("then"))
+                return std::nullopt;
+        }
         std::vector<Assignment> assignments;
         do {
             auto assignment = parseAssignment(true);
             if (!assignment)
                 return std::nullopt;
             assignments.push_back(std::move(*assignment));
-        } while (!atEnd() && !word("end"));
+        } while (!atEnd() && !word("end") && !word("else") && !word("elsif"));
+        std::optional<Name> enableSignal;
+        std::string enableLevel;
+        std::optional<Name> resetSignal;
+        std::string resetLevel;
+        std::vector<Assignment> resetAssignments;
+        if (controlSignal && acceptWord("elsif")) {
+            resetSignal = std::move(controlSignal);
+            resetLevel = std::move(controlLevel);
+            resetAssignments = std::move(assignments);
+            assignments.clear();
+            enableSignal = parseName();
+            if (!enableSignal || !expectSymbol("="))
+                return std::nullopt;
+            const auto enableToken = current();
+            if (enableToken.kind != TokenKind::CharacterLiteral) {
+                error("expected an enable level character literal", enableToken.span);
+                return std::nullopt;
+            }
+            advance();
+            enableLevel = enableToken.text;
+            if (!expectWord("then"))
+                return std::nullopt;
+            do {
+                auto assignment = parseAssignment(true);
+                if (!assignment)
+                    return std::nullopt;
+                assignments.push_back(std::move(*assignment));
+            } while (!atEnd() && !word("end"));
+        } else if (controlSignal && acceptWord("else")) {
+            resetSignal = std::move(controlSignal);
+            resetLevel = std::move(controlLevel);
+            resetAssignments = std::move(assignments);
+            assignments.clear();
+            do {
+                auto assignment = parseAssignment(true);
+                if (!assignment)
+                    return std::nullopt;
+                assignments.push_back(std::move(*assignment));
+            } while (!atEnd() && !word("end"));
+        } else if (controlSignal) {
+            enableSignal = std::move(controlSignal);
+            enableLevel = std::move(controlLevel);
+        }
+        if ((enableSignal || resetSignal) &&
+            (!expectWord("end") || !expectWord("if") || !expectSymbol(";")))
+            return std::nullopt;
         if (!expectWord("end") || !expectWord("if") ||
             !expectSymbol(";") || !expectWord("end") || !expectWord("process") ||
             !expectSymbol(";"))
             return std::nullopt;
         return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
             std::move(*levelSignal), std::move(level), std::move(assignments),
-            std::move(variables), edgeForm,
+            std::move(variables), std::move(enableSignal), std::move(enableLevel),
+            std::move(resetSignal), std::move(resetLevel), std::move(resetAssignments), edgeForm,
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 

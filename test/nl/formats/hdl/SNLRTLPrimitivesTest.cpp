@@ -74,6 +74,51 @@ TEST_F(SNLRTLPrimitivesTest, DFFAcceptsOneBitBusesWithoutFrontendState) {
   EXPECT_EQ(out->getBit(-2), instance->getInstTerm(NLDB0::getDFFOutput())->getNet());
 }
 
+TEST_F(SNLRTLPrimitivesTest, DFFEUsesCanonicalActiveHighEnableModel) {
+  auto* clock = SNLScalarNet::create(design_);
+  auto* data = SNLScalarNet::create(design_);
+  auto* enable = SNLScalarNet::create(design_);
+  auto* out = SNLScalarNet::create(design_);
+  auto* instance = SNLRTLPrimitives::createDFFE(
+      design_, clock, data, enable, out);
+  EXPECT_EQ(NLDB0::getDFFE(), instance->getModel());
+  EXPECT_EQ(clock, instance->getInstTerm(NLDB0::getDFFEClock())->getNet());
+  EXPECT_EQ(data, instance->getInstTerm(NLDB0::getDFFEData())->getNet());
+  EXPECT_EQ(enable, instance->getInstTerm(NLDB0::getDFFEEnable())->getNet());
+  EXPECT_EQ(out, instance->getInstTerm(NLDB0::getDFFEOutput())->getNet());
+}
+
+TEST_F(SNLRTLPrimitivesTest, DFFSRUsesCanonicalSynchronousResetModel) {
+  auto* clock = SNLScalarNet::create(design_);
+  auto* data = SNLScalarNet::create(design_);
+  auto* reset = SNLScalarNet::create(design_);
+  auto* out = SNLScalarNet::create(design_);
+  auto* instance = SNLRTLPrimitives::createDFFSR(
+      design_, clock, data, reset, out);
+  EXPECT_EQ(NLDB0::getDFFSR(), instance->getModel());
+  EXPECT_EQ(clock, instance->getInstTerm(NLDB0::getDFFSRClock())->getNet());
+  EXPECT_EQ(data, instance->getInstTerm(NLDB0::getDFFSRData())->getNet());
+  EXPECT_EQ(reset, instance->getInstTerm(NLDB0::getDFFSRReset())->getNet());
+  EXPECT_EQ(out, instance->getInstTerm(NLDB0::getDFFSROutput())->getNet());
+}
+
+TEST_F(SNLRTLPrimitivesTest, DFFSREUsesCanonicalResetAndEnableModel) {
+  auto* clock = SNLScalarNet::create(design_);
+  auto* data = SNLScalarNet::create(design_);
+  auto* enable = SNLScalarNet::create(design_);
+  auto* reset = SNLScalarNet::create(design_);
+  auto* out = SNLScalarNet::create(design_);
+  auto* instance = SNLRTLPrimitives::createDFFSRE(
+      design_, clock, data, enable, reset, out);
+  auto* model = NLDB0::getDFFSRE();
+  EXPECT_EQ(model, instance->getModel());
+  EXPECT_EQ(clock, instance->getInstTerm(model->getScalarTerm(NLName("C")))->getNet());
+  EXPECT_EQ(data, instance->getInstTerm(model->getScalarTerm(NLName("D")))->getNet());
+  EXPECT_EQ(enable, instance->getInstTerm(model->getScalarTerm(NLName("E")))->getNet());
+  EXPECT_EQ(reset, instance->getInstTerm(model->getScalarTerm(NLName("R")))->getNet());
+  EXPECT_EQ(out, instance->getInstTerm(model->getScalarTerm(NLName("Q")))->getNet());
+}
+
 TEST_F(SNLRTLPrimitivesTest, GatesUseCanonicalModelsAndCallerOutput) {
   auto* a = SNLScalarNet::create(design_);
   auto* b = SNLScalarNet::create(design_);
@@ -132,6 +177,19 @@ TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, bit, bus, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, foreign, bit, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createDFF(design_, bit, bit, nullptr), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFE(nullptr, bit, bit, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFE(design_, bit, bus, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFE(design_, bit, bit, foreign, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFE(design_, bit, bit, bit, nullptr), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSR(nullptr, bit, bit, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSR(design_, bit, bus, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSR(design_, bit, bit, foreign, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSR(design_, bit, bit, bit, nullptr), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSRE(nullptr, bit, bit, bit, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSRE(design_, bit, bus, bit, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSRE(design_, bit, bit, foreign, bit, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSRE(design_, bit, bit, bit, foreign, bit), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createDFFSRE(design_, bit, bit, bit, bit, nullptr), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createGate(
       design_, SNLRTLPrimitives::GateKind::And, {}, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createGate(

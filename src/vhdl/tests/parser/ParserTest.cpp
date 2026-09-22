@@ -86,6 +86,44 @@ TEST(VHDLParserTest, MalformedPortProgresses) {
     EXPECT_FALSE(result.diagnostics.empty());
 }
 
+TEST(VHDLParserTest, PreservesPerDesignUnitLibraryAndUseContext) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library IEEE, vendor;
+use IEEE.STD_LOGIC_1164.ALL, ieee.numeric_std.all;
+entity top is port(a : in std_logic; y : out std_logic); end;
+library WORK;
+use work.helpers.all;
+architecture rtl of top is begin y <= a; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& entityContext = parsed.syntax.entities.front().context;
+    ASSERT_EQ(entityContext.libraries.size(), 1);
+    ASSERT_EQ(entityContext.libraries.front().names.size(), 2);
+    EXPECT_EQ(entityContext.libraries.front().names[0].canonical, "ieee");
+    EXPECT_EQ(entityContext.libraries.front().names[1].canonical, "vendor");
+    ASSERT_EQ(entityContext.uses.size(), 2);
+    ASSERT_EQ(entityContext.uses[0].selectedName.size(), 3);
+    EXPECT_EQ(entityContext.uses[0].selectedName[1].canonical, "std_logic_1164");
+    EXPECT_EQ(entityContext.uses[0].selectedName[2].canonical, "all");
+
+    const auto& architectureContext = parsed.syntax.architectures.front().context;
+    ASSERT_EQ(architectureContext.libraries.size(), 1);
+    EXPECT_EQ(architectureContext.libraries.front().names.front().canonical, "work");
+    ASSERT_EQ(architectureContext.uses.size(), 1);
+    EXPECT_EQ(architectureContext.uses.front().selectedName[1].canonical, "helpers");
+}
+
+TEST(VHDLParserTest, RejectsMalformedContextClauses) {
+    for (const auto* context : {
+        "library ;", "library ieee use ieee.std_logic_1164.all;",
+        "use ieee..all;"}) {
+        SCOPED_TRACE(context);
+        const std::string source = std::string(context) +
+            " entity top is end; architecture rtl of top is begin end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+}
+
 TEST(VHDLParserTest, PreservesClockedProcessNamesAndLocations) {
     const auto parsed = vhdl::Parser::parse(R"(
 entity reg is port(clk, d : in bit; q : out bit); end;
@@ -131,6 +169,90 @@ TEST(VHDLParserTest, RejectsMalformedRisingEdgeCalls) {
     }
 }
 
+TEST(VHDLParserTest, PreservesNestedActiveHighClockEnable) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity reg is port(clk, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then if EN = '1' then q <= d; end if; end if;
+end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& process = parsed.syntax.architectures.front().processes.front();
+    ASSERT_TRUE(process.enableSignal);
+    EXPECT_EQ(process.enableSignal->canonical, "en");
+    EXPECT_EQ(process.enableLevel, "'1'");
+    ASSERT_EQ(process.assignments.size(), 1);
+    EXPECT_EQ(process.assignments.front().target.canonical, "q");
+
+    const auto explicitGuard = vhdl::Parser::parse(R"(
+entity reg is port(clk, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if clk'event and clk = '1' then if en = '1' then q <= d; end if; end if;
+end process; end;
+)");
+    ASSERT_FALSE(explicitGuard.hasErrors());
+    ASSERT_TRUE(explicitGuard.syntax.architectures.front().processes.front().enableSignal);
+}
+
+TEST(VHDLParserTest, RejectsUnsupportedClockEnableControlFlow) {
+    for (const auto* body : {
+        "if en then q <= d; end if;",
+        "if en = d then q <= d; end if;",
+        "if en = '1' then if d = '1' then q <= d; end if; end if;"}) {
+        SCOPED_TRACE(body);
+        const std::string source = std::string(
+            "entity reg is port(clk, en, d : in bit; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then ") + body + " end if; end process; end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+}
+
+TEST(VHDLParserTest, PreservesActiveHighSynchronousResetBranches) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity reg is port(clk, rst, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if RST = '1' then q <= '0'; else q <= d; end if;
+end if; end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& process = parsed.syntax.architectures.front().processes.front();
+    EXPECT_FALSE(process.enableSignal);
+    ASSERT_TRUE(process.resetSignal);
+    EXPECT_EQ(process.resetSignal->canonical, "rst");
+    EXPECT_EQ(process.resetLevel, "'1'");
+    ASSERT_EQ(process.resetAssignments.size(), 1);
+    EXPECT_EQ(process.resetAssignments.front().target.canonical, "q");
+    EXPECT_EQ(process.resetAssignments.front().value->kind,
+              vhdl::Expression::Kind::CharacterLiteral);
+    EXPECT_EQ(process.resetAssignments.front().value->text, "'0'");
+    ASSERT_EQ(process.assignments.size(), 1);
+    EXPECT_EQ(process.assignments.front().value->canonical, "d");
+}
+
+TEST(VHDLParserTest, PreservesSynchronousResetWithClockEnable) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity reg is port(clk, rst, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if RST = '1' then q <= '0'; elsif EN = '1' then q <= d; end if;
+end if; end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& process = parsed.syntax.architectures.front().processes.front();
+    ASSERT_TRUE(process.resetSignal);
+    EXPECT_EQ(process.resetSignal->canonical, "rst");
+    EXPECT_EQ(process.resetLevel, "'1'");
+    ASSERT_TRUE(process.enableSignal);
+    EXPECT_EQ(process.enableSignal->canonical, "en");
+    EXPECT_EQ(process.enableLevel, "'1'");
+    ASSERT_EQ(process.resetAssignments.size(), 1);
+    EXPECT_EQ(process.resetAssignments.front().value->text, "'0'");
+    ASSERT_EQ(process.assignments.size(), 1);
+    EXPECT_EQ(process.assignments.front().value->canonical, "d");
+}
+
 TEST(VHDLParserTest, InternalDeclarationsAndOrderedScheduledWrites) {
     const auto parsed = vhdl::Parser::parse(R"(
 entity pipeline is port(clk, d : in bit; q : out bit); end;
@@ -162,7 +284,6 @@ TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {
         "stage <= d after 1 ns;", "stage <= transport d;",
         "stage <= reject 1 ns inertial d;", "stage <= d, d after 2 ns;",
         "wait;", "null;",
-        "if d = '1' then stage <= d; end if;",
         "stage <= d; else stage <= d;", ""}) {
         SCOPED_TRACE(body);
         const auto source = std::string("entity p is end; architecture rtl of p is "

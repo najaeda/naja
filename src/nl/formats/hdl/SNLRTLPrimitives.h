@@ -30,6 +30,25 @@ class SNLRTLPrimitives {
     static SNLInstance* createDFF(
       SNLDesign* design, SNLNet* clock, SNLNet* data, SNLNet* output);
 
+    /// One positive-edge register with an active-high clock enable. All nets
+    /// have width 1.
+    static SNLInstance* createDFFE(
+      SNLDesign* design, SNLNet* clock, SNLNet* data,
+      SNLNet* enable, SNLNet* output);
+
+    /// One positive-edge register with an active-high synchronous reset to zero.
+    /// All nets have width 1.
+    static SNLInstance* createDFFSR(
+      SNLDesign* design, SNLNet* clock, SNLNet* data,
+      SNLNet* reset, SNLNet* output);
+
+    /// One positive-edge register with active-high clock enable and active-high
+    /// synchronous reset to zero. Reset has priority over enable. All nets have
+    /// width 1.
+    static SNLInstance* createDFFSRE(
+      SNLDesign* design, SNLNet* clock, SNLNet* data,
+      SNLNet* enable, SNLNet* reset, SNLNet* output);
+
     /// Create a canonical scalar logic gate. Buf and Not take exactly one input;
     /// all other kinds take at least one. Every net must have width one and belong
     /// to design. Invalid inputs throw before an instance is created.

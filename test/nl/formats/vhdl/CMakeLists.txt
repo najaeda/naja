@@ -4,6 +4,9 @@ add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
   SNL_VHDL_LOGICAL="${CMAKE_CURRENT_SOURCE_DIR}/logical.vhd"
   SNL_VHDL_HIERARCHY="${CMAKE_CURRENT_SOURCE_DIR}/hierarchy.vhd"
+  SNL_VHDL_ENABLED="${CMAKE_CURRENT_SOURCE_DIR}/enabled.vhd"
+  SNL_VHDL_RESET="${CMAKE_CURRENT_SOURCE_DIR}/reset.vhd"
+  SNL_VHDL_RESET_ENABLE="${CMAKE_CURRENT_SOURCE_DIR}/reset_enable.vhd"
   SNL_VHDL_VECTORS="${CMAKE_CURRENT_SOURCE_DIR}/vectors.vhd"
   SNL_VHDL_EQUIVALENT_LOGICAL_SV="${CMAKE_CURRENT_SOURCE_DIR}/logical_equivalent.sv"
   SNL_VHDL_EQUIVALENT_VECTOR_MUX_SV="${CMAKE_CURRENT_SOURCE_DIR}/vector_mux_equivalent.sv"
@@ -39,8 +42,18 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
   add_test(NAME VHDLHierarchyReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_hierarchy.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
+  add_test(NAME VHDLEnableReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_enable.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
+  add_test(NAME VHDLResetReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_reset.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
+  add_test(NAME VHDLResetEnableReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_reset_enable.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
   set_tests_properties(VHDLPipelineReference VHDLVariableReference
     VHDLRetainedVariableReference VHDLLogicalReference VHDLVectorReference
-    VHDLHierarchyReference
+    VHDLHierarchyReference VHDLEnableReference VHDLResetReference
+    VHDLResetEnableReference
     PROPERTIES TIMEOUT 180)
 endif()

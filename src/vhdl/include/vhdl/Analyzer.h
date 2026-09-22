@@ -15,7 +15,19 @@ struct AnalysisDiagnostic {
     SourceSpan span;
 };
 
-enum class ScalarType { Unknown, Bit, BitVector, Boolean, Integer, Real, String };
+enum class ScalarType {
+    Unknown,
+    Bit,
+    BitVector,
+    StdLogic,
+    StdLogicVector,
+    Unsigned,
+    Signed,
+    Boolean,
+    Integer,
+    Real,
+    String
+};
 
 struct AnalysisResult {
     std::vector<AnalysisDiagnostic> diagnostics;

@@ -297,6 +297,8 @@ SNLDesign* VHDLConstructor::construct(
                                         : std::string_view(expression.canonical);
   };
   std::string selectName;
+  std::string enableName;
+  std::string resetName;
   if (clocked) {
     const auto& process = architecture.processes.front();
     if (nameKey(process.sensitivity) != nameKey(process.eventSignal) ||
@@ -305,6 +307,16 @@ SNLDesign* VHDLConstructor::construct(
       unsupported("expected matching sensitivity/event/level clocks and positive edge");
     }
     selectName = nameKey(process.eventSignal);
+    if (process.enableSignal) {
+      if (process.enableLevel != "'1'")
+        unsupported("only active-high clock enables are supported");
+      enableName = nameKey(*process.enableSignal);
+    }
+    if (process.resetSignal) {
+      if (process.resetLevel != "'1'")
+        unsupported("only active-high synchronous resets are supported");
+      resetName = nameKey(*process.resetSignal);
+    }
   } else {
     const auto& value = *assignment.value;
     if (analyzed.getType(value) != vhdl::ScalarType::Bit &&
@@ -382,6 +394,8 @@ SNLDesign* VHDLConstructor::construct(
       for (const auto& name : variable.names)
         variables.emplace(nameKey(name));
     }
+    if (!resetName.empty() && !variables.empty())
+      unsupported("process variables with synchronous reset are not supported");
     for (const auto& statement : process.assignments) {
       const auto data = requireName(*statement.value);
       if (!variables.contains(std::string(data)) && !internals.contains(std::string(data)))
@@ -411,6 +425,23 @@ SNLDesign* VHDLConstructor::construct(
       const auto& data = write.source;
       if (!internals.contains(std::string(data)) && !retained.contains(data))
         checkMode(data, vhdl::PortMode::In, "data");
+    }
+    if (!resetName.empty()) {
+      std::unordered_set<std::string> resetTargets;
+      for (const auto& resetAssignment : process.resetAssignments) {
+        const auto target = std::string(nameKey(resetAssignment.target));
+        if (resetAssignment.kind != vhdl::AssignmentKind::Signal ||
+            resetAssignment.value->kind != vhdl::Expression::Kind::CharacterLiteral ||
+            resetAssignment.value->text != "'0'") {
+          unsupported("synchronous reset branches must assign signal targets to '0'");
+        }
+        if (!written.contains(target))
+          unsupported("synchronous reset and data branches must assign the same targets");
+        if (!resetTargets.insert(target).second)
+          unsupported("multiple synchronous reset writes to one target are not supported");
+      }
+      if (resetTargets.size() != written.size())
+        unsupported("synchronous reset and data branches must assign the same targets");
     }
     for (const auto& internal : internals) {
       if (!written.contains(internal))
@@ -456,8 +487,13 @@ SNLDesign* VHDLConstructor::construct(
       validateExpression(validateExpression, *assignment.value);
     }
   }
-  if (clocked)
+  if (clocked) {
     checkMode(selectName, vhdl::PortMode::In, "clock");
+    if (!enableName.empty())
+      checkMode(enableName, vhdl::PortMode::In, "enable");
+    if (!resetName.empty())
+      checkMode(resetName, vhdl::PortMode::In, "reset");
+  }
 
   struct Signal {
     SNLNet* net;
@@ -514,9 +550,24 @@ SNLDesign* VHDLConstructor::construct(
     auto& select = findSignal(selectName);
     // The frontend has frozen RHS values at each scheduled write, applying
     // immediate variable assignments without forwarding scheduled signal writes.
-    for (const auto& write : schedule.writes)
-      SNLRTLPrimitives::createDFF(design, select.net,
-          findSignal(write.source).net, findSignal(write.target).net);
+    for (const auto& write : schedule.writes) {
+      if (!resetName.empty() && !enableName.empty()) {
+        SNLRTLPrimitives::createDFFSRE(design, select.net,
+            findSignal(write.source).net, findSignal(enableName).net,
+            findSignal(resetName).net, findSignal(write.target).net);
+      } else if (!resetName.empty()) {
+        SNLRTLPrimitives::createDFFSR(design, select.net,
+            findSignal(write.source).net, findSignal(resetName).net,
+            findSignal(write.target).net);
+      } else if (enableName.empty()) {
+        SNLRTLPrimitives::createDFF(design, select.net,
+            findSignal(write.source).net, findSignal(write.target).net);
+      } else {
+        SNLRTLPrimitives::createDFFE(design, select.net,
+            findSignal(write.source).net, findSignal(enableName).net,
+            findSignal(write.target).net);
+      }
+    }
   } else {
     auto& output = findSignal(nameKey(assignment.target));
     const auto createExpressionNet = [&](const vhdl::Expression& expression) -> SNLNet* {

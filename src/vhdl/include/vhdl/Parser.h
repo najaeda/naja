@@ -78,6 +78,21 @@ struct Assignment {
     AssignmentKind kind = AssignmentKind::Signal;
 };
 
+struct LibraryClause {
+    std::vector<Name> names;
+    SourceSpan span;
+};
+
+struct UseClause {
+    std::vector<Name> selectedName;
+    SourceSpan span;
+};
+
+struct ContextClause {
+    std::vector<LibraryClause> libraries;
+    std::vector<UseClause> uses;
+};
+
 // Restricted positive-edge process syntax; names remain unresolved here.
 enum class ClockEdgeForm { EventAndLevel, RisingEdgeCall };
 
@@ -88,6 +103,11 @@ struct ClockedProcess {
     std::string level;
     std::vector<Assignment> assignments;
     std::vector<VariableDeclaration> variables;
+    std::optional<Name> enableSignal;
+    std::string enableLevel;
+    std::optional<Name> resetSignal;
+    std::string resetLevel;
+    std::vector<Assignment> resetAssignments;
     ClockEdgeForm edgeForm = ClockEdgeForm::EventAndLevel;
     SourceSpan span;
 };
@@ -96,6 +116,7 @@ struct EntityDeclaration {
     Name name;
     std::vector<PortDeclaration> ports;
     SourceSpan span;
+    ContextClause context;
 };
 
 struct EntityInstantiation {
@@ -114,6 +135,7 @@ struct ArchitectureBody {
     std::vector<SignalDeclaration> signals;
     std::vector<EntityInstantiation> instantiations;
     SourceSpan span;
+    ContextClause context;
 };
 
 struct DesignFile {
