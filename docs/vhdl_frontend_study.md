@@ -840,3 +840,21 @@ integrated constructor/NVC tests and all 46 lexer/parser/analyzer tests. The
 standalone suite also passed from an isolated source copy. The shared
 primitive/SystemVerilog implementation is unaffected by this semantic-only
 increment.
+
+## `numeric_std` vector comparison analysis
+
+The next overload-resolution increment accepts vector-vector `=`, `/=`, `<`,
+`<=`, `>` and `>=` for matching `unsigned` or matching `signed` operands when
+`ieee.numeric_std.all` is visible in the architecture. Operand lengths and
+directions may differ, as permitted by the package overloads, and every result
+is typed as `boolean`.
+
+Mixed signedness, missing operator visibility and null operands are diagnosed.
+Other relational overload families remain unsupported rather than inheriting a
+numeric interpretation accidentally. This is still semantic analysis only;
+numeric arrays remain outside SNL publication.
+
+Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 48 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

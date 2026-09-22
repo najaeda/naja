@@ -142,6 +142,10 @@ bool isLogicalType(ScalarType type) {
            type == ScalarType::Boolean;
 }
 
+bool isNumericVectorType(ScalarType type) {
+    return type == ScalarType::Unsigned || type == ScalarType::Signed;
+}
+
 bool isStdLogicLiteral(std::string_view literal) {
     if (literal.size() != 3 || literal.front() != '\'' || literal.back() != '\'')
         return false;
@@ -256,6 +260,32 @@ CheckedType checkExpression(const Expression& expression,
                     right = checkExpression(
                         *expression.right, declarations, left, visibility, result);
                 }
+                if (isNumericVectorType(left.kind) || isNumericVectorType(right.kind)) {
+                    if (!visibility.numericStd) {
+                        result.diagnostics.push_back(
+                            {"operator '" + expression.text +
+                                 "' for numeric vectors requires ieee.numeric_std.all",
+                             expression.span});
+                        return record({});
+                    }
+                    if (left.kind == right.kind && left.range && right.range) {
+                        if (rangeWidth(*left.range) == 0 || rangeWidth(*right.range) == 0) {
+                            result.diagnostics.push_back(
+                                {"operator '" + expression.text +
+                                     "' requires non-null numeric vector operands",
+                                 expression.span});
+                            return record({});
+                        }
+                        return record({ScalarType::Boolean, std::nullopt});
+                    }
+                    if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                        return record({});
+                    result.diagnostics.push_back(
+                        {"operator '" + expression.text +
+                             "' requires matching signed or unsigned vector operands",
+                         expression.span});
+                    return record({});
+                }
                 if (compatible(left, right))
                     return record({ScalarType::Boolean, std::nullopt});
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
@@ -265,9 +295,53 @@ CheckedType checkExpression(const Expression& expression,
                      expression.span});
                 return record({});
             }
+            if (expression.text == "<" || expression.text == "<=" ||
+                expression.text == ">" || expression.text == ">=") {
+                const auto left = checkExpression(
+                    *expression.left, declarations, {}, visibility, result);
+                const auto rightExpected = isNumericVectorType(left.kind) ? left : CheckedType{};
+                const auto right = checkExpression(
+                    *expression.right, declarations, rightExpected, visibility, result);
+                const bool hasNumericOperand =
+                    isNumericVectorType(left.kind) || isNumericVectorType(right.kind);
+                if (!hasNumericOperand) {
+                    if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                        return record({});
+                    result.diagnostics.push_back(
+                        {"relational operator '" + expression.text +
+                             "' is currently supported only for numeric vectors",
+                         expression.span});
+                    return record({});
+                }
+                if (!visibility.numericStd) {
+                    result.diagnostics.push_back(
+                        {"operator '" + expression.text +
+                             "' for numeric vectors requires ieee.numeric_std.all",
+                         expression.span});
+                    return record({});
+                }
+                if (isNumericVectorType(left.kind) && left.kind == right.kind &&
+                    left.range && right.range) {
+                    if (rangeWidth(*left.range) == 0 || rangeWidth(*right.range) == 0) {
+                        result.diagnostics.push_back(
+                            {"operator '" + expression.text +
+                                 "' requires non-null numeric vector operands",
+                             expression.span});
+                        return record({});
+                    }
+                    return record({ScalarType::Boolean, std::nullopt});
+                }
+                if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                    return record({});
+                result.diagnostics.push_back(
+                    {"operator '" + expression.text +
+                         "' requires matching signed or unsigned vector operands",
+                     expression.span});
+                return record({});
+            }
             if (expression.text == "+" || expression.text == "-") {
                 const auto operandExpected =
-                    expected.kind == ScalarType::Unsigned || expected.kind == ScalarType::Signed
+                    isNumericVectorType(expected.kind)
                         ? expected : CheckedType{};
                 const auto left = checkExpression(
                     *expression.left, declarations, operandExpected, visibility, result);
@@ -275,7 +349,7 @@ CheckedType checkExpression(const Expression& expression,
                     left.kind == ScalarType::Unknown ? operandExpected : left;
                 const auto right = checkExpression(
                     *expression.right, declarations, rightExpected, visibility, result);
-                if ((left.kind == ScalarType::Unsigned || left.kind == ScalarType::Signed) &&
+                if (isNumericVectorType(left.kind) &&
                     left.kind == right.kind && left.range && right.range) {
                     if (!visibility.numericStd) {
                         result.diagnostics.push_back(

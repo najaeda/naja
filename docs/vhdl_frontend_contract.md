@@ -499,3 +499,19 @@ arithmetic lowering contracts are defined.
 Numeric-vector validation (2026-09-22): all 83 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 46 lexer/parser/analyzer tests. The
 standalone suite also passed from an isolated source copy.
+
+## `numeric_std` vector comparisons
+
+With `ieee.numeric_std.all` visible in the architecture, matching `unsigned`
+or matching `signed` vectors resolve `=`, `/=`, `<`, `<=`, `>` and `>=` to a
+`boolean` result. The operands may have different lengths and directions;
+mixed signedness, null operands and missing visibility are deterministic
+errors. Other relational overload families remain outside this increment.
+
+This support does not change the adapter boundary: numeric vectors are analyzed
+but are not published as SNL hardware.
+
+Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 48 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

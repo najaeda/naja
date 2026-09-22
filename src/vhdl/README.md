@@ -430,3 +430,19 @@ binary hardware.
 Numeric-vector validation (2026-09-22): all 83 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 46 lexer/parser/analyzer tests. The
 standalone suite also passed from an isolated source copy.
+
+## `numeric_std` vector comparisons
+
+Matching `unsigned` or matching `signed` vectors support `=`, `/=`, `<`, `<=`,
+`>` and `>=` when `ieee.numeric_std.all` is visible in the architecture. The
+operands may differ in length or direction and the result is `boolean`.
+Mixed signedness, null operands and invisible operators are diagnosed, while
+other relational overloads remain explicitly unsupported.
+
+This is standalone semantic support only. Numeric vectors continue to be
+rejected by the Naja adapter before SNL publication.
+
+Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 48 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

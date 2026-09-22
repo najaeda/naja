@@ -203,6 +203,54 @@ architecture rtl of p is begin y <= a + b; end;
 )").hasErrors());
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorComparisonsAcrossWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity compare is port (
+  ua : in unsigned(0 to 2); ub : in unsigned(7 downto 4);
+  sa : in signed(1 downto 0); sb : in signed(5 downto 0);
+  lt, le, gt, ge, eq, ne : out boolean);
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of compare is begin
+  lt <= ua < ub;
+  le <= ua <= ub;
+  gt <= sa > sb;
+  ge <= sa >= sb;
+  eq <= ua = ub;
+  ne <= sa /= sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    for (const auto& assignment : parsed.syntax.architectures[0].assignments)
+        EXPECT_EQ(result.getType(*assignment.value), vhdl::ScalarType::Boolean);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorComparisons) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(3 downto 0);
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a < b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0); y : out boolean); end;
+architecture rtl of p is begin y <= a = b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in signed(3 to 0); y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a >= b; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
     for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
         const auto parsed = vhdl::Parser::parse(std::string(
