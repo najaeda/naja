@@ -72,7 +72,8 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   EXPECT_EQ(1, ins0->getInstParameters().size());
   auto param = *(ins0->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h5054", param->getValue());
+  // 16'h5054 is stored in the canonical sized-binary parameter form.
+  EXPECT_EQ("16'b0101000001010100", param->getValue());
 
   auto ins1 = ins_decode->getInstance(NLName("decodes_in_0_a2_i_o3[8]"));
   ASSERT_NE(ins1, nullptr);
@@ -83,7 +84,36 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   EXPECT_EQ(1, ins2->getInstParameters().size());
   param = *(ins2->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h0001", param->getValue());
+  // 16'h0001 in canonical form.
+  EXPECT_EQ("16'b0000000000000001", param->getValue());
+}
+
+TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalization) {
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
+  SNLPyLoader::loadPrimitives(prims, primitivesPath/"primitives0.py");
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath/"test_param_canonicalization.v");
+
+  auto top = library_->getSNLDesign(NLName("test_param_canonicalization"));
+  ASSERT_NE(top, nullptr);
+  auto expectParam = [&](const char* instanceName, const char* expected) {
+    auto instance = top->getInstance(NLName(instanceName));
+    ASSERT_NE(instance, nullptr);
+    ASSERT_EQ(1, instance->getInstParameters().size());
+    auto param = *(instance->getInstParameters().begin());
+    EXPECT_EQ("INIT", param->getName().getString());
+    EXPECT_EQ(expected, param->getValue());
+  };
+  expectParam("i_hex", "16'b0101000001010100");
+  expectParam("i_sep", "16'b0000000000000001");
+  expectParam("i_oct", "16'b0000000111111111");
+  expectParam("i_dec", "16'b0000000000000101");
+  expectParam("i_sig", "16'b0000000000001111");
+  expectParam("i_x", "16'b00000000xxxx0001");
+  expectParam("i_unsized", "4'b1111");
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors0) {
