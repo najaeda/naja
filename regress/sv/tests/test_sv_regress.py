@@ -4,26 +4,243 @@
 
 from pathlib import Path
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import yaml
 
-REGRESS_SV_ROOT = Path(__file__).resolve().parent
-HELLOWORLD_SIM_ROOT = REGRESS_SV_ROOT / "helloworld_sim"
+REGRESS_SV_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REGRESS_SV_ROOT))
-sys.path.insert(0, str(HELLOWORLD_SIM_ROOT))
+for case_name in ("borg", "cva6", "cv32e40p", "ibex"):
+    sys.path.insert(0, str(REGRESS_SV_ROOT / "cases" / case_name))
 
 import cv32e40p_example_tb
 import cv32e40p_variant_netlist
 import cva6_testharness
 import ibex_secure_netlist
 import ibex_simple_system
-import logic_cone_signature
+from common import logic_cone_signature
 import sv_regress
+import borg_generate
+import borg_cocotb_sim
 
 
 class SVRegressRunnerTest(unittest.TestCase):
+    def test_manifest_naja_file_references_exist(self):
+        def check(value):
+            if isinstance(value, dict):
+                for item in value.values():
+                    check(item)
+            elif isinstance(value, list):
+                for item in value:
+                    check(item)
+            elif isinstance(value, str) and value.startswith("{naja}/regress/sv/"):
+                path = value.replace("{naja}", str(sv_regress.REPO_ROOT))
+                self.assertTrue(Path(path).is_file(), path)
+
+        check(sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST))
+        for helper in (ibex_simple_system, ibex_secure_netlist, cv32e40p_variant_netlist):
+            self.assertEqual(sv_regress.REPO_ROOT, helper.REPO_ROOT)
+
+    def test_case_adapters_launch_outside_repository(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for script in sorted((REGRESS_SV_ROOT / "cases").glob("*/*.py")):
+                with self.subTest(script=script):
+                    result = subprocess.run([sys.executable, str(script), "--help"],
+                                            cwd=tmpdir, capture_output=True, text=True,
+                                            timeout=30)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertIn("usage:", result.stdout.lower())
+
+    def test_borg_manifest_and_stage_selection(self):
+        cases = sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST)
+        borg = sv_regress.select_cases(cases, "borg")[0]
+        self.assertEqual("fe915b3763768c7f49be18cc541ad6c96e9de5d8", borg["commit"])
+        self.assertEqual("tt_um_gonsolo_borg", borg["top"])
+        self.assertEqual(["PeakRDL-chisel"], borg["submodules"])
+        self.assertEqual("{artifacts}/borg.flist", borg["flist"])
+        self.assertEqual(["borg_cocotb_sim"], sv_regress.select_stages([
+            "borg_cocotb_sim", "borg_cocotb_sim"], [borg]))
+        command = borg["borg_cocotb_sim"]["commands"][0]
+        self.assertIn("{artifacts}/borg_naja.v", command)
+        self.assertIn("--generated", command)
+        self.assertIn("--primitives", command)
+        self.assertNotIn("GATES=yes", command)
+
+    def test_arbitrary_manifest_command_stage_selection(self):
+        case = {"name": "fake", "custom_cocotb": {"commands": [["echo", "pass"]]}}
+        self.assertEqual(["custom_cocotb"], sv_regress.select_stages(["custom_cocotb"], [case]))
+        args = sv_regress.build_parser().parse_args(["run", "--stage", "custom_cocotb"])
+        self.assertEqual(["custom_cocotb"], args.stage)
+
+    def test_arbitrary_manifest_command_stage_dispatch(self):
+        case = {"name": "fake", "repo": "https://example.invalid/fake.git", "commit": "abc",
+                "custom_cocotb": {"commands": [["echo", "pass"]]}}
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(sv_regress, "ensure_checkout", return_value="abc"), \
+             patch.object(sv_regress, "generate_verilog", return_value=Path(tmpdir) / "generated.v"), \
+             patch.object(sv_regress, "run_configured_command_sim", return_value={"status": "passed"}) as run:
+            result = sv_regress.run_case(case, Path(tmpdir), Path(tmpdir), ["custom_cocotb"],
+                                         require_firmware_sim_tools=True)
+        self.assertEqual("passed", result["stages"]["custom_cocotb"]["status"])
+        self.assertEqual("custom_cocotb", run.call_args.kwargs["stage"])
+        self.assertTrue(run.call_args.kwargs["require_tools"])
+
+    def test_borg_generation_retains_upstream_asic_emitter_and_clock(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir).resolve()
+            repo, artifacts = root / "repo", root / "artifacts"
+            (repo / "PeakRDL-chisel/src/peakrdl_chisel").mkdir(parents=True)
+            commands = []
+            def fake_run(command, **kwargs):
+                commands.append((command, kwargs))
+                if "asic.tt.TTMain" in command:
+                    rtl = kwargs["cwd"] / "out/hardware/borg/verilog"
+                    rtl.mkdir(parents=True)
+                    (rtl / "top.sv").write_text("// synthesis translate_on\tannotation\n")
+                    (rtl / "asic_files.txt").write_text("../out/hardware/borg/verilog/top.sv\n")
+            with patch.object(borg_generate.subprocess, "check_output", return_value="abc\n"), \
+                 patch.object(borg_generate.subprocess, "run") as version, \
+                 patch.object(borg_generate, "run_command", side_effect=fake_run):
+                version.return_value.stdout = "Mill Build Tool version 1.1.2\n"
+                version.return_value.returncode = 0
+                flist = borg_generate.generate(repo, artifacts)
+            self.assertEqual(4, len(commands))
+            self.assertIn("asic.tt.TTMain", commands[2][0])
+            self.assertEqual("4", commands[2][1]["env"]["CLOCK_MHZ"])
+            self.assertEqual(artifacts / "rtl-work", commands[2][1]["cwd"])
+            self.assertIn("init_bram_zero.py", commands[3][0][1])
+            self.assertIn("+define+SIM", flist.read_text())
+            self.assertIn("+define+ENABLE_INITIAL_MEM_", flist.read_text())
+            self.assertTrue((artifacts / "borg-rtl-generate-command.json").exists())
+            self.assertFalse((repo / "out").exists())
+            with patch.object(borg_generate.subprocess, "check_output", return_value="abc\n"), \
+                 patch.object(borg_generate.subprocess, "run") as version:
+                version.return_value.stdout = "Mill Build Tool version 1.1.3\n"
+                version.return_value.returncode = 0
+                with self.assertRaisesRegex(sv_regress.RegressError, "requires Mill 1.1.2"):
+                    borg_generate.generate(repo, artifacts)
+
+    def test_borg_optional_tools_skip_or_fail(self):
+        case = sv_regress.select_cases(sv_regress.load_manifest(sv_regress.DEFAULT_MANIFEST), "borg")[0]
+        for missing in ("iverilog", "vvp", "cocotb-config"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmpdir:
+                artifacts = Path(tmpdir) / "artifacts"
+                logs = artifacts / "logs"
+                logs.mkdir(parents=True)
+                kwargs = dict(stage="borg_cocotb_sim", repo_dir=Path(tmpdir) / "repo",
+                              case_dir=Path(tmpdir), artifacts_dir=artifacts,
+                              generated_path=artifacts / "borg_naja.v", log_dir=logs)
+                with patch.object(sv_regress.shutil, "which", side_effect=lambda tool:
+                                  None if tool == missing else f"/bin/{tool}"):
+                    result = sv_regress.run_configured_command_sim(case, require_tools=False, **kwargs)
+                    self.assertEqual("skipped", result["status"])
+                    self.assertIn(missing, result["reason"])
+                    with self.assertRaisesRegex(sv_regress.RegressError, missing):
+                        sv_regress.run_configured_command_sim(case, require_tools=True, **kwargs)
+
+    def test_borg_adapter_build_uses_only_netlist_primitives_and_tb(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo, artifacts = root / "repo", root / "artifacts"
+            tb = repo / "test/soc/tb.v"
+            tb.parent.mkdir(parents=True)
+            artifacts.mkdir()
+            generated, primitives = artifacts / "borg_naja.v", root / "primitives.v"
+            original = repo / "original.sv"
+            for source in (tb, generated, primitives, original):
+                source.write_text("module stub; endmodule\n")
+            command = borg_cocotb_sim.build_command(repo, artifacts, generated, primitives)
+            sources = [arg for arg in command if arg.endswith((".v", ".sv"))]
+            self.assertEqual([str(source.resolve()) for source in (generated, primitives, tb)], sources)
+            self.assertNotIn(str(original), command)
+            self.assertNotIn("-DGL_TEST", command)
+            with self.assertRaisesRegex(sv_regress.RegressError, "original checkout"):
+                borg_cocotb_sim.build_command(repo, artifacts, original, primitives)
+
+    def test_borg_source_selection_uses_union_list_not_glob(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            work = Path(tmpdir)
+            rtl = work / "out/hardware/borg/verilog"
+            rtl.mkdir(parents=True)
+            for name in ("top.sv", "peripherals.sv", "stale.sv"):
+                (rtl / name).write_text("module stub; endmodule\n")
+            source_list = rtl / "asic_files.txt"
+            source_list.write_text("../out/hardware/borg/verilog/top.sv\n"
+                                   "../out/hardware/borg/verilog/peripherals.sv\n"
+                                   "../out/hardware/borg/verilog/top.sv\n")
+            self.assertEqual([(rtl / name).resolve() for name in ("top.sv", "peripherals.sv")],
+                             borg_generate.asic_sources(work))
+            source_list.write_text("../outside.sv\n")
+            with self.assertRaisesRegex(sv_regress.RegressError, "Unexpected"):
+                borg_generate.asic_sources(work)
+
+    def test_borg_cocotb_results_require_exact_passing_test(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "results.xml"
+            xml = '<testsuites><testsuite tests="1" failures="0"><testcase classname="test" name="test_start"{}/></testsuite></testsuites>'
+            path.write_text(xml.format(""))
+            result = borg_cocotb_sim.check_results(path, "test", "test_start")
+            self.assertEqual("passed", result["status"])
+            path.write_text(xml.format("").replace('</testsuite>',
+                '<testcase classname="test" name="filtered_out"><skipped/></testcase></testsuite>'))
+            self.assertEqual("passed", borg_cocotb_sim.check_results(path, "test", "test_start")["status"])
+            bad_results = [
+                '<testsuites><testsuite/></testsuites>', "not XML",
+                xml.format("").replace('failures="0"', 'failures="1"'),
+                xml.format("").replace('name="test_start"', 'name="test_other"'),
+                xml.format("").replace('/>', '><failure message="bad"/></testcase>'),
+                xml.format("").replace('/>', '><error/></testcase>'),
+                xml.format("").replace('/>', '><skipped/></testcase>'),
+            ]
+            for bad in bad_results:
+                path.write_text(bad)
+                with self.subTest(xml=bad), self.assertRaises(sv_regress.RegressError):
+                    borg_cocotb_sim.check_results(path, "test", "test_start")
+            path.unlink()
+            with self.assertRaisesRegex(sv_regress.RegressError, "Missing/invalid"):
+                borg_cocotb_sim.check_results(path, "test", "test_start")
+
+    def test_borg_adapter_records_commands_and_rejects_stale_results(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo, artifacts = root / "repo", root / "artifacts"
+            tb = repo / "test/soc/tb.v"
+            tb.parent.mkdir(parents=True)
+            artifacts.mkdir()
+            generated, primitives = artifacts / "borg_naja.v", root / "primitives.v"
+            for source in (tb, generated, primitives):
+                source.write_text("module stub; endmodule\n")
+            lut_dir = repo / "hardware/borg/src"
+            lut_dir.mkdir(parents=True)
+            for name in ("rcp_lut.hex", "frsq_lut.hex", "srgb_lut.hex"):
+                (lut_dir / name).write_text("0\n")
+            commands = []
+            def fake_run(command, **kwargs):
+                commands.append(command)
+                if command[0] == "vvp":
+                    env = kwargs["env"]
+                    test_module = env["COCOTB_TEST_MODULES"]
+                    name = dict(borg_cocotb_sim.TESTS.values())[test_module]
+                    Path(env["COCOTB_RESULTS_FILE"]).write_text(
+                        f'<testsuite><testcase classname="{test_module}" name="{name}"/></testsuite>')
+            with patch.object(borg_cocotb_sim, "run_command", side_effect=fake_run), \
+                 patch.object(borg_cocotb_sim.subprocess, "check_output", return_value="/fake/config\n"):
+                borg_cocotb_sim.simulate(repo, artifacts, generated, primitives)
+            self.assertEqual(["iverilog", "vvp", "vvp"], [command[0] for command in commands])
+            self.assertTrue((artifacts / "borg-cocotb-sim-build-command.json").exists())
+            self.assertTrue((artifacts / "borg-cocotb-sim-math-run-command.json").exists())
+            self.assertEqual("+timescale+1ns/1ps\n",
+                (artifacts / "borg-cocotb-sim/precision.f").read_text())
+            # A successful simulator exit without fresh XML must fail.
+            with patch.object(borg_cocotb_sim, "run_command"), \
+                 patch.object(borg_cocotb_sim.subprocess, "check_output", return_value="/fake/config\n"), \
+                 self.assertRaisesRegex(sv_regress.RegressError, "Missing/invalid"):
+                borg_cocotb_sim.simulate(repo, artifacts, generated, primitives)
+            self.assertFalse((artifacts / "borg-cocotb-sim-results.json").exists())
+
     def test_load_manifest_and_select_case(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             manifest = Path(tmpdir) / "cases.yml"
@@ -344,14 +561,14 @@ cases:
         )
         self.assertEqual(
             {
-                "nodes": 17864,
-                "edges": 33496,
+                "nodes": 13941,
+                "edges": 27142,
                 "leaves": 93,
                 "roots": 471,
                 "registers": 86,
                 "ports": 3,
                 "blackboxes": 4,
-                "internal": 17300,
+                "internal": 13377,
             },
             cva6["logic_cones"][0]["expected"],
         )
@@ -1102,13 +1319,13 @@ message="unknown module 'clock_gate'"
                 "ibex",
                 "IBEX_SMOKE_PASS",
                 "IBEX_HELLOWORLD_SIM_PASS",
-                "regress/sv/helloworld_sim/ibex_simple_system.py",
+                "regress/sv/cases/ibex/ibex_simple_system.py",
             ),
             (
                 "cv32e40p",
                 "CV32E40P_SMOKE_PASS",
                 "CV32E40P_HELLOWORLD_SIM_PASS",
-                "regress/sv/helloworld_sim/cv32e40p_example_tb.py",
+                "regress/sv/cases/cv32e40p/cv32e40p_example_tb.py",
             ),
         ]:
             case = sv_regress.select_cases(cases, case_name)[0]
@@ -1141,7 +1358,7 @@ message="unknown module 'clock_gate'"
 
         self.assertIn("interrupt_sim", sv_regress.VALID_STAGES)
         self.assertEqual("CV32E40P_INTERRUPT_SIM_PASS", interrupt_sim["pass_regex"])
-        self.assertIn("regress/sv/helloworld_sim/cv32e40p_example_tb.py",
+        self.assertIn("regress/sv/cases/cv32e40p/cv32e40p_example_tb.py",
                       interrupt_sim["commands"][0][1])
         self.assertIn("--program", interrupt_sim["commands"][0])
         self.assertIn("interrupt", interrupt_sim["commands"][0])
@@ -1174,13 +1391,13 @@ message="unknown module 'clock_gate'"
         )
         netlist_command = hwlp_sim["commands"][0]
         sim_command = hwlp_sim["commands"][1]
-        self.assertIn("regress/sv/helloworld_sim/cv32e40p_variant_netlist.py",
+        self.assertIn("regress/sv/cases/cv32e40p/cv32e40p_variant_netlist.py",
                       netlist_command[1])
         self.assertIn("--variant", netlist_command)
         self.assertIn("pulp", netlist_command)
         self.assertIn("{artifacts}/cv32e40p_pulp_naja.v", netlist_command)
         self.assertIn("{artifacts}/cv32e40p_pulp_naja.v", sim_command)
-        self.assertIn("regress/sv/helloworld_sim/cv32e40p_example_tb.py", sim_command[1])
+        self.assertIn("regress/sv/cases/cv32e40p/cv32e40p_example_tb.py", sim_command[1])
         self.assertIn("--program", sim_command)
         self.assertIn("hwlp", sim_command)
         self.assertIn(
@@ -1224,10 +1441,10 @@ message="unknown module 'clock_gate'"
             self.assertEqual(2, len(stage["commands"]))
             secure_command = stage["commands"][0]
             sim_command = stage["commands"][1]
-            self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", secure_command[1])
+            self.assertIn("regress/sv/cases/ibex/ibex_secure_netlist.py", secure_command[1])
             self.assertIn("--output", secure_command)
             self.assertIn("{artifacts}/ibex_secure_naja.v", secure_command)
-            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", sim_command[1])
+            self.assertIn("regress/sv/cases/ibex/ibex_simple_system.py", sim_command[1])
             self.assertIn("{artifacts}/ibex_secure_naja.v", sim_command)
             self.assertIn("--secure-ibex", sim_command)
             self.assertIn("--program", sim_command)
@@ -1252,7 +1469,7 @@ message="unknown module 'clock_gate'"
         )
         pmp_netlist_command = pmp_stage["commands"][0]
         pmp_sim_command = pmp_stage["commands"][1]
-        self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", pmp_netlist_command[1])
+        self.assertIn("regress/sv/cases/ibex/ibex_secure_netlist.py", pmp_netlist_command[1])
         self.assertIn("--variant", pmp_netlist_command)
         self.assertIn("pmp", pmp_netlist_command)
         self.assertIn("{artifacts}/ibex_pmp_naja.v", pmp_netlist_command)
@@ -1275,10 +1492,10 @@ message="unknown module 'clock_gate'"
             self.assertEqual(2, len(stage["commands"]))
             secure_command = stage["commands"][0]
             sim_command = stage["commands"][1]
-            self.assertIn("regress/sv/helloworld_sim/ibex_secure_netlist.py", secure_command[1])
+            self.assertIn("regress/sv/cases/ibex/ibex_secure_netlist.py", secure_command[1])
             self.assertIn("--output", secure_command)
             self.assertIn("{artifacts}/ibex_secure_naja.v", secure_command)
-            self.assertIn("regress/sv/helloworld_sim/ibex_simple_system.py", sim_command[1])
+            self.assertIn("regress/sv/cases/ibex/ibex_simple_system.py", sim_command[1])
             self.assertIn("{artifacts}/ibex_secure_naja.v", sim_command)
             self.assertIn("--secure-ibex", sim_command)
             self.assertIn("--program", sim_command)

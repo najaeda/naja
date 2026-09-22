@@ -2336,7 +2336,9 @@ void SNLVRLDumper::dumpNajaTableSelectModel(std::ostream& o) {
   o << "    input [ABITS-1:0] addr;\n";
   o << "    integer i;\n";
   o << "    begin\n";
-  o << "      select_data = {WIDTH{1'b0}};\n";
+  // Packed element selection returns X for an unknown or out-of-range index.
+  // Only a definite address match may replace that value, preserving X/Z data.
+  o << "      select_data = {WIDTH{1'bx}};\n";
   o << "      for (i = 0; i < DEPTH; i = i + 1) begin\n";
   o << "        if (addr == i[ABITS-1:0]) begin\n";
   o << "          select_data = data[i*WIDTH +: WIDTH];\n";
@@ -2939,7 +2941,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
 }
 
 std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
-  size_t missingZeros = 4-binStr.size()%4;
+  size_t missingZeros = (4-binStr.size()%4)%4;
   for (size_t i=0; i<missingZeros; i++) {
     binStr = '0' + binStr;
   }

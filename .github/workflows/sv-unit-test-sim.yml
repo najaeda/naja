@@ -12,32 +12,27 @@ concurrency:
 
 jobs:
   sv-unit-test-sim:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: true
 
-    - name: Set up Python
-      uses: actions/setup-python@v7
-      with:
-        python-version: "3.12"
-
     - name: Install build dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+        sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
 
-    - name: Configure CMake
-      run: |
-        cmake -B ${{ github.workspace }}/build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DENABLE_SANITIZERS=OFF \
-          -DLONG_TESTS=OFF \
-          -DPython3_EXECUTABLE=$(which python3)
+    - name: Set up canonical Linux Release toolchain
+      uses: ./.github/actions/setup-linux-release
+      with:
+        cache-scope: naja-module
 
-    - name: Build naja Python module
+    - name: Configure canonical Release build
+      run: bash .github/scripts/configure-linux-release.sh
+
+    - name: Build najaeda Python extension
       run: cmake --build ${{ github.workspace }}/build --target naja --config Release --parallel $(nproc)
 
     - name: Prepare najaeda Python package for script execution
@@ -133,3 +128,7 @@ jobs:
                 make -C "$bench" clean
                 make -C "$bench" sim SV="$generated_sv $primitives_sv"
               done'
+
+    - name: Show ccache statistics
+      if: always()
+      run: ccache --show-stats

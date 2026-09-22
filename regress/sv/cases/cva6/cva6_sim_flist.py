@@ -10,7 +10,7 @@ then appends the testharness-specific sources and include dirs derived from
 the Makefile's verilate_command.
 
 Usage:
-  python3 cva6_sim_flist.py --repo <cva6_repo> --output <flist_path>
+  python3 regress/sv/cases/cva6/cva6_sim_flist.py --repo <cva6_repo> --output <flist_path>
 
 Required environment (passed automatically by sv_regress.py via cases.yml env):
   CVA6_REPO_DIR   absolute path to the CVA6 repo checkout

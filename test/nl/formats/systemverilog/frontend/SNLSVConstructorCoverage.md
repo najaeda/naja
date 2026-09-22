@@ -47,6 +47,11 @@ are still expected in real designs:
 - `instance_arrays`: recursive lowering of module and interface instance arrays,
   including a two-dimensional module array and interface-array elements
   selected from generated blocks.
+- `anonymousBusAssignAliasUnsafeMappingsAreRetained`: a producer bus whose
+  assignments feed different destination buses keeps every assignment and its
+  original connections.
+- `parseContinuousMuxDirectConstantsAndDestinations`: zero constants select
+  the zero-net cache and reuse the same net across mux bits and instances.
 
 ## Deliberate LCOV Exclusions
 
@@ -71,6 +76,11 @@ the current architecture:
 - `getConstNet`: invalid net-type and four-state-value throws. Internal callers
   only pass an assign-constant type, and `slang::logic_t` only represents 0, 1,
   X, and Z.
+- `tryCollapseAnonymousBusAssignAlias`: invalid component / missing instance
+  guard after design terminals have been ruled out. Remaining components are
+  instance terminals, which always have an owning instance.
+- `connectInstanceTermBits`: scalar-terminal fallback. Current callers use
+  canonical DB0 bus terminals even when their width is one.
 - Case-inside value-range bound evaluation after `getConstant()` fails. Current
   Slang ASTs expose folded integer constants for legal bounds; the fallback is
   retained for alternate or future AST spellings.

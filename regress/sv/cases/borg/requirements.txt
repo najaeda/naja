@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-License-Identifier: Apache-2.0
+# Verified with Python 3.13. PeakRDL-chisel comes from Borg's pinned submodule.
+systemrdl-compiler==1.32.2
+peakrdl-cheader==1.1.0
+Jinja2==3.1.6
+cocotb==2.0.1
+riscv-model==0.6.6
+numpy==2.5.3

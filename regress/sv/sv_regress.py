@@ -24,7 +24,7 @@ import sys
 import time
 from typing import Any
 
-from logic_cone_signature import validate_signatures
+from common.logic_cone_signature import validate_signatures
 
 try:
     import yaml
@@ -149,13 +149,21 @@ def select_requested_cases(
     return selected
 
 
-def select_stages(stage_names: list[str] | None) -> list[str]:
+def configured_command_stages(cases: list[dict[str, Any]]) -> set[str]:
+    return {name for case in cases for name, config in case.items()
+            if isinstance(config, dict) and ("commands" in config or
+                ("top_module" in config and "sources" in config))}
+
+
+def select_stages(stage_names: list[str] | None,
+                  cases: list[dict[str, Any]] | None = None) -> list[str]:
     requested = stage_names or DEFAULT_STAGES
+    valid_stages = VALID_STAGES | configured_command_stages(cases or [])
     selected: list[str] = []
     seen: set[str] = set()
     for stage in requested:
-        if stage not in VALID_STAGES:
-            valid = ", ".join(sorted(VALID_STAGES))
+        if stage not in valid_stages:
+            valid = ", ".join(sorted(valid_stages))
             raise RegressError(f"Unknown stage '{stage}'. Valid stages: {valid}")
         if stage in seen:
             continue
@@ -383,8 +391,11 @@ def ensure_checkout(case: dict[str, Any], repo_dir: Path, log_dir: Path) -> str:
         log_path=log_dir / "git-checkout.log",
     )
     run_command(["git", "submodule", "sync", "--recursive"], cwd=repo_dir)
+    submodules = case.get("submodules", [])
+    if not isinstance(submodules, list):
+        raise RegressError(f"Invalid submodules for case {case['name']}: expected list")
     run_command(
-        ["git", "submodule", "update", "--init", "--recursive"],
+        ["git", "submodule", "update", "--init", "--recursive", *submodules],
         cwd=repo_dir,
         log_path=log_dir / "git-submodule.log",
     )
@@ -397,7 +408,7 @@ import json
 import logging
 from najaeda import netlist
 from najaeda import naja
-from logic_cone_signature import build_signatures
+from common.logic_cone_signature import build_signatures
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--top", required=True)
@@ -466,7 +477,7 @@ def generate_verilog(
             f"Missing built najaeda package path: {najaeda_path}. "
             "Build target 'naja' and prepare build/test/najaeda first."
         )
-    helper_path = case_dir / "generate_naja_verilog.py"
+    helper_path = artifacts_dir / "generate_naja_verilog.py"
     helper_path.write_text(GENERATOR, encoding="utf-8")
 
     output_path = artifacts_dir / case["output"]
@@ -1279,8 +1290,8 @@ def run_case(
                         generated_path=verification_path,
                         log_dir=log_dir,
                     )
-                elif stage in CONFIGURED_COMMAND_SIM_STAGES:
-                    result = run_configured_firmware_sim(
+                elif stage in CONFIGURED_COMMAND_SIM_STAGES or stage in configured_command_stages([case]):
+                    result = run_configured_command_sim(
                         case,
                         stage=stage,
                         repo_dir=repo_dir,
@@ -1345,7 +1356,7 @@ def command_clean(args: argparse.Namespace) -> int:
 
 def command_run(args: argparse.Namespace) -> int:
     cases = select_requested_cases(load_manifest(args.manifest), args.case)
-    stages = select_stages(args.stage)
+    stages = select_stages(args.stage, cases)
     args.work_dir.mkdir(parents=True, exist_ok=True)
 
     summaries: list[dict[str, Any]] = []
@@ -1412,8 +1423,8 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--stage",
         action="append",
-        choices=sorted(VALID_STAGES),
-        help="Stage to run. Repeat to run multiple stages. Defaults to lint and github_sim.",
+        help="Stage to run (built-in or configured by manifest). Repeat to run multiple stages. "
+             "Defaults to lint and github_sim.",
     )
     run_parser.add_argument(
         "--lint-runner",
@@ -1425,13 +1436,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-helloworld-sim-tools",
         dest="require_firmware_sim_tools",
         action="store_true",
-        help="Fail configured firmware simulation stages when optional dependencies are missing.",
+        help="Fail configured simulation stages when optional dependencies are missing.",
     )
     run_parser.add_argument(
         "--require-firmware-sim-tools",
         dest="require_firmware_sim_tools",
         action="store_true",
-        help="Fail configured firmware simulation stages when optional dependencies are missing.",
+        help="Fail configured simulation stages when optional dependencies are missing.",
     )
     run_parser.add_argument(
         "--allow-expected-failures",

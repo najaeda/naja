@@ -9253,9 +9253,10 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
-      // Restrict fusion to whole anonymous scalar nets. A bus bit can encode a
-      // slice, concatenation, reordering, extension, or truncation decision,
-      // and its owning bus cannot be removed independently.
+      if (auto* busBit = dynamic_cast<SNLBusNetBit*>(assignInput->getNet())) {
+        return tryCollapseAnonymousBusAssignAlias(busBit->getBus());
+      }
+
       auto* aliasNet = dynamic_cast<SNLScalarNet*>(assignInput->getNet());
       auto* destinationNet = dynamic_cast<SNLBitNet*>(assignOutput->getNet());
       if (!aliasNet ||
@@ -9325,6 +9326,90 @@ endmodule
       return true;
     }
 
+    bool tryCollapseAnonymousBusAssignAlias(SNLBusNet* alias) {
+      if (!alias || !alias->isUnnamed() ||
+          hasNonTransferableAliasMetadata(alias)) {
+        return false;
+      }
+      const auto aliasBits = collectBits(alias);
+      std::vector<SNLInstance*> assigns;
+      std::vector<SNLInstTerm*> producers;
+      std::vector<SNLBitNet*> destinations;
+      SNLInstance* producer = nullptr;
+      SNLBusNet* destination = nullptr;
+      for (auto* bit : aliasBits) {
+        if (bit->getType() != SNLNet::Type::Standard ||
+            !bit->getBitTerms().empty() || bit->getComponents().size() != 2 ||
+            hasNonTransferableAliasMetadata(bit)) {
+          return false;
+        }
+        SNLInstTerm* producerOutput = nullptr;
+        SNLInstance* assign = nullptr;
+        for (auto* component : bit->getComponents()) {
+          auto* term = dynamic_cast<SNLInstTerm*>(component);
+          if (!term || !term->getInstance()) {
+            return false; // LCOV_EXCL_LINE defensive: no design terms, inst terms have owners
+          }
+          if (NLDB0::isAssign(term->getInstance()->getModel()) &&
+              term->getBitTerm() == NLDB0::getAssignInput()) {
+            assign = term->getInstance();
+          } else if (term->getDirection() == SNLTerm::Direction::Output &&
+                     !NLDB0::isAssign(term->getInstance()->getModel())) {
+            producerOutput = term;
+          } else {
+            return false;
+          }
+        }
+        if (!assign || !producerOutput ||
+            hasNonTransferableAliasMetadata(assign)) {
+          return false;
+        }
+        if (producer && producer != producerOutput->getInstance()) {
+          return false;
+        }
+        producer = producerOutput->getInstance();
+        auto* assignOutput = assign->getInstTerm(NLDB0::getAssignOutput());
+        auto* destinationBit = dynamic_cast<SNLBusNetBit*>(assignOutput->getNet());
+        if (!destinationBit || destinationBit->getBus() == alias ||
+            destinationBit->getType() != SNLNet::Type::Standard) {
+          return false;
+        }
+        if (destination && destination != destinationBit->getBus()) {
+          return false;
+        }
+        destination = destinationBit->getBus();
+        for (auto* term : destinationBit->getInstTerms()) {
+          if (term != assignOutput &&
+              (term->getDirection() != SNLTerm::Direction::Input ||
+               term->getInstance() == producer)) {
+            return false;
+          }
+        }
+        for (auto* term : destinationBit->getBitTerms()) {
+          if (term->getDirection() != SNLTerm::Direction::Output) {
+            return false;
+          }
+        }
+        assigns.push_back(assign);
+        producers.push_back(producerOutput);
+        destinations.push_back(destinationBit);
+      }
+      // Fuse only a complete bus-to-bus mapping in significance order. Partial
+      // slices, reordering, extension, and truncation keep their assignments.
+      if (!destination || destinations != collectBits(destination)) {
+        return false;
+      }
+      retainAliasSourceLocation(alias, producer);
+      for (size_t bit = 0; bit < assigns.size(); ++bit) {
+        retainAliasSourceLocation(aliasBits[bit], producer);
+        retainAliasSourceLocation(assigns[bit], producer);
+        producers[bit]->setNet(destinations[bit]);
+        assigns[bit]->destroy();
+      }
+      alias->destroy();
+      return true;
+    }
+
     void collapseAnonymousAssignAliases() {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       const SVPerfScopedTimer timer(
@@ -9333,7 +9418,18 @@ endmodule
       svPerfReport_.anonymousAssignAliasCandidates =
         anonymousAssignAliasCandidates_.size();
 #endif
+      // A successful bus fusion destroys every assign sourced by that bus.
+      // Deduplicate all candidates before mutating connectivity.
+      std::unordered_set<SNLBusNet*> buses;
+      std::vector<SNLInstance*> candidates;
       for (auto* candidate : anonymousAssignAliasCandidates_) {
+        auto* input = candidate->getInstTerm(NLDB0::getAssignInput());
+        auto* bit = dynamic_cast<SNLBusNetBit*>(input->getNet());
+        if (!bit || buses.insert(bit->getBus()).second) {
+          candidates.push_back(candidate);
+        }
+      }
+      for (auto* candidate : candidates) {
         if (tryCollapseAnonymousAssignAlias(candidate)) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           ++svPerfReport_.anonymousAssignAliasesCollapsed;
@@ -9382,6 +9478,9 @@ endmodule
       }
       if (auto* scalarInput = dynamic_cast<SNLScalarNet*>(inNet);
           scalarInput && scalarInput->isUnnamed()) {
+        anonymousAssignAliasCandidates_.push_back(assignInst);
+      } else if (auto* busInput = dynamic_cast<SNLBusNetBit*>(inNet);
+                 busInput && busInput->getBus()->isUnnamed()) {
         anonymousAssignAliasCandidates_.push_back(assignInst);
       }
       return assignInst;
@@ -13702,6 +13801,13 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        const auto value =
+          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
+        bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, value)));
+        return true;
+      }
+
       if (auto resolved = resolveUnbasedOrStructuredPatternBits(
             design,
             *stripped,
@@ -16543,34 +16649,13 @@ endmodule
       auto* inst = SNLInstance::create(design, divmod);
       annotateSourceInfo(inst, sourceRange);
 
-      const auto connectTermBits =
-        [&](SNLBusTerm* term, const std::vector<SNLBitNet*>& termBits) {
-        if (!term || termBits.size() != targetWidth) {
-          return false; // LCOV_EXCL_LINE
-        }
-        for (size_t bit = 0; bit < targetWidth; ++bit) {
-          auto* termBit = term->getBit(static_cast<NLID::Bit>(bit));
-          auto* instTerm = termBit ? inst->getInstTerm(termBit) : nullptr;
-          if (!instTerm) {
-            return false; // LCOV_EXCL_LINE
-          }
-          instTerm->setNet(termBits[bit]);
-        }
-        return true;
-      };
-
       bits = collectBits(resultNet);
-      if (bits.size() != targetWidth ||
-          !connectTermBits(NLDB0::getDivModDividend(divmod), leftBits) ||
-          !connectTermBits(NLDB0::getDivModDivisor(divmod), rightBits) ||
-          !connectTermBits(
-            useRemainder
-              ? NLDB0::getDivModRemainder(divmod)
-              : NLDB0::getDivModQuotient(divmod),
-            bits)) {
-        bits.clear(); // LCOV_EXCL_LINE
-        return false; // LCOV_EXCL_LINE
-      }
+      connectInstanceTermBits(inst, NLDB0::getDivModDividend(divmod), leftBits);
+      connectInstanceTermBits(inst, NLDB0::getDivModDivisor(divmod), rightBits);
+      connectInstanceTermBits(
+        inst,
+        useRemainder ? NLDB0::getDivModRemainder(divmod) : NLDB0::getDivModQuotient(divmod),
+        bits);
 
       return true;
     }
@@ -17526,13 +17611,6 @@ endmodule
       return static_cast<size_t>(ref.msb >= ref.lsb ? ref.msb - ref.lsb + 1 : ref.lsb - ref.msb + 1);
     }
 
-    PackedNetRef getPackedNetRef(SNLNet* net) const {
-      if (auto* bus = dynamic_cast<SNLBusNet*>(net)) {
-        return PackedNetRef{net, bus->getMSB(), bus->getLSB()};
-      }
-      return PackedNetRef{net, 0, 0};
-    }
-
     bool tryGetPackedNetRef(const std::vector<SNLBitNet*>& bits, PackedNetRef& ref) const {
       if (bits.empty()) {
         return false; // LCOV_EXCL_LINE
@@ -17590,34 +17668,26 @@ endmodule
       return bits;
     }
 
-    SNLNet* materializeBitsAsNet(
-      SNLDesign* design,
-      const std::vector<SNLBitNet*>& bits,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (bits.empty()) {
-        return nullptr; // LCOV_EXCL_LINE
+    void connectInstanceTermBits(
+      SNLInstance* instance,
+      SNLTerm* term,
+      const std::vector<SNLBitNet*>& bits) {
+      if (!instance || !term || bits.size() != static_cast<size_t>(term->getWidth())) {
+        throw SNLSVInternalError("Internal error: primitive terminal width mismatch");
       }
-      if (bits.size() == 1) {
-        return bits.front(); // LCOV_EXCL_LINE
+      SNLInstance::Terms orderedTerms;
+      orderedTerms.reserve(bits.size());
+      if (auto* bus = dynamic_cast<SNLBusTerm*>(term)) {
+        const auto step = bus->getMSB() >= bus->getLSB() ? 1 : -1;
+        for (size_t bit = 0; bit < bits.size(); ++bit) {
+          orderedTerms.push_back(bus->getBit(
+            bus->getLSB() + step * static_cast<NLID::Bit>(bit)));
+        }
+      } else {
+        // Current callers connect only DB0 bus terminals, including width one.
+        orderedTerms.push_back(static_cast<SNLBitTerm*>(term)); // LCOV_EXCL_LINE alternate scalar terminal
       }
-      auto* net = SNLBusNet::create(
-        design,
-        static_cast<NLID::Bit>(bits.size() - 1),
-        0);
-      annotateSourceInfo(net, sourceRange);
-      connectBusNetBits(design, net, bits, sourceRange);
-      return net;
-    }
-
-    PackedNetRef getOrMaterializePackedNetRef(
-      SNLDesign* design,
-      const std::vector<SNLBitNet*>& bits,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      PackedNetRef ref;
-      if (tryGetPackedNetRef(bits, ref)) {
-        return ref;
-      }
-      return getPackedNetRef(materializeBitsAsNet(design, bits, sourceRange));
+      instance->setTermsNets(orderedTerms, bits);
     }
 
     SNLBitNet* getSingleBitNet(SNLNet* net) {
@@ -18646,8 +18716,6 @@ endmodule
           return true;
         }
       }
-      auto inARef = getOrMaterializePackedNetRef(design, inA, sourceRange);
-      auto inBRef = getOrMaterializePackedNetRef(design, inB, sourceRange);
       SNLNet* outNet = explicitOutNet;
       if (outNet) {
         // Width-checked explicit output nets are screened by the callers before
@@ -18670,7 +18738,15 @@ endmodule
         annotateSourceInfo(outBus, sourceRange);
         outNet = outBus;
       }
-      createMux2Instance(design, select, inARef, inBRef, outNet, sourceRange);
+      // Connect input bits directly, including constants, concatenations, and
+      // reordered slices. They do not need an intermediate packed bus.
+      auto* mux2 = NLDB0::getOrCreateMux2(inA.size());
+      auto* inst = SNLInstance::create(design, mux2);
+      annotateSourceInfo(inst, sourceRange);
+      connectInstanceTermBits(inst, NLDB0::getMux2InputA(mux2), inA);
+      connectInstanceTermBits(inst, NLDB0::getMux2InputB(mux2), inB);
+      inst->setTermNet(NLDB0::getMux2Select(mux2), select);
+      inst->setTermNet(NLDB0::getMux2Output(mux2), outNet);
       outBits = collectBits(outNet);
       return true;
     }
@@ -18701,8 +18777,6 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
-      auto dataRef = getOrMaterializePackedNetRef(design, dataBits, sourceRange);
-      auto addressRef = getOrMaterializePackedNetRef(design, selectorBits, sourceRange);
       SNLNet* outNet = nullptr;
       if (elementWidth == 1) {
         outNet = SNLScalarNet::create(design);
@@ -18729,12 +18803,8 @@ endmodule
       addInstParam("WIDTH", std::to_string(elementWidth));
       addInstParam("DEPTH", std::to_string(elementCount));
       addInstParam("ABITS", std::to_string(selectorBits.size()));
-      inst->setTermNet(NLDB0::getTableSelectData(model), dataRef.net, dataRef.msb, dataRef.lsb);
-      inst->setTermNet(
-        NLDB0::getTableSelectAddress(model),
-        addressRef.net,
-        addressRef.msb,
-        addressRef.lsb);
+      connectInstanceTermBits(inst, NLDB0::getTableSelectData(model), dataBits);
+      connectInstanceTermBits(inst, NLDB0::getTableSelectAddress(model), selectorBits);
       inst->setTermNet(NLDB0::getTableSelectOutput(model), outNet);
       outBits = collectBits(outNet);
       return outBits.size() == elementWidth;
@@ -31672,10 +31742,6 @@ endmodule
       if (!tryGetPackedNetRef(outputBits, outputRef)) {
         return false;
       }
-      auto dataRef = getOrMaterializePackedNetRef(design, dataBits, sourceRange);
-      if (getPackedNetRefWidth(dataRef) != getPackedNetRefWidth(outputRef)) {
-        return false; // LCOV_EXCL_LINE
-      }
       auto* inst = SNLInstance::create(design, model);
       annotateSourceInfo(inst, sourceRange);
       if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
@@ -31699,7 +31765,7 @@ endmodule
       if (!dTerm || !qTerm) {
         return false; // LCOV_EXCL_LINE
       }
-      inst->setTermNet(dTerm, dataRef.net, dataRef.msb, dataRef.lsb);
+      connectInstanceTermBits(inst, dTerm, dataBits);
       inst->setTermNet(qTerm, outputRef.net, outputRef.msb, outputRef.lsb);
       attachDFFInitParameter(inst, outputBits);
       return true;

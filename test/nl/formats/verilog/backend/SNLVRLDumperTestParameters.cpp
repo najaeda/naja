@@ -576,6 +576,22 @@ TEST_F(SNLVRLDumperTestParameters, testTableSelectInstanceDump) {
   EXPECT_EQ(std::string::npos, dumped.find("module naja_table_select #("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testTableSelectModelDump) {
+  ASSERT_NE(nullptr, createTableSelectInstance());
+  const auto outPath = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) /
+    "table_select_model_dump";
+  std::filesystem::create_directories(outPath);
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top_, outPath);
+
+  const auto model = readTextFile(outPath / "naja_primitives.v");
+  EXPECT_NE(std::string::npos, model.find("module naja_table_select"));
+  EXPECT_NE(std::string::npos, model.find("select_data = {WIDTH{1'bx}};"));
+  EXPECT_EQ(std::string::npos, model.find("select_data = {WIDTH{1'b0}};"));
+  EXPECT_NE(std::string::npos, model.find("select_data = data[i*WIDTH +: WIDTH];"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testRTLInfoCompactAttributesDumpExtraInfos) {
   ASSERT_TRUE(top_);
   auto* infos = SNLRTLInfos::create(top_);
@@ -602,6 +618,21 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxMixedConstBusInputDump) {
   EXPECT_NE(std::string::npos, dumped.find("naja_mux2 #("));
   EXPECT_NE(std::string::npos, dumped.find(".WIDTH(4)"));
   EXPECT_NE(std::string::npos, dumped.find(".A({2'b10, source_bus})")) << dumped;
+}
+
+TEST_F(SNLVRLDumperTestParameters, testNibbleAlignedConstantBusInputDump) {
+  ASSERT_NE(nullptr, createWideMux2Instance());
+  auto* a = top_->getBusNet(NLName("mux_a"));
+  ASSERT_NE(nullptr, a);
+  a->setType(SNLNet::Type::Assign0);
+
+  std::ostringstream out;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top_, out);
+  const auto dumped = out.str();
+
+  EXPECT_NE(std::string::npos, dumped.find(".A(8'h00)")) << dumped;
+  EXPECT_EQ(std::string::npos, dumped.find(".A(8'h000)")) << dumped;
 }
 
 TEST_F(SNLVRLDumperTestParameters, testUnitWidthMuxInstanceDumpOmitsDefaultWidth) {

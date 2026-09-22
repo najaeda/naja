@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 PASS_TEXT = "PASS: All test sequences behaved as expected"
 PROGRAMS = {
     "hello_test": {

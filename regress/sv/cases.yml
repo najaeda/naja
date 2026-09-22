@@ -3,6 +3,50 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cases:
+  - name: borg
+    repo: https://github.com/gonsolo/Borg.git
+    commit: fe915b3763768c7f49be18cc541ad6c96e9de5d8
+    submodules:
+      - PeakRDL-chisel
+    top: tt_um_gonsolo_borg
+    flist: "{artifacts}/borg.flist"
+    expected_source_count: 37
+    output: borg_naja.v
+    setup_commands:
+      - - python3
+        - "{naja}/regress/sv/cases/borg/borg_generate.py"
+        - --repo
+        - "{repo}"
+        - --artifacts
+        - "{artifacts}"
+    setup_timeout_seconds: 7200
+    dump:
+      rtl_infos_as_attributes: true
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 7200
+      suppressions:
+        - ASCRANGE
+        - TIMESCALEMOD
+    borg_cocotb_sim:
+      timeout_seconds: 7200
+      tool_checks:
+        - iverilog
+        - vvp
+        - cocotb-config
+      commands:
+        - - python3
+          - "{naja}/regress/sv/cases/borg/borg_cocotb_sim.py"
+          - --repo
+          - "{repo}"
+          - --artifacts
+          - "{artifacts}"
+          - --generated
+          - "{artifacts}/borg_naja.v"
+          - --primitives
+          - "{naja}/test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+      pass_regex: BORG_COCOTB_SIM_PASS
+
   - name: black_parrot
     repo: https://github.com/black-parrot/black-parrot.git
     commit: 05ef10db21254c0b54fac4439a08de8329b05699
@@ -41,14 +85,14 @@ cases:
       - term: noc_req_o
         direction: fanin
         expected:
-          nodes: 17864
-          edges: 33496
+          nodes: 13941
+          edges: 27142
           leaves: 93
           roots: 471
           registers: 86
           ports: 3
           blackboxes: 4
-          internal: 17300
+          internal: 13377
       - term: noc_req_o
         bit: 468
         direction: fanin
@@ -134,7 +178,7 @@ cases:
           - riscv32-unknown-elf-nm
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "{naja}/regress/sv/cases/cva6/cva6_testharness.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -161,7 +205,7 @@ cases:
           - riscv32-unknown-elf-nm
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "{naja}/regress/sv/cases/cva6/cva6_testharness.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -194,7 +238,7 @@ cases:
           - riscv32-unknown-elf-nm
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "{naja}/regress/sv/cases/cva6/cva6_testharness.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -241,7 +285,7 @@ cases:
           - riscv32-unknown-elf-nm
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cva6_testharness.py"
+          - "{naja}/regress/sv/cases/cva6/cva6_testharness.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -365,7 +409,7 @@ cases:
       timeout_seconds: 900
       top_module: tb_ibex_top_smoke
       sources:
-        - "{naja}/regress/sv/smoke/tb_ibex_top_smoke.sv"
+        - "{naja}/regress/sv/cases/ibex/tb_ibex_top_smoke.sv"
       pass_regex: "IBEX_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
@@ -384,7 +428,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -408,7 +452,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_secure_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -418,7 +462,7 @@ cases:
           - "--output"
           - "{artifacts}/ibex_secure_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -447,7 +491,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_secure_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -457,7 +501,7 @@ cases:
           - "--output"
           - "{artifacts}/ibex_secure_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -486,7 +530,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_secure_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -498,7 +542,7 @@ cases:
           - "--output"
           - "{artifacts}/ibex_pmp_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -526,7 +570,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_secure_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -536,7 +580,7 @@ cases:
           - "--output"
           - "{artifacts}/ibex_secure_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -565,7 +609,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_secure_netlist.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_secure_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -575,7 +619,7 @@ cases:
           - "--output"
           - "{artifacts}/ibex_secure_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/ibex_simple_system.py"
+          - "{naja}/regress/sv/cases/ibex/ibex_simple_system.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -610,7 +654,7 @@ cases:
       timeout_seconds: 900
       top_module: tb_cv32e40p_top_smoke
       sources:
-        - "{naja}/regress/sv/smoke/tb_cv32e40p_top_smoke.sv"
+        - "{naja}/regress/sv/cases/cv32e40p/tb_cv32e40p_top_smoke.sv"
       pass_regex: "CV32E40P_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
@@ -628,7 +672,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "{naja}/regress/sv/cases/cv32e40p/cv32e40p_example_tb.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -651,7 +695,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "{naja}/regress/sv/cases/cv32e40p/cv32e40p_example_tb.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -677,7 +721,7 @@ cases:
           - riscv64-unknown-elf-objcopy
       commands:
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cv32e40p_variant_netlist.py"
+          - "{naja}/regress/sv/cases/cv32e40p/cv32e40p_variant_netlist.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -689,7 +733,7 @@ cases:
           - "--output"
           - "{artifacts}/cv32e40p_pulp_naja.v"
         - - python3
-          - "{naja}/regress/sv/helloworld_sim/cv32e40p_example_tb.py"
+          - "{naja}/regress/sv/cases/cv32e40p/cv32e40p_example_tb.py"
           - "--repo"
           - "{repo}"
           - "--artifacts"
@@ -726,7 +770,7 @@ cases:
       timeout_seconds: 900
       top_module: tb_zcore_top_smoke
       sources:
-        - "{naja}/regress/sv/smoke/tb_zcore_top_smoke.sv"
+        - "{naja}/regress/sv/cases/zcore/tb_zcore_top_smoke.sv"
       pass_regex: "ZCORE_TOP_SMOKE_PASS"
       suppressions:
         - TIMESCALEMOD
@@ -739,7 +783,7 @@ cases:
     setup_timeout_seconds: 1800
     setup_commands:
       - - python3
-        - "{naja}/regress/sv/axi_flist.py"
+        - "{naja}/regress/sv/cases/axi/axi_flist.py"
         - "--repo"
         - "{repo}"
         - "--output"
@@ -757,7 +801,7 @@ cases:
       top_module: tb_axi_cut_smoke
       sources:
         - "{repo}/src/axi_pkg.sv"
-        - "{naja}/regress/sv/smoke/tb_axi_cut_smoke.sv"
+        - "{naja}/regress/sv/cases/axi/tb_axi_cut_smoke.sv"
       extra_args:
         - "+incdir+repo/include"
       pass_regex: "AXI_CUT_SMOKE_PASS"
