@@ -446,3 +446,19 @@ Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 48 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` vector multiplication
+
+Matching `unsigned` or matching `signed` vectors support `*` when
+`ieee.numeric_std.all` is visible in the architecture. The result has the
+canonical range `(L'length + R'length - 1) downto 0`, regardless of operand
+bounds or directions.
+
+Mixed signedness, null operands, invisible overloads and unrepresentable result
+widths are diagnosed. Vector-scalar and division-family overloads remain future
+work, and the Naja adapter continues to reject numeric-array hardware.
+
+Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 50 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

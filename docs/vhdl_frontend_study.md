@@ -858,3 +858,22 @@ Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 48 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` vector multiplication analysis
+
+The next arithmetic increment resolves vector-vector `*` for matching
+`unsigned` or matching `signed` operands. The result follows the package
+contract exactly: its length is the sum of both operand lengths and its range is
+canonical `length - 1 downto 0`, independent of the operands' bounds and
+directions.
+
+The analyzer rejects mixed signedness, missing architecture-local package
+visibility, null operands and result widths outside its representable range.
+The vector-scalar overloads, division, remainder and modulo remain separate
+work. Multiplication remains semantic-only; the adapter still publishes no
+numeric-array hardware.
+
+Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 50 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

@@ -515,3 +515,20 @@ Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 48 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` vector multiplication
+
+With `ieee.numeric_std.all` visible in the architecture, `*` resolves for two
+matching `unsigned` vectors or two matching `signed` vectors. The result range
+is `(L'length + R'length - 1) downto 0`, including when operand lengths, bounds
+or directions differ.
+
+Mixed signedness, null operands, missing visibility and unrepresentable result
+widths are errors. Vector-scalar multiplication and the division-family
+overloads remain outside this increment, and valid products are not yet
+authorized for SNL publication.
+
+Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 50 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.

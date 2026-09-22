@@ -4,6 +4,7 @@
 #include "vhdl/Analyzer.h"
 
 #include <algorithm>
+#include <limits>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -380,6 +381,64 @@ CheckedType checkExpression(const Expression& expression,
                 result.diagnostics.push_back(
                     {"operator '" + expression.text +
                          "' requires matching signed or unsigned vector operands",
+                     expression.span});
+                return record({});
+            }
+            if (expression.text == "*") {
+                const auto operandExpected =
+                    isNumericVectorType(expected.kind) ? expected : CheckedType{};
+                const auto left = checkExpression(
+                    *expression.left, declarations, operandExpected, visibility, result);
+                const auto rightExpected =
+                    left.kind == ScalarType::Unknown ? operandExpected : left;
+                const auto right = checkExpression(
+                    *expression.right, declarations, rightExpected, visibility, result);
+                const bool hasNumericOperand =
+                    isNumericVectorType(left.kind) || isNumericVectorType(right.kind);
+                if (!hasNumericOperand) {
+                    if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                        return record({});
+                    result.diagnostics.push_back(
+                        {"binary operator '*' is not supported by scalar type analysis",
+                         expression.span});
+                    return record({});
+                }
+                if (!visibility.numericStd) {
+                    result.diagnostics.push_back(
+                        {"operator '*' for numeric vectors requires ieee.numeric_std.all",
+                         expression.span});
+                    return record({});
+                }
+                if (left.kind == right.kind && left.range && right.range) {
+                    const auto leftWidth = rangeWidth(*left.range);
+                    const auto rightWidth = rangeWidth(*right.range);
+                    if (leftWidth == 0 || rightWidth == 0) {
+                        result.diagnostics.push_back(
+                            {"operator '*' requires non-null numeric vector operands",
+                             expression.span});
+                        return record({});
+                    }
+                    constexpr auto maxResultWidth =
+                        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+                    if (rightWidth > maxResultWidth ||
+                        leftWidth > maxResultWidth - rightWidth) {
+                        result.diagnostics.push_back(
+                            {"operator '*' result width exceeds the supported range",
+                             expression.span});
+                        return record({});
+                    }
+                    const auto width = leftWidth + rightWidth;
+                    DiscreteRange range;
+                    range.left = static_cast<std::int64_t>(width - 1);
+                    range.right = 0;
+                    range.ascending = false;
+                    range.span = expression.span;
+                    return record({left.kind, range});
+                }
+                if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                    return record({});
+                result.diagnostics.push_back(
+                    {"operator '*' requires matching signed or unsigned vector operands",
                      expression.span});
                 return record({});
             }
