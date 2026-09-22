@@ -462,3 +462,18 @@ Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 50 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` vector division family
+
+Matching `unsigned` or matching `signed` vectors support `/`, `rem` and `mod`
+when `ieee.numeric_std.all` is visible in the architecture. Division returns
+the dividend length; remainder and modulo return the divisor length. Results
+use canonical descending bounds.
+
+Mixed signedness, null operands, invisible overloads and unrepresentable result
+widths are diagnosed. Zero-divisor behavior remains a runtime package concern;
+scalar overloads and SNL lowering remain future work.
+
+Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.

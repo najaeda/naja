@@ -877,3 +877,19 @@ Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 50 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
+
+## `numeric_std` vector division-family analysis
+
+The next arithmetic increment resolves vector-vector `/`, `rem` and `mod` for
+matching `unsigned` or matching `signed` operands. It preserves the distinct
+IEEE result shapes: division uses the dividend length, while remainder and
+modulo use the divisor length; every result has canonical descending bounds.
+
+The same architecture-local package visibility, matching-signedness, non-null
+operand and representable-range checks apply. A zero divisor remains a runtime
+value error governed by `numeric_std`, not a type-analysis decision. Scalar
+overloads and SNL lowering remain outside this increment.
+
+Numeric-division validation (2026-09-22): all 89 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 52 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.

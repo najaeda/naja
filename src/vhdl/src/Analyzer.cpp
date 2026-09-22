@@ -147,6 +147,16 @@ bool isNumericVectorType(ScalarType type) {
     return type == ScalarType::Unsigned || type == ScalarType::Signed;
 }
 
+std::optional<DiscreteRange> canonicalRange(
+    std::uint64_t width, SourceSpan span) {
+    constexpr auto maxWidth =
+        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+    if (width == 0 || width > maxWidth)
+        return std::nullopt;
+    return DiscreteRange{
+        static_cast<std::int64_t>(width - 1), 0, false, span};
+}
+
 bool isStdLogicLiteral(std::string_view literal) {
     if (literal.size() != 3 || literal.front() != '\'' || literal.back() != '\'')
         return false;
@@ -369,12 +379,15 @@ CheckedType checkExpression(const Expression& expression,
                         return record({});
                     }
                     const auto width = std::max(leftWidth, rightWidth);
-                    DiscreteRange range;
-                    range.left = static_cast<std::int64_t>(width - 1);
-                    range.right = 0;
-                    range.ascending = false;
-                    range.span = expression.span;
-                    return record({left.kind, range});
+                    const auto range = canonicalRange(width, expression.span);
+                    if (!range) {
+                        result.diagnostics.push_back(
+                            {"operator '" + expression.text +
+                                 "' result width exceeds the supported range",
+                             expression.span});
+                        return record({});
+                    }
+                    return record({left.kind, *range});
                 }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
@@ -418,8 +431,8 @@ CheckedType checkExpression(const Expression& expression,
                              expression.span});
                         return record({});
                     }
-                    constexpr auto maxResultWidth =
-                        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
+                    constexpr auto maxResultWidth = static_cast<std::uint64_t>(
+                        std::numeric_limits<std::int64_t>::max()) + 1;
                     if (rightWidth > maxResultWidth ||
                         leftWidth > maxResultWidth - rightWidth) {
                         result.diagnostics.push_back(
@@ -428,17 +441,69 @@ CheckedType checkExpression(const Expression& expression,
                         return record({});
                     }
                     const auto width = leftWidth + rightWidth;
-                    DiscreteRange range;
-                    range.left = static_cast<std::int64_t>(width - 1);
-                    range.right = 0;
-                    range.ascending = false;
-                    range.span = expression.span;
-                    return record({left.kind, range});
+                    return record({left.kind, *canonicalRange(width, expression.span)});
                 }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
                 result.diagnostics.push_back(
                     {"operator '*' requires matching signed or unsigned vector operands",
+                     expression.span});
+                return record({});
+            }
+            if (expression.text == "/" || expression.text == "rem" ||
+                expression.text == "mod") {
+                const auto operandExpected =
+                    isNumericVectorType(expected.kind) ? expected : CheckedType{};
+                const auto left = checkExpression(
+                    *expression.left, declarations, operandExpected, visibility, result);
+                const auto rightExpected =
+                    left.kind == ScalarType::Unknown ? operandExpected : left;
+                const auto right = checkExpression(
+                    *expression.right, declarations, rightExpected, visibility, result);
+                const bool hasNumericOperand =
+                    isNumericVectorType(left.kind) || isNumericVectorType(right.kind);
+                if (!hasNumericOperand) {
+                    if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                        return record({});
+                    result.diagnostics.push_back(
+                        {"binary operator '" + expression.text +
+                             "' is not supported by scalar type analysis",
+                         expression.span});
+                    return record({});
+                }
+                if (!visibility.numericStd) {
+                    result.diagnostics.push_back(
+                        {"operator '" + expression.text +
+                             "' for numeric vectors requires ieee.numeric_std.all",
+                         expression.span});
+                    return record({});
+                }
+                if (left.kind == right.kind && left.range && right.range) {
+                    const auto leftWidth = rangeWidth(*left.range);
+                    const auto rightWidth = rangeWidth(*right.range);
+                    if (leftWidth == 0 || rightWidth == 0) {
+                        result.diagnostics.push_back(
+                            {"operator '" + expression.text +
+                                 "' requires non-null numeric vector operands",
+                             expression.span});
+                        return record({});
+                    }
+                    const auto width = expression.text == "/" ? leftWidth : rightWidth;
+                    const auto range = canonicalRange(width, expression.span);
+                    if (!range) {
+                        result.diagnostics.push_back(
+                            {"operator '" + expression.text +
+                                 "' result width exceeds the supported range",
+                             expression.span});
+                        return record({});
+                    }
+                    return record({left.kind, *range});
+                }
+                if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
+                    return record({});
+                result.diagnostics.push_back(
+                    {"operator '" + expression.text +
+                         "' requires matching signed or unsigned vector operands",
                      expression.span});
                 return record({});
             }

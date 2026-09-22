@@ -307,6 +307,66 @@ architecture rtl of p is begin y <= a * b; end;
 )").hasErrors());
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorDivisionFamilyWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity divide is port (
+  ua : in unsigned(0 to 5); ub : in unsigned(3 downto 0);
+  uq : out unsigned(5 downto 0); ur, um : out unsigned(3 downto 0);
+  sa : in signed(7 downto 0); sb : in signed(2 downto 0);
+  sq : out signed(7 downto 0); sr, sm : out signed(2 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of divide is begin
+  uq <= ua / ub;
+  ur <= ua rem ub;
+  um <= ua mod ub;
+  sq <= sa / sb;
+  sr <= sa rem sb;
+  sm <= sa mod sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (const auto index : {0U, 3U}) {
+        ASSERT_NE(result.getRange(*assignments[index].value), nullptr);
+        EXPECT_EQ(result.getRange(*assignments[index].value)->left,
+                  index == 0 ? 5 : 7);
+    }
+    for (const auto index : {1U, 2U, 4U, 5U}) {
+        ASSERT_NE(result.getRange(*assignments[index].value), nullptr);
+        EXPECT_EQ(result.getRange(*assignments[index].value)->left,
+                  index < 3 ? 3 : 2);
+    }
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorDivisionFamily) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(2 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a / b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= a rem b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in signed(3 to 0); y : out signed(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a mod b; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
     for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
         const auto parsed = vhdl::Parser::parse(std::string(
