@@ -28,6 +28,7 @@
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
+#include "SNLParameter.h"
 #include "SNLAttributes.h"
 #include "SNLRTLInfos.h"
 #include "SNLExceptions.h"
@@ -1061,8 +1062,9 @@ void SNLVRLConstructor::addParameterAssignment(
   const naja::verilog::Expression& expression) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
-    currentInstanceParameterValues_[parameter.name_] =
-        canonicalizeParameterExpression(expression).value_or(expression.getString());
+    auto& stored = currentInstanceParameterValues_[parameter.name_];
+    stored.source = expression.getString();
+    stored.canonical = canonicalizeParameterExpression(expression);
   }
 }
 
@@ -1082,7 +1084,15 @@ void SNLVRLConstructor::endInstantiation() {
           << " does not contain any Parameter named " << parameterValue.first;
         throw SNLVRLConstructorException(reason.str());
       }
-      SNLInstParameter::create(currentInstance_, parameter, parameterValue.second);
+      SNLInstParameter::create(
+          currentInstance_,
+          parameter,
+          // Canonicalize only bit-typed parameters; numeric parameters keep
+          // the source form for consumers that read them as numbers.
+          (parameter->getType() == naja::NL::SNLParameter::Type::Binary &&
+           parameterValue.second.canonical.has_value())
+              ? *parameterValue.second.canonical
+              : parameterValue.second.source);
     }
     currentInstanceParameterValues_.clear();
     currentInstance_ = nullptr;
@@ -1546,7 +1556,10 @@ void SNLVRLConstructor::addDefParameterAssignment(
       throw SNLVRLConstructorException(reason.str());
     }
     std::string parameterValue = expression.getString();
-    if (expression.getType() == naja::verilog::ConstantExpression::Type::NUMBER) {
+    // Same rule as instance overrides: only bit-typed parameters get the
+    // canonical sized-binary form.
+    if (parameter->getType() == naja::NL::SNLParameter::Type::Binary &&
+        expression.getType() == naja::verilog::ConstantExpression::Type::NUMBER) {
       if (auto canonical = canonicalizeBasedNumber(
               std::get<naja::verilog::ConstantExpression::Type::NUMBER>(
                   expression.value_))) {

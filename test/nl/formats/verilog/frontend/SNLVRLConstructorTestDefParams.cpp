@@ -11,6 +11,9 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLException.h"
+#include "SNLBusTerm.h"
+#include "SNLDesign.h"
+#include "SNLParameter.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -93,6 +96,16 @@ TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalization) {
   auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
   auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
   SNLPyLoader::loadPrimitives(prims, primitivesPath/"primitives0.py");
+  // A memory-like primitive with a decimal-typed WIDTH parameter next to a
+  // bit-typed INIT parameter.
+  auto* memModel =
+      SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("MEM8"));
+  SNLBusTerm::create(memModel, SNLTerm::Direction::Input, 7, 0, NLName("D"));
+  SNLBusTerm::create(memModel, SNLTerm::Direction::Output, 7, 0, NLName("Q"));
+  SNLParameter::create(
+      memModel, NLName("WIDTH"), SNLParameter::Type::Decimal, "8");
+  SNLParameter::create(
+      memModel, NLName("INIT"), SNLParameter::Type::Binary, "8'b0");
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"test_param_canonicalization.v");
@@ -114,6 +127,17 @@ TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalization) {
   expectParam("i_sig", "16'b0000000000001111");
   expectParam("i_x", "16'b00000000xxxx0001");
   expectParam("i_unsized", "4'b1111");
+
+  // Decimal-typed parameters keep their source form; only bit-typed
+  // parameters are canonicalized.
+  auto* memInst = top->getInstance(NLName("i_mem"));
+  ASSERT_NE(memInst, nullptr);
+  auto* widthParam = memInst->getInstParameter(NLName("WIDTH"));
+  ASSERT_NE(widthParam, nullptr);
+  EXPECT_EQ("8'hF", widthParam->getValue());
+  auto* memInitParam = memInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(memInitParam, nullptr);
+  EXPECT_EQ("8'b10100101", memInitParam->getValue());
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors0) {
