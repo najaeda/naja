@@ -307,6 +307,64 @@ architecture rtl of p is begin y <= a * b; end;
 )").hasErrors());
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorMultiplicationWidth) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_multiply is port (
+  u : in unsigned(0 to 4); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uy0, uy1 : out unsigned(9 downto 0);
+  sy0, sy1 : out signed(15 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_multiply is begin
+  uy0 <= u * 2;
+  uy1 <= n * u;
+  sy0 <= s * i;
+  sy1 <= n * s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& product = *assignments[index].value;
+        EXPECT_EQ(result.getType(product),
+                  index < 2 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(product), nullptr);
+        EXPECT_EQ(result.getRange(product)->left, index < 2 ? 9 : 15);
+        EXPECT_EQ(result.getRange(product)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorMultiplication) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u * i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); n : in natural;
+                 y : out unsigned(7 downto 0)); end;
+architecture rtl of p is begin y <= n * u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(s : in signed(3 to 0); i : in integer;
+                 y : out signed(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= s * i; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorDivisionFamilyWidths) {
     const auto parsed = vhdl::Parser::parse(R"(
 library ieee; use ieee.numeric_std.all;
@@ -364,6 +422,84 @@ library ieee; use ieee.numeric_std.all;
 entity p is port(a, b : in signed(3 to 0); y : out signed(3 downto 0)); end;
 library ieee; use ieee.numeric_std.all;
 architecture rtl of p is begin y <= a mod b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorDivisionFamilyWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_divide is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uq0, uq1, ur0, ur1, um0, um1 : out unsigned(5 downto 0);
+  sq0, sq1, sr0, sr1, sm0, sm1 : out signed(7 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_divide is begin
+  uq0 <= u / 0;
+  uq1 <= n / u;
+  ur0 <= u rem 3;
+  ur1 <= n rem u;
+  um0 <= u mod n;
+  um1 <= 4 mod u;
+  sq0 <= s / i;
+  sq1 <= i / s;
+  sr0 <= s rem n;
+  sr1 <= n rem s;
+  sm0 <= s mod i;
+  sm1 <= i mod s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& value = *assignments[index].value;
+        EXPECT_EQ(result.getType(value),
+                  index < 6 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(value), nullptr);
+        EXPECT_EQ(result.getRange(value)->left, index < 6 ? 5 : 7);
+        EXPECT_EQ(result.getRange(value)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[2].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[5].value->left),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorDivisionFamily) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u / i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i rem u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); n : in natural;
+                 y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= u mod n; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(s : in signed(3 to 0); i : in integer;
+                 y : out signed(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i / s; end;
 )").hasErrors());
 }
 
@@ -464,6 +600,78 @@ entity p is port(u : in unsigned(3 to 0); n : in natural;
                  y : out unsigned(3 to 0)); end;
 library ieee; use ieee.numeric_std.all;
 architecture rtl of p is begin y <= u + n; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorComparisons) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_compare is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11 : out boolean);
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_compare is begin
+  b0 <= u = 1;
+  b1 <= 2 /= u;
+  b2 <= u < n;
+  b3 <= n <= u;
+  b4 <= u > 3;
+  b5 <= 4 >= u;
+  b6 <= s = i;
+  b7 <= n /= s;
+  b8 <= s < i;
+  b9 <= i <= s;
+  b10 <= s > n;
+  b11 <= n >= s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (const auto& assignment : assignments)
+        EXPECT_EQ(result.getType(*assignment.value), vhdl::ScalarType::Boolean);
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[1].value->left),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[4].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[5].value->left),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorComparisons) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u = i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i < u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); y : out boolean); end;
+architecture rtl of p is begin y <= u >= 1; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 to 0); n : in natural;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u /= n; end;
 )").hasErrors());
 }
 

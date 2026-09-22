@@ -850,9 +850,10 @@ directions may differ, as permitted by the package overloads, and every result
 is typed as `boolean`.
 
 Mixed signedness, missing operator visibility and null operands are diagnosed.
-Other relational overload families remain unsupported rather than inheriting a
-numeric interpretation accidentally. This is still semantic analysis only;
-numeric arrays remain outside SNL publication.
+At this increment, other relational overload families remain unsupported rather
+than inheriting a numeric interpretation accidentally; the later scalar/vector
+comparison increment adds the IEEE integer overloads. This is still semantic
+analysis only; numeric arrays remain outside SNL publication.
 
 Numeric-comparison validation (2026-09-22): all 85 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 48 standalone
@@ -869,9 +870,10 @@ directions.
 
 The analyzer rejects mixed signedness, missing architecture-local package
 visibility, null operands and result widths outside its representable range.
-The vector-scalar overloads, division, remainder and modulo remain separate
-work. Multiplication remains semantic-only; the adapter still publishes no
-numeric-array hardware.
+At this increment the vector-scalar overloads, division, remainder and modulo
+remain separate work; the later scalar/vector multiplication increment adds the
+IEEE integer overloads. Multiplication remains semantic-only; the adapter still
+publishes no numeric-array hardware.
 
 Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 50 standalone
@@ -925,5 +927,42 @@ still analysis-only and does not authorize numeric arrays for SNL publication.
 
 Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector comparisons
+
+The next overload-resolution increment extends `=`, `/=`, `<`, `<=`, `>` and
+`>=` to scalar/vector and vector/scalar operands. As required by the package,
+`unsigned` compares with `natural`, while `signed` compares with `integer` or
+its `natural` subtype. Every result is `boolean`, and nonnegative integer
+literals resolve contextually to `natural` for unsigned comparisons.
+
+An unrestricted integer object cannot satisfy an unsigned comparison overload.
+Missing architecture-local visibility, null vectors and incompatible scalar
+types are diagnosed. The Naja adapter still rejects numeric arrays before SNL
+publication.
+
+Scalar-comparison validation (2026-09-22): all 95 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 58 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector multiplication
+
+The next arithmetic increment resolves `*` in both operand orders between
+`unsigned` and `natural`, or between `signed` and `integer` (including
+`natural`). The scalar is converted to the numeric vector's length before
+multiplication, so the result has twice the vector operand's length and uses
+canonical descending bounds. Nonnegative integer literals resolve contextually
+to `natural` for unsigned multiplication.
+
+An unrestricted integer object cannot satisfy the unsigned overload. Missing
+architecture-local visibility, null vectors, incompatible scalar types and
+unrepresentable doubled widths are diagnosed. Numeric arrays remain outside SNL
+publication.
+
+Scalar-multiplication validation (2026-09-22): all 97 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 60 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.

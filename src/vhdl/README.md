@@ -436,8 +436,8 @@ standalone suite also passed from an isolated source copy.
 Matching `unsigned` or matching `signed` vectors support `=`, `/=`, `<`, `<=`,
 `>` and `>=` when `ieee.numeric_std.all` is visible in the architecture. The
 operands may differ in length or direction and the result is `boolean`.
-Mixed signedness, null operands and invisible operators are diagnosed, while
-other relational overloads remain explicitly unsupported.
+Mixed signedness, null operands and invisible operators are diagnosed. The
+scalar/vector relational overloads are described in their later section below.
 
 This is standalone semantic support only. Numeric vectors continue to be
 rejected by the Naja adapter before SNL publication.
@@ -455,8 +455,9 @@ canonical range `(L'length + R'length - 1) downto 0`, regardless of operand
 bounds or directions.
 
 Mixed signedness, null operands, invisible overloads and unrepresentable result
-widths are diagnosed. Vector-scalar and division-family overloads remain future
-work, and the Naja adapter continues to reject numeric-array hardware.
+widths are diagnosed. Scalar/vector multiplication is described in its later
+section below; division-family scalar overloads remain future work. The Naja
+adapter continues to reject numeric-array hardware.
 
 Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 50 standalone
@@ -506,5 +507,40 @@ are diagnosed. Numeric-array SNL publication remains disabled.
 
 Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector comparisons
+
+The six comparison operators resolve in either operand order between
+`unsigned` and `natural`, or between `signed` and `integer` (including
+`natural`), when `ieee.numeric_std.all` is visible. Results are `boolean`, and
+nonnegative integer literals resolve contextually as `natural` for unsigned
+comparisons.
+
+Unrestricted integer objects cannot satisfy unsigned comparison overloads.
+Missing visibility, null vectors and incompatible scalar types are diagnosed.
+Numeric-array SNL publication remains disabled.
+
+Scalar-comparison validation (2026-09-22): all 95 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 58 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector multiplication
+
+Multiplication resolves in either operand order between `unsigned` and
+`natural`, or between `signed` and `integer` (including `natural`), when
+`ieee.numeric_std.all` is visible. The scalar is converted to the vector
+operand's length, so the result has twice that vector length with canonical
+descending bounds. Nonnegative integer literals resolve contextually as
+`natural` for unsigned multiplication.
+
+Unrestricted integer objects cannot satisfy unsigned multiplication overloads.
+Missing visibility, null vectors, incompatible scalar types and unrepresentable
+doubled widths are diagnosed. Numeric-array SNL publication remains disabled.
+
+Scalar-multiplication validation (2026-09-22): all 97 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 60 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.

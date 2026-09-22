@@ -312,8 +312,12 @@ CheckedType checkExpression(const Expression& expression,
                              expression.span});
                         return record({});
                     }
-                    if (left.kind == right.kind && left.range && right.range) {
-                        if (rangeWidth(*left.range) == 0 || rangeWidth(*right.range) == 0) {
+                    const bool leftVector = isNumericVectorType(left.kind);
+                    const bool rightVector = isNumericVectorType(right.kind);
+                    if (leftVector && rightVector && left.kind == right.kind &&
+                        left.range && right.range) {
+                        if (rangeWidth(*left.range) == 0 ||
+                            rangeWidth(*right.range) == 0) {
                             result.diagnostics.push_back(
                                 {"operator '" + expression.text +
                                      "' requires non-null numeric vector operands",
@@ -322,11 +326,38 @@ CheckedType checkExpression(const Expression& expression,
                         }
                         return record({ScalarType::Boolean, std::nullopt});
                     }
+                    if (leftVector != rightVector) {
+                        const auto& vector = leftVector ? left : right;
+                        const auto& scalar = leftVector ? right : left;
+                        const auto& scalarExpression = leftVector
+                            ? *expression.right : *expression.left;
+                        const bool naturalScalar = scalar.kind == ScalarType::Natural ||
+                            (scalar.kind == ScalarType::Integer &&
+                             scalarExpression.kind == Expression::Kind::IntegerLiteral);
+                        const bool integerScalar = scalar.kind == ScalarType::Integer ||
+                                                   scalar.kind == ScalarType::Natural;
+                        const bool validScalar = vector.kind == ScalarType::Unsigned
+                            ? naturalScalar : integerScalar;
+                        if (validScalar && vector.range) {
+                            if (rangeWidth(*vector.range) == 0) {
+                                result.diagnostics.push_back(
+                                    {"operator '" + expression.text +
+                                         "' requires a non-null numeric vector operand",
+                                     expression.span});
+                                return record({});
+                            }
+                            if (vector.kind == ScalarType::Unsigned &&
+                                scalarExpression.kind == Expression::Kind::IntegerLiteral)
+                                result.expressionTypes[&scalarExpression] =
+                                    ScalarType::Natural;
+                            return record({ScalarType::Boolean, std::nullopt});
+                        }
+                    }
                     if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                         return record({});
                     result.diagnostics.push_back(
                         {"operator '" + expression.text +
-                             "' requires matching signed or unsigned vector operands",
+                             "' requires matching numeric vectors or a compatible scalar operand",
                          expression.span});
                     return record({});
                 }
@@ -364,9 +395,12 @@ CheckedType checkExpression(const Expression& expression,
                          expression.span});
                     return record({});
                 }
-                if (isNumericVectorType(left.kind) && left.kind == right.kind &&
+                const bool leftVector = isNumericVectorType(left.kind);
+                const bool rightVector = isNumericVectorType(right.kind);
+                if (leftVector && rightVector && left.kind == right.kind &&
                     left.range && right.range) {
-                    if (rangeWidth(*left.range) == 0 || rangeWidth(*right.range) == 0) {
+                    if (rangeWidth(*left.range) == 0 ||
+                        rangeWidth(*right.range) == 0) {
                         result.diagnostics.push_back(
                             {"operator '" + expression.text +
                                  "' requires non-null numeric vector operands",
@@ -375,11 +409,37 @@ CheckedType checkExpression(const Expression& expression,
                     }
                     return record({ScalarType::Boolean, std::nullopt});
                 }
+                if (leftVector != rightVector) {
+                    const auto& vector = leftVector ? left : right;
+                    const auto& scalar = leftVector ? right : left;
+                    const auto& scalarExpression = leftVector
+                        ? *expression.right : *expression.left;
+                    const bool naturalScalar = scalar.kind == ScalarType::Natural ||
+                        (scalar.kind == ScalarType::Integer &&
+                         scalarExpression.kind == Expression::Kind::IntegerLiteral);
+                    const bool integerScalar = scalar.kind == ScalarType::Integer ||
+                                               scalar.kind == ScalarType::Natural;
+                    const bool validScalar = vector.kind == ScalarType::Unsigned
+                        ? naturalScalar : integerScalar;
+                    if (validScalar && vector.range) {
+                        if (rangeWidth(*vector.range) == 0) {
+                            result.diagnostics.push_back(
+                                {"operator '" + expression.text +
+                                     "' requires a non-null numeric vector operand",
+                                 expression.span});
+                            return record({});
+                        }
+                        if (vector.kind == ScalarType::Unsigned &&
+                            scalarExpression.kind == Expression::Kind::IntegerLiteral)
+                            result.expressionTypes[&scalarExpression] = ScalarType::Natural;
+                        return record({ScalarType::Boolean, std::nullopt});
+                    }
+                }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
                 result.diagnostics.push_back(
                     {"operator '" + expression.text +
-                         "' requires matching signed or unsigned vector operands",
+                         "' requires matching numeric vectors or a compatible scalar operand",
                      expression.span});
                 return record({});
             }
@@ -510,10 +570,48 @@ CheckedType checkExpression(const Expression& expression,
                     const auto width = leftWidth + rightWidth;
                     return record({left.kind, *canonicalRange(width, expression.span)});
                 }
+                const bool leftVector = isNumericVectorType(left.kind);
+                const bool rightVector = isNumericVectorType(right.kind);
+                if (leftVector != rightVector) {
+                    const auto& vector = leftVector ? left : right;
+                    const auto& scalar = leftVector ? right : left;
+                    const auto& scalarExpression = leftVector
+                        ? *expression.right : *expression.left;
+                    const bool naturalScalar = scalar.kind == ScalarType::Natural ||
+                        (scalar.kind == ScalarType::Integer &&
+                         scalarExpression.kind == Expression::Kind::IntegerLiteral);
+                    const bool integerScalar = scalar.kind == ScalarType::Integer ||
+                                               scalar.kind == ScalarType::Natural;
+                    const bool validScalar = vector.kind == ScalarType::Unsigned
+                        ? naturalScalar : integerScalar;
+                    if (validScalar && vector.range) {
+                        const auto vectorWidth = rangeWidth(*vector.range);
+                        if (vectorWidth == 0) {
+                            result.diagnostics.push_back(
+                                {"operator '*' requires a non-null numeric vector operand",
+                                 expression.span});
+                            return record({});
+                        }
+                        constexpr auto maxResultWidth = static_cast<std::uint64_t>(
+                            std::numeric_limits<std::int64_t>::max()) + 1;
+                        if (vectorWidth > maxResultWidth / 2) {
+                            result.diagnostics.push_back(
+                                {"operator '*' result width exceeds the supported range",
+                                 expression.span});
+                            return record({});
+                        }
+                        if (vector.kind == ScalarType::Unsigned &&
+                            scalarExpression.kind == Expression::Kind::IntegerLiteral)
+                            result.expressionTypes[&scalarExpression] = ScalarType::Natural;
+                        return record(
+                            {vector.kind,
+                             *canonicalRange(vectorWidth * 2, expression.span)});
+                    }
+                }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
                 result.diagnostics.push_back(
-                    {"operator '*' requires matching signed or unsigned vector operands",
+                    {"operator '*' requires matching numeric vectors or a compatible scalar operand",
                      expression.span});
                 return record({});
             }
@@ -566,11 +664,48 @@ CheckedType checkExpression(const Expression& expression,
                     }
                     return record({left.kind, *range});
                 }
+                const bool leftVector = isNumericVectorType(left.kind);
+                const bool rightVector = isNumericVectorType(right.kind);
+                if (leftVector != rightVector) {
+                    const auto& vector = leftVector ? left : right;
+                    const auto& scalar = leftVector ? right : left;
+                    const auto& scalarExpression = leftVector
+                        ? *expression.right : *expression.left;
+                    const bool naturalScalar = scalar.kind == ScalarType::Natural ||
+                        (scalar.kind == ScalarType::Integer &&
+                         scalarExpression.kind == Expression::Kind::IntegerLiteral);
+                    const bool integerScalar = scalar.kind == ScalarType::Integer ||
+                                               scalar.kind == ScalarType::Natural;
+                    const bool validScalar = vector.kind == ScalarType::Unsigned
+                        ? naturalScalar : integerScalar;
+                    if (validScalar && vector.range) {
+                        const auto width = rangeWidth(*vector.range);
+                        if (width == 0) {
+                            result.diagnostics.push_back(
+                                {"operator '" + expression.text +
+                                     "' requires a non-null numeric vector operand",
+                                 expression.span});
+                            return record({});
+                        }
+                        const auto range = canonicalRange(width, expression.span);
+                        if (!range) {
+                            result.diagnostics.push_back(
+                                {"operator '" + expression.text +
+                                     "' result width exceeds the supported range",
+                                 expression.span});
+                            return record({});
+                        }
+                        if (vector.kind == ScalarType::Unsigned &&
+                            scalarExpression.kind == Expression::Kind::IntegerLiteral)
+                            result.expressionTypes[&scalarExpression] = ScalarType::Natural;
+                        return record({vector.kind, *range});
+                    }
+                }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
                 result.diagnostics.push_back(
                     {"operator '" + expression.text +
-                         "' requires matching signed or unsigned vector operands",
+                         "' requires matching numeric vectors or a compatible scalar operand",
                      expression.span});
                 return record({});
             }

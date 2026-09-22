@@ -524,9 +524,9 @@ is `(L'length + R'length - 1) downto 0`, including when operand lengths, bounds
 or directions differ.
 
 Mixed signedness, null operands, missing visibility and unrepresentable result
-widths are errors. Vector-scalar multiplication and the division-family
-overloads remain outside this increment, and valid products are not yet
-authorized for SNL publication.
+widths are errors. Vector-scalar multiplication remains outside this increment
+and is added by the later scalar/vector multiplication milestone; valid products
+are not yet authorized for SNL publication.
 
 Numeric-multiplication validation (2026-09-22): all 87 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 50 standalone
@@ -577,5 +577,40 @@ errors, and numeric arrays remain outside SNL publication.
 
 Scalar-add/subtract validation (2026-09-22): all 93 focused VHDL tests
 passed—37 integrated constructor/NVC tests and all 56 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector comparisons
+
+With `ieee.numeric_std.all` visible, `=`, `/=`, `<`, `<=`, `>` and `>=`
+resolve in both operand orders between `unsigned` and `natural`, or between
+`signed` and `integer` (including its `natural` subtype). Results are
+`boolean`, and nonnegative integer literals are resolved contextually as
+`natural` where the unsigned overload requires it.
+
+An unrestricted integer object does not satisfy an unsigned comparison formal.
+Missing visibility, null vectors and incompatible scalar types are errors, and
+numeric arrays remain outside SNL publication.
+
+Scalar-comparison validation (2026-09-22): all 95 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 58 standalone
+lexer/parser/analyzer tests. The standalone suite also passed from an isolated
+source copy.
+
+## `numeric_std` scalar/vector multiplication
+
+With `ieee.numeric_std.all` visible, `*` resolves in both operand orders between
+`unsigned` and `natural`, or between `signed` and `integer` (including
+`natural`). The package converts the scalar to the vector operand's length, so
+the result length is twice that vector length and its bounds are canonical
+descending. Nonnegative integer literals resolve contextually as `natural` for
+unsigned multiplication.
+
+Unrestricted integer objects do not satisfy the unsigned overload. Missing
+visibility, null vectors, incompatible scalar types and unrepresentable doubled
+widths are errors. Numeric arrays remain outside SNL publication.
+
+Scalar-multiplication validation (2026-09-22): all 97 focused VHDL tests
+passed—37 integrated constructor/NVC tests and all 60 standalone
 lexer/parser/analyzer tests. The standalone suite also passed from an isolated
 source copy.
