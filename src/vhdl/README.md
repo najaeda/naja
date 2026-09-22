@@ -562,3 +562,17 @@ concern. Numeric-array SNL publication remains disabled.
 Scalar-division validation (2026-09-22): all 99 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 62 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed absolute value
+
+A non-null `signed` vector supports unary `abs` when `ieee.numeric_std.all` is
+visible. The result keeps the operand length and uses canonical descending
+bounds, including for ascending and nonzero-based operands. Unsigned, invisible,
+null and unrepresentably wide operands are diagnosed.
+
+Predefined scalar absolute value is outside this package-specific increment, and
+numeric-array SNL publication remains disabled.
+
+Signed-absolute validation (2026-09-22): all 101 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 64 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.

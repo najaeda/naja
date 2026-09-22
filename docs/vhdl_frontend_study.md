@@ -904,9 +904,10 @@ The next arithmetic increment resolves unary `-` for a `signed` vector when
 operand length with canonical `length - 1 downto 0` bounds, including for an
 ascending or nonzero-based operand.
 
-Unsigned, null, invisible and unrepresentably wide operands are diagnosed.
-This closes the unary numeric overload without conflating it with integer unary
-arithmetic or authorizing numeric-array SNL publication.
+Unsigned, null, invisible and unrepresentably wide operands are diagnosed. This
+establishes signed unary arithmetic without conflating it with integer unary
+arithmetic or authorizing numeric-array SNL publication; the later absolute-value
+increment completes the other signed unary arithmetic overload.
 
 Signed-negation validation (2026-09-22): all 91 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 54 standalone lexer/parser/analyzer
@@ -984,4 +985,19 @@ it. Numeric arrays remain outside SNL publication.
 
 Scalar-division validation (2026-09-22): all 99 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 62 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed absolute value
+
+The next unary-arithmetic increment parses and resolves `abs` for a non-null
+`signed` vector when `ieee.numeric_std.all` is visible. Like unary negation, the
+result retains the operand length and uses canonical descending bounds,
+independent of the source bounds and direction.
+
+Unsigned, invisible, null and unrepresentably wide operands are diagnosed.
+Predefined scalar absolute value remains outside this package-specific increment,
+and numeric arrays remain outside SNL publication.
+
+Signed-absolute validation (2026-09-22): all 101 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 64 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.

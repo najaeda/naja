@@ -542,6 +542,47 @@ architecture rtl of p is begin y <= -a; end;
 )").hasErrors());
 }
 
+TEST(VHDLAnalyzerTest, ResolvesNumericStdSignedAbsoluteValue) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity absolute_value is port(a : in signed(0 to 5); y : out signed(5 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of absolute_value is begin y <= abs a; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& absolute = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(absolute.kind, vhdl::Expression::Kind::Unary);
+    EXPECT_EQ(absolute.text, "abs");
+    EXPECT_EQ(result.getType(absolute), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(absolute), nullptr);
+    EXPECT_EQ(result.getRange(absolute)->left, 5);
+    EXPECT_EQ(result.getRange(absolute)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdSignedAbsoluteValue) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 downto 0); y : out signed(3 downto 0)); end;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 to 0); y : out signed(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+}
+
 TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorAdditionAndSubtraction) {
     const auto parsed = vhdl::Parser::parse(R"(
 library ieee; use ieee.numeric_std.all;

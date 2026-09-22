@@ -634,7 +634,8 @@ private:
     }
 
     std::unique_ptr<Expression> parsePrimary() {
-        if (acceptSymbol("+") || acceptSymbol("-") || acceptWord("not")) {
+        if (acceptSymbol("+") || acceptSymbol("-") || acceptWord("not") ||
+            acceptWord("abs")) {
             const auto& op = lexed_.tokens[index_ - 1];
             auto operand = parsePrimary();
             if (!operand)

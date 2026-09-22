@@ -228,16 +228,19 @@ CheckedType checkExpression(const Expression& expression,
                 *expression.left, declarations, expected, visibility, result);
             if (expression.text == "not" && isLogicalType(operand.kind))
                 return record(operand);
-            if (expression.text == "-" && operand.kind == ScalarType::Signed) {
+            if ((expression.text == "-" || expression.text == "abs") &&
+                operand.kind == ScalarType::Signed) {
                 if (!visibility.numericStd) {
                     result.diagnostics.push_back(
-                        {"unary '-' for signed vectors requires ieee.numeric_std.all",
+                        {"unary '" + expression.text +
+                             "' for signed vectors requires ieee.numeric_std.all",
                          expression.span});
                     return record({});
                 }
                 if (!operand.range || rangeWidth(*operand.range) == 0) {
                     result.diagnostics.push_back(
-                        {"unary '-' requires a non-null signed vector operand",
+                        {"unary '" + expression.text +
+                             "' requires a non-null signed vector operand",
                          expression.span});
                     return record({});
                 }
@@ -245,7 +248,8 @@ CheckedType checkExpression(const Expression& expression,
                     rangeWidth(*operand.range), expression.span);
                 if (!range) {
                     result.diagnostics.push_back(
-                        {"unary '-' result width exceeds the supported range",
+                        {"unary '" + expression.text +
+                             "' result width exceeds the supported range",
                          expression.span});
                     return record({});
                 }

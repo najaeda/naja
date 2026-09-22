@@ -633,3 +633,17 @@ publication.
 Scalar-division validation (2026-09-22): all 99 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 62 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` signed absolute value
+
+With `ieee.numeric_std.all` visible, unary `abs` resolves for a non-null
+`signed` vector. The result retains the operand length and uses canonical
+descending bounds. Unsigned, invisible, null and unrepresentably wide operands
+are deterministic errors.
+
+This package-specific support does not add predefined scalar absolute value or
+authorize numeric-array SNL publication.
+
+Signed-absolute validation (2026-09-22): all 101 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 64 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.
