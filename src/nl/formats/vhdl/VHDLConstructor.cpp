@@ -19,8 +19,12 @@
 #include "vhdl/Parser.h"
 
 #include <cctype>
+#include <exception>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -73,6 +77,22 @@ std::optional<std::size_t> supportedWidth(const vhdl::TypeMark& type) {
 
 SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   return construct(source, {});
+}
+
+SNLDesign* VHDLConstructor::constructFile(
+    const std::filesystem::path& path, std::string_view top) const {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    unsupported("cannot open VHDL file '" + path.string() + "'");
+  }
+  const std::string source(
+      (std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+  try {
+    return construct(source, top);
+  } catch (const std::exception& exception) {
+    throw NLException(
+        "VHDL file '" + path.string() + "': " + exception.what());
+  }
 }
 
 SNLDesign* VHDLConstructor::construct(
@@ -499,7 +519,10 @@ SNLDesign* VHDLConstructor::construct(
     SNLNet* net;
   };
   std::unordered_map<std::string, Signal> signals;
-  auto* design = SNLDesign::create(library_, NLName(entity.name.spelling));
+  auto designGuard = std::unique_ptr<SNLDesign, void (*)(SNLDesign*)>(
+      SNLDesign::create(library_, NLName(entity.name.spelling)),
+      [](SNLDesign* design) { design->destroy(); });
+  auto* design = designGuard.get();
   for (const auto& port : entity.ports) {
     const auto direction = port.mode == vhdl::PortMode::In
         ? SNLTerm::Direction::Input : SNLTerm::Direction::Output;
@@ -644,7 +667,7 @@ SNLDesign* VHDLConstructor::construct(
     };
     lowerExpression(*assignment.value, output.net);
   }
-  return design;
+  return designGuard.release();
 }
 
 }  // namespace naja::NL

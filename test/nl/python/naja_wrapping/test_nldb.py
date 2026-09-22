@@ -89,6 +89,62 @@ class SNLDBTest(unittest.TestCase):
         TypeError, r"files must be a list\[str\], got str"):
       db.loadLibertyPrimitives("./error.lib")
 
+  def testVHDL(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+entity inverter is port(a : in bit; y : out bit); end;
+architecture rtl of inverter is begin y <= not a; end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      design = db.loadVHDL(vhdl.name)
+    self.assertEqual(design.getName(), "inverter")
+    self.assertEqual(db.getTopDesign(), design)
+    self.assertTrue(db.isTopDB())
+
+  def testVHDLHierarchy(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+entity leaf is port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture structural of top is begin
+  u0: entity work.leaf port map(a, y);
+end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      design = db.loadVHDL(vhdl.name, top="TOP")
+    self.assertEqual(design.getName(), "top")
+    self.assertEqual(db.getTopDesign(), design)
+    self.assertIsNotNone(db.getLibrary("DESIGN").getSNLDesign("leaf"))
+
+  def testVHDLArgumentsAndFailureRollback(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with self.assertRaisesRegex(TypeError, "file must be a str path"):
+      db.loadVHDL(1)
+    with self.assertRaisesRegex(ValueError, "file must not be empty"):
+      db.loadVHDL("")
+    with self.assertRaisesRegex(TypeError, "top must be a str or None"):
+      db.loadVHDL("missing.vhd", top=1)
+    with self.assertRaisesRegex(ValueError, "top must not be empty"):
+      db.loadVHDL("missing.vhd", top="")
+    with self.assertRaisesRegex(RuntimeError, "cannot open VHDL file"):
+      db.loadVHDL("missing.vhd")
+
+    unsupported = """\
+entity unsupported is port(a : in bit; y : out bit); end;
+architecture rtl of unsupported is begin y <= a and missing; end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(unsupported)
+      vhdl.flush()
+      with self.assertRaises(RuntimeError):
+        db.loadVHDL(vhdl.name)
+    self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("unsupported"))
+
   def testLoadLibertyPrimitivesRenamedFiles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)

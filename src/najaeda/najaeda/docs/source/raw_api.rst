@@ -240,7 +240,7 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLUniverse`
      - ``create``, ``destroy``, ``get``, ``getDB``, ``getTopDB``, ``setTopDB``, ``getTopDesign``, ``setTopDesign``, ``getUserDBs``, ``getSNLDesign``, ``getObject``, ``applyDLE``, ``applyConstantPropagation``, ``getMaxFanout``, ``getMaxLogicLevel``
    * - :class:`najaeda.naja.NLDB`
-     - ``create``, ``destroy``, ``getID``, ``getNLID``, ``isTopDB``, ``getLibraries``, ``getLibrary``, ``getGlobalLibraries``, ``getPrimitiveLibraries``, ``getTopDesign``, ``loadVerilog``, ``loadSystemVerilog``, ``loadLibertyPrimitives``, ``loadNajaIF``, ``dumpNajaIF``, ``dumpVerilog``
+     - ``create``, ``destroy``, ``getID``, ``getNLID``, ``isTopDB``, ``getLibraries``, ``getLibrary``, ``getGlobalLibraries``, ``getPrimitiveLibraries``, ``getTopDesign``, ``loadVerilog``, ``loadSystemVerilog``, ``loadVHDL``, ``loadLibertyPrimitives``, ``loadNajaIF``, ``dumpNajaIF``, ``dumpVerilog``
    * - :class:`najaeda.naja.NLLibrary`
      - ``create``, ``createPrimitives``, ``getDB``, ``getID``, ``getNLID``, ``getName``, ``setName``, ``isStandard``, ``isPrimitives``, ``getSNLDesign``, ``getSNLDesigns``, ``getLibrary``
    * - :class:`najaeda.naja.SNLDesign`
@@ -311,7 +311,11 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
-   The raw ``NLDB`` Verilog, SystemVerilog, and Liberty loaders report malformed
+   ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file. The experimental
+   frontend currently supports a bit-based subset; structural hierarchy requires
+   an explicit ``top`` entity name.
+
+   The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`
    exceptions.  List-entry errors include the option name and index, such as
    ``files[1]`` or ``defines[0]``.  Native parser and elaboration failures

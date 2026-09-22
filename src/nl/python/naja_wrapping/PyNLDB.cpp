@@ -21,6 +21,7 @@
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
+#include "VHDLConstructor.h"
 
 #include "PyInterface.h"
 #include "PyNLUniverse.h"
@@ -448,6 +449,56 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   return PySNLDesign_Link(top);
 }
 
+PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+  PyObject* file = nullptr;
+  PyObject* topObject = nullptr;
+  static const char* const kwords[] = {"file", "top", nullptr};
+  if (not PyArg_ParseTupleAndKeywords(
+      args, kwargs, "O|O:NLDB.loadVHDL", const_cast<char**>(kwords),
+      &file, &topObject)) {
+    return nullptr;
+  }
+  if (not PyUnicode_Check(file)) {
+    PyErr_Format(
+      PyExc_TypeError, "NLDB.loadVHDL: file must be a str path, got %s",
+      Py_TYPE(file)->tp_name);
+    return nullptr;
+  }
+  const std::string path = PyUnicode_AsUTF8(file);
+  if (path.empty()) {
+    PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
+    return nullptr;
+  }
+  std::string top;
+  if (topObject != nullptr && topObject != Py_None) {
+    if (not PyUnicode_Check(topObject)) {
+      PyErr_Format(
+        PyExc_TypeError, "NLDB.loadVHDL: top must be a str or None, got %s",
+        Py_TYPE(topObject)->tp_name);
+      return nullptr;
+    }
+    top = PyUnicode_AsUTF8(topObject);
+    if (top.empty()) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: top must not be empty");
+      return nullptr;
+    }
+  }
+
+  METHOD_HEAD("NLDB.loadVHDL()")
+  NLDB* db = selfObject;
+  SNLDesign* design = nullptr;
+  TRY
+  auto* designLibrary = db->getLibrary(NLName("DESIGN"));
+  if (designLibrary == nullptr) {
+    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+  }
+  design = VHDLConstructor(designLibrary).constructFile(path, top);
+  NLUniverse::get()->setTopDesign(design);
+  NLUniverse::get()->setTopDB(db);
+  NLCATCH
+  return PySNLDesign_Link(design);
+}
+
 PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
@@ -812,6 +863,13 @@ PyMethodDef PyNLDB_Methods[] = {
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
+  { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
+    "create a design from one VHDL source file.\n\n"
+    "Warning:\n"
+    "  VHDL support is experimental and currently limited to bit-based designs.\n\n"
+    "Args:\n"
+    "  file (str): input VHDL file\n"
+    "  top (str | None, optional): entity selected as the structural top"},
   { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
     "create a design from SystemVerilog format.\n\n"
     "Warning:\n"

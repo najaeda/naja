@@ -5,6 +5,7 @@
 
 #include "NLLibrary.h"
 
+#include <filesystem>
 #include <string_view>
 
 namespace naja::NL {
@@ -28,6 +29,11 @@ class VHDLConstructor {
     /// Scalar process variables may be temporary or retained state; retained
     /// variables must be assigned on every activation.
     SNLDesign* construct(std::string_view source) const;
+
+    /// Read, parse, and lower one VHDL source file. An explicit top is required
+    /// when the file contains a supported structural hierarchy.
+    SNLDesign* constructFile(
+      const std::filesystem::path& path, std::string_view top = {}) const;
 
     /// Parse a multi-unit source and lower the selected structural top plus its
     /// directly instantiated leaf entities. The hierarchy slice accepts

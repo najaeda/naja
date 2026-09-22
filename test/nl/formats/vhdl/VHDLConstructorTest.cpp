@@ -140,6 +140,15 @@ TEST_F(VHDLConstructorTest, PreservesVectorRangesAndPositionalMuxMapping) {
   }
 }
 
+TEST_F(VHDLConstructorTest, ConstructsFromFile) {
+  auto* design = VHDLConstructor(library_).constructFile(SNL_VHDL_VECTORS);
+  ASSERT_NE(design, nullptr);
+  EXPECT_EQ(design->getName(), NLName("vector_mux"));
+  EXPECT_THROW(
+      VHDLConstructor(library_).constructFile("missing-vhdl-source.vhd"),
+      NLException);
+}
+
 TEST_F(VHDLConstructorTest, LowersBitwiseVectorExpressionsByPosition) {
   auto* design = VHDLConstructor(library_).construct(R"(
 entity vector_logic is port (
@@ -822,6 +831,14 @@ TEST_F(VHDLConstructorTest, LowersOneLevelDirectEntityHierarchy) {
     for (std::string value; reference >> value;) values.push_back(value);
     EXPECT_EQ(values, (std::vector<std::string>{"1001", "0110", "0011"}));
   }
+}
+
+TEST_F(VHDLConstructorTest, ConstructsHierarchyFromFile) {
+  auto* top = VHDLConstructor(library_).constructFile(
+      SNL_VHDL_HIERARCHY, "hierarchy_top");
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(top->getName(), NLName("hierarchy_top"));
+  EXPECT_NE(library_->getSNLDesign(NLName("inv4")), nullptr);
 }
 
 TEST_F(VHDLConstructorTest, InvalidHierarchyPublishesNoDesign) {
