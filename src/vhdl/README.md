@@ -576,3 +576,19 @@ numeric-array SNL publication remains disabled.
 Signed-absolute validation (2026-09-22): all 101 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 64 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## `numeric_std` vector logical operators
+
+Unary `not` and binary `and`, `or`, `nand`, `nor`, `xor` and `xnor` resolve for
+`unsigned` and `signed` vectors when `ieee.numeric_std.all` is visible. Binary
+operands must have matching numeric types and lengths; source directions and
+bounds may differ. Results preserve the operand length with canonical descending
+bounds.
+
+Mixed signedness, unequal or null vectors, and missing visibility are diagnosed.
+Scalar `std_ulogic` broadcasts remain outside this increment, and numeric-array
+SNL publication remains disabled.
+
+Numeric-logical validation (2026-09-22): all 103 focused VHDL tests passed—37
+integrated constructor/NVC tests and all 66 standalone lexer/parser/analyzer
+tests. The standalone suite also passed from an isolated source copy.

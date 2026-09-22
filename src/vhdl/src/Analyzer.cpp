@@ -228,6 +228,29 @@ CheckedType checkExpression(const Expression& expression,
                 *expression.left, declarations, expected, visibility, result);
             if (expression.text == "not" && isLogicalType(operand.kind))
                 return record(operand);
+            if (expression.text == "not" && isNumericVectorType(operand.kind)) {
+                if (!visibility.numericStd) {
+                    result.diagnostics.push_back(
+                        {"unary 'not' for numeric vectors requires ieee.numeric_std.all",
+                         expression.span});
+                    return record({});
+                }
+                if (!operand.range || rangeWidth(*operand.range) == 0) {
+                    result.diagnostics.push_back(
+                        {"unary 'not' requires a non-null numeric vector operand",
+                         expression.span});
+                    return record({});
+                }
+                const auto range = canonicalRange(
+                    rangeWidth(*operand.range), expression.span);
+                if (!range) {
+                    result.diagnostics.push_back(
+                        {"unary 'not' result width exceeds the supported range",
+                         expression.span});
+                    return record({});
+                }
+                return record({operand.kind, *range});
+            }
             if ((expression.text == "-" || expression.text == "abs") &&
                 operand.kind == ScalarType::Signed) {
                 if (!visibility.numericStd) {
@@ -273,6 +296,50 @@ CheckedType checkExpression(const Expression& expression,
                     *expression.right, declarations, rightExpected, visibility, result);
                 if (isLogicalType(left.kind) && compatible(left, right))
                     return record(left);
+                if (isNumericVectorType(left.kind) || isNumericVectorType(right.kind)) {
+                    if (!visibility.numericStd) {
+                        result.diagnostics.push_back(
+                            {"logical operator '" + expression.text +
+                                 "' for numeric vectors requires ieee.numeric_std.all",
+                             expression.span});
+                        return record({});
+                    }
+                    if (left.kind == right.kind && left.range && right.range) {
+                        const auto leftWidth = rangeWidth(*left.range);
+                        const auto rightWidth = rangeWidth(*right.range);
+                        if (leftWidth == 0 || rightWidth == 0) {
+                            result.diagnostics.push_back(
+                                {"logical operator '" + expression.text +
+                                     "' requires non-null numeric vector operands",
+                                 expression.span});
+                            return record({});
+                        }
+                        if (leftWidth != rightWidth) {
+                            result.diagnostics.push_back(
+                                {"logical operator '" + expression.text +
+                                     "' requires equally sized numeric vector operands",
+                                 expression.span});
+                            return record({});
+                        }
+                        const auto range = canonicalRange(leftWidth, expression.span);
+                        if (!range) {
+                            result.diagnostics.push_back(
+                                {"logical operator '" + expression.text +
+                                     "' result width exceeds the supported range",
+                                 expression.span});
+                            return record({});
+                        }
+                        return record({left.kind, *range});
+                    }
+                    if (left.kind == ScalarType::Unknown ||
+                        right.kind == ScalarType::Unknown)
+                        return record({});
+                    result.diagnostics.push_back(
+                        {"logical operator '" + expression.text +
+                             "' requires matching numeric vector operands",
+                         expression.span});
+                    return record({});
+                }
                 if (left.kind == ScalarType::Unknown || right.kind == ScalarType::Unknown)
                     return record({});
                 result.diagnostics.push_back(
