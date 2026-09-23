@@ -302,6 +302,11 @@ CheckedType checkExpression(const Expression& expression,
             }
             return record(found->second);
         }
+        case Expression::Kind::Indexed:
+        case Expression::Kind::Others:
+            result.diagnostics.push_back(
+                {"indexed expressions and aggregates require RTL elaboration", expression.span});
+            return record({});
         case Expression::Kind::IntegerLiteral:
             return record({expected.kind == ScalarType::Natural
                                ? ScalarType::Natural : ScalarType::Integer,
@@ -1173,6 +1178,11 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
             }
         }
         const auto checkAssignment = [&](const Assignment& assignment) {
+            if (!assignment.indices.empty()) {
+                result.diagnostics.push_back(
+                    {"indexed assignments require RTL elaboration", assignment.span});
+                return;
+            }
             const auto target = declarations.find(std::string(key(assignment.target)));
             if (target == declarations.end()) {
                 result.diagnostics.push_back(
@@ -1196,6 +1206,11 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
         for (const auto& assignment : architecture.assignments)
             checkAssignment(assignment);
         for (const auto& process : architecture.processes) {
+            if (!process.sensitivityList.empty()) {
+                result.diagnostics.push_back(
+                    {"structured processes require RTL elaboration", process.span});
+                continue;
+            }
             auto localDeclarations = declarations;
             std::unordered_set<std::string> variables;
             for (const auto& declaration : process.variables) {
@@ -1260,6 +1275,11 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                          process.resetSignal->span});
             }
             const auto checkProcessAssignment = [&](const Assignment& assignment) {
+                if (!assignment.indices.empty()) {
+                    result.diagnostics.push_back(
+                        {"indexed assignments require RTL elaboration", assignment.span});
+                    return;
+                }
                 const std::string target(key(assignment.target));
                 const auto targetDeclaration = localDeclarations.find(target);
                 if (targetDeclaration == localDeclarations.end())
@@ -1293,6 +1313,10 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
 
 ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
     ScheduleResult result;
+    if (!process.sensitivityList.empty()) {
+        result.diagnostics.push_back({"structured processes require RTL elaboration", process.span});
+        return result;
+    }
     std::unordered_set<std::string> variables;
     for (const auto& declaration : process.variables)
         for (const auto& name : declaration.names)
@@ -1300,6 +1324,11 @@ ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
     std::unordered_map<std::string, std::string> values;
     std::unordered_set<std::string> retained;
     for (const auto& assignment : process.assignments) {
+        if (!assignment.indices.empty()) {
+            result.diagnostics.push_back({"indexed assignments require RTL elaboration", assignment.span});
+            result.writes.clear();
+            return result;
+        }
         const auto& expression = *assignment.value;
         if (expression.kind != Expression::Kind::Name) {
             result.diagnostics.push_back({"scheduled data values must be scalar names", expression.span});

@@ -2,8 +2,8 @@
 
 cc_library(
     name = "naja_snl_vhdl",
-    srcs = ["VHDLConstructor.cpp"],
-    hdrs = ["VHDLConstructor.h"],
+    srcs = ["VHDLConstructor.cpp", "VHDLRTLConstructor.cpp"],
+    hdrs = ["VHDLConstructor.h", "VHDLRTLConstructor.h"],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [

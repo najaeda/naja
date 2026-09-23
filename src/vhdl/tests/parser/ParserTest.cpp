@@ -238,7 +238,7 @@ end process; end;
     ASSERT_TRUE(explicitGuard.syntax.architectures.front().processes.front().enableSignal);
 }
 
-TEST(VHDLParserTest, RejectsUnsupportedClockEnableControlFlow) {
+TEST(VHDLParserTest, PreservesStructuredClockEnableControlFlow) {
     for (const auto* body : {
         "if en then q <= d; end if;",
         "if en = d then q <= d; end if;",
@@ -248,7 +248,9 @@ TEST(VHDLParserTest, RejectsUnsupportedClockEnableControlFlow) {
             "entity reg is port(clk, en, d : in bit; q : out bit); end; "
             "architecture rtl of reg is begin process(clk) begin "
             "if rising_edge(clk) then ") + body + " end if; end process; end;";
-        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+        const auto parsed = vhdl::Parser::parse(source);
+        ASSERT_FALSE(parsed.hasErrors());
+        ASSERT_EQ(parsed.syntax.architectures.front().processes.front().statements.size(), 1u);
     }
 }
 
@@ -321,6 +323,68 @@ end if; end process; end;
     EXPECT_EQ(writes[0].target.canonical, "stage");
     EXPECT_EQ(writes[1].value->canonical, "stage");
     EXPECT_LT(writes[0].span.end.offset, writes[1].span.start.offset);
+}
+
+TEST(VHDLParserTest, ParsesArchitectureArrayTypeDeclaration) {
+    const auto parsed = vhdl::Parser::parse(R"(entity lfsr is end;
+architecture rtl of lfsr is
+    signal temp : bit_vector(31 downto 0);
+    type inner_taps is array (32 downto 2) of bit_vector(31 downto 0);
+    signal taps : inner_taps;
+begin
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.syntax.architectures.size(), 1u);
+    const auto& architecture = parsed.syntax.architectures.front();
+    ASSERT_EQ(architecture.arrayTypes.size(), 1u);
+    const auto& type = architecture.arrayTypes.front();
+    EXPECT_EQ(type.name.canonical, "inner_taps");
+    EXPECT_EQ(type.indexRange.left, 32);
+    EXPECT_EQ(type.indexRange.right, 2);
+    EXPECT_FALSE(type.indexRange.ascending);
+    EXPECT_EQ(type.elementType.name.canonical, "bit_vector");
+    ASSERT_TRUE(type.elementType.constraint);
+    EXPECT_EQ(type.elementType.constraint->left, 31);
+    EXPECT_EQ(type.elementType.constraint->right, 0);
+    ASSERT_EQ(architecture.signals.size(), 2u);
+    EXPECT_EQ(architecture.signals.back().type.name.canonical, "inner_taps");
+}
+
+TEST(VHDLParserTest, PreservesNestedIndicesAggregatesAndStaticLoops) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity p is end;
+architecture rtl of p is begin
+  taps(2) <= "1010";
+  process(clk, state) variable v : bit; begin
+    if rising_edge(clk) then
+      state <= (others => '1');
+      for i in 3 downto 0 loop
+        if taps(2)(i) = '1' then state(i) <= v;
+        elsif state(i) = '0' then v := '1';
+        else v := '0'; end if;
+      end loop;
+    end if;
+    q <= state;
+  end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& arch = parsed.syntax.architectures.front();
+    ASSERT_EQ(arch.assignments.front().indices.size(), 1u);
+    EXPECT_EQ(arch.assignments.front().indices.front()->text, "2");
+    const auto& process = arch.processes.front();
+    ASSERT_EQ(process.sensitivityList.size(), 2u);
+    ASSERT_EQ(process.statements.size(), 2u);
+    EXPECT_EQ(process.statements[0].assignment.value->kind, vhdl::Expression::Kind::Others);
+    const auto& loop = process.statements[1];
+    EXPECT_EQ(loop.kind, vhdl::SequentialStatement::Kind::For);
+    EXPECT_EQ(loop.iterator.canonical, "i");
+    EXPECT_FALSE(loop.range.ascending);
+    const auto& condition = *loop.statements.front().condition;
+    EXPECT_EQ(condition.left->kind, vhdl::Expression::Kind::Indexed);
+    EXPECT_EQ(condition.left->left->kind, vhdl::Expression::Kind::Indexed);
+    EXPECT_EQ(process.assignments.front().target.canonical, "q");
 }
 
 TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {

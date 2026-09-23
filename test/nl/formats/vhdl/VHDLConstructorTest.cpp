@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -40,6 +41,223 @@ class VHDLConstructorTest : public ::testing::Test {
 
   NLLibrary* library_ {};
 };
+
+namespace {
+// Evaluate the actual canonical primitive connectivity, with flop outputs
+// supplied as the current state. This also catches undriven data and cycles.
+bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& values,
+                 std::unordered_set<SNLBitNet*>& visiting) {
+  if (net->isConstant0()) return false;
+  if (net->isConstant1()) return true;
+  if (const auto found = values.find(net); found != values.end()) return found->second;
+  if (!visiting.insert(net).second) throw std::runtime_error("combinational cycle");
+  SNLInstance* driver = nullptr;
+  for (auto* term : net->getInstTerms())
+    if (term->getDirection() == SNLTerm::Direction::Output) {
+      if (driver) throw std::runtime_error("multiple drivers");
+      driver = term->getInstance();
+    }
+  if (!driver || NLDB0::isDFF(driver->getModel())) throw std::runtime_error("missing data/state");
+  auto* model = driver->getModel();
+  const auto read = [&](SNLBitTerm* term) {
+    return evaluateRTL(driver->getInstTerm(term)->getNet(), values, visiting);
+  };
+  bool value;
+  if (NLDB0::isMux2(model)) {
+    value = read(NLDB0::getMux2Select(model))
+        ? read(NLDB0::getMux2InputB(model)->getBit(0))
+        : read(NLDB0::getMux2InputA(model)->getBit(0));
+  } else {
+    if (!NLDB0::isGate(model)) throw std::runtime_error("unexpected primitive");
+    SNLTruthTable::ConstantInputs inputs;
+    for (auto* term : driver->getInstTerms())
+      if (term->getDirection() == SNLTerm::Direction::Input)
+        inputs.emplace_back(inputs.size(), evaluateRTL(term->getNet(), values, visiting));
+    const auto table = NLDB0::getPrimitiveTruthTable(model);
+    const auto dependencies = SNLTruthTable::fullDependencies(inputs.size());
+    const auto normalized = table.getGenericType() == SNLTruthTable::GenericType::NONE
+        ? SNLTruthTable(inputs.size(), static_cast<uint64_t>(table.bits()), dependencies)
+        : SNLTruthTable(inputs.size(), table.getGenericType(), dependencies);
+    value = normalized.getReducedWithConstants(inputs).all1();
+  }
+  visiting.erase(net);
+  values[net] = value;
+  return value;
+}
+
+std::string lfsrSource(unsigned width) {
+  return "library ieee; use ieee.std_logic_1164.all; "
+      "use ieee.numeric_std.all; use ieee.std_logic_unsigned.all; "
+      "entity lfsr is generic(n : positive := " + std::to_string(width) + R"();
+  port(clk, rst, ena : in std_logic; output : out std_logic_vector(n-1 downto 0)); end;
+architecture rtl of lfsr is
+  type tap_table is array (32 downto 2) of std_logic_vector(31 downto 0);
+  signal taps : tap_table;
+  signal temp : std_logic_vector(n-1 downto 0);
+begin
+  taps(n) <= "00000000001000000000000000000011";
+  process(clk, rst, temp)
+    variable feedback : std_logic;
+  begin
+    if rising_edge(clk) then
+      if rst = '1' then
+        temp <= (others => '1'); feedback := '1';
+      elsif ena = '1' then
+        feedback := temp(0);
+        for i in n-2 downto 0 loop
+          if taps(n)(i) = '1' then temp(i) <= temp(i+1) XOR feedback;
+          else temp(i) <= temp(i+1); end if;
+        end loop;
+        temp(n-1) <= feedback;
+      end if;
+    end if;
+    output <= temp;
+  end process;
+end;
+)";
+}
+}
+
+TEST_F(VHDLConstructorTest, IndexedLFSRResetEnableAndCycles) {
+  for (const unsigned width : {2u, 4u, 9u, 32u}) {
+    SCOPED_TRACE(width);
+    auto* design = VHDLConstructor(library_).construct(lfsrSource(width));
+    auto* state = dynamic_cast<SNLBusNet*>(design->getNet(NLName("temp")));
+    ASSERT_NE(state, nullptr);
+    std::vector<SNLInstance*> flops;
+    for (auto* instance : design->getInstances())
+      if (NLDB0::isDFF(instance->getModel())) flops.push_back(instance);
+    ASSERT_EQ(flops.size(), width);
+    const uint64_t mask = (uint64_t(1) << width) - 1;
+    uint64_t expected = 0;
+    for (unsigned cycle = 0; cycle < 160; ++cycle) {
+      const bool reset = cycle == 0 || cycle == 53 || cycle == 104;
+      const bool enable = cycle % 5 != 0;
+      std::unordered_map<SNLBitNet*, bool> values;
+      values[design->getScalarTerm(NLName("rst"))->getNet()] = reset;
+      values[design->getScalarTerm(NLName("ena"))->getNet()] = enable;
+      for (unsigned bit = 0; bit < width; ++bit) values[state->getBit(bit)] = (expected >> bit) & 1;
+      std::unordered_map<SNLBitNet*, bool> next;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (auto* flop : flops) {
+        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFClock())->getNet(),
+                  design->getScalarTerm(NLName("clk"))->getNet());
+        next[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
+            evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+      }
+      if (reset) expected = mask;
+      else if (enable) expected = (expected >> 1) ^
+          ((expected & 1) ? ((uint64_t(1) << (width - 1)) | (0x200003u & (mask >> 1))) : 0);
+      for (unsigned bit = 0; bit < width; ++bit) {
+        ASSERT_EQ(next.at(state->getBit(bit)), bool((expected >> bit) & 1)) << cycle << ":" << bit;
+        ASSERT_EQ(evaluateRTL(design->getBusTerm(NLName("output"))->getBit(bit)->getNet(),
+                              next, visiting), bool((expected >> bit) & 1));
+      }
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, ExternalIndexedRTLBenchmark) {
+  const auto* path = std::getenv("VHDL_RTL_BENCHMARK");
+  if (!path) GTEST_SKIP() << "Set VHDL_RTL_BENCHMARK for an external RTL smoke test";
+  auto* design = VHDLConstructor(library_).constructFile(path);
+  ASSERT_NE(design, nullptr);
+  size_t flops = 0;
+  for (auto* instance : design->getInstances()) flops += NLDB0::isDFF(instance->getModel());
+  EXPECT_EQ(flops, 32u);
+}
+
+TEST_F(VHDLConstructorTest, IndexedAscendingArraysAndScheduledPriority) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity indexed is port(clk, d : in bit; y : out bit_vector(7 downto 5)); end;
+architecture rtl of indexed is
+  type table_type is array (-2 to 1) of bit_vector(4 to 6);
+  signal table_value : table_type;
+  signal state : bit_vector(4 to 6);
+begin
+  table_value(-2) <= "101";
+  process(clk, state)
+    variable v : bit;
+  begin
+    if rising_edge(clk) then
+      v := d;
+      for i in 4 to 6 loop
+        state(i) <= table_value(-2)(i) xor v;
+      end loop;
+      v := not v;
+      state(4) <= v;
+      state(5) <= state(4);
+      for i in 6 to 4 loop state(i) <= '0'; end loop;
+    end if;
+    y <= state;
+  end process;
+end;
+)");
+  auto* state = dynamic_cast<SNLBusNet*>(design->getNet(NLName("state")));
+  ASSERT_NE(state, nullptr);
+  for (unsigned pattern = 0; pattern < 16; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    values[design->getScalarTerm(NLName("d"))->getNet()] = pattern & 1;
+    for (unsigned i = 0; i < 3; ++i) values[state->getBit(4 + i)] = (pattern >> (i + 1)) & 1;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (auto* flop : design->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
+      auto* output = flop->getInstTerm(NLDB0::getDFFOutput())->getNet();
+      const bool expected = output == state->getBit(5) ? bool((pattern >> 1) & 1) : !(pattern & 1);
+      EXPECT_EQ(evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting), expected);
+    }
+    for (unsigned i = 0; i < 3; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(7-i)->getNet(), values, visiting),
+                bool((pattern >> (i+1)) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, IndexedExtendedIdentifiersRemainDistinct) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity indexed is port(\A\, \a\ : in bit_vector(1 downto 0); y : out bit_vector(1 downto 0)); end;
+architecture rtl of indexed is begin
+  y(1) <= \A\(0);
+  y(0) <= \a\(1);
+end;
+)");
+  std::unordered_map<SNLBitNet*, bool> values;
+  values[design->getBusTerm(NLName("\\A\\"))->getBit(0)->getNet()] = true;
+  values[design->getBusTerm(NLName("\\a\\"))->getBit(1)->getNet()] = false;
+  std::unordered_set<SNLBitNet*> visiting;
+  EXPECT_TRUE(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(1)->getNet(), values, visiting));
+  EXPECT_FALSE(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(0)->getNet(), values, visiting));
+}
+
+TEST_F(VHDLConstructorTest, InvalidIndexedRTLPublishesNoDesign) {
+  const auto source = lfsrSource(4);
+  const std::vector<std::pair<std::string, std::string>> replacements{
+      {"taps(n)(i)", "taps(33)(i)"},
+      {"temp(i+1)", "temp(i+9)"},
+      {"temp(i+1)", "temp(ena)"},
+      {"feedback := temp(0);", "feedback := feedback;"},
+      {"process(clk, rst, temp)", "process(clk, rst)"},
+      {"temp <= (others => '1')", "temp <= (others => 'X')"},
+      {"signal taps : tap_table", "signal taps : missing_type"},
+      {"taps(n) <=", "taps(n+1) <="},
+      {"temp(n-1) <= feedback", "clk <= feedback"},
+      {"temp(n-1) <= feedback", "feedback <= temp(0)"},
+      {"if taps(n)(i) = '1'", "if taps(n)(i)"},
+      {"output <= temp;", "output <= temp; output <= temp;"},
+      {"use ieee.std_logic_1164.all;", ""},
+      {"n : positive := 4", "n : positive := 0"},
+      {"std_logic_vector(n-1 downto 0)", "std_logic_vector(n downto 0)"},
+      {"feedback := temp(0);", "feedback := temp;"},
+  };
+  for (const auto& [before, after] : replacements) {
+    SCOPED_TRACE(after);
+    auto invalid = source;
+    const auto position = invalid.find(before);
+    ASSERT_NE(position, std::string::npos);
+    invalid.replace(position, before.size(), after);
+    EXPECT_THROW(VHDLConstructor(library_).construct(invalid), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
 
 TEST_F(VHDLConstructorTest, LowersConditionalAssignmentThroughSharedMux) {
   constexpr auto source = R"(
@@ -184,6 +402,20 @@ end architecture rtl;
         "VHDL constructor: parse failed at line 5, column 3: "
         "expected keyword 'begin'");
   }
+}
+
+TEST_F(VHDLConstructorTest, UnusedArrayTypeDeclarationDoesNotBlockConstruction) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity lfsr is port(a : in bit; y : out bit); end;
+architecture rtl of lfsr is
+    type inner_taps is array (32 downto 2) of bit_vector(31 downto 0);
+begin
+    y <= a;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  EXPECT_NE(design->getTerm(NLName("a")), nullptr);
+  EXPECT_NE(design->getTerm(NLName("y")), nullptr);
 }
 
 TEST_F(VHDLConstructorTest, LowersBitwiseVectorExpressionsByPosition) {

@@ -314,7 +314,11 @@ expert reference above.
    ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file. The experimental
    frontend currently supports a bit-based subset, including integer generic
    specialization of vector bounds; structural hierarchy requires an explicit
-   ``top`` entity name.
+   ``top`` entity name. The indexed RTL subset additionally supports constrained
+   arrays, static indices/loops and vector registers with synchronous reset and
+   enable. Its ``std_logic`` support uses two-state synthesis semantics and
+   rejects nonbinary literals and multiple drivers. Dynamic indices and
+   ``numeric_std`` arithmetic hardware remain unsupported.
 
    The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`

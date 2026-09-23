@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_library(naja_snl_vhdl STATIC VHDLConstructor.cpp)
+add_library(naja_snl_vhdl STATIC VHDLConstructor.cpp VHDLRTLConstructor.cpp)
 set_property(TARGET naja_snl_vhdl PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(naja_snl_vhdl PUBLIC naja_snl_hdl vhdl_frontend)
 target_include_directories(naja_snl_vhdl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

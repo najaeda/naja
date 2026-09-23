@@ -81,8 +81,12 @@ top entity explicitly:
 VHDL loading is experimental. It currently accepts one source file and the
 bounded ``bit``/``bit_vector`` frontend subset documented by the project; it
 supports integer generic defaults and generic-map specialization of vector
-bounds within that subset. It does not imply general VHDL, array/generate, or
-``numeric_std`` hardware lowering. Argument and
+bounds within that subset. An additional indexed RTL subset supports constrained
+arrays, static nested indexing and ``for`` loops, vector registers, synchronous
+reset/enable, and immediate process variables. Imported ``std_logic`` types in
+this subset use two-state synthesis semantics; nonbinary literals, dynamic
+indices and multiple drivers are rejected. General VHDL, generate statements,
+asynchronous processes and ``numeric_std`` arithmetic lowering remain unsupported. Argument and
 path errors use the same Python exception categories as the other high-level
 loaders. Frontend or lowering failures are reported as :class:`RuntimeError`.
 

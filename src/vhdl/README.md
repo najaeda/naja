@@ -30,8 +30,37 @@ design. It does not provide general VHDL type analysis or elaboration.
 Defaulted generics can size ports in a single design. In the supported one-level
 structural profile, integer generic maps create separate child specializations so
 different actual values cannot silently share a model with the wrong port bounds.
-Array type declarations, indexed names, generate statements and general process
-loops remain outside this profile and are rejected rather than discarded.
+Constrained array type declarations in architecture declarative parts are retained
+in the syntax tree. The additional indexed RTL profile described below supports
+static indexing and loops. Generate statements and general process loops
+remain outside this profile and are rejected rather than discarded. Other valid
+but unsupported architecture declarative items are identified directly in parser
+diagnostics instead of being misreported as a missing architecture ``begin``.
+
+### Indexed RTL synthesis profile
+
+The Naja adapter additionally elaborates constrained arrays, nested static
+indices, `others` aggregates, and static `for` loops in a positive-edge process.
+Indices and bounds can use defaulted integer generics and loop parameters.
+Nested `if`/`elsif`/`else` statements preserve source assignment priority;
+variables update immediately while signal reads observe the current state.
+This supports vector LFSRs with a tap table, synchronous reset and enable.
+Both ascending and descending ranges retain their declared indexing and map
+array assignments by position. Unconditional signal assignments after the
+clock guard require every source signal in the process sensitivity list.
+
+This profile synthesizes `bit` and imported `std_logic` scalars and vectors
+as two-state hardware. It accepts only binary literals, rejects multiple
+drivers, and does not model IEEE nine-valued simulation. `numeric_std` and
+`std_logic_unsigned` imports may be present, but their arithmetic overloads
+are not implemented here. Dynamic indexing, retained variables read before
+definite assignment, array ports, hierarchy, initialization, and asynchronous
+processes remain unsupported. Elaboration is bounded to 65,536 bits per object
+and 100,000 expanded statements.
+
+The standalone analyzer and scalar scheduler diagnose syntax requiring this
+profile; the adapter performs its own checked RTL elaboration and discards the
+design on any failure. The original scalar integration path remains available.
 
 The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The

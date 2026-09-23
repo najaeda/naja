@@ -380,6 +380,31 @@ private:
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 
+    std::optional<ArrayTypeDeclaration> parseArrayTypeDeclaration() {
+        const auto start = lexed_.tokens[index_ - 1].span;
+        auto name = parseName();
+        if (!name || !expectWord("is") || !expectWord("array") ||
+            !expectSymbol("("))
+            return std::nullopt;
+        auto indexRange = parseDiscreteRange();
+        if (!indexRange || !expectSymbol(")") || !expectWord("of"))
+            return std::nullopt;
+        auto elementName = parseName();
+        if (!elementName)
+            return std::nullopt;
+        TypeMark elementType{std::move(*elementName), std::nullopt};
+        if (acceptSymbol("(")) {
+            auto range = parseDiscreteRange();
+            if (!range || !expectSymbol(")"))
+                return std::nullopt;
+            elementType.constraint = std::move(*range);
+        }
+        if (!expectSymbol(";"))
+            return std::nullopt;
+        return ArrayTypeDeclaration{std::move(*name), std::move(*indexRange),
+            std::move(elementType), join(start, lexed_.tokens[index_ - 1].span)};
+    }
+
     std::optional<ArchitectureBody> parseArchitecture() {
         const auto start = advance().span;
         auto name = parseName();
@@ -389,12 +414,34 @@ private:
         if (!entity || !expectWord("is"))
             return std::nullopt;
         ArchitectureBody architecture{
-            std::move(*name), std::move(*entity), {}, {}, {}, {}, start};
-        while (acceptWord("signal")) {
-            auto declaration = parseObjectDeclaration();
-            if (!declaration)
+            std::move(*name), std::move(*entity), {}, {}, {}, {}, {}, start};
+        while (word("signal") || word("type")) {
+            if (acceptWord("signal")) {
+                auto declaration = parseObjectDeclaration();
+                if (!declaration)
+                    return std::nullopt;
+                architecture.signals.push_back(std::move(*declaration));
+            } else {
+                advance();
+                auto declaration = parseArrayTypeDeclaration();
+                if (!declaration)
+                    return std::nullopt;
+                architecture.arrayTypes.push_back(std::move(*declaration));
+            }
+        }
+        // Do not report a valid, but unsupported, declarative item as a
+        // missing `begin`.  Apart from being misleading, that diagnostic hides
+        // which language feature must be implemented before the design can be
+        // lowered faithfully.
+        for (const auto declaration : {
+                 "subtype", "constant", "variable", "shared", "file",
+                 "alias", "attribute", "component", "function", "procedure",
+                 "package", "use", "group", "disconnect", "configuration"}) {
+            if (word(declaration)) {
+                error("architecture " + std::string(declaration) +
+                      " declarations are not supported", current().span);
                 return std::nullopt;
-            architecture.signals.push_back(std::move(*declaration));
+            }
         }
         if (!expectWord("begin"))
             return std::nullopt;
@@ -504,6 +551,95 @@ private:
     }
 
     std::optional<ClockedProcess> parseClockedProcess() {
+        const auto savedIndex = index_;
+        const auto savedDiagnostics = result_.diagnostics.size();
+        auto legacy = parseSimpleClockedProcess();
+        if (legacy)
+            return legacy;
+        index_ = savedIndex;
+        result_.diagnostics.resize(savedDiagnostics);
+        const auto start = advance().span;
+        ClockedProcess process;
+        if (!expectSymbol("(")) return std::nullopt;
+        do {
+            auto name = parseName();
+            if (!name) return std::nullopt;
+            process.sensitivityList.push_back(std::move(*name));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(")")) return std::nullopt;
+        acceptWord("is");
+        while (acceptWord("variable")) {
+            auto declaration = parseObjectDeclaration();
+            if (!declaration) return std::nullopt;
+            process.variables.push_back(std::move(*declaration));
+        }
+        if (!expectWord("begin") || !expectWord("if") ||
+            !expectWord("rising_edge") || !expectSymbol("(")) return std::nullopt;
+        auto clock = parseName();
+        if (!clock || !expectSymbol(")") || !expectWord("then")) return std::nullopt;
+        process.eventSignal = *clock;
+        process.levelSignal = *clock;
+        process.level = "'1'";
+        process.edgeForm = ClockEdgeForm::RisingEdgeCall;
+        process.sensitivity = process.sensitivityList.front();
+        if (!parseStatements(process.statements) || !expectWord("end") ||
+            !expectWord("if") || !expectSymbol(";")) return std::nullopt;
+        // Unconditional signal assignments outside the edge guard are kept
+        // separately; lowering checks their sensitivity and scheduling.
+        while (!atEnd() && !word("end")) {
+            auto assignment = parseAssignment();
+            if (!assignment) return std::nullopt;
+            process.assignments.push_back(std::move(*assignment));
+        }
+        if (!expectWord("end") || !expectWord("process") || !expectSymbol(";"))
+            return std::nullopt;
+        process.span = join(start, lexed_.tokens[index_ - 1].span);
+        return process;
+    }
+
+    bool parseStatements(std::vector<SequentialStatement>& statements) {
+        while (!atEnd() && !word("end") && !word("else") && !word("elsif")) {
+            SequentialStatement statement;
+            const auto start = current().span;
+            if (acceptWord("if")) {
+                if (!parseIfStatement(statement)) return false;
+            } else if (acceptWord("for")) {
+                statement.kind = SequentialStatement::Kind::For;
+                auto iterator = parseName();
+                if (!iterator || !expectWord("in")) return false;
+                auto range = parseDiscreteRange();
+                if (!range || !expectWord("loop")) return false;
+                statement.iterator = std::move(*iterator);
+                statement.range = std::move(*range);
+                if (!parseStatements(statement.statements) || !expectWord("end") ||
+                    !expectWord("loop") || !expectSymbol(";")) return false;
+            } else {
+                auto assignment = parseAssignment(true);
+                if (!assignment) return false;
+                statement.assignment = std::move(*assignment);
+            }
+            statement.span = join(start, lexed_.tokens[index_ - 1].span);
+            statements.push_back(std::move(statement));
+        }
+        return true;
+    }
+
+    bool parseIfStatement(SequentialStatement& statement) {
+        statement.kind = SequentialStatement::Kind::If;
+        statement.condition = parseExpression(0);
+        if (!statement.condition || !expectWord("then") ||
+            !parseStatements(statement.statements)) return false;
+        if (acceptWord("elsif")) {
+            SequentialStatement alternative;
+            if (!parseIfStatement(alternative)) return false;
+            statement.alternative.push_back(std::move(alternative));
+            return true;
+        }
+        if (acceptWord("else") && !parseStatements(statement.alternative)) return false;
+        return expectWord("end") && expectWord("if") && expectSymbol(";");
+    }
+
+    std::optional<ClockedProcess> parseSimpleClockedProcess() {
         const auto start = advance().span;
         if (!expectSymbol("("))
             return std::nullopt;
@@ -636,6 +772,12 @@ private:
         auto target = parseName();
         if (!target)
             return std::nullopt;
+        std::vector<std::unique_ptr<Expression>> indices;
+        while (acceptSymbol("(")) {
+            auto index = parseExpression(0);
+            if (!index || !expectSymbol(")")) return std::nullopt;
+            indices.push_back(std::move(index));
+        }
         const auto kind = sequential && acceptSymbol(":=")
             ? AssignmentKind::Variable : AssignmentKind::Signal;
         if (kind == AssignmentKind::Signal && !expectSymbol("<="))
@@ -659,7 +801,8 @@ private:
         if (!value || !expectSymbol(";"))
             return std::nullopt;
         return Assignment{std::move(*target), std::move(value),
-                                    join(start, lexed_.tokens[index_ - 1].span), kind};
+                                    join(start, lexed_.tokens[index_ - 1].span), kind,
+                                    std::move(indices)};
     }
 
     int precedence() const {
@@ -711,7 +854,7 @@ private:
                 return nullptr;
             auto binary = std::make_unique<Expression>();
             binary->kind = Expression::Kind::Binary;
-            binary->text = op.text;
+            binary->text = op.kind == TokenKind::Identifier ? op.canonical : op.text;
             binary->span = join(left->span, right->span);
             binary->left = std::move(left);
             binary->right = std::move(right);
@@ -729,13 +872,23 @@ private:
                 return nullptr;
             auto unary = std::make_unique<Expression>();
             unary->kind = Expression::Kind::Unary;
-            unary->text = op.text.empty() ? op.canonical : op.text;
+            unary->text = op.kind == TokenKind::Identifier ? op.canonical : op.text;
             unary->span = join(op.span, operand->span);
             unary->left = std::move(operand);
             return unary;
         }
         if (acceptSymbol("(")) {
             const auto start = lexed_.tokens[index_ - 1].span;
+            if (acceptWord("others")) {
+                if (!expectSymbol("=>")) return nullptr;
+                auto value = parseExpression(0);
+                if (!value || !expectSymbol(")")) return nullptr;
+                auto aggregate = std::make_unique<Expression>();
+                aggregate->kind = Expression::Kind::Others;
+                aggregate->left = std::move(value);
+                aggregate->span = join(start, lexed_.tokens[index_ - 1].span);
+                return aggregate;
+            }
             auto nested = parseExpression(0);
             if (!nested || !expectSymbol(")"))
                 return nullptr;
@@ -749,6 +902,16 @@ private:
             expression->text = name->spelling;
             expression->canonical = name->canonical;
             expression->span = name->span;
+            while (acceptSymbol("(")) {
+                auto index = parseExpression(0);
+                if (!index || !expectSymbol(")")) return nullptr;
+                auto indexed = std::make_unique<Expression>();
+                indexed->kind = Expression::Kind::Indexed;
+                indexed->span = join(expression->span, lexed_.tokens[index_ - 1].span);
+                indexed->left = std::move(expression);
+                indexed->right = std::move(index);
+                expression = std::move(indexed);
+            }
             return expression;
         }
         const auto token = current();

@@ -30,7 +30,9 @@ struct Expression {
         CharacterLiteral,
         Unary,
         Binary,
-        Conditional
+        Conditional,
+        Indexed,
+        Others
     };
     Kind kind;
     std::string text;
@@ -78,6 +80,13 @@ struct ObjectDeclaration {
 using SignalDeclaration = ObjectDeclaration;
 using VariableDeclaration = ObjectDeclaration;
 
+struct ArrayTypeDeclaration {
+    Name name;
+    DiscreteRange indexRange;
+    TypeMark elementType;
+    SourceSpan span;
+};
+
 enum class AssignmentKind { Signal, Variable };
 
 struct Assignment {
@@ -85,6 +94,19 @@ struct Assignment {
     std::unique_ptr<Expression> value;
     SourceSpan span;
     AssignmentKind kind = AssignmentKind::Signal;
+    std::vector<std::unique_ptr<Expression>> indices;
+};
+
+struct SequentialStatement {
+    enum class Kind { Assignment, If, For };
+    Kind kind = Kind::Assignment;
+    Assignment assignment;
+    std::unique_ptr<Expression> condition;
+    Name iterator;
+    DiscreteRange range;
+    std::vector<SequentialStatement> statements;
+    std::vector<SequentialStatement> alternative;
+    SourceSpan span;
 };
 
 struct LibraryClause {
@@ -119,6 +141,9 @@ struct ClockedProcess {
     std::vector<Assignment> resetAssignments;
     ClockEdgeForm edgeForm = ClockEdgeForm::EventAndLevel;
     SourceSpan span;
+    // Structured bodies retain nested control flow until static elaboration.
+    std::vector<SequentialStatement> statements;
+    std::vector<Name> sensitivityList;
 };
 
 struct EntityDeclaration {
@@ -150,6 +175,7 @@ struct ArchitectureBody {
     Name entity;
     std::vector<Assignment> assignments;
     std::vector<ClockedProcess> processes;
+    std::vector<ArrayTypeDeclaration> arrayTypes;
     std::vector<SignalDeclaration> signals;
     std::vector<EntityInstantiation> instantiations;
     SourceSpan span;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "VHDLConstructor.h"
+#include "VHDLRTLConstructor.h"
 
 #include "NLException.h"
 #include "NLName.h"
@@ -122,6 +123,8 @@ SNLDesign* VHDLConstructor::construct(
     unsupported(diagnosticMessage(
         "parse", diagnostic.message, diagnostic.span));
   }
+  if (requiresVHDLRTL(parsed.syntax))
+    return constructVHDLRTL(library_, parsed.syntax, top);
   const auto analyzed = vhdl::Analyzer::analyze(parsed.syntax);
   if (analyzed.hasErrors()) {
     const auto& diagnostic = analyzed.diagnostics.front();
