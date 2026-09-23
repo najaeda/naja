@@ -37,3 +37,11 @@ TEST_F(VHDLExternalTest, AESDecryptBenchmark) {
   EXPECT_EQ(top->getTerms().size(), 10u);
   EXPECT_NE(top->getInstance(NLName("KEXP0")), nullptr);
 }
+
+TEST_F(VHDLExternalTest, FIRBenchmark) {
+  const auto* file = std::getenv("VHDL_FIR_BENCHMARK");
+  ASSERT_NE(file, nullptr);
+  auto* top = VHDLConstructor(library_).constructFile(file, "cf_fir_12_16_10");
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getInstance(NLName("s1")), nullptr);
+}

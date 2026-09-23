@@ -20,6 +20,7 @@
 #include "vhdl/Analyzer.h"
 #include "vhdl/Parser.h"
 
+#include <algorithm>
 #include <cctype>
 #include <exception>
 #include <fstream>

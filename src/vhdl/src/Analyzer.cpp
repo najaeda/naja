@@ -1005,6 +1005,8 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     std::unordered_set<std::string> architectures;
     for (const auto& architecture : syntax.architectures) {
         const auto architectureVisibility = analyzeContext(architecture.context, result);
+        if (!architecture.components.empty())
+            result.diagnostics.push_back({"local components require RTL elaboration", architecture.span});
         const std::string entityName(key(architecture.entity));
         const auto entity = entities.find(entityName);
         if (entity == entities.end()) {
@@ -1041,6 +1043,8 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                 declarations.emplace(std::string(key(name)), type);
         }
         for (const auto& signal : architecture.signals) {
+            if (signal.initializer)
+                result.diagnostics.push_back({"signal initialization requires RTL elaboration", signal.span});
             const auto signalType = declarationType(
                 signal.type, architectureVisibility, architectureGenericValues);
             if (signalType.kind == ScalarType::Unknown) {

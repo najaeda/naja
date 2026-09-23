@@ -4,6 +4,8 @@
 #include "VHDLRTLConstructor.h"
 
 #include "NLException.h"
+#include "NLDB0.h"
+#include "SNLInstParameter.h"
 #include "NLLibrary.h"
 #include "NajaPrivateProperty.h"
 #include "NLName.h"
@@ -150,10 +152,27 @@ class RTLConstructor {
                   port.mode == vhdl::PortMode::Out, false, true);
     }
     context(architecture_.context);
+    std::set<std::string> localComponents;
+    for (const auto& component : architecture_.components) {
+      const auto name = key(component.name);
+      if (!localComponents.insert(name).second) fail("duplicate local component: " + name);
+      components_[name] = &component;
+    }
     for (const auto& declaration : architecture_.arrayTypes) addArray(declaration);
     for (const auto& signal : architecture_.signals) {
       const auto type = shape(signal.type);
       for (const auto& name : signal.names) addObject(name, type);
+      if (signal.initializer) {
+        const auto value = expression(*signal.initializer, State{}, &type);
+        for (const auto& name : signal.names) {
+          const auto& bits = objects_.at(key(name)).value.bits;
+          for (size_t i = 0; i < bits.size(); ++i) {
+            const auto initial = constantValue(value.bits[i]);
+            if (!initial) fail("signal initializer must be a constant binary value");
+            initialValues_[bits[i]] = *initial;
+          }
+        }
+      }
     }
     State empty;
     for (const auto& assignment : architecture_.assignments)
@@ -161,6 +180,8 @@ class RTLConstructor {
     for (const auto& generate : architecture_.generates) lowerGenerate(generate, empty);
     for (const auto& instance : architecture_.instantiations) lowerInstance(instance);
     for (const auto& process : architecture_.processes) lowerProcess(process);
+    for (const auto& [bit, value] : initialValues_)
+      if (!initializedFlops_.contains(bit)) fail("initialized signal must be driven by a local clocked process");
     for (const auto& [name, object] : objects_) {
       if (object.variable || object.input || object.constant) continue;
       for (auto* bit : object.value.bits)
@@ -311,7 +332,7 @@ class RTLConstructor {
           if (!candidate.body && key(candidate.name) == name) package = &candidate;
         if (!package) fail("missing package: " + name);
         const auto callerLibraries = libraries_;
-        const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_;
+        const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_, callerNumeric = numeric_;
         context(package->context);
         for (const auto& type : package->arrayTypes) addArray(type);
         for (const auto& declaration : package->constants) {
@@ -328,6 +349,7 @@ class RTLConstructor {
         stdLogic_ = callerLogic;
         unsigned_ = callerUnsigned;
         arith_ = callerArith;
+        numeric_ = callerNumeric;
         continue;
       }
       if (use.selectedName.size() != 3 || key(use.selectedName[0]) != "ieee" ||
@@ -337,9 +359,9 @@ class RTLConstructor {
       if (package == "std_logic_1164") stdLogic_ = true;
       else if (package == "std_logic_unsigned") unsigned_ = true;
       else if (package == "std_logic_arith") arith_ = true;
-      else if (package != "numeric_std")
+      else if (package == "numeric_std") numeric_ = true;
+      else
         fail("unsupported IEEE package: " + package);
-      // numeric_std hardware overloads are still outside this RTL profile.
     }
   }
 
@@ -401,7 +423,8 @@ class RTLConstructor {
       if (type.constraint) fail("scalar type cannot have a range");
       return {{name}, {}};
     }
-    if (name == "bit_vector" || (stdLogic_ && name == "std_logic_vector")) {
+    if (name == "bit_vector" || (stdLogic_ && name == "std_logic_vector") ||
+        (numeric_ && name == "unsigned")) {
       if (!type.constraint) fail("vector requires a constraint");
       return {{name, name == "bit_vector" ? "bit" : "std_logic"}, {range(*type.constraint)}};
     }
@@ -516,6 +539,19 @@ class RTLConstructor {
     if (b) inputs.push_back(b);
     SNLRTLPrimitives::createGate(design_, kind->second, inputs, output);
     return output;
+  }
+
+  Bits add(const Bits& left, const Bits& right, bool subtract) {
+    Bits result(left.size());
+    auto* carry = constant(subtract);
+    for (size_t i = left.size(); i; --i) {
+      auto* a = left[i - 1];
+      auto* b = subtract ? gate("not", right[i - 1]) : right[i - 1];
+      auto* ab = gate("xor", a, b);
+      result[i - 1] = gate("xor", ab, carry);
+      carry = gate("or", gate("and", a, b), gate("and", ab, carry));
+    }
+    return result;
   }
 
   bool isStatic(const Expr& expr) const {
@@ -707,9 +743,44 @@ class RTLConstructor {
         value.bits = left.bits;
         value.bits.insert(value.bits.end(), right.bits.begin(), right.bits.end());
         value.shape = vectorShape(value.bits.size(), left.shape.types.back());
+        if (left.shape.types.front() == "unsigned" || right.shape.types.front() == "unsigned") {
+          if ((left.shape.ranges.size() && left.shape.types.front() != "unsigned") ||
+              (right.shape.ranges.size() && right.shape.types.front() != "unsigned"))
+            fail("concatenation operand type mismatch");
+          value.shape.types.front() = "unsigned";
+        }
       } else {
-        auto left = expression(*expr.left, state, comparison ? nullptr : expected);
-        auto right = expression(*expr.right, state, comparison && left.shape.integerWidth ? nullptr : &left.shape);
+        const bool numericOperation = numeric_ && (arithmetic || expr.text == "*" || comparison);
+        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected);
+        const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
+        const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
+            expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
+        auto right = expression(*expr.right, state,
+            (unsignedOperands && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape);
+        if (unsignedOperands && (arithmetic || comparison || expr.text == "*")) {
+          if (right.shape.types.front() != "unsigned") fail("unsigned operand type mismatch");
+          const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
+              std::max(left.bits.size(), right.bits.size());
+          left.bits = resize(left.bits, width);
+          right.bits = resize(right.bits, width);
+          value.shape = vectorShape(width);
+          value.shape.types.front() = "unsigned";
+          if (comparison) {
+            auto* result = equal(left.bits, right.bits);
+            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+          } else if (expr.text == "*") {
+            value.bits = Bits(width, constant(false));
+            for (size_t shift = 0; shift < width; ++shift) {
+              Bits row(width, constant(false));
+              for (size_t i = shift; i < width; ++i)
+                row[width - 1 - i] = gate("and", left.bits[width - 1 - i + shift], right.bits[width - 1 - shift]);
+              value.bits = add(value.bits, row, false);
+            }
+          } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (expected && !compatible(value.shape, *expected))
+            fail("assignment or expression type/length mismatch");
+          return value;
+        }
         if (comparison && left.shape.integerWidth && right.shape.integerWidth) {
           const auto width = std::max(left.bits.size(), right.bits.size());
           left.bits = resize(left.bits, width);
@@ -897,7 +968,12 @@ class RTLConstructor {
       for (size_t i = 0; i < bits.size(); ++i) if (state.written.at(name)[i]) {
         auto* target = objects_.at(name).value.bits[i];
         if (!drivers_.insert(target).second) fail("multiple drivers for clocked signal");
-        SNLRTLPrimitives::createDFF(design_, objects_.at(clockName).value.bits.front(), bits[i], target);
+        auto* flop = SNLRTLPrimitives::createDFF(design_, objects_.at(clockName).value.bits.front(), bits[i], target);
+        if (const auto initial = initialValues_.find(target); initial != initialValues_.end()) {
+          SNLInstParameter::create(flop, flop->getModel()->getParameter(NLName("INIT")),
+              NLDB0::formatDFFInitValue(1, initial->second ? "1" : "0"));
+          initializedFlops_.insert(target);
+        }
         ++writes;
       }
     if (!writes) fail("clocked process does not write any signal");
@@ -927,12 +1003,14 @@ class RTLConstructor {
   std::function<SNLDesign*(const std::string&, const std::map<std::string, int64_t>&)> build_;
   std::set<std::string> imported_;
   std::map<std::string, const vhdl::EntityDeclaration*> components_;
-  bool unsigned_ = false, arith_ = false;
+  bool unsigned_ = false, arith_ = false, numeric_ = false;
   std::map<std::string, int64_t> integers_;
   std::map<std::string, Shape> arrays_;
   std::map<std::string, size_t> arrayTypeOffsets_;
   std::map<std::string, Object> objects_;
   std::set<SNLBitNet*> drivers_, reads_;
+  std::map<SNLBitNet*, bool> initialValues_;
+  std::set<SNLBitNet*> initializedFlops_;
   std::set<std::string> libraries_{"std", "work"};
   const std::set<std::string>* sensitivity_ = nullptr;
   bool stdLogic_ = false;
@@ -944,8 +1022,10 @@ class RTLConstructor {
 
 bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   if (!syntax.packages.empty()) return true;
-  for (const auto& entity : syntax.entities)
+  for (const auto& entity : syntax.entities) {
     for (const auto& generic : entity.generics) if (generic.type.constraint) return true;
+    for (const auto& port : entity.ports) if (key(port.type.name) == "unsigned") return true;
+  }
   const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
     return expression && (expression->kind == Expr::Kind::Indexed ||
         expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
@@ -956,7 +1036,8 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     return !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
   for (const auto& architecture : syntax.architectures) {
-    if (!architecture.generates.empty()) return true;
+    if (!architecture.generates.empty() || !architecture.components.empty()) return true;
+    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "unsigned") return true;
     for (const auto& instance : architecture.instantiations)
       if (instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
           [](const auto& formal) { return formal.has_value(); })) return true;

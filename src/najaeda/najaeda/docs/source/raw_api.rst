@@ -330,10 +330,17 @@ expert reference above.
    Hardware operates on legal subtype/index values; simulation bounds checks
    and nine-valued initialization are not implemented. Nonbinary literals,
    conflicting drivers, unsupported package bodies, and unsupported operations
-   are rejected. ``numeric_std`` arithmetic hardware remains unsupported.
+   are rejected. ``numeric_std.unsigned`` vector addition, subtraction,
+   multiplication, equality/inequality and concatenation are supported, including
+   mixed operand widths for arithmetic and comparisons. Multiplication produces
+   the sum of operand widths; addition/subtraction produce their maximum width.
+   Explicit binary signal initializers on locally clocked registers become DFF
+   ``INIT`` parameters. Initialization on other drivers is rejected.
+   Component declarations can also appear in the architecture declarative part,
+   and port declarations may explicitly specify the ``signal`` class.
 
-   These features are exposed through the expert raw API; there is currently
-   no high-level ``najaeda.netlist`` VHDL loader.
+   These features are also available through the high-level
+   ``najaeda.netlist.load_vhdl`` loader.
 
    The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`

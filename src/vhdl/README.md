@@ -188,8 +188,9 @@ python3 test/nl/formats/vhdl/compare_pipeline.py --nvc /path/to/nvc \
 This proof promises clocked behavior after the pipeline fills, not power-up
 state equivalence. VHDL `bit` defaults to `'0'`; the canonical hardware DFF has
 no initialization guarantee. The evaluator begins with unknown register values
-and the reference comparison starts after two rising edges. Explicit initializers
-(including `'0'`) are rejected. No initialization metadata is silently discarded.
+and the reference comparison starts after two rising edges. The RTL path now preserves explicit binary signal initializers as DFF `INIT`
+parameters for locally clocked registers. Initializers on other drivers and
+nonbinary initialization values are rejected.
 
 Unsupported forms include asynchronous reset or nested control flow beyond the
 supported active-high enable and synchronous reset-to-zero profiles, falling-edge
@@ -638,3 +639,18 @@ file through the same experimental adapter. The optional top name is required
 for the supported multi-unit structural hierarchy. The high-level helper accepts
 path-like objects, validates arguments and the input path before native loading,
 and returns the usual top ``Instance`` wrapper.
+
+## Unsigned FIR RTL lowering
+
+The RTL constructor supports `numeric_std.unsigned` vector addition, subtraction,
+multiplication, equality/inequality and concatenation. Arithmetic accepts unequal
+operand widths: addition and subtraction return the maximum width, multiplication
+returns the sum, and comparisons zero-extend operands. Assignment widths must
+match the result. Both ascending and descending ranges retain positional ordering.
+Architecture-local components use the existing interface-checked binding path,
+and ports can explicitly declare the `signal` interface class.
+
+Explicit binary signal initializers on locally clocked registers are encoded in
+canonical DFF `INIT` parameters. Variable initialization, nonbinary values, and
+initialization with other drivers remain rejected. The standalone analyzer
+reports that initialized signals require RTL elaboration.

@@ -86,7 +86,12 @@ arrays, static nested indexing and ``for`` loops, vector registers, synchronous
 reset/enable, and immediate process variables. Imported ``std_logic`` types in
 this subset use two-state synthesis semantics; nonbinary literals, dynamic
 indices and multiple drivers are rejected. General VHDL, generate statements,
-asynchronous processes and ``numeric_std`` arithmetic lowering remain unsupported. Argument and
+asynchronous processes and general ``numeric_std`` arithmetic remain unsupported.
+The RTL path supports ``numeric_std.unsigned`` vector addition, subtraction,
+multiplication, equality and inequality, and concatenation. Explicit binary
+signal initializers on locally clocked registers are preserved as DFF ``INIT``
+parameters. Architecture-local component declarations and explicit ``signal``
+port classes are accepted. Argument and
 path errors use the same Python exception categories as the other high-level
 loaders. Frontend or lowering failures are reported as :class:`RuntimeError`.
 

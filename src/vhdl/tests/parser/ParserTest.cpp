@@ -91,7 +91,7 @@ end architecture rtl;
     EXPECT_EQ(expression.right->text, "*");
 }
 
-TEST(VHDLParserTest, UnsupportedConstructIsDiagnosed) {
+TEST(VHDLParserTest, SignalInitializerIsPreserved) {
     const auto result = vhdl::Parser::parse(R"(
 entity top is end entity top;
 architecture rtl of top is
@@ -100,7 +100,10 @@ begin
   internal <= '1';
 end architecture rtl;
 )");
-    EXPECT_TRUE(result.hasErrors());
+    ASSERT_FALSE(result.hasErrors());
+    const auto& initializer = result.syntax.architectures[0].signals[0].initializer;
+    ASSERT_NE(initializer, nullptr);
+    EXPECT_EQ(initializer->text, "'1'");
 
 }
 

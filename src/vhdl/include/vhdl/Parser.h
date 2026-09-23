@@ -79,6 +79,7 @@ struct ObjectDeclaration {
     std::vector<Name> names;
     TypeMark type;
     SourceSpan span;
+    std::unique_ptr<Expression> initializer;
 };
 
 using SignalDeclaration = ObjectDeclaration;
@@ -208,6 +209,7 @@ struct ArchitectureBody {
     SourceSpan span;
     ContextClause context;
     std::vector<GenerateStatement> generates;
+    std::vector<EntityDeclaration> components;
 };
 
 struct DesignFile {

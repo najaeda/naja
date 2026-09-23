@@ -274,6 +274,7 @@ private:
 
     std::optional<PortDeclaration> parsePortDeclaration() {
         const auto start = current().span;
+        acceptWord("signal");
         std::vector<Name> names;
         auto name = parseName();
         if (!name)
@@ -366,7 +367,7 @@ private:
             std::shared_ptr<Expression>(std::move(rightExpression))};
     }
 
-    std::optional<ObjectDeclaration> parseObjectDeclaration() {
+    std::optional<ObjectDeclaration> parseObjectDeclaration(bool allowInitializer = false) {
         const auto start = lexed_.tokens[index_ - 1].span;
         std::vector<Name> names;
         do {
@@ -392,11 +393,15 @@ private:
             if (!range) return std::nullopt;
             type.constraint = std::move(*range);
         }
-        // Initializers and other declaration semantics are not discarded.
+        std::unique_ptr<Expression> initializer;
+        if (allowInitializer && acceptSymbol(":=")) {
+            initializer = parseExpression(0);
+            if (!initializer) return std::nullopt;
+        }
         if (!expectSymbol(";"))
             return std::nullopt;
         return ObjectDeclaration{std::move(names), std::move(type),
-            join(start, lexed_.tokens[index_ - 1].span)};
+            join(start, lexed_.tokens[index_ - 1].span), std::move(initializer)};
     }
 
     std::optional<ArrayTypeDeclaration> parseArrayTypeDeclaration() {
@@ -513,12 +518,16 @@ private:
             return std::nullopt;
         ArchitectureBody architecture{
             std::move(*name), std::move(*entity), {}, {}, {}, {}, {}, start};
-        while (word("signal") || word("type")) {
+        while (word("signal") || word("type") || word("component")) {
             if (acceptWord("signal")) {
-                auto declaration = parseObjectDeclaration();
+                auto declaration = parseObjectDeclaration(true);
                 if (!declaration)
                     return std::nullopt;
                 architecture.signals.push_back(std::move(*declaration));
+            } else if (word("component")) {
+                auto component = parseEntity(true);
+                if (!component) return std::nullopt;
+                architecture.components.push_back(std::move(*component));
             } else {
                 advance();
                 auto declaration = parseArrayTypeDeclaration();
@@ -533,7 +542,7 @@ private:
         // lowered faithfully.
         for (const auto declaration : {
                  "subtype", "constant", "variable", "shared", "file",
-                 "alias", "attribute", "component", "function", "procedure",
+                 "alias", "attribute", "function", "procedure",
                  "package", "use", "group", "disconnect", "configuration"}) {
             if (word(declaration)) {
                 error("architecture " + std::string(declaration) +
