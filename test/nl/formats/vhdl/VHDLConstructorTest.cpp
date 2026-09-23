@@ -169,6 +169,23 @@ TEST_F(VHDLConstructorTest, ConstructsFromFile) {
       NLException);
 }
 
+TEST_F(VHDLConstructorTest, DiagnosticsIncludeSourceLocation) {
+  try {
+    VHDLConstructor(library_).construct(R"(entity broken is
+end entity broken;
+architecture rtl of broken is
+  signal value : bit;
+  value <= '1';
+end architecture rtl;
+)");
+    FAIL() << "expected malformed VHDL to be rejected";
+  } catch (const NLException& exception) {
+    EXPECT_EQ(exception.getReason(),
+        "VHDL constructor: parse failed at line 5, column 3: "
+        "expected keyword 'begin'");
+  }
+}
+
 TEST_F(VHDLConstructorTest, LowersBitwiseVectorExpressionsByPosition) {
   auto* design = VHDLConstructor(library_).construct(R"(
 entity vector_logic is port (

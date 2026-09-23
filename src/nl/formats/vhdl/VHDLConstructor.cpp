@@ -41,6 +41,14 @@ std::string_view nameKey(const vhdl::Name& name) {
   throw NLException("VHDL constructor: " + message);
 }
 
+std::string diagnosticMessage(
+    std::string_view phase, std::string_view message,
+    const vhdl::SourceSpan& span) {
+  return std::string(phase) + " failed at line " +
+      std::to_string(span.start.line) + ", column " +
+      std::to_string(span.start.column) + ": " + std::string(message);
+}
+
 SNLRTLPrimitives::GateKind logicGateKind(std::string_view op) {
   if (op == "and") return SNLRTLPrimitives::GateKind::And;
   if (op == "nand") return SNLRTLPrimitives::GateKind::Nand;
@@ -110,11 +118,15 @@ SNLDesign* VHDLConstructor::construct(
 
   const auto parsed = vhdl::Parser::parse(source);
   if (parsed.hasErrors()) {
-    unsupported("parse failed: " + parsed.diagnostics.front().message);
+    const auto& diagnostic = parsed.diagnostics.front();
+    unsupported(diagnosticMessage(
+        "parse", diagnostic.message, diagnostic.span));
   }
   const auto analyzed = vhdl::Analyzer::analyze(parsed.syntax);
   if (analyzed.hasErrors()) {
-    unsupported("analysis failed: " + analyzed.diagnostics.front().message);
+    const auto& diagnostic = analyzed.diagnostics.front();
+    unsupported(diagnosticMessage(
+        "analysis", diagnostic.message, diagnostic.span));
   }
   const bool hierarchy = parsed.syntax.entities.size() != 1 ||
       parsed.syntax.architectures.size() != 1 ||
