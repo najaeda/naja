@@ -663,3 +663,13 @@ numeric arrays remain outside SNL publication.
 Numeric-logical validation (2026-09-22): all 103 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 66 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## Python loading boundary
+
+The experimental adapter is exposed through raw
+``najaeda.naja.NLDB.loadVHDL(file, top=None)`` and high-level
+``najaeda.netlist.load_vhdl(file, top=None)`` APIs. Both accept one source file;
+the optional top name selects the supported multi-unit structural hierarchy.
+The high-level API performs Python argument and path validation before invoking
+the native loader and returns the standard top ``Instance`` wrapper. This is an
+integration surface for the bounded adapter, not a broader VHDL support claim.

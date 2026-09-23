@@ -2301,6 +2301,57 @@ def load_system_verilog(
     return top
 
 
+def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None) -> Instance:
+    """Load one VHDL source file into the top design.
+
+    VHDL loading is experimental and currently supports the bounded ``bit`` and
+    ``bit_vector`` subset implemented by the native frontend. Pass ``top`` for
+    a supported structural source containing more than one design unit.
+
+    :param file: the VHDL source file to load.
+    :param top: optional top entity name for structural hierarchy.
+    :return: the top Instance.
+    :rtype: Instance
+    :raises TypeError: if file or top has the wrong type.
+    :raises ValueError: if file or top is empty, or file is not a regular file.
+    :raises FileNotFoundError: if file does not exist.
+    """
+    if not isinstance(file, (str, os.PathLike)):
+        raise TypeError(
+            "VHDL file must be a path string "
+            f"(got {type(file).__name__})")
+    path = os.fspath(file)
+    if not path.strip():
+        raise ValueError("VHDL file must not be empty")
+    if top is not None:
+        if not isinstance(top, str):
+            raise TypeError(
+                "load_vhdl top must be a str or None "
+                f"(got {type(top).__name__})")
+        if not top.strip():
+            raise ValueError("load_vhdl top must not be empty")
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"VHDL input file does not exist: {path!r} "
+            f"(resolved to {os.path.abspath(path)!r})")
+    if not os.path.isfile(path):
+        raise ValueError(
+            f"VHDL input path is not a file: {path!r} "
+            f"(resolved to {os.path.abspath(path)!r})")
+
+    start_time = time.time()
+    logger.info(f"Starting VHDL loading for file: {path}")
+    if top is not None:
+        logger.info(f"VHDL loading top override requested: {top}")
+    __get_top_db().loadVHDL(path, top=top)
+    execution_time = time.time() - start_time
+    loaded_top = get_top()
+    logger.info(
+        f"VHDL loading done for top '{loaded_top.get_name()}' in "
+        f"{execution_time:.2f} seconds")
+    return loaded_top
+
+
 def load_liberty(files: Union[str, List[str]]):
     """Load liberty files.
 

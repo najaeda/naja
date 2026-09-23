@@ -62,6 +62,28 @@ fields when it is created and again when loading begins.  Entries in
 ``-W`` or ``-Wno-`` command-line prefix.  To load only from a command file,
 pass an empty file list and set ``flist``.
 
+VHDL
+----
+
+.. code-block:: python
+
+   from najaeda import netlist
+
+   top = netlist.load_vhdl("design.vhd")
+
+For a supported structural file containing multiple design units, select the
+top entity explicitly:
+
+.. code-block:: python
+
+   top = netlist.load_vhdl("hierarchy.vhd", top="soc_top")
+
+VHDL loading is experimental. It currently accepts one source file and the
+bounded ``bit``/``bit_vector`` frontend subset documented by the project; it
+does not imply general VHDL or ``numeric_std`` hardware lowering. Argument and
+path errors use the same Python exception categories as the other high-level
+loaders. Frontend or lowering failures are reported as :class:`RuntimeError`.
+
 Liberty and primitive libraries
 -------------------------------
 

@@ -592,3 +592,12 @@ SNL publication remains disabled.
 Numeric-logical validation (2026-09-22): all 103 focused VHDL tests passed—37
 integrated constructor/NVC tests and all 66 standalone lexer/parser/analyzer
 tests. The standalone suite also passed from an isolated source copy.
+
+## Naja Python loading API
+
+The raw ``najaeda.naja.NLDB.loadVHDL(file, top=None)`` binding and the
+high-level ``najaeda.netlist.load_vhdl(file, top=None)`` helper load one source
+file through the same experimental adapter. The optional top name is required
+for the supported multi-unit structural hierarchy. The high-level helper accepts
+path-like objects, validates arguments and the input path before native loading,
+and returns the usual top ``Instance`` wrapper.
