@@ -4,6 +4,7 @@
 #include "vhdl/Analyzer.h"
 
 #include <algorithm>
+#include <charconv>
 #include <limits>
 #include <string_view>
 #include <unordered_map>
@@ -18,6 +19,7 @@ struct CheckedType {
 };
 
 using Declarations = std::unordered_map<std::string, CheckedType>;
+using GenericValues = std::unordered_map<std::string, std::int64_t>;
 
 struct Visibility {
     bool stdLogic1164 = false;
@@ -70,16 +72,108 @@ Visibility analyzeContext(const ContextClause& context, AnalysisResult& result) 
     return visibility;
 }
 
-CheckedType declarationType(const TypeMark& type, Visibility visibility = {}) {
+std::optional<std::int64_t> evaluateInteger(
+        const Expression& expression, const GenericValues& values) {
+    switch (expression.kind) {
+        case Expression::Kind::Name: {
+            const auto name = expression.canonical.empty()
+                ? expression.text : expression.canonical;
+            const auto found = values.find(name);
+            return found == values.end() ? std::nullopt
+                                         : std::optional<std::int64_t>(found->second);
+        }
+        case Expression::Kind::IntegerLiteral: {
+            if (expression.text.find('#') != std::string::npos)
+                return std::nullopt;
+            std::string digits;
+            for (const auto character : expression.text)
+                if (character != '_')
+                    digits.push_back(character);
+            std::int64_t value = 0;
+            const auto [end, error] = std::from_chars(
+                digits.data(), digits.data() + digits.size(), value);
+            if (error != std::errc{} || end != digits.data() + digits.size())
+                return std::nullopt;
+            return value;
+        }
+        case Expression::Kind::Unary: {
+            if (!expression.left)
+                return std::nullopt;
+            const auto operand = evaluateInteger(*expression.left, values);
+            if (!operand)
+                return std::nullopt;
+            if (expression.text == "+")
+                return operand;
+            if (expression.text == "-" && *operand != std::numeric_limits<std::int64_t>::min())
+                return -*operand;
+            return std::nullopt;
+        }
+        case Expression::Kind::Binary: {
+            if (!expression.left || !expression.right)
+                return std::nullopt;
+            const auto left = evaluateInteger(*expression.left, values);
+            const auto right = evaluateInteger(*expression.right, values);
+            if (!left || !right)
+                return std::nullopt;
+            const auto checked = [&](const __int128 value) -> std::optional<std::int64_t> {
+                if (value < std::numeric_limits<std::int64_t>::min() ||
+                    value > std::numeric_limits<std::int64_t>::max())
+                    return std::nullopt;
+                return static_cast<std::int64_t>(value);
+            };
+            if (expression.text == "+")
+                return checked(static_cast<__int128>(*left) + *right);
+            if (expression.text == "-")
+                return checked(static_cast<__int128>(*left) - *right);
+            if (expression.text == "*")
+                return checked(static_cast<__int128>(*left) * *right);
+            if ((expression.text == "/" || expression.text == "mod" ||
+                 expression.text == "rem") && *right == 0)
+                return std::nullopt;
+            if (expression.text == "/")
+                return *left / *right;
+            if (expression.text == "rem")
+                return *left % *right;
+            if (expression.text == "mod") {
+                auto remainder = *left % *right;
+                if (remainder != 0 && ((remainder < 0) != (*right < 0)))
+                    remainder += *right;
+                return remainder;
+            }
+            return std::nullopt;
+        }
+        default:
+            return std::nullopt;
+    }
+}
+
+std::optional<DiscreteRange> resolveRange(
+        const DiscreteRange& range, const GenericValues& values) {
+    if (!range.leftExpression || !range.rightExpression)
+        return range;
+    const auto left = evaluateInteger(*range.leftExpression, values);
+    const auto right = evaluateInteger(*range.rightExpression, values);
+    if (!left || !right)
+        return std::nullopt;
+    auto resolved = range;
+    resolved.left = *left;
+    resolved.right = *right;
+    return resolved;
+}
+
+CheckedType declarationType(const TypeMark& type, Visibility visibility = {},
+                            const GenericValues& values = {}) {
+    const auto range = type.constraint
+        ? resolveRange(*type.constraint, values) : std::nullopt;
     if (type.name.canonical == "bit_vector" && type.constraint)
-        return {ScalarType::BitVector, type.constraint};
+        return {ScalarType::BitVector, range};
     if (visibility.stdLogic1164 && type.name.canonical == "std_logic_vector" &&
         type.constraint)
-        return {ScalarType::StdLogicVector, type.constraint};
+        return {ScalarType::StdLogicVector, range};
     if (visibility.numericStd && type.name.canonical == "unsigned" && type.constraint)
-        return {ScalarType::Unsigned, type.constraint};
+        return {ScalarType::Unsigned, range};
     if (visibility.numericStd && type.name.canonical == "signed" && type.constraint)
-        return {ScalarType::Signed, type.constraint};
+        return {ScalarType::Signed, range};
     if (type.constraint)
         return {};
     if (type.name.canonical == "bit")
@@ -91,6 +185,8 @@ CheckedType declarationType(const TypeMark& type, Visibility visibility = {}) {
     if (type.name.canonical == "integer")
         return {ScalarType::Integer, std::nullopt};
     if (type.name.canonical == "natural")
+        return {ScalarType::Natural, std::nullopt};
+    if (type.name.canonical == "positive")
         return {ScalarType::Natural, std::nullopt};
     if (type.name.canonical == "real")
         return {ScalarType::Real, std::nullopt};
@@ -119,7 +215,9 @@ bool compatible(const CheckedType& left, const CheckedType& right) {
     if (left.kind != ScalarType::BitVector && left.kind != ScalarType::StdLogicVector &&
         left.kind != ScalarType::Unsigned && left.kind != ScalarType::Signed)
         return true;
-    return left.range && right.range && rangeWidth(*left.range) == rangeWidth(*right.range);
+    if (!left.range || !right.range)
+        return !left.range && !right.range;
+    return rangeWidth(*left.range) == rangeWidth(*right.range);
 }
 
 bool isLogical(std::string_view op) {
@@ -818,6 +916,7 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     AnalysisResult result;
     std::unordered_map<std::string, const EntityDeclaration*> entities;
     std::unordered_map<const EntityDeclaration*, Visibility> entityVisibility;
+    std::unordered_map<const EntityDeclaration*, GenericValues> entityDefaults;
     for (const auto& entity : syntax.entities) {
         const auto visibility = analyzeContext(entity.context, result);
         entityVisibility.emplace(&entity, visibility);
@@ -828,13 +927,54 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                  entity.name.span});
         }
 
-        std::unordered_set<std::string> ports;
+        GenericValues defaults;
+        std::unordered_set<std::string> genericNames;
+        for (const auto& generic : entity.generics) {
+            const auto genericType = declarationType(generic.type, visibility);
+            if (genericType.kind != ScalarType::Integer &&
+                genericType.kind != ScalarType::Natural) {
+                result.diagnostics.push_back(
+                    {"entity generics currently require integer, natural, or positive type",
+                     generic.type.name.span});
+            }
+            for (const auto& name : generic.names) {
+                const auto genericName = std::string(key(name));
+                if (!genericNames.insert(genericName).second) {
+                    result.diagnostics.push_back(
+                        {"duplicate generic declaration '" + name.spelling + "'", name.span});
+                    continue;
+                }
+                if (generic.defaultValue) {
+                    const auto value = evaluateInteger(*generic.defaultValue, defaults);
+                    if (!value) {
+                        result.diagnostics.push_back(
+                            {"generic default for '" + name.spelling +
+                                 "' is not a locally static integer expression",
+                             generic.defaultValue->span});
+                    } else if ((generic.type.name.canonical == "natural" && *value < 0) ||
+                               (generic.type.name.canonical == "positive" && *value <= 0)) {
+                        result.diagnostics.push_back(
+                            {"generic default for '" + name.spelling +
+                                 "' is outside its subtype",
+                             generic.defaultValue->span});
+                    } else {
+                        defaults.emplace(genericName, *value);
+                    }
+                }
+            }
+        }
+        entityDefaults.emplace(&entity, defaults);
+
+        std::unordered_set<std::string> ports = genericNames;
         for (const auto& port : entity.ports) {
-            if (declarationType(port.type, visibility).kind == ScalarType::Unknown) {
+            const auto portType = declarationType(port.type, visibility, defaults);
+            if (portType.kind == ScalarType::Unknown) {
                 result.diagnostics.push_back(
                     {"unsupported or invisible type mark '" + port.type.name.spelling + "'",
                      port.type.name.span});
             }
+            if (port.type.constraint && portType.range)
+                result.resolvedTypeRanges[&port.type] = *portType.range;
             for (const auto& name : port.names) {
                 if (!ports.insert(std::string(key(name))).second) {
                     result.diagnostics.push_back(
@@ -867,19 +1007,31 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
         }
 
         Declarations declarations;
+        const auto& architectureGenericValues = entityDefaults.at(entity->second);
         const auto portVisibility = entityVisibility.at(entity->second);
+        for (const auto& generic : entity->second->generics) {
+            const auto type = declarationType(generic.type, portVisibility);
+            for (const auto& name : generic.names)
+                declarations.emplace(std::string(key(name)), type);
+        }
         for (const auto& port : entity->second->ports) {
+            const auto type = declarationType(
+                port.type, portVisibility, architectureGenericValues);
+            if (port.type.constraint && type.range)
+                result.resolvedTypeRanges[&port.type] = *type.range;
             for (const auto& name : port.names)
-                declarations.emplace(
-                    std::string(key(name)), declarationType(port.type, portVisibility));
+                declarations.emplace(std::string(key(name)), type);
         }
         for (const auto& signal : architecture.signals) {
-            const auto signalType = declarationType(signal.type, architectureVisibility);
+            const auto signalType = declarationType(
+                signal.type, architectureVisibility, architectureGenericValues);
             if (signalType.kind == ScalarType::Unknown) {
                 result.diagnostics.push_back(
                     {"unsupported or invisible type mark '" + signal.type.name.spelling + "'",
                      signal.type.name.span});
             }
+            if (signal.type.constraint && signalType.range)
+                result.resolvedTypeRanges[&signal.type] = *signalType.range;
             for (const auto& name : signal.names) {
                 if (!declarations.emplace(std::string(key(name)), signalType).second)
                     result.diagnostics.push_back(
@@ -907,10 +1059,91 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
                      instantiation.entity.span});
                 continue;
             }
+            GenericValues genericValues;
+            std::unordered_map<std::string, const GenericAssociation*> namedActuals;
+            std::vector<const GenericAssociation*> positionalActuals;
+            bool sawNamed = false;
+            for (const auto& association : instantiation.generics) {
+                if (association.formal) {
+                    sawNamed = true;
+                    if (!namedActuals.emplace(
+                            std::string(key(*association.formal)), &association).second) {
+                        result.diagnostics.push_back(
+                            {"duplicate generic association for '" +
+                                 association.formal->spelling + "'",
+                             association.formal->span});
+                    }
+                } else {
+                    if (sawNamed) {
+                        result.diagnostics.push_back(
+                            {"positional generic association cannot follow a named association",
+                             association.span});
+                    }
+                    positionalActuals.push_back(&association);
+                }
+            }
+            std::size_t positionalIndex = 0;
+            std::unordered_set<std::string> formalGenericNames;
+            for (const auto& generic : model->second->generics) {
+                for (const auto& name : generic.names) {
+                    const auto genericName = std::string(key(name));
+                    formalGenericNames.insert(genericName);
+                    const GenericAssociation* association = nullptr;
+                    const auto named = namedActuals.find(genericName);
+                    if (named != namedActuals.end())
+                        association = named->second;
+                    else if (positionalIndex < positionalActuals.size())
+                        association = positionalActuals[positionalIndex++];
+                    std::optional<std::int64_t> value;
+                    SourceSpan valueSpan = name.span;
+                    if (association) {
+                        value = evaluateInteger(
+                            *association->actual, architectureGenericValues);
+                        valueSpan = association->actual->span;
+                    } else if (generic.defaultValue) {
+                        value = evaluateInteger(*generic.defaultValue, genericValues);
+                        valueSpan = generic.defaultValue->span;
+                    }
+                    if (!value) {
+                        result.diagnostics.push_back(
+                            {"generic '" + name.spelling +
+                                 "' requires a locally static integer actual or default",
+                             valueSpan});
+                        continue;
+                    }
+                    if ((generic.type.name.canonical == "natural" && *value < 0) ||
+                        (generic.type.name.canonical == "positive" && *value <= 0)) {
+                        result.diagnostics.push_back(
+                            {"generic actual for '" + name.spelling +
+                                 "' is outside its subtype",
+                             valueSpan});
+                        continue;
+                    }
+                    genericValues.emplace(genericName, *value);
+                }
+            }
+            if (positionalIndex != positionalActuals.size()) {
+                result.diagnostics.push_back(
+                    {"too many positional generic actuals for entity '" +
+                         instantiation.entity.spelling + "'",
+                     instantiation.span});
+            }
+            for (const auto& [name, association] : namedActuals) {
+                if (!formalGenericNames.contains(name)) {
+                    result.diagnostics.push_back(
+                        {"no generic named '" + association->formal->spelling +
+                             "' on entity '" + instantiation.entity.spelling + "'",
+                         association->formal->span});
+                }
+            }
+            result.genericValues[&instantiation] = genericValues;
             std::vector<std::pair<const Name*, CheckedType>> formals;
             const auto modelVisibility = entityVisibility.at(model->second);
             for (const auto& port : model->second->ports) {
-                const auto type = declarationType(port.type, modelVisibility);
+                const auto type = declarationType(
+                    port.type, modelVisibility, genericValues);
+                if (port.type.constraint && type.range)
+                    result.specializedTypeRanges[&instantiation][&port.type] = *type.range;
                 for (const auto& name : port.names)
                     formals.emplace_back(&name, type);
             }

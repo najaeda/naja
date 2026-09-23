@@ -80,7 +80,9 @@ top entity explicitly:
 
 VHDL loading is experimental. It currently accepts one source file and the
 bounded ``bit``/``bit_vector`` frontend subset documented by the project; it
-does not imply general VHDL or ``numeric_std`` hardware lowering. Argument and
+supports integer generic defaults and generic-map specialization of vector
+bounds within that subset. It does not imply general VHDL, array/generate, or
+``numeric_std`` hardware lowering. Argument and
 path errors use the same Python exception categories as the other high-level
 loaders. Frontend or lowering failures are reported as :class:`RuntimeError`.
 

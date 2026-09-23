@@ -312,8 +312,9 @@ expert reference above.
    to disable the report file and keep diagnostics console-only.
 
    ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file. The experimental
-   frontend currently supports a bit-based subset; structural hierarchy requires
-   an explicit ``top`` entity name.
+   frontend currently supports a bit-based subset, including integer generic
+   specialization of vector bounds; structural hierarchy requires an explicit
+   ``top`` entity name.
 
    The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`

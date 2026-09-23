@@ -12,6 +12,48 @@ vhdl::AnalysisResult analyze(std::string_view source) {
     return vhdl::Analyzer::analyze(parsed.syntax);
 }
 
+TEST(VHDLAnalyzerTest, AppliesGenericDefaultsAndInstanceActualsToRanges) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity leaf is
+  generic(width : positive := 4; extra : natural := width + 1);
+  port(a : in bit_vector(width-1 downto 0); q : out bit_vector(extra-1 downto 0));
+end;
+architecture rtl of leaf is
+  signal state : bit_vector(width-1 downto 0);
+begin state <= a; end;
+entity top is port(a : in bit_vector(7 downto 0); q : out bit_vector(8 downto 0)); end;
+architecture structural of top is begin
+  u: entity work.leaf generic map(width => 8, extra => 9) port map(a, q);
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& leaf = parsed.syntax.entities.front();
+    ASSERT_NE(result.getRange(leaf.ports[0].type), nullptr);
+    EXPECT_EQ(result.getRange(leaf.ports[0].type)->left, 3);
+    EXPECT_EQ(result.getRange(leaf.ports[0].type)->right, 0);
+    const auto& instance = parsed.syntax.architectures[1].instantiations.front();
+    EXPECT_EQ(result.getGenericValue(instance, "WIDTH"), 8);
+    EXPECT_EQ(result.getGenericValue(instance, "extra"), 9);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesMissingAndInvalidGenericActuals) {
+    EXPECT_TRUE(analyze(R"(
+entity leaf is generic(n : positive); port(q : out bit_vector(n-1 downto 0)); end;
+entity top is port(q : out bit_vector(2 downto 0)); end;
+architecture rtl of top is begin u: entity work.leaf port map(q); end;
+)").hasErrors());
+    EXPECT_TRUE(analyze(R"(
+entity leaf is generic(n : positive := 2); port(q : out bit_vector(n-1 downto 0)); end;
+entity top is port(q : out bit_vector(2 downto 0)); end;
+architecture rtl of top is begin
+  u: entity work.leaf generic map(n => 0) port map(q);
+end;
+)").hasErrors());
+}
+
 
 TEST(VHDLAnalyzerTest, ResolvesEntityArchitectureAndConcurrentAssignments) {
     const auto result = analyze(R"(

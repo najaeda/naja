@@ -140,6 +140,26 @@ TEST_F(VHDLConstructorTest, PreservesVectorRangesAndPositionalMuxMapping) {
   }
 }
 
+TEST_F(VHDLConstructorTest, AppliesDefaultGenericToPortRanges) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity generic_wire is
+  generic(width : positive := 5);
+  port(a : in bit_vector(width-1 downto 0);
+       y : out bit_vector(width-1 downto 0));
+end;
+architecture rtl of generic_wire is begin y <= a; end;
+)");
+  ASSERT_NE(design, nullptr);
+  auto* input = dynamic_cast<SNLBusTerm*>(design->getTerm(NLName("a")));
+  auto* output = dynamic_cast<SNLBusTerm*>(design->getTerm(NLName("y")));
+  ASSERT_NE(input, nullptr);
+  ASSERT_NE(output, nullptr);
+  EXPECT_EQ(input->getMSB(), 4);
+  EXPECT_EQ(input->getLSB(), 0);
+  EXPECT_EQ(output->getMSB(), 4);
+  EXPECT_EQ(output->getLSB(), 0);
+}
+
 TEST_F(VHDLConstructorTest, ConstructsFromFile) {
   auto* design = VHDLConstructor(library_).constructFile(SNL_VHDL_VECTORS);
   ASSERT_NE(design, nullptr);
@@ -831,6 +851,32 @@ TEST_F(VHDLConstructorTest, LowersOneLevelDirectEntityHierarchy) {
     for (std::string value; reference >> value;) values.push_back(value);
     EXPECT_EQ(values, (std::vector<std::string>{"1001", "0110", "0011"}));
   }
+}
+
+TEST_F(VHDLConstructorTest, SpecializesGenericChildrenPerInstance) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity wire is
+  generic(n : positive);
+  port(a : in bit_vector(n-1 downto 0); y : out bit_vector(n-1 downto 0));
+end;
+architecture rtl of wire is begin y <= a; end;
+entity generic_top is port(
+  a3 : in bit_vector(2 downto 0); y3 : out bit_vector(2 downto 0);
+  a5 : in bit_vector(4 downto 0); y5 : out bit_vector(4 downto 0));
+end;
+architecture structural of generic_top is begin
+  w3: entity work.wire generic map(n => 3) port map(a3, y3);
+  w5: entity work.wire generic map(n => 5) port map(a5, y5);
+end;
+)", "generic_top");
+  ASSERT_NE(top, nullptr);
+  auto* w3 = top->getInstance(NLName("w3"));
+  auto* w5 = top->getInstance(NLName("w5"));
+  ASSERT_NE(w3, nullptr);
+  ASSERT_NE(w5, nullptr);
+  EXPECT_NE(w3->getModel(), w5->getModel());
+  EXPECT_EQ(dynamic_cast<SNLBusTerm*>(w3->getModel()->getTerm(NLName("a")))->getWidth(), 3);
+  EXPECT_EQ(dynamic_cast<SNLBusTerm*>(w5->getModel()->getTerm(NLName("a")))->getWidth(), 5);
 }
 
 TEST_F(VHDLConstructorTest, ConstructsHierarchyFromFile) {

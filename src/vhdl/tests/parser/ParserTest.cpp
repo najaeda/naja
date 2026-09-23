@@ -4,6 +4,50 @@
 #include "vhdl/Parser.h"
 #include <gtest/gtest.h>
 
+TEST(VHDLParserTest, PreservesEntityGenericInterfacesAndDefaults) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity configurable is
+  generic (width : positive := 32; low, high : integer; lanes : natural := 2);
+  port (data : out bit_vector(width - 1 downto 0));
+end entity configurable;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.syntax.entities.size(), 1);
+    const auto& entity = parsed.syntax.entities.front();
+    ASSERT_EQ(entity.generics.size(), 3);
+    ASSERT_EQ(entity.generics[0].names.size(), 1);
+    EXPECT_EQ(entity.generics[0].names[0].canonical, "width");
+    EXPECT_EQ(entity.generics[0].type.name.canonical, "positive");
+    ASSERT_NE(entity.generics[0].defaultValue, nullptr);
+    EXPECT_EQ(entity.generics[0].defaultValue->text, "32");
+    ASSERT_EQ(entity.generics[1].names.size(), 2);
+    EXPECT_EQ(entity.generics[1].defaultValue, nullptr);
+    ASSERT_NE(entity.generics[2].defaultValue, nullptr);
+    ASSERT_TRUE(entity.ports.front().type.constraint.has_value());
+    const auto& range = *entity.ports.front().type.constraint;
+    ASSERT_NE(range.leftExpression, nullptr);
+    EXPECT_EQ(range.leftExpression->kind, vhdl::Expression::Kind::Binary);
+    EXPECT_EQ(range.leftExpression->left->canonical, "width");
+}
+
+TEST(VHDLParserTest, PreservesGenericMapsBeforePortMaps) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity leaf is generic(n : positive); port(q : out bit_vector(n-1 downto 0)); end;
+entity top is port(q : out bit_vector(4 downto 0)); end;
+architecture rtl of top is begin
+  u0: entity work.leaf(rtl) generic map (n => 5) port map(q);
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& instance = parsed.syntax.architectures.front().instantiations.front();
+    ASSERT_EQ(instance.generics.size(), 1);
+    ASSERT_TRUE(instance.generics.front().formal.has_value());
+    EXPECT_EQ(instance.generics.front().formal->canonical, "n");
+    EXPECT_EQ(instance.generics.front().actual->text, "5");
+    ASSERT_TRUE(instance.architecture.has_value());
+    EXPECT_EQ(instance.architecture->canonical, "rtl");
+}
+
 TEST(VHDLParserTest, EntityArchitectureAndExpressionTree) {
     const auto result = vhdl::Parser::parse(R"(
 entity top is
@@ -358,8 +402,4 @@ TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
             mapping + "); end;";
         EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
     }
-    EXPECT_TRUE(vhdl::Parser::parse(
-        "entity top is port(a : in bit; y : out bit); end; "
-        "architecture rtl of top is begin "
-        "u: entity work.leaf(rtl) port map(a, y); end;").hasErrors());
 }

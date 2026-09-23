@@ -3,10 +3,13 @@
 This directory is the future standalone repository root. It contains the
 VHDL-2008 semantic probes and a Python-standard-library runner, plus an initial
 handwritten C++20 lexer and recursive-descent parser. The parser handles entity
-ports, internal signal declarations, concurrent and conditional signal
+ports and integer-valued entity generic interfaces, internal signal declarations,
+concurrent and conditional signal
 assignments, and multiple scheduled writes in a restricted positive-edge process. The initial analyzer binds architectures to entities and
 resolves names in assignment values, conditions, clock guards and process-local
-variables; its restricted scheduler resolves immediate assignments and identifies
+variables. It evaluates locally static integer generic defaults and generic maps,
+then substitutes them into constrained-vector bounds; its restricted scheduler
+resolves immediate assignments and identifies
 straight-line retained variable state. It type-checks a deliberately narrow set
 of scalar, constrained `bit_vector`, and imported `std_logic`/`std_logic_vector`
 expressions. Per-design-unit `library` and `use` clauses are preserved, with the
@@ -24,6 +27,11 @@ zero. The standard reset-priority `if rst ... elsif en ...` combination uses the
 shared DFFSRE builder. The proof rejects
 nine-valued `std_logic` ports and every unsupported shape before creating a
 design. It does not provide general VHDL type analysis or elaboration.
+Defaulted generics can size ports in a single design. In the supported one-level
+structural profile, integer generic maps create separate child specializations so
+different actual values cannot silently share a model with the wrong port bounds.
+Array type declarations, indexed names, generate statements and general process
+loops remain outside this profile and are rejected rather than discarded.
 
 The frontend uses handwritten lexing and will use recursive descent parsing.
 Its language model and VHDL-specific elaboration services will live here. The

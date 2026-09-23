@@ -59,10 +59,11 @@ std::string canonicalBasicName(std::string_view name) {
   return canonical;
 }
 
-std::optional<std::size_t> supportedWidth(const vhdl::TypeMark& type) {
+std::optional<std::size_t> supportedWidth(
+    const vhdl::TypeMark& type, const vhdl::DiscreteRange* resolvedRange) {
   if (type.name.canonical == "bit" && !type.constraint) return 1;
-  if (type.name.canonical != "bit_vector" || !type.constraint) return std::nullopt;
-  const auto& range = *type.constraint;
+  if (type.name.canonical != "bit_vector" || !resolvedRange) return std::nullopt;
+  const auto& range = *resolvedRange;
   if ((range.ascending && range.left > range.right) ||
       (!range.ascending && range.left < range.right)) return std::nullopt;
   if (range.left < std::numeric_limits<NLID::Bit>::min() ||
@@ -71,6 +72,12 @@ std::optional<std::size_t> supportedWidth(const vhdl::TypeMark& type) {
       range.right > std::numeric_limits<NLID::Bit>::max()) return std::nullopt;
   return static_cast<std::size_t>(range.left > range.right
       ? range.left - range.right + 1 : range.right - range.left + 1);
+}
+
+const vhdl::DiscreteRange* effectiveRange(
+    const vhdl::TypeMark& type, const vhdl::AnalysisResult& analysis) {
+  if (const auto* resolved = analysis.getRange(type)) return resolved;
+  return type.constraint ? &*type.constraint : nullptr;
 }
 
 }  // namespace
@@ -144,7 +151,7 @@ SNLDesign* VHDLConstructor::construct(
     std::unordered_map<std::string, ObjectInfo> objects;
     std::unordered_map<std::string, std::size_t> drivers;
     for (const auto& port : topEntity->ports) {
-      if (!supportedWidth(port.type) ||
+      if (!supportedWidth(port.type, effectiveRange(port.type, analyzed)) ||
           (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out))
         unsupported("hierarchy ports must be in/out bit or constrained non-null bit_vector");
       for (const auto& name : port.names) {
@@ -154,7 +161,7 @@ SNLDesign* VHDLConstructor::construct(
       }
     }
     for (const auto& signal : topArchitecture->signals) {
-      if (!supportedWidth(signal.type))
+      if (!supportedWidth(signal.type, effectiveRange(signal.type, analyzed)))
         unsupported("hierarchy signals must be bit or constrained non-null bit_vector");
       for (const auto& name : signal.names) {
         objects.emplace(std::string(nameKey(name)),
@@ -166,6 +173,7 @@ SNLDesign* VHDLConstructor::construct(
     struct BoundInstance {
       const vhdl::EntityInstantiation* syntax;
       const vhdl::EntityDeclaration* entity;
+      std::string specialization;
     };
     std::vector<BoundInstance> boundInstances;
     std::vector<std::string> childKeys;
@@ -184,7 +192,8 @@ SNLDesign* VHDLConstructor::construct(
         unsupported("only one level of hierarchy is supported");
       std::vector<std::pair<const vhdl::PortDeclaration*, const vhdl::Name*>> formals;
       for (const auto& port : childEntityIt->second->ports) {
-        if (!supportedWidth(port.type) ||
+        const auto* specializedRange = analyzed.getRange(instantiation, port.type);
+        if (!supportedWidth(port.type, specializedRange) ||
             (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out))
           unsupported("child ports must be in/out bit or constrained non-null bit_vector");
         for (const auto& name : port.names) formals.emplace_back(&port, &name);
@@ -194,9 +203,11 @@ SNLDesign* VHDLConstructor::construct(
       for (std::size_t index = 0; index < formals.size(); ++index) {
         const auto actual = objects.find(std::string(nameKey(instantiation.actuals[index])));
         if (actual == objects.end()) unsupported("port-map actual has no declaration");
-        if (actual->second.type->constraint.has_value() !=
-                formals[index].first->type.constraint.has_value() ||
-            supportedWidth(*actual->second.type) != supportedWidth(formals[index].first->type))
+        const auto actualWidth = supportedWidth(
+            *actual->second.type, effectiveRange(*actual->second.type, analyzed));
+        const auto formalWidth = supportedWidth(formals[index].first->type,
+            analyzed.getRange(instantiation, formals[index].first->type));
+        if (actualWidth != formalWidth)
           unsupported("port-map actual and formal widths differ");
         const auto formalMode = formals[index].first->mode;
         if (formalMode == vhdl::PortMode::In &&
@@ -209,21 +220,34 @@ SNLDesign* VHDLConstructor::construct(
             unsupported("multiple hierarchy drivers for one actual are not supported");
         }
       }
-      if (seenChildKeys.insert(childKey).second) childKeys.push_back(childKey);
-      boundInstances.push_back({&instantiation, childEntityIt->second});
+      std::string specialization = childKey;
+      const auto values = analyzed.genericValues.find(&instantiation);
+      if (values != analyzed.genericValues.end()) {
+        std::vector<std::pair<std::string, std::int64_t>> ordered(
+            values->second.begin(), values->second.end());
+        std::sort(ordered.begin(), ordered.end());
+        for (const auto& [name, value] : ordered)
+          specialization += "_" + name + "_" + std::to_string(value);
+      }
+      if (seenChildKeys.insert(specialization).second)
+        childKeys.push_back(specialization);
+      boundInstances.push_back(
+          {&instantiation, childEntityIt->second, std::move(specialization)});
     }
     for (const auto& [name, count] : drivers)
       if (count != 1) unsupported("hierarchy signal has no supported driver: " + name);
-    for (const auto& childKey : childKeys)
-      if (library_->getSNLDesign(NLName(entities.at(childKey)->name.spelling)))
-        unsupported("a design with the child entity name already exists");
     if (library_->getSNLDesign(NLName(topEntity->name.spelling)))
       unsupported("a design with the top entity name already exists");
 
     try {
       std::unordered_map<std::string, SNLDesign*> models;
-      for (const auto& childKey : childKeys) {
-        const auto* childEntity = entities.at(childKey);
+      for (const auto& specialization : childKeys) {
+        const auto bound = std::find_if(boundInstances.begin(), boundInstances.end(),
+            [&](const BoundInstance& candidate) {
+              return candidate.specialization == specialization;
+            });
+        const auto* childEntity = bound->entity;
+        const auto childKey = std::string(nameKey(childEntity->name));
         const auto* childArchitecture = architectures.at(childKey).front();
         const auto entityStart = childEntity->span.start.offset;
         const auto architectureStart = childArchitecture->span.start.offset;
@@ -232,8 +256,33 @@ SNLDesign* VHDLConstructor::construct(
         childSource.push_back('\n');
         childSource.append(source.substr(architectureStart,
             childArchitecture->span.end.offset - architectureStart));
+        struct Edit { std::size_t start; std::size_t length; std::string value; };
+        std::vector<Edit> edits;
+        const auto& values = analyzed.genericValues.at(bound->syntax);
+        for (const auto& generic : childEntity->generics) {
+          std::optional<std::int64_t> value;
+          for (const auto& name : generic.names) {
+            const auto current = values.at(std::string(nameKey(name)));
+            if (value && *value != current)
+              unsupported("grouped generics with different actual values are not supported");
+            value = current;
+          }
+          if (generic.defaultValue) {
+            edits.push_back({generic.defaultValue->span.start.offset - entityStart,
+                generic.defaultValue->span.end.offset - generic.defaultValue->span.start.offset,
+                std::to_string(*value)});
+          } else {
+            edits.push_back({generic.type.name.span.end.offset - entityStart, 0,
+                " := " + std::to_string(*value)});
+          }
+        }
+        std::sort(edits.begin(), edits.end(),
+            [](const Edit& left, const Edit& right) { return left.start > right.start; });
+        for (const auto& edit : edits)
+          childSource.replace(edit.start, edit.length, edit.value);
         auto* model = construct(childSource);
-        models.emplace(childKey, model);
+        model->setName(NLName(specialization));
+        models.emplace(specialization, model);
       }
       auto* design = SNLDesign::create(library_, NLName(topEntity->name.spelling));
       std::unordered_map<std::string, SNLNet*> nets;
@@ -242,9 +291,9 @@ SNLDesign* VHDLConstructor::construct(
             ? SNLTerm::Direction::Input : SNLTerm::Direction::Output;
         for (const auto& name : port.names) {
           SNLNet* net = nullptr;
-          if (port.type.constraint) {
-            const auto left = static_cast<NLID::Bit>(port.type.constraint->left);
-            const auto right = static_cast<NLID::Bit>(port.type.constraint->right);
+          if (const auto* range = effectiveRange(port.type, analyzed)) {
+            const auto left = static_cast<NLID::Bit>(range->left);
+            const auto right = static_cast<NLID::Bit>(range->right);
             auto* term = SNLBusTerm::create(design, direction, left, right, NLName(name.spelling));
             net = SNLBusNet::create(design, left, right, NLName(name.spelling));
             term->setNet(net);
@@ -259,10 +308,10 @@ SNLDesign* VHDLConstructor::construct(
       for (const auto& signal : topArchitecture->signals) {
         for (const auto& name : signal.names) {
           SNLNet* net = nullptr;
-          if (signal.type.constraint) {
+          if (const auto* range = effectiveRange(signal.type, analyzed)) {
             net = SNLBusNet::create(design,
-                static_cast<NLID::Bit>(signal.type.constraint->left),
-                static_cast<NLID::Bit>(signal.type.constraint->right), NLName(name.spelling));
+                static_cast<NLID::Bit>(range->left),
+                static_cast<NLID::Bit>(range->right), NLName(name.spelling));
           } else {
             net = SNLScalarNet::create(design, NLName(name.spelling));
           }
@@ -271,7 +320,7 @@ SNLDesign* VHDLConstructor::construct(
       }
       for (const auto& bound : boundInstances) {
         auto* instance = SNLInstance::create(design,
-            models.at(std::string(nameKey(bound.entity->name))),
+            models.at(bound.specialization),
             NLName(bound.syntax->label.spelling));
         std::size_t index = 0;
         for (const auto& port : bound.entity->ports) {
@@ -361,24 +410,23 @@ SNLDesign* VHDLConstructor::construct(
   }
   std::unordered_map<std::string, vhdl::PortMode> portModes;
   for (const auto& port : entity.ports) {
-    const bool scalarBit = port.type.name.canonical == "bit" && !port.type.constraint;
-    const bool bitVector = port.type.name.canonical == "bit_vector" && port.type.constraint;
+    const auto* range = effectiveRange(port.type, analyzed);
+    const bool scalarBit = port.type.name.canonical == "bit" && !range;
+    const bool bitVector = port.type.name.canonical == "bit_vector" && range;
     if (!scalarBit && !bitVector) {
       unsupported("only scalar bit and constrained bit_vector ports are supported");
     }
     if (clocked && !scalarBit)
       unsupported("clocked lowering currently supports only scalar bit ports");
     if (bitVector &&
-        ((port.type.constraint->ascending &&
-          port.type.constraint->left > port.type.constraint->right) ||
-         (!port.type.constraint->ascending &&
-          port.type.constraint->left < port.type.constraint->right)))
+        ((range->ascending && range->left > range->right) ||
+         (!range->ascending && range->left < range->right)))
       unsupported("null bit_vector ranges have no SNL hardware representation");
     if (bitVector &&
-        (port.type.constraint->left < std::numeric_limits<NLID::Bit>::min() ||
-         port.type.constraint->left > std::numeric_limits<NLID::Bit>::max() ||
-         port.type.constraint->right < std::numeric_limits<NLID::Bit>::min() ||
-         port.type.constraint->right > std::numeric_limits<NLID::Bit>::max())) {
+        (range->left < std::numeric_limits<NLID::Bit>::min() ||
+         range->left > std::numeric_limits<NLID::Bit>::max() ||
+         range->right < std::numeric_limits<NLID::Bit>::min() ||
+         range->right > std::numeric_limits<NLID::Bit>::max())) {
       unsupported("bit_vector bounds exceed the supported net index range");
     }
     if (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out) {
@@ -527,9 +575,9 @@ SNLDesign* VHDLConstructor::construct(
     const auto direction = port.mode == vhdl::PortMode::In
         ? SNLTerm::Direction::Input : SNLTerm::Direction::Output;
     for (const auto& name : port.names) {
-      if (port.type.constraint) {
-        const auto left = static_cast<NLID::Bit>(port.type.constraint->left);
-        const auto right = static_cast<NLID::Bit>(port.type.constraint->right);
+      if (const auto* range = effectiveRange(port.type, analyzed)) {
+        const auto left = static_cast<NLID::Bit>(range->left);
+        const auto right = static_cast<NLID::Bit>(range->right);
         auto* term = SNLBusTerm::create(
           design, direction, left, right, NLName(name.spelling));
         auto* net = SNLBusNet::create(design, left, right, NLName(name.spelling));

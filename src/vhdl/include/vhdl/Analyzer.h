@@ -4,7 +4,11 @@
 #pragma once
 
 #include "vhdl/Parser.h"
+#include <cctype>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -34,6 +38,11 @@ struct AnalysisResult {
     std::vector<AnalysisDiagnostic> diagnostics;
     std::unordered_map<const Expression*, ScalarType> expressionTypes;
     std::unordered_map<const Expression*, DiscreteRange> expressionRanges;
+    std::unordered_map<const TypeMark*, DiscreteRange> resolvedTypeRanges;
+    std::unordered_map<const EntityInstantiation*,
+        std::unordered_map<std::string, std::int64_t>> genericValues;
+    std::unordered_map<const EntityInstantiation*,
+        std::unordered_map<const TypeMark*, DiscreteRange>> specializedTypeRanges;
     bool hasErrors() const { return !diagnostics.empty(); }
     ScalarType getType(const Expression& expression) const {
         const auto found = expressionTypes.find(&expression);
@@ -42,6 +51,31 @@ struct AnalysisResult {
     const DiscreteRange* getRange(const Expression& expression) const {
         const auto found = expressionRanges.find(&expression);
         return found == expressionRanges.end() ? nullptr : &found->second;
+    }
+    const DiscreteRange* getRange(const TypeMark& type) const {
+        const auto found = resolvedTypeRanges.find(&type);
+        return found == resolvedTypeRanges.end() ? nullptr : &found->second;
+    }
+    std::optional<std::int64_t> getGenericValue(
+            const EntityInstantiation& instantiation, std::string_view name) const {
+        const auto values = genericValues.find(&instantiation);
+        if (values == genericValues.end())
+            return std::nullopt;
+        std::string canonical(name);
+        for (auto& character : canonical)
+            character = static_cast<char>(std::tolower(
+                static_cast<unsigned char>(character)));
+        const auto value = values->second.find(canonical);
+        return value == values->second.end() ? std::nullopt
+                                             : std::optional<std::int64_t>(value->second);
+    }
+    const DiscreteRange* getRange(
+            const EntityInstantiation& instantiation, const TypeMark& type) const {
+        const auto ranges = specializedTypeRanges.find(&instantiation);
+        if (ranges == specializedTypeRanges.end())
+            return nullptr;
+        const auto range = ranges->second.find(&type);
+        return range == ranges->second.end() ? nullptr : &range->second;
     }
 };
 

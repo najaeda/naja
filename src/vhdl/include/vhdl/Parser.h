@@ -21,34 +21,6 @@ struct Name {
 
 enum class PortMode { In, Out, InOut, Buffer, Linkage };
 
-struct DiscreteRange {
-    std::int64_t left = 0;
-    std::int64_t right = 0;
-    bool ascending = false;
-    SourceSpan span;
-};
-
-struct TypeMark {
-    Name name;
-    std::optional<DiscreteRange> constraint;
-};
-
-struct PortDeclaration {
-    std::vector<Name> names;
-    PortMode mode = PortMode::In;
-    TypeMark type;
-    SourceSpan span;
-};
-
-struct ObjectDeclaration {
-    std::vector<Name> names;
-    TypeMark type;
-    SourceSpan span;
-};
-
-using SignalDeclaration = ObjectDeclaration;
-using VariableDeclaration = ObjectDeclaration;
-
 struct Expression {
     enum class Kind {
         Name,
@@ -68,6 +40,43 @@ struct Expression {
     std::unique_ptr<Expression> right;
     std::unique_ptr<Expression> condition;
 };
+
+struct DiscreteRange {
+    std::int64_t left = 0;
+    std::int64_t right = 0;
+    bool ascending = false;
+    SourceSpan span;
+    std::shared_ptr<Expression> leftExpression;
+    std::shared_ptr<Expression> rightExpression;
+};
+
+struct TypeMark {
+    Name name;
+    std::optional<DiscreteRange> constraint;
+};
+
+struct PortDeclaration {
+    std::vector<Name> names;
+    PortMode mode = PortMode::In;
+    TypeMark type;
+    SourceSpan span;
+};
+
+struct GenericDeclaration {
+    std::vector<Name> names;
+    TypeMark type;
+    std::unique_ptr<Expression> defaultValue;
+    SourceSpan span;
+};
+
+struct ObjectDeclaration {
+    std::vector<Name> names;
+    TypeMark type;
+    SourceSpan span;
+};
+
+using SignalDeclaration = ObjectDeclaration;
+using VariableDeclaration = ObjectDeclaration;
 
 enum class AssignmentKind { Signal, Variable };
 
@@ -114,15 +123,24 @@ struct ClockedProcess {
 
 struct EntityDeclaration {
     Name name;
+    std::vector<GenericDeclaration> generics;
     std::vector<PortDeclaration> ports;
     SourceSpan span;
     ContextClause context;
+};
+
+struct GenericAssociation {
+    std::optional<Name> formal;
+    std::unique_ptr<Expression> actual;
+    SourceSpan span;
 };
 
 struct EntityInstantiation {
     Name label;
     Name library;
     Name entity;
+    std::optional<Name> architecture;
+    std::vector<GenericAssociation> generics;
     std::vector<Name> actuals;
     SourceSpan span;
 };

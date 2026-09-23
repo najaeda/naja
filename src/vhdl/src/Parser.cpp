@@ -170,7 +170,25 @@ private:
         auto name = parseName();
         if (!name || !expectWord("is"))
             return std::nullopt;
-        EntityDeclaration entity{std::move(*name), {}, start};
+        EntityDeclaration entity{std::move(*name), {}, {}, start};
+        if (acceptWord("generic")) {
+            if (!expectSymbol("("))
+                return std::nullopt;
+            while (!atEnd() && !symbol(")")) {
+                auto generic = parseGenericDeclaration();
+                if (generic)
+                    entity.generics.push_back(std::move(*generic));
+                if (acceptSymbol(";"))
+                    continue;
+                if (!symbol(")")) {
+                    error("expected ';' or ')' after generic declaration", current().span);
+                    synchronize("end");
+                    return std::nullopt;
+                }
+            }
+            if (!expectSymbol(")") || !expectSymbol(";"))
+                return std::nullopt;
+        }
         if (acceptWord("port")) {
             if (!expectSymbol("("))
                 return std::nullopt;
@@ -208,6 +226,36 @@ private:
             return std::nullopt;
         entity.span = join(start, lexed_.tokens[index_ - 1].span);
         return entity;
+    }
+
+    std::optional<GenericDeclaration> parseGenericDeclaration() {
+        const auto start = current().span;
+        std::vector<Name> names;
+        // Constants are the default interface class for entity generics.
+        acceptWord("constant");
+        do {
+            auto name = parseName();
+            if (!name)
+                return std::nullopt;
+            names.push_back(std::move(*name));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(":"))
+            return std::nullopt;
+        if (word("in"))
+            advance();
+        auto typeName = parseName();
+        if (!typeName)
+            return std::nullopt;
+        TypeMark type{std::move(*typeName), std::nullopt};
+        std::unique_ptr<Expression> defaultValue;
+        if (acceptSymbol(":=")) {
+            defaultValue = parseExpression(0);
+            if (!defaultValue)
+                return std::nullopt;
+        }
+        const auto end = defaultValue ? defaultValue->span : type.name.span;
+        return GenericDeclaration{
+            std::move(names), std::move(type), std::move(defaultValue), join(start, end)};
     }
 
     std::optional<PortDeclaration> parsePortDeclaration() {
@@ -251,51 +299,57 @@ private:
         return PortDeclaration{std::move(names), mode, std::move(type), join(start, end)};
     }
 
-    std::optional<std::int64_t> parseInteger() {
-        const auto token = current();
-        if (token.kind != TokenKind::IntegerLiteral || token.text.find('#') != std::string::npos) {
-            error("expected a decimal integer bound", token.span);
+    static std::optional<std::int64_t> decimalInteger(const Token& token) {
+        if (token.kind != TokenKind::IntegerLiteral || token.text.find('#') != std::string::npos)
             return std::nullopt;
-        }
-        advance();
         std::string digits;
         for (char c : token.text)
             if (c != '_')
                 digits.push_back(c);
         std::int64_t value = 0;
         const auto [end, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
-        if (ec != std::errc{} || end != digits.data() + digits.size()) {
-            error("integer bound is outside the supported range", token.span);
+        if (ec != std::errc{} || end != digits.data() + digits.size())
             return std::nullopt;
-        }
         return value;
+    }
+
+    static std::optional<std::int64_t> literalInteger(const Expression& expression) {
+        if (expression.kind == Expression::Kind::IntegerLiteral) {
+            Token token{TokenKind::IntegerLiteral, expression.text, {}, expression.span};
+            return decimalInteger(token);
+        }
+        if (expression.kind != Expression::Kind::Unary || !expression.left)
+            return std::nullopt;
+        auto value = literalInteger(*expression.left);
+        if (!value)
+            return std::nullopt;
+        if (expression.text == "-")
+            return -*value;
+        if (expression.text == "+")
+            return *value;
+        return std::nullopt;
     }
 
     std::optional<DiscreteRange> parseDiscreteRange() {
         const auto start = current().span;
-        bool negativeLeft = acceptSymbol("-");
-        if (!negativeLeft)
-            acceptSymbol("+");
-        auto left = parseInteger();
-        if (!left || (!word("to") && !word("downto"))) {
-            if (left)
+        auto leftExpression = parseExpression(0);
+        if (!leftExpression || (!word("to") && !word("downto"))) {
+            if (leftExpression)
                 error("expected 'to' or 'downto' in range constraint", current().span);
             return std::nullopt;
         }
-        if (negativeLeft)
-            *left = -*left;
         const bool ascending = acceptWord("to");
         if (!ascending)
             acceptWord("downto");
-        bool negativeRight = acceptSymbol("-");
-        if (!negativeRight)
-            acceptSymbol("+");
-        auto right = parseInteger();
-        if (!right)
+        auto rightExpression = parseExpression(0);
+        if (!rightExpression)
             return std::nullopt;
-        if (negativeRight)
-            *right = -*right;
-        return DiscreteRange{*left, *right, ascending, join(start, lexed_.tokens[index_ - 1].span)};
+        const auto left = literalInteger(*leftExpression).value_or(0);
+        const auto right = literalInteger(*rightExpression).value_or(0);
+        return DiscreteRange{left, right, ascending,
+            join(start, lexed_.tokens[index_ - 1].span),
+            std::shared_ptr<Expression>(std::move(leftExpression)),
+            std::shared_ptr<Expression>(std::move(rightExpression))};
     }
 
     std::optional<ObjectDeclaration> parseObjectDeclaration() {
@@ -394,7 +448,39 @@ private:
         if (!library || !expectSymbol("."))
             return std::nullopt;
         auto entity = parseName();
-        if (!entity || !expectWord("port") || !expectWord("map") || !expectSymbol("("))
+        if (!entity)
+            return std::nullopt;
+        std::optional<Name> architecture;
+        if (acceptSymbol("(")) {
+            architecture = parseName();
+            if (!architecture || !expectSymbol(")"))
+                return std::nullopt;
+        }
+        std::vector<GenericAssociation> generics;
+        if (acceptWord("generic")) {
+            if (!expectWord("map") || !expectSymbol("("))
+                return std::nullopt;
+            if (!symbol(")")) {
+                do {
+                    const auto associationStart = current().span;
+                    std::optional<Name> formal;
+                    if (isNameToken() && look().kind == TokenKind::Symbol &&
+                        look().text == "=>") {
+                        formal = parseName();
+                        advance();
+                    }
+                    auto actual = parseExpression(0);
+                    if (!actual)
+                        return std::nullopt;
+                    const auto associationEnd = actual->span;
+                    generics.push_back({std::move(formal), std::move(actual),
+                        join(associationStart, associationEnd)});
+                } while (acceptSymbol(","));
+            }
+            if (!expectSymbol(")"))
+                return std::nullopt;
+        }
+        if (!expectWord("port") || !expectWord("map") || !expectSymbol("("))
             return std::nullopt;
         std::vector<Name> actuals;
         if (!symbol(")")) {
@@ -412,7 +498,8 @@ private:
         if (!expectSymbol(")") || !expectSymbol(";"))
             return std::nullopt;
         return EntityInstantiation{std::move(*label), std::move(*library),
-            std::move(*entity), std::move(actuals),
+            std::move(*entity), std::move(architecture), std::move(generics),
+            std::move(actuals),
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 

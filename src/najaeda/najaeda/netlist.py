@@ -2305,8 +2305,10 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None) -> Insta
     """Load one VHDL source file into the top design.
 
     VHDL loading is experimental and currently supports the bounded ``bit`` and
-    ``bit_vector`` subset implemented by the native frontend. Pass ``top`` for
-    a supported structural source containing more than one design unit.
+    ``bit_vector`` subset implemented by the native frontend. Integer generic
+    defaults and generic-map actuals may specialize vector bounds in that
+    subset. Pass ``top`` for a supported structural source containing more than
+    one design unit.
 
     :param file: the VHDL source file to load.
     :param top: optional top entity name for structural hierarchy.
