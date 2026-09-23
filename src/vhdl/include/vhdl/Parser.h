@@ -32,8 +32,12 @@ struct Expression {
         Binary,
         Conditional,
         Indexed,
-        Others
+        Others,
+        Aggregate,
+        Range,
+        BitStringLiteral
     };
+    std::vector<std::unique_ptr<Expression>> elements;
     Kind kind;
     std::string text;
     std::string canonical;
@@ -79,6 +83,11 @@ struct ObjectDeclaration {
 
 using SignalDeclaration = ObjectDeclaration;
 using VariableDeclaration = ObjectDeclaration;
+
+struct ConstantDeclaration {
+    ObjectDeclaration object;
+    std::unique_ptr<Expression> value;
+};
 
 struct ArrayTypeDeclaration {
     Name name;
@@ -168,6 +177,24 @@ struct EntityInstantiation {
     std::vector<GenericAssociation> generics;
     std::vector<Name> actuals;
     SourceSpan span;
+    std::vector<std::optional<Name>> formals;
+    bool component = false;
+};
+
+struct GenerateStatement {
+    Name iterator;
+    DiscreteRange range;
+    std::vector<Assignment> assignments;
+    std::vector<GenerateStatement> generates;
+};
+
+struct PackageDeclaration {
+    Name name;
+    ContextClause context;
+    std::vector<ArrayTypeDeclaration> arrayTypes;
+    std::vector<ConstantDeclaration> constants;
+    std::vector<EntityDeclaration> components;
+    bool body = false;
 };
 
 struct ArchitectureBody {
@@ -180,9 +207,11 @@ struct ArchitectureBody {
     std::vector<EntityInstantiation> instantiations;
     SourceSpan span;
     ContextClause context;
+    std::vector<GenerateStatement> generates;
 };
 
 struct DesignFile {
+    std::vector<PackageDeclaration> packages;
     std::vector<EntityDeclaration> entities;
     std::vector<ArchitectureBody> architectures;
 };

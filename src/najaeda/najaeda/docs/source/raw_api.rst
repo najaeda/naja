@@ -311,14 +311,29 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
-   ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file. The experimental
-   frontend currently supports a bit-based subset, including integer generic
-   specialization of vector bounds; structural hierarchy requires an explicit
-   ``top`` entity name. The indexed RTL subset additionally supports constrained
-   arrays, static indices/loops and vector registers with synchronous reset and
-   enable. Its ``std_logic`` support uses two-state synthesis semantics and
-   rejects nonbinary literals and multiple drivers. Dynamic indices and
-   ``numeric_std`` arithmetic hardware remain unsupported.
+   ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file and returns its
+   ``SNLDesign``. Load package files before their users in the same database:
+   a package-only file returns ``None`` and preserves the current top design.
+   Package declarations and dependent entity sources are retained in the live
+   design library for subsequent loads; they are not serialized in NajaIF.
+   Use an explicit ``top`` when a file defines several entities.
+
+   The experimental two-state RTL subset supports constrained arrays, package
+   array types and positional constant aggregates, binary/octal/hex literals,
+   static slices and loops, nested assignment-only ``for generate`` statements,
+   integer-indexed ROM/RAM reads and clocked writes, and multiple clocked
+   processes with synchronous reset/enable. Nonnegative constrained integer
+   counters, ``std_logic_unsigned`` addition/subtraction and
+   ``conv_integer(std_logic_vector)`` (with ``std_logic_arith`` imported) are
+   supported. Component binding requires a matching visible declaration and
+   supports named or positional ports and integer generic specialization.
+   Hardware operates on legal subtype/index values; simulation bounds checks
+   and nine-valued initialization are not implemented. Nonbinary literals,
+   conflicting drivers, unsupported package bodies, and unsupported operations
+   are rejected. ``numeric_std`` arithmetic hardware remains unsupported.
+
+   These features are exposed through the expert raw API; there is currently
+   no high-level ``najaeda.netlist`` VHDL loader.
 
    The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`

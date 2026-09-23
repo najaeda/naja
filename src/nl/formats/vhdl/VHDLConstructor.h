@@ -30,6 +30,8 @@ class VHDLConstructor {
     /// variables must be assigned on every activation.
     SNLDesign* construct(std::string_view source) const;
 
+    /// Package-only loads return nullptr and retain declarations in the library.
+    /// Subsequent dependent RTL loads share those declarations.
     /// Read, parse, and lower one VHDL source file. An explicit top is required
     /// when the file contains a supported structural hierarchy.
     SNLDesign* constructFile(

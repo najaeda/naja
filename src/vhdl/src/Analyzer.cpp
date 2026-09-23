@@ -304,6 +304,9 @@ CheckedType checkExpression(const Expression& expression,
         }
         case Expression::Kind::Indexed:
         case Expression::Kind::Others:
+        case Expression::Kind::Aggregate:
+        case Expression::Kind::Range:
+        case Expression::Kind::BitStringLiteral:
             result.diagnostics.push_back(
                 {"indexed expressions and aggregates require RTL elaboration", expression.span});
             return record({});
@@ -919,6 +922,16 @@ CheckedType checkExpression(const Expression& expression,
 
 AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     AnalysisResult result;
+    for (const auto& package : syntax.packages)
+        result.diagnostics.push_back({"packages require RTL elaboration", package.name.span});
+    for (const auto& architecture : syntax.architectures) {
+        if (!architecture.generates.empty())
+            result.diagnostics.push_back({"generate statements require RTL elaboration", architecture.span});
+        for (const auto& instance : architecture.instantiations)
+            if (instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
+                    [](const auto& formal) { return formal.has_value(); }))
+                result.diagnostics.push_back({"named/component binding requires RTL elaboration", instance.span});
+    }
     std::unordered_map<std::string, const EntityDeclaration*> entities;
     std::unordered_map<const EntityDeclaration*, Visibility> entityVisibility;
     std::unordered_map<const EntityDeclaration*, GenericValues> entityDefaults;

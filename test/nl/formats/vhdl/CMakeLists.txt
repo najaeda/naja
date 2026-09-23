@@ -21,6 +21,10 @@ target_link_libraries(snlVHDLConstructorTests
   gtest_main)
 gtest_discover_tests(snlVHDLConstructorTests)
 
+# Downloaded inputs are exercised explicitly by vhdl-regress.yml, not CTest.
+add_executable(snlVHDLExternalTests EXCLUDE_FROM_ALL VHDLExternalTest.cpp)
+target_link_libraries(snlVHDLExternalTests naja_snl_vhdl gtest_main)
+
 find_program(VHDL_NVC_EXECUTABLE nvc)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)

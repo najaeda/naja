@@ -458,7 +458,7 @@ end;
 }
 
 TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
-    for (const auto* mapping : {"a => a, y => y", "open, y", "work.leaf(rtl)"}) {
+    for (const auto* mapping : {"open, y", "work.leaf(rtl)"}) {
         SCOPED_TRACE(mapping);
         const std::string source = std::string(
             "entity top is port(a : in bit; y : out bit); end; "
@@ -466,4 +466,16 @@ TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
             mapping + "); end;";
         EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
     }
+}
+
+TEST(VHDLParserTest, PreservesNamedPortAssociations) {
+    auto parsed = vhdl::Parser::parse(
+        "entity top is port(a : in bit; y : out bit); end; "
+        "architecture rtl of top is begin u: entity work.leaf port map(y => y, a => a); end;");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& instance = parsed.syntax.architectures.front().instantiations.front();
+    ASSERT_EQ(instance.formals.size(), 2u);
+    ASSERT_TRUE(instance.formals[0]);
+    EXPECT_EQ(instance.formals[0]->canonical, "y");
+    EXPECT_EQ(instance.formals[1]->canonical, "a");
 }

@@ -13,5 +13,5 @@ class SNLDesign;
 // elaboration and type checks before returning a completed design.
 bool requiresVHDLRTL(const vhdl::DesignFile& syntax);
 SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
-                          std::string_view top);
+                          std::string_view top, std::string_view source);
 }

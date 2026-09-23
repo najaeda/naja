@@ -121,6 +121,33 @@ end;
     self.assertEqual(db.getTopDesign(), design)
     self.assertIsNotNone(db.getLibrary("DESIGN").getSNLDesign("leaf"))
 
+  def testVHDLPackageAcrossLoads(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    sources = [
+      "package bytes is type pair is array(0 to 1) of bit_vector(3 downto 0); "
+      'constant rom : pair := (x"A", x"5"); end;',
+      "use work.bytes.all; entity lookup is port(y : out bit_vector(3 downto 0)); end; "
+      "architecture rtl of lookup is begin y <= rom(1); end;",
+      "package empty_pkg is end;",
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+      results = []
+      for index, source in enumerate(sources):
+        path = os.path.join(directory, str(index) + ".vhd")
+        with open(path, "w") as output:
+          output.write(source)
+        results.append(db.loadVHDL(path))
+    self.assertIsNone(results[0])
+    self.assertEqual(results[1].getName(), "lookup")
+    self.assertIsNone(results[2])
+    self.assertEqual(db.getTopDesign(), results[1])
+    other = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as source:
+      source.write(sources[1])
+      source.flush()
+      with self.assertRaises(RuntimeError):
+        other.loadVHDL(source.name)
+
   def testVHDLArgumentsAndFailureRollback(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with self.assertRaisesRegex(TypeError, "file must be a str path"):

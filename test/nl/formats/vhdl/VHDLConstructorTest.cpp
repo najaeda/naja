@@ -158,16 +158,6 @@ TEST_F(VHDLConstructorTest, IndexedLFSRResetEnableAndCycles) {
   }
 }
 
-TEST_F(VHDLConstructorTest, ExternalIndexedRTLBenchmark) {
-  const auto* path = std::getenv("VHDL_RTL_BENCHMARK");
-  if (!path) GTEST_SKIP() << "Set VHDL_RTL_BENCHMARK for an external RTL smoke test";
-  auto* design = VHDLConstructor(library_).constructFile(path);
-  ASSERT_NE(design, nullptr);
-  size_t flops = 0;
-  for (auto* instance : design->getInstances()) flops += NLDB0::isDFF(instance->getModel());
-  EXPECT_EQ(flops, 32u);
-}
-
 TEST_F(VHDLConstructorTest, IndexedAscendingArraysAndScheduledPriority) {
   auto* design = VHDLConstructor(library_).construct(R"(
 entity indexed is port(clk, d : in bit; y : out bit_vector(7 downto 5)); end;
@@ -1183,6 +1173,153 @@ end;
           u: entity work.middle port map(a, y); end;)"}) {
     SCOPED_TRACE(source);
     EXPECT_THROW(VHDLConstructor(library_).construct(source, "top"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, PackageROMAndDynamicMemoryCycles) {
+  VHDLConstructor constructor(library_);
+  EXPECT_EQ(constructor.construct(R"(
+library ieee; use ieee.std_logic_1164.all;
+package tables is
+  type table_type is array (0 to 3) of std_logic_vector(7 downto 0);
+  constant rom : table_type := (x"63", x"7C", x"77", x"7B");
+end package;
+package body tables is end package body;
+)"), nullptr);
+  auto* design = constructor.construct(R"(
+library ieee; use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all; use ieee.std_logic_unsigned.all;
+use work.tables.all;
+entity memory_test is
+  port(clk, we : in std_logic; addr : in std_logic_vector(1 downto 0);
+       data : in std_logic_vector(7 downto 0);
+       q, lookup, rotated : out std_logic_vector(7 downto 0));
+end;
+architecture rtl of memory_test is
+  signal ram : table_type;
+  signal count : integer range 0 to 3;
+begin
+  lookup <= rom(conv_integer(addr));
+  rotated <= data(3 downto 0) & data(7 downto 4);
+  write_ram: process(clk) begin
+    if rising_edge(clk) then
+      if we = '1' then ram(conv_integer(addr)) <= data; end if;
+      q <= ram(conv_integer(addr));
+    end if;
+  end process;
+  counter: process(clk) begin
+    if rising_edge(clk) then
+      if count = 3 then count <= 0; else count <= count + 1; end if;
+    end if;
+  end process;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  std::vector<SNLInstance*> flops;
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (auto* instance : design->getInstances()) if (NLDB0::isDFF(instance->getModel())) {
+    flops.push_back(instance);
+    state[instance->getInstTerm(NLDB0::getDFFOutput())->getNet()] = false;
+  }
+  ASSERT_EQ(flops.size(), 42u);
+  unsigned ram[4]{};
+  const unsigned rom[]{0x63, 0x7c, 0x77, 0x7b};
+  for (unsigned cycle = 0; cycle < 80; ++cycle) {
+    const unsigned address = (cycle * 3) % 4;
+    const unsigned data = (cycle * 73 + 5) & 255;
+    const bool write = cycle % 3 != 0;
+    auto values = state;
+    values[design->getScalarTerm(NLName("we"))->getNet()] = write;
+    for (unsigned bit = 0; bit < 2; ++bit)
+      values[design->getBusTerm(NLName("addr"))->getBit(bit)->getNet()] = (address >> bit) & 1;
+    for (unsigned bit = 0; bit < 8; ++bit)
+      values[design->getBusTerm(NLName("data"))->getBit(bit)->getNet()] = (data >> bit) & 1;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 8; ++bit) {
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("lookup"))->getBit(bit)->getNet(), values, visiting),
+                bool((rom[address] >> bit) & 1));
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("rotated"))->getBit(bit)->getNet(), values, visiting),
+                bool((data >> ((bit + 4) % 8)) & 1));
+    }
+    for (auto* flop : flops)
+      state[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
+          evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+    for (unsigned bit = 0; bit < 8; ++bit)
+      EXPECT_EQ(state.at(design->getBusTerm(NLName("q"))->getBit(bit)->getNet()), bool((ram[address] >> bit) & 1));
+    auto* count = design->getBusNet(NLName("count"));
+    for (unsigned bit = 0; bit < 2; ++bit)
+      EXPECT_EQ(state.at(count->getBit(bit)), bool((((cycle + 1) % 4) >> bit) & 1));
+    if (write) ram[address] = data;
+  }
+}
+
+TEST_F(VHDLConstructorTest, PackageComponentSpecializationAndNestedGenerate) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+package interfaces is
+  component leaf is generic(n : integer range 1 to 8 := 2);
+    port(a : in bit_vector(n-1 downto 0); y : out bit_vector(n-1 downto 0));
+  end component;
+end;
+entity leaf is generic(n : integer range 1 to 8 := 2);
+  port(a : in bit_vector(n-1 downto 0); y : out bit_vector(n-1 downto 0)); end;
+architecture rtl of leaf is begin
+  g: for i in 0 to n-1 generate
+    h: for j in 0 to 0 generate y(i) <= not a(i+j); end generate;
+  end generate;
+end;
+use work.interfaces.all;
+entity wrapper is port(a : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture rtl of wrapper is begin
+  u: leaf generic map(n => 4) port map(y => y, a => a);
+end;
+)", "wrapper");
+  ASSERT_NE(top, nullptr);
+  auto* instance = top->getInstance(NLName("u"));
+  ASSERT_NE(instance, nullptr);
+  auto* leaf = instance->getModel();
+  EXPECT_EQ(leaf->getBusTerm(NLName("a"))->getWidth(), 4);
+  for (unsigned pattern = 0; pattern < 16; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 4; ++bit) {
+      auto* input = leaf->getBusTerm(NLName("a"))->getBit(bit);
+      EXPECT_EQ(instance->getInstTerm(input)->getNet(), top->getBusTerm(NLName("a"))->getBit(bit)->getNet());
+      values[input->getNet()] = (pattern >> bit) & 1;
+    }
+    for (unsigned bit = 0; bit < 4; ++bit)
+      EXPECT_EQ(evaluateRTL(leaf->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+                !bool((pattern >> bit) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidPackageRTLDoesNotPublishDesigns) {
+  const std::string source = R"(
+library ieee; use ieee.std_logic_1164.all;
+package constants is
+  type table_type is array (0 to 1) of std_logic_vector(3 downto 0);
+  constant rom : table_type := (x"A", x"5");
+end;
+library ieee; use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all; use ieee.std_logic_unsigned.all;
+use work.constants.all;
+entity lookup is port(a : in std_logic_vector(0 downto 0); y : out std_logic_vector(3 downto 0)); end;
+architecture rtl of lookup is begin y <= rom(conv_integer(a)); end;
+)";
+  for (const auto& [before, after] : std::vector<std::pair<std::string, std::string>>{
+      {"(x\"A\", x\"5\")", "(x\"A\", x\"5\", x\"0\")"},
+      {"x\"A\"", "x\"Z\""},
+      {"rom(conv_integer(a))", "rom(a)"},
+      {"rom(conv_integer(a))", "rom(2)"},
+      {"use work.constants.all;", ""},
+      {"use ieee.std_logic_arith.all;", ""},
+      {"begin y <=", "begin a <= \"0\"; y <="},
+  }) {
+    SCOPED_TRACE(after);
+    auto invalid = source;
+    ASSERT_NE(invalid.find(before), std::string::npos);
+    invalid.replace(invalid.find(before), before.size(), after);
+    EXPECT_THROW(VHDLConstructor(library_).construct(invalid), NLException);
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }

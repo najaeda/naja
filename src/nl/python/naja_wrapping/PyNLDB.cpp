@@ -493,9 +493,10 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
   }
   design = VHDLConstructor(designLibrary).constructFile(path, top);
-  NLUniverse::get()->setTopDesign(design);
+  if (design) NLUniverse::get()->setTopDesign(design);
   NLUniverse::get()->setTopDB(db);
   NLCATCH
+  if (!design) Py_RETURN_NONE;
   return PySNLDesign_Link(design);
 }
 
@@ -864,9 +865,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
-    "create a design from one VHDL source file.\n\n"
+    "load one VHDL source file; package-only files return None.\n\n"
     "Warning:\n"
-    "  VHDL support is experimental and currently limited to bit-based designs.\n\n"
+    "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
     "Args:\n"
     "  file (str): input VHDL file\n"
     "  top (str | None, optional): entity selected as the structural top"},

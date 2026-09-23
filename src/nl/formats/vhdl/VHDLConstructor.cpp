@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "VHDLConstructor.h"
+#include "NajaPrivateProperty.h"
 #include "VHDLRTLConstructor.h"
 
 #include "NLException.h"
@@ -91,6 +92,23 @@ const vhdl::DiscreteRange* effectiveRange(
 
 }  // namespace
 
+namespace {
+class VHDLSources final : public naja::NajaPrivateProperty {
+ public:
+  std::string source;
+  std::string getName() const override { return "VHDLSources"; }
+  std::string getString() const override { return getName(); }
+  static VHDLSources* get(NLLibrary* library) {
+    auto* property = static_cast<VHDLSources*>(library->getProperty("VHDLSources"));
+    if (!property) {
+      property = new VHDLSources;
+      property->postCreate(library);
+    }
+    return property;
+  }
+};
+}
+
 SNLDesign* VHDLConstructor::construct(std::string_view source) const {
   return construct(source, {});
 }
@@ -123,8 +141,22 @@ SNLDesign* VHDLConstructor::construct(
     unsupported(diagnosticMessage(
         "parse", diagnostic.message, diagnostic.span));
   }
-  if (requiresVHDLRTL(parsed.syntax))
-    return constructVHDLRTL(library_, parsed.syntax, top);
+  auto* sources = VHDLSources::get(library_);
+  if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty()) {
+    const auto combined = sources->source + "\n" + std::string(source);
+    auto all = vhdl::Parser::parse(combined);
+    if (all.hasErrors()) unsupported("stored VHDL source failed to parse");
+    std::string selected(top);
+    if (selected.empty() && parsed.syntax.entities.size() == 1)
+      selected = parsed.syntax.entities.front().name.spelling;
+    if (parsed.syntax.entities.empty() && parsed.syntax.architectures.empty()) {
+      all.syntax.entities.clear();
+      all.syntax.architectures.clear();
+    }
+    auto* design = constructVHDLRTL(library_, all.syntax, selected, combined);
+    if (!sources->source.empty() || !parsed.syntax.packages.empty()) sources->source = combined;
+    return design;
+  }
   const auto analyzed = vhdl::Analyzer::analyze(parsed.syntax);
   if (analyzed.hasErrors()) {
     const auto& diagnostic = analyzed.diagnostics.front();
