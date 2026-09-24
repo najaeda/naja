@@ -346,8 +346,9 @@ expert reference above.
 
    The experimental two-state RTL subset supports constrained arrays, package
    array types and positional constant aggregates, binary/octal/hex literals,
-   static slices and loops, nested ``for generate`` statements containing assignments
-   and component/direct-entity instances,
+   static slices and loops, nested ``for generate`` and static
+   ``if``/``elsif``/``else generate`` statements containing assignments, clocked
+   processes, and component/direct-entity instances,
    integer-indexed ROM/RAM reads and clocked writes, and multiple clocked
    processes with synchronous reset/enable and constant asynchronous reset/set.
    Asynchronous state uses canonical NLDB0 DFFRN, DFFR, or DFFS primitives;

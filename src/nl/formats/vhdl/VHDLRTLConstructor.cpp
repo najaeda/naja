@@ -294,7 +294,14 @@ class RTLConstructor {
         for (const auto& generate : statements) {
           for (const auto& a : generate.assignments) assignment(a, nullptr, true);
           instances(generate.instantiations);
+          for (const auto& process : generate.processes) {
+            scan(process.statements, &process, true);
+            scan(process.resetStatements, &process, true);
+            for (const auto& a : process.assignments) assignment(a, &process, true);
+            for (const auto& a : process.resetAssignments) assignment(a, &process, true);
+          }
           generates(generate.generates);
+          generates(generate.alternatives);
         }
       };
       generates(architecture_.generates);
@@ -553,24 +560,44 @@ class RTLConstructor {
       if (!generate.label.spelling.empty() && !labels.insert(key(generate.label)).second)
         fail("duplicate concurrent label");
       checkLabels(generate.generates, generate.instantiations);
+      for (const auto& branch : generate.alternatives)
+        checkLabels(branch.generates, branch.instantiations);
     }
   }
 
   void lowerGenerate(const vhdl::GenerateStatement& generate, const State& state,
                      const std::string& prefix = "") {
-    DiagnosticScope location(generate.iterator.span);
+    DiagnosticScope location(generate.conditional ? generate.label.span : generate.iterator.span);
+    const auto body = [&](const vhdl::GenerateStatement& branch, const std::string& scope) {
+      if (++steps_ > 100000) fail("static generate elaboration limit exceeded");
+      for (const auto& assignment : branch.assignments) concurrent(assignment, state);
+      for (const auto& child : branch.generates) lowerGenerate(child, state, scope);
+      for (const auto& instance : branch.instantiations) lowerInstance(instance, scope);
+      for (const auto& process : branch.processes) lowerProcess(process);
+    };
+    if (generate.conditional) {
+      const auto selected = [&](const vhdl::GenerateStatement& branch) {
+        if (!branch.condition) return true;
+        const auto value = scalar(*branch.condition, nullptr);
+        if (!value.boolean) fail("if generate condition must be a static boolean");
+        return value.value != 0;
+      };
+      const auto scope = prefix + generate.label.spelling + ".";
+      if (selected(generate)) body(generate, scope);
+      else for (const auto& branch : generate.alternatives) {
+        if (selected(branch)) { body(branch, scope); break; }
+      }
+      return;
+    }
     auto name = key(generate.iterator);
     if (integers_.contains(name) || objects_.contains(name) || integerTables_.contains(name) ||
         records_.contains(name) || arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
     const auto bounds = range(generate.range);
     for (size_t i = 0; i < bounds.size(); ++i) {
-      if (++steps_ > 100000) fail("static generate elaboration limit exceeded");
       integers_[name] = bounds.ascending ? bounds.left + i : bounds.left - i;
-      for (const auto& assignment : generate.assignments) concurrent(assignment, state);
       const auto scope = prefix + (generate.label.spelling.empty() ? name : generate.label.spelling) +
           "[" + std::to_string(integers_[name]) + "].";
-      for (const auto& child : generate.generates) lowerGenerate(child, state, scope);
-      for (const auto& instance : generate.instantiations) lowerInstance(instance, scope);
+      body(generate, scope);
     }
     integers_.erase(name);
   }
@@ -2143,6 +2170,8 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
       for (const auto& instance : scope.instantiations)
         candidates.erase(key(instance.entity));
       for (const auto& generate : scope.generates) self(self, generate);
+      if constexpr (requires { scope.alternatives; })
+        for (const auto& branch : scope.alternatives) self(self, branch);
     };
     for (const auto& architecture : syntax.architectures)
       removeChildren(removeChildren, architecture);

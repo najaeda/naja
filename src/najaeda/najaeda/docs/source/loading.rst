@@ -84,13 +84,21 @@ If there are several roots or no root, pass ``top`` explicitly.
 
 VHDL loading is experimental and implements a bounded, two-state RTL subset.
 It supports integer generic defaults and explicit generic maps, constrained
-arrays, static indexing and slices, nested ``for`` loops and ``for generate``
-statements, component instances, vector registers, synchronous reset/enable,
+arrays, static indexing and slices, nested ``for`` loops, ``for generate`` and
+static ``if``/``elsif``/``else generate`` statements, component instances, vector registers, synchronous reset/enable,
 asynchronous reset/set,
 and immediate process variables. Generated instances can bind indexed or sliced
 ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
+
+Conditional generates select the first true branch at elaboration time, using
+static boolean expressions built from integer generics, constants, enclosing
+loop parameters, and supported static package functions. Only the selected
+branch creates hardware. Generate bodies may contain assignments, instances,
+clocked processes, and nested conditional or loop generates. Instance names
+retain generate scope prefixes. Generate-local declarations, alternative labels,
+and explicit branch-body ``end`` statements remain unsupported and are diagnosed.
 
 Record types declared in packages or architectures support nested records,
 arrays of records, field selection, whole-record and field assignments, and
@@ -120,7 +128,7 @@ are retained by the parser, but their elaboration is not yet supported.
 The NEORV32 default ``neorv32_top`` configuration is a development target, not yet
 a supported load. Its complete package parses, and ``index_size_f`` and
 ``sel_natural_f`` can elaborate a test design. The complete core file list now
-stops at a conditional ``if ... generate`` in ``neorv32_prim.vhd``. Vector helpers
+stops at a generate-local signal declaration in ``neorv32_prim.vhd``. Vector helpers
 and further elaboration constructs also remain to be implemented.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
@@ -139,7 +147,7 @@ including its enable and read-before-write behavior on address collisions.
 Resetting address registers does not reset the RAM contents. Both ascending and
 descending arrays with nonnegative 32-bit bounds are supported. Arrays with
 initializers, multiple write sites, partial-word writes, writes inside loops,
-writes in asynchronous-reset processes, or direct connections to child-instance
+writes in asynchronous-reset or generated processes, or direct connections to child-instance
 ports retain the register/mux lowering.
 
 Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,

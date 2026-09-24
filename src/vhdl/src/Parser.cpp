@@ -591,33 +591,77 @@ private:
         return ConstantDeclaration{std::move(*object), std::move(value)};
     }
 
+    bool startsGenerate() const {
+        return word("for") || word("if") || (isNameToken() && look().text == ":" &&
+            (look(2).canonical == "for" || look(2).canonical == "if"));
+    }
+
+    bool parseGenerateBody(GenerateStatement& generate) {
+        for (const auto declaration : {"signal", "constant", "type", "subtype", "function", "component"}) {
+            if (word(declaration)) {
+                error("generate-local declarations are not supported", current().span);
+                return false;
+            }
+        }
+        acceptWord("begin");
+        while (!atEnd() && !word("end") && !word("elsif") && !word("else")) {
+            if (isNameToken() && look().text == ":" && look(2).canonical == "process") {
+                advance(); advance();
+            }
+            if (startsGenerate()) {
+                auto child = parseGenerate();
+                if (!child) return false;
+                generate.generates.push_back(std::move(*child));
+            } else if (word("process")) {
+                auto process = parseClockedProcess();
+                if (!process) return false;
+                generate.processes.push_back(std::move(*process));
+            } else if (isNameToken() && look().text == ":") {
+                auto instance = parseEntityInstantiation();
+                if (!instance) return false;
+                generate.instantiations.push_back(std::move(*instance));
+            } else {
+                auto assignment = parseAssignment();
+                if (!assignment) return false;
+                generate.assignments.push_back(std::move(*assignment));
+            }
+        }
+        return true;
+    }
+
     std::optional<GenerateStatement> parseGenerate() {
         GenerateStatement generate;
         if (isNameToken() && look().text == ":") {
             generate.label = *parseName();
             advance();
         }
-        if (!expectWord("for")) return std::nullopt;
-        auto iterator = parseName();
-        if (!iterator || !expectWord("in")) return std::nullopt;
-        auto range = parseDiscreteRange();
-        if (!range || !expectWord("generate")) return std::nullopt;
-        generate.iterator = *iterator;
-        generate.range = std::move(*range);
-        acceptWord("begin");
-        while (!atEnd() && !word("end")) {
-            if (word("for") || (isNameToken() && look().text == ":" && look(2).canonical == "for")) {
-                auto child = parseGenerate();
-                if (!child) return std::nullopt;
-                generate.generates.push_back(std::move(*child));
-            } else if (isNameToken() && look().text == ":") {
-                auto instance = parseEntityInstantiation();
-                if (!instance) return std::nullopt;
-                generate.instantiations.push_back(std::move(*instance));
-            } else {
-                auto assignment = parseAssignment();
-                if (!assignment) return std::nullopt;
-                generate.assignments.push_back(std::move(*assignment));
+        if (acceptWord("if")) {
+            generate.conditional = true;
+            generate.condition = parseExpression(0);
+            if (!generate.condition) return std::nullopt;
+        } else {
+            if (!expectWord("for")) return std::nullopt;
+            auto iterator = parseName();
+            if (!iterator || !expectWord("in")) return std::nullopt;
+            auto range = parseDiscreteRange();
+            if (!range) return std::nullopt;
+            generate.iterator = *iterator;
+            generate.range = std::move(*range);
+        }
+        if (!expectWord("generate") || !parseGenerateBody(generate)) return std::nullopt;
+        if (generate.conditional) {
+            while (word("elsif") || word("else")) {
+                const bool otherwise = acceptWord("else");
+                GenerateStatement branch;
+                branch.conditional = true;
+                if (!otherwise) {
+                    advance();
+                    branch.condition = parseExpression(0);
+                    if (!branch.condition) return std::nullopt;
+                }
+                if (!expectWord("generate") || !parseGenerateBody(branch)) return std::nullopt;
+                generate.alternatives.push_back(std::move(branch));
+                if (otherwise) break;
             }
         }
         if (!expectWord("end") || !expectWord("generate")) return std::nullopt;
@@ -692,7 +736,7 @@ private:
                 look(2).canonical == "process") {
                 advance(); advance();
             }
-            if (word("for") || (isNameToken() && look().text == ":" && look(2).canonical == "for")) {
+            if (startsGenerate()) {
                 auto generate = parseGenerate();
                 if (!generate) return std::nullopt;
                 architecture.generates.push_back(std::move(*generate));

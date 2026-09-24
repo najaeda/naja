@@ -218,6 +218,11 @@ struct GenerateStatement {
     std::vector<GenerateStatement> generates;
     Name label;
     std::vector<EntityInstantiation> instantiations;
+    bool conditional = false;
+    std::unique_ptr<Expression> condition;
+    // Alternatives are ordered elsif branches followed by an optional else.
+    std::vector<GenerateStatement> alternatives;
+    std::vector<ClockedProcess> processes;
 };
 
 struct PackageDeclaration {

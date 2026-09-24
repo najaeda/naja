@@ -761,9 +761,9 @@ Self-contained package-function regressions in `VHDLConstructorTest.cpp` cover
 static bounds, arguments, local variables, arithmetic, recursive calls, and
 failure cases. They require neither a NEORV32 checkout nor an environment variable.
 
-The next observed blocker in the full file-list load is conditional
-`if ... generate` at `neorv32_prim.vhd:80` in the development checkout (line
-1620 of the concatenated input). Completing the target also requires runtime vector helpers,
+The next observed blocker in the full file-list load is a generate-local signal
+declaration at `neorv32_prim.vhd:127` in the development checkout (line 1667 of
+the concatenated input). Completing the target also requires runtime vector helpers,
 boolean/vector generics, additional sequential and generate constructs, and
 named-library binding. The complete top has **not** been loaded or validated yet.
 
@@ -784,3 +784,23 @@ edges, both polarities, mixed reset values, enables, initialization, and omitted
 reset targets against NVC and exported Verilog simulation. No external RTL
 checkout is required. All 173 VHDL tests pass, including rejection cases and
 reset-only state and memory fallback coverage.
+
+## Conditional generate elaboration
+
+Static `if`/`elsif`/`else generate` branches now select at most one body. Conditions
+use the typed static scalar evaluator, including integer generics, boolean
+constants, enclosing loop indices, and supported package functions. Nested loop
+and conditional generates, assignments, instances, and clocked processes are
+supported. Inactive branches create no drivers or instances. Top inference scans
+instances in every branch, and selected instance names retain generate prefixes.
+Generated memory writes conservatively keep register/mux lowering.
+
+Self-contained parser and constructor regressions exercise all branch positions,
+64 input/configuration combinations, per-lane registers, hierarchy inference,
+inactive out-of-range references, memory fallback, and rejection of runtime or
+nonboolean conditions and multiple drivers. A separate NVC run of the same
+four configurations confirms their combinational and clocked behavior. Local
+declarations, alternative labels, and explicit branch-body `end` syntax remain
+unsupported and are diagnosed.
+
+Conditional-generate validation: all 179 integrated VHDL tests pass.

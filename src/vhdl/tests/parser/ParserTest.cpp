@@ -673,3 +673,41 @@ TEST(VHDLParserTest, PreservesAsynchronousResetBranchesAndPolarity) {
         EXPECT_TRUE(process.assignments.empty());
     }
 }
+
+TEST(VHDLParserTest, PreservesConditionalGenerateBranchesAndProcesses) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity top is end;
+architecture rtl of top is begin
+  g: if n = 0 generate begin
+    p: process(clk) begin if rising_edge(clk) then q <= d; end if; end process;
+  elsif n = 1 generate
+    h: for i in 0 to 1 generate y(i) <= d(i); end generate h;
+  else generate
+    h: if true generate u: entity work.leaf port map(d, y); end generate h;
+  end generate g;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& generate = parsed.syntax.architectures.front().generates.front();
+    EXPECT_TRUE(generate.conditional);
+    ASSERT_NE(generate.condition, nullptr);
+    EXPECT_EQ(generate.processes.size(), 1u);
+    ASSERT_EQ(generate.alternatives.size(), 2u);
+    EXPECT_NE(generate.alternatives[0].condition, nullptr);
+    EXPECT_EQ(generate.alternatives[1].condition, nullptr);
+    EXPECT_FALSE(generate.alternatives[0].generates.front().conditional);
+    EXPECT_TRUE(generate.alternatives[1].generates.front().conditional);
+}
+
+TEST(VHDLParserTest, RejectsMalformedConditionalGenerates) {
+    for (const auto* body : {
+        "g: if generate end generate;",
+        "g: if true generate else generate elsif true generate end generate;",
+        "g: if true generate end generate wrong;",
+        "g: if true generate signal x : bit; begin end generate;",
+        "g: for i in 0 to 1 generate else generate end generate;"}) {
+        SCOPED_TRACE(body);
+        EXPECT_TRUE(vhdl::Parser::parse(std::string("entity top is end; architecture rtl of top is begin ") +
+            body + " end;").hasErrors());
+    }
+}

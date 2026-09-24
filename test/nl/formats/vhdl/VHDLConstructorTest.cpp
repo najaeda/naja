@@ -2535,3 +2535,130 @@ TEST_F(VHDLConstructorTest, RejectsUnsupportedAsynchronousResetSemantics) {
   check("process(clk, rst) begin if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; "
       "else q <= '1'; end if; end process;", "parse failed");
 }
+
+TEST_F(VHDLConstructorTest, ConditionalGenerateBranchesNestedLoopsAndRegisters) {
+  const std::string source = R"(
+entity choices is generic(mode : natural := MODE_VALUE);
+  port(clk : in bit; d : in bit_vector(3 downto 0);
+       y, q : out bit_vector(3 downto 0)); end;
+architecture rtl of choices is
+  constant inverted : boolean := mode = 1;
+begin
+  lanes: for i in 0 to 3 generate
+    selection: if mode = 0 generate
+      y(i) <= d(i);
+    elsif inverted generate begin
+      y(i) <= not d(i);
+    elsif mode = 2 generate
+      even_lane: if i mod 2 = 0 generate y(i) <= d(i); else generate y(i) <= not d(i); end generate;
+    else generate
+      one: for j in 0 to 0 generate y(i+j) <= '1'; end generate;
+    end generate selection;
+    registered: if mode mod 2 = 0 generate
+      p: process(clk) begin if rising_edge(clk) then q(i) <= d(i); end if; end process;
+    else generate
+      p: process(clk) begin if rising_edge(clk) then q(i) <= not d(i); end if; end process;
+    end generate;
+  end generate lanes;
+  omitted: if false generate y(99) <= d(99); end generate;
+end;
+)";
+  for (unsigned mode = 0; mode < 4; ++mode) {
+    SCOPED_TRACE(mode);
+    auto specialized = source;
+    specialized.replace(specialized.find("MODE_VALUE"), 10, std::to_string(mode));
+    auto* library = NLLibrary::create(library_->getDB(), NLName("choices_" + std::to_string(mode)));
+    auto* design = VHDLConstructor(library).construct(specialized);
+    ASSERT_NE(design, nullptr);
+    unsigned flops = 0;
+    for (auto* instance : design->getInstances()) if (NLDB0::isDFF(instance->getModel())) ++flops;
+    EXPECT_EQ(flops, 4u);
+    for (unsigned pattern = 0; pattern < 16; ++pattern) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned i = 0; i < 4; ++i)
+        values[design->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (pattern >> i) & 1;
+      for (unsigned i = 0; i < 4; ++i) {
+        const bool bit = (pattern >> i) & 1;
+        const bool expected = mode == 0 ? bit : mode == 1 ? !bit : mode == 2 ? bit != bool(i % 2) : true;
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), expected);
+      }
+      for (auto* instance : design->getInstances()) {
+        auto* model = instance->getModel();
+        if (!NLDB0::isDFF(model)) continue;
+        auto* q = instance->getInstTerm(model->getScalarTerm(NLName("Q")))->getNet();
+        for (unsigned i = 0; i < 4; ++i) if (q == design->getBusTerm(NLName("q"))->getBit(i)->getNet()) {
+          EXPECT_EQ(evaluateRTL(instance->getInstTerm(model->getScalarTerm(NLName("D")))->getNet(), values, visiting),
+                    bool((pattern >> i) & 1) != bool(mode % 2));
+        }
+      }
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, ConditionalGenerateHierarchyInfersTopAndSelectsOneBranch) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity left_leaf is port(a : in bit; y : out bit); end;
+architecture rtl of left_leaf is begin y <= a; end;
+entity right_leaf is port(a : in bit; y : out bit); end;
+architecture rtl of right_leaf is begin y <= not a; end;
+entity choices is generic(n : natural := 2); port(a : in bit; y : out bit); end;
+architecture rtl of choices is begin
+  g: if n = 0 generate
+    u: entity work.left_leaf port map(a, y);
+  elsif n > 0 generate
+    h: for i in 0 to 0 generate u: entity work.right_leaf port map(a, y); end generate;
+  else generate
+    u: entity work.left_leaf port map(a, y);
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  EXPECT_EQ(design->getName(), NLName("choices"));
+  auto* instance = design->getInstance(NLName("g.h[0].u"));
+  ASSERT_NE(instance, nullptr);
+  EXPECT_EQ(instance->getModel()->getName(), NLName("right_leaf"));
+  EXPECT_EQ(design->getInstances().size(), 1u);
+  EXPECT_EQ(library_->getSNLDesign(NLName("left_leaf")), nullptr);
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidConditionalGenerateElaboration) {
+  for (const auto* body : {
+      "g: if d = '1' generate y <= d; end generate;",
+      "g: if 1 generate y <= d; end generate;",
+      "g: if false generate y <= d; end generate;",
+      "g: if true generate y <= d; end generate; g: if false generate end generate;",
+      "g: if true generate y <= d; end generate; h: if true generate y <= not d; end generate;"}) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(d : in bit; y : out bit); end; architecture rtl of invalid is begin ") +
+        body + " end;"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("invalid")), nullptr);
+  }
+}
+
+TEST_F(VHDLConstructorTest, ConditionalGenerateMemoryWritesRetainRegisterLowering) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity storage is port(clk, d : in bit; y : out bit_vector(1 downto 0)); end;
+architecture rtl of storage is
+  type memory_t is array(0 to 1) of bit;
+  signal memory : memory_t;
+  signal address : integer range 0 to 1;
+begin
+  address <= 1;
+  chosen: if true generate
+    process(clk) begin if rising_edge(clk) then memory(address) <= d; end if; end process;
+  else generate
+    process(clk) begin if rising_edge(clk) then memory(address) <= not d; end if; end process;
+  end generate;
+  y(0) <= memory(0); y(1) <= memory(1);
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  unsigned bits = 0;
+  for (auto* instance : design->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(instance->getModel()));
+    if (NLDB0::isDFF(instance->getModel())) bits += instance->getModel()->getTerm(NLName("Q"))->getWidth();
+  }
+  EXPECT_EQ(bits, 2u);
+}
