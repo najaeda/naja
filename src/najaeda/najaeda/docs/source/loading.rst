@@ -100,6 +100,15 @@ equality/inequality are also supported.
 Explicit binary signal initializers on locally clocked registers are preserved
 as DFF ``INIT`` parameters.
 
+Uninitialized arrays with one dynamically indexed, whole-word clocked write
+site are inferred as canonical RAM primitives. Conditional write enables are
+preserved, and clocked read assignments retain a separate output register,
+including its enable and read-before-write behavior on address collisions.
+Resetting address registers does not reset the RAM contents. Both ascending and
+descending arrays with nonnegative 32-bit bounds are supported. Arrays with
+initializers, multiple write sites, partial-word writes, writes inside loops,
+or direct connections to child-instance ports retain the register/mux lowering.
+
 Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,
 including parentheses around the guard or its operands, in both simple and
 structured processes. Extra Boolean conditions on the clock guard remain

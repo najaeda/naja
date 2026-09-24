@@ -10,6 +10,7 @@
 #include "VHDLConstructor.h"
 #include "VHDLTestUtils.h"
 #include <fstream>
+#include <iostream>
 
 #include <cstdlib>
 #include <filesystem>
@@ -37,7 +38,35 @@ TEST_F(VHDLExternalTest, AESDecryptBenchmark) {
   auto* top = constructor.constructFile(root / "aes_dec.vhdl", "aes_dec");
   ASSERT_NE(top, nullptr);
   EXPECT_EQ(top->getTerms().size(), 10u);
-  EXPECT_NE(top->getInstance(NLName("KEXP0")), nullptr);
+  ASSERT_NE(top->getInstance(NLName("KEXP0")), nullptr);
+  auto* ram = top->getInstance(NLName("t_state_ram0_mem"));
+  ASSERT_NE(ram, nullptr);
+  ASSERT_TRUE(NLDB0::isMemory(ram->getModel()));
+  const auto ramSignature = NLDB0::getMemorySignature(ram);
+  EXPECT_EQ(ramSignature.width, 32u);
+  EXPECT_EQ(ramSignature.depth, 4u);
+  EXPECT_EQ(ramSignature.readPorts, 1u);
+  EXPECT_EQ(ramSignature.writePorts, 1u);
+  EXPECT_EQ(ramSignature.resetMode, NLDB0::MemoryResetMode::None);
+  for (auto* design : {top, top->getInstance(NLName("KEXP0"))->getModel()}) {
+    size_t flops = 0, flopBits = 0, muxes = 0, muxBits = 0;
+    for (auto* instance : design->getInstances()) {
+      auto* model = instance->getModel();
+      if (NLDB0::isDFF(model)) {
+        ++flops;
+        flopBits += model->getTerm(NLName("Q"))->getWidth();
+      }
+      if (NLDB0::isMux2(model)) {
+        ++muxes;
+        muxBits += NLDB0::getMux2Output(model)->getWidth();
+      }
+    }
+    EXPECT_LT(flops, flopBits);
+    EXPECT_LT(muxes, muxBits);
+    std::cout << design->getName().getString() << ": " << design->getInstances().size()
+              << " instances, " << flops << " DFFs (" << flopBits << " bits), "
+              << muxes << " muxes (" << muxBits << " bits)\n";
+  }
 }
 
 TEST_F(VHDLExternalTest, FIRBenchmark) {
@@ -95,8 +124,7 @@ TEST_F(VHDLExternalTest, FIRDecDSPBenchmarkAndSignedStageCycles) {
     ASSERT_NE(input, nullptr);
     ASSERT_NE(output, nullptr);
     std::unordered_map<SNLBitNet*, bool> state;
-    for (auto* instance : stage->getInstances()) if (NLDB0::isDFF(instance->getModel()))
-      state[instance->getInstTerm(NLDB0::getDFFOutput())->getNet()] = false;
+    for (const auto& flop : naja::NL::test::dffBits(stage)) state[flop.output] = false;
     std::vector<int64_t> fast(12, 0), slow(6, 0);
     int64_t delayed = 0;
     const int coefficients[] = {-1, 1, -2, 3, -6, 20, 20, -6, 3, -2, 1, -1};
@@ -108,13 +136,13 @@ TEST_F(VHDLExternalTest, FIRDecDSPBenchmarkAndSignedStageCycles) {
       for (unsigned bit = 0; bit < input->getWidth(); ++bit)
         values[input->getBit(bit)->getNet()] = (uint64_t(sample) >> bit) & 1;
       std::unordered_set<SNLBitNet*> visiting;
-      for (auto* flop : stage->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
-        auto* clock = flop->getInstTerm(NLDB0::getDFFClock())->getNet();
+      for (const auto& flop : naja::NL::test::dffBits(stage)) {
+        auto* clock = flop.clock;
         const bool fastClock = clock == stage->getScalarTerm(NLName("ck"))->getNet();
         ASSERT_TRUE(fastClock || clock == stage->getScalarTerm(NLName("ck2"))->getNet());
         if (fastClock || cycle % 2 == 0)
-          state[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
-              naja::NL::test::evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+          state[flop.output] =
+              naja::NL::test::evaluateRTL(flop.data, values, visiting);
       }
       if (cycle % 2 == 0) {
         fast.insert(fast.begin(), sample); fast.pop_back();

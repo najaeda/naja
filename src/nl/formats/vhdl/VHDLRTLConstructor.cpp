@@ -115,7 +115,13 @@ struct Object {
   bool constant = false;
 };
 struct Selection { std::string name; Shape shape; size_t offset = 0; };
+struct MemoryWrite {
+  Bits address, data;
+  SNLBitNet* enable = nullptr;
+  bool assigned = false;
+};
 struct State {
+  std::map<std::string, MemoryWrite> memoryWrites;
   std::map<std::string, Bits> variables;
   std::map<std::string, Bits> scheduled;
   std::map<std::string, std::vector<bool>> written;
@@ -194,6 +200,7 @@ class RTLConstructor {
         }
       }
     }
+    inferMemories();
     checkLabels(architecture_.generates, architecture_.instantiations);
     State empty;
     for (const auto& assignment : architecture_.assignments)
@@ -201,10 +208,11 @@ class RTLConstructor {
     for (const auto& generate : architecture_.generates) lowerGenerate(generate, empty);
     for (const auto& instance : architecture_.instantiations) lowerInstance(instance);
     for (const auto& process : architecture_.processes) lowerProcess(process);
+    finalizeMemories();
     for (const auto& [bit, value] : initialValues_)
       if (!initializedFlops_.contains(bit)) fail("initialized signal must be driven by a local clocked process");
     for (const auto& [name, object] : objects_) {
-      if (object.variable || object.input || object.constant) continue;
+      if (object.variable || object.input || object.constant || memories_.contains(name)) continue;
       for (auto* bit : object.value.bits)
         if ((object.output || reads_.contains(bit)) && !drivers_.contains(bit))
           fail("signal bit has no driver: " + name);
@@ -212,6 +220,177 @@ class RTLConstructor {
   }
 
  private:
+  struct MemoryRead { Bits address, data; };
+  struct Memory {
+    const vhdl::ClockedProcess* process = nullptr;
+    NLDB0::MemorySignature signature;
+    std::vector<MemoryRead> reads;
+    MemoryWrite write;
+    SNLBitNet* clock = nullptr;
+  };
+
+  // Only infer a single whole-word write site. Multiple sites, partial writes,
+  // initialization and writes elaborated in loops keep the bit-level lowering.
+  void inferMemories() {
+    for (const auto& [name, object] : objects_) {
+      const auto& type = object.value.shape;
+      if (object.input || object.output || object.variable || object.constant ||
+          type.ranges.empty() || type.ranges.size() > 2 ||
+          !arrays_.contains(type.types.front()) ||
+          std::min(type.ranges.front().left, type.ranges.front().right) < 0 ||
+          std::max(type.ranges.front().left, type.ranges.front().right) > INT32_MAX ||
+          std::any_of(object.value.bits.begin(), object.value.bits.end(),
+              [&](auto* bit) { return initialValues_.contains(bit); })) continue;
+      size_t writes = 0;
+      bool supported = true;
+      const vhdl::ClockedProcess* owner = nullptr;
+      const auto assignment = [&](const vhdl::Assignment& a,
+                                  const vhdl::ClockedProcess* process, bool loop) {
+        if (key(a.target) != name) return;
+        ++writes;
+        owner = process;
+        supported &= process && !loop && a.kind == vhdl::AssignmentKind::Signal &&
+            a.indices.size() == 1 && a.indices.front()->kind != Expr::Kind::Range &&
+            !isStatic(*a.indices.front());
+      };
+      std::function<void(const std::vector<Statement>&, const vhdl::ClockedProcess*, bool)> scan;
+      scan = [&](const auto& statements, auto* process, bool loop) {
+        for (const auto& statement : statements) {
+          if (statement.kind == Statement::Kind::Assignment)
+            assignment(statement.assignment, process, loop);
+          scan(statement.statements, process, loop || statement.kind == Statement::Kind::For);
+          scan(statement.alternative, process, loop || statement.kind == Statement::Kind::For);
+        }
+      };
+      for (const auto& process : architecture_.processes) {
+        scan(process.statements, &process, false);
+        for (const auto& a : process.assignments)
+          assignment(a, process.sensitivityList.empty() ? &process : nullptr, false);
+        for (const auto& a : process.resetAssignments) assignment(a, &process, false);
+      }
+      for (const auto& a : architecture_.assignments) assignment(a, nullptr, false);
+      const auto instances = [&](const auto& instances) {
+        for (const auto& instance : instances)
+          for (const auto& actual : instance.actuals)
+            if (key(actual) == name) supported = false;
+      };
+      instances(architecture_.instantiations);
+      std::function<void(const std::vector<vhdl::GenerateStatement>&)> generates;
+      generates = [&](const auto& statements) {
+        for (const auto& generate : statements) {
+          for (const auto& a : generate.assignments) assignment(a, nullptr, true);
+          instances(generate.instantiations);
+          generates(generate.generates);
+        }
+      };
+      generates(architecture_.generates);
+      if (!supported || writes != 1) continue;
+      Memory memory;
+      memory.process = owner;
+      memory.signature.depth = type.ranges.front().size();
+      memory.signature.width = type.size() / memory.signature.depth;
+      memory.signature.abits = 1;
+      while ((size_t(1) << memory.signature.abits) < memory.signature.depth)
+        ++memory.signature.abits;
+      memory.signature.writePorts = 1;
+      memories_.emplace(name, std::move(memory));
+    }
+  }
+
+  // Full-width bounds checks prevent a wide or nonzero-based VHDL index from
+  // wrapping onto a valid memory word when converted to the primitive address.
+  std::pair<Bits, SNLBitNet*> memoryAddress(const std::string& name, Bits address) {
+    const auto& bounds = objects_.at(name).value.shape.ranges.front();
+    const auto low = std::min(bounds.left, bounds.right);
+    const auto high = std::max(bounds.left, bounds.right);
+    const auto width = std::max<size_t>(32, address.size());
+    address = resize(std::move(address), width);
+    const auto lessThan = [&](uint64_t limit) {
+      auto* less = constant(false);
+      for (size_t i = address.size(); i; --i) {
+        const auto position = address.size() - i;
+        const bool one = position < 64 && ((limit >> position) & 1);
+        if (const auto bit = constantValue(address[i - 1])) {
+          if (*bit != one) less = constant(one);
+        } else if (const auto previous = constantValue(less)) {
+          less = *previous == one ? constant(one) : gate("not", address[i - 1]);
+        } else {
+          less = one ? gate("or", gate("not", address[i - 1]), less)
+                     : gate("and", gate("not", address[i - 1]), less);
+        }
+      }
+      return less;
+    };
+    auto* valid = lessThan(uint64_t(high) + 1);
+    if (low) valid = gate("and", gate("not", lessThan(low)), valid);
+    if (low) address = add(address, number(low, {{"integer"}, {}, address.size()}).bits, true);
+    return {resize(std::move(address), memories_.at(name).signature.abits), valid};
+  }
+
+  Value readMemory(const std::string& name, const Expr& index, const State& state) {
+    if (sensitivity_ && !sensitivity_->contains(name))
+      fail("process sensitivity omits a signal read outside the clock guard: " + name);
+    auto element = objects_.at(name).value.shape;
+    if (isStatic(index)) element.ranges.front().position(integer(index));
+    auto addressValue = expression(index, state);
+    if (!addressValue.shape.integerWidth) fail("array index must have integer type");
+    auto [address, valid] = memoryAddress(name, std::move(addressValue.bits));
+    element.ranges.erase(element.ranges.begin());
+    element.types.erase(element.types.begin());
+    auto& memory = memories_.at(name);
+    // Reuse a port for identical resolved addresses (including constant words).
+    for (const auto& read : memory.reads)
+      if (read.address == address)
+        return {element, mux(valid, read.data, Bits(element.size(), constant(false)))};
+    auto* output = SNLBusNet::create(design_, element.size() - 1, 0);
+    Bits data;
+    for (size_t i = 0; i < element.size(); ++i) data.push_back(output->getBitAtPosition(i));
+    memory.reads.push_back({std::move(address), data});
+    return {element, mux(valid, data, Bits(element.size(), constant(false)))};
+  }
+
+  void finalizeMemories() {
+    for (auto& [name, memory] : memories_) {
+      if (!memory.clock) fail("inferred memory has no clocked writer: " + name);
+      memory.signature.readPorts = std::max<size_t>(1, memory.reads.size());
+      auto* model = NLDB0::getOrCreateMemory(memory.signature);
+      auto instanceName = name + "_mem";
+      for (size_t suffix = 1; design_->getInstance(NLName(instanceName)); ++suffix)
+        instanceName = name + "_mem_" + std::to_string(suffix);
+      auto* instance = SNLInstance::create(design_, model, NLName(instanceName));
+      // Export uses the shared parameterized naja_mem module, whose default
+      // dimensions differ from this width-specific canonical model.
+      for (const auto& [parameter, value] : std::vector<std::pair<std::string, size_t>>{
+          {"WIDTH", memory.signature.width}, {"DEPTH", memory.signature.depth},
+          {"ABITS", memory.signature.abits}, {"RD_PORTS", memory.signature.readPorts},
+          {"WR_PORTS", memory.signature.writePorts}})
+        SNLInstParameter::create(instance, model->getParameter(NLName(parameter)), std::to_string(value));
+      instance->setTermNet(NLDB0::getMemoryClock(model), memory.clock);
+      instance->setTermNet(NLDB0::getMemoryReset(model), constant(false));
+      const auto connect = [&](SNLBusTerm* term, const Bits& bits, size_t offset = 0) {
+        for (size_t i = 0; i < bits.size(); ++i)
+          instance->setTermNet(term->getBit(offset + bits.size() - 1 - i), bits[i]);
+      };
+      connect(NLDB0::getMemoryWriteAddress(model), memory.write.address);
+      connect(NLDB0::getMemoryWriteData(model), memory.write.data);
+      connect(NLDB0::getMemoryWriteEnable(model), {memory.write.enable});
+      if (memory.reads.empty()) {
+        connect(NLDB0::getMemoryReadAddress(model), Bits(memory.signature.abits, constant(false)));
+      } else for (size_t port = 0; port < memory.reads.size(); ++port) {
+        connect(NLDB0::getMemoryReadAddress(model), memory.reads[port].address, port * memory.signature.abits);
+        connect(NLDB0::getMemoryReadData(model), memory.reads[port].data, port * memory.signature.width);
+      }
+      // The declaration's temporary word nets are replaced entirely by RAM.
+      std::set<SNLNet*> nets;
+      for (auto* bit : objects_.at(name).value.bits) {
+        auto* busBit = dynamic_cast<SNLBusNetBit*>(bit);
+        nets.insert(busBit ? static_cast<SNLNet*>(busBit->getBus()) : bit);
+      }
+      for (auto* net : nets) net->destroy();
+      objects_.at(name).value.bits.clear();
+    }
+  }
+
   void addArray(const vhdl::ArrayTypeDeclaration& declaration) {
     DiagnosticScope location(declaration.span);
     const auto name = key(declaration.name);
@@ -587,15 +766,28 @@ class RTLConstructor {
     Bits bits;
     const auto size = type.size();
     if (variable) bits.resize(size, nullptr);
-    else if (type.ranges.size() == 1 || type.integerWidth) {
-      const auto r = type.integerWidth ? Range{int64_t(size - 1), 0, false} : type.ranges.front();
+    else if (!type.ranges.empty() || type.integerWidth) {
+      const auto r = type.integerWidth ? Range{int64_t(size - 1), 0, false} : type.ranges.back();
       if (r.left < std::numeric_limits<NLID::Bit>::min() || r.left > std::numeric_limits<NLID::Bit>::max() ||
           r.right < std::numeric_limits<NLID::Bit>::min() || r.right > std::numeric_limits<NLID::Bit>::max())
         fail("hardware vector bounds exceed net index range");
-      auto* net = SNLBusNet::create(design_, r.left, r.right, NLName(name.spelling));
-      for (size_t i = 0; i < size; ++i) bits.push_back(net->getBitAtPosition(i));
-      if (port) SNLBusTerm::create(design_, input ? SNLTerm::Direction::Input :
-          SNLTerm::Direction::Output, r.left, r.right, NLName(name.spelling))->setNet(net);
+      // Keep each innermost array element as a bus, with its declared bounds.
+      for (size_t offset = 0; offset < size; offset += r.size()) {
+        auto busName = name.spelling;
+        auto position = offset;
+        auto stride = size;
+        for (size_t dimension = 0; dimension + 1 < type.ranges.size(); ++dimension) {
+          const auto& bounds = type.ranges[dimension];
+          stride /= bounds.size();
+          const auto index = static_cast<int64_t>(position / stride);
+          busName += "(" + std::to_string(bounds.ascending ? bounds.left + index : bounds.left - index) + ")";
+          position %= stride;
+        }
+        auto* net = SNLBusNet::create(design_, r.left, r.right, NLName(busName));
+        for (size_t i = 0; i < r.size(); ++i) bits.push_back(net->getBitAtPosition(i));
+        if (port) SNLBusTerm::create(design_, input ? SNLTerm::Direction::Input :
+            SNLTerm::Direction::Output, r.left, r.right, NLName(name.spelling))->setNet(net);
+      }
     } else {
       for (size_t i = 0; i < size; ++i) {
         auto* bit = SNLScalarNet::create(design_, NLName(name.spelling +
@@ -657,14 +849,32 @@ class RTLConstructor {
     if (net && net->isConstant1()) return true;
     return std::nullopt;
   }
-  SNLBitNet* mux(SNLBitNet* condition, SNLBitNet* yes, SNLBitNet* no) {
+  Bits mux(SNLBitNet* condition, const Bits& yes, const Bits& no) {
     if (auto value = constantValue(condition)) return *value ? yes : no;
-    if (yes == no) return yes;
-    // An incompletely assigned variable remains unavailable on a later read.
-    if (!yes || !no) return nullptr;
-    auto* output = SNLScalarNet::create(design_);
-    SNLRTLPrimitives::createMux(design_, condition, {no}, {yes}, output);
-    return output;
+    Bits result(yes.size());
+    for (size_t first = 0; first < yes.size();) {
+      if (yes[first] == no[first] || !yes[first] || !no[first]) {
+        // Preserve unavailable variables and avoid muxes for unchanged bits.
+        result[first] = yes[first] == no[first] ? yes[first] : nullptr;
+        ++first;
+        continue;
+      }
+      size_t end = first + 1;
+      while (end < yes.size() && yes[end] && no[end] && yes[end] != no[end]) ++end;
+      const auto width = end - first;
+      SNLNet* output = width == 1 ? static_cast<SNLNet*>(SNLScalarNet::create(design_))
+          : SNLBusNet::create(design_, width - 1, 0);
+      // RTL values follow declaration order; canonical primitive inputs are LSB first.
+      Bits a(no.begin() + first, no.begin() + end), b(yes.begin() + first, yes.begin() + end);
+      std::reverse(a.begin(), a.end());
+      std::reverse(b.begin(), b.end());
+      SNLRTLPrimitives::createMux(design_, condition, a, b, output);
+      for (size_t i = first; i < end; ++i)
+        result[i] = width == 1 ? static_cast<SNLBitNet*>(output)
+            : static_cast<SNLBusNet*>(output)->getBitAtPosition(i - first);
+      first = end;
+    }
+    return result;
   }
   SNLBitNet* gate(const std::string& op, SNLBitNet* a, SNLBitNet* b = nullptr) {
     using Gate = SNLRTLPrimitives::GateKind;
@@ -735,6 +945,18 @@ class RTLConstructor {
   }
   Value readObject(const std::string& name, const State& state) {
     const auto& object = objects_.at(name);
+    if (memories_.contains(name)) {
+      Value value{object.value.shape, {}};
+      const auto& bounds = value.shape.ranges.front();
+      for (size_t i = 0; i < bounds.size(); ++i) {
+        Expr index;
+        index.kind = Expr::Kind::IntegerLiteral;
+        index.text = std::to_string(bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i));
+        const auto word = readMemory(name, index, state);
+        value.bits.insert(value.bits.end(), word.bits.begin(), word.bits.end());
+      }
+      return value;
+    }
     if (object.output) fail("reading an out port is outside the RTL profile");
     Value value = object.value;
     if (object.variable) value.bits = state.variables.at(name);
@@ -776,8 +998,8 @@ class RTLConstructor {
       if (index < 0) fail("dynamic indexing of negative bounds is unsupported");
       const auto width = std::max<size_t>(address.bits.size(), 32);
       auto* select = equal(resize(address.bits, width), number(index, {{"integer"}, {}, width}).bits);
-      for (size_t j = 0; j < stride; ++j)
-        result[j] = mux(select, value.bits[i * stride + j], result[j]);
+      result = mux(select, Bits(value.bits.begin() + i * stride,
+          value.bits.begin() + (i + 1) * stride), result);
     }
     value.bits = std::move(result);
     return value;
@@ -789,6 +1011,9 @@ class RTLConstructor {
       return readObject(key(expr), state);
     }
     if (expr.kind != Expr::Kind::Indexed) fail("indexed prefix must name an object");
+    if (expr.left->kind == Expr::Kind::Name && memories_.contains(key(*expr.left)) &&
+        expr.right->kind != Expr::Kind::Range)
+      return readMemory(key(*expr.left), *expr.right, state);
     return readIndex(readSelected(*expr.left, state), *expr.right, state);
   }
 
@@ -860,8 +1085,7 @@ class RTLConstructor {
       auto no = expression(*expr.right, state, &yes.shape);
       if (!compatible(yes.shape, no.shape)) fail("conditional type mismatch");
       value.shape = yes.shape;
-      for (size_t i = 0; i < yes.bits.size(); ++i)
-        value.bits.push_back(mux(condition.bits.front(), yes.bits[i], no.bits[i]));
+      value.bits = mux(condition.bits.front(), yes.bits, no.bits);
     } else if (expr.kind == Expr::Kind::Aggregate) {
       if (!expected || expected->ranges.empty() || expr.elements.size() != expected->ranges.front().size())
         fail("positional aggregate length mismatch");
@@ -1043,6 +1267,21 @@ class RTLConstructor {
 
   void assign(const vhdl::Assignment& assignment, State& state) {
     DiagnosticScope location(assignment.span);
+    if (memories_.contains(key(assignment.target))) {
+      const auto name = key(assignment.target);
+      auto& write = state.memoryWrites.at(name);
+      auto element = objects_.at(name).value.shape;
+      element.ranges.erase(element.ranges.begin());
+      element.types.erase(element.types.begin());
+      auto address = expression(*assignment.indices.front(), state);
+      if (!address.shape.integerWidth) fail("array index must be integer");
+      auto [bits, valid] = memoryAddress(name, std::move(address.bits));
+      write.address = std::move(bits);
+      write.data = expression(*assignment.value, state, &element).bits;
+      write.enable = valid;
+      write.assigned = true;
+      return;
+    }
     if (!assignment.indices.empty() && assignment.indices.front()->kind != Expr::Kind::Range &&
         !isStatic(*assignment.indices.front())) {
       const auto name = key(assignment.target);
@@ -1066,9 +1305,12 @@ class RTLConstructor {
         const auto indexValue = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
         const auto width = std::max<size_t>(32, address.bits.size());
         auto* condition = equal(resize(address.bits, width), number(indexValue, {{"integer"}, {}, width}).bits);
+        const auto start = i * stride + selected.offset;
+        const auto merged = mux(condition, value.bits,
+            Bits(bits.begin() + start, bits.begin() + start + value.bits.size()));
         for (size_t j = 0; j < value.bits.size(); ++j) {
-          const auto offset = i * stride + selected.offset + j;
-          bits[offset] = mux(condition, value.bits[j], bits[offset]);
+          const auto offset = start + j;
+          bits[offset] = merged[j];
           state.written.at(name)[offset] = true;
         }
       }
@@ -1087,14 +1329,23 @@ class RTLConstructor {
   }
 
   void merge(State& state, const State& yes, const State& no, SNLBitNet* condition) {
+    for (auto& [name, write] : state.memoryWrites) {
+      const auto& a = yes.memoryWrites.at(name);
+      const auto& b = no.memoryWrites.at(name);
+      // Address and data are don't-care on branches with no write.
+      write.address = !a.assigned ? b.address : !b.assigned ? a.address : mux(condition, a.address, b.address);
+      write.data = !a.assigned ? b.data : !b.assigned ? a.data : mux(condition, a.data, b.data);
+      write.enable = mux(condition, {a.enable}, {b.enable}).front();
+      write.assigned = a.assigned || b.assigned;
+    }
     for (auto& [name, bits] : state.variables)
-      for (size_t i = 0; i < bits.size(); ++i)
-        bits[i] = mux(condition, yes.variables.at(name)[i], no.variables.at(name)[i]);
-    for (auto& [name, bits] : state.scheduled)
+      bits = mux(condition, yes.variables.at(name), no.variables.at(name));
+    for (auto& [name, bits] : state.scheduled) {
+      bits = mux(condition, yes.scheduled.at(name), no.scheduled.at(name));
       for (size_t i = 0; i < bits.size(); ++i) {
-        bits[i] = mux(condition, yes.scheduled.at(name)[i], no.scheduled.at(name)[i]);
         state.written.at(name)[i] = yes.written.at(name)[i] || no.written.at(name)[i];
       }
+    }
   }
 
   void statements(const std::vector<Statement>& statements, State& state) {
@@ -1150,7 +1401,13 @@ class RTLConstructor {
     }
     State state;
     for (const auto& [name, object] : objects_) {
-      if (object.variable) state.variables[name] = object.value.bits;
+      if (const auto memory = memories_.find(name); memory != memories_.end()) {
+        if (memory->second.process == &process) {
+          const auto& signature = memory->second.signature;
+          state.memoryWrites[name] = {Bits(signature.abits, constant(false)),
+              Bits(signature.width, constant(false)), constant(false), false};
+        }
+      } else if (object.variable) state.variables[name] = object.value.bits;
       else if (!object.input && !object.constant) {
         state.scheduled[name] = object.value.bits;
         state.written[name].resize(object.value.bits.size(), false);
@@ -1172,18 +1429,53 @@ class RTLConstructor {
       }
     }
     size_t writes = 0;
-    for (const auto& [name, bits] : state.scheduled)
-      for (size_t i = 0; i < bits.size(); ++i) if (state.written.at(name)[i]) {
-        auto* target = objects_.at(name).value.bits[i];
-        if (!drivers_.insert(target).second) fail("multiple drivers for clocked signal");
-        auto* flop = SNLRTLPrimitives::createDFF(design_, objects_.at(clockName).value.bits.front(), bits[i], target);
-        if (const auto initial = initialValues_.find(target); initial != initialValues_.end()) {
-          SNLInstParameter::create(flop, flop->getModel()->getParameter(NLName("INIT")),
-              NLDB0::formatDFFInitValue(1, initial->second ? "1" : "0"));
-          initializedFlops_.insert(target);
+    for (const auto& [name, write] : state.memoryWrites) {
+      auto& memory = memories_.at(name);
+      memory.write = write;
+      memory.clock = objects_.at(clockName).value.bits.front();
+      writes += write.assigned;
+    }
+    for (const auto& [name, bits] : state.scheduled) {
+      const auto& targets = objects_.at(name).value.bits;
+      const auto& written = state.written.at(name);
+      for (size_t first = 0; first < bits.size();) {
+        if (!written[first]) { ++first; continue; }
+        const bool initialized = initialValues_.contains(targets[first]);
+        auto* busBit = dynamic_cast<SNLBusNetBit*>(targets[first]);
+        size_t end = first + 1;
+        while (busBit && end < bits.size() && written[end] &&
+               initialValues_.contains(targets[end]) == initialized) {
+          auto* next = dynamic_cast<SNLBusNetBit*>(targets[end]);
+          if (!next || next->getBus() != busBit->getBus()) break;
+          ++end;
         }
-        ++writes;
+        const auto width = end - first;
+        auto* model = NLDB0::getOrCreateDFF(width);
+        auto* flop = SNLInstance::create(design_, model);
+        flop->setTermNet(model->getScalarTerm(NLName("C")), objects_.at(clockName).value.bits.front());
+        std::string initialBits;
+        for (size_t i = first; i < end; ++i) {
+          auto* target = targets[i];
+          if (!drivers_.insert(target).second) fail("multiple drivers for clocked signal");
+          const auto position = end - 1 - i;
+          SNLBitTerm* dataTerm = width == 1 ? static_cast<SNLBitTerm*>(model->getScalarTerm(NLName("D")))
+              : model->getBusTerm(NLName("D"))->getBit(position);
+          SNLBitTerm* outputTerm = width == 1 ? static_cast<SNLBitTerm*>(model->getScalarTerm(NLName("Q")))
+              : model->getBusTerm(NLName("Q"))->getBit(position);
+          flop->setTermNet(dataTerm, bits[i]);
+          flop->setTermNet(outputTerm, target);
+          if (initialized) {
+            initialBits += initialValues_.at(target) ? '1' : '0';
+            initializedFlops_.insert(target);
+          }
+          ++writes;
+        }
+        if (initialized)
+          SNLInstParameter::create(flop, model->getParameter(NLName("INIT")),
+              NLDB0::formatDFFInitValue(width, initialBits));
+        first = end;
       }
+    }
     if (!writes) fail("clocked process does not write any signal");
     if (!process.sensitivityList.empty()) {
       sensitivity_ = &sensitivity;
@@ -1220,6 +1512,7 @@ class RTLConstructor {
   std::map<std::string, Shape> arrays_;
   std::map<std::string, size_t> arrayTypeOffsets_;
   std::map<std::string, Object> objects_;
+  std::map<std::string, Memory> memories_;
   std::set<SNLBitNet*> drivers_, reads_;
   std::map<SNLBitNet*, bool> initialValues_;
   std::set<SNLBitNet*> initializedFlops_;

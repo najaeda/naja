@@ -18,6 +18,7 @@
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 #include "SNLRTLPrimitives.h"
+#include "SNLVRLDumper.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLSVConstructor.h"
@@ -28,6 +29,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -47,6 +49,7 @@ class VHDLConstructorTest : public ::testing::Test {
 
 namespace {
 using naja::NL::test::evaluateRTL;
+using naja::NL::test::dffBits;
 
 std::string lfsrSource(unsigned width) {
   return "library ieee; use ieee.std_logic_1164.all; "
@@ -87,9 +90,7 @@ TEST_F(VHDLConstructorTest, IndexedLFSRResetEnableAndCycles) {
     auto* design = VHDLConstructor(library_).construct(lfsrSource(width));
     auto* state = dynamic_cast<SNLBusNet*>(design->getNet(NLName("temp")));
     ASSERT_NE(state, nullptr);
-    std::vector<SNLInstance*> flops;
-    for (auto* instance : design->getInstances())
-      if (NLDB0::isDFF(instance->getModel())) flops.push_back(instance);
+    const auto flops = dffBits(design);
     ASSERT_EQ(flops.size(), width);
     const uint64_t mask = (uint64_t(1) << width) - 1;
     uint64_t expected = 0;
@@ -102,11 +103,11 @@ TEST_F(VHDLConstructorTest, IndexedLFSRResetEnableAndCycles) {
       for (unsigned bit = 0; bit < width; ++bit) values[state->getBit(bit)] = (expected >> bit) & 1;
       std::unordered_map<SNLBitNet*, bool> next;
       std::unordered_set<SNLBitNet*> visiting;
-      for (auto* flop : flops) {
-        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFClock())->getNet(),
+      for (const auto& flop : flops) {
+        EXPECT_EQ(flop.clock,
                   design->getScalarTerm(NLName("clk"))->getNet());
-        next[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
-            evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+        next[flop.output] =
+            evaluateRTL(flop.data, values, visiting);
       }
       if (reset) expected = mask;
       else if (enable) expected = (expected >> 1) ^
@@ -154,10 +155,10 @@ end;
     values[design->getScalarTerm(NLName("d"))->getNet()] = pattern & 1;
     for (unsigned i = 0; i < 3; ++i) values[state->getBit(4 + i)] = (pattern >> (i + 1)) & 1;
     std::unordered_set<SNLBitNet*> visiting;
-    for (auto* flop : design->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
-      auto* output = flop->getInstTerm(NLDB0::getDFFOutput())->getNet();
+    for (const auto& flop : dffBits(design)) {
+      auto* output = flop.output;
       const bool expected = output == state->getBit(5) ? bool((pattern >> 1) & 1) : !(pattern & 1);
-      EXPECT_EQ(evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting), expected);
+      EXPECT_EQ(evaluateRTL(flop.data, values, visiting), expected);
     }
     for (unsigned i = 0; i < 3; ++i)
       EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(7-i)->getNet(), values, visiting),
@@ -641,11 +642,11 @@ TEST_F(VHDLConstructorTest, StructuredEventGuardPreservesVectorCycles) {
       values[design->getScalarTerm(NLName("ena"))->getNet()] = enable;
       for (unsigned bit = 0; bit < 4; ++bit) values[state->getBit(bit)] = (expected >> bit) & 1;
       std::unordered_set<SNLBitNet*> visiting;
-      for (auto* flop : design->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
-        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFClock())->getNet(),
+      for (const auto& flop : dffBits(design)) {
+        EXPECT_EQ(flop.clock,
                   design->getScalarTerm(NLName("clk"))->getNet());
-        next[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
-            evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+        next[flop.output] =
+            evaluateRTL(flop.data, values, visiting);
       }
       if (reset) expected = 15;
       else if (enable) expected = (expected >> 1) ^ ((expected & 1) ? 11 : 0);
@@ -1275,13 +1276,15 @@ begin
 end;
 )");
   ASSERT_NE(design, nullptr);
-  std::vector<SNLInstance*> flops;
+  const auto flops = dffBits(design);
   std::unordered_map<SNLBitNet*, bool> state;
-  for (auto* instance : design->getInstances()) if (NLDB0::isDFF(instance->getModel())) {
-    flops.push_back(instance);
-    state[instance->getInstTerm(NLDB0::getDFFOutput())->getNet()] = false;
-  }
-  ASSERT_EQ(flops.size(), 42u);
+  for (const auto& flop : flops) state[flop.output] = false;
+  ASSERT_EQ(flops.size(), 10u);
+  auto memories = naja::NL::test::zeroMemoryState(design);
+  ASSERT_EQ(memories.size(), 1u);
+  const auto signature = NLDB0::getMemorySignature(memories.begin()->first);
+  EXPECT_EQ(signature.width, 8u);
+  EXPECT_EQ(signature.depth, 4u);
   unsigned ram[4]{};
   const unsigned rom[]{0x63, 0x7c, 0x77, 0x7b};
   for (unsigned cycle = 0; cycle < 80; ++cycle) {
@@ -1301,15 +1304,17 @@ end;
       EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("rotated"))->getBit(bit)->getNet(), values, visiting),
                 bool((data >> ((bit + 4) % 8)) & 1));
     }
-    for (auto* flop : flops)
-      state[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
-          evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+    const auto nextMemories = naja::NL::test::nextMemoryState(memories, values);
+    for (const auto& flop : flops)
+      state[flop.output] =
+          evaluateRTL(flop.data, values, visiting, &memories);
     for (unsigned bit = 0; bit < 8; ++bit)
       EXPECT_EQ(state.at(design->getBusTerm(NLName("q"))->getBit(bit)->getNet()), bool((ram[address] >> bit) & 1));
     auto* count = design->getBusNet(NLName("count"));
     for (unsigned bit = 0; bit < 2; ++bit)
       EXPECT_EQ(state.at(count->getBit(bit)), bool((((cycle + 1) % 4) >> bit) & 1));
     if (write) ram[address] = data;
+    memories = nextMemories;
   }
 }
 
@@ -1432,12 +1437,9 @@ end;
     ++count;
     auto* initial = flop->getInstParameter(NLName("INIT"));
     ASSERT_NE(initial, nullptr);
-    auto* net = flop->getInstTerm(NLDB0::getDFFOutput())->getNet();
-    auto* bit = dynamic_cast<SNLBusNetBit*>(net);
-    const bool one = !bit || bit->getBit() != 5;
-    EXPECT_EQ(initial->getValue(), one ? "1'b1" : "1'b0");
+    EXPECT_EQ(initial->getValue(), flop->getModel()->getBusTerm(NLName("Q")) ? "3'b101" : "1'b1");
   }
-  EXPECT_EQ(count, 7u);
+  EXPECT_EQ(count, 3u);
 }
 
 TEST_F(VHDLConstructorTest, RejectsUnrepresentableSignalInitializers) {
@@ -1779,5 +1781,236 @@ TEST_F(VHDLConstructorTest, InvalidSignedArithmeticPublishesNoDesign) {
         "y <= ") + expression + "; end;";
     EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
     EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, GroupsArrayBusesAndPartialRegisters) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity grouped is port(clk, sel : in bit; a, b : in bit_vector(2 to 5);
+  y : out bit_vector(9 downto 6)); end;
+architecture rtl of grouped is
+  type words is array (3 downto 2) of bit_vector(-1 to 2);
+  signal storage : words;
+  signal partial : bit_vector(7 downto 2) := "101001";
+begin
+  storage(3) <= a;
+  storage(2) <= b;
+  y <= storage(3) when sel = '1' else storage(2);
+  process(clk) begin
+    if rising_edge(clk) then
+      partial(7 downto 6) <= a(2 to 3);
+      partial(3 downto 2) <= b(4 to 5);
+    end if;
+  end process;
+  process(clk) begin
+    if rising_edge(clk) then partial(5 downto 4) <= "00"; end if;
+  end process;
+end;
+)");
+  for (const auto* name : {"storage(3)", "storage(2)"}) {
+    auto* bus = design->getBusNet(NLName(name));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(bus->getMSB(), -1);
+    EXPECT_EQ(bus->getLSB(), 2);
+  }
+  unsigned muxes = 0, flops = 0;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    if (NLDB0::isMux2(model)) {
+      ++muxes;
+      EXPECT_EQ(NLDB0::getMux2Output(model)->getWidth(), 4);
+    }
+    if (NLDB0::isDFF(model)) {
+      ++flops;
+      ASSERT_NE(model->getBusTerm(NLName("Q")), nullptr);
+      EXPECT_EQ(model->getBusTerm(NLName("Q"))->getWidth(), 2);
+      ASSERT_NE(instance->getInstParameter(NLName("INIT")), nullptr);
+      const auto first = instance->getInstTerm(model->getBusTerm(NLName("Q"))->getBit(1))->getNet();
+      EXPECT_EQ(instance->getInstParameter(NLName("INIT"))->getValue(),
+          first == design->getBusNet(NLName("partial"))->getBit(3) ? "2'b01" : "2'b10");
+    }
+  }
+  EXPECT_EQ(muxes, 1u);
+  EXPECT_EQ(flops, 3u);
+  for (unsigned pattern = 0; pattern < 512; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    values[design->getScalarTerm(NLName("sel"))->getNet()] = pattern & 1;
+    for (unsigned i = 0; i < 4; ++i) {
+      values[design->getBusTerm(NLName("a"))->getBit(2+i)->getNet()] = (pattern >> (1+i)) & 1;
+      values[design->getBusTerm(NLName("b"))->getBit(2+i)->getNet()] = (pattern >> (5+i)) & 1;
+    }
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned i = 0; i < 4; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(9-i)->getNet(), values, visiting),
+          bool((pattern >> ((pattern & 1 ? 1 : 5) + i)) & 1));
+    for (const auto& flop : dffBits(design)) {
+      const auto index = static_cast<SNLBusNetBit*>(flop.output)->getBit();
+      const auto inputPosition = index >= 6 ? 1 + 7 - index : 7 + 3 - index;
+      EXPECT_EQ(evaluateRTL(flop.data, values, visiting), index == 5 || index == 4 ? false : bool((pattern >> inputPosition) & 1));
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, InferredMemoryReadBeforeWriteAndEnableCycles) {
+  auto* design = VHDLConstructor(library_).constructFile(SNL_VHDL_MEMORY);
+  auto memories = naja::NL::test::zeroMemoryState(design);
+  ASSERT_EQ(memories.size(), 1u);
+  auto* memory = memories.begin()->first;
+  const auto signature = NLDB0::getMemorySignature(memory);
+  EXPECT_EQ(signature.width, 8u);
+  EXPECT_EQ(signature.depth, 4u);
+  EXPECT_EQ(signature.readPorts, 1u);
+  EXPECT_EQ(signature.writePorts, 1u);
+  EXPECT_EQ(signature.resetMode, NLDB0::MemoryResetMode::None);
+  EXPECT_EQ(memory->getInstTerm(NLDB0::getMemoryClock(memory->getModel()))->getNet(),
+      design->getScalarTerm(NLName("clk"))->getNet());
+  EXPECT_TRUE(memory->getInstTerm(NLDB0::getMemoryReset(memory->getModel()))->getNet()->isConstant0());
+  const auto flops = dffBits(design);
+  ASSERT_EQ(flops.size(), 12u); // Addresses and read register, no storage DFFs.
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (const auto& flop : flops) state[flop.output] = false;
+  unsigned words[4]{}, writeAddress = 0, readAddress = 0, registered = 0;
+  std::ifstream reference;
+  if (const auto* path = std::getenv("VHDL_MEMORY_REFERENCE")) {
+    reference.open(path);
+    ASSERT_TRUE(reference);
+  }
+  for (unsigned cycle = 0; cycle < 80; ++cycle) {
+    const bool reset = cycle == 0 || cycle == 17 || cycle == 39;
+    const bool enable = cycle > 0 && (cycle < 5 || cycle % 5 != 0);
+    const bool write = cycle < 5 || cycle % 3 != 0;
+    const unsigned data = (cycle * 37 + 11) & 255;
+    auto values = state;
+    for (const auto& [name, value] : std::vector<std::pair<std::string, bool>>{
+        {"ce", enable}, {"we", write}, {"reset", reset}})
+      values[design->getScalarTerm(NLName(name))->getNet()] = value;
+    for (unsigned bit = 0; bit < 8; ++bit)
+      values[design->getBusTerm(NLName("d"))->getBit(bit)->getNet()] = (data >> bit) & 1;
+    std::unordered_set<SNLBitNet*> visiting;
+    const auto nextMemories = naja::NL::test::nextMemoryState(memories, values);
+    for (const auto& flop : flops)
+      state[flop.output] = evaluateRTL(flop.data, values, visiting, &memories);
+    memories = nextMemories;
+    if (enable) {
+      registered = words[readAddress];
+      if (write) words[writeAddress] = data;
+    }
+    if (reset) writeAddress = readAddress = 0;
+    else if (enable) {
+      if (write) writeAddress = (writeAddress + 1) % 4;
+      readAddress = (readAddress + 1) % 4;
+    }
+    values = state;
+    unsigned actual[2]{};
+    for (unsigned output = 0; output < 2; ++output)
+      for (unsigned bit = 0; bit < 8; ++bit)
+        if (evaluateRTL(design->getBusTerm(NLName(output ? "async_q" : "q"))->getBit(bit)->getNet(),
+                        values, visiting, &memories)) actual[output] |= 1u << bit;
+    EXPECT_EQ(actual[0], registered) << cycle;
+    EXPECT_EQ(actual[1], words[readAddress]) << cycle;
+    if (reference.is_open() && cycle >= 6) {
+      unsigned q, asynchronous;
+      ASSERT_TRUE(reference >> q >> asynchronous);
+      EXPECT_EQ(actual[0], q) << cycle;
+      EXPECT_EQ(actual[1], asynchronous) << cycle;
+    }
+  }
+  if (reference.is_open()) { std::string trailing; EXPECT_FALSE(reference >> trailing); }
+  if (const auto* directory = std::getenv("VHDL_MEMORY_DUMP")) {
+    SNLVRLDumper dumper;
+    dumper.setSingleFile(true);
+    dumper.setTopFileName("memory_test.v");
+    dumper.dumpDesign(design, directory);
+  }
+}
+
+TEST_F(VHDLConstructorTest, InferredMemoryBoundsWordOrderAndReadPorts) {
+  for (const auto& [bounds, low, high, width] :
+       std::vector<std::tuple<std::string, unsigned, unsigned, unsigned>>{
+           {"0 to 3", 0, 3, 4}, {"3 downto 1", 1, 3, 4},
+           {"2 to 4", 2, 4, 4}, {"7 downto 7", 7, 7, 1}}) {
+    SCOPED_TRACE(bounds);
+    const auto wordRange = "4 to " + std::to_string(3 + width);
+    auto* design = VHDLConstructor(library_).construct(
+        "library ieee; use ieee.std_logic_1164.all; use ieee.std_logic_arith.all; "
+        "use ieee.std_logic_unsigned.all; "
+        "entity bounded_ram is port(clk, ce, we : in std_logic; "
+        "wa, ra : in std_logic_vector(3 downto 0); d : in std_logic_vector(" + wordRange + "); "
+        "q, direct, first_word : out std_logic_vector(" + wordRange + ")); end; "
+        "architecture rtl of bounded_ram is type words is array(" + bounds + ") of std_logic_vector(" +
+        wordRange + "); signal ram, copied : words; begin "
+        "copied <= ram; direct <= ram(conv_integer(ra)); first_word <= copied(" + std::to_string(low) + "); "
+        "process(clk) variable address : integer range 0 to 15; begin if rising_edge(clk) then "
+        "address := conv_integer(wa); if ce = '1' then if we = '1' then ram(address) <= d; end if; "
+        "q <= ram(conv_integer(ra)); end if; end if; end process; end;");
+    auto memories = naja::NL::test::zeroMemoryState(design);
+    ASSERT_EQ(memories.size(), 1u);
+    const auto signature = NLDB0::getMemorySignature(memories.begin()->first);
+    EXPECT_EQ(signature.width, width);
+    EXPECT_EQ(signature.depth, high - low + 1);
+    EXPECT_GE(signature.readPorts, 2u);
+    const auto flops = dffBits(design);
+    ASSERT_EQ(flops.size(), width);
+    std::unordered_map<SNLBitNet*, bool> state;
+    for (const auto& flop : flops) state[flop.output] = false;
+    std::vector<unsigned> words(high - low + 1);
+    unsigned registered = 0;
+    for (unsigned cycle = 0; cycle < 100; ++cycle) {
+      // Includes indices outside the array and with nonzero truncated high bits.
+      const auto wa = cycle % 16, ra = cycle % 3 ? wa : (cycle + 5) % 16;
+      const unsigned data = (cycle * 3 + 1) & ((1u << width) - 1);
+      const bool ce = cycle % 5 != 0, we = cycle % 7 != 0;
+      auto values = state;
+      values[design->getScalarTerm(NLName("ce"))->getNet()] = ce;
+      values[design->getScalarTerm(NLName("we"))->getNet()] = we;
+      for (const auto& [name, value] : std::vector<std::pair<std::string, unsigned>>{
+          {"wa", wa}, {"ra", ra}, {"d", data}}) {
+        auto* term = design->getBusTerm(NLName(name));
+        for (unsigned i = 0; i < term->getWidth(); ++i)
+          values[term->getBitAtPosition(i)->getNet()] = (value >> (term->getWidth()-1-i)) & 1;
+      }
+      const unsigned read = ra >= low && ra <= high ? words[ra-low] : 0;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned i = 0; i < width; ++i) {
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("direct"))->getBitAtPosition(i)->getNet(),
+                             values, visiting, &memories), bool((read >> (width-1-i)) & 1));
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("first_word"))->getBitAtPosition(i)->getNet(),
+                             values, visiting, &memories), bool((words.front() >> (width-1-i)) & 1));
+      }
+      const auto nextMemories = naja::NL::test::nextMemoryState(memories, values);
+      for (const auto& flop : flops)
+        state[flop.output] = evaluateRTL(flop.data, values, visiting, &memories);
+      memories = nextMemories;
+      if (ce) {
+        registered = read;
+        if (we && wa >= low && wa <= high) words[wa-low] = data;
+      }
+      for (unsigned i = 0; i < width; ++i)
+        EXPECT_EQ(state.at(design->getBusTerm(NLName("q"))->getBitAtPosition(i)->getNet()),
+                  bool((registered >> (width-1-i)) & 1)) << cycle;
+      EXPECT_EQ(memories.begin()->second, std::vector<uint64_t>(words.begin(), words.end()));
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, MemoryInferenceFallsBackForMultiplePartialAndLoopWrites) {
+  for (const auto& [writes, initializer] : std::vector<std::pair<std::string, std::string>>{
+      {"ram(conv_integer(a)) <= d; ram(conv_integer(b)) <= d;", ""},
+      {"ram(conv_integer(a))(3 downto 2) <= d(3 downto 2); ram(conv_integer(a))(1 downto 0) <= d(1 downto 0);", ""},
+      {"for i in 0 to 1 loop ram(conv_integer(a)) <= d; end loop;", ""},
+      {"ram(conv_integer(a)) <= d;", " := (others => (others => '0'))"}}) {
+    SCOPED_TRACE(writes);
+    auto* design = VHDLConstructor(library_).construct(
+        "library ieee; use ieee.std_logic_1164.all; use ieee.std_logic_arith.all; "
+        "use ieee.std_logic_unsigned.all; entity fallback is port(clk : in std_logic; "
+        "a, b : in std_logic_vector(1 downto 0); d : in std_logic_vector(3 downto 0); "
+        "q : out std_logic_vector(3 downto 0)); end; architecture rtl of fallback is "
+        "type words is array(0 to 3) of std_logic_vector(3 downto 0); signal ram : words" + initializer + "; "
+        "begin q <= ram(conv_integer(a)); process(clk) begin if rising_edge(clk) then " +
+        std::string(writes) + " end if; end process; end;");
+    EXPECT_TRUE(naja::NL::test::zeroMemoryState(design).empty());
+    EXPECT_EQ(dffBits(design).size(), 16u);
+    design->destroy();
   }
 }

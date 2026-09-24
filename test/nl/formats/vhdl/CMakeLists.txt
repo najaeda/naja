@@ -2,6 +2,7 @@
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_MEMORY="${CMAKE_CURRENT_SOURCE_DIR}/memory.vhd"
   SNL_VHDL_GENERATED_FIR="${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd"
   SNL_VHDL_LOGICAL="${CMAKE_CURRENT_SOURCE_DIR}/logical.vhd"
   SNL_VHDL_HIERARCHY="${CMAKE_CURRENT_SOURCE_DIR}/hierarchy.vhd"
@@ -19,6 +20,7 @@ target_compile_definitions(snlVHDLConstructorTests PRIVATE
 target_link_libraries(snlVHDLConstructorTests
   naja_snl_vhdl
   naja_snl_systemverilog
+  naja_snl_verilog
   gtest_main)
 gtest_discover_tests(snlVHDLConstructorTests)
 
@@ -35,6 +37,17 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
       --source "${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd" --top fir_generated
       --lanes 4 --width 5 --test VHDLConstructorTest.GeneratedFIRHierarchyCycles)
   set_tests_properties(VHDLGeneratedFIRReference PROPERTIES TIMEOUT 180)
+  find_program(VHDL_IVERILOG_EXECUTABLE iverilog)
+  find_program(VHDL_VVP_EXECUTABLE vvp)
+  set(VHDL_MEMORY_DUMP_ARGS)
+  if(VHDL_IVERILOG_EXECUTABLE AND VHDL_VVP_EXECUTABLE)
+    list(APPEND VHDL_MEMORY_DUMP_ARGS --iverilog "${VHDL_IVERILOG_EXECUTABLE}" --vvp "${VHDL_VVP_EXECUTABLE}")
+  endif()
+  add_test(NAME VHDLMemoryReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_memory.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>
+      ${VHDL_MEMORY_DUMP_ARGS})
+  set_tests_properties(VHDLMemoryReference PROPERTIES TIMEOUT 180)
   add_test(NAME VHDLPipelineReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_pipeline.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)

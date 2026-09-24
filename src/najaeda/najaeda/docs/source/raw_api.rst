@@ -327,6 +327,12 @@ expert reference above.
    inside nested generate statements. Otherwise, specify ``top`` explicitly.
    The basic structural hierarchy path still requires an explicit ``top``.
 
+   A single dynamically indexed whole-word clocked write site can infer an
+   uninitialized array as an NLDB0 RAM primitive. Read registers remain explicit
+   DFFs, preserving enables and old-data read/write collisions. Address reset
+   leaves memory contents intact. See :doc:`loading` for inference limits and
+   cases that retain register/mux lowering.
+
    The experimental two-state RTL subset supports constrained arrays, package
    array types and positional constant aggregates, binary/octal/hex literals,
    static slices and loops, nested ``for generate`` statements containing assignments

@@ -18,36 +18,85 @@
 #include <vector>
 
 namespace naja::NL::test {
+struct DFFBit {
+  SNLBitNet* clock;
+  SNLBitNet* data;
+  SNLBitNet* output;
+};
+
+inline std::vector<DFFBit> dffBits(SNLDesign* design) {
+  std::vector<DFFBit> bits;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    if (!NLDB0::isDFF(model)) continue;
+    auto* clock = instance->getInstTerm(model->getScalarTerm(NLName("C")))->getNet();
+    for (auto* term : instance->getInstTerms()) {
+      if (term->getDirection() != SNLTerm::Direction::Output) continue;
+      auto* output = dynamic_cast<SNLBusTermBit*>(term->getBitTerm());
+      SNLBitTerm* data = output ? static_cast<SNLBitTerm*>(model->getBusTerm(NLName("D"))->getBit(output->getBit()))
+          : model->getScalarTerm(NLName("D"));
+      bits.push_back({clock, instance->getInstTerm(data)->getNet(), term->getNet()});
+    }
+  }
+  return bits;
+}
+
+using MemoryState = std::unordered_map<SNLInstance*, std::vector<uint64_t>>;
+
+inline MemoryState zeroMemoryState(SNLDesign* design) {
+  MemoryState state;
+  for (auto* instance : design->getInstances()) if (NLDB0::isMemory(instance->getModel())) {
+    const auto signature = NLDB0::getMemorySignature(instance);
+    if (signature.width > 64) throw std::runtime_error("test memory word exceeds 64 bits");
+    state[instance].resize(signature.depth, 0);
+  }
+  return state;
+}
+
 // Evaluate the actual canonical primitive connectivity, with flop outputs
 // supplied as the current state. This also catches undriven data and cycles.
 inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& values,
-                 std::unordered_set<SNLBitNet*>& visiting) {
+                 std::unordered_set<SNLBitNet*>& visiting, const MemoryState* memories = nullptr) {
   if (net->isConstant0()) return false;
   if (net->isConstant1()) return true;
   if (const auto found = values.find(net); found != values.end()) return found->second;
   if (!visiting.insert(net).second) throw std::runtime_error("combinational cycle");
   SNLInstance* driver = nullptr;
+  SNLBitTerm* output = nullptr;
   for (auto* term : net->getInstTerms())
     if (term->getDirection() == SNLTerm::Direction::Output) {
       if (driver) throw std::runtime_error("multiple drivers");
       driver = term->getInstance();
+      output = term->getBitTerm();
     }
   if (!driver || NLDB0::isDFF(driver->getModel())) throw std::runtime_error("missing data/state");
   auto* model = driver->getModel();
   const auto read = [&](SNLBitTerm* term) {
-    return evaluateRTL(driver->getInstTerm(term)->getNet(), values, visiting);
+    return evaluateRTL(driver->getInstTerm(term)->getNet(), values, visiting, memories);
   };
   bool value;
-  if (NLDB0::isMux2(model)) {
+  if (NLDB0::isMemory(model)) {
+    if (!memories) throw std::runtime_error("missing memory state");
+    const auto signature = NLDB0::getMemorySignature(driver);
+    const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
+    const auto port = bit / signature.width;
+    size_t address = 0;
+    for (size_t i = 0; i < signature.abits; ++i)
+      if (read(NLDB0::getMemoryReadAddress(model)->getBit(port * signature.abits + i)))
+        address |= size_t(1) << i;
+    value = address < signature.depth &&
+        ((memories->at(driver).at(address) >> (bit % signature.width)) & 1);
+  } else if (NLDB0::isMux2(model)) {
+    const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
     value = read(NLDB0::getMux2Select(model))
-        ? read(NLDB0::getMux2InputB(model)->getBit(0))
-        : read(NLDB0::getMux2InputA(model)->getBit(0));
+        ? read(NLDB0::getMux2InputB(model)->getBit(bit))
+        : read(NLDB0::getMux2InputA(model)->getBit(bit));
   } else {
     if (!NLDB0::isGate(model)) throw std::runtime_error("unexpected primitive");
     SNLTruthTable::ConstantInputs inputs;
     for (auto* term : driver->getInstTerms())
       if (term->getDirection() == SNLTerm::Direction::Input)
-        inputs.emplace_back(inputs.size(), evaluateRTL(term->getNet(), values, visiting));
+        inputs.emplace_back(inputs.size(), evaluateRTL(term->getNet(), values, visiting, memories));
     const auto table = NLDB0::getPrimitiveTruthTable(model);
     const auto dependencies = SNLTruthTable::fullDependencies(inputs.size());
     const auto normalized = table.getGenericType() == SNLTruthTable::GenericType::NONE
@@ -58,6 +107,32 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
   visiting.erase(net);
   values[net] = value;
   return value;
+}
+
+// Sample all memory inputs using pre-edge state. Call before replacing DFF
+// state to preserve VHDL signal scheduling and read-before-write collisions.
+inline MemoryState nextMemoryState(const MemoryState& current,
+                                   std::unordered_map<SNLBitNet*, bool>& values) {
+  auto next = current;
+  std::unordered_set<SNLBitNet*> visiting;
+  for (const auto& [instance, words] : current) {
+    auto* model = instance->getModel();
+    const auto signature = NLDB0::getMemorySignature(instance);
+    const auto read = [&](SNLBusTerm* term, size_t offset, size_t width) {
+      uint64_t value = 0;
+      for (size_t i = 0; i < width; ++i)
+        if (evaluateRTL(instance->getInstTerm(term->getBit(offset+i))->getNet(), values, visiting, &current))
+          value |= uint64_t(1) << i;
+      return value;
+    };
+    for (size_t port = 0; port < signature.writePorts; ++port) {
+      if (!read(NLDB0::getMemoryWriteEnable(model), signature.writePorts - 1 - port, 1)) continue;
+      const auto address = read(NLDB0::getMemoryWriteAddress(model), port * signature.abits, signature.abits);
+      if (address < signature.depth)
+        next.at(instance)[address] = read(NLDB0::getMemoryWriteData(model), port * signature.width, signature.width);
+    }
+  }
+  return next;
 }
 
 inline std::vector<unsigned> firInputs(unsigned lanes) {
