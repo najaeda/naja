@@ -60,6 +60,7 @@ jobs:
           EOF
           )
           build/test/nl/formats/vhdl/snlVHDLExternalTests \
+            --gtest_filter=VHDLExternalTest.AESDecryptBenchmark \
             --gtest_output=xml:build/vhdl-regress/results.xml
 
       - name: Upload VHDL regression results

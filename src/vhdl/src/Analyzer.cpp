@@ -115,21 +115,42 @@ std::optional<std::int64_t> evaluateInteger(
             const auto right = evaluateInteger(*expression.right, values);
             if (!left || !right)
                 return std::nullopt;
-            const auto checked = [&](const __int128 value) -> std::optional<std::int64_t> {
-                if (value < std::numeric_limits<std::int64_t>::min() ||
-                    value > std::numeric_limits<std::int64_t>::max())
+            const auto min = std::numeric_limits<std::int64_t>::min();
+            const auto max = std::numeric_limits<std::int64_t>::max();
+            if (expression.text == "+") {
+                if ((*right > 0 && *left > max - *right) ||
+                    (*right < 0 && *left < min - *right))
                     return std::nullopt;
-                return static_cast<std::int64_t>(value);
-            };
-            if (expression.text == "+")
-                return checked(static_cast<__int128>(*left) + *right);
-            if (expression.text == "-")
-                return checked(static_cast<__int128>(*left) - *right);
-            if (expression.text == "*")
-                return checked(static_cast<__int128>(*left) * *right);
+                return *left + *right;
+            }
+            if (expression.text == "-") {
+                if ((*right > 0 && *left < min + *right) ||
+                    (*right < 0 && *left > max + *right))
+                    return std::nullopt;
+                return *left - *right;
+            }
+            if (expression.text == "*") {
+                if (*left > 0) {
+                    if ((*right > 0 && *left > max / *right) ||
+                        (*right < 0 && *right < min / *left))
+                        return std::nullopt;
+                } else if (*left < 0) {
+                    if ((*right > 0 && *left < min / *right) ||
+                        (*right < 0 && *left < max / *right))
+                        return std::nullopt;
+                }
+                return *left * *right;
+            }
             if ((expression.text == "/" || expression.text == "mod" ||
                  expression.text == "rem") && *right == 0)
                 return std::nullopt;
+            // Signed division and remainder both overflow for min / -1.
+            if (*left == min && *right == -1) {
+                if (expression.text == "/")
+                    return std::nullopt;
+                if (expression.text == "rem" || expression.text == "mod")
+                    return 0;
+            }
             if (expression.text == "/")
                 return *left / *right;
             if (expression.text == "rem")

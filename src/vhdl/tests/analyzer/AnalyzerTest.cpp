@@ -3,6 +3,7 @@
 
 #include "vhdl/Analyzer.h"
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace {
 
@@ -52,6 +53,47 @@ architecture rtl of top is begin
   u: entity work.leaf generic map(n => 0) port map(q);
 end;
 )").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ChecksIntegerArithmeticBoundaries) {
+    const auto min = std::numeric_limits<std::int64_t>::min();
+    const auto max = std::numeric_limits<std::int64_t>::max();
+    const std::vector<std::pair<std::string, std::optional<std::int64_t>>> cases{
+        {"hi + 0", max}, {"lo + 0", min},
+        {"hi + 1", std::nullopt}, {"lo + (-1)", std::nullopt},
+        {"hi + lo", -1}, {"lo - lo", 0}, {"hi - hi", 0},
+        {"lo - 1", std::nullopt}, {"hi - (-1)", std::nullopt},
+        {"hi * 1", max}, {"lo * 1", min},
+        {"1 * lo", min}, {"lo * 0", 0}, {"0 * lo", 0},
+        {"hi * 2", std::nullopt}, {"2 * hi", std::nullopt},
+        {"lo * 2", std::nullopt}, {"2 * lo", std::nullopt},
+        {"lo * (-1)", std::nullopt}, {"(-1) * lo", std::nullopt},
+        {"(-2) * (-3)", 6}, {"(-2) * 3", -6}, {"2 * (-3)", -6},
+        {"(-4611686018427387904) * 2", min},
+        {"(-4611686018427387904) * (-2)", std::nullopt},
+        {"lo / (-1)", std::nullopt}, {"lo / 1", min},
+        {"lo rem (-1)", 0}, {"lo mod (-1)", 0},
+        {"1 / 0", std::nullopt}, {"1 rem 0", std::nullopt},
+        {"1 mod 0", std::nullopt}, {"-lo", std::nullopt},
+        {"(-7) rem 3", -1}, {"(-7) mod 3", 2},
+        {"7 rem (-3)", 1}, {"7 mod (-3)", -2},
+    };
+    for (const auto& [expression, expected] : cases) {
+        SCOPED_TRACE(expression);
+        const auto parsed = vhdl::Parser::parse(
+            "entity leaf is generic(hi : integer := 9223372036854775807; "
+            "lo : integer := -9223372036854775807 - 1; "
+            "value : integer := " + expression + "); end; "
+            "entity top is end; architecture rtl of top is begin "
+            "u: entity work.leaf port map(); end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+        EXPECT_EQ(result.hasErrors(), !expected.has_value());
+        if (expected) {
+            const auto& instance = parsed.syntax.architectures[0].instantiations[0];
+            EXPECT_EQ(result.getGenericValue(instance, "value"), expected);
+        }
+    }
 }
 
 
