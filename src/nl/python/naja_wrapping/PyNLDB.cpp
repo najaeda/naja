@@ -452,10 +452,11 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
 PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* file = nullptr;
   PyObject* topObject = nullptr;
-  static const char* const kwords[] = {"file", "top", nullptr};
+  PyObject* diagnosticsReportPath = nullptr;
+  static const char* const kwords[] = {"file", "top", "diagnostics_report_path", nullptr};
   if (not PyArg_ParseTupleAndKeywords(
-      args, kwargs, "O|O:NLDB.loadVHDL", const_cast<char**>(kwords),
-      &file, &topObject)) {
+      args, kwargs, "O|OO:NLDB.loadVHDL", const_cast<char**>(kwords),
+      &file, &topObject, &diagnosticsReportPath)) {
     return nullptr;
   }
   if (not PyUnicode_Check(file)) {
@@ -484,6 +485,24 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     }
   }
 
+  VHDLConstructor::ConstructOptions options;
+  if (diagnosticsReportPath == Py_None) {
+    options.diagnosticsReportPath.reset();
+  } else if (diagnosticsReportPath != nullptr) {
+    if (!PyUnicode_Check(diagnosticsReportPath)) {
+      PyErr_SetString(PyExc_TypeError,
+        "NLDB.loadVHDL: diagnostics_report_path must be a str or None");
+      return nullptr;
+    }
+    const std::string destination = PyUnicode_AsUTF8(diagnosticsReportPath);
+    if (destination.empty()) {
+      PyErr_SetString(PyExc_ValueError,
+        "NLDB.loadVHDL: diagnostics_report_path must not be empty; use None for console-only");
+      return nullptr;
+    }
+    options.diagnosticsReportPath = destination;
+  }
+
   METHOD_HEAD("NLDB.loadVHDL()")
   NLDB* db = selfObject;
   SNLDesign* design = nullptr;
@@ -492,7 +511,7 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   if (designLibrary == nullptr) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
   }
-  design = VHDLConstructor(designLibrary).constructFile(path, top);
+  design = VHDLConstructor(designLibrary, options).constructFile(path, top);
   if (design) NLUniverse::get()->setTopDesign(design);
   NLUniverse::get()->setTopDB(db);
   NLCATCH
@@ -872,6 +891,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
     "Args:\n"
     "  file (str): input VHDL file\n"
+    "  diagnostics_report_path (str | None): all warning occurrences; defaults to naja_vhdl_diagnostics.log.\n"
     "  top (str | None, optional): entity selected as the structural top"},
   { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
     "create a design from SystemVerilog format.\n\n"

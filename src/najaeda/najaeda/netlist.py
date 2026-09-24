@@ -2301,7 +2301,9 @@ def load_system_verilog(
     return top
 
 
-def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None) -> Instance:
+def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
+              diagnostics_report_path: Optional[Union[str, os.PathLike]] =
+              "naja_vhdl_diagnostics.log") -> Instance:
     """Load one VHDL source file into the top design.
 
     VHDL loading is experimental and currently supports the bounded ``bit`` and
@@ -2312,12 +2314,22 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None) -> Insta
 
     :param file: the VHDL source file to load.
     :param top: optional top entity name for structural hierarchy.
+    :param diagnostics_report_path: report for all warning occurrences, overwritten
+        per load; None selects console-only. Console warnings appear once per code.
     :return: the top Instance.
     :rtype: Instance
     :raises TypeError: if file or top has the wrong type.
     :raises ValueError: if file or top is empty, or file is not a regular file.
     :raises FileNotFoundError: if file does not exist.
     """
+    if diagnostics_report_path is not None:
+        if not isinstance(diagnostics_report_path, (str, os.PathLike)):
+            raise TypeError("load_vhdl diagnostics_report_path must be a path string or None")
+        diagnostics_report_path = os.fspath(diagnostics_report_path)
+        if not isinstance(diagnostics_report_path, str):
+            raise TypeError("load_vhdl diagnostics_report_path must be a path string or None")
+        if not diagnostics_report_path.strip():
+            raise ValueError("load_vhdl diagnostics_report_path must not be empty; use None for console-only")
     if not isinstance(file, (str, os.PathLike)):
         raise TypeError(
             "VHDL file must be a path string "
@@ -2345,7 +2357,7 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None) -> Insta
     logger.info(f"Starting VHDL loading for file: {path}")
     if top is not None:
         logger.info(f"VHDL loading top override requested: {top}")
-    __get_top_db().loadVHDL(path, top=top)
+    __get_top_db().loadVHDL(path, top=top, diagnostics_report_path=diagnostics_report_path)
     execution_time = time.time() - start_time
     loaded_top = get_top()
     logger.info(

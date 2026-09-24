@@ -6,6 +6,7 @@
 #include "NLLibrary.h"
 
 #include <filesystem>
+#include <optional>
 #include <string_view>
 
 namespace naja::NL {
@@ -17,7 +18,14 @@ class SNLDesign;
 /// The standalone VHDL frontend remains independent of this class and SNL.
 class VHDLConstructor {
   public:
+    struct ConstructOptions {
+      /// All warning occurrences, overwritten per load; nullopt is console-only.
+      std::optional<std::filesystem::path> diagnosticsReportPath {"naja_vhdl_diagnostics.log"};
+    };
+
     explicit VHDLConstructor(NLLibrary* library) : library_(library) {}
+    VHDLConstructor(NLLibrary* library, const ConstructOptions& options)
+      : library_(library), options_(options) {}
 
     /// Parse and lower one entity/architecture with one bit or constrained
     /// bit_vector expression, including logical gates and a conditional assignment,
@@ -49,6 +57,7 @@ class VHDLConstructor {
     SNLDesign* constructSource(std::string_view source, std::string_view top,
                                const std::string& path) const;
     NLLibrary* library_;
+    ConstructOptions options_;
 };
 
 }  // namespace naja::NL

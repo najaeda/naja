@@ -127,6 +127,17 @@ ci/check_submodule_bazel_sync.py`.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
 
+## VHDL and SystemVerilog loading alignment
+
+Keep VHDL and SystemVerilog loading behavior and APIs parallel wherever practical.
+Use the existing SystemVerilog loader as the reference for API names, defaults,
+configuration options, diagnostics, warning deduplication and suppression, report
+file routing, and error handling. Apply this consistently across the C++ loaders,
+raw Python bindings, and high-level `najaeda.netlist` APIs. Prefer matching an
+existing SV convention over introducing a VHDL-specific one. Differences should
+reflect language requirements or clearly documented implementation limits; update
+the relevant documentation and focused tests when introducing such differences.
+
 ## Primitive timing-model alignment
 
 `SNLDesignModeling.h` is the canonical C++ primitive timing-model API. Timing

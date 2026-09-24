@@ -962,7 +962,9 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
         if (!architecture.generates.empty())
             result.diagnostics.push_back({"generate statements require RTL elaboration", architecture.span});
         for (const auto& instance : architecture.instantiations)
-            if (std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
+            if (std::any_of(instance.actualOpen.begin(), instance.actualOpen.end(),
+                [](bool open) { return open; }) || std::any_of(instance.actualLiterals.begin(), instance.actualLiterals.end(),
+                [](const auto& literal) { return bool(literal); }) || std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
                     [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
                     [](const auto& formal) { return formal.has_value(); }))
                 result.diagnostics.push_back({"named/component binding requires RTL elaboration", instance.span});
@@ -1232,6 +1234,10 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
             }
         }
         const auto checkAssignment = [&](const Assignment& assignment) {
+            if (assignment.selector) {
+                result.diagnostics.push_back({"selected assignments require RTL elaboration", assignment.span});
+                return;
+            }
             if (!assignment.indices.empty()) {
                 result.diagnostics.push_back(
                     {"indexed assignments require RTL elaboration", assignment.span});

@@ -54,7 +54,7 @@ struct LexResult {
 /// Handwritten VHDL scanner. Source spelling and byte-based locations are retained.
 class Lexer {
 public:
-    static LexResult scan(std::string_view source);
+    static LexResult scan(std::string_view source, bool synthesis = false);
 };
 
 } // namespace vhdl

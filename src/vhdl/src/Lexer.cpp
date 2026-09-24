@@ -4,13 +4,14 @@
 #include "vhdl/Lexer.h"
 
 #include <unordered_set>
+#include <sstream>
 
 namespace vhdl {
 namespace {
 
 class Scanner {
 public:
-    explicit Scanner(std::string_view source) : source_(source) {}
+    explicit Scanner(std::string_view source, bool synthesis) : source_(source), synthesis_(synthesis) {}
 
     LexResult run() {
         while (!atEnd()) {
@@ -32,6 +33,8 @@ public:
             else
                 scanSymbol(start);
         }
+        if (excluded_)
+            result_.diagnostics.push_back({"unterminated translate_off region", {exclusionStart_, position_}});
         result_.tokens.push_back({TokenKind::EndOfFile, {}, {}, {position_, position_}});
         return std::move(result_);
     }
@@ -70,12 +73,14 @@ private:
     }
 
     void emit(TokenKind kind, SourcePosition start, std::string canonical = {}) {
+        if (excluded_) return;
         const auto text = std::string(
             source_.substr(start.offset, position_.offset - start.offset));
         result_.tokens.push_back({kind, text, std::move(canonical), {start, position_}});
     }
 
     void diagnose(std::string message, SourcePosition start) {
+        if (excluded_) return;
         result_.diagnostics.push_back({std::move(message), {start, position_}});
     }
 
@@ -87,8 +92,24 @@ private:
                 return;
             if (peek(1) != '-')
                 return;
+            const auto start = position_;
             while (!atEnd() && peek() != '\n')
                 advance();
+            if (synthesis_) {
+                auto comment = std::string(source_.substr(start.offset + 2, position_.offset - start.offset - 2));
+                for (auto& c : comment) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+                std::istringstream words(comment);
+                std::string prefix, command;
+                words >> prefix >> command;
+                if (prefix != "pragma" && prefix != "synthesis" && prefix != "synopsys") continue;
+                if (command == "translate_off") {
+                    if (excluded_) result_.diagnostics.push_back({"nested translate_off is unsupported", {start, position_}});
+                    else { excluded_ = true; exclusionStart_ = start; }
+                } else if (command == "translate_on") {
+                    if (!excluded_) result_.diagnostics.push_back({"translate_on without translate_off", {start, position_}});
+                    excluded_ = false;
+                }
+            }
         }
     }
 
@@ -279,14 +300,17 @@ private:
     }
 
     std::string_view source_;
+    bool synthesis_ = false;
+    bool excluded_ = false;
+    SourcePosition exclusionStart_;
     SourcePosition position_;
     LexResult result_;
 };
 
 } // namespace
 
-LexResult Lexer::scan(std::string_view source) {
-    return Scanner(source).run();
+LexResult Lexer::scan(std::string_view source, bool synthesis) {
+    return Scanner(source, synthesis).run();
 }
 
 } // namespace vhdl

@@ -3209,3 +3209,596 @@ TEST_F(VHDLConstructorTest, RejectsInvalidFunctionExits) {
       " end; begin y <= '1' when f = 0 else '0'; end;"), NLException);
   }
 }
+
+TEST_F(VHDLConstructorTest, LiteralPortActualsPreserveFormalBitOrder) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity literal_leaf is port(a : in bit; b : in bit_vector(2 to 5); y : out bit); end;
+architecture rtl of literal_leaf is begin y <= a xor b(2); end;
+entity literal_top is port(y : out bit_vector(0 to 2)); end;
+architecture rtl of literal_top is
+  component literal_leaf is port(a : in bit; b : in bit_vector(2 to 5); y : out bit); end component;
+begin
+  p: entity work.literal_leaf port map('1', "1010", y(0));
+  n: entity work.literal_leaf port map(y => y(1), b => x"a", a => '1');
+  c: literal_leaf port map(a => '1', b => b"1010", y => y(2));
+end;
+)", "literal_top");
+  ASSERT_NE(design, nullptr);
+  ASSERT_EQ(design->getInstances().size(), 3u);
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    EXPECT_TRUE(instance->getInstTerm(model->getScalarTerm(NLName("a")))->getNet()->isConstant1());
+    auto* bus = model->getBusTerm(NLName("b"));
+    for (int i = 2; i <= 5; ++i) {
+      auto* net = instance->getInstTerm(bus->getBit(i))->getNet();
+      EXPECT_EQ(net->isConstant1(), i % 2 == 0);
+      EXPECT_EQ(net->isConstant0(), i % 2 != 0);
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidLiteralPortActuals) {
+  for (const auto* ports : {
+      "'1', \"10\", y", "'X', \"1010\", y", "'1', \"1010\", '0'",
+      "'1', '0', y", "'1', \"10Z0\", y", "a => '1', b => \"1010\", a => '0'"
+  }) {
+    SCOPED_TRACE(ports);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(R"(
+entity bad_literal_leaf is port(a : in bit; b : in bit_vector(3 downto 0); y : out bit); end;
+architecture rtl of bad_literal_leaf is begin y <= a; end;
+entity bad_literal_top is port(y : out bit); end;
+architecture rtl of bad_literal_top is begin
+  u: entity work.bad_literal_leaf port map(
+)") + ports + "); end;", "bad_literal_top"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, SelectedAssignmentsDecodeExhaustiveAndOthersChoices) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity selected_top is port(s : in bit_vector(1 downto 0); d : in bit; y : out bit_vector(1 downto 0)); end;
+architecture rtl of selected_top is begin
+  with s select y(0) <= d when "00" | "10", not d when "01", '1' when "11";
+  g: if true generate
+    with s select y(1) <= '0' when "00", d when others;
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  for (unsigned pattern = 0; pattern < 8; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    values[design->getScalarTerm(NLName("d"))->getNet()] = pattern & 4;
+    for (unsigned i = 0; i < 2; ++i)
+      values[design->getBusTerm(NLName("s"))->getBit(i)->getNet()] = (pattern >> i) & 1;
+    const auto select = pattern & 3;
+    const bool data = pattern & 4;
+    EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(0)->getNet(), values, visiting),
+              select == 3 || (select == 1 ? !data : data));
+    EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(1)->getNet(), values, visiting),
+              select != 0 && data);
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidSelectedAssignmentChoices) {
+  for (const auto* alternatives : {
+      "'0' when \"00\"", "'0' when \"00\", '1' when \"00\", '0' when others",
+      "'0' when s, '1' when others", "'0' when others, '1' when \"00\"",
+      "\"00\" when \"00\", '0' when others"
+  }) {
+    SCOPED_TRACE(alternatives);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+      "entity bad_selected is port(s : in bit_vector(1 downto 0); y : out bit); end; "
+      "architecture rtl of bad_selected is begin with s select y <= ") + alternatives + "; end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, SynthesisExclusionsRemoveOnlyExplicitSimulationRegions) {
+  const auto source = R"(
+entity excluded_trace is port(y : out bit); end;
+architecture rtl of excluded_trace is
+-- pragma translate_off
+  file simulation_log : text;
+-- pragma translate_on
+begin
+-- synthesis translate_off
+  process begin wait; end process;
+-- synthesis translate_on
+  y <= '1';
+end;
+)";
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_NE(design, nullptr);
+  EXPECT_TRUE(design->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity active_file is end; architecture rtl of active_file is
+file simulation_log : text;
+begin end;
+)"), NLException);
+}
+
+TEST_F(VHDLConstructorTest, SynthesisIgnoresAssertionsAndReports) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity diagnostic_top is port(y : out bit); end;
+architecture rtl of diagnostic_top is
+  function value return integer is begin
+    report "function; message" severity failure;
+    return 1;
+  end function;
+  constant n : integer := value;
+begin
+  check_config: assert false report "ISA: " & unavailable_function("x") severity failure;
+  postponed assert false;
+  g: if n = 1 generate
+    check_generated: assert false report "generated" severity error;
+    process(all) begin
+      report "process";
+      case n is
+        when 1 => assert false severity failure;
+        when others => report "other";
+      end case;
+      y <= '1';
+    end process;
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  EXPECT_TRUE(design->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, SynthesisWarningsAreDeduplicatedOnlyOnConsole) {
+  const auto directory = std::filesystem::temp_directory_path() / "naja-vhdl-warning-test";
+  const auto reportPath = directory / "reports" / "warnings.log";
+  VHDLConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  const auto source = R"(
+entity diagnostic_top is port(y : out bit); end;
+architecture rtl of diagnostic_top is begin
+  assert false report "first" severity failure;
+  assert false report "second";
+  process(all) begin
+    report "first";
+    report "second";
+    y <= '1';
+  end process;
+end;
+)";
+  testing::internal::CaptureStdout();
+  auto* design = VHDLConstructor(library_, options).construct(source);
+  const auto console = testing::internal::GetCapturedStdout();
+  ASSERT_NE(design, nullptr);
+  const auto count = [](const std::string& text, const std::string& needle) {
+    std::size_t occurrences = 0;
+    for (auto pos = text.find(needle); pos != std::string::npos;
+         pos = text.find(needle, pos + needle.size())) ++occurrences;
+    return occurrences;
+  };
+  std::ifstream input(reportPath);
+  const std::string report((std::istreambuf_iterator<char>(input)), {});
+  EXPECT_EQ(count(console, "[ignored-assertion]"), 1);
+  EXPECT_EQ(count(console, "[ignored-report]"), 1);
+  EXPECT_EQ(count(report, "[ignored-assertion]"), 2);
+  EXPECT_EQ(count(report, "[ignored-report]"), 2);
+  EXPECT_NE(report.find("<source>:4:3:"), std::string::npos);
+
+  // Diagnostics survive subsequent parse failure and replace the previous report.
+  EXPECT_THROW(VHDLConstructor(library_, options).construct(
+    "entity broken is end; architecture rtl of broken is begin "
+    "assert false; invalid; end;"), NLException);
+  std::ifstream failedInput(reportPath);
+  const std::string failedReport((std::istreambuf_iterator<char>(failedInput)), {});
+  EXPECT_EQ(count(failedReport, "[ignored-assertion]"), 1);
+  EXPECT_EQ(count(failedReport, "[ignored-report]"), 0);
+  std::filesystem::remove_all(directory);
+}
+
+TEST_F(VHDLConstructorTest, SynthesisWarningConsoleOnlyAndInvalidDestinations) {
+  VHDLConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+  testing::internal::CaptureStdout();
+  auto* design = VHDLConstructor(library_, options).construct(
+    "entity console_only is port(y : out bit); end; "
+    "architecture rtl of console_only is begin assert false; y <= '1'; end;");
+  const auto console = testing::internal::GetCapturedStdout();
+  ASSERT_NE(design, nullptr);
+  EXPECT_NE(console.find("console-only"), std::string::npos);
+  EXPECT_NE(console.find("[ignored-assertion]"), std::string::npos);
+  options.diagnosticsReportPath = "";
+  EXPECT_THROW(VHDLConstructor(library_, options).construct(""), NLException);
+  options.diagnosticsReportPath = std::filesystem::temp_directory_path();
+  EXPECT_THROW(VHDLConstructor(library_, options).construct(""), NLException);
+}
+
+TEST_F(VHDLConstructorTest, IndividualPortAssociationsPreserveElementAndSliceOrder) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity parts_leaf is generic(n : positive); port(a : in bit_vector(n-1 downto 0); y : out bit_vector(4 to 7)); end;
+architecture rtl of parts_leaf is begin y <= a; end;
+entity parts_top is port(a : in bit_vector(8 to 11); y : out bit_vector(3 downto 0)); end;
+architecture rtl of parts_top is
+  constant high : integer := 1 + 2;
+begin
+  u: entity work.parts_leaf generic map(4) port map(
+    A(high-1 downto 0) => a(9 to 11), a(high) => a(8),
+    y(6 to 7) => y(1 downto 0), y(4) => y(3), y(5) => y(2));
+end;
+)", "parts_top");
+  ASSERT_NE(top, nullptr);
+  auto* child = top->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  auto* model = child->getModel();
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("a"))->getBit(3-i))->getNet(),
+              top->getBusTerm(NLName("a"))->getBit(8+i)->getNet());
+    EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("y"))->getBit(4+i))->getNet(),
+              top->getBusTerm(NLName("y"))->getBit(3-i)->getNet());
+  }
+}
+
+TEST_F(VHDLConstructorTest, IndividualPortAssociationsSupportRecordsLiteralsAndComponents) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+package fields_pkg is
+  type pair_t is record flag : bit; data : bit_vector(1 downto 0); end record;
+end;
+use work.fields_pkg.all;
+entity fields_leaf is port(a : in pair_t; y : out pair_t); end;
+architecture rtl of fields_leaf is begin y <= a; end;
+use work.fields_pkg.all;
+entity fields_top is port(a : in pair_t; y : out pair_t); end;
+architecture rtl of fields_top is
+  component fields_leaf is port(a : in pair_t; y : out pair_t); end component;
+begin
+  u: fields_leaf port map(
+    a.flag => a.flag, a.data(0) => '1', a.data(1) => '0',
+    y.data => y.data, y.flag => y.flag);
+end;
+)", "fields_top");
+  auto* child = top->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  auto* model = child->getModel();
+  auto* a = model->getBusTerm(NLName("a"));
+  EXPECT_EQ(child->getInstTerm(a->getBitAtPosition(0))->getNet(),
+            top->getBusTerm(NLName("a"))->getBitAtPosition(0)->getNet());
+  EXPECT_TRUE(child->getInstTerm(a->getBitAtPosition(1))->getNet()->isConstant0());
+  EXPECT_TRUE(child->getInstTerm(a->getBitAtPosition(2))->getNet()->isConstant1());
+  for (int i = 0; i < 3; ++i)
+    EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("y"))->getBitAtPosition(i))->getNet(),
+              top->getBusTerm(NLName("y"))->getBitAtPosition(i)->getNet());
+}
+
+TEST_F(VHDLConstructorTest, IndividualSingleBitPortsInGenerate) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity bit_leaf is port(a : in bit_vector(0 downto 0); y : out bit_vector(0 downto 0)); end;
+architecture rtl of bit_leaf is begin y <= a; end;
+entity bit_top is port(a : in bit_vector(1 downto 0); y : out bit_vector(1 downto 0)); end;
+architecture rtl of bit_top is begin
+  g: for i in 0 to 1 generate
+    u: entity work.bit_leaf port map(a(0) => a(i), y(0) => y(i));
+  end generate;
+end;
+)", "bit_top");
+  for (int i = 0; i < 2; ++i) {
+    auto* child = top->getInstance(NLName("g[" + std::to_string(i) + "].u"));
+    ASSERT_NE(child, nullptr);
+    for (const auto* name : {"a", "y"})
+      EXPECT_EQ(child->getInstTerm(child->getModel()->getBusTerm(NLName(name))->getBit(0))->getNet(),
+                top->getBusTerm(NLName(name))->getBit(i)->getNet());
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidIndividualPortAssociations) {
+  for (const auto* mapping : {
+      "a(0) => d(0), y => q", // incomplete
+      "a(0) => d(0), a(0) => d(1), y => q", // duplicate
+      "a => d, a(0) => d(0), y => q", // whole/element overlap
+      "a(0) => d(0), y => q, a(1) => d(1)", // nonconsecutive
+      "a(0) => d(0), a(1) => d(1), q", // positional after named
+      "a(0) => d, a(1) => d(1), y => q", // width/type mismatch
+      "a(0 to 1) => d, y => q", // wrong slice direction
+      "a(2) => d(0), a(1) => d(1), y => q", // out of bounds
+      "a(0) => open, a(1) => d(1), y => q",
+      "a(missing) => d(0), a(1) => d(1), y => q",
+      "a(n) => d(0), a(1) => d(1), y => q", // generic is not locally static
+      "a(derived) => d(0), a(1) => d(1), y => q",
+      "a => d, y(0) => '0', y(1) => q(1)", // output literal
+      "a => d, y(0) => q(0), y(1) => q(0)" // overlapping output drivers
+  }) {
+    SCOPED_TRACE(mapping);
+    const auto before = library_->getSNLDesigns().size();
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(R"(
+entity invalid_parts_leaf is port(a : in bit_vector(1 downto 0); y : out bit_vector(1 downto 0)); end;
+architecture rtl of invalid_parts_leaf is begin y <= a; end;
+entity invalid_parts_top is generic(n : natural := 0); port(d : in bit_vector(1 downto 0); q : out bit_vector(1 downto 0)); end;
+architecture rtl of invalid_parts_top is
+  constant derived : integer := n;
+begin
+  u: entity work.invalid_parts_leaf port map(
+)") + mapping + "); end;", "invalid_parts_top"), NLException);
+    EXPECT_EQ(library_->getSNLDesigns().size(), before);
+  }
+}
+
+TEST_F(VHDLConstructorTest, IndividualComponentFormalsUseComponentBounds) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity remapped_leaf is port(a : in bit_vector(1 downto 0); y : out bit_vector(1 downto 0)); end;
+architecture rtl of remapped_leaf is begin y <= a; end;
+entity remapped_top is port(d : in bit_vector(1 downto 0); q : out bit_vector(1 downto 0)); end;
+architecture rtl of remapped_top is
+  component remapped_leaf is port(a : in bit_vector(4 to 5); y : out bit_vector(4 to 5)); end component;
+begin
+  u: remapped_leaf port map(a(4) => d(1), a(5) => d(0), y(4) => q(1), y(5) => q(0));
+end;
+)", "remapped_top");
+  auto* child = top->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  for (int i = 0; i < 2; ++i) {
+    EXPECT_EQ(child->getInstTerm(child->getModel()->getBusTerm(NLName("a"))->getBit(i))->getNet(),
+              top->getBusTerm(NLName("d"))->getBit(i)->getNet());
+    EXPECT_EQ(child->getInstTerm(child->getModel()->getBusTerm(NLName("y"))->getBit(i))->getNet(),
+              top->getBusTerm(NLName("q"))->getBit(i)->getNet());
+  }
+}
+
+TEST_F(VHDLConstructorTest, OpenOutputsRemainUnconnectedAcrossInstanceForms) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity open_leaf is port(a : in bit; y : out bit; unused : out bit_vector(2 to 4)); end;
+architecture rtl of open_leaf is begin y <= not a; unused <= (others => a); end;
+entity open_top is port(a : in bit; y : out bit_vector(0 to 2)); end;
+architecture rtl of open_top is
+  component open_leaf is port(a : in bit; y : out bit; unused : out bit_vector(2 to 4)); end component;
+begin
+  p: entity work.open_leaf port map(a, y(0), open);
+  c: open_leaf port map(unused => open, y => y(1), a => a);
+  g: for i in 2 to 2 generate
+    n: entity work.open_leaf port map(a => a, unused => open, y => y(i));
+  end generate;
+  all_open: entity work.open_leaf port map(a, open, open);
+end;
+)", "open_top");
+  ASSERT_NE(top, nullptr);
+  ASSERT_EQ(top->getInstances().size(), 4u);
+  for (auto* child : top->getInstances()) {
+    auto* model = child->getModel();
+    EXPECT_EQ(child->getInstTerm(model->getScalarTerm(NLName("a")))->getNet(),
+              top->getScalarTerm(NLName("a"))->getNet());
+    for (auto* bit : model->getBusTerm(NLName("unused"))->getBusBits())
+      EXPECT_EQ(child->getInstTerm(bit)->getNet(), nullptr);
+    auto* output = child->getInstTerm(model->getScalarTerm(NLName("y")))->getNet();
+    if (child->getName().getString() == "all_open") EXPECT_EQ(output, nullptr);
+    else {
+      const auto index = child->getName().getString() == "p" ? 0 : child->getName().getString() == "c" ? 1 : 2;
+      EXPECT_EQ(output, top->getBusTerm(NLName("y"))->getBit(index)->getNet());
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, WholeRecordOutputCanBeOpen) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+package open_types is type pair_t is record flag : bit; data : bit_vector(1 downto 0); end record; end;
+use work.open_types.all;
+entity open_record_leaf is port(a : in bit; y : out pair_t); end;
+architecture rtl of open_record_leaf is begin y <= (flag => a, data => "10"); end;
+use work.open_types.all;
+entity open_record_top is port(a : in bit); end;
+architecture rtl of open_record_top is begin
+  u: entity work.open_record_leaf port map(a => a, y => open);
+end;
+)", "open_record_top");
+  auto* child = top->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  auto* output = child->getModel()->getBusTerm(NLName("y"));
+  ASSERT_NE(output, nullptr);
+  ASSERT_EQ(output->getWidth(), 3u);
+  for (auto* bit : output->getBusBits()) EXPECT_EQ(child->getInstTerm(bit)->getNet(), nullptr);
+}
+
+TEST_F(VHDLConstructorTest, InvalidOpenAssociationsStillRejectAndRollBack) {
+  for (const auto* mapping : {
+      "open, q", "a => open, y => q", // input without default
+      "a => d, y(0) => open, y(1) => q(1)",
+      "a => d, y(1 downto 0) => open", // individual slice, even the full range
+      "a => d, y => open, y => q", // duplicate
+      "a => d, absent => open", // unknown formal
+      "a => d, open", // positional after named
+      "d, open, open" // too many actuals
+  }) {
+    SCOPED_TRACE(mapping);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(R"(
+entity invalid_open_leaf is port(a : in bit; y : out bit_vector(1 downto 0)); end;
+architecture rtl of invalid_open_leaf is begin y <= (others => a); end;
+entity invalid_open_top is port(d : in bit; q : out bit_vector(1 downto 0)); end;
+architecture rtl of invalid_open_top is begin
+  u: entity work.invalid_open_leaf port map(
+)") + mapping + "); end;", "invalid_open_top"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, NamedProcessEndsPreserveCombinationalAndClockedLowering) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity labeled_top is port(clk, a : in bit; y, q : out bit); end;
+architecture rtl of labeled_top is begin
+  invert: process(all) begin y <= not a; end process INVERT;
+  g: if true generate
+    reg: process(clk) begin if rising_edge(clk) then q <= a; end if; end process reg;
+  end generate;
+end;
+)");
+  ASSERT_NE(top, nullptr);
+  for (const bool input : {false, true}) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    values[top->getScalarTerm(NLName("a"))->getNet()] = input;
+    EXPECT_EQ(evaluateRTL(top->getScalarTerm(NLName("y"))->getNet(), values, visiting), !input);
+  }
+  size_t flopCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (!NLDB0::isDFF(instance->getModel())) continue;
+    ++flopCount;
+    EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFClock())->getNet(),
+              top->getScalarTerm(NLName("clk"))->getNet());
+    EXPECT_EQ(instance->getInstTerm(NLDB0::getDFFData())->getNet(),
+              top->getScalarTerm(NLName("a"))->getNet());
+    for (const bool value : {false, true}) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      values[instance->getInstTerm(NLDB0::getDFFOutput())->getNet()] = value;
+      EXPECT_EQ(evaluateRTL(top->getScalarTerm(NLName("q"))->getNet(), values, visiting), value);
+    }
+  }
+  EXPECT_EQ(flopCount, 1u);
+}
+
+TEST_F(VHDLConstructorTest, EnumerationIndexedRecordsPreserveLiteralOrder) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity enum_records is port(d : in bit_vector(1 downto 0); y : out bit_vector(1 downto 0)); end;
+architecture rtl of enum_records is
+  type channel_t is (second, first);
+  type entry_t is record valid : bit; data : bit_vector(1 downto 0); end record;
+  type table_t is array(channel_t) of entry_t;
+  signal entries : table_t;
+begin
+  entries(second) <= (valid => d(0), data => "10");
+  entries(first) <= (valid => d(1), data => "01");
+  y(0) <= entries(second).valid xor entries(second).data(1);
+  y(1) <= entries(first).valid xor entries(first).data(0);
+end;
+)");
+  for (unsigned pattern = 0; pattern < 4; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int i = 0; i < 2; ++i) values[top->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (pattern >> i) & 1;
+    for (int i = 0; i < 2; ++i)
+      EXPECT_EQ(evaluateRTL(top->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), !bool((pattern >> i) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, EnumerationIndexedConstantsAndDescendingSlices) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity enum_constants is port(y : out bit_vector(3 downto 0)); end;
+architecture rtl of enum_constants is
+  type color_t is (red, green, blue);
+  type fixed_t is array(blue downto red) of bit;
+  type flexible_t is array(color_t range <>) of bit;
+  constant fixed : fixed_t := ('0', '1', '1');
+  constant flexible : flexible_t(blue downto red) := ('1', '0', '0');
+  signal sliced : flexible_t(green downto red);
+begin
+  sliced <= flexible(green downto red);
+  y(0) <= fixed(red);
+  y(1) <= fixed(blue);
+  y(2) <= sliced(green);
+  y(3) <= flexible(blue);
+end;
+)");
+  std::unordered_map<SNLBitNet*, bool> values;
+  std::unordered_set<SNLBitNet*> visiting;
+  for (int i = 0; i < 4; ++i)
+    EXPECT_EQ(evaluateRTL(top->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), i == 0 || i == 3);
+}
+
+TEST_F(VHDLConstructorTest, EnumerationIndexedDynamicReadsAndClockedWrites) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity enum_dynamic is port(clk, rst, d : in bit; sel : in bit_vector(1 downto 0); y : out bit); end;
+architecture rtl of enum_dynamic is
+  type color_t is (red, green, blue);
+  type storage_t is array(color_t) of bit;
+  signal cells : storage_t;
+  signal addr : color_t;
+begin
+  with sel select addr <= red when "00", green when "01", blue when others;
+  process(clk) begin
+    if rising_edge(clk) then
+      if rst = '1' then cells <= (others => '0');
+      else cells(addr) <= d; end if;
+    end if;
+  end process;
+  y <= cells(addr);
+end;
+)");
+  const auto flops = dffBits(top);
+  ASSERT_EQ(flops.size(), 3u);
+  for (auto* instance : top->getInstances()) EXPECT_FALSE(NLDB0::isMemory(instance->getModel()));
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (const auto& flop : flops) state[flop.output] = false;
+  bool expected[3] = {false, false, false};
+  for (int cycle = 0; cycle < 24; ++cycle) {
+    const int sel = cycle % 4;
+    const int addr = sel < 2 ? sel : 2;
+    const bool reset = cycle == 0 || cycle == 13;
+    const bool data = (cycle / 3) % 2;
+    auto values = state;
+    values[top->getScalarTerm(NLName("rst"))->getNet()] = reset;
+    values[top->getScalarTerm(NLName("d"))->getNet()] = data;
+    for (int bit = 0; bit < 2; ++bit) values[top->getBusTerm(NLName("sel"))->getBit(bit)->getNet()] = (sel >> bit) & 1;
+    for (const auto& flop : flops) {
+      std::unordered_set<SNLBitNet*> visiting;
+      state[flop.output] = evaluateRTL(flop.data, values, visiting);
+    }
+    if (reset) for (auto& bit : expected) bit = false;
+    else expected[addr] = data;
+    for (int probe = 0; probe < 3; ++probe) {
+      auto readValues = state;
+      for (int bit = 0; bit < 2; ++bit)
+        readValues[top->getBusTerm(NLName("sel"))->getBit(bit)->getNet()] = (probe >> bit) & 1;
+      std::unordered_set<SNLBitNet*> visiting;
+      EXPECT_EQ(evaluateRTL(top->getScalarTerm(NLName("y"))->getNet(), readValues, visiting), expected[probe]);
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsEnumerationArrayIndexTypeAndRangeErrors) {
+  for (const auto* selection : {"0", "other", "blue", "red to other"}) {
+    SCOPED_TRACE(selection);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(R"(
+entity bad_enum_index is port(y : out bit); end;
+architecture rtl of bad_enum_index is
+  type color_t is (red, green, blue);
+  type other_t is (other);
+  type table_t is array(red to green) of bit;
+  constant lut : table_t := ('0', '1');
+begin y <= lut(
+)") + selection + "); end;"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity bad_enum_dynamic is port(d : in bit; y : out bit); end;
+architecture rtl of bad_enum_dynamic is
+  type color_t is (red, green);
+  type other_t is (one, two);
+  type table_t is array(color_t) of bit;
+  constant lut : table_t := ('0', '1');
+  signal addr : other_t;
+begin addr <= one when d = '0' else two; y <= lut(addr); end;
+)"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
+TEST_F(VHDLConstructorTest, EnumerationIndexedRecordPortActualsKeepElementOffsets) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+package enum_ports is
+  type channel_t is (second, first);
+  type entry_t is record valid : bit; data : bit_vector(1 downto 0); end record;
+  type table_t is array(channel_t) of entry_t;
+end;
+use work.enum_ports.all;
+entity enum_port_leaf is port(req : in entry_t; y : out bit); end;
+architecture rtl of enum_port_leaf is begin y <= req.valid xor req.data(0); end;
+use work.enum_ports.all;
+entity enum_port_top is port(d : in bit; y : out bit_vector(0 to 1)); end;
+architecture rtl of enum_port_top is signal requests : table_t;
+begin
+  requests(second) <= (valid => d, data => "10");
+  requests(first) <= (valid => d, data => "01");
+  a: entity work.enum_port_leaf port map(req => requests(second), y => y(0));
+  b: entity work.enum_port_leaf port map(req => requests(first), y => y(1));
+end;
+)", "enum_port_top");
+  auto* array = top->getBusNet(NLName("requests"));
+  ASSERT_NE(array, nullptr);
+  for (int i = 0; i < 2; ++i) {
+    auto* child = top->getInstance(NLName(i ? "b" : "a"));
+    ASSERT_NE(child, nullptr);
+    auto* input = child->getModel()->getBusTerm(NLName("req"));
+    for (int bit = 0; bit < 3; ++bit)
+      EXPECT_EQ(child->getInstTerm(input->getBitAtPosition(bit))->getNet(), array->getBitAtPosition(3*i+bit));
+  }
+}

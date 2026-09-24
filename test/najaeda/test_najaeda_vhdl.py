@@ -28,6 +28,23 @@ architecture rtl of inverter is begin y <= not a; end;
         self.assertEqual(1, top.count_input_terms())
         self.assertEqual(1, top.count_output_terms())
 
+    def test_load_vhdl_warning_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "diagnostic.vhd"
+            report = Path(directory) / "reports" / "warnings.log"
+            path.write_text("entity e is port(y : out bit); end; "
+                            "architecture rtl of e is begin assert false; "
+                            "assert false; y <= '1'; end;", encoding="utf-8")
+            top = netlist.load_vhdl(path, diagnostics_report_path=report)
+            self.assertEqual(top.get_model_name(), "e")
+            self.assertEqual(report.read_text().count("[ignored-assertion]"), 2)
+            netlist.reset()
+            netlist.load_vhdl(path, diagnostics_report_path=None)
+            with self.assertRaises(TypeError):
+                netlist.load_vhdl(path, diagnostics_report_path=1)
+            with self.assertRaises(ValueError):
+                netlist.load_vhdl(path, diagnostics_report_path="")
+
     def test_load_vhdl_hierarchy_with_explicit_top(self):
         source = """\
 entity leaf is port(a : in bit; y : out bit); end;

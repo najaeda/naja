@@ -311,7 +311,7 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
-   ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file and returns its
+   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log")`` loads one VHDL source file and returns its
    ``SNLDesign``. Load package files before their users in the same database:
    a package-only file returns ``None`` and preserves the current top design.
    A file containing one entity with required generic values also returns
@@ -344,6 +344,59 @@ expert reference above.
    overloading, and architecture function forward declarations remain unsupported.
    Static function loops support unlabeled ``exit`` and ``exit when``; labeled
    exits and process-loop exits remain unsupported.
+
+   The loader excludes simulation regions marked by ``pragma``, ``synthesis``,
+   or ``synopsys`` ``translate_off/on`` comments, preserving source locations.
+   Assertion and report statements are ignored, including conditions and
+   ``severity failure``; configuration assertions do not validate generics.
+   Each load logs the first occurrence of each warning code to the console.
+   The diagnostics report records all occurrences with source path, line, and
+   column, and is overwritten per load. Set ``diagnostics_report_path`` to a
+   string path to choose the report, or ``None`` for console-only output.
+   Warning codes currently include ``ignored-assertion`` and ``ignored-report``.
+   Retained dependency sources are not reported again during internal re-parsing.
+   The high-level ``netlist.load_vhdl`` exposes the same option and also accepts
+   ``os.PathLike`` paths.
+   Nested or unbalanced exclusion directives are errors.
+
+   Concurrent ``with ... select`` assignments support static/grouped choices
+   and ``others``, with the same coverage checks as case statements.
+
+   Input port maps accept binary character, string, and binary/octal/hex
+   bit-string literals, checked against the formal port type and width.
+   Output literals and general expression/aggregate actuals remain unsupported.
+
+   Named port associations may select vector elements, slices, and record fields
+   on the formal side, for example ``data_i(0) => data_bit``. Individual associations
+   must be consecutive and cover every scalar subelement exactly once. Overlaps,
+   missing elements, invalid directions or bounds, and type/width mismatches are
+   errors. Formal index expressions currently support integer literals, locally
+   static integer constants, and predefined arithmetic; generics and generate
+   iterators cannot be used as formal indices. Actual selections may still use
+   elaboration-time generic or generate values. Component selections use the
+   component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
+   vector, and record ports in positional or named maps. Their instance terminals
+   remain unconnected, matching SV empty output connections, without a warning.
+   Input defaults are not yet supported, so open inputs remain rejected. Individual
+   formal elements or slices cannot be associated with ``open``.
+   As with connected record ports, their type package currently needs to be visible
+   in the instantiating scope as well as the child entity.
+
+   Processes may repeat their opening label in ``end process label;``, including
+   combinational, clocked, and asynchronous-reset processes inside generates.
+   The closing label is optional; when present it must match the opening label.
+   Basic identifiers are case-insensitive, while extended identifiers retain case.
+
+   Arrays may use an enumeration as their index type, for example
+   ``type requests_t is array(device_t) of request_t;``. Element order follows the
+   enumeration declaration, with nominal index-type checks. Enum literals and
+   constants select elements directly, including record elements in port maps.
+   Explicit enum ranges, descending slices, and unconstrained enum-indexed arrays
+   with explicit object bounds are supported. Runtime enum indices use mux reads
+   and decoded signal writes; clocked enum-indexed arrays retain register lowering
+   rather than RAM inference. Integer-indexed arrays reject enum indices, and
+   enum-indexed arrays reject integer or unrelated-enum indices. Enumeration-indexed
+   integer constant tables and enumeration subtype declarations remain unsupported.
 
    A single dynamically indexed whole-word clocked write site can infer an
    uninitialized array as an NLDB0 RAM primitive. Read registers remain explicit

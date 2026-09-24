@@ -102,6 +102,7 @@ struct ArrayTypeDeclaration {
     TypeMark elementType;
     SourceSpan span;
     std::optional<Name> indexSubtype;
+    std::optional<Name> indexType;
 };
 
 struct EnumerationTypeDeclaration {
@@ -124,6 +125,9 @@ struct Assignment {
     SourceSpan span;
     AssignmentKind kind = AssignmentKind::Signal;
     std::vector<std::unique_ptr<Expression>> indices;
+    std::unique_ptr<Expression> selector;
+    std::vector<std::vector<std::unique_ptr<Expression>>> choices;
+    std::vector<std::unique_ptr<Expression>> alternatives;
 };
 
 struct SequentialStatement {
@@ -194,6 +198,7 @@ struct ClockedProcess {
     bool allSensitivity = false;
     bool asynchronousReset = false;
     std::vector<SequentialStatement> resetStatements;
+    std::optional<Name> label;
 };
 
 struct EntityDeclaration {
@@ -221,6 +226,9 @@ struct EntityInstantiation {
     std::vector<std::optional<Name>> formals;
     bool component = false;
     std::vector<std::vector<std::unique_ptr<Expression>>> actualIndices;
+    std::vector<std::unique_ptr<Expression>> actualLiterals;
+    std::vector<std::vector<std::unique_ptr<Expression>>> formalIndices;
+    std::vector<bool> actualOpen;
 };
 
 struct GenerateStatement {
@@ -283,16 +291,23 @@ struct ParseDiagnostic {
     SourceSpan span;
 };
 
+struct ParseWarning {
+    std::string code;
+    std::string message;
+    SourceSpan span;
+};
+
 struct ParseResult {
     DesignFile syntax;
     std::vector<ParseDiagnostic> diagnostics;
+    std::vector<ParseWarning> warnings;
     bool hasErrors() const { return !diagnostics.empty(); }
 };
 
 /// Parser for the initial RTL syntax slice. Unsupported constructs are diagnosed.
 class Parser {
 public:
-    static ParseResult parse(std::string_view source);
+    static ParseResult parse(std::string_view source, bool synthesis = false);
 };
 
 } // namespace vhdl

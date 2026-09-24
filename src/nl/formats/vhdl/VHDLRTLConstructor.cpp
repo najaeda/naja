@@ -68,6 +68,7 @@ struct Range {
   int64_t left;
   int64_t right;
   bool ascending;
+  const vhdl::EnumerationTypeDeclaration* indexEnumeration = nullptr;
   size_t size() const {
     if (ascending ? left > right : left < right) return 0;
     const auto width = ascending ? int128_t(right) - left + 1 : int128_t(left) - right + 1;
@@ -117,7 +118,8 @@ bool compatible(const Shape& a, const Shape& b) {
   for (size_t i = 0; i < a.fields.size(); ++i)
     if (a.fields[i].first != b.fields[i].first || !compatible(a.fields[i].second, b.fields[i].second)) return false;
   for (size_t i = 0; i < a.ranges.size(); ++i)
-    if (a.ranges[i].size() != b.ranges[i].size()) return false;
+    if (a.ranges[i].size() != b.ranges[i].size() ||
+        a.ranges[i].indexEnumeration != b.ranges[i].indexEnumeration) return false;
   return true;
 }
 
@@ -287,7 +289,7 @@ class RTLConstructor {
     for (const auto& [name, object] : objects_) {
       const auto& type = object.value.shape;
       if (object.input || object.output || object.variable || object.constant ||
-          !type.fields.empty() || type.ranges.empty() || type.ranges.size() > 2 ||
+          !type.fields.empty() || type.ranges.empty() || type.ranges.front().indexEnumeration || type.ranges.size() > 2 ||
           !arrays_.contains(type.types.front()) ||
           std::min(type.ranges.front().left, type.ranges.front().right) < 0 ||
           std::max(type.ranges.front().left, type.ranges.front().right) > INT32_MAX ||
@@ -463,18 +465,22 @@ class RTLConstructor {
         name == "natural" || name == "positive") fail("duplicate or shadowing array type: " + name);
     if (declaration.indexSubtype) {
       const auto subtype = key(*declaration.indexSubtype);
-      if (subtype != "integer" && subtype != "natural" && subtype != "positive")
+      if (subtype != "integer" && subtype != "natural" && subtype != "positive" && !enumerations_.contains(subtype))
         fail("unsupported unconstrained array index subtype: " + subtype);
     }
     arrayDeclarations_.emplace(name, &declaration);
     const auto elementName = key(declaration.elementType.name);
     // Integer tables are evaluated as static values, without synthesizing an
     // integer memory or losing signed values through a bit-vector conversion.
-    if (elementName == "integer" || elementName == "natural" || elementName == "positive") return;
+    if (elementName == "integer" || elementName == "natural" || elementName == "positive") {
+      if (declaration.indexType || (declaration.indexSubtype && enumerations_.contains(key(*declaration.indexSubtype))) ||
+          (declaration.indexRange.leftExpression && enumIndexType(*declaration.indexRange.leftExpression)))
+        fail("enumeration-indexed integer constant tables are not yet supported");
+      return;
+    }
     auto element = shape(declaration.elementType);
     element.types.insert(element.types.begin(), name);
-    element.ranges.insert(element.ranges.begin(), declaration.indexSubtype ?
-        Range{0, -1, true} : range(declaration.indexRange));
+    element.ranges.insert(element.ranges.begin(), arrayBounds(declaration));
     if (!declaration.indexSubtype) element.size();
     arrays_.emplace(name, std::move(element));
     arrayTypeOffsets_.emplace(name, declaration.span.start.offset);
@@ -558,10 +564,14 @@ class RTLConstructor {
                        const vhdl::TypeMark& type, const Expr& value) {
     if (!array.indexSubtype) {
       if (type.constraint) fail("reconstraining an array type is not supported");
-      return range(array.indexRange);
+      return arrayBounds(array);
     }
     Range bounds;
     const auto subtype = key(*array.indexSubtype);
+    if (const auto found = enumerations_.find(subtype); found != enumerations_.end()) {
+      if (!type.constraint) fail("unconstrained enumeration-indexed arrays require explicit bounds");
+      return enumRange(*type.constraint, found->second);
+    }
     const int64_t lower = subtype == "natural" ? 0 : subtype == "positive" ? 1 : INT32_MIN;
     if (type.constraint) bounds = range(*type.constraint);
     else {
@@ -572,6 +582,19 @@ class RTLConstructor {
     if (bounds.left < lower || bounds.right < lower || bounds.left > INT32_MAX || bounds.right > INT32_MAX)
       fail("array bounds violate the index subtype");
     return bounds;
+  }
+
+  bool locallyStaticPortIndex(const Expr& expr) const {
+    if (expr.kind == Expr::Kind::IntegerLiteral) return true;
+    if (expr.kind == Expr::Kind::Name) {
+      const auto found = objects_.find(key(expr));
+      return locallyStaticIntegers_.contains(key(expr)) ||
+          (found != objects_.end() && found->second.constant && found->second.value.shape.enumeration &&
+           found->second.value.shape.ranges.empty());
+    }
+    return (expr.kind == Expr::Kind::Unary || expr.kind == Expr::Kind::Binary ||
+            expr.kind == Expr::Kind::Range) && expr.left &&
+        locallyStaticPortIndex(*expr.left) && (!expr.right || locallyStaticPortIndex(*expr.right));
   }
 
   void addConstant(const vhdl::ConstantDeclaration& declaration) {
@@ -591,7 +614,14 @@ class RTLConstructor {
     if (name == "integer" || name == "natural" || name == "positive") {
       const auto value = integer(*declaration.value);
       checkInteger(value, type);
-      for (const auto& id : declaration.object.names) integers_.emplace(key(id), value);
+      const bool local = locallyStaticPortIndex(*declaration.value) &&
+          (!type.constraint ||
+           ((!type.constraint->leftExpression || locallyStaticPortIndex(*type.constraint->leftExpression)) &&
+            (!type.constraint->rightExpression || locallyStaticPortIndex(*type.constraint->rightExpression))));
+      for (const auto& id : declaration.object.names) {
+        integers_.emplace(key(id), value);
+        if (local) locallyStaticIntegers_.insert(key(id));
+      }
       return;
     }
     auto constantType = type;
@@ -613,7 +643,7 @@ class RTLConstructor {
         for (const auto& id : declaration.object.names) integerTables_.emplace(key(id), table);
         return;
       }
-      if (array.indexSubtype) constantType.constraint = vhdl::DiscreteRange{
+      if (array.indexSubtype && !bounds.indexEnumeration) constantType.constraint = vhdl::DiscreteRange{
           bounds.left, bounds.right, bounds.ascending, {}, {}, {}};
     }
     const auto target = shape(constantType);
@@ -658,6 +688,7 @@ class RTLConstructor {
       for (const auto& constant : branch.constants) for (const auto& name : constant.object.names) {
         objects_.erase(key(name));
         integers_.erase(key(name));
+        locallyStaticIntegers_.erase(key(name));
         booleans_.erase(key(name));
         integerTables_.erase(key(name));
       }
@@ -746,8 +777,12 @@ class RTLConstructor {
       std::set<std::string> declaredPorts;
       for (const auto& port : component.ports) for (const auto& name : port.names) {
         const auto id = key(name);
+        const auto declaredShape = shape(port.type);
         if (!declaredPorts.insert(id).second || !modes.contains(id) || modes.at(id) != port.mode ||
-            !compatible(shape(port.type), formalShapes.at(id))) fail("component port interface mismatch");
+            !compatible(declaredShape, formalShapes.at(id))) fail("component port interface mismatch");
+        // Formal selections name the component interface; binding to the entity
+        // preserves position even when their index bounds differ.
+        formalShapes.at(id) = declaredShape;
       }
       if (declaredPorts.size() != modes.size() || component.generics.size() != entity->generics.size())
         fail("component declaration does not match entity interface");
@@ -773,14 +808,14 @@ class RTLConstructor {
       if (!matching) fail("missing bound port");
       ports.push_back(matching);
     }
-    if (ports.size() != instance.actuals.size()) fail("port association count mismatch");
     const auto instanceName = prefix + instance.label.spelling;
     if (!instanceNames_.insert(prefix + key(instance.label)).second) fail("duplicate instance label");
     auto* child = SNLInstance::create(design_, model, NLName(instanceName));
-    std::set<SNLTerm*> bound;
+    std::map<SNLTerm*, std::vector<bool>> bound;
+    SNLTerm* previousPort = nullptr;
     named = false;
-    for (size_t i = 0; i < ports.size(); ++i) {
-      auto* port = ports[i];
+    for (size_t i = 0; i < instance.actuals.size(); ++i) {
+      auto* port = i < ports.size() ? ports[i] : nullptr;
       if (!instance.formals.empty() && instance.formals[i]) {
         named = true;
         port = nullptr;
@@ -790,17 +825,62 @@ class RTLConstructor {
           if (name == key(*instance.formals[i])) port = candidate;
         }
       } else if (named) fail("positional port follows named port");
-      if (!port || !bound.insert(port).second) fail("invalid port association");
+      if (!port) fail("invalid port association");
+      if (bound.contains(port) && previousPort != port)
+        fail("individual port associations must be consecutive");
+      previousPort = port;
+      std::string literalFormal = port->getName().getString();
+      for (auto& c : literalFormal) c = std::tolower(static_cast<unsigned char>(c));
+      Selection formal{literalFormal, formalShapes.at(literalFormal), 0};
+      if (!instance.formalIndices.empty()) {
+        for (const auto& indexExpr : instance.formalIndices[i]) {
+          DiagnosticScope location(indexExpr->span);
+          if (indexExpr->kind != Expr::Kind::Selected && !locallyStaticPortIndex(*indexExpr))
+            fail("port formal index requires a locally static integer expression; "
+                 "only literals, integer constants, and predefined arithmetic are supported");
+          index(formal, *indexExpr);
+        }
+      }
+      auto& covered = bound.try_emplace(port, port->getWidth(), false).first->second;
+      std::vector<SNLBitTerm*> formalBits;
+      size_t position = 0;
+      for (auto* term : port->getBits()) {
+        if (position >= formal.offset && position < formal.offset + formal.shape.size()) {
+          if (covered[position]) fail("overlapping port associations");
+          covered[position] = true;
+          formalBits.push_back(term);
+        }
+        ++position;
+      }
+      if (formalBits.size() != formal.shape.size()) fail("port selection exceeds flattened port width");
+      if (!instance.actualOpen.empty() && instance.actualOpen[i]) {
+        DiagnosticScope location(instance.actuals[i].span);
+        if (!instance.formalIndices.empty() && !instance.formalIndices[i].empty())
+          fail("open cannot be associated with an individual port subelement or slice");
+        if (port->getDirection() != SNLTerm::Direction::Output)
+          fail("open input ports require defaults, which are not yet supported");
+        // As in the SV loader, an explicit empty connection leaves inst terms unconnected.
+        continue;
+      }
+      if (!instance.actualLiterals.empty() && instance.actualLiterals[i]) {
+        if (port->getDirection() != SNLTerm::Direction::Input)
+          fail("literal port actual requires an input port");
+        const auto& expected = formal.shape;
+        const auto value = expression(*instance.actualLiterals[i], State{}, &expected);
+        if (value.bits.size() != formalBits.size() || !compatible(value.shape, expected))
+          fail("port type or width mismatch");
+        size_t bit = 0;
+        for (auto* term : formalBits) child->getInstTerm(term)->setNet(value.bits[bit++]);
+        continue;
+      }
       auto selected = selection(key(instance.actuals[i]));
       if (!instance.actualIndices.empty())
         for (const auto& indexExpr : instance.actualIndices[i]) index(selected, *indexExpr);
       const auto& object = objects_.at(selected.name);
-      std::string formalName = port->getName().getString();
-      for (auto& c : formalName) c = std::tolower(static_cast<unsigned char>(c));
-      if (selected.shape.size() != port->getWidth() || !compatible(selected.shape, formalShapes.at(formalName)))
+      if (selected.shape.size() != formalBits.size() || !compatible(selected.shape, formal.shape))
         fail("port type or width mismatch");
       size_t bit = selected.offset;
-      for (auto* term : port->getBits()) {
+      for (auto* term : formalBits) {
         auto* net = object.value.bits[bit++];
         if (port->getDirection() == SNLTerm::Direction::Output) {
           if (object.input || object.constant || !drivers_.insert(net).second)
@@ -808,6 +888,10 @@ class RTLConstructor {
         } else reads_.insert(net);
         child->getInstTerm(term)->setNet(net);
       }
+    }
+    for (auto* port : ports) {
+      if (!bound.contains(port) || std::find(bound.at(port).begin(), bound.at(port).end(), false) != bound.at(port).end())
+        fail("incomplete port association: " + port->getName().getString());
     }
   }
 
@@ -1303,6 +1387,62 @@ class RTLConstructor {
     return staticInteger(expression, nullptr);
   }
 
+  const vhdl::EnumerationTypeDeclaration* enumIndexType(const Expr& expr) const {
+    if (expr.kind != Expr::Kind::Name) return nullptr;
+    const auto found = objects_.find(key(expr));
+    if (found == objects_.end() || !found->second.value.shape.ranges.empty()) return nullptr;
+    return found->second.value.shape.enumeration;
+  }
+
+  void checkIndexType(const Value& value, const Range& bounds) {
+    if (bounds.indexEnumeration) {
+      if (!value.shape.ranges.empty() || value.shape.enumeration != bounds.indexEnumeration)
+        fail("array index enumeration type mismatch");
+    } else if (!value.shape.integerWidth) fail("array index must have integer type");
+  }
+
+  int64_t arrayIndex(const Expr& expr, const Range& bounds) {
+    if (!bounds.indexEnumeration) return integer(expr);
+    if (!isStaticIndex(expr)) fail("array selection requires a static enumeration index");
+    const auto value = expression(expr, State{});
+    checkIndexType(value, bounds);
+    int64_t ordinal = 0;
+    for (auto* bit : value.bits) {
+      const auto binary = constantValue(bit);
+      if (!binary) fail("array selection requires a static enumeration index");
+      ordinal = ordinal * 2 + *binary;
+    }
+    if (ordinal >= int64_t(bounds.indexEnumeration->literals.size()))
+      fail("invalid enumeration index value");
+    return ordinal;
+  }
+
+  Range enumRange(const vhdl::DiscreteRange& constraint,
+                  const vhdl::EnumerationTypeDeclaration* type) {
+    if (constraint.attribute || !constraint.leftExpression || !constraint.rightExpression)
+      fail("enumeration array bounds require explicit enumeration values");
+    Range bounds{0, int64_t(type->literals.size()) - 1, true, type};
+    return {arrayIndex(*constraint.leftExpression, bounds), arrayIndex(*constraint.rightExpression, bounds),
+            constraint.ascending, type};
+  }
+
+  Range arrayBounds(const vhdl::ArrayTypeDeclaration& declaration) {
+    if (declaration.indexType) {
+      const auto found = enumerations_.find(key(*declaration.indexType));
+      if (found == enumerations_.end()) fail("array index type must name a visible enumeration");
+      return {0, int64_t(found->second->literals.size()) - 1, true, found->second};
+    }
+    if (declaration.indexSubtype) {
+      const auto found = enumerations_.find(key(*declaration.indexSubtype));
+      return {0, -1, true, found == enumerations_.end() ? nullptr : found->second};
+    }
+    if (declaration.indexRange.leftExpression) {
+      if (const auto type = enumIndexType(*declaration.indexRange.leftExpression))
+        return enumRange(declaration.indexRange, type);
+    }
+    return range(declaration.indexRange);
+  }
+
   Range range(const vhdl::DiscreteRange& range) {
     DiagnosticScope location(range.span);
     if (range.attribute) fail("array range attributes are not supported in this elaboration context");
@@ -1439,7 +1579,8 @@ class RTLConstructor {
     if (selected.shape.ranges.empty()) fail("cannot index a scalar object");
     if (expression.kind == Expr::Kind::Range) {
       const auto& original = selected.shape.ranges.front();
-      Range slice{integer(*expression.left), integer(*expression.right), expression.text == "to"};
+      Range slice{arrayIndex(*expression.left, original), arrayIndex(*expression.right, original),
+                  expression.text == "to", original.indexEnumeration};
       if (slice.ascending != original.ascending || !slice.size()) fail("invalid slice direction or range");
       const auto position = original.position(slice.left);
       original.position(slice.right);
@@ -1448,7 +1589,7 @@ class RTLConstructor {
       selected.shape.ranges.front() = slice;
       return;
     }
-    const auto position = selected.shape.ranges.front().position(integer(expression));
+    const auto position = selected.shape.ranges.front().position(arrayIndex(expression, selected.shape.ranges.front()));
     selected.shape.ranges.erase(selected.shape.ranges.begin());
     selected.shape.types.erase(selected.shape.types.begin());
     selected.offset += position * selected.shape.size();
@@ -1545,6 +1686,10 @@ class RTLConstructor {
     return result;
   }
 
+  bool isStaticIndex(const Expr& expr) const {
+    return isStatic(expr) || (expr.kind == Expr::Kind::Name && enumIndexType(expr) && objects_.at(key(expr)).constant);
+  }
+
   bool isStatic(const Expr& expr) const {
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr)) || booleans_.contains(key(expr)) ||
@@ -1619,7 +1764,8 @@ class RTLConstructor {
     const auto bounds = value.shape.ranges.front();
     const auto stride = value.shape.size() / bounds.size();
     if (indexExpr.kind == Expr::Kind::Range) {
-      Range slice{integer(*indexExpr.left), integer(*indexExpr.right), indexExpr.text == "to"};
+      Range slice{arrayIndex(*indexExpr.left, bounds), arrayIndex(*indexExpr.right, bounds),
+                  indexExpr.text == "to", bounds.indexEnumeration};
       if (!slice.size() || slice.ascending != bounds.ascending) fail("invalid slice range");
       const auto offset = bounds.position(slice.left) * stride;
       bounds.position(slice.right);
@@ -1629,14 +1775,14 @@ class RTLConstructor {
     }
     value.shape.ranges.erase(value.shape.ranges.begin());
     value.shape.types.erase(value.shape.types.begin());
-    if (isStatic(indexExpr)) {
-      const auto offset = bounds.position(integer(indexExpr)) * stride;
+    if (isStaticIndex(indexExpr)) {
+      const auto offset = bounds.position(arrayIndex(indexExpr, bounds)) * stride;
       value.bits = Bits(value.bits.begin() + offset, value.bits.begin() + offset + stride);
       return value;
     }
     for (auto* bit : value.bits) readBit(bit);
     auto address = expression(indexExpr, state);
-    if (!address.shape.integerWidth) fail("array index must have integer type");
+    checkIndexType(address, bounds);
     Bits result(stride, constant(false));
     for (size_t i = 0; i < bounds.size(); ++i) {
       auto index = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
@@ -1949,7 +2095,16 @@ class RTLConstructor {
     const auto& object = objects_.at(target.name);
     if (object.input || object.constant || object.variable || assignment.kind != vhdl::AssignmentKind::Signal)
       fail("concurrent assignment must drive a writable signal");
-    auto value = expression(*assignment.value, state, &target.shape);
+    Value value;
+    if (assignment.selector) {
+      const auto selector = expression(*assignment.selector, state);
+      const auto matches = selectionMatches(selector, assignment.choices);
+      value = expression(*assignment.alternatives.back(), state, &target.shape);
+      for (size_t i = assignment.alternatives.size() - 1; i-- > 0;) {
+        const auto branch = expression(*assignment.alternatives[i], state, &target.shape);
+        value.bits = mux(matches[i], branch.bits, value.bits);
+      }
+    } else value = expression(*assignment.value, state, &target.shape);
     for (size_t i = 0; i < value.bits.size(); ++i) drive(object.value.bits[target.offset + i], value.bits[i]);
   }
 
@@ -1971,7 +2126,7 @@ class RTLConstructor {
       return;
     }
     if (!assignment.indices.empty() && assignment.indices.front()->kind != Expr::Kind::Range &&
-        assignment.indices.front()->kind != Expr::Kind::Selected && !isStatic(*assignment.indices.front())) {
+        assignment.indices.front()->kind != Expr::Kind::Selected && !isStaticIndex(*assignment.indices.front())) {
       const auto name = key(assignment.target);
       const auto base = selection(name);
       if (base.shape.ranges.empty()) fail("dynamic target is not an array");
@@ -1984,7 +2139,7 @@ class RTLConstructor {
       element.types.erase(element.types.begin());
       const auto stride = element.size();
       const auto address = expression(*assignment.indices.front(), state);
-      if (!address.shape.integerWidth) fail("array index must be integer");
+      checkIndexType(address, bounds);
       Selection selected{name, element, 0};
       for (size_t j = 1; j < assignment.indices.size(); ++j) index(selected, *assignment.indices[j]);
       const auto value = expression(*assignment.value, state, &selected.shape);
@@ -2036,16 +2191,16 @@ class RTLConstructor {
     }
   }
 
-  void caseStatement(const Statement& statement, State& state) {
-    const auto selector = expression(*statement.condition, state);
+  std::vector<SNLBitNet*> selectionMatches(const Value& selector,
+      const std::vector<std::vector<std::unique_ptr<Expr>>>& alternatives) {
     const auto& type = selector.shape;
     if (!type.fields.empty() || type.ranges.size() > 1 || (type.enumeration && !type.ranges.empty()) ||
         (!type.enumeration && !type.integerWidth && type.types.back() != "bit" && type.types.back() != "std_logic" &&
          type.types.back() != "boolean")) fail("unsupported case selector type");
     std::set<std::string> seen;
     std::vector<SNLBitNet*> matches;
-    const bool otherwise = statement.choices.back().empty();
-    for (const auto& choices : statement.choices) {
+    const bool otherwise = alternatives.back().empty();
+    for (const auto& choices : alternatives) {
       auto* match = constant(false);
       const auto add = [&](const Value& choice) {
         if (seen.size() >= 4096) fail("case choice expansion limit exceeded");
@@ -2092,6 +2247,12 @@ class RTLConstructor {
     if (!otherwise && (type.integerWidth || selector.bits.size() > 12 ||
         seen.size() != (type.enumeration ? type.enumeration->literals.size() : (size_t(1) << selector.bits.size()))))
       fail("case alternatives must cover every selector value; add others");
+    return matches;
+  }
+
+  void caseStatement(const Statement& statement, State& state) {
+    const auto selector = expression(*statement.condition, state);
+    const auto matches = selectionMatches(selector, statement.choices);
     if (std::all_of(selector.bits.begin(), selector.bits.end(),
         [&](auto* bit) { return constantValue(bit).has_value(); })) {
       for (size_t i = 0; i < matches.size(); ++i) {
@@ -2368,6 +2529,7 @@ class RTLConstructor {
   std::map<std::string, const vhdl::ArrayTypeDeclaration*> arrayDeclarations_;
   std::set<std::string> instanceNames_;
   std::map<std::string, int64_t> integers_;
+  std::set<std::string> locallyStaticIntegers_;
   std::map<std::string, FunctionBinding> functions_;
   std::map<const vhdl::FunctionDeclaration*, FunctionEnvironment> localFunctionEnvironments_;
   std::map<std::string, bool> booleans_;
@@ -2416,7 +2578,7 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
         self(self, expression->right.get()) || self(self, expression->condition.get()));
   };
   const auto extendedAssignment = [&](const vhdl::Assignment& assignment) {
-    return !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
+    return assignment.selector || !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
   for (const auto& architecture : syntax.architectures) {
     if (!architecture.functions.empty()) return true;
@@ -2425,7 +2587,9 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
     for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
     for (const auto& instance : architecture.instantiations)
-      if (std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
+      if (std::any_of(instance.actualOpen.begin(), instance.actualOpen.end(),
+          [](bool open) { return open; }) || std::any_of(instance.actualLiterals.begin(), instance.actualLiterals.end(),
+          [](const auto& literal) { return bool(literal); }) || std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
           [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
           [](const auto& formal) { return formal.has_value(); })) return true;
     for (const auto& assignment : architecture.assignments)

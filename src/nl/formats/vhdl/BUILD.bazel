@@ -7,6 +7,7 @@ cc_library(
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
+        "//src/core:naja_core",
         "//src/nl/formats/hdl:naja_snl_hdl",
         "//src/nl/netlist:naja_nl",
         "//src/vhdl:vhdl_frontend",

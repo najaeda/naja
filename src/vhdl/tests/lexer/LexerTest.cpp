@@ -65,3 +65,24 @@ TEST(VHDLLexerTest, MalformedInputRecovers) {
     EXPECT_EQ(result.tokens[2].kind, TokenKind::Invalid);
     EXPECT_EQ(result.tokens.back().kind, TokenKind::EndOfFile);
 }
+
+TEST(VHDLLexerTest, SynthesisExclusionsPreserveLocationsAndDefaultTokens) {
+    const std::string source = "a\n-- PrAgMa translate_off\nfile f : text;\n\"-- pragma translate_on\"\n-- pragma translate_on\nb";
+    const auto normal = Lexer::scan(source);
+    const auto synthesis = Lexer::scan(source, true);
+    EXPECT_TRUE(normal.diagnostics.empty());
+    EXPECT_GT(normal.tokens.size(), 3u);
+    EXPECT_TRUE(synthesis.diagnostics.empty());
+    ASSERT_EQ(synthesis.tokens.size(), 3u);
+    EXPECT_EQ(synthesis.tokens[1].canonical, "b");
+    EXPECT_EQ(synthesis.tokens[1].span.start.line, 6u);
+    EXPECT_EQ(synthesis.tokens[1].span.start.offset, source.size() - 1);
+}
+
+TEST(VHDLLexerTest, RejectsUnbalancedSynthesisExclusions) {
+    for (const auto* source : {"-- pragma translate_off\na", "-- synthesis translate_on\na",
+         "-- synopsys translate_off\n-- synopsys translate_off\n-- synopsys translate_on"}) {
+        EXPECT_FALSE(Lexer::scan(source, true).diagnostics.empty()) << source;
+        EXPECT_TRUE(Lexer::scan(source).diagnostics.empty()) << source;
+    }
+}

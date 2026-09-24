@@ -103,6 +103,30 @@ architecture rtl of inverter is begin y <= not a; end;
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
 
+  def testVHDLWarningReport(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "diagnostics.vhd")
+      report = os.path.join(directory, "reports", "warnings.log")
+      with open(path, "w") as output:
+        output.write("entity e is port(y : out bit); end; "
+                     "architecture rtl of e is begin assert false; assert false; "
+                     "process(all) begin y <= '1'; end process; end;")
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=report))
+      with open(report) as output:
+        warnings = output.read()
+      self.assertEqual(warnings.count("[ignored-assertion]"), 2)
+      self.assertIn(path + ":1:", warnings)
+      # Re-parsing retained input does not duplicate warning occurrences.
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=report))
+      with open(report) as output:
+        self.assertEqual(output.read().count("[ignored-assertion]"), 2)
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=None))
+      with self.assertRaises(TypeError):
+        db.loadVHDL(path, diagnostics_report_path=1)
+      with self.assertRaises(ValueError):
+        db.loadVHDL(path, diagnostics_report_path="")
+
   def testVHDLHierarchy(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     source = """\

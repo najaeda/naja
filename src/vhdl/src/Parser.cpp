@@ -17,7 +17,7 @@ SourceSpan join(SourceSpan first, SourceSpan last) {
 
 class RecursiveParser {
 public:
-    explicit RecursiveParser(std::string_view source) : lexed_(Lexer::scan(source)) {
+    explicit RecursiveParser(std::string_view source, bool synthesis) : lexed_(Lexer::scan(source, synthesis)), synthesis_(synthesis) {
         for (const auto& diagnostic : lexed_.diagnostics)
             result_.diagnostics.push_back({diagnostic.message, diagnostic.span});
     }
@@ -470,10 +470,14 @@ private:
             !expectSymbol("("))
             return std::nullopt;
         std::optional<Name> indexSubtype;
+        std::optional<Name> indexType;
         std::optional<DiscreteRange> indexRange;
         if (isNameToken() && look().canonical == "range" && look(2).text == "<>") {
             indexSubtype = parseName();
             advance(); advance();
+            indexRange = DiscreteRange{};
+        } else if (isNameToken() && look().text == ")") {
+            indexType = parseName();
             indexRange = DiscreteRange{};
         } else indexRange = parseDiscreteRange();
         if (!indexRange || !expectSymbol(")") || !expectWord("of"))
@@ -491,7 +495,7 @@ private:
         if (!expectSymbol(";"))
             return std::nullopt;
         return ArrayTypeDeclaration{std::move(*name), std::move(*indexRange),
-            std::move(elementType), join(start, lexed_.tokens[index_ - 1].span), std::move(indexSubtype)};
+            std::move(elementType), join(start, lexed_.tokens[index_ - 1].span), std::move(indexSubtype), std::move(indexType)};
     }
 
     std::optional<FunctionDeclaration> parseFunction() {
@@ -617,6 +621,32 @@ private:
             (look(2).canonical == "for" || look(2).canonical == "if"));
     }
 
+    bool startsIgnoredDiagnostic() const {
+        if (!synthesis_) return false;
+        auto offset = isNameToken() && look().text == ":" ? 2u : 0u;
+        if (look(offset).canonical == "postponed") ++offset;
+        return look(offset).canonical == "assert" || look(offset).canonical == "report";
+    }
+
+    bool parseIgnoredDiagnostic() {
+        const auto start = current().span;
+        if (isNameToken() && look().text == ":") { advance(); advance(); }
+        acceptWord("postponed");
+        const bool assertion = acceptWord("assert");
+        if (assertion && !parseExpression(0)) return false;
+        if (!assertion || word("report")) {
+            if (!expectWord("report") || !parseExpression(0)) return false;
+        }
+        if (acceptWord("severity") && !parseExpression(0)) return false;
+        if (!expectSymbol(";")) return false;
+        result_.warnings.push_back({
+            assertion ? "ignored-assertion" : "ignored-report",
+            assertion ? "assertion ignored for synthesis; condition, report, and severity are not evaluated"
+                      : "report ignored for synthesis; message and severity are not evaluated",
+            join(start, lexed_.tokens[index_ - 1].span)});
+        return true;
+    }
+
     bool parseGenerateBody(GenerateStatement& generate) {
         bool declarations = false;
         while (word("signal") || word("constant") || word("type")) {
@@ -656,15 +686,21 @@ private:
             if (!expectWord("begin")) return false;
         } else acceptWord("begin");
         while (!atEnd() && !word("end") && !word("elsif") && !word("else")) {
+            std::optional<Name> processLabel;
             if (isNameToken() && look().text == ":" && look(2).canonical == "process") {
-                advance(); advance();
+                processLabel = parseName();
+                advance();
+            }
+            if (startsIgnoredDiagnostic()) {
+                if (!parseIgnoredDiagnostic()) return false;
+                continue;
             }
             if (startsGenerate()) {
                 auto child = parseGenerate();
                 if (!child) return false;
                 generate.generates.push_back(std::move(*child));
             } else if (word("process")) {
-                auto process = parseClockedProcess();
+                auto process = parseClockedProcess(processLabel);
                 if (!process) return false;
                 generate.processes.push_back(std::move(*process));
             } else if (isNameToken() && look().text == ":") {
@@ -672,7 +708,7 @@ private:
                 if (!instance) return false;
                 generate.instantiations.push_back(std::move(*instance));
             } else {
-                auto assignment = parseAssignment();
+                auto assignment = parseAssignment(false, true);
                 if (!assignment) return false;
                 generate.assignments.push_back(std::move(*assignment));
             }
@@ -796,9 +832,15 @@ private:
             return std::nullopt;
         while (!atEnd() && !word("end")) {
             const auto before = current().span.start.offset;
+            std::optional<Name> processLabel;
             if (isNameToken() && look().text == ":" &&
                 look(2).canonical == "process") {
-                advance(); advance();
+                processLabel = parseName();
+                advance();
+            }
+            if (startsIgnoredDiagnostic()) {
+                if (!parseIgnoredDiagnostic()) return std::nullopt;
+                continue;
             }
             if (startsGenerate()) {
                 auto generate = parseGenerate();
@@ -813,14 +855,14 @@ private:
                     synchronize("end");
             }
             else if (word("process")) {
-                auto process = parseClockedProcess();
+                auto process = parseClockedProcess(processLabel);
                 if (process)
                     architecture.processes.push_back(std::move(*process));
                 else
                     synchronize("end");
             }
             else {
-                auto assignment = parseAssignment();
+                auto assignment = parseAssignment(false, true);
                 if (assignment)
                     architecture.assignments.push_back(std::move(*assignment));
                 else
@@ -841,6 +883,42 @@ private:
             return std::nullopt;
         architecture.span = join(start, lexed_.tokens[index_ - 1].span);
         return architecture;
+    }
+
+    bool startsNamedPortAssociation() const {
+        if (!isNameToken()) return false;
+        size_t depth = 0;
+        for (size_t distance = 1; index_ + distance < lexed_.tokens.size(); ++distance) {
+            const auto& token = look(distance);
+            if (token.text == "=>" && depth == 0) return true;
+            if (token.text == "(") ++depth;
+            else if (token.text == ")") {
+                if (depth == 0) return false;
+                --depth;
+            } else if ((token.text == "," && depth == 0) || token.text == ";") return false;
+        }
+        return false;
+    }
+
+    bool parsePortSelection(std::vector<std::unique_ptr<Expression>>& indices) {
+        while (symbol(".") || symbol("(")) {
+            if (acceptSymbol(".")) {
+                auto field = parseName();
+                if (!field) return false;
+                auto selected = std::make_unique<Expression>();
+                selected->kind = Expression::Kind::Selected;
+                selected->text = field->spelling;
+                selected->canonical = field->canonical;
+                selected->span = field->span;
+                indices.push_back(std::move(selected));
+            } else {
+                advance();
+                auto index = parseIndex();
+                if (!index || !expectSymbol(")")) return false;
+                indices.push_back(std::move(index));
+            }
+        }
+        return true;
     }
 
     std::optional<EntityInstantiation> parseEntityInstantiation() {
@@ -891,39 +969,48 @@ private:
         std::vector<Name> actuals;
         std::vector<std::optional<Name>> formals;
         std::vector<std::vector<std::unique_ptr<Expression>>> actualIndices;
+        std::vector<std::unique_ptr<Expression>> actualLiterals;
+        std::vector<std::vector<std::unique_ptr<Expression>>> formalIndices;
+        std::vector<bool> actualOpen;
         if (!symbol(")")) {
             do {
-                if (word("open")) {
-                    error("open port associations are not supported", current().span);
-                    return std::nullopt;
-                }
-                auto actual = parseName();
-                if (!actual)
-                    return std::nullopt;
                 std::optional<Name> formal;
-                if (acceptSymbol("=>")) {
-                    formal = std::move(*actual);
-                    actual = parseName();
-                    if (!actual) return std::nullopt;
+                formalIndices.emplace_back();
+                if (startsNamedPortAssociation()) {
+                    formal = parseName();
+                    if (!formal || !parsePortSelection(formalIndices.back()) ||
+                        !expectSymbol("=>")) return std::nullopt;
                 }
-                std::vector<std::unique_ptr<Expression>> indices;
-                while (symbol(".") || symbol("(")) {
-                    if (acceptSymbol(".")) {
-                        auto field = parseName();
-                        if (!field) return std::nullopt;
-                        auto selected = std::make_unique<Expression>();
-                        selected->kind = Expression::Kind::Selected;
-                        selected->text = field->spelling;
-                        selected->canonical = field->canonical;
-                        selected->span = field->span;
-                        indices.push_back(std::move(selected));
-                        continue;
+                actualOpen.push_back(word("open"));
+                if (acceptWord("open")) {
+                    actualLiterals.push_back(nullptr);
+                    actualIndices.emplace_back();
+                    formals.push_back(std::move(formal));
+                    actuals.push_back(Name{{}, {}, lexed_.tokens[index_ - 1].span});
+                    continue;
+                }
+                if (current().kind == TokenKind::CharacterLiteral ||
+                    current().kind == TokenKind::StringLiteral ||
+                    ((word("x") || word("b") || word("o")) && look().kind == TokenKind::StringLiteral)) {
+                    auto literal = parseExpression(0);
+                    if (!literal) return std::nullopt;
+                    if (literal->kind != Expression::Kind::CharacterLiteral &&
+                        literal->kind != Expression::Kind::StringLiteral &&
+                        literal->kind != Expression::Kind::BitStringLiteral) {
+                        error("port-map expressions other than literals are unsupported", literal->span);
+                        return std::nullopt;
                     }
-                    advance();
-                    auto index = parseIndex();
-                    if (!index || !expectSymbol(")")) return std::nullopt;
-                    indices.push_back(std::move(index));
+                    actualLiterals.push_back(std::move(literal));
+                    actualIndices.emplace_back();
+                    formals.push_back(std::move(formal));
+                    actuals.emplace_back();
+                    continue;
                 }
+                actualLiterals.push_back(nullptr);
+                auto actual = parseName();
+                if (!actual) return std::nullopt;
+                std::vector<std::unique_ptr<Expression>> indices;
+                if (!parsePortSelection(indices)) return std::nullopt;
                 actualIndices.push_back(std::move(indices));
                 formals.push_back(std::move(formal));
                 actuals.push_back(std::move(*actual));
@@ -935,7 +1022,7 @@ private:
             std::move(*entity), std::move(architecture), std::move(generics),
             std::move(actuals),
             join(start, lexed_.tokens[index_ - 1].span), std::move(formals), component,
-            std::move(actualIndices)};
+            std::move(actualIndices), std::move(actualLiterals), std::move(formalIndices), std::move(actualOpen)};
     }
 
     // Parse the restricted clock predicate separately from general expressions.
@@ -1011,7 +1098,20 @@ private:
         return expectWord("then");
     }
 
-    std::optional<ClockedProcess> parseClockedProcess() {
+    bool parseProcessEnd(const std::optional<Name>& label) {
+        if (!expectWord("end") || !expectWord("process")) return false;
+        if (isNameToken()) {
+            auto closing = parseName();
+            if (!closing) return false;
+            if (!label || nameKey(*closing) != nameKey(*label)) {
+                error("process end label does not match its declaration", closing->span);
+                return false;
+            }
+        }
+        return expectSymbol(";");
+    }
+
+    std::optional<ClockedProcess> parseClockedProcess(const std::optional<Name>& label) {
         // Keep edge-process diagnostics for malformed clock/reset idioms.
         for (auto i = index_ + 1; i < lexed_.tokens.size(); ++i) {
             const auto& token = lexed_.tokens[i];
@@ -1019,11 +1119,16 @@ private:
             if (((token.canonical == "rising_edge" || token.canonical == "falling_edge") &&
                  i + 1 < lexed_.tokens.size() && lexed_.tokens[i + 1].text == "(") ||
                 (token.canonical == "event" && lexed_.tokens[i - 1].text == "'"))
-                return parseEdgeProcess();
+            {
+                auto process = parseEdgeProcess(label);
+                if (process) process->label = label;
+                return process;
+            }
         }
         const auto start = advance().span;
         ClockedProcess process;
         process.combinational = true;
+        process.label = label;
         if (!expectSymbol("(")) return std::nullopt;
         if (acceptWord("all")) process.allSensitivity = true;
         else do {
@@ -1046,15 +1151,15 @@ private:
             process.variables.push_back(std::move(*declaration));
         }
         if (!expectWord("begin") || !parseStatements(process.statements) ||
-            !expectWord("end") || !expectWord("process") || !expectSymbol(";")) return std::nullopt;
+            !parseProcessEnd(label)) return std::nullopt;
         process.span = join(start, lexed_.tokens[index_ - 1].span);
         return process;
     }
 
-    std::optional<ClockedProcess> parseEdgeProcess() {
+    std::optional<ClockedProcess> parseEdgeProcess(const std::optional<Name>& label) {
         const auto savedIndex = index_;
         const auto savedDiagnostics = result_.diagnostics.size();
-        auto legacy = parseSimpleClockedProcess();
+        auto legacy = parseSimpleClockedProcess(label);
         if (legacy)
             return legacy;
         index_ = savedIndex;
@@ -1120,7 +1225,7 @@ private:
             if (!assignment) return std::nullopt;
             process.assignments.push_back(std::move(*assignment));
         }
-        if (!expectWord("end") || !expectWord("process") || !expectSymbol(";"))
+        if (!parseProcessEnd(label))
             return std::nullopt;
         process.span = join(start, lexed_.tokens[index_ - 1].span);
         return process;
@@ -1134,7 +1239,10 @@ private:
             }
             SequentialStatement statement;
             const auto start = current().span;
-            if (acceptWord("exit")) {
+            if (startsIgnoredDiagnostic()) {
+                if (!parseIgnoredDiagnostic()) return false;
+                statement.kind = SequentialStatement::Kind::Null;
+            } else if (acceptWord("exit")) {
                 if (!functionBody) {
                     error("exit is currently supported only in function loops", start);
                     return false;
@@ -1217,7 +1325,7 @@ private:
         return expectWord("end") && expectWord("if") && expectSymbol(";");
     }
 
-    std::optional<ClockedProcess> parseSimpleClockedProcess() {
+    std::optional<ClockedProcess> parseSimpleClockedProcess(const std::optional<Name>& label) {
         const auto start = advance().span;
         if (!expectSymbol("("))
             return std::nullopt;
@@ -1306,8 +1414,7 @@ private:
             (!expectWord("end") || !expectWord("if") || !expectSymbol(";")))
             return std::nullopt;
         if (!expectWord("end") || !expectWord("if") ||
-            !expectSymbol(";") || !expectWord("end") || !expectWord("process") ||
-            !expectSymbol(";"))
+            !expectSymbol(";") || !parseProcessEnd(label))
             return std::nullopt;
         return ClockedProcess{std::move(*sensitivity), std::move(process.eventSignal),
             std::move(process.levelSignal), std::move(process.level), std::move(assignments),
@@ -1346,8 +1453,13 @@ private:
         return value;
     }
 
-    std::optional<Assignment> parseAssignment(bool sequential = false) {
+    std::optional<Assignment> parseAssignment(bool sequential = false, bool selectedAllowed = false) {
         const auto start = current().span;
+        std::unique_ptr<Expression> selector;
+        if (selectedAllowed && acceptWord("with")) {
+            selector = parseExpression(0);
+            if (!selector || !expectWord("select")) return std::nullopt;
+        }
         auto target = parseName();
         if (!target)
             return std::nullopt;
@@ -1373,6 +1485,29 @@ private:
             ? AssignmentKind::Variable : AssignmentKind::Signal;
         if (kind == AssignmentKind::Signal && !expectSymbol("<="))
             return std::nullopt;
+        if (selector) {
+            Assignment assignment;
+            assignment.target = std::move(*target);
+            assignment.indices = std::move(indices);
+            assignment.selector = std::move(selector);
+            do {
+                auto value = parseExpression(0);
+                if (!value || !expectWord("when")) return std::nullopt;
+                std::vector<std::unique_ptr<Expression>> choices;
+                const bool otherwise = acceptWord("others");
+                if (!otherwise) do {
+                    auto choice = parseIndex();
+                    if (!choice) return std::nullopt;
+                    choices.push_back(std::move(choice));
+                } while (acceptSymbol("|"));
+                assignment.alternatives.push_back(std::move(value));
+                assignment.choices.push_back(std::move(choices));
+                if (otherwise) break;
+            } while (acceptSymbol(","));
+            if (!expectSymbol(";")) return std::nullopt;
+            assignment.span = join(start, lexed_.tokens[index_ - 1].span);
+            return assignment;
+        }
         auto value = parseConditional();
         if (!value || !expectSymbol(";"))
             return std::nullopt;
@@ -1615,14 +1750,15 @@ private:
     }
 
     LexResult lexed_;
+    bool synthesis_ = false;
     ParseResult result_;
     std::size_t index_ = 0;
 };
 
 } // namespace
 
-ParseResult Parser::parse(std::string_view source) {
-    return RecursiveParser(source).run();
+ParseResult Parser::parse(std::string_view source, bool synthesis) {
+    return RecursiveParser(source, synthesis).run();
 }
 
 } // namespace vhdl

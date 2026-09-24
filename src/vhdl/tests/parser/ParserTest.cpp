@@ -504,7 +504,7 @@ end;
 }
 
 TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
-    for (const auto* mapping : {"open, y", "work."}) {
+    for (const auto* mapping : {"open(0), y", "work."}) {
         SCOPED_TRACE(mapping);
         const std::string source = std::string(
             "entity top is port(a : in bit; y : out bit); end; "
@@ -819,4 +819,118 @@ end;
     EXPECT_EQ(processes[0].sensitivityFields[0][1].canonical, "data");
     EXPECT_TRUE(processes[1].sensitivityFields[0].empty());
     EXPECT_EQ(processes[1].sensitivityFields[1].size(), 2u);
+}
+
+TEST(VHDLParserTest, DiagnosticExclusionRequiresSynthesisMode) {
+    const auto source = "entity e is end; architecture rtl of e is begin "
+        "a: assert false report \"message; text\" severity failure; end;";
+    const auto parsed = vhdl::Parser::parse(source, true);
+    EXPECT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.warnings.size(), 1);
+    EXPECT_EQ(parsed.warnings.front().code, "ignored-assertion");
+    EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    EXPECT_TRUE(vhdl::Parser::parse(
+        "entity e is end; architecture rtl of e is begin assert false end;", true).hasErrors());
+}
+
+TEST(VHDLParserTest, PreservesPortFormalSelectionsSeparatelyFromActualSelections) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity e is end;
+architecture rtl of e is begin
+  u: entity work.leaf port map(a.data(1 + 1 downto 0) => d(4 to 6), y(0) => '1');
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& instance = parsed.syntax.architectures.front().instantiations.front();
+    ASSERT_EQ(instance.formalIndices.size(), 2);
+    ASSERT_EQ(instance.formalIndices[0].size(), 2);
+    EXPECT_EQ(instance.formalIndices[0][0]->kind, vhdl::Expression::Kind::Selected);
+    EXPECT_EQ(instance.formalIndices[0][1]->kind, vhdl::Expression::Kind::Range);
+    ASSERT_EQ(instance.actualIndices[0].size(), 1);
+    EXPECT_EQ(instance.actualIndices[0][0]->kind, vhdl::Expression::Kind::Range);
+    EXPECT_EQ(instance.actualLiterals[1]->kind, vhdl::Expression::Kind::CharacterLiteral);
+}
+
+TEST(VHDLParserTest, PreservesOpenPortActualsWithoutInventingNames) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity e is end;
+architecture rtl of e is begin
+  p: entity work.leaf port map(d, open);
+  n: entity work.leaf port map(y => open, a => '1');
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& instances = parsed.syntax.architectures.front().instantiations;
+    ASSERT_EQ(instances.size(), 2u);
+    EXPECT_EQ(instances[0].actualOpen, (std::vector<bool>{false, true}));
+    EXPECT_EQ(instances[1].actualOpen, (std::vector<bool>{true, false}));
+    EXPECT_TRUE(instances[0].actuals[1].spelling.empty());
+    EXPECT_EQ(instances[0].actuals[1].span.start.line, 4);
+    EXPECT_EQ(instances[1].formals[0]->canonical, "y");
+    EXPECT_NE(instances[1].actualLiterals[1], nullptr);
+}
+
+TEST(VHDLParserTest, ProcessEndLabelsMatchAcrossProcessFormsAndScopes) {
+    for (const auto* body : {
+        "process(all) begin y <= a;",
+        "process(clk) begin if rising_edge(clk) then y <= a; end if;",
+        "process(clk) begin if rising_edge(clk) then if a = '1' then y <= a; else y <= '0'; end if; end if;",
+        "process(clk, rst) begin if rst = '0' then y <= '0'; elsif rising_edge(clk) then y <= a; end if;"
+    }) {
+        for (const bool generated : {false, true}) {
+            for (const auto& [opening, closing] : std::vector<std::pair<std::string, std::string>>{
+                {"P", "p"}, {"p", ""}, {"", ""}, {"\\CaseSensitive\\", "\\CaseSensitive\\"}}) {
+                SCOPED_TRACE(body);
+                SCOPED_TRACE(opening + "/" + closing);
+                const auto source = std::string("entity e is end; architecture rtl of e is begin ") +
+                    (generated ? "g: if true generate " : "") +
+                    (opening.empty() ? "" : opening + ": ") + body + " end process " + closing + "; " +
+                    (generated ? "end generate; " : "") + "end;";
+                const auto parsed = vhdl::Parser::parse(source);
+                ASSERT_FALSE(parsed.hasErrors());
+                const auto& architecture = parsed.syntax.architectures.front();
+                const auto& process = generated ? architecture.generates.front().processes.front()
+                                                : architecture.processes.front();
+                EXPECT_EQ(process.label.has_value(), !opening.empty());
+                if (process.label) EXPECT_EQ(process.label->spelling, opening);
+            }
+        }
+    }
+}
+
+TEST(VHDLParserTest, RejectsMismatchedAndUnintroducedProcessEndLabels) {
+    for (const auto* body : {
+        "process(all) begin y <= a;",
+        "process(clk) begin if rising_edge(clk) then y <= a; end if;"
+    }) {
+        for (const auto& [opening, closing] : std::vector<std::pair<std::string, std::string>>{
+            {"p", "q"}, {"", "p"}, {"\\CaseSensitive\\", "\\casesensitive\\"}}) {
+            const auto parsed = vhdl::Parser::parse(std::string(
+                "entity e is end; architecture rtl of e is begin ") +
+                (opening.empty() ? "" : opening + ": ") + body + " end process " + closing + "; end;");
+            EXPECT_TRUE(parsed.hasErrors());
+            ASSERT_FALSE(parsed.diagnostics.empty());
+            EXPECT_EQ(parsed.diagnostics.front().message, "process end label does not match its declaration");
+        }
+    }
+}
+
+TEST(VHDLParserTest, DistinguishesEnumerationIndexTypeFromUnconstrainedSubtype) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity e is end; architecture rtl of e is
+  type index_t is (a, b);
+  type full_t is array(index_t) of bit;
+  type flexible_t is array(index_t range <>) of bit;
+  type reverse_t is array(b downto a) of bit;
+begin end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& arrays = parsed.syntax.architectures.front().arrayTypes;
+    ASSERT_EQ(arrays.size(), 3u);
+    ASSERT_TRUE(arrays[0].indexType.has_value());
+    EXPECT_EQ(arrays[0].indexType->canonical, "index_t");
+    EXPECT_FALSE(arrays[0].indexSubtype.has_value());
+    EXPECT_TRUE(arrays[1].indexSubtype.has_value());
+    EXPECT_FALSE(arrays[1].indexType.has_value());
+    EXPECT_FALSE(arrays[2].indexRange.ascending);
 }

@@ -769,9 +769,70 @@ failure cases. They require neither a NEORV32 checkout nor an environment variab
 Unlabeled `exit` and `exit when` are supported in static function loops,
 including nested loops. Labeled exits and process-loop exits remain unsupported.
 
-The next observed blocker in the full file-list load is a literal port-map actual at
-`neorv32_cpu_alu_fpu.vhd:818` in the development checkout
-(line 6429 of the concatenated input). Completing the target also requires runtime vector helpers,
+Input port maps support binary character, string, and binary/octal/hex bit-string
+literals, with the formal port supplying type and bit order. Output literals,
+width/type mismatches, and non-binary values are rejected. General expression
+and aggregate actuals remain unsupported.
+
+Named port associations may select vector elements, slices, and record fields
+on the formal side, for example ``data_i(0) => data_bit``. Individual associations
+must be consecutive and cover every scalar subelement exactly once. Overlaps,
+missing elements, invalid directions or bounds, and type/width mismatches are
+errors. Formal index expressions currently support integer literals, locally
+static integer constants, and predefined arithmetic; generics and generate
+iterators cannot be used as formal indices. Actual selections may still use
+elaboration-time generic or generate values. Component selections use the
+component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
+vector, and record ports in positional or named maps. Their instance terminals
+remain unconnected, matching SV empty output connections, without a warning.
+Input defaults are not yet supported, so open inputs remain rejected. Individual
+formal elements or slices cannot be associated with ``open``.
+As with connected record ports, their type package currently needs to be visible
+in the instantiating scope as well as the child entity.
+
+Processes may repeat their opening label in ``end process label;``, including
+combinational, clocked, and asynchronous-reset processes inside generates.
+The closing label is optional; when present it must match the opening label.
+Basic identifiers are case-insensitive, while extended identifiers retain case.
+
+Arrays may use an enumeration as their index type, for example
+``type requests_t is array(device_t) of request_t;``. Element order follows the
+enumeration declaration, with nominal index-type checks. Enum literals and
+constants select elements directly, including record elements in port maps.
+Explicit enum ranges, descending slices, and unconstrained enum-indexed arrays
+with explicit object bounds are supported. Runtime enum indices use mux reads
+and decoded signal writes; clocked enum-indexed arrays retain register lowering
+rather than RAM inference. Integer-indexed arrays reject enum indices, and
+enum-indexed arrays reject integer or unrelated-enum indices. Enumeration-indexed
+integer constant tables and enumeration subtype declarations remain unsupported.
+
+
+Concurrent selected assignments (``with ... select``) support static choices,
+grouped choices, and a final ``others`` alternative, including inside generates.
+They share case-statement type, duplicate-choice, and coverage checks and lower
+to combinational multiplexers. Delays and matching selections remain unsupported.
+
+The netlist loader honors case-insensitive ``translate_off`` / ``translate_on``
+comment directives prefixed by ``pragma``, ``synthesis``, or ``synopsys``.
+Excluded simulation code contributes no hardware; source locations are preserved.
+Nested, unmatched, and unterminated regions are rejected. Ordinary lexer/parser
+calls retain simulation code unless their synthesis option is enabled. Unmarked
+file declarations and other simulation operations remain unsupported.
+In synthesis mode, assertion and report statements are parsed but ignored,
+including their conditions, messages, and severity (even ``failure``).
+Configuration assertions therefore do not validate generic values for now.
+Each load emits one console warning per code (``ignored-assertion`` or
+``ignored-report``). All occurrences, including source locations, are written to
+``naja_vhdl_diagnostics.log``, overwritten per load. Internal re-parsing of
+retained dependencies does not repeat their warnings. Unsupported hardware
+constructs still fail loading. C++ callers select the destination with
+`VHDLConstructor::ConstructOptions::diagnosticsReportPath` (`std::nullopt` for
+console-only). Python callers use `load_vhdl(..., diagnostics_report_path=...)`
+or `NLDB.loadVHDL(..., diagnostics_report_path=...)` (`None` for console-only).
+
+The complete file list now parses. RTL elaboration next stops at named-library
+package visibility: `use neorv32.neorv32_package.all;` at `neorv32_top.vhd:19`
+in the development checkout (line 20136 of the concatenated input). Completing the target also requires runtime vector helpers,
 boolean/vector generics, additional sequential and generate constructs, and
 named-library binding. The complete top has **not** been loaded or validated yet.
 

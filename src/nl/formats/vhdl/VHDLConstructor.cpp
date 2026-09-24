@@ -6,6 +6,7 @@
 #include "VHDLRTLConstructor.h"
 
 #include "NLException.h"
+#include "NajaLog.h"
 #include "NLName.h"
 #include "SNLBitNet.h"
 #include "SNLBusNet.h"
@@ -150,7 +151,41 @@ SNLDesign* VHDLConstructor::constructSource(
     unsupported("null library");
   }
 
-  const auto parsed = vhdl::Parser::parse(source);
+  std::ofstream report;
+  if (options_.diagnosticsReportPath) {
+    const auto& destination = *options_.diagnosticsReportPath;
+    if (destination.empty()) unsupported("empty diagnostics report path");
+    std::error_code error;
+    if (!destination.parent_path().empty())
+      std::filesystem::create_directories(destination.parent_path(), error);
+    if (error) unsupported("cannot create diagnostics report directory: " + destination.string());
+    report.open(destination, std::ios::out | std::ios::trunc);
+    if (!report) unsupported("cannot create diagnostics report file: " + destination.string());
+    report << "=== Naja VHDL Diagnostics ===\n";
+  }
+  const auto parsed = vhdl::Parser::parse(source, true);
+  std::unordered_set<std::string> loggedCodes;
+  if (!parsed.warnings.empty()) {
+    if (options_.diagnosticsReportPath) {
+      NAJA_LOG_WARN("Only the first occurrence of each VHDL warning code is emitted on the console; "
+                    "all occurrences are written to '{}'", options_.diagnosticsReportPath->string());
+    } else {
+      NAJA_LOG_WARN("Only the first occurrence of each VHDL warning code is emitted on the console; "
+                    "diagnostics reporting is console-only");
+    }
+  }
+  // Report only the new input, not the retained sources reparsed below.
+  for (const auto& warning : parsed.warnings) {
+    const auto message = (path.empty() ? "<source>" : path) + ":" +
+      std::to_string(warning.span.start.line) + ":" +
+      std::to_string(warning.span.start.column) + ": warning [" + warning.code + "]: " + warning.message;
+    if (report.is_open()) report << message << '\n';
+    if (loggedCodes.insert(warning.code).second) NAJA_LOG_WARN("{}", message);
+  }
+  if (report.is_open()) {
+    report.flush();
+    if (!report) unsupported("cannot write diagnostics report: " + options_.diagnosticsReportPath->string());
+  }
   if (parsed.hasErrors()) {
     const auto& diagnostic = parsed.diagnostics.front();
     unsupported(diagnosticMessage(
@@ -165,7 +200,7 @@ SNLDesign* VHDLConstructor::constructSource(
         });
     const bool retained = previous != sources->inputs.end();
     const auto combined = retained ? sources->source : sources->source + std::string(source);
-    auto all = vhdl::Parser::parse(combined);
+    auto all = vhdl::Parser::parse(combined, true);
     if (all.hasErrors()) unsupported("stored VHDL source failed to parse");
     std::string selected(top);
     if (selected.empty() && parsed.syntax.entities.size() == 1)
