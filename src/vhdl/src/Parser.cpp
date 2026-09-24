@@ -404,6 +404,33 @@ private:
             join(start, lexed_.tokens[index_ - 1].span), std::move(initializer)};
     }
 
+    std::optional<RecordTypeDeclaration> parseRecordTypeDeclaration() {
+        const auto start = lexed_.tokens[index_ - 1].span;
+        auto name = parseName();
+        if (!name || !expectWord("is") || !expectWord("record")) return std::nullopt;
+        RecordTypeDeclaration record{*name, {}, start};
+        while (!atEnd() && !word("end")) {
+            auto field = parseObjectDeclaration();
+            if (!field) return std::nullopt;
+            record.fields.push_back(std::move(*field));
+        }
+        if (record.fields.empty()) {
+            error("record requires at least one element", current().span);
+            return std::nullopt;
+        }
+        if (!expectWord("end") || !expectWord("record")) return std::nullopt;
+        if (isNameToken()) {
+            auto closing = parseName();
+            if (nameKey(*closing) != nameKey(*name)) {
+                error("record end name mismatch", closing->span);
+                return std::nullopt;
+            }
+        }
+        if (!expectSymbol(";")) return std::nullopt;
+        record.span = join(start, lexed_.tokens[index_ - 1].span);
+        return record;
+    }
+
     std::optional<ArrayTypeDeclaration> parseArrayTypeDeclaration() {
         const auto start = lexed_.tokens[index_ - 1].span;
         auto name = parseName();
@@ -444,6 +471,12 @@ private:
         package.name = *name;
         while (!atEnd() && !word("end")) {
             if (!package.body && acceptWord("type")) {
+                if (look(2).canonical == "record") {
+                    auto record = parseRecordTypeDeclaration();
+                    if (!record) return std::nullopt;
+                    package.recordTypes.push_back(std::move(*record));
+                    continue;
+                }
                 auto type = parseArrayTypeDeclaration();
                 if (!type) return std::nullopt;
                 package.arrayTypes.push_back(std::move(*type));
@@ -549,6 +582,12 @@ private:
                 architecture.components.push_back(std::move(*component));
             } else {
                 advance();
+                if (look(2).canonical == "record") {
+                    auto record = parseRecordTypeDeclaration();
+                    if (!record) return std::nullopt;
+                    architecture.recordTypes.push_back(std::move(*record));
+                    continue;
+                }
                 auto declaration = parseArrayTypeDeclaration();
                 if (!declaration)
                     return std::nullopt;
@@ -684,7 +723,19 @@ private:
                     if (!actual) return std::nullopt;
                 }
                 std::vector<std::unique_ptr<Expression>> indices;
-                while (acceptSymbol("(")) {
+                while (symbol(".") || symbol("(")) {
+                    if (acceptSymbol(".")) {
+                        auto field = parseName();
+                        if (!field) return std::nullopt;
+                        auto selected = std::make_unique<Expression>();
+                        selected->kind = Expression::Kind::Selected;
+                        selected->text = field->spelling;
+                        selected->canonical = field->canonical;
+                        selected->span = field->span;
+                        indices.push_back(std::move(selected));
+                        continue;
+                    }
+                    advance();
                     auto index = parseIndex();
                     if (!index || !expectSymbol(")")) return std::nullopt;
                     indices.push_back(std::move(index));
@@ -998,7 +1049,19 @@ private:
         if (!target)
             return std::nullopt;
         std::vector<std::unique_ptr<Expression>> indices;
-        while (acceptSymbol("(")) {
+        while (symbol(".") || symbol("(")) {
+            if (acceptSymbol(".")) {
+                auto field = parseName();
+                if (!field) return std::nullopt;
+                auto selected = std::make_unique<Expression>();
+                selected->kind = Expression::Kind::Selected;
+                selected->text = field->spelling;
+                selected->canonical = field->canonical;
+                selected->span = field->span;
+                indices.push_back(std::move(selected));
+                continue;
+            }
+            advance();
             auto index = parseIndex();
             if (!index || !expectSymbol(")")) return std::nullopt;
             indices.push_back(std::move(index));
@@ -1099,16 +1162,29 @@ private:
                 aggregate->span = join(start, lexed_.tokens[index_ - 1].span);
                 return aggregate;
             }
-            auto nested = parseExpression(0);
-            if (nested && acceptSymbol(",")) {
+            auto parseElement = [&]() -> std::unique_ptr<Expression> {
+                auto element = parseExpression(0);
+                if (element && acceptSymbol("=>")) {
+                    auto association = std::make_unique<Expression>();
+                    association->kind = Expression::Kind::Association;
+                    association->left = std::move(element);
+                    association->right = parseExpression(0);
+                    if (!association->right) return nullptr;
+                    association->span = join(association->left->span, association->right->span);
+                    return association;
+                }
+                return element;
+            };
+            auto nested = parseElement();
+            if (nested && (symbol(",") || nested->kind == Expression::Kind::Association)) {
                 auto aggregate = std::make_unique<Expression>();
                 aggregate->kind = Expression::Kind::Aggregate;
                 aggregate->elements.push_back(std::move(nested));
-                do {
-                    auto element = parseExpression(0);
+                while (acceptSymbol(",")) {
+                    auto element = parseElement();
                     if (!element) return nullptr;
                     aggregate->elements.push_back(std::move(element));
-                } while (acceptSymbol(","));
+                }
                 nested = std::move(aggregate);
             }
             if (!nested || !expectSymbol(")"))
@@ -1131,7 +1207,20 @@ private:
             expression->text = name->spelling;
             expression->canonical = name->canonical;
             expression->span = name->span;
-            while (acceptSymbol("(")) {
+            while (symbol(".") || symbol("(")) {
+                if (acceptSymbol(".")) {
+                    auto field = parseName();
+                    if (!field) return nullptr;
+                    auto selected = std::make_unique<Expression>();
+                    selected->kind = Expression::Kind::Selected;
+                    selected->text = field->spelling;
+                    selected->canonical = field->canonical;
+                    selected->span = join(expression->span, field->span);
+                    selected->left = std::move(expression);
+                    expression = std::move(selected);
+                    continue;
+                }
+                advance();
                 auto index = parseIndex();
                 if (!index) return nullptr;
                 if (acceptSymbol(",")) {

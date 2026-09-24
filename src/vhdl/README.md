@@ -729,3 +729,29 @@ VHDL_FIRDEC_BENCHMARK=/path/to/firdec_DSP/src \
   build/test/nl/formats/vhdl/snlVHDLExternalTests \
   --gtest_filter=VHDLExternalTest.FIRDecDSPBenchmarkAndSignedStageCycles
 ```
+
+## NEORV32 loading target
+
+The integration target is `neorv32_top` with default generic values, using the
+upstream `rtl/file_list_core.f` order. Run it against an existing checkout:
+
+```sh
+cmake --build build --target snlVHDLExternalTests
+VHDL_NEORV32_RTL=/path/to/neorv32/rtl \
+  build/test/nl/formats/vhdl/snlVHDLExternalTests --gtest_filter='*NEORV32DefaultTop'
+```
+
+This opt-in test is expected to fail until full elaboration is implemented; it
+is not registered in CTest and does not accept parsing as successful loading.
+The initial blocker, package records, now has parser and RTL support for nested
+records, arrays of records, named/positional aggregates, selected names, scheduled
+field updates, and flattened whole-record ports. `std_ulogic` and
+`std_ulogic_vector` are accepted in the two-state RTL profile. The standalone
+analyzer continues to diagnose records as requiring RTL elaboration.
+
+The next observed blocker is the helper-function declarations in
+`neorv32_package.vhd` (line 875 in the development checkout). Completing the target
+also requires general package subprogram evaluation, boolean/vector generics,
+additional sequential and generate constructs, and named-library binding. These
+constructs must preserve language semantics rather than be skipped or replaced
+with black boxes. The complete top has **not** been loaded or validated yet.

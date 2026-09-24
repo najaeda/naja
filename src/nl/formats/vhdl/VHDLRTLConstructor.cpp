@@ -86,9 +86,18 @@ struct Shape {
   std::vector<std::string> types;
   std::vector<Range> ranges;
   size_t integerWidth = 0;
+  std::vector<std::pair<std::string, Shape>> fields;
   size_t size() const {
     if (integerWidth) return integerWidth;
     size_t size = 1;
+    if (!fields.empty()) {
+      size = 0;
+      for (const auto& field : fields) {
+        const auto width = field.second.size();
+        if (size > 65536 - width) fail("oversized hardware record");
+        size += width;
+      }
+    }
     for (const auto& range : ranges) {
       const auto width = range.size();
       if (!width || size > 65536 / width) fail("null or oversized hardware array");
@@ -101,6 +110,9 @@ struct Shape {
 bool compatible(const Shape& a, const Shape& b) {
   if (a.integerWidth && b.integerWidth) return true;
   if (a.types != b.types || a.ranges.size() != b.ranges.size()) return false;
+  if (a.fields.size() != b.fields.size()) return false;
+  for (size_t i = 0; i < a.fields.size(); ++i)
+    if (a.fields[i].first != b.fields[i].first || !compatible(a.fields[i].second, b.fields[i].second)) return false;
   for (size_t i = 0; i < a.ranges.size(); ++i)
     if (a.ranges[i].size() != b.ranges[i].size()) return false;
   return true;
@@ -184,7 +196,7 @@ class RTLConstructor {
       if (!localComponents.insert(name).second) fail("duplicate local component: " + name);
       components_[name] = &component;
     }
-    declarations(architecture_.arrayTypes, architecture_.constants);
+    declarations(architecture_.arrayTypes, architecture_.constants, architecture_.recordTypes);
     for (const auto& signal : architecture_.signals) {
       const auto type = shape(signal.type);
       for (const auto& name : signal.names) addObject(name, type);
@@ -235,7 +247,7 @@ class RTLConstructor {
     for (const auto& [name, object] : objects_) {
       const auto& type = object.value.shape;
       if (object.input || object.output || object.variable || object.constant ||
-          type.ranges.empty() || type.ranges.size() > 2 ||
+          !type.fields.empty() || type.ranges.empty() || type.ranges.size() > 2 ||
           !arrays_.contains(type.types.front()) ||
           std::min(type.ranges.front().left, type.ranges.front().right) < 0 ||
           std::max(type.ranges.front().left, type.ranges.front().right) > INT32_MAX ||
@@ -394,9 +406,10 @@ class RTLConstructor {
   void addArray(const vhdl::ArrayTypeDeclaration& declaration) {
     DiagnosticScope location(declaration.span);
     const auto name = key(declaration.name);
-    if (arrayDeclarations_.contains(name) || integerTables_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
+    if (records_.contains(name) || arrayDeclarations_.contains(name) || integerTables_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
         name == "bit" || name == "bit_vector" || name == "std_logic" ||
-        name == "std_logic_vector" || name == "unsigned" || name == "signed" || name == "integer" ||
+        name == "std_logic_vector" || name == "std_ulogic" || name == "std_ulogic_vector" ||
+        name == "unsigned" || name == "signed" || name == "integer" ||
         name == "natural" || name == "positive") fail("duplicate or shadowing array type: " + name);
     if (declaration.indexSubtype) {
       const auto subtype = key(*declaration.indexSubtype);
@@ -417,14 +430,40 @@ class RTLConstructor {
     arrayTypeOffsets_.emplace(name, declaration.span.start.offset);
   }
 
-  void declarations(const std::vector<vhdl::ArrayTypeDeclaration>& arrays,
-                    const std::vector<vhdl::ConstantDeclaration>& constants) {
-    size_t a = 0, c = 0;
-    while (a < arrays.size() || c < constants.size()) {
-      if (c == constants.size() || (a < arrays.size() &&
-          arrays[a].span.start.offset < constants[c].object.span.start.offset)) addArray(arrays[a++]);
-      else addConstant(constants[c++]);
+  void addRecord(const vhdl::RecordTypeDeclaration& declaration) {
+    DiagnosticScope location(declaration.span);
+    const auto name = key(declaration.name);
+    if (records_.contains(name) || arrayDeclarations_.contains(name) ||
+        objects_.contains(name) || integers_.contains(name) || integerTables_.contains(name) ||
+        name == "bit" || name == "bit_vector" || name == "std_logic" || name == "std_ulogic" ||
+        name == "std_logic_vector" || name == "std_ulogic_vector" || name == "unsigned" ||
+        name == "signed" || name == "integer" || name == "natural" || name == "positive" || name == "boolean")
+      fail("duplicate or shadowing record type: " + name);
+    Shape record{{name}, {}};
+    std::set<std::string> names;
+    for (const auto& field : declaration.fields) {
+      auto type = shape(field.type);
+      for (const auto& fieldName : field.names) {
+        if (!names.insert(key(fieldName)).second) fail("duplicate record field: " + key(fieldName));
+        record.fields.emplace_back(key(fieldName), type);
+      }
     }
+    record.size();
+    records_.emplace(name, std::move(record));
+    recordOffsets_[name] = declaration.span.start.offset;
+  }
+
+  void declarations(const std::vector<vhdl::ArrayTypeDeclaration>& arrays,
+                    const std::vector<vhdl::ConstantDeclaration>& constants,
+                    const std::vector<vhdl::RecordTypeDeclaration>& records) {
+    std::map<size_t, std::function<void()>> ordered;
+    for (const auto& array : arrays)
+      ordered.emplace(array.span.start.offset, [&array, this] { addArray(array); });
+    for (const auto& constant : constants)
+      ordered.emplace(constant.object.span.start.offset, [&constant, this] { addConstant(constant); });
+    for (const auto& record : records)
+      ordered.emplace(record.span.start.offset, [&record, this] { addRecord(record); });
+    for (const auto& [offset, add] : ordered) add();
   }
 
   void checkInteger(int64_t value, const vhdl::TypeMark& type) {
@@ -460,7 +499,7 @@ class RTLConstructor {
     std::set<std::string> names;
     for (const auto& id : declaration.object.names)
       if (!names.insert(key(id)).second || objects_.contains(key(id)) || integers_.contains(key(id)) ||
-          integerTables_.contains(key(id)) || arrayDeclarations_.contains(key(id)))
+          integerTables_.contains(key(id)) || records_.contains(key(id)) || arrayDeclarations_.contains(key(id)))
         fail("duplicate constant: " + key(id));
     if (name == "integer" || name == "natural" || name == "positive") {
       const auto value = integer(*declaration.value);
@@ -514,7 +553,7 @@ class RTLConstructor {
     DiagnosticScope location(generate.iterator.span);
     auto name = key(generate.iterator);
     if (integers_.contains(name) || objects_.contains(name) || integerTables_.contains(name) ||
-        arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
+        records_.contains(name) || arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
     const auto bounds = range(generate.range);
     for (size_t i = 0; i < bounds.size(); ++i) {
       if (++steps_ > 100000) fail("static generate elaboration limit exceeded");
@@ -652,7 +691,7 @@ class RTLConstructor {
         const auto callerLibraries = libraries_;
         const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_, callerNumeric = numeric_, callerSigned = signed_;
         context(package->context);
-        declarations(package->arrayTypes, package->constants);
+        declarations(package->arrayTypes, package->constants, package->recordTypes);
         for (const auto& component : package->components)
           if (!components_.emplace(key(component.name), &component).second) fail("ambiguous component");
         libraries_ = callerLibraries;
@@ -722,7 +761,15 @@ class RTLConstructor {
 
   Shape shape(const vhdl::TypeMark& type) {
     DiagnosticScope location(type.name.span);
-    const auto name = key(type.name);
+    auto name = key(type.name);
+    if (stdLogic_ && name == "std_ulogic") name = "std_logic";
+    if (stdLogic_ && name == "std_ulogic_vector") name = "std_logic_vector";
+    if (const auto found = records_.find(name); found != records_.end()) {
+      if (type.constraint) fail("record type cannot have an array constraint");
+      if (type.name.span.start.offset < recordOffsets_.at(name))
+        fail("record type is used before its declaration: " + name);
+      return found->second;
+    }
     if (const auto found = arrays_.find(name); found != arrays_.end()) {
       if (type.name.span.start.offset < arrayTypeOffsets_.at(name))
         fail("array type is used before its declaration: " + name);
@@ -761,13 +808,13 @@ class RTLConstructor {
     const auto id = key(name);
     if (port && (type.ranges.size() > 1 || type.integerWidth))
       fail("RTL ports require scalar logic or one-dimensional logic vectors");
-    if (objects_.contains(id) || integers_.contains(id) || arrayDeclarations_.contains(id) || integerTables_.contains(id))
+    if (objects_.contains(id) || integers_.contains(id) || records_.contains(id) || arrayDeclarations_.contains(id) || integerTables_.contains(id))
       fail("duplicate or shadowing object: " + id);
     Bits bits;
     const auto size = type.size();
     if (variable) bits.resize(size, nullptr);
-    else if (!type.ranges.empty() || type.integerWidth) {
-      const auto r = type.integerWidth ? Range{int64_t(size - 1), 0, false} : type.ranges.back();
+    else if (!type.ranges.empty() || type.integerWidth || !type.fields.empty()) {
+      const auto r = (type.integerWidth || !type.fields.empty()) ? Range{int64_t(size - 1), 0, false} : type.ranges.back();
       if (r.left < std::numeric_limits<NLID::Bit>::min() || r.left > std::numeric_limits<NLID::Bit>::max() ||
           r.right < std::numeric_limits<NLID::Bit>::min() || r.right > std::numeric_limits<NLID::Bit>::max())
         fail("hardware vector bounds exceed net index range");
@@ -776,7 +823,7 @@ class RTLConstructor {
         auto busName = name.spelling;
         auto position = offset;
         auto stride = size;
-        for (size_t dimension = 0; dimension + 1 < type.ranges.size(); ++dimension) {
+        for (size_t dimension = 0; type.fields.empty() && dimension + 1 < type.ranges.size(); ++dimension) {
           const auto& bounds = type.ranges[dimension];
           stride /= bounds.size();
           const auto index = static_cast<int64_t>(position / stride);
@@ -805,7 +852,26 @@ class RTLConstructor {
     if (found == objects_.end()) fail("no declaration for object: " + name);
     return {name, found->second.value.shape, 0};
   }
+  void field(Selection& selected, const std::string& name) {
+    if (!selected.shape.ranges.empty() || selected.shape.fields.empty())
+      fail("selected prefix is not a record");
+    size_t offset = 0;
+    for (const auto& [fieldName, type] : selected.shape.fields) {
+      if (fieldName == name) {
+        auto result = type;
+        selected.offset += offset;
+        selected.shape = std::move(result);
+        return;
+      }
+      offset += type.size();
+    }
+    fail("no record field: " + name);
+  }
   void index(Selection& selected, const Expr& expression) {
+    if (expression.kind == Expr::Kind::Selected) {
+      field(selected, key(expression));
+      return;
+    }
     if (selected.shape.ranges.empty()) fail("cannot index a scalar object");
     if (expression.kind == Expr::Kind::Range) {
       const auto& original = selected.shape.ranges.front();
@@ -825,6 +891,11 @@ class RTLConstructor {
   }
   Selection selection(const Expr& expression) {
     if (expression.kind == Expr::Kind::Name) return selection(key(expression));
+    if (expression.kind == Expr::Kind::Selected) {
+      auto selected = selection(*expression.left);
+      field(selected, key(expression));
+      return selected;
+    }
     if (expression.kind != Expr::Kind::Indexed) fail("indexed prefix must name an object");
     auto selected = selection(*expression.left);
     index(selected, *expression.right);
@@ -1010,6 +1081,13 @@ class RTLConstructor {
       if (!objects_.contains(key(expr))) fail("no declaration for object: " + key(expr));
       return readObject(key(expr), state);
     }
+    if (expr.kind == Expr::Kind::Selected) {
+      auto value = readSelected(*expr.left, state);
+      Selection selected{"", value.shape, 0};
+      field(selected, key(expr));
+      return {selected.shape, Bits(value.bits.begin() + selected.offset,
+          value.bits.begin() + selected.offset + selected.shape.size())};
+    }
     if (expr.kind != Expr::Kind::Indexed) fail("indexed prefix must name an object");
     if (expr.left->kind == Expr::Kind::Name && memories_.contains(key(*expr.left)) &&
         expr.right->kind != Expr::Kind::Range)
@@ -1045,6 +1123,38 @@ class RTLConstructor {
       if (!objects_.contains(name)) fail("no declaration for object: " + name);
       value = readObject(name, state);
       for (auto* bit : value.bits) reads_.insert(bit);
+    } else if (expr.kind == Expr::Kind::Selected) {
+      value = readSelected(expr, state);
+      for (auto* bit : value.bits) reads_.insert(bit);
+    } else if (expected && !expected->fields.empty() && expected->ranges.empty() &&
+               (expr.kind == Expr::Kind::Aggregate || expr.kind == Expr::Kind::Others)) {
+      value.shape = *expected;
+      std::vector<const Expr*> actuals(expected->fields.size(), nullptr);
+      if (expr.kind == Expr::Kind::Others) {
+        std::fill(actuals.begin(), actuals.end(), expr.left.get());
+      } else {
+        size_t position = 0;
+        bool named = false;
+        for (const auto& element : expr.elements) {
+          size_t destination = position++;
+          const Expr* actual = element.get();
+          if (element->kind == Expr::Kind::Association) {
+            named = true;
+            if (element->left->kind != Expr::Kind::Name) fail("record association must name a field");
+            destination = 0;
+            while (destination < expected->fields.size() &&
+                expected->fields[destination].first != key(*element->left)) ++destination;
+            actual = element->right.get();
+          } else if (named) fail("positional record element follows named association");
+          if (destination >= actuals.size() || actuals[destination]) fail("invalid or duplicate record association");
+          actuals[destination] = actual;
+        }
+      }
+      for (size_t i = 0; i < actuals.size(); ++i) {
+        if (!actuals[i]) fail("missing record aggregate field");
+        auto element = expression(*actuals[i], state, &expected->fields[i].second);
+        value.bits.insert(value.bits.end(), element.bits.begin(), element.bits.end());
+      }
     } else if (expr.kind == Expr::Kind::Call) {
       if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
           !numeric_ || expr.elements.size() != 2)
@@ -1139,7 +1249,7 @@ class RTLConstructor {
       }
     } else if (expr.kind == Expr::Kind::Unary) {
       value = expression(*expr.left, state, expected);
-      if (expr.text != "not" || value.shape.integerWidth)
+      if (expr.text != "not" || value.shape.integerWidth || !value.shape.fields.empty())
         fail("unsupported hardware unary operator");
       for (auto*& bit : value.bits) bit = gate("not", bit);
     } else if (expr.kind == Expr::Kind::Binary) {
@@ -1148,7 +1258,7 @@ class RTLConstructor {
       if (expr.text == "&") {
         auto left = expression(*expr.left, state);
         auto right = expression(*expr.right, state);
-        if (left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
+        if (!left.shape.fields.empty() || !right.shape.fields.empty() || left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
             right.shape.ranges.size() > 1 || left.shape.types.back() != right.shape.types.back())
           fail("unsupported concatenation operands");
         value.bits = left.bits;
@@ -1232,7 +1342,7 @@ class RTLConstructor {
             carry = gate("or", gate("and", a, b), gate("and", ab, carry));
           }
         } else {
-          if (left.shape.ranges.size() > 1 || left.shape.integerWidth)
+          if (left.shape.ranges.size() > 1 || left.shape.integerWidth || !left.shape.fields.empty())
             fail("bitwise operators require scalar logic, boolean or logic vectors");
           value.shape = left.shape;
           for (size_t i = 0; i < left.bits.size(); ++i)
@@ -1283,7 +1393,7 @@ class RTLConstructor {
       return;
     }
     if (!assignment.indices.empty() && assignment.indices.front()->kind != Expr::Kind::Range &&
-        !isStatic(*assignment.indices.front())) {
+        assignment.indices.front()->kind != Expr::Kind::Selected && !isStatic(*assignment.indices.front())) {
       const auto name = key(assignment.target);
       const auto base = selection(name);
       if (base.shape.ranges.empty()) fail("dynamic target is not an array");
@@ -1509,7 +1619,8 @@ class RTLConstructor {
   std::map<std::string, const vhdl::ArrayTypeDeclaration*> arrayDeclarations_;
   std::set<std::string> instanceNames_;
   std::map<std::string, int64_t> integers_;
-  std::map<std::string, Shape> arrays_;
+  std::map<std::string, Shape> arrays_, records_;
+  std::map<std::string, size_t> recordOffsets_;
   std::map<std::string, size_t> arrayTypeOffsets_;
   std::map<std::string, Object> objects_;
   std::map<std::string, Memory> memories_;
@@ -1537,10 +1648,10 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     if (signedContext(entity.context)) return true;
     for (const auto& generic : entity.generics)
       if (generic.type.constraint || !generic.defaultValue) return true;
-    for (const auto& port : entity.ports) if (key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
+    for (const auto& port : entity.ports) if (key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
   }
   const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
-    return expression && (expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
+    return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
         expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
         expression->kind == Expr::Kind::BitStringLiteral || self(self, expression->left.get()) ||
         self(self, expression->right.get()) || self(self, expression->condition.get()));
@@ -1549,9 +1660,10 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     return !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
   for (const auto& architecture : syntax.architectures) {
+    if (!architecture.recordTypes.empty()) return true;
     if (signedContext(architecture.context)) return true;
     if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
-    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
+    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
     for (const auto& instance : architecture.instantiations)
       if (std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
           [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),

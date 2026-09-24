@@ -161,3 +161,32 @@ TEST_F(VHDLExternalTest, FIRDecDSPBenchmarkAndSignedStageCycles) {
     }
   }
 }
+
+// Opt-in integration target: keep failures visible until the complete default
+// configuration elaborates; parsing alone is not a successful design load.
+TEST_F(VHDLExternalTest, NEORV32DefaultTop) {
+  const auto* directory = std::getenv("VHDL_NEORV32_RTL");
+  ASSERT_NE(directory, nullptr) << "Set VHDL_NEORV32_RTL to the NEORV32 rtl directory";
+  const auto root = std::filesystem::path(directory);
+  std::ifstream fileList(root / "file_list_core.f");
+  ASSERT_TRUE(fileList);
+  const std::string prefix = "$NEORV32_HOME/rtl/";
+  std::string entry, source;
+  size_t count = 0;
+  while (std::getline(fileList, entry)) {
+    if (!entry.empty() && entry.back() == '\r') entry.pop_back();
+    if (entry.empty() || entry.front() == '#') continue;
+    ASSERT_EQ(entry.find(prefix), 0u) << "Unexpected file-list entry: " << entry;
+    std::ifstream input(root / entry.substr(prefix.size()));
+    ASSERT_TRUE(input) << entry;
+    source.append(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    source += '\n';
+    ++count;
+  }
+  ASSERT_GT(count, 0u);
+  auto* top = VHDLConstructor(library_).construct(source, "neorv32_top");
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(top->getName(), NLName("neorv32_top"));
+  EXPECT_GT(top->getTerms().size(), 0u);
+  EXPECT_GT(top->getInstances().size(), 0u);
+}

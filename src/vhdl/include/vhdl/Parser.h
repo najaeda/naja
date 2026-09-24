@@ -36,7 +36,9 @@ struct Expression {
         Aggregate,
         Range,
         BitStringLiteral,
-        Call
+        Call,
+        Selected,
+        Association
     };
     std::vector<std::unique_ptr<Expression>> elements;
     Kind kind;
@@ -97,6 +99,12 @@ struct ArrayTypeDeclaration {
     TypeMark elementType;
     SourceSpan span;
     std::optional<Name> indexSubtype;
+};
+
+struct RecordTypeDeclaration {
+    Name name;
+    std::vector<ObjectDeclaration> fields;
+    SourceSpan span;
 };
 
 enum class AssignmentKind { Signal, Variable };
@@ -201,6 +209,7 @@ struct PackageDeclaration {
     std::vector<ConstantDeclaration> constants;
     std::vector<EntityDeclaration> components;
     bool body = false;
+    std::vector<RecordTypeDeclaration> recordTypes;
 };
 
 struct ArchitectureBody {
@@ -216,6 +225,7 @@ struct ArchitectureBody {
     std::vector<GenerateStatement> generates;
     std::vector<EntityDeclaration> components;
     std::vector<ConstantDeclaration> constants;
+    std::vector<RecordTypeDeclaration> recordTypes;
 };
 
 struct DesignFile {

@@ -323,6 +323,11 @@ expert reference above.
    dependencies through the raw API; the high-level loader expects a completed
    top design. RTL lowering errors include the original source file, line, and
    column, including errors in a dependency elaborated by a later load.
+   Supported record ports become single ``SNLBusTerm`` objects with descending
+   indices from total width minus one to zero. Fields occupy consecutive bits in
+   declaration order, recursively; record field metadata is not exposed as raw
+   SNL objects. Use :doc:`loading` for the supported record and unresolved-logic
+   subset and current NEORV32 limitations.
    The RTL path infers a unique uninstantiated root entity, including references
    inside nested generate statements. Otherwise, specify ``top`` explicitly.
    The basic structural hierarchy path still requires an explicit ``top``.

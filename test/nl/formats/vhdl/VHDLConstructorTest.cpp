@@ -2014,3 +2014,164 @@ TEST_F(VHDLConstructorTest, MemoryInferenceFallsBackForMultiplePartialAndLoopWri
     design->destroy();
   }
 }
+
+TEST_F(VHDLConstructorTest, RecordsPreserveFieldOrderAndScheduledWrites) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all;
+package bus_types is
+  type request_t is record
+    valid : std_ulogic;
+    data : std_ulogic_vector(2 to 4);
+  end record request_t;
+  type envelope_t is record
+    request : request_t;
+    tag : bit;
+  end record;
+  constant idle : request_t := (data => (others => '0'), valid => '0');
+end;
+library ieee; use ieee.std_logic_1164.all; use work.bus_types.all;
+entity record_test is port(clk, valid : in std_ulogic;
+  data : in std_ulogic_vector(7 downto 5); y : out std_ulogic_vector(3 downto 0)); end;
+architecture rtl of record_test is
+  type entries_t is array (1 downto 0) of envelope_t;
+  signal entries : entries_t;
+  signal state : request_t;
+begin
+  entries(1) <= (request => (valid, data), tag => '1');
+  entries(0) <= (request => idle, tag => '0');
+  process(clk) begin
+    if rising_edge(clk) then
+      state <= entries(1).request;
+      state.data(3) <= entries(0).request.valid;
+    end if;
+  end process;
+  y <= state.valid & state.data;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  const auto flops = dffBits(design);
+  ASSERT_EQ(flops.size(), 4u);
+  auto* state = design->getBusNet(NLName("state"));
+  ASSERT_NE(state, nullptr);
+  for (unsigned pattern = 0; pattern < 16; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    values[design->getScalarTerm(NLName("valid"))->getNet()] = pattern & 8;
+    for (unsigned i = 0; i < 3; ++i)
+      values[design->getBusTerm(NLName("data"))->getBitAtPosition(i)->getNet()] = pattern & (4 >> i);
+    for (const auto& flop : flops) {
+      unsigned position = 0;
+      while (state->getBitAtPosition(position) != flop.output) ++position;
+      const bool expected = position == 2 ? false : bool(pattern & (8 >> position));
+      EXPECT_EQ(evaluateRTL(flop.data, values, visiting), expected);
+      values[flop.output] = expected;
+    }
+    for (unsigned i = 0; i < 4; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBitAtPosition(i)->getNet(), values, visiting),
+          i == 2 ? false : bool(pattern & (8 >> i)));
+  }
+}
+
+TEST_F(VHDLConstructorTest, RecordPortsBindAcrossHierarchy) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package types is type pair_t is record a, b : bit; end record; end;
+use work.types.all;
+entity leaf is port(d : in pair_t; q : out pair_t); end;
+architecture rtl of leaf is begin q <= (b => d.a, a => d.b); end;
+use work.types.all;
+entity parent is port(d : in pair_t; q : out pair_t); end;
+architecture rtl of parent is begin u: entity work.leaf port map(d, q); end;
+)", "parent");
+  ASSERT_NE(design, nullptr);
+  EXPECT_EQ(design->getBusTerm(NLName("d"))->getWidth(), 2u);
+  auto* child = design->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  auto* model = child->getModel();
+  for (unsigned i = 0; i < 2; ++i) {
+    EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("d"))->getBitAtPosition(i))->getNet(),
+        design->getBusTerm(NLName("d"))->getBitAtPosition(i)->getNet());
+  }
+  std::unordered_map<SNLBitNet*, bool> values;
+  std::unordered_set<SNLBitNet*> visiting;
+  values[model->getBusTerm(NLName("d"))->getBitAtPosition(0)->getNet()] = false;
+  values[model->getBusTerm(NLName("d"))->getBitAtPosition(1)->getNet()] = true;
+  EXPECT_TRUE(evaluateRTL(model->getBusTerm(NLName("q"))->getBitAtPosition(0)->getNet(), values, visiting));
+  EXPECT_FALSE(evaluateRTL(model->getBusTerm(NLName("q"))->getBitAtPosition(1)->getNet(), values, visiting));
+}
+
+TEST_F(VHDLConstructorTest, RejectsMalformedOrIncompatibleRecords) {
+  for (const auto* body : {
+      "r <= (a => '0', a => '1');",
+      "r <= (a => '0');",
+      "r <= (missing => '0', b => '1');",
+      "r <= (a => '0', '1');",
+      "r.missing <= '0';",
+      "r <= not d;",
+      "r <= d and d;",
+      "r <= other;",
+      "r.a <= d.b(0);",
+      "r <= ('0', '1', '0');"}) {
+    SCOPED_TRACE(body);
+    const auto source = std::string(R"(
+package types is
+  type pair_t is record a, b : bit; end record;
+  type other_t is record a, b : bit; end record;
+end;
+use work.types.all;
+entity invalid is port(d : in pair_t; other : in other_t; r : out pair_t); end;
+architecture rtl of invalid is begin
+)") + body + " end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+  }
+  for (const auto* declaration : {
+      "type pair_t is record a, a : bit; end record;",
+      "type pair_t is record end record;",
+      "type pair_t is record a : bit; end record wrong;",
+      "type pair_t is record a : pair_t; end record;"}) {
+    SCOPED_TRACE(declaration);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string("entity invalid is end; architecture rtl of invalid is ") +
+        declaration + " begin end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, RecordDefaultsAndFieldPortActuals) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package types is type pair_t is record a, b : bit; end record; end;
+entity leaf is port(d : in bit; q : out bit); end;
+architecture rtl of leaf is begin q <= d; end;
+use work.types.all;
+entity parent is port(d : in pair_t; q : out pair_t); end;
+architecture rtl of parent is
+  constant zero : pair_t := (others => '0');
+begin
+  u: entity work.leaf port map(d.a, q.b);
+  q.a <= zero.b;
+end;
+)", "parent");
+  auto* child = design->getInstance(NLName("u"));
+  ASSERT_NE(child, nullptr);
+  EXPECT_EQ(child->getInstTerm(child->getModel()->getScalarTerm(NLName("d")))->getNet(),
+      design->getBusTerm(NLName("d"))->getBitAtPosition(0)->getNet());
+  EXPECT_EQ(child->getInstTerm(child->getModel()->getScalarTerm(NLName("q")))->getNet(),
+      design->getBusTerm(NLName("q"))->getBitAtPosition(1)->getNet());
+  EXPECT_TRUE(design->getBusTerm(NLName("q"))->getBitAtPosition(0)->getNet()->isConstant0());
+}
+
+TEST_F(VHDLConstructorTest, UnresolvedLogicRequiresVisibilityAndSingleDriver) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all;
+entity unresolved is port(a : in std_ulogic; y : out std_ulogic); end;
+architecture rtl of unresolved is begin y <= not a; end;
+)");
+  std::unordered_map<SNLBitNet*, bool> values;
+  std::unordered_set<SNLBitNet*> visiting;
+  values[design->getScalarTerm(NLName("a"))->getNet()] = false;
+  EXPECT_TRUE(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting));
+  EXPECT_THROW(VHDLConstructor(library_).construct(
+      "entity invisible is port(a : in std_ulogic; y : out std_ulogic); end; "
+      "architecture rtl of invisible is begin y <= a; end;"), NLException);
+  EXPECT_THROW(VHDLConstructor(library_).construct(
+      "library ieee; use ieee.std_logic_1164.all; "
+      "entity multiple is port(a : in std_ulogic; y : out std_ulogic); end; "
+      "architecture rtl of multiple is begin y <= a; y <= '0'; end;"), NLException);
+}

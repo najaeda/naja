@@ -323,6 +323,8 @@ CheckedType checkExpression(const Expression& expression,
             }
             return record(found->second);
         }
+        case Expression::Kind::Selected:
+        case Expression::Kind::Association:
         case Expression::Kind::Call:
         case Expression::Kind::Indexed:
         case Expression::Kind::Others:
@@ -947,6 +949,8 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     for (const auto& package : syntax.packages)
         result.diagnostics.push_back({"packages require RTL elaboration", package.name.span});
     for (const auto& architecture : syntax.architectures) {
+        if (!architecture.recordTypes.empty())
+            result.diagnostics.push_back({"record types require RTL elaboration", architecture.span});
         if (!architecture.constants.empty())
             result.diagnostics.push_back({"architecture constants require RTL elaboration", architecture.span});
         if (!architecture.generates.empty())

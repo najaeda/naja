@@ -504,7 +504,7 @@ end;
 }
 
 TEST(VHDLParserTest, RejectsUnsupportedEntityAssociationForms) {
-    for (const auto* mapping : {"open, y", "work.leaf(rtl)"}) {
+    for (const auto* mapping : {"open, y", "work."}) {
         SCOPED_TRACE(mapping);
         const std::string source = std::string(
             "entity top is port(a : in bit; y : out bit); end; "
@@ -563,4 +563,38 @@ TEST(VHDLParserTest, RejectsMalformedConstantAndGenerateDeclarations) {
     }
     EXPECT_TRUE(vhdl::Parser::parse("entity top is end; architecture rtl of top is begin "
         "g: for i in 0 to 1 generate begin y <= a; end generate wrong; end;").hasErrors());
+}
+
+TEST(VHDLParserTest, RecordsRetainFieldsAssociationsAndSelectedNames) {
+    const auto parsed = vhdl::Parser::parse(R"(
+package p is
+  type t is record a, b : bit; end record t;
+  constant c : t := (b => '1', a => '0');
+end;
+entity top is end;
+architecture rtl of top is
+  type outer_t is record inner : t; end record;
+  signal x : outer_t;
+begin
+  x.inner.a <= c.b;
+  u: entity work.leaf port map(x.inner);
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& package = parsed.syntax.packages.front();
+    ASSERT_EQ(package.recordTypes.size(), 1u);
+    EXPECT_EQ(package.recordTypes.front().fields.front().names.size(), 2u);
+    const auto& aggregate = *package.constants.front().value;
+    ASSERT_EQ(aggregate.elements.size(), 2u);
+    EXPECT_EQ(aggregate.elements.front()->kind, vhdl::Expression::Kind::Association);
+    EXPECT_EQ(aggregate.elements.front()->left->canonical, "b");
+    const auto& architecture = parsed.syntax.architectures.front();
+    EXPECT_EQ(architecture.recordTypes.size(), 1u);
+    const auto& assignment = architecture.assignments.front();
+    ASSERT_EQ(assignment.indices.size(), 2u);
+    EXPECT_EQ(assignment.indices.front()->kind, vhdl::Expression::Kind::Selected);
+    EXPECT_EQ(assignment.indices.front()->canonical, "inner");
+    EXPECT_EQ(assignment.value->kind, vhdl::Expression::Kind::Selected);
+    EXPECT_EQ(assignment.value->left->canonical, "c");
+    EXPECT_EQ(architecture.instantiations.front().actualIndices.front().front()->canonical, "inner");
 }

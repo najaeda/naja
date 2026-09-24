@@ -91,6 +91,21 @@ ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
 
+Record types declared in packages or architectures support nested records,
+arrays of records, field selection, whole-record and field assignments, and
+positional or named record aggregates. Named aggregates must supply every field
+exactly once; a sole ``others`` association is also supported when its value
+matches every field type. Record ports are flattened to one SNL bus in declaration
+order, recursively, with the first field at the most significant end. Original
+vector directions determine the order of bits within each field. Record type
+names remain distinct for assignment checking. ``std_ulogic`` and
+``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
+multiple drivers and nonbinary literals remain unsupported.
+
+The NEORV32 default ``neorv32_top`` configuration is a development target, not yet
+a supported load. Its package record declarations now parse, but package helper
+functions and further elaboration constructs still prevent a complete load.
+
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
 multiplication, equality/inequality and concatenation. Static
 ``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,
