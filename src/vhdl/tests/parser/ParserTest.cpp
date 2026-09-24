@@ -232,8 +232,8 @@ TEST(VHDLParserTest, ParenthesizedClockGuardsInSimpleAndStructuredProcesses) {
 
 TEST(VHDLParserTest, RejectsIncompleteOrCompoundClockGuards) {
     for (const auto* guard : {
-        "(clk'event)", "(clk = '1')", "(clk'event or clk = '1')",
-        "(clk'event and clk'event)", "(clk = '1' and clk = '1')",
+        "(clk'event)", "(clk'event or clk = '1')",
+        "(clk'event and clk'event)",
         "((clk'event and clk = '1') and d = '1')",
         "(rising_edge(clk) and clk = '1')", "(clk'event and rising_edge(clk))",
         "(clk'event and clk = '1'", "clk'event and clk = '1'))"}) {
@@ -437,7 +437,7 @@ TEST(VHDLParserTest, RejectsUnsupportedScheduledSyntax) {
     for (const auto* body : {
         "stage <= d after 1 ns;", "stage <= transport d;",
         "stage <= reject 1 ns inertial d;", "stage <= d, d after 2 ns;",
-        "wait;", "null;",
+        "wait;",
         "stage <= d; else stage <= d;", ""}) {
         SCOPED_TRACE(body);
         const auto source = std::string("entity p is end; architecture rtl of p is "
@@ -704,10 +704,119 @@ TEST(VHDLParserTest, RejectsMalformedConditionalGenerates) {
         "g: if generate end generate;",
         "g: if true generate else generate elsif true generate end generate;",
         "g: if true generate end generate wrong;",
-        "g: if true generate signal x : bit; begin end generate;",
+        "g: if true generate signal x : bit; end generate;",
         "g: for i in 0 to 1 generate else generate end generate;"}) {
         SCOPED_TRACE(body);
         EXPECT_TRUE(vhdl::Parser::parse(std::string("entity top is end; architecture rtl of top is begin ") +
             body + " end;").hasErrors());
     }
+}
+
+TEST(VHDLParserTest, PreservesGenerateLocalDeclarations) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity top is end;
+architecture rtl of top is begin
+  g: for i in 0 to 1 generate
+    constant width : positive := i + 1;
+    type word_t is array(0 to 1) of bit_vector(width-1 downto 0);
+    type record_t is record value : bit; end record;
+    signal words : word_t;
+    signal flag : record_t;
+  begin
+    words(0) <= (others => '0'); flag.value <= '1';
+  end generate;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& generate = parsed.syntax.architectures.front().generates.front();
+    EXPECT_EQ(generate.constants.size(), 1u);
+    EXPECT_EQ(generate.arrayTypes.size(), 1u);
+    EXPECT_EQ(generate.recordTypes.size(), 1u);
+    EXPECT_EQ(generate.signals.size(), 2u);
+    EXPECT_EQ(generate.assignments.size(), 2u);
+}
+
+TEST(VHDLParserTest, PreservesCombinationalProcessesAndSensitivity) {
+    for (const auto* sensitivity : {"all", "a, en"}) {
+        const auto parsed = vhdl::Parser::parse(std::string(R"(
+entity top is port(a, en : in bit; y : out bit); end;
+architecture rtl of top is begin
+process()") + sensitivity + R"() variable temp : bit; begin
+  temp := a; y <= '0'; if en = '1' then y <= temp; end if;
+end process; end;
+)");
+        ASSERT_FALSE(parsed.hasErrors());
+        const auto& process = parsed.syntax.architectures.front().processes.front();
+        EXPECT_TRUE(process.combinational);
+        EXPECT_EQ(process.allSensitivity, std::string(sensitivity) == "all");
+        EXPECT_EQ(process.statements.size(), 3u);
+        EXPECT_EQ(process.variables.size(), 1u);
+    }
+    // Level tests are syntactically valid; incomplete assignments are rejected by lowering.
+    EXPECT_FALSE(vhdl::Parser::parse("entity top is end; architecture rtl of top is begin "
+        "process(clk) begin if clk = '1' then y <= d; end if; end process; end;").hasErrors());
+}
+
+TEST(VHDLParserTest, PreservesCaseChoicesRangesNestedBodiesAndNull) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity top is end; architecture rtl of top is begin
+process(all) begin
+  case index is
+    when 0 to 2 | 4 => case flag is when '0' => y <= '1'; when others => null; end case;
+    when 6 downto 5 => y <= '0';
+    when others => null;
+  end case;
+end process; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& statement = parsed.syntax.architectures.front().processes.front().statements.front();
+    EXPECT_EQ(statement.kind, vhdl::SequentialStatement::Kind::Case);
+    ASSERT_EQ(statement.choices.size(), 3u);
+    EXPECT_EQ(statement.choices[0].size(), 2u);
+    EXPECT_EQ(statement.choices[0][0]->kind, vhdl::Expression::Kind::Range);
+    EXPECT_TRUE(statement.choices[2].empty());
+    EXPECT_EQ(statement.caseBodies[0][0].kind, vhdl::SequentialStatement::Kind::Case);
+    EXPECT_EQ(statement.caseBodies[2][0].kind, vhdl::SequentialStatement::Kind::Null);
+}
+
+TEST(VHDLParserTest, RejectsMalformedCaseAlternatives) {
+    for (const auto* body : {"case a is end case;", "case a is when '0' => end case;",
+        "case a is when others | '0' => null; end case;",
+        "case a is when others => null; when '0' => null; end case;",
+        "case a is when '0' null; end case;"}) {
+        EXPECT_TRUE(vhdl::Parser::parse(std::string("entity top is end; architecture rtl of top is begin process(all) begin ") + body +
+            " end process; end;").hasErrors());
+    }
+}
+
+TEST(VHDLParserTest, PreservesEnumerationsInPackagesArchitecturesAndGenerates) {
+    const auto parsed = vhdl::Parser::parse(R"(
+package types is type phase_t is (idle, running, done); end;
+entity top is end;
+architecture rtl of top is type local_t is (low, high); begin
+  g: if true generate type inner_t is (first, last); signal state : inner_t; begin state <= first; end generate;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.syntax.packages.front().enumerationTypes.size(), 1u);
+    EXPECT_EQ(parsed.syntax.packages.front().enumerationTypes.front().literals.size(), 3u);
+    ASSERT_EQ(parsed.syntax.architectures.front().enumerationTypes.size(), 1u);
+    EXPECT_EQ(parsed.syntax.architectures.front().generates.front().enumerationTypes.size(), 1u);
+}
+
+TEST(VHDLParserTest, PreservesNestedRecordSensitivityPaths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity top is end; architecture rtl of top is begin
+process(packet.inner.data, packet.flag) begin y <= packet.inner.data; end process;
+process(clk, packet.inner.data) begin if rising_edge(clk) then q <= d; end if; y <= packet.inner.data; end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& processes = parsed.syntax.architectures.front().processes;
+    ASSERT_EQ(processes.size(), 2u);
+    EXPECT_EQ(processes[0].sensitivityList[0].canonical, "packet");
+    ASSERT_EQ(processes[0].sensitivityFields[0].size(), 2u);
+    EXPECT_EQ(processes[0].sensitivityFields[0][1].canonical, "data");
+    EXPECT_TRUE(processes[1].sensitivityFields[0].empty());
+    EXPECT_EQ(processes[1].sensitivityFields[1].size(), 2u);
 }

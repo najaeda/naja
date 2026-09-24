@@ -951,6 +951,10 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     for (const auto& package : syntax.packages)
         result.diagnostics.push_back({"packages require RTL elaboration", package.name.span});
     for (const auto& architecture : syntax.architectures) {
+        if (!architecture.functions.empty())
+            result.diagnostics.push_back({"architecture functions require RTL elaboration", architecture.span});
+        if (!architecture.enumerationTypes.empty())
+            result.diagnostics.push_back({"enumerated types require RTL elaboration", architecture.span});
         if (!architecture.recordTypes.empty())
             result.diagnostics.push_back({"record types require RTL elaboration", architecture.span});
         if (!architecture.constants.empty())
@@ -1256,7 +1260,7 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
         for (const auto& assignment : architecture.assignments)
             checkAssignment(assignment);
         for (const auto& process : architecture.processes) {
-            if (!process.sensitivityList.empty()) {
+            if (process.combinational || !process.sensitivityList.empty()) {
                 result.diagnostics.push_back(
                     {"structured processes require RTL elaboration", process.span});
                 continue;
@@ -1363,7 +1367,7 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
 
 ScheduleResult Analyzer::schedule(const ClockedProcess& process) {
     ScheduleResult result;
-    if (!process.sensitivityList.empty()) {
+    if (process.combinational || !process.sensitivityList.empty()) {
         result.diagnostics.push_back({"structured processes require RTL elaboration", process.span});
         return result;
     }

@@ -2662,3 +2662,550 @@ end;
   }
   EXPECT_EQ(bits, 2u);
 }
+
+TEST_F(VHDLConstructorTest, GenerateLocalSignalsTypesAndStateStayIndependent) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity scoped is port(clk : in bit; d : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture rtl of scoped is begin
+  lanes: for lane in 0 to 1 generate
+    constant width : positive := 2;
+    constant invert : boolean := lane = 1;
+    type cell_t is record data : bit_vector(width-1 downto 0); end record;
+    type memory_t is array(0 to 1) of bit_vector(width-1 downto 0);
+    signal memory : memory_t := (others => (others => '0'));
+    signal cell : cell_t;
+  begin
+    choice: if invert generate
+      signal data : bit_vector(width-1 downto 0);
+    begin
+      data <= not d(lane*width+width-1 downto lane*width);
+      cell.data <= data;
+    else generate
+      signal data : bit_vector(width-1 downto 0);
+    begin
+      data <= d(lane*width+width-1 downto lane*width);
+      cell.data <= data;
+    end generate;
+    process(clk) begin
+      if rising_edge(clk) then
+        memory(0) <= cell.data;
+        memory(1) <= memory(0);
+      end if;
+    end process;
+    y(lane*width+width-1 downto lane*width) <= memory(1);
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  for (unsigned lane = 0; lane < 2; ++lane) {
+    auto prefix = "lanes[" + std::to_string(lane) + "].";
+    EXPECT_NE(design->getBusNet(NLName(prefix + "memory(0)")), nullptr);
+    EXPECT_NE(design->getBusNet(NLName(prefix + "choice.data")), nullptr);
+  }
+  const auto flops = test::dffBits(design);
+  ASSERT_EQ(flops.size(), 8u);
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (const auto& flop : flops) state[flop.output] = false;
+  for (auto* instance : design->getInstances()) {
+    EXPECT_FALSE(NLDB0::isMemory(instance->getModel()));
+    if (NLDB0::isDFF(instance->getModel())) {
+      ASSERT_NE(instance->getInstParameter(NLName("INIT")), nullptr);
+      EXPECT_EQ(instance->getInstParameter(NLName("INIT"))->getValue(), NLDB0::formatDFFInitValue(2, "00"));
+    }
+  }
+  unsigned previous = 0;
+  for (unsigned input : {1u, 10u, 7u, 3u, 12u, 0u, 15u}) {
+    auto values = state;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned i = 0; i < 4; ++i)
+      values[design->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (input >> i) & 1;
+    auto next = state;
+    for (const auto& flop : flops) next[flop.output] = evaluateRTL(flop.data, values, visiting);
+    state = next;
+    values = state;
+    visiting.clear();
+    for (unsigned i = 0; i < 4; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting),
+                bool((previous >> i) & 1));
+    previous = input ^ 12;
+  }
+}
+
+TEST_F(VHDLConstructorTest, GenerateLocalConstantsAndWidthsRestoreBetweenScopes) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity scoped is port(y : out bit_vector(2 downto 0)); end;
+architecture rtl of scoped is begin
+  lanes: for lane in 0 to 2 generate
+    constant width : positive := lane + 1;
+    type table_t is array(0 to 1) of integer;
+    constant table : table_t := (0, lane);
+    signal data : bit_vector(width-1 downto 0);
+  begin
+    data <= (others => '1');
+    y(lane) <= data(table(1));
+  end generate;
+  unused: if false generate
+    constant width : integer := 1 / 0;
+    signal data : bit_vector(width-1 downto 0);
+  begin
+    data <= (others => '0');
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  for (unsigned lane = 0; lane < 3; ++lane) {
+    auto* bus = design->getBusNet(NLName("lanes[" + std::to_string(lane) + "].data"));
+    ASSERT_NE(bus, nullptr);
+    EXPECT_EQ(bus->getWidth(), lane + 1);
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    EXPECT_TRUE(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(lane)->getNet(), values, visiting));
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidGenerateLocalDeclarationsWithoutPublishing) {
+  for (const auto* body : {
+      "g: if true generate signal local : bit; begin y <= local; end generate;",
+      "g: if true generate signal local : bit := '0'; begin y <= local; end generate;",
+      "g: if true generate signal local : bit; begin local <= d; end generate; y <= local;",
+      "g: if true generate constant n : integer := 1; begin end generate; h: if n = 1 generate y <= d; end generate;",
+      "g: if true generate signal local : bit_vector(n-1 downto 0); constant n : integer := 2; begin y <= local(0); end generate;",
+      "g: if true generate signal d : bit; begin y <= d; end generate;",
+      "g: if true generate signal local, local : bit; begin y <= local; end generate;",
+      "g: if true generate type local_t is array(0 to 1) of bit; begin end generate; h: if true generate signal local : local_t; begin y <= local(0); end generate;",
+      "g: if true generate subtype local_t is bit; begin y <= d; end generate;"}) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(d : in bit; y : out bit); end; architecture rtl of invalid is begin ") +
+        body + " end;"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("invalid")), nullptr);
+  }
+}
+
+TEST_F(VHDLConstructorTest, CombinationalProcessDefaultsOverridesAndVariables) {
+  const std::string source = R"(
+entity combinational is port(d : in bit_vector(3 downto 0); en, force_high : in bit;
+  y : out bit_vector(3 downto 0); z : out bit_vector(0 to 3)); end;
+architecture rtl of combinational is begin
+  process(SENSITIVITY) variable temp : bit_vector(3 downto 0); begin
+    temp := d;
+    for i in 0 to 3 loop
+      if en = '1' then temp(i) := not temp(i); end if;
+    end loop;
+    y <= (others => '0');
+    if en = '1' then y <= temp;
+    elsif force_high = '1' then y(1 downto 0) <= d(1 downto 0); end if;
+    if force_high = '1' then y(3) <= '1'; end if;
+  end process;
+  g: if true generate
+    process(all) begin
+      if en = '1' then z <= d; else z <= not d; end if;
+    end process;
+  end generate;
+end;
+)";
+  for (const auto* sensitivity : {"all", "d, en, force_high"}) {
+    auto text = source;
+    text.replace(text.find("SENSITIVITY"), 11, sensitivity);
+    auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    auto* design = VHDLConstructor(library).construct(text);
+    ASSERT_NE(design, nullptr);
+    for (auto* instance : design->getInstances())
+      EXPECT_TRUE(NLDB0::isGate(instance->getModel()) || NLDB0::isMux2(instance->getModel()));
+    for (unsigned pattern = 0; pattern < 64; ++pattern) {
+      const auto d = pattern & 15;
+      const bool en = pattern & 16, force = pattern & 32;
+      unsigned expected = en ? d ^ 15 : force ? d & 3 : 0;
+      if (force) expected |= 8;
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned i = 0; i < 4; ++i) values[design->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (d >> i) & 1;
+      values[design->getScalarTerm(NLName("en"))->getNet()] = en;
+      values[design->getScalarTerm(NLName("force_high"))->getNet()] = force;
+      for (unsigned i = 0; i < 4; ++i) {
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), bool((expected >> i) & 1));
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("z"))->getBit(3-i)->getNet(), values, visiting), bool(((en ? d : d ^ 15) >> i) & 1));
+      }
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsIncompleteOrEventDependentCombinationalProcesses) {
+  for (const auto* body : {
+      "process(all) begin if en = '1' then y <= d; end if; end process;",
+      "process(en) begin y <= d; end process;",
+      "process(all) variable temp : bit; begin if en = '1' then temp := d; end if; y <= temp; end process;",
+      "process(all) variable temp : bit := '0'; begin y <= temp; end process;",
+      "process(all) begin state <= not state; y <= state; end process;",
+      "process(all) begin y <= d; wait; end process;",
+      "process(all) begin y <= d; end process; y <= en;"}) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(d, en : in bit; y : out bit); end; architecture rtl of invalid is signal state : bit; begin ") + body + " end;"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("invalid")), nullptr);
+  }
+}
+
+TEST_F(VHDLConstructorTest, CaseChoicesNestedDecodeAndClockedHold) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity case_probe is port(clk, en : in bit; sel : in bit_vector(1 downto 0);
+  d : in bit_vector(3 downto 0); y, q : out bit_vector(3 downto 0)); end;
+architecture rtl of case_probe is
+  signal reg : bit_vector(3 downto 0) := "0000";
+begin
+  process(all) variable temp : bit_vector(3 downto 0); begin
+    temp := "1111";
+    case sel is
+      when "00" | "10" => temp := d;
+      when "01" =>
+        case en is when '0' => temp := not d; when '1' => temp := "0000"; end case;
+      when others => null;
+    end case;
+    y <= temp;
+  end process;
+  process(clk) begin if rising_edge(clk) then
+    case sel is
+      when "00" => reg <= d;
+      when "01" | "10" => reg <= not d;
+      when others => null;
+    end case;
+  end if; end process;
+  q <= reg;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  const auto flops = test::dffBits(design);
+  ASSERT_EQ(flops.size(), 4u);
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (const auto& flop : flops) state[flop.output] = false;
+  unsigned stored = 0;
+  for (unsigned pattern = 0; pattern < 128; ++pattern) {
+    const unsigned d = pattern & 15, sel = (pattern >> 4) & 3;
+    const bool en = pattern & 64;
+    auto values = state;
+    std::unordered_set<SNLBitNet*> visiting;
+    values[design->getScalarTerm(NLName("en"))->getNet()] = en;
+    for (unsigned i = 0; i < 4; ++i) values[design->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (d >> i) & 1;
+    for (unsigned i = 0; i < 2; ++i) values[design->getBusTerm(NLName("sel"))->getBit(i)->getNet()] = (sel >> i) & 1;
+    const unsigned expected = sel == 0 || sel == 2 ? d : sel == 1 ? (en ? 0 : d ^ 15) : 15;
+    for (unsigned i = 0; i < 4; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), bool((expected >> i) & 1));
+    auto next = state;
+    for (const auto& flop : flops) next[flop.output] = evaluateRTL(flop.data, values, visiting);
+    state = next;
+    if (sel != 3) stored = sel == 0 ? d : d ^ 15;
+    values = state; visiting.clear();
+    for (unsigned i = 0; i < 4; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("q"))->getBit(i)->getNet(), values, visiting), bool((stored >> i) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, CaseIntegerRangesBooleanAndExhaustiveAssignments) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity ranged is port(a : in bit_vector(1 downto 0); y, z : out bit); end;
+architecture rtl of ranged is begin
+  process(all) variable index : integer range 0 to 3; begin
+    index := 0;
+    if a(0) = '1' then index := 1; end if;
+    if a(1) = '1' then index := index + 2; end if;
+    case index is when 0 to 1 => y <= '0'; when 3 downto 2 => y <= '1'; when others => y <= '0'; end case;
+    case a(0) = '1' is when true => z <= '1'; when false => z <= '0'; end case;
+  end process;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  for (unsigned pattern = 0; pattern < 4; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned i = 0; i < 2; ++i) values[design->getBusTerm(NLName("a"))->getBit(i)->getNet()] = (pattern >> i) & 1;
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting), bool(pattern & 2));
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("z"))->getNet(), values, visiting), bool(pattern & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidCaseChoicesAndIncompleteAssignments) {
+  for (const auto* body : {
+      "case a is when \"00\" => y <= '0'; when \"00\" => y <= '1'; when others => y <= '0'; end case;",
+      "case a is when \"00\" => y <= '0'; end case;",
+      "case a is when a => y <= '0'; when others => y <= '1'; end case;",
+      "case a is when \"0\" => y <= '0'; when others => y <= '1'; end case;",
+      "case a is when \"00\" => y <= '0'; when others => null; end case;",
+      "case 2 is when 0 to 2 => y <= '0'; when 2 to 3 => y <= '1'; when others => y <= '0'; end case;",
+      "case 2 is when 0 to 5000 => y <= '0'; when others => y <= '0'; end case;"}) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(a : in bit_vector(1 downto 0); y : out bit); end; architecture rtl of invalid is begin process(all) begin ") +
+        body + " end process; end;"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("invalid")), nullptr);
+  }
+}
+
+TEST_F(VHDLConstructorTest, EnumerationRecordStateAndArrayHistoryCycles) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package enum_types is
+  type phase_t is (idle, running, done);
+  type machine_t is record phase : phase_t; end record;
+  type history_t is array(0 to 1) of phase_t;
+end;
+use work.enum_types.all;
+entity enum_probe is port(clk, rst, en : in bit; y : out bit_vector(1 downto 0); previous_done : out bit); end;
+architecture rtl of enum_probe is
+  signal machine : machine_t := (phase => idle);
+  signal history : history_t := (others => idle);
+begin
+  process(clk) begin if rising_edge(clk) then
+    if rst = '1' then
+      machine.phase <= idle; history <= (others => idle);
+    else
+      history(0) <= machine.phase; history(1) <= history(0);
+      case machine.phase is
+        when idle => if en = '1' then machine.phase <= running; end if;
+        when running => machine.phase <= done;
+        when done => if en = '1' then machine.phase <= idle; end if;
+      end case;
+    end if;
+  end if; end process;
+  process(all) begin
+    case machine.phase is
+      when idle => y <= "00";
+      when running => y <= "01";
+      when done => y <= "10";
+    end case;
+  end process;
+  previous_done <= '1' when history(1) = done else '0';
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  const auto flops = test::dffBits(design);
+  ASSERT_EQ(flops.size(), 6u);
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (const auto& flop : flops) state[flop.output] = false;
+  for (auto* instance : design->getInstances()) if (NLDB0::isDFF(instance->getModel())) {
+    auto width = instance->getModel()->getTerm(NLName("Q"))->getWidth();
+    ASSERT_NE(instance->getInstParameter(NLName("INIT")), nullptr);
+    EXPECT_EQ(instance->getInstParameter(NLName("INIT"))->getValue(), NLDB0::formatDFFInitValue(width, std::string(width, '0')));
+  }
+  unsigned phase = 0, history0 = 0, history1 = 0;
+  for (unsigned cycle = 0; cycle < 24; ++cycle) {
+    const bool reset = cycle == 0 || cycle == 11;
+    const bool enable = cycle % 3 != 0;
+    auto values = state;
+    std::unordered_set<SNLBitNet*> visiting;
+    values[design->getScalarTerm(NLName("rst"))->getNet()] = reset;
+    values[design->getScalarTerm(NLName("en"))->getNet()] = enable;
+    auto next = state;
+    for (const auto& flop : flops) next[flop.output] = evaluateRTL(flop.data, values, visiting);
+    state = next;
+    if (reset) phase = history0 = history1 = 0;
+    else {
+      history1 = history0; history0 = phase;
+      if (phase == 1) phase = 2;
+      else if (enable) phase = phase == 0 ? 1 : 0;
+    }
+    values = state; visiting.clear();
+    for (unsigned i = 0; i < 2; ++i)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), bool((phase >> i) & 1));
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("previous_done"))->getNet(), values, visiting), history1 == 2);
+  }
+}
+
+TEST_F(VHDLConstructorTest, GenerateLocalEnumerationLiteralsDoNotEscape) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity enum_local is port(y : out bit_vector(1 downto 0)); end;
+architecture rtl of enum_local is begin
+  g: for i in 0 to 1 generate
+    type local_t is (low, high);
+    constant choice : local_t := high;
+    signal state : local_t;
+  begin
+    state <= choice;
+    y(i) <= '1' when state /= low else '0';
+  end generate;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  std::unordered_map<SNLBitNet*, bool> values;
+  std::unordered_set<SNLBitNet*> visiting;
+  for (auto* bit : design->getTerm(NLName("y"))->getBits()) EXPECT_TRUE(evaluateRTL(bit->getNet(), values, visiting));
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidOrMixedEnumerationTypes) {
+  for (const auto* body : {
+      "x <= other_a; y <= '0';",
+      "x <= first; y <= '1' when x = other_a else '0';",
+      "x <= not first; y <= '0';",
+      "x <= first and second; y <= '0';",
+      "x <= 0; y <= '0';",
+      "x <= first; process(all) begin case x is when first => y <= '0'; when second => y <= '1'; end case; end process;"}) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(y : out bit); end; architecture rtl of invalid is "
+        "type state_t is (first, second, third); type other_t is (other_a, other_b, other_c); signal x : state_t; begin ") + body + " end;"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("invalid")), nullptr);
+  }
+  for (const auto* declarations : {"type state_t is (a, a);", "type state_t is (a, b); type other_t is (a, c);",
+       "type state_t is (state_t);", "type state_t is (a, b); signal state_t : bit;"}) {
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "entity invalid is port(y : out bit); end; architecture rtl of invalid is ") + declarations + " begin y <= '0'; end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, NestedRecordSensitivityCoversOnlySelectedBits) {
+  const std::string source = R"(
+entity field_probe is port(d : in bit_vector(3 downto 0); en, unused : in bit;
+  y : out bit_vector(3 downto 0); pick : out bit); end;
+architecture rtl of field_probe is
+  type inner_t is record data : bit_vector(3 downto 0); flag : bit; end record;
+  type packet_t is record inner : inner_t; other : bit; end record;
+  signal packet : packet_t;
+begin
+  packet.inner.data <= d; packet.inner.flag <= en; packet.other <= unused;
+  process(SENSITIVITY) variable index : integer range 0 to 3; begin
+    y <= (others => '0'); index := 0;
+    if packet.inner.flag = '1' then y <= packet.inner.data; index := 3; end if;
+    pick <= packet.inner.data(index);
+  end process;
+end;
+)";
+  for (const auto* sensitivity : {"packet.inner.data, packet.inner.flag", "packet.inner", "packet", "all"}) {
+    SCOPED_TRACE(sensitivity);
+    auto text = source;
+    text.replace(text.find("SENSITIVITY"), 11, sensitivity);
+    auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    auto* design = VHDLConstructor(library).construct(text);
+    ASSERT_NE(design, nullptr);
+    for (unsigned pattern = 0; pattern < 64; ++pattern) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned i = 0; i < 4; ++i) values[design->getBusTerm(NLName("d"))->getBit(i)->getNet()] = (pattern >> i) & 1;
+      const bool en = pattern & 16;
+      values[design->getScalarTerm(NLName("en"))->getNet()] = en;
+      values[design->getScalarTerm(NLName("unused"))->getNet()] = pattern & 32;
+      for (unsigned i = 0; i < 4; ++i)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(i)->getNet(), values, visiting), en && bool((pattern >> i) & 1));
+      EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("pick"))->getNet(), values, visiting), bool((pattern >> (en ? 3 : 0)) & 1));
+    }
+  }
+  for (const auto* sensitivity : {"packet.inner.data", "packet.inner.flag", "packet.other", "packet.missing", "d.inner"}) {
+    SCOPED_TRACE(sensitivity);
+    auto text = source;
+    text.replace(text.find("SENSITIVITY"), 11, sensitivity);
+    EXPECT_THROW(VHDLConstructor(library_).construct(text), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("field_probe")), nullptr);
+  }
+}
+
+TEST_F(VHDLConstructorTest, RecordSensitivityAlsoChecksAssignmentsOutsideClockGuard) {
+  const std::string source = R"(
+entity mixed is port(clk, d : in bit; q, y : out bit); end;
+architecture rtl of mixed is
+  type packet_t is record a, b : bit; end record;
+  signal packet : packet_t;
+begin
+  packet.a <= d; packet.b <= not d;
+  process(clk, packet.a) begin
+    if rising_edge(clk) then q <= d; end if;
+    y <= packet.a;
+  end process;
+end;
+)";
+  auto* design = VHDLConstructor(library_).construct(source);
+  ASSERT_NE(design, nullptr);
+  EXPECT_EQ(test::dffBits(design).size(), 1u);
+  for (bool d : {false, true}) {
+    std::unordered_map<SNLBitNet*, bool> values{{design->getScalarTerm(NLName("d"))->getNet(), d}};
+    std::unordered_set<SNLBitNet*> visiting;
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting), d);
+  }
+  auto invalid = source;
+  invalid.replace(invalid.find("y <= packet.a"), 13, "y <= packet.b");
+  auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+  EXPECT_THROW(VHDLConstructor(library).construct(invalid), NLException);
+  EXPECT_EQ(library->getSNLDesign(NLName("mixed")), nullptr);
+}
+
+TEST_F(VHDLConstructorTest, ArchitectureStaticFunctionsCaptureDeclarationScope) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity local_functions is generic(base : positive := 3); port(y : out bit_vector(5 downto 0)); end;
+architecture rtl of local_functions is
+  constant bias : integer := base;
+  function add(n : integer := bias) return integer is
+  begin return n + bias; end function;
+  function check(bias : integer) return boolean is
+    variable result : integer := add;
+  begin return result = 6 and add(n => bias) = 4; end function;
+  signal data : bit_vector(add-1 downto 0);
+begin
+  data <= (others => '1') when check(1) else (others => '0');
+  y <= data;
+end;
+)");
+  ASSERT_NE(design, nullptr);
+  for (auto* bit : design->getBusTerm(NLName("y"))->getBits())
+    EXPECT_TRUE(bit->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, RejectsUnsupportedArchitectureFunctionScopes) {
+  for (const auto* declarations : {
+      "function f return integer is begin return later; end; constant later : integer := 1;",
+      "function f return integer;",
+      "function f return integer is begin return 1; end; function f return integer is begin return 2; end;",
+      "impure function f return integer is begin return 1; end;",
+      "function f return integer is begin return caller_local; end; function g return integer is variable caller_local : integer := 1; begin return f; end; constant x : integer := g;"
+  }) {
+    SCOPED_TRACE(declarations);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+      "entity local_bad is port(y : out bit); end; architecture rtl of local_bad is ") +
+      declarations + " begin y <= '1' when f = 1 else '0'; end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticFunctionExitsPreserveNestedLoopAndReturnFlow) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity loop_exit is port(y : out bit); end;
+architecture rtl of loop_exit is
+  function count(limit : natural) return natural is
+    variable total : natural := 0;
+    variable i : integer := 17;
+  begin
+    for i in 0 to 3 loop
+      for j in 4 downto 0 loop
+        exit when j < limit;
+        total := total + 1;
+        if j = 2 then exit; end if;
+        total := total + 10;
+      end loop;
+      exit when i = 1;
+    end loop;
+    return total + i;
+  end;
+  function early return natural is
+  begin
+    for i in 1 to 2 loop
+      for j in 1 to 2 loop
+        exit when false;
+        return 7;
+      end loop;
+    end loop;
+    return 0;
+  end;
+begin y <= '1' when count(3) = 61 and count(0) = 63 and early = 7 else '0'; end;
+)");
+  ASSERT_NE(design, nullptr);
+  EXPECT_TRUE(design->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidFunctionExits) {
+  for (const auto* body : {
+      "if false then exit; end if; return 0;",
+      "for i in 0 to 1 loop exit when 1; end loop; return 0;",
+      "for i in 0 to 1 loop exit outer_loop; end loop; return 0;",
+      "for i in 0 to 1 loop exit; end loop;"
+  }) {
+    SCOPED_TRACE(body);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+      "entity bad_exit is port(y : out bit); end; architecture rtl of bad_exit is "
+      "function f return integer is begin ") + body +
+      " end; begin y <= '1' when f = 0 else '0'; end;"), NLException);
+  }
+}

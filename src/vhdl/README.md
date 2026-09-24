@@ -749,6 +749,11 @@ field updates, and flattened whole-record ports. `std_ulogic` and
 `std_ulogic_vector` are accepted in the two-state RTL profile. The standalone
 analyzer continues to diagnose records as requiring RTL elaboration.
 
+Architecture-local pure functions also support static integer/boolean evaluation.
+Bodies and default arguments use declarations visible at the function declaration,
+including enclosing generics and scalar constants. Runtime/vector evaluation,
+overloading, and architecture function forward declarations remain unsupported.
+
 The complete package now parses, including function declarations/bodies,
 attributes, constrained generic interfaces, and port defaults. The RTL adapter
 executes pure scalar integer/boolean package functions at elaboration time:
@@ -761,9 +766,12 @@ Self-contained package-function regressions in `VHDLConstructorTest.cpp` cover
 static bounds, arguments, local variables, arithmetic, recursive calls, and
 failure cases. They require neither a NEORV32 checkout nor an environment variable.
 
-The next observed blocker in the full file-list load is a generate-local signal
-declaration at `neorv32_prim.vhd:127` in the development checkout (line 1667 of
-the concatenated input). Completing the target also requires runtime vector helpers,
+Unlabeled `exit` and `exit when` are supported in static function loops,
+including nested loops. Labeled exits and process-loop exits remain unsupported.
+
+The next observed blocker in the full file-list load is a literal port-map actual at
+`neorv32_cpu_alu_fpu.vhd:818` in the development checkout
+(line 6429 of the concatenated input). Completing the target also requires runtime vector helpers,
 boolean/vector generics, additional sequential and generate constructs, and
 named-library binding. The complete top has **not** been loaded or validated yet.
 
@@ -799,8 +807,90 @@ Self-contained parser and constructor regressions exercise all branch positions,
 64 input/configuration combinations, per-lane registers, hierarchy inference,
 inactive out-of-range references, memory fallback, and rejection of runtime or
 nonboolean conditions and multiple drivers. A separate NVC run of the same
-four configurations confirms their combinational and clocked behavior. Local
-declarations, alternative labels, and explicit branch-body `end` syntax remain
+four configurations confirms their combinational and clocked behavior.
+Alternative labels and explicit branch-body `end` syntax remain
 unsupported and are diagnosed.
 
 Conditional-generate validation: all 179 integrated VHDL tests pass.
+
+## Generate-local declarations
+
+Generate bodies now support signals, constants, array types, and record types,
+with a required `begin` after declarations. Declarations are elaborated in source
+order, and each selected body or loop iteration receives distinct local nets
+under its generate prefix. Nested bodies can read enclosing declarations; local
+bindings are removed at scope exit. Initializers and driver checks remain attached
+to the elaborated hardware. Local arrays use register/mux lowering. Outer-name
+shadowing and local subtypes, functions, and component declarations are diagnosed.
+
+All 183 VHDL tests pass. Self-contained regressions cover repeated local names,
+per-iteration widths, nested conditional bodies, record and array types, constant
+tables, initialized pipeline state, undriven signals, declaration order, and names
+escaping their scope. NVC independently confirms the two-lane pipeline sequence.
+The complete NEORV32 top still has not loaded.
+
+## Combinational processes
+
+Combinational processes accept explicit sensitivity lists or `process(all)`,
+ordered signal assignments, definite-assignment variables, static loops, and
+nested conditionals. Unassigned bits start unavailable during lowering; branch
+merges retain that state until an unconditional assignment fills it. A driven bit
+left unavailable is diagnosed as requiring a latch. Explicit sensitivity lists
+must include all read signals. Reads of signals written by the same process,
+initialized local variables and waits remain unsupported.
+
+All 186 VHDL tests pass, including 128 input/sensitivity combinations covering
+defaults, conditional overrides, variable updates, ascending output vectors,
+and generated combinational processes. NVC independently confirms the same
+patterns. Negative regressions cover incomplete signal/variable assignment,
+missing sensitivity, feedback, waits, and multiple drivers.
+
+## Sequential case statements
+
+Nested cases lower binary scalar/vector, boolean, and nonnegative integer
+selectors to selection logic in combinational and clocked processes. Static
+choices may be grouped with `|`; integer `to`/`downto` ranges expand up to the
+4096-choice limit. Duplicate and overlapping choices are rejected. A final
+`others` supplies the fallback; without it, binary coverage must be exhaustive.
+Integer selectors currently require `others`. Null statements preserve the
+incoming state, including a clocked register's hold behavior. Static-function
+case evaluation remains explicitly unsupported. Memory analysis scans each
+case body so writes are not lost during RAM inference.
+
+Self-contained regressions cover nested decoding, grouped choices, boolean
+coverage, ascending/descending integer ranges, clocked holds, malformed branches,
+duplicate choices, runtime choices, and incomplete combinational assignments.
+NVC independently confirms all 128 nested-decoder and register-hold patterns.
+
+## Enumerated state types
+
+Identifier-literal enumerations are parsed in packages, architectures, and
+generate bodies. Internal scalar objects, record fields, and arrays preserve
+nominal enum identity while lowering each literal to its declaration position
+in a binary encoding of at least one bit. Assignments, equality/inequality,
+explicit initializers, and exhaustive cases are supported. Case coverage counts
+valid literals rather than unused binary encodings. Local literal bindings are
+removed with their generate scope.
+
+All 195 VHDL tests pass, including a three-state record FSM with enum-array
+history, repeated local enum declarations, and rejection of cross-type values,
+duplicate/overloaded literals, illegal operators, and incomplete cases. NVC
+independently confirms the FSM and history across 24 cycles. Enum ports, character
+literals, subtype constraints, ordering comparisons, attributes, and enum-valued
+static functions remain unsupported; implicit enum initialization is not emitted.
+The complete NEORV32 top has still not loaded.
+
+## Record-field sensitivity lists
+
+Explicit sensitivity entries now retain nested record-field paths. Lowering
+resolves each path to its actual signal bits, so a whole record includes all
+fields while a selected field does not authorize reads from siblings. Read
+coverage is checked after field/index selection, including all possible bits of
+a dynamically indexed field. Clocked processes retain their scalar clock/reset
+checks; assignments outside the guard use the same bit coverage validation.
+Indexed and sliced sensitivity entries remain unsupported.
+
+All 198 VHDL tests pass. Self-contained tests cover nested fields, parent records,
+whole records, `process(all)`, dynamic field indexing, omitted sibling fields,
+invalid paths, and assignments outside clock guards. NVC independently confirms
+256 input/sensitivity combinations. The full NEORV32 top still does not load.

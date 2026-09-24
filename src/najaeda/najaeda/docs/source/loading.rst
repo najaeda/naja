@@ -97,8 +97,12 @@ static boolean expressions built from integer generics, constants, enclosing
 loop parameters, and supported static package functions. Only the selected
 branch creates hardware. Generate bodies may contain assignments, instances,
 clocked processes, and nested conditional or loop generates. Instance names
-retain generate scope prefixes. Generate-local declarations, alternative labels,
-and explicit branch-body ``end`` statements remain unsupported and are diagnosed.
+retain generate scope prefixes. Generate-local signals, constants, array types,
+and record types are elaborated in declaration order. Each loop iteration has
+independent local nets and register initialization; local names do not escape
+their body. Local arrays retain register/mux lowering. Shadowing an outer name,
+local subtypes/functions/components, alternative labels, and explicit branch-body
+``end`` statements remain unsupported and are diagnosed.
 
 Record types declared in packages or architectures support nested records,
 arrays of records, field selection, whole-record and field assignments, and
@@ -111,11 +115,22 @@ names remain distinct for assignment checking. ``std_ulogic`` and
 ``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
 multiple drivers and nonbinary literals remain unsupported.
 
+Identifier-based enumerated types declared in packages, architectures, and
+generate bodies support internal signals, variables, constants, record fields,
+and arrays. Literals are encoded by declaration position using at least one bit;
+explicit initializers are preserved. Type identity is retained for assignment and
+equality/inequality checking. Cases may cover all declared literals without an
+``others`` branch, including types whose literal count is not a power of two.
+Character literals, overloaded literal names, enum ports, subtype constraints,
+ordering comparisons, enum attributes, and enum-valued static functions remain
+unsupported. Implicit enum initialization is not synthesized.
+
 Pure package functions with static integer and boolean arguments can compute
 constants, generic defaults, vector bounds, and constant expressions. The
 supported bodies contain local scalar variables/constants, variable assignments,
 ``if``/``elsif``/``else``, bounded ``for`` loops, nested function calls, and early
-``return`` statements. Positional and named actuals and default arguments are
+``return`` statements. Unlabeled ``exit`` and ``exit when`` leave the innermost
+function loop; labeled exits and process-loop exits remain unsupported. Positional and named actuals and default arguments are
 supported. Defaults and function bodies resolve package declarations rather
 than caller-local names. Integer arithmetic includes division, ``mod``, ``rem``,
 exponentiation, and ``abs``; boolean comparisons and logical operators preserve
@@ -125,10 +140,15 @@ Function calls with runtime arguments, vector/string function evaluation, and
 impure functions remain unsupported. Array attributes and interface defaults
 are retained by the parser, but their elaboration is not yet supported.
 
+Architecture-local pure functions also support static integer/boolean evaluation.
+Bodies and default arguments use declarations visible at the function declaration,
+including enclosing generics and scalar constants. Runtime/vector evaluation,
+overloading, and architecture function forward declarations remain unsupported.
+
 The NEORV32 default ``neorv32_top`` configuration is a development target, not yet
 a supported load. Its complete package parses, and ``index_size_f`` and
 ``sel_natural_f`` can elaborate a test design. The complete core file list now
-stops at a generate-local signal declaration in ``neorv32_prim.vhd``. Vector helpers
+stops at a literal port-map actual in ``neorv32_cpu_alu_fpu.vhd:818``. Vector helpers
 and further elaboration constructs also remain to be implemented.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
@@ -149,6 +169,28 @@ descending arrays with nonnegative 32-bit bounds are supported. Arrays with
 initializers, multiple write sites, partial-word writes, writes inside loops,
 writes in asynchronous-reset or generated processes, or direct connections to child-instance
 ports retain the register/mux lowering.
+
+Combinational processes accept ``process(all)`` or an explicit sensitivity list
+covering every signal bit read. Explicit entries may name whole records or nested
+record fields, such as ``process(packet.inner.data, packet.inner.flag)``. A parent
+record covers its descendants; listing one field does not cover its siblings.
+Indexed or sliced sensitivity entries remain unsupported. The same coverage check
+applies to assignments outside a clock guard. Their bodies support ordered signal assignments,
+immediate variables, static loops, and nested ``if``/``elsif``/``else`` and ``case`` branches.
+Default assignments followed by partial conditional overrides preserve the last
+assignment to each bit. Every driven bit must be assigned on every path; latch
+inference is rejected. Variables must be assigned before use. Reading a signal
+written by the same process, variable declaration initializers, and ``wait``
+statements remain unsupported. Signal reads retain VHDL's scheduled
+assignment semantics and are not replaced by earlier assignments in the body.
+
+Sequential ``case`` statements support binary scalar/vector, boolean, and
+nonnegative integer or enumerated selectors, grouped static choices (``|``), integer ranges,
+and a final ``others`` alternative. ``null`` preserves the incoming assignment
+state. Duplicate or overlapping choices and runtime choices are rejected.
+Without ``others``, binary alternatives must cover the entire selector domain;
+integer selectors require ``others`` in this profile. Choice expansion is bounded
+to 4096 values. Cases in static package-function bodies remain unsupported.
 
 Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,
 including parentheses around the guard or its operands, in both simple and

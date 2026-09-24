@@ -338,6 +338,13 @@ expert reference above.
    inside nested generate statements. Otherwise, specify ``top`` explicitly.
    The basic structural hierarchy path still requires an explicit ``top``.
 
+   Architecture-local pure functions also support static integer/boolean evaluation.
+   Bodies and default arguments use declarations visible at the function declaration,
+   including enclosing generics and scalar constants. Runtime/vector evaluation,
+   overloading, and architecture function forward declarations remain unsupported.
+   Static function loops support unlabeled ``exit`` and ``exit when``; labeled
+   exits and process-loop exits remain unsupported.
+
    A single dynamically indexed whole-word clocked write site can infer an
    uninitialized array as an NLDB0 RAM primitive. Read registers remain explicit
    DFFs, preserving enables and old-data read/write collisions. Address reset
@@ -348,8 +355,16 @@ expert reference above.
    array types and positional constant aggregates, binary/octal/hex literals,
    static slices and loops, nested ``for generate`` and static
    ``if``/``elsif``/``else generate`` statements containing assignments, clocked
-   processes, and component/direct-entity instances,
-   integer-indexed ROM/RAM reads and clocked writes, and multiple clocked
+   processes, and component/direct-entity instances. Generate-local signals,
+   constants, arrays, records, and enumerations have separate bindings and nets per elaborated
+   body; local arrays use register/mux lowering. Internal enum signals, record
+   fields, and arrays preserve nominal type checking and explicit initialization;
+   enum-valued ports are not yet supported. The subset also supports
+   nested sequential cases with static choices, ranges, and ``others``, plus
+   combinational processes with complete assignment coverage and explicit or
+   ``all`` sensitivity. Explicit sensitivity entries accept nested record fields
+   and validate coverage per signal bit. The subset includes integer-indexed
+   ROM/RAM reads and clocked writes, and multiple clocked
    processes with synchronous reset/enable and constant asynchronous reset/set.
    Asynchronous state uses canonical NLDB0 DFFRN, DFFR, or DFFS primitives;
    bits omitted from the reset branch hold while reset is active. See

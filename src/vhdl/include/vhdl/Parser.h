@@ -104,6 +104,12 @@ struct ArrayTypeDeclaration {
     std::optional<Name> indexSubtype;
 };
 
+struct EnumerationTypeDeclaration {
+    Name name;
+    std::vector<Name> literals;
+    SourceSpan span;
+};
+
 struct RecordTypeDeclaration {
     Name name;
     std::vector<ObjectDeclaration> fields;
@@ -121,7 +127,7 @@ struct Assignment {
 };
 
 struct SequentialStatement {
-    enum class Kind { Assignment, If, For, Return };
+    enum class Kind { Assignment, If, For, Return, Case, Null, Exit };
     Kind kind = Kind::Assignment;
     Assignment assignment;
     std::unique_ptr<Expression> condition;
@@ -131,6 +137,9 @@ struct SequentialStatement {
     std::vector<SequentialStatement> alternative;
     SourceSpan span;
     std::unique_ptr<Expression> returnValue;
+    // An empty choice list denotes the final others alternative.
+    std::vector<std::vector<std::unique_ptr<Expression>>> choices;
+    std::vector<std::vector<SequentialStatement>> caseBodies;
 };
 
 struct FunctionDeclaration {
@@ -180,6 +189,9 @@ struct ClockedProcess {
     // Structured bodies retain nested control flow until static elaboration.
     std::vector<SequentialStatement> statements;
     std::vector<Name> sensitivityList;
+    std::vector<std::vector<Name>> sensitivityFields;
+    bool combinational = false;
+    bool allSensitivity = false;
     bool asynchronousReset = false;
     std::vector<SequentialStatement> resetStatements;
 };
@@ -223,6 +235,11 @@ struct GenerateStatement {
     // Alternatives are ordered elsif branches followed by an optional else.
     std::vector<GenerateStatement> alternatives;
     std::vector<ClockedProcess> processes;
+    std::vector<SignalDeclaration> signals;
+    std::vector<ConstantDeclaration> constants;
+    std::vector<ArrayTypeDeclaration> arrayTypes;
+    std::vector<RecordTypeDeclaration> recordTypes;
+    std::vector<EnumerationTypeDeclaration> enumerationTypes;
 };
 
 struct PackageDeclaration {
@@ -233,6 +250,7 @@ struct PackageDeclaration {
     std::vector<EntityDeclaration> components;
     bool body = false;
     std::vector<RecordTypeDeclaration> recordTypes;
+    std::vector<EnumerationTypeDeclaration> enumerationTypes;
     std::vector<FunctionDeclaration> functions;
 };
 
@@ -250,6 +268,8 @@ struct ArchitectureBody {
     std::vector<EntityDeclaration> components;
     std::vector<ConstantDeclaration> constants;
     std::vector<RecordTypeDeclaration> recordTypes;
+    std::vector<EnumerationTypeDeclaration> enumerationTypes;
+    std::vector<FunctionDeclaration> functions;
 };
 
 struct DesignFile {

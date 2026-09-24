@@ -421,6 +421,21 @@ private:
             join(start, lexed_.tokens[index_ - 1].span), std::move(initializer)};
     }
 
+    std::optional<EnumerationTypeDeclaration> parseEnumerationTypeDeclaration() {
+        const auto start = lexed_.tokens[index_ - 1].span;
+        auto name = parseName();
+        if (!name || !expectWord("is") || !expectSymbol("(")) return std::nullopt;
+        EnumerationTypeDeclaration type{*name, {}, start};
+        do {
+            auto literal = parseName();
+            if (!literal) return std::nullopt;
+            type.literals.push_back(std::move(*literal));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(")") || !expectSymbol(";")) return std::nullopt;
+        type.span = join(start, lexed_.tokens[index_ - 1].span);
+        return type;
+    }
+
     std::optional<RecordTypeDeclaration> parseRecordTypeDeclaration() {
         const auto start = lexed_.tokens[index_ - 1].span;
         auto name = parseName();
@@ -539,6 +554,12 @@ private:
         package.name = *name;
         while (!atEnd() && !word("end")) {
             if (!package.body && acceptWord("type")) {
+                if (look(2).text == "(") {
+                    auto type = parseEnumerationTypeDeclaration();
+                    if (!type) return std::nullopt;
+                    package.enumerationTypes.push_back(std::move(*type));
+                    continue;
+                }
                 if (look(2).canonical == "record") {
                     auto record = parseRecordTypeDeclaration();
                     if (!record) return std::nullopt;
@@ -597,13 +618,43 @@ private:
     }
 
     bool parseGenerateBody(GenerateStatement& generate) {
-        for (const auto declaration : {"signal", "constant", "type", "subtype", "function", "component"}) {
+        bool declarations = false;
+        while (word("signal") || word("constant") || word("type")) {
+            declarations = true;
+            if (acceptWord("signal")) {
+                auto signal = parseObjectDeclaration(true);
+                if (!signal) return false;
+                generate.signals.push_back(std::move(*signal));
+            } else if (acceptWord("constant")) {
+                auto constant = parseConstantDeclaration();
+                if (!constant) return false;
+                generate.constants.push_back(std::move(*constant));
+            } else {
+                advance();
+                if (look(2).text == "(") {
+                    auto type = parseEnumerationTypeDeclaration();
+                    if (!type) return false;
+                    generate.enumerationTypes.push_back(std::move(*type));
+                } else if (look(2).canonical == "record") {
+                    auto record = parseRecordTypeDeclaration();
+                    if (!record) return false;
+                    generate.recordTypes.push_back(std::move(*record));
+                } else {
+                    auto array = parseArrayTypeDeclaration();
+                    if (!array) return false;
+                    generate.arrayTypes.push_back(std::move(*array));
+                }
+            }
+        }
+        for (const auto declaration : {"subtype", "function", "procedure", "component", "attribute", "shared", "file", "alias", "use"}) {
             if (word(declaration)) {
-                error("generate-local declarations are not supported", current().span);
+                error("generate-local " + std::string(declaration) + " declarations are not supported", current().span);
                 return false;
             }
         }
-        acceptWord("begin");
+        if (declarations) {
+            if (!expectWord("begin")) return false;
+        } else acceptWord("begin");
         while (!atEnd() && !word("end") && !word("elsif") && !word("else")) {
             if (isNameToken() && look().text == ":" && look(2).canonical == "process") {
                 advance(); advance();
@@ -686,7 +737,14 @@ private:
             return std::nullopt;
         ArchitectureBody architecture{
             std::move(*name), std::move(*entity), {}, {}, {}, {}, {}, start};
-        while (word("signal") || word("type") || word("component") || word("constant")) {
+        while (word("signal") || word("type") || word("component") || word("constant") ||
+               word("function") || word("pure") || word("impure")) {
+            if (word("function") || word("pure") || word("impure")) {
+                auto function = parseFunction();
+                if (!function) return std::nullopt;
+                architecture.functions.push_back(std::move(*function));
+                continue;
+            }
             if (acceptWord("signal")) {
                 auto declaration = parseObjectDeclaration(true);
                 if (!declaration)
@@ -702,6 +760,12 @@ private:
                 architecture.components.push_back(std::move(*component));
             } else {
                 advance();
+                if (look(2).text == "(") {
+                    auto type = parseEnumerationTypeDeclaration();
+                    if (!type) return std::nullopt;
+                    architecture.enumerationTypes.push_back(std::move(*type));
+                    continue;
+                }
                 if (look(2).canonical == "record") {
                     auto record = parseRecordTypeDeclaration();
                     if (!record) return std::nullopt;
@@ -720,7 +784,7 @@ private:
         // lowered faithfully.
         for (const auto declaration : {
                  "subtype", "variable", "shared", "file",
-                 "alias", "attribute", "function", "procedure",
+                 "alias", "attribute", "procedure",
                  "package", "use", "group", "disconnect", "configuration"}) {
             if (word(declaration)) {
                 error("architecture " + std::string(declaration) +
@@ -948,6 +1012,46 @@ private:
     }
 
     std::optional<ClockedProcess> parseClockedProcess() {
+        // Keep edge-process diagnostics for malformed clock/reset idioms.
+        for (auto i = index_ + 1; i < lexed_.tokens.size(); ++i) {
+            const auto& token = lexed_.tokens[i];
+            if (token.canonical == "process" && lexed_.tokens[i - 1].canonical == "end") break;
+            if (((token.canonical == "rising_edge" || token.canonical == "falling_edge") &&
+                 i + 1 < lexed_.tokens.size() && lexed_.tokens[i + 1].text == "(") ||
+                (token.canonical == "event" && lexed_.tokens[i - 1].text == "'"))
+                return parseEdgeProcess();
+        }
+        const auto start = advance().span;
+        ClockedProcess process;
+        process.combinational = true;
+        if (!expectSymbol("(")) return std::nullopt;
+        if (acceptWord("all")) process.allSensitivity = true;
+        else do {
+            auto name = parseName();
+            if (!name) return std::nullopt;
+            process.sensitivityList.push_back(std::move(*name));
+            std::vector<Name> fields;
+            while (acceptSymbol(".")) {
+                auto field = parseName();
+                if (!field) return std::nullopt;
+                fields.push_back(std::move(*field));
+            }
+            process.sensitivityFields.push_back(std::move(fields));
+        } while (acceptSymbol(","));
+        if (!expectSymbol(")")) return std::nullopt;
+        acceptWord("is");
+        while (acceptWord("variable")) {
+            auto declaration = parseObjectDeclaration();
+            if (!declaration) return std::nullopt;
+            process.variables.push_back(std::move(*declaration));
+        }
+        if (!expectWord("begin") || !parseStatements(process.statements) ||
+            !expectWord("end") || !expectWord("process") || !expectSymbol(";")) return std::nullopt;
+        process.span = join(start, lexed_.tokens[index_ - 1].span);
+        return process;
+    }
+
+    std::optional<ClockedProcess> parseEdgeProcess() {
         const auto savedIndex = index_;
         const auto savedDiagnostics = result_.diagnostics.size();
         auto legacy = parseSimpleClockedProcess();
@@ -962,6 +1066,13 @@ private:
             auto name = parseName();
             if (!name) return std::nullopt;
             process.sensitivityList.push_back(std::move(*name));
+            std::vector<Name> fields;
+            while (acceptSymbol(".")) {
+                auto field = parseName();
+                if (!field) return std::nullopt;
+                fields.push_back(std::move(*field));
+            }
+            process.sensitivityFields.push_back(std::move(fields));
         } while (acceptSymbol(","));
         if (!expectSymbol(")")) return std::nullopt;
         acceptWord("is");
@@ -1016,10 +1127,55 @@ private:
     }
 
     bool parseStatements(std::vector<SequentialStatement>& statements, bool functionBody = false) {
-        while (!atEnd() && !word("end") && !word("else") && !word("elsif")) {
+        while (!atEnd() && !word("end") && !word("else") && !word("elsif") && !word("when")) {
+            if (word("wait")) {
+                error(current().canonical + " statements are not supported", current().span);
+                return false;
+            }
             SequentialStatement statement;
             const auto start = current().span;
-            if (acceptWord("if")) {
+            if (acceptWord("exit")) {
+                if (!functionBody) {
+                    error("exit is currently supported only in function loops", start);
+                    return false;
+                }
+                statement.kind = SequentialStatement::Kind::Exit;
+                if (acceptWord("when")) {
+                    statement.condition = parseExpression(0);
+                    if (!statement.condition) return false;
+                } else if (!symbol(";")) {
+                    error("labeled exit is not supported", current().span);
+                    return false;
+                }
+                if (!expectSymbol(";")) return false;
+            } else if (acceptWord("null")) {
+                statement.kind = SequentialStatement::Kind::Null;
+                if (!expectSymbol(";")) return false;
+            } else if (acceptWord("case")) {
+                statement.kind = SequentialStatement::Kind::Case;
+                statement.condition = parseExpression(0);
+                if (!statement.condition || !expectWord("is")) return false;
+                do {
+                    if (!expectWord("when")) return false;
+                    std::vector<std::unique_ptr<Expression>> choices;
+                    const bool otherwise = acceptWord("others");
+                    if (!otherwise) do {
+                        auto choice = parseIndex();
+                        if (!choice) return false;
+                        choices.push_back(std::move(choice));
+                    } while (acceptSymbol("|"));
+                    if (!expectSymbol("=>")) return false;
+                    std::vector<SequentialStatement> body;
+                    if (!parseStatements(body, functionBody) || body.empty()) {
+                        error("case alternative requires a statement", current().span);
+                        return false;
+                    }
+                    statement.choices.push_back(std::move(choices));
+                    statement.caseBodies.push_back(std::move(body));
+                    if (otherwise) break;
+                } while (word("when"));
+                if (!expectWord("end") || !expectWord("case") || !expectSymbol(";")) return false;
+            } else if (acceptWord("if")) {
                 if (!parseIfStatement(statement, functionBody)) return false;
             } else if (acceptWord("for")) {
                 statement.kind = SequentialStatement::Kind::For;
@@ -1102,7 +1258,7 @@ private:
             if (!assignment)
                 return std::nullopt;
             assignments.push_back(std::move(*assignment));
-        } while (!atEnd() && !word("end") && !word("else") && !word("elsif"));
+        } while (!atEnd() && !word("end") && !word("else") && !word("elsif") && !word("when"));
         std::optional<Name> enableSignal;
         std::string enableLevel;
         std::optional<Name> resetSignal;

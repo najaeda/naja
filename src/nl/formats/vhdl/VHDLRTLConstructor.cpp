@@ -87,9 +87,11 @@ struct Shape {
   std::vector<Range> ranges;
   size_t integerWidth = 0;
   std::vector<std::pair<std::string, Shape>> fields;
+  const vhdl::EnumerationTypeDeclaration* enumeration = nullptr;
   size_t size() const {
     if (integerWidth) return integerWidth;
     size_t size = 1;
+    if (enumeration) while ((size_t(1) << size) < enumeration->literals.size()) ++size;
     if (!fields.empty()) {
       size = 0;
       for (const auto& field : fields) {
@@ -108,6 +110,7 @@ struct Shape {
 };
 
 bool compatible(const Shape& a, const Shape& b) {
+  if (a.enumeration != b.enumeration) return false;
   if (a.integerWidth && b.integerWidth) return true;
   if (a.types != b.types || a.ranges.size() != b.ranges.size()) return false;
   if (a.fields.size() != b.fields.size()) return false;
@@ -197,22 +200,8 @@ class RTLConstructor {
       if (!localComponents.insert(name).second) fail("duplicate local component: " + name);
       components_[name] = &component;
     }
-    declarations(architecture_.arrayTypes, architecture_.constants, architecture_.recordTypes);
-    for (const auto& signal : architecture_.signals) {
-      const auto type = shape(signal.type);
-      for (const auto& name : signal.names) addObject(name, type);
-      if (signal.initializer) {
-        const auto value = expression(*signal.initializer, State{}, &type);
-        for (const auto& name : signal.names) {
-          const auto& bits = objects_.at(key(name)).value.bits;
-          for (size_t i = 0; i < bits.size(); ++i) {
-            const auto initial = constantValue(value.bits[i]);
-            if (!initial) fail("signal initializer must be a constant binary value");
-            initialValues_[bits[i]] = *initial;
-          }
-        }
-      }
-    }
+    declarations(architecture_.arrayTypes, architecture_.constants, architecture_.recordTypes,
+                 architecture_.signals, architecture_.enumerationTypes, architecture_.functions);
     inferMemories();
     checkLabels(architecture_.generates, architecture_.instantiations);
     State empty;
@@ -224,15 +213,65 @@ class RTLConstructor {
     finalizeMemories();
     for (const auto& [bit, value] : initialValues_)
       if (!initializedFlops_.contains(bit)) fail("initialized signal must be driven by a local clocked process");
-    for (const auto& [name, object] : objects_) {
-      if (object.variable || object.input || object.constant || memories_.contains(name)) continue;
-      for (auto* bit : object.value.bits)
-        if ((object.output || reads_.contains(bit)) && !drivers_.contains(bit))
-          fail("signal bit has no driver: " + name);
-    }
+    for (const auto& [name, object] : objects_)
+      if (!memories_.contains(name)) checkDriven(name, object);
+    for (const auto& [name, object] : generatedObjects_) checkDriven(name, object);
   }
 
  private:
+  struct Sensitivity {
+    std::set<std::string> names;
+    std::set<SNLBitNet*> bits;
+    std::map<SNLBitNet*, std::string> signals;
+  };
+
+  Sensitivity processSensitivity(const vhdl::ClockedProcess& process) {
+    Sensitivity result;
+    for (const auto& [name, object] : objects_)
+      if (!object.variable && !object.constant)
+        for (auto* bit : object.value.bits) result.signals.emplace(bit, name);
+    if (process.allSensitivity) return result;
+    const auto add = [&](const vhdl::Name& name, const std::vector<vhdl::Name>& fields) {
+      DiagnosticScope location(name.span);
+      auto selected = selection(key(name));
+      const auto& object = objects_.at(selected.name);
+      if (object.variable || object.constant) fail("process sensitivity requires signals");
+      for (const auto& member : fields) field(selected, key(member));
+      if (fields.empty()) result.names.insert(key(name));
+      for (size_t i = 0; i < selected.shape.size(); ++i)
+        result.bits.insert(object.value.bits[selected.offset + i]);
+    };
+    if (process.sensitivityList.empty()) add(process.sensitivity, {});
+    else for (size_t i = 0; i < process.sensitivityList.size(); ++i)
+      add(process.sensitivityList[i], process.sensitivityFields.empty() ?
+          std::vector<vhdl::Name>{} : process.sensitivityFields[i]);
+    return result;
+  }
+
+  void checkDriven(const std::string& name, const Object& object) {
+    if (object.variable || object.input || object.constant) return;
+    for (auto* bit : object.value.bits)
+      if ((object.output || reads_.contains(bit)) && !drivers_.contains(bit))
+        fail("signal bit has no driver: " + name);
+  }
+
+  void addSignal(const vhdl::SignalDeclaration& signal) {
+    DiagnosticScope location(signal.span);
+    const auto type = shape(signal.type);
+    for (const auto& name : signal.names) addObject(name, type);
+    if (signal.initializer) {
+      const auto value = expression(*signal.initializer, State{}, &type);
+      for (const auto& name : signal.names) {
+        const auto& bits = objects_.at(key(name)).value.bits;
+        for (size_t i = 0; i < bits.size(); ++i) {
+          const auto initial = constantValue(value.bits[i]);
+          if (!initial) fail("signal initializer must be a constant binary value");
+          initialValues_[bits[i]] = *initial;
+        }
+      }
+    }
+  }
+
   struct MemoryRead { Bits address, data; };
   struct Memory {
     const vhdl::ClockedProcess* process = nullptr;
@@ -262,7 +301,7 @@ class RTLConstructor {
         if (key(a.target) != name) return;
         ++writes;
         owner = process;
-        supported &= process && !process->asynchronousReset && !loop && a.kind == vhdl::AssignmentKind::Signal &&
+        supported &= process && !process->combinational && !process->asynchronousReset && !loop && a.kind == vhdl::AssignmentKind::Signal &&
             a.indices.size() == 1 && a.indices.front()->kind != Expr::Kind::Range &&
             !isStatic(*a.indices.front());
       };
@@ -273,6 +312,7 @@ class RTLConstructor {
             assignment(statement.assignment, process, loop);
           scan(statement.statements, process, loop || statement.kind == Statement::Kind::For);
           scan(statement.alternative, process, loop || statement.kind == Statement::Kind::For);
+          for (const auto& body : statement.caseBodies) scan(body, process, loop);
         }
       };
       for (const auto& process : architecture_.processes) {
@@ -349,8 +389,9 @@ class RTLConstructor {
   }
 
   Value readMemory(const std::string& name, const Expr& index, const State& state) {
-    if (sensitivity_ && !sensitivity_->contains(name))
-      fail("process sensitivity omits a signal read outside the clock guard: " + name);
+    if (sensitivity_) for (auto* bit : objects_.at(name).value.bits)
+      if (!sensitivity_->bits.contains(bit))
+        fail("process sensitivity omits a memory read: " + name);
     auto element = objects_.at(name).value.shape;
     if (isStatic(index)) element.ranges.front().position(integer(index));
     auto addressValue = expression(index, state);
@@ -415,7 +456,7 @@ class RTLConstructor {
   void addArray(const vhdl::ArrayTypeDeclaration& declaration) {
     DiagnosticScope location(declaration.span);
     const auto name = key(declaration.name);
-    if (functions_.contains(name) || booleans_.contains(name) || records_.contains(name) || arrayDeclarations_.contains(name) || integerTables_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
+    if (functions_.contains(name) || booleans_.contains(name) || (enumerations_.contains(name) || records_.contains(name)) || arrayDeclarations_.contains(name) || integerTables_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
         name == "bit" || name == "bit_vector" || name == "std_logic" ||
         name == "std_logic_vector" || name == "std_ulogic" || name == "std_ulogic_vector" ||
         name == "unsigned" || name == "signed" || name == "integer" ||
@@ -442,7 +483,7 @@ class RTLConstructor {
   void addRecord(const vhdl::RecordTypeDeclaration& declaration) {
     DiagnosticScope location(declaration.span);
     const auto name = key(declaration.name);
-    if (functions_.contains(name) || booleans_.contains(name) || records_.contains(name) || arrayDeclarations_.contains(name) ||
+    if (functions_.contains(name) || booleans_.contains(name) || (enumerations_.contains(name) || records_.contains(name)) || arrayDeclarations_.contains(name) ||
         objects_.contains(name) || integers_.contains(name) || integerTables_.contains(name) ||
         name == "bit" || name == "bit_vector" || name == "std_logic" || name == "std_ulogic" ||
         name == "std_logic_vector" || name == "std_ulogic_vector" || name == "unsigned" ||
@@ -462,9 +503,34 @@ class RTLConstructor {
     recordOffsets_[name] = declaration.span.start.offset;
   }
 
+  void addEnumeration(const vhdl::EnumerationTypeDeclaration& declaration) {
+    DiagnosticScope location(declaration.span);
+    const auto available = [&](const std::string& name) {
+      static const std::set<std::string> builtins{"bit", "bit_vector", "std_logic", "std_ulogic",
+          "std_logic_vector", "std_ulogic_vector", "integer", "natural", "positive", "boolean", "true", "false", "unsigned", "signed"};
+      return !builtins.contains(name) && !objects_.contains(name) && !integers_.contains(name) &&
+          !booleans_.contains(name) && !functions_.contains(name) && !records_.contains(name) &&
+          !arrayDeclarations_.contains(name) && !integerTables_.contains(name) && !enumerations_.contains(name);
+    };
+    const auto name = key(declaration.name);
+    if (!available(name)) fail("duplicate or shadowing enumeration type: " + name);
+    if (declaration.literals.empty() || declaration.literals.size() > 4096)
+      fail("enumeration must contain 1 to 4096 identifier literals");
+    enumerations_[name] = &declaration;
+    Shape type{{name}, {}, 0, {}, &declaration};
+    for (size_t i = 0; i < declaration.literals.size(); ++i) {
+      const auto literal = key(declaration.literals[i]);
+      if (!available(literal)) fail("duplicate, overloaded, or shadowing enumeration literal: " + literal);
+      objects_.emplace(literal, Object{number(i, type), false, false, false, true});
+    }
+  }
+
   void declarations(const std::vector<vhdl::ArrayTypeDeclaration>& arrays,
                     const std::vector<vhdl::ConstantDeclaration>& constants,
-                    const std::vector<vhdl::RecordTypeDeclaration>& records) {
+                    const std::vector<vhdl::RecordTypeDeclaration>& records,
+                    const std::vector<vhdl::SignalDeclaration>& signals = {},
+                    const std::vector<vhdl::EnumerationTypeDeclaration>& enumerations = {},
+                    const std::vector<vhdl::FunctionDeclaration>& functions = {}) {
     std::map<size_t, std::function<void()>> ordered;
     for (const auto& array : arrays)
       ordered.emplace(array.span.start.offset, [&array, this] { addArray(array); });
@@ -472,6 +538,12 @@ class RTLConstructor {
       ordered.emplace(constant.object.span.start.offset, [&constant, this] { addConstant(constant); });
     for (const auto& record : records)
       ordered.emplace(record.span.start.offset, [&record, this] { addRecord(record); });
+    for (const auto& signal : signals)
+      ordered.emplace(signal.span.start.offset, [&signal, this] { addSignal(signal); });
+    for (const auto& enumeration : enumerations)
+      ordered.emplace(enumeration.span.start.offset, [&enumeration, this] { addEnumeration(enumeration); });
+    for (const auto& function : functions)
+      ordered.emplace(function.span.start.offset, [&function, this] { addLocalFunction(function); });
     for (const auto& [offset, add] : ordered) add();
   }
 
@@ -508,7 +580,7 @@ class RTLConstructor {
     std::set<std::string> names;
     for (const auto& id : declaration.object.names)
       if (functions_.contains(key(id)) || booleans_.contains(key(id)) || !names.insert(key(id)).second || objects_.contains(key(id)) || integers_.contains(key(id)) ||
-          integerTables_.contains(key(id)) || records_.contains(key(id)) || arrayDeclarations_.contains(key(id)))
+          integerTables_.contains(key(id)) || (enumerations_.contains(key(id)) || records_.contains(key(id))) || arrayDeclarations_.contains(key(id)))
         fail("duplicate constant: " + key(id));
     if (name == "boolean") {
       const auto value = scalar(*declaration.value);
@@ -570,10 +642,39 @@ class RTLConstructor {
     DiagnosticScope location(generate.conditional ? generate.label.span : generate.iterator.span);
     const auto body = [&](const vhdl::GenerateStatement& branch, const std::string& scope) {
       if (++steps_ > 100000) fail("static generate elaboration limit exceeded");
+      const auto outerPrefix = objectPrefix_;
+      objectPrefix_ = scope;
+      declarations(branch.arrayTypes, branch.constants, branch.recordTypes, branch.signals, branch.enumerationTypes);
       for (const auto& assignment : branch.assignments) concurrent(assignment, state);
       for (const auto& child : branch.generates) lowerGenerate(child, state, scope);
       for (const auto& instance : branch.instantiations) lowerInstance(instance, scope);
       for (const auto& process : branch.processes) lowerProcess(process);
+      // Bindings are local to this elaborated body; hardware and driver tracking
+      // remain live after the scope ends, including reads through outer signals.
+      for (const auto& signal : branch.signals) for (const auto& name : signal.names) {
+        generatedObjects_.emplace_back(scope + name.spelling, objects_.at(key(name)));
+        objects_.erase(key(name));
+      }
+      for (const auto& constant : branch.constants) for (const auto& name : constant.object.names) {
+        objects_.erase(key(name));
+        integers_.erase(key(name));
+        booleans_.erase(key(name));
+        integerTables_.erase(key(name));
+      }
+      for (const auto& array : branch.arrayTypes) {
+        arrays_.erase(key(array.name));
+        arrayDeclarations_.erase(key(array.name));
+        arrayTypeOffsets_.erase(key(array.name));
+      }
+      for (const auto& record : branch.recordTypes) {
+        records_.erase(key(record.name));
+        recordOffsets_.erase(key(record.name));
+      }
+      for (const auto& enumeration : branch.enumerationTypes) {
+        for (const auto& literal : enumeration.literals) objects_.erase(key(literal));
+        enumerations_.erase(key(enumeration.name));
+      }
+      objectPrefix_ = outerPrefix;
     };
     if (generate.conditional) {
       const auto selected = [&](const vhdl::GenerateStatement& branch) {
@@ -591,7 +692,7 @@ class RTLConstructor {
     }
     auto name = key(generate.iterator);
     if (integers_.contains(name) || objects_.contains(name) || integerTables_.contains(name) ||
-        records_.contains(name) || arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
+        (enumerations_.contains(name) || records_.contains(name)) || arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
     const auto bounds = range(generate.range);
     for (size_t i = 0; i < bounds.size(); ++i) {
       integers_[name] = bounds.ascending ? bounds.left + i : bounds.left - i;
@@ -732,7 +833,7 @@ class RTLConstructor {
               !functions_.emplace(name, FunctionBinding{package, &function}).second)
             fail("ambiguous or overloaded package function: " + name);
         }
-        declarations(package->arrayTypes, package->constants, package->recordTypes);
+        declarations(package->arrayTypes, package->constants, package->recordTypes, {}, package->enumerationTypes);
         for (const auto& component : package->components)
           if (!components_.emplace(key(component.name), &component).second) fail("ambiguous component");
         libraries_ = callerLibraries;
@@ -761,12 +862,30 @@ class RTLConstructor {
     int64_t value = 0;
     bool boolean = false;
   };
+  using FunctionBinding = std::pair<const vhdl::PackageDeclaration*, const vhdl::FunctionDeclaration*>;
+  struct FunctionEnvironment {
+    std::map<std::string, StaticScalar> values;
+    std::map<std::string, FunctionBinding> functions;
+  };
   struct StaticScope {
+    const FunctionEnvironment* environment = nullptr;
     const vhdl::PackageDeclaration* package = nullptr;
     std::map<std::string, StaticScalar> values;
     std::map<std::string, const vhdl::TypeMark*> variables;
   };
-  using FunctionBinding = std::pair<const vhdl::PackageDeclaration*, const vhdl::FunctionDeclaration*>;
+  void addLocalFunction(const vhdl::FunctionDeclaration& function) {
+    const auto name = key(function.name);
+    if (!function.body) fail("architecture function forward declarations are unsupported: " + name);
+    if (functions_.contains(name) || integers_.contains(name) || booleans_.contains(name) ||
+        objects_.contains(name) || integerTables_.contains(name) || records_.contains(name) ||
+        enumerations_.contains(name) || arrayDeclarations_.contains(name))
+      fail("duplicate or overloaded architecture function: " + name);
+    functions_.emplace(name, FunctionBinding{nullptr, &function});
+    auto& environment = localFunctionEnvironments_[&function];
+    for (const auto& [id, value] : integers_) environment.values.emplace(id, StaticScalar{value, false});
+    for (const auto& [id, value] : booleans_) environment.values.emplace(id, StaticScalar{value, true});
+    environment.functions = functions_;
+  }
 
   const vhdl::PackageDeclaration* packageBody(const vhdl::PackageDeclaration& declaration) const {
     for (const auto& package : syntax_.packages)
@@ -778,6 +897,9 @@ class RTLConstructor {
     if (!scope) {
       const auto found = functions_.find(name);
       if (found != functions_.end()) return found->second;
+    } else if (scope->environment) {
+      const auto found = scope->environment->functions.find(name);
+      if (found != scope->environment->functions.end()) return found->second;
     } else if (scope->package) {
       for (const auto& function : scope->package->functions)
         if (key(function.name) == name) return {scope->package, &function};
@@ -812,6 +934,7 @@ class RTLConstructor {
   const vhdl::FunctionDeclaration& functionBody(const FunctionBinding& binding) const {
     const auto& declaration = *binding.second;
     if (declaration.body) return declaration;
+    if (!binding.first) fail("missing architecture function body");
     const auto* package = packageBody(*binding.first);
     const vhdl::FunctionDeclaration* found = nullptr;
     if (package) for (const auto& candidate : package->functions) {
@@ -859,7 +982,7 @@ class RTLConstructor {
     }
   }
 
-  void validateStaticStatements(const std::vector<Statement>& statements, std::set<std::string> variables) {
+  void validateStaticStatements(const std::vector<Statement>& statements, std::set<std::string> variables, size_t loopDepth = 0) {
     for (const auto& statement : statements) {
       DiagnosticScope location(statement.span);
       if (statement.kind == Statement::Kind::Assignment) {
@@ -867,18 +990,37 @@ class RTLConstructor {
             !statement.assignment.indices.empty() || !variables.contains(key(statement.assignment.target)))
           fail("function assignment requires a local scalar variable");
       }
+      if (statement.kind == Statement::Kind::Exit && !loopDepth)
+        fail("exit requires an enclosing function loop");
+      if (statement.kind == Statement::Kind::Case)
+        fail("case in static function bodies is not yet supported");
       auto nestedVariables = variables;
       if (statement.kind == Statement::Kind::For) nestedVariables.erase(key(statement.iterator));
-      validateStaticStatements(statement.statements, std::move(nestedVariables));
-      validateStaticStatements(statement.alternative, variables);
+      validateStaticStatements(statement.statements, std::move(nestedVariables),
+          loopDepth + (statement.kind == Statement::Kind::For));
+      validateStaticStatements(statement.alternative, variables, loopDepth);
     }
   }
 
-  std::optional<StaticScalar> staticStatements(const std::vector<Statement>& statements, StaticScope& scope) {
+  struct StaticFlow {
+    std::optional<StaticScalar> returned;
+    bool exited = false;
+    explicit operator bool() const { return returned.has_value() || exited; }
+  };
+
+  StaticFlow staticStatements(const std::vector<Statement>& statements, StaticScope& scope) {
     for (const auto& statement : statements) {
       DiagnosticScope location(statement.span);
       if (++steps_ > 100000) fail("static function evaluation limit exceeded");
-      if (statement.kind == Statement::Kind::Return) return scalar(*statement.returnValue, &scope);
+      if (statement.kind == Statement::Kind::Null) continue;
+      if (statement.kind == Statement::Kind::Return) return {scalar(*statement.returnValue, &scope)};
+      if (statement.kind == Statement::Kind::Exit) {
+        if (!statement.condition) return {std::nullopt, true};
+        const auto condition = scalar(*statement.condition, &scope);
+        if (!condition.boolean) fail("exit condition must be boolean");
+        if (condition.value) return {std::nullopt, true};
+        continue;
+      }
       if (statement.kind == Statement::Kind::If) {
         const auto condition = scalar(*statement.condition, &scope);
         if (!condition.boolean) fail("function if condition must be boolean");
@@ -902,7 +1044,8 @@ class RTLConstructor {
           if (++steps_ > 100000) fail("static function evaluation limit exceeded");
           scope.values[name] = {bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i), false};
           auto result = staticStatements(statement.statements, scope);
-          if (result) { restore(); return result; }
+          if (result.returned) { restore(); return result; }
+          if (result.exited) break;
         }
         restore();
       } else if (statement.kind == Statement::Kind::Assignment) {
@@ -915,7 +1058,7 @@ class RTLConstructor {
         scope.values[name] = value;
       } else fail("unsupported static function statement");
     }
-    return std::nullopt;
+    return {};
   }
 
   StaticScalar callStatic(const Expr& call, StaticScope* caller) {
@@ -935,6 +1078,7 @@ class RTLConstructor {
     const auto& body = functionBody(binding);
     StaticScope local;
     local.package = binding.first;
+    if (!binding.first) local.environment = &localFunctionEnvironments_.at(&declaration);
     std::vector<const vhdl::GenericDeclaration*> formals;
     std::vector<std::string> names;
     for (const auto& parameter : declaration.parameters) for (const auto& name : parameter.names) {
@@ -967,6 +1111,7 @@ class RTLConstructor {
         // Defaults are evaluated in the declaration scope, never in the caller.
         StaticScope declarationScope;
         declarationScope.package = binding.first;
+        declarationScope.environment = local.environment;
         values[i] = scalar(*formals[i]->defaultValue, &declarationScope);
       }
       checkStaticType(*values[i], formals[i]->type, &local);
@@ -1001,9 +1146,9 @@ class RTLConstructor {
     for (const auto& [name, type] : local.variables) variables.insert(name);
     validateStaticStatements(body.statements, std::move(variables));
     const auto result = staticStatements(body.statements, local);
-    if (!result) fail("function completed without returning a value: " + key(prefix));
-    checkStaticType(*result, declaration.returnType, &local);
-    return *result;
+    if (!result.returned) fail("function completed without returning a value: " + key(prefix));
+    checkStaticType(*result.returned, declaration.returnType, &local);
+    return *result.returned;
   }
 
   bool staticBooleanType(const Expr& expression, const StaticScope* scope) const {
@@ -1017,6 +1162,10 @@ class RTLConstructor {
       const auto name = key(expression);
       if (scope) {
         if (const auto found = scope->values.find(name); found != scope->values.end()) return found->second.boolean;
+        if (scope->environment) {
+          const auto found = scope->environment->values.find(name);
+          if (found != scope->environment->values.end()) return found->second.boolean;
+        }
         if (scope->package) for (const auto& constant : scope->package->constants)
           for (const auto& id : constant.object.names)
             if (key(id) == name) return scalarType(key(constant.object.type.name));
@@ -1060,6 +1209,10 @@ class RTLConstructor {
       const auto name = key(expression);
       if (scope) {
         if (const auto found = scope->values.find(name); found != scope->values.end()) return found->second;
+        if (scope->environment) {
+          const auto found = scope->environment->values.find(name);
+          if (found != scope->environment->values.end()) return found->second;
+        }
         if (scope->package) for (const auto& declaration : scope->package->constants)
           for (const auto& id : declaration.object.names) if (key(id) == name) {
             if (expression.span.start.offset < declaration.object.span.start.offset)
@@ -1163,6 +1316,12 @@ class RTLConstructor {
     auto name = key(type.name);
     if (stdLogic_ && name == "std_ulogic") name = "std_logic";
     if (stdLogic_ && name == "std_ulogic_vector") name = "std_logic_vector";
+    if (const auto found = enumerations_.find(name); found != enumerations_.end()) {
+      if (type.constraint) fail("enumeration subtype constraints are not supported");
+      if (type.name.span.start.offset < found->second->span.start.offset)
+        fail("enumeration used before its declaration");
+      return {{name}, {}, 0, {}, found->second};
+    }
     if (const auto found = records_.find(name); found != records_.end()) {
       if (type.constraint) fail("record type cannot have an array constraint");
       if (type.name.span.start.offset < recordOffsets_.at(name))
@@ -1205,24 +1364,30 @@ class RTLConstructor {
   void addObject(const vhdl::Name& name, const Shape& type, bool input = false,
                  bool output = false, bool variable = false, bool port = false) {
     const auto id = key(name);
+    const auto hasEnumeration = [&](const auto& self, const Shape& shape) -> bool {
+      if (shape.enumeration) return true;
+      for (const auto& field : shape.fields) if (self(self, field.second)) return true;
+      return false;
+    };
+    if (port && hasEnumeration(hasEnumeration, type)) fail("enumerated ports are not yet supported");
     if (port && (type.ranges.size() > 1 || type.integerWidth))
       fail("RTL ports require scalar logic or one-dimensional logic vectors");
-    if (functions_.contains(id) || booleans_.contains(id) || objects_.contains(id) || integers_.contains(id) || records_.contains(id) || arrayDeclarations_.contains(id) || integerTables_.contains(id))
+    if (functions_.contains(id) || booleans_.contains(id) || objects_.contains(id) || integers_.contains(id) || (enumerations_.contains(id) || records_.contains(id)) || arrayDeclarations_.contains(id) || integerTables_.contains(id))
       fail("duplicate or shadowing object: " + id);
     Bits bits;
     const auto size = type.size();
     if (variable) bits.resize(size, nullptr);
-    else if (!type.ranges.empty() || type.integerWidth || !type.fields.empty()) {
-      const auto r = (type.integerWidth || !type.fields.empty()) ? Range{int64_t(size - 1), 0, false} : type.ranges.back();
+    else if (!type.ranges.empty() || type.integerWidth || type.enumeration || !type.fields.empty()) {
+      const auto r = (type.integerWidth || type.enumeration || !type.fields.empty()) ? Range{int64_t(size - 1), 0, false} : type.ranges.back();
       if (r.left < std::numeric_limits<NLID::Bit>::min() || r.left > std::numeric_limits<NLID::Bit>::max() ||
           r.right < std::numeric_limits<NLID::Bit>::min() || r.right > std::numeric_limits<NLID::Bit>::max())
         fail("hardware vector bounds exceed net index range");
       // Keep each innermost array element as a bus, with its declared bounds.
       for (size_t offset = 0; offset < size; offset += r.size()) {
-        auto busName = name.spelling;
+        auto busName = objectPrefix_ + name.spelling;
         auto position = offset;
         auto stride = size;
-        for (size_t dimension = 0; type.fields.empty() && dimension + 1 < type.ranges.size(); ++dimension) {
+        for (size_t dimension = 0; !type.enumeration && type.fields.empty() && dimension + 1 < type.ranges.size(); ++dimension) {
           const auto& bounds = type.ranges[dimension];
           stride /= bounds.size();
           const auto index = static_cast<int64_t>(position / stride);
@@ -1236,7 +1401,7 @@ class RTLConstructor {
       }
     } else {
       for (size_t i = 0; i < size; ++i) {
-        auto* bit = SNLScalarNet::create(design_, NLName(name.spelling +
+        auto* bit = SNLScalarNet::create(design_, NLName(objectPrefix_ + name.spelling +
             (size == 1 ? "" : "_" + std::to_string(i))));
         bits.push_back(bit);
       }
@@ -1446,9 +1611,7 @@ class RTLConstructor {
       if (!bit) fail("variable read before definite assignment: " + name);
 
     }
-    if (sensitivity_ && !object.constant && !object.variable && !sensitivity_->contains(name))
-      fail("process sensitivity omits a signal read outside the clock guard: " + name);
-    if (sensitivity_ && object.variable) fail("variable read outside the clock guard is not supported");
+    if (sensitivity_ && object.variable && !combinational_) fail("variable read outside the clock guard is not supported");
     return value;
   }
   Value readIndex(Value value, const Expr& indexExpr, const State& state) {
@@ -1471,7 +1634,7 @@ class RTLConstructor {
       value.bits = Bits(value.bits.begin() + offset, value.bits.begin() + offset + stride);
       return value;
     }
-    for (auto* bit : value.bits) reads_.insert(bit);
+    for (auto* bit : value.bits) readBit(bit);
     auto address = expression(indexExpr, state);
     if (!address.shape.integerWidth) fail("array index must have integer type");
     Bits result(stride, constant(false));
@@ -1535,10 +1698,10 @@ class RTLConstructor {
       const auto name = key(expr);
       if (!objects_.contains(name)) fail("no declaration for object: " + name);
       value = readObject(name, state);
-      for (auto* bit : value.bits) reads_.insert(bit);
+      for (auto* bit : value.bits) readBit(bit);
     } else if (expr.kind == Expr::Kind::Selected) {
       value = readSelected(expr, state);
-      for (auto* bit : value.bits) reads_.insert(bit);
+      for (auto* bit : value.bits) readBit(bit);
     } else if (expected && !expected->fields.empty() && expected->ranges.empty() &&
                (expr.kind == Expr::Kind::Aggregate || expr.kind == Expr::Kind::Others)) {
       value.shape = *expected;
@@ -1600,7 +1763,7 @@ class RTLConstructor {
           fail("unsupported conv_integer argument");
         value.shape = {{"integer"}, {}, value.bits.size()};
       } else value = readSelected(expr, state);
-      for (auto* bit : value.bits) reads_.insert(bit);
+      for (auto* bit : value.bits) readBit(bit);
     } else if (expr.kind == Expr::Kind::Conditional) {
       const auto condition = expression(*expr.condition, state);
       if (condition.shape.types != std::vector<std::string>{"boolean"}) fail("condition must be boolean");
@@ -1662,7 +1825,7 @@ class RTLConstructor {
       }
     } else if (expr.kind == Expr::Kind::Unary) {
       value = expression(*expr.left, state, expected);
-      if (expr.text != "not" || value.shape.integerWidth || !value.shape.fields.empty())
+      if (expr.text != "not" || value.shape.integerWidth || value.shape.enumeration || !value.shape.fields.empty())
         fail("unsupported hardware unary operator");
       for (auto*& bit : value.bits) bit = gate("not", bit);
     } else if (expr.kind == Expr::Kind::Binary) {
@@ -1671,7 +1834,7 @@ class RTLConstructor {
       if (expr.text == "&") {
         auto left = expression(*expr.left, state);
         auto right = expression(*expr.right, state);
-        if (!left.shape.fields.empty() || !right.shape.fields.empty() || left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
+        if (left.shape.enumeration || right.shape.enumeration || !left.shape.fields.empty() || !right.shape.fields.empty() || left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
             right.shape.ranges.size() > 1 || left.shape.types.back() != right.shape.types.back())
           fail("unsupported concatenation operands");
         value.bits = left.bits;
@@ -1738,6 +1901,8 @@ class RTLConstructor {
           right.bits = resize(right.bits, width);
         }
         if (!compatible(left.shape, right.shape)) fail("binary operand type mismatch");
+        if ((left.shape.enumeration || right.shape.enumeration) && !comparison)
+          fail("enumeration operators currently support only equality and inequality");
         if (comparison) {
           auto* result = equal(left.bits, right.bits);
           value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
@@ -1871,11 +2036,92 @@ class RTLConstructor {
     }
   }
 
+  void caseStatement(const Statement& statement, State& state) {
+    const auto selector = expression(*statement.condition, state);
+    const auto& type = selector.shape;
+    if (!type.fields.empty() || type.ranges.size() > 1 || (type.enumeration && !type.ranges.empty()) ||
+        (!type.enumeration && !type.integerWidth && type.types.back() != "bit" && type.types.back() != "std_logic" &&
+         type.types.back() != "boolean")) fail("unsupported case selector type");
+    std::set<std::string> seen;
+    std::vector<SNLBitNet*> matches;
+    const bool otherwise = statement.choices.back().empty();
+    for (const auto& choices : statement.choices) {
+      auto* match = constant(false);
+      const auto add = [&](const Value& choice) {
+        if (seen.size() >= 4096) fail("case choice expansion limit exceeded");
+        std::string bits;
+        for (auto* bit : choice.bits) {
+          const auto value = constantValue(bit);
+          if (!value) fail("case choices must be static binary values");
+          bits += *value ? '1' : '0';
+        }
+        if (!seen.insert(bits).second) fail("duplicate or overlapping case choices");
+        match = gate("or", match, equal(selector.bits, choice.bits));
+      };
+      for (const auto& choice : choices) {
+        const auto requireStatic = [&](const auto& self, const Expr& value) -> void {
+          if (value.kind == Expr::Kind::Name && objects_.contains(key(value)) &&
+              !objects_.at(key(value)).constant) fail("case choices must be static");
+          if (value.left) self(self, *value.left);
+          if (value.right && value.kind != Expr::Kind::Selected) self(self, *value.right);
+          if (value.condition) self(self, *value.condition);
+          for (const auto& element : value.elements) self(self, *element);
+        };
+        requireStatic(requireStatic, *choice);
+        if (choice->kind == Expr::Kind::Range) {
+          if (!type.integerWidth) fail("case ranges require an integer selector");
+          const Range bounds{integer(*choice->left), integer(*choice->right), choice->text == "to"};
+          if (bounds.size() > 4096) fail("case choice expansion limit exceeded");
+          for (size_t i = 0; i < bounds.size(); ++i) {
+            const auto value = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
+            if (value < 0 || (type.integerWidth < 63 && uint64_t(value) >= (uint64_t(1) << type.integerWidth)))
+              fail("case integer choice is outside the supported selector range");
+            add(number(value, type));
+          }
+        } else {
+          if (type.integerWidth) {
+            const auto value = integer(*choice);
+            if (value < 0 || (type.integerWidth < 63 && uint64_t(value) >= (uint64_t(1) << type.integerWidth)))
+              fail("case integer choice is outside the supported selector range");
+          }
+          add(expression(*choice, State{}, &type));
+        }
+      }
+      matches.push_back(match);
+    }
+    if (!otherwise && (type.integerWidth || selector.bits.size() > 12 ||
+        seen.size() != (type.enumeration ? type.enumeration->literals.size() : (size_t(1) << selector.bits.size()))))
+      fail("case alternatives must cover every selector value; add others");
+    if (std::all_of(selector.bits.begin(), selector.bits.end(),
+        [&](auto* bit) { return constantValue(bit).has_value(); })) {
+      for (size_t i = 0; i < matches.size(); ++i) {
+        if ((statement.choices[i].empty()) || constantValue(matches[i]).value_or(false)) {
+          this->statements(statement.caseBodies[i], state);
+          return;
+        }
+      }
+    }
+    // A proven exhaustive last alternative is a valid default, avoiding a
+    // fictitious unassigned path in combinational definite-assignment checks.
+    auto result = state;
+    this->statements(statement.caseBodies.back(), result);
+    for (size_t i = statement.caseBodies.size() - 1; i-- > 0;) {
+      auto branch = state;
+      this->statements(statement.caseBodies[i], branch);
+      auto merged = state;
+      merge(merged, branch, result, matches[i]);
+      result = std::move(merged);
+    }
+    state = std::move(result);
+  }
+
   void statements(const std::vector<Statement>& statements, State& state) {
     for (const auto& statement : statements) {
       DiagnosticScope location(statement.span);
       if (++steps_ > 100000) fail("static process elaboration limit exceeded");
-      if (statement.kind == Statement::Kind::Assignment) assign(statement.assignment, state);
+      if (statement.kind == Statement::Kind::Null) continue;
+      if (statement.kind == Statement::Kind::Case) caseStatement(statement, state);
+      else if (statement.kind == Statement::Kind::Assignment) assign(statement.assignment, state);
       else if (statement.kind == Statement::Kind::If) {
         const auto condition = expression(*statement.condition, state);
         if (condition.shape.types != std::vector<std::string>{"boolean"})
@@ -1903,25 +2149,65 @@ class RTLConstructor {
     }
   }
 
+  void readBit(SNLBitNet* bit) {
+    if (sensitivity_ && sensitivity_->signals.contains(bit) && !sensitivity_->bits.contains(bit))
+      fail("process sensitivity omits a signal bit read outside the clock guard: " + sensitivity_->signals.at(bit));
+    reads_.insert(bit);
+    if (processReads_) processReads_->insert(bit);
+  }
+
+  void lowerCombinationalProcess(const vhdl::ClockedProcess& process) {
+    const auto sensitivity = processSensitivity(process);
+    for (const auto& variable : process.variables) {
+      if (variable.initializer) fail("combinational variable initialization is unsupported; assign in the body");
+      const auto type = shape(variable.type);
+      for (const auto& name : variable.names) addObject(name, type, false, false, true);
+    }
+    State state;
+    for (const auto& [name, object] : objects_) {
+      if (object.variable) state.variables[name] = object.value.bits;
+      else if (!object.input && !object.constant && !memories_.contains(name)) {
+        state.scheduled[name] = Bits(object.value.bits.size(), nullptr);
+        state.written[name].resize(object.value.bits.size(), false);
+      }
+    }
+    std::set<SNLBitNet*> processReads;
+    processReads_ = &processReads;
+    combinational_ = true;
+    sensitivity_ = process.allSensitivity ? nullptr : &sensitivity;
+    statements(process.statements, state);
+    sensitivity_ = nullptr;
+    combinational_ = false;
+    processReads_ = nullptr;
+    for (const auto& [name, written] : state.written) {
+      const auto& values = state.scheduled.at(name);
+      const auto& targets = objects_.at(name).value.bits;
+      for (size_t i = 0; i < written.size(); ++i) if (written[i]) {
+        if (!values[i]) fail("incomplete combinational assignment would infer a latch: " + name);
+        if (processReads.contains(targets[i]))
+          fail("reading a signal written by the same combinational process is unsupported: " + name);
+        drive(targets[i], values[i]);
+      }
+    }
+    for (const auto& variable : process.variables)
+      for (const auto& name : variable.names) objects_.erase(key(name));
+  }
+
   void lowerProcess(const vhdl::ClockedProcess& process) {
     DiagnosticScope location(process.span);
+    if (process.combinational) { lowerCombinationalProcess(process); return; }
     const auto clockName = key(process.eventSignal);
     auto clock = selection(clockName);
     if (!objects_.at(clockName).input || clock.shape.size() != 1 ||
         !clock.shape.ranges.empty() || process.level != "'1'")
       fail("clock must name a scalar input with a positive edge");
-    std::set<std::string> sensitivity;
-    if (process.sensitivityList.empty()) sensitivity.insert(key(process.sensitivity));
-    else for (const auto& name : process.sensitivityList) {
-      selection(key(name));
-      sensitivity.insert(key(name));
-    }
-    if (!sensitivity.contains(clockName)) fail("clock is absent from process sensitivity");
+    const auto sensitivity = processSensitivity(process);
+    if (!sensitivity.names.contains(clockName)) fail("clock is absent from process sensitivity");
     if (key(process.levelSignal) != clockName) fail("clock event and level must match");
     if (process.asynchronousReset) {
       const auto name = key(*process.resetSignal);
       auto reset = selection(name);
-      if (name == clockName || !sensitivity.contains(name))
+      if (name == clockName || !sensitivity.names.contains(name))
         fail("asynchronous reset must be distinct from the clock and present in sensitivity");
       if (!reset.shape.ranges.empty() || reset.shape.size() != 1 ||
           (reset.shape.types != std::vector<std::string>{"bit"} &&
@@ -2083,19 +2369,25 @@ class RTLConstructor {
   std::set<std::string> instanceNames_;
   std::map<std::string, int64_t> integers_;
   std::map<std::string, FunctionBinding> functions_;
+  std::map<const vhdl::FunctionDeclaration*, FunctionEnvironment> localFunctionEnvironments_;
   std::map<std::string, bool> booleans_;
   std::set<const vhdl::ConstantDeclaration*> activeStaticConstants_;
   size_t staticDepth_ = 0;
   std::map<std::string, Shape> arrays_, records_;
+  std::map<std::string, const vhdl::EnumerationTypeDeclaration*> enumerations_;
   std::map<std::string, size_t> recordOffsets_;
   std::map<std::string, size_t> arrayTypeOffsets_;
   std::map<std::string, Object> objects_;
+  std::string objectPrefix_;
+  std::vector<std::pair<std::string, Object>> generatedObjects_;
   std::map<std::string, Memory> memories_;
   std::set<SNLBitNet*> drivers_, reads_;
   std::map<SNLBitNet*, bool> initialValues_;
   std::set<SNLBitNet*> initializedFlops_;
   std::set<std::string> libraries_{"std", "work"};
-  const std::set<std::string>* sensitivity_ = nullptr;
+  const Sensitivity* sensitivity_ = nullptr;
+  std::set<SNLBitNet*>* processReads_ = nullptr;
+  bool combinational_ = false;
   bool stdLogic_ = false;
   size_t steps_ = 0;
   SNLBitNet* zero_ = nullptr;
@@ -2127,7 +2419,8 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     return !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
   for (const auto& architecture : syntax.architectures) {
-    if (!architecture.recordTypes.empty()) return true;
+    if (!architecture.functions.empty()) return true;
+    if (!architecture.recordTypes.empty() || !architecture.enumerationTypes.empty()) return true;
     if (signedContext(architecture.context)) return true;
     if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
     for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
@@ -2138,7 +2431,7 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     for (const auto& assignment : architecture.assignments)
       if (extendedAssignment(assignment)) return true;
     for (const auto& process : architecture.processes) {
-      if (!process.sensitivityList.empty()) return true;
+      if (process.combinational || !process.sensitivityList.empty()) return true;
       for (const auto& assignment : process.assignments)
         if (extendedAssignment(assignment)) return true;
       for (const auto& assignment : process.resetAssignments)
