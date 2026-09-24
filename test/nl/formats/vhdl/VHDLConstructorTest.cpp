@@ -2175,3 +2175,363 @@ architecture rtl of unresolved is begin y <= not a; end;
       "entity multiple is port(a : in std_ulogic; y : out std_ulogic); end; "
       "architecture rtl of multiple is begin y <= a; y <= '0'; end;"), NLException);
 }
+
+TEST_F(VHDLConstructorTest, StaticPackageFunctionsElaborateBoundsAndValues) {
+  const std::string package = R"(
+package math is
+  constant bias : natural := 2;
+  function width(n : natural) return natural;
+  function choose(c : boolean; t, f : natural) return natural;
+  function accumulate(n : natural; step : integer := bias) return integer;
+  function valid(n : integer) return boolean;
+end;
+package body math is
+  function width(n : natural) return natural is
+  begin
+    for i in 0 to 31 loop
+      if 2**i >= n then return i; end if;
+    end loop;
+    return 32;
+  end function;
+  function choose(c : boolean; t, f : natural) return natural is
+  begin
+    if c then return t; else return f; end if;
+  end function;
+  function accumulate(n : natural; step : integer) return integer is
+    constant offset : integer := bias;
+    variable sum : integer := offset;
+    variable i : integer := 9;
+  begin
+    for i in n downto 1 loop
+      sum := sum + step;
+    end loop;
+    for j in 2 to 1 loop sum := 999; end loop;
+    return sum + i - 9;
+  end function;
+  function valid(n : integer) return boolean is
+  begin return (n >= 0) and (n < 100); end function;
+end;
+)";
+  for (unsigned n : {0u, 1u, 2u, 3u, 4u, 7u, 8u, 9u, 31u, 32u, 33u, 1024u}) {
+    unsigned expectedWidth = 0;
+    while ((1u << expectedWidth) < n) ++expectedWidth;
+    const auto source = package + R"(
+use work.math.all;
+entity calculated is port(y : out bit_vector(choose(width()" + std::to_string(n) + R"() > 0, width()" +
+        std::to_string(n) + R"(), 1)-1 downto 0)); end;
+architecture rtl of calculated is
+  constant step : natural := 99;
+  constant count : integer := accumulate(step => 3, n => 2);
+  constant ok : boolean := valid(count) and (accumulate(3) = 8);
+begin
+  y <= (others => '1') when ok else (others => '0');
+end;
+)";
+    auto* trial = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    auto* design = VHDLConstructor(trial).construct(source, "calculated");
+    auto* term = design->getBusTerm(NLName("y"));
+    ASSERT_NE(term, nullptr);
+    EXPECT_EQ(term->getWidth(), std::max(1u, expectedWidth));
+    for (auto* bit : term->getBits()) EXPECT_TRUE(bit->getNet()->isConstant1());
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticFunctionArithmeticAndEarlyReturns) {
+  const auto source = R"(
+package math is
+  function calculate(n : integer) return integer;
+  function unused return boolean;
+  function safe return boolean;
+end;
+package body math is
+  function calculate(n : integer) return integer is
+    variable value : integer range -20 to 20 := 0;
+  begin
+    if n = 0 then return (-7) mod 3;
+    elsif n = 1 then return ((-7) rem 3) + 3;
+    elsif n = 2 then return (-2**2) + 6;
+    else
+      value := 9 / 4;
+      return value;
+    end if;
+  end function;
+  function unused return boolean is begin return (1 / 0) = 0; end function;
+  function safe return boolean is begin return false and unused; end function;
+end;
+use work.math.all;
+entity arithmetic is port(y : out bit_vector(1 downto 0)); end;
+architecture rtl of arithmetic is begin
+  y <= "11" when (calculate(0) = 2) and (calculate(1) = 2) and
+    (calculate(2) = 2) and (calculate(3) = 2) and not safe else "00";
+end;
+)";
+  auto* design = VHDLConstructor(library_).construct(source);
+  for (auto* bit : design->getBusTerm(NLName("y"))->getBits()) EXPECT_TRUE(bit->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidStaticPackageFunctionCalls) {
+  const auto prefix = R"(
+package math is function f(n : natural; enabled : boolean := true) return natural; end;
+package body math is
+function f(n : natural; enabled : boolean) return natural is
+begin if enabled then return n; else return 1; end if; end function;
+end;
+use work.math.all;
+entity invalid is port(y : out bit_vector(3 downto 0)); end;
+architecture rtl of invalid is constant value : integer :=
+)";
+  for (const auto* call : {"f(-1)", "f(true)", "f(1, 0)", "f", "f(1, true, 2)",
+       "f(n => 1, n => 2)", "f(missing => 1)", "f(n => 1, false)", "f(2**63)", "f(1, false and 7)", "f(1, true or 0)"}) {
+    SCOPED_TRACE(call);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(prefix) + call +
+        "; begin y <= (others => '0'); end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsUnsafeOrIncompleteStaticFunctionBodies) {
+  for (const auto* body : {
+      "return -1;",
+      "return true;",
+      "return caller_only;",
+      "if false then n <= 2; end if; return 1;",
+      "return 1 / 0;",
+      "return f(n);",
+      "if n = 0 then return 1; end if;",
+      "n := 2; return n;",
+      "for i in 1 to 2 loop i := 0; end loop; return 1;",
+      "for i in 0 to 65535 loop for j in 0 to 65535 loop end loop; end loop; return 1;"}) {
+    SCOPED_TRACE(body);
+    const auto source = std::string(R"(
+package math is function f(n : natural) return natural; end;
+package body math is function f(n : natural) return natural is begin
+)") + body + R"( end function; end;
+use work.math.all;
+entity invalid is port(y : out bit); end;
+architecture rtl of invalid is
+  constant caller_only : integer := 7;
+  constant value : integer := f(1);
+begin y <= '0'; end;
+)";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+  }
+  for (const auto* definitions : {
+      "",
+      "package body math is function f(n : boolean) return natural is begin return 1; end; end;",
+      "package body math is function f(n : natural) return integer is begin return 1; end; end;",
+      "package body math is impure function f(n : natural) return natural is begin return 1; end; end;",
+      "package body math is function f(n : natural) return natural is begin return 1; end; "
+      "function f(n : integer) return natural is begin return 2; end; end;",
+      "package body math is function f(n : natural) return natural is variable v : positive := 0; "
+      "begin return v; end; end;"}) {
+    SCOPED_TRACE(definitions);
+    EXPECT_THROW(VHDLConstructor(library_).construct(std::string(
+        "package math is function f(n : natural) return natural; end; ") + definitions +
+        " use work.math.all; entity invalid is port(y : out bit); end; "
+        "architecture rtl of invalid is constant v : natural := f(1); begin y <= '0'; end;"), NLException);
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticFunctionsUsePrivateHelpersAndRecursiveFrames) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package math is function factorial(n : natural) return positive; end;
+package body math is
+  function multiply(a, b : integer) return integer is begin return a * b; end;
+  function factorial(n : natural) return positive is
+    variable saved : natural := n;
+  begin
+    if n = 0 then return 1; end if;
+    return multiply(saved, factorial(n - 1));
+  end;
+end;
+use work.math.all;
+entity recursive is port(y : out bit_vector(factorial(4)-1 downto 0)); end;
+architecture rtl of recursive is begin y <= (others => '1'); end;
+)");
+  EXPECT_EQ(design->getBusTerm(NLName("y"))->getWidth(), 24u);
+  for (auto* bit : design->getBusTerm(NLName("y"))->getBits()) EXPECT_TRUE(bit->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, RetainedInterfaceDefaultsAndAttributesRequireElaborationSupport) {
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity default_port is port(a : in bit := '1'; y : out bit); end;
+architecture rtl of default_port is begin y <= a; end;
+)"), NLException);
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity attribute_bounds is port(a : in bit_vector(3 downto 0); y : out bit_vector(a'range)); end;
+architecture rtl of attribute_bounds is begin y <= a; end;
+)"), NLException);
+}
+
+TEST_F(VHDLConstructorTest, AsynchronousResetPolarityValuesAndHoldCycles) {
+  auto* design = VHDLConstructor(library_).constructFile(SNL_VHDL_ASYNCHRONOUS_RESET);
+  ASSERT_NE(design, nullptr);
+  std::unordered_map<SNLBitNet*, bool> state;
+  for (unsigned i = 0; i < 4; ++i) {
+    state[design->getBusNet(NLName("low_state"))->getBitAtPosition(i)] = (12 >> (3-i)) & 1;
+    state[design->getBusNet(NLName("high_state"))->getBitAtPosition(i)] = (5 >> (3-i)) & 1;
+  }
+  state[design->getScalarNet(NLName("retained"))] = false;
+  std::vector<SNLInstance*> flops;
+  size_t resetLow = 0, resetHigh = 0, setHigh = 0, plain = 0;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    if (NLDB0::isDFFRN(model)) ++resetLow;
+    else if (NLDB0::isDFFR(model)) ++resetHigh;
+    else if (NLDB0::isDFFS(model)) ++setHigh;
+    else if (NLDB0::isDFF(model)) ++plain;
+    else continue;
+    flops.push_back(instance);
+    std::string initial;
+    for (auto* bit : model->getTerm(NLName("Q"))->getBits())
+      initial += state.at(instance->getInstTerm(bit)->getNet()) ? '1' : '0';
+    ASSERT_NE(instance->getInstParameter(NLName("INIT")), nullptr);
+    EXPECT_EQ(instance->getInstParameter(NLName("INIT"))->getValue(),
+        NLDB0::formatDFFInitValue(initial.size(), initial));
+  }
+  EXPECT_EQ(resetLow, 1u);
+  EXPECT_EQ(resetHigh, 1u);
+  EXPECT_EQ(setHigh, 2u);
+  EXPECT_EQ(plain, 1u);
+  // Each entry changes inputs without necessarily generating a clock edge.
+  const std::vector<std::tuple<bool, bool, bool, bool, unsigned>> events{
+    {0,1,0,0,5}, {0,0,0,0,5}, {0,1,0,0,5}, {1,1,0,1,10},
+    {0,1,0,1,4}, {0,0,1,1,4}, {1,0,1,1,4}, {0,0,1,1,4},
+    {0,1,0,0,9}, {1,1,0,0,9}, {0,1,0,1,6}, {1,1,0,1,6},
+    {1,0,0,1,6}, {1,1,0,1,6}};
+  std::ifstream reference;
+  if (const auto* path = std::getenv("VHDL_ASYNC_RESET_REFERENCE")) {
+    reference.open(path);
+    ASSERT_TRUE(reference);
+  }
+  bool previousClock = false, expectedHeld = false;
+  unsigned expectedLow = 12, expectedHigh = 5;
+  for (const auto& [clk, rstn, rst, enable, data] : events) {
+    auto values = state;
+    const auto inputs = [&] {
+      for (const auto& [name, value] : std::vector<std::pair<const char*, bool>>{
+          {"clk", clk}, {"rstn", rstn}, {"rst", rst}, {"enable", enable}})
+        values[design->getScalarTerm(NLName(name))->getNet()] = value;
+      for (unsigned i = 0; i < 4; ++i)
+        values[design->getBusTerm(NLName("d"))->getBitAtPosition(i)->getNet()] = (data >> (3-i)) & 1;
+    };
+    inputs();
+    std::unordered_set<SNLBitNet*> visiting;
+    auto next = state;
+    for (auto* flop : flops) {
+      auto* model = flop->getModel();
+      const bool set = NLDB0::isDFFS(model);
+      bool reset = false;
+      if (!NLDB0::isDFF(model)) {
+        const bool low = NLDB0::isDFFRN(model);
+        auto* pin = model->getScalarTerm(NLName(set ? "S" : low ? "RN" : "R"));
+        reset = evaluateRTL(flop->getInstTerm(pin)->getNet(), values, visiting) != low;
+      }
+      auto outputs = model->getTerm(NLName("Q"))->getBits();
+      auto dataBits = model->getTerm(NLName("D"))->getBits();
+      auto input = dataBits.begin();
+      for (auto* output : outputs) {
+        auto* q = flop->getInstTerm(output)->getNet();
+        if (reset) next[q] = set;
+        else if (clk && !previousClock)
+          next[q] = evaluateRTL(flop->getInstTerm(*input)->getNet(), values, visiting);
+        ++input;
+      }
+    }
+    if (!rstn) expectedLow = 3;
+    else if (clk && !previousClock && enable) expectedLow = data;
+    if (rst) expectedHigh = 12;
+    else if (clk && !previousClock) { expectedHigh = data; expectedHeld = !expectedHeld; }
+    state = next;
+    values = state;
+    inputs();
+    visiting.clear();
+    const auto read = [&](const char* name) {
+      unsigned value = 0;
+      for (auto* bit : design->getTerm(NLName(name))->getBits())
+        value = (value << 1) | evaluateRTL(bit->getNet(), values, visiting);
+      return value;
+    };
+    const auto q = read("q"), p = read("p"), held = read("held");
+    EXPECT_EQ(q, expectedLow);
+    EXPECT_EQ(p, expectedHigh);
+    EXPECT_EQ(held, unsigned(expectedHeld));
+    if (reference.is_open()) {
+      unsigned referenceQ, referenceP, referenceHeld;
+      ASSERT_TRUE(reference >> referenceQ >> referenceP >> referenceHeld);
+      EXPECT_EQ(q, referenceQ);
+      EXPECT_EQ(p, referenceP);
+      EXPECT_EQ(held, referenceHeld);
+    }
+    previousClock = clk;
+  }
+  if (reference.is_open()) { std::string trailing; EXPECT_FALSE(reference >> trailing); }
+  if (const auto* directory = std::getenv("VHDL_ASYNC_RESET_DUMP")) {
+    SNLVRLDumper dumper;
+    dumper.setSingleFile(true);
+    dumper.setTopFileName("async_reset_test.v");
+    dumper.dumpDesign(design, directory);
+  }
+}
+
+TEST_F(VHDLConstructorTest, AsynchronousResetOnlyStateAndMemoryFallback) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity reset_storage is port(clk, rst, d : in bit; q : out bit_vector(1 downto 0); sticky : out bit); end;
+architecture rtl of reset_storage is
+  type memory_t is array(0 to 1) of bit;
+  signal memory : memory_t;
+  signal address : integer range 0 to 1;
+begin
+  address <= 1;
+  process(clk, rst) begin
+    if rst = '1' then
+      for i in 0 to 1 loop memory(i) <= '0'; end loop;
+      sticky <= '1';
+    elsif rising_edge(clk) then memory(address) <= d;
+    end if;
+  end process;
+  q(1) <= memory(0);
+  q(0) <= memory(1);
+end;
+)");
+  size_t flops = 0;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    EXPECT_FALSE(NLDB0::isMemory(model));
+    if (NLDB0::isDFFR(model) || NLDB0::isDFFS(model)) {
+      flops += model->getTerm(NLName("Q"))->getWidth();
+      if (NLDB0::isDFFS(model))
+        EXPECT_EQ(instance->getInstTerm(model->getScalarTerm(NLName("D")))->getNet(),
+            instance->getInstTerm(model->getScalarTerm(NLName("Q")))->getNet());
+    }
+  }
+  EXPECT_EQ(flops, 3u);
+}
+
+TEST_F(VHDLConstructorTest, RejectsUnsupportedAsynchronousResetSemantics) {
+  const auto check = [&](const std::string& process, const std::string& diagnostic) {
+    auto* trial = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    try {
+      VHDLConstructor(trial).construct(
+          "entity invalid is port(clk, rst, d : in bit; q : out bit); end; "
+          "architecture rtl of invalid is begin " + process + " end;");
+      FAIL() << "expected asynchronous-reset rejection";
+    } catch (const NLException& exception) {
+      EXPECT_NE(std::string(exception.what()).find(diagnostic), std::string::npos) << exception.what();
+    }
+  };
+  check("process(clk) begin if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; end if; end process;",
+      "present in sensitivity");
+  check("process(clk) begin if clk = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; end if; end process;",
+      "distinct from the clock");
+  check("process(clk, rst) begin if rst = '1' then q <= d; elsif rising_edge(clk) then q <= d; end if; end process;",
+      "constant binary values");
+  check("process(clk, rst) begin if rst = '1' then if d = '1' then q <= '0'; end if; "
+      "elsif rising_edge(clk) then q <= d; end if; end process;", "constant binary values");
+  check("process(clk, rst) begin if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; end if; "
+      "q <= d; end process;", "outside an asynchronous clock/reset guard");
+  check("process(clk, rst) begin if rst = 'X' then q <= '0'; elsif rising_edge(clk) then q <= d; end if; end process;",
+      "compare a signal to '0' or '1'");
+  check("process(clk, rst) begin if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; "
+      "else q <= '1'; end if; end process;", "parse failed");
+}

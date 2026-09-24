@@ -38,7 +38,8 @@ struct Expression {
         BitStringLiteral,
         Call,
         Selected,
-        Association
+        Association,
+        Attribute
     };
     std::vector<std::unique_ptr<Expression>> elements;
     Kind kind;
@@ -57,6 +58,7 @@ struct DiscreteRange {
     SourceSpan span;
     std::shared_ptr<Expression> leftExpression;
     std::shared_ptr<Expression> rightExpression;
+    std::shared_ptr<Expression> attribute;
 };
 
 struct TypeMark {
@@ -69,6 +71,7 @@ struct PortDeclaration {
     PortMode mode = PortMode::In;
     TypeMark type;
     SourceSpan span;
+    std::unique_ptr<Expression> defaultValue;
 };
 
 struct GenericDeclaration {
@@ -118,7 +121,7 @@ struct Assignment {
 };
 
 struct SequentialStatement {
-    enum class Kind { Assignment, If, For };
+    enum class Kind { Assignment, If, For, Return };
     Kind kind = Kind::Assignment;
     Assignment assignment;
     std::unique_ptr<Expression> condition;
@@ -127,6 +130,19 @@ struct SequentialStatement {
     std::vector<SequentialStatement> statements;
     std::vector<SequentialStatement> alternative;
     SourceSpan span;
+    std::unique_ptr<Expression> returnValue;
+};
+
+struct FunctionDeclaration {
+    Name name;
+    std::vector<GenericDeclaration> parameters;
+    TypeMark returnType;
+    std::vector<VariableDeclaration> variables;
+    std::vector<ConstantDeclaration> constants;
+    std::vector<SequentialStatement> statements;
+    SourceSpan span;
+    bool body = false;
+    bool pure = true;
 };
 
 struct LibraryClause {
@@ -164,6 +180,8 @@ struct ClockedProcess {
     // Structured bodies retain nested control flow until static elaboration.
     std::vector<SequentialStatement> statements;
     std::vector<Name> sensitivityList;
+    bool asynchronousReset = false;
+    std::vector<SequentialStatement> resetStatements;
 };
 
 struct EntityDeclaration {
@@ -210,6 +228,7 @@ struct PackageDeclaration {
     std::vector<EntityDeclaration> components;
     bool body = false;
     std::vector<RecordTypeDeclaration> recordTypes;
+    std::vector<FunctionDeclaration> functions;
 };
 
 struct ArchitectureBody {

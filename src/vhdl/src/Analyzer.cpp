@@ -170,6 +170,7 @@ std::optional<std::int64_t> evaluateInteger(
 
 std::optional<DiscreteRange> resolveRange(
         const DiscreteRange& range, const GenericValues& values) {
+    if (range.attribute) return std::nullopt;
     if (!range.leftExpression || !range.rightExpression)
         return range;
     const auto left = evaluateInteger(*range.leftExpression, values);
@@ -323,6 +324,7 @@ CheckedType checkExpression(const Expression& expression,
             }
             return record(found->second);
         }
+        case Expression::Kind::Attribute:
         case Expression::Kind::Selected:
         case Expression::Kind::Association:
         case Expression::Kind::Call:
@@ -965,6 +967,8 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     std::unordered_map<const EntityDeclaration*, Visibility> entityVisibility;
     std::unordered_map<const EntityDeclaration*, GenericValues> entityDefaults;
     for (const auto& entity : syntax.entities) {
+        for (const auto& port : entity.ports)
+            if (port.defaultValue) result.diagnostics.push_back({"port defaults require RTL elaboration", port.span});
         const auto visibility = analyzeContext(entity.context, result);
         entityVisibility.emplace(&entity, visibility);
         const std::string entityName(key(entity.name));

@@ -598,3 +598,78 @@ end;
     EXPECT_EQ(assignment.value->left->canonical, "c");
     EXPECT_EQ(architecture.instantiations.front().actualIndices.front().front()->canonical, "inner");
 }
+
+TEST(VHDLParserTest, PackageFunctionBodiesAndInterfaceDefaultsAreRetained) {
+    auto parsed = vhdl::Parser::parse(R"(
+package p is
+  function choose(c : boolean; a, b : integer := 1) return integer;
+  component child is generic(mask : bit_vector(3 downto 0) := "0000");
+    port(a : in bit := '0'); end component;
+end;
+package body p is
+  function choose(c : boolean; a, b : integer) return integer is
+    constant k : integer := 2;
+    variable v : integer := 0;
+  begin
+    if c then return a; elsif a = b then return k; else return b; end if;
+  end function choose;
+  function reduce(d : bit_vector) return bit is
+    variable v : bit := '0';
+  begin
+    for i in d'range loop v := v or d(i); end loop;
+    return v;
+  end;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.syntax.packages.size(), 2u);
+    const auto& declaration = parsed.syntax.packages[0].functions.front();
+    EXPECT_FALSE(declaration.body);
+    ASSERT_EQ(declaration.parameters.size(), 2u);
+    EXPECT_EQ(declaration.parameters[1].names.size(), 2u);
+    EXPECT_NE(declaration.parameters[1].defaultValue, nullptr);
+    const auto& component = parsed.syntax.packages[0].components.front();
+    EXPECT_TRUE(component.generics.front().type.constraint);
+    EXPECT_NE(component.ports.front().defaultValue, nullptr);
+    const auto& function = parsed.syntax.packages[1].functions.front();
+    EXPECT_TRUE(function.body);
+    EXPECT_EQ(function.variables.size(), 1u);
+    EXPECT_EQ(function.constants.size(), 1u);
+    EXPECT_EQ(function.statements.front().statements.front().kind, vhdl::SequentialStatement::Kind::Return);
+    const auto& loop = parsed.syntax.packages[1].functions[1].statements.front();
+    ASSERT_NE(loop.range.attribute, nullptr);
+    EXPECT_EQ(loop.range.attribute->canonical, "range");
+}
+
+TEST(VHDLParserTest, RejectsMalformedFunctionsAndProcessReturns) {
+    for (const auto* function : {
+        "function f return integer is begin return; end;",
+        "function f return integer is begin return 1; end wrong;",
+        "function f(n : out integer) return integer;",
+        "function f return integer is begin return 1 end;"}) {
+        SCOPED_TRACE(function);
+        EXPECT_TRUE(vhdl::Parser::parse(std::string("package p is ") + function + " end;").hasErrors());
+    }
+    EXPECT_TRUE(vhdl::Parser::parse("entity e is port(clk : in bit); end; "
+        "architecture rtl of e is begin process(clk) begin if rising_edge(clk) then return 1; "
+        "end if; end process; end;").hasErrors());
+}
+
+TEST(VHDLParserTest, PreservesAsynchronousResetBranchesAndPolarity) {
+    for (const auto* predicate : {"rst = '0'", "('1' = rst)"}) {
+        auto parsed = vhdl::Parser::parse(std::string(
+            "entity e is port(clk, rst, d : in bit; q : out bit); end; "
+            "architecture rtl of e is begin process(rst, clk) begin if ") + predicate +
+            " then q <= '0'; elsif rising_edge(clk) then q <= d; end if; end process; end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        const auto& process = parsed.syntax.architectures.front().processes.front();
+        EXPECT_TRUE(process.asynchronousReset);
+        ASSERT_TRUE(process.resetSignal);
+        EXPECT_EQ(process.resetSignal->canonical, "rst");
+        EXPECT_EQ(process.resetLevel, std::string(predicate).find("'0'") == std::string::npos ? "'1'" : "'0'");
+        EXPECT_EQ(process.eventSignal.canonical, "clk");
+        EXPECT_EQ(process.resetStatements.size(), 1u);
+        EXPECT_EQ(process.statements.size(), 1u);
+        EXPECT_TRUE(process.assignments.empty());
+    }
+}

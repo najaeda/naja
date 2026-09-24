@@ -86,6 +86,7 @@ VHDL loading is experimental and implements a bounded, two-state RTL subset.
 It supports integer generic defaults and explicit generic maps, constrained
 arrays, static indexing and slices, nested ``for`` loops and ``for generate``
 statements, component instances, vector registers, synchronous reset/enable,
+asynchronous reset/set,
 and immediate process variables. Generated instances can bind indexed or sliced
 ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
@@ -102,9 +103,25 @@ names remain distinct for assignment checking. ``std_ulogic`` and
 ``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
 multiple drivers and nonbinary literals remain unsupported.
 
+Pure package functions with static integer and boolean arguments can compute
+constants, generic defaults, vector bounds, and constant expressions. The
+supported bodies contain local scalar variables/constants, variable assignments,
+``if``/``elsif``/``else``, bounded ``for`` loops, nested function calls, and early
+``return`` statements. Positional and named actuals and default arguments are
+supported. Defaults and function bodies resolve package declarations rather
+than caller-local names. Integer arithmetic includes division, ``mod``, ``rem``,
+exponentiation, and ``abs``; boolean comparisons and logical operators preserve
+short-circuit evaluation. Subtype violations, overflow, missing returns,
+ambiguous overloads, and excessive recursion or evaluation work are diagnosed.
+Function calls with runtime arguments, vector/string function evaluation, and
+impure functions remain unsupported. Array attributes and interface defaults
+are retained by the parser, but their elaboration is not yet supported.
+
 The NEORV32 default ``neorv32_top`` configuration is a development target, not yet
-a supported load. Its package record declarations now parse, but package helper
-functions and further elaboration constructs still prevent a complete load.
+a supported load. Its complete package parses, and ``index_size_f`` and
+``sel_natural_f`` can elaborate a test design. The complete core file list now
+stops at a conditional ``if ... generate`` in ``neorv32_prim.vhd``. Vector helpers
+and further elaboration constructs also remain to be implemented.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
 multiplication, equality/inequality and concatenation. Static
@@ -122,12 +139,22 @@ including its enable and read-before-write behavior on address collisions.
 Resetting address registers does not reset the RAM contents. Both ascending and
 descending arrays with nonnegative 32-bit bounds are supported. Arrays with
 initializers, multiple write sites, partial-word writes, writes inside loops,
-or direct connections to child-instance ports retain the register/mux lowering.
+writes in asynchronous-reset processes, or direct connections to child-instance
+ports retain the register/mux lowering.
 
 Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,
 including parentheses around the guard or its operands, in both simple and
 structured processes. Extra Boolean conditions on the clock guard remain
-unsupported; place enables inside the edge guard. Asynchronous processes,
+unsupported; place enables inside the edge guard.
+
+Asynchronous reset accepts a scalar equality to ``'0'`` or ``'1'`` before
+the edge guard: ``if rst = '0' then ... elsif rising_edge(clk) then ...``.
+Both reset and clock must appear in the sensitivity list. Reset values must
+resolve to binary constants per bit; mixed reset-to-zero and reset-to-one values
+are supported. Bits omitted from the reset branch hold their state while reset
+is active, including at clock edges. Enables and explicit register initializers
+are preserved. Dynamic asynchronous loads, multiple reset sources, and assignments
+outside the clock/reset guard are rejected. General event-driven processes,
 nonbinary literals, multiple drivers, dynamic ``to_unsigned`` conversions and
 general VHDL remain unsupported and are diagnosed. Argument and path errors
 use the same Python exception categories as the other high-level loaders.

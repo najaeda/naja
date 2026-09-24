@@ -323,6 +323,12 @@ expert reference above.
    dependencies through the raw API; the high-level loader expects a completed
    top design. RTL lowering errors include the original source file, line, and
    column, including errors in a dependency elaborated by a later load.
+   Package function declarations and bodies are also retained for later loads.
+   Pure integer/boolean helpers can elaborate constants and bounds with static
+   arguments; overload resolution and runtime/vector function evaluation are
+   not yet supported. A package-only load validates parsing, not every function
+   body's evaluability. Unsupported calls are diagnosed when elaboration needs
+   them. The high-level loader uses the same evaluator once a top is available.
    Supported record ports become single ``SNLBusTerm`` objects with descending
    indices from total width minus one to zero. Fields occupy consecutive bits in
    declaration order, recursively; record field metadata is not exposed as raw
@@ -343,7 +349,11 @@ expert reference above.
    static slices and loops, nested ``for generate`` statements containing assignments
    and component/direct-entity instances,
    integer-indexed ROM/RAM reads and clocked writes, and multiple clocked
-   processes with synchronous reset/enable. Both simple and structured processes
+   processes with synchronous reset/enable and constant asynchronous reset/set.
+   Asynchronous state uses canonical NLDB0 DFFRN, DFFR, or DFFS primitives;
+   bits omitted from the reset branch hold while reset is active. See
+   :doc:`loading` for the supported reset idiom and restrictions.
+   Both simple and structured processes
    accept ``rising_edge(clk)`` and ``clk'event and clk = '1'`` guards, including
    parentheses around the guard or its event/level operands. The event and level
    names must match the same scalar input clock in the sensitivity list; falling

@@ -2,6 +2,7 @@
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_ASYNCHRONOUS_RESET="${CMAKE_CURRENT_SOURCE_DIR}/asynchronous_reset.vhd"
   SNL_VHDL_MEMORY="${CMAKE_CURRENT_SOURCE_DIR}/memory.vhd"
   SNL_VHDL_GENERATED_FIR="${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd"
   SNL_VHDL_LOGICAL="${CMAKE_CURRENT_SOURCE_DIR}/logical.vhd"
@@ -43,6 +44,11 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
   if(VHDL_IVERILOG_EXECUTABLE AND VHDL_VVP_EXECUTABLE)
     list(APPEND VHDL_MEMORY_DUMP_ARGS --iverilog "${VHDL_IVERILOG_EXECUTABLE}" --vvp "${VHDL_VVP_EXECUTABLE}")
   endif()
+  add_test(NAME VHDLAsynchronousResetReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_asynchronous_reset.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>
+      ${VHDL_MEMORY_DUMP_ARGS})
+  set_tests_properties(VHDLAsynchronousResetReference PROPERTIES TIMEOUT 180)
   add_test(NAME VHDLMemoryReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_memory.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>

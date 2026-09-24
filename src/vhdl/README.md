@@ -749,9 +749,38 @@ field updates, and flattened whole-record ports. `std_ulogic` and
 `std_ulogic_vector` are accepted in the two-state RTL profile. The standalone
 analyzer continues to diagnose records as requiring RTL elaboration.
 
-The next observed blocker is the helper-function declarations in
-`neorv32_package.vhd` (line 875 in the development checkout). Completing the target
-also requires general package subprogram evaluation, boolean/vector generics,
-additional sequential and generate constructs, and named-library binding. These
-constructs must preserve language semantics rather than be skipped or replaced
-with black boxes. The complete top has **not** been loaded or validated yet.
+The complete package now parses, including function declarations/bodies,
+attributes, constrained generic interfaces, and port defaults. The RTL adapter
+executes pure scalar integer/boolean package functions at elaboration time:
+local variables/constants, named/default actuals, bounded loops, nested calls,
+and early returns are supported. Unsupported vector/string execution and
+runtime arguments are diagnosed, not synthesized as constants. Attribute and
+interface-default syntax is retained without claiming elaboration support.
+
+Self-contained package-function regressions in `VHDLConstructorTest.cpp` cover
+static bounds, arguments, local variables, arithmetic, recursive calls, and
+failure cases. They require neither a NEORV32 checkout nor an environment variable.
+
+The next observed blocker in the full file-list load is conditional
+`if ... generate` at `neorv32_prim.vhd:80` in the development checkout (line
+1620 of the concatenated input). Completing the target also requires runtime vector helpers,
+boolean/vector generics, additional sequential and generate constructs, and
+named-library binding. The complete top has **not** been loaded or validated yet.
+
+
+## Asynchronous reset/set
+
+The RTL path accepts a scalar active-low or active-high reset before a positive
+clock-edge guard, with both signals in the sensitivity list. Constant per-bit
+reset values select the existing DFFRN, DFFR, or DFFS primitives, including mixed
+clear/set vectors. Bits omitted from the reset branch hold during reset even on
+clock edges. Clock enables and explicit INIT values are retained. Resettable
+arrays use register/mux lowering rather than RAM inference. Dynamic reset data
+and assignments outside the clock/reset guard are diagnosed.
+
+The original Naja-authored `asynchronous_reset.vhd` fixture and
+`VHDLAsynchronousResetReference` compare reset transitions between and on clock
+edges, both polarities, mixed reset values, enables, initialization, and omitted
+reset targets against NVC and exported Verilog simulation. No external RTL
+checkout is required. All 173 VHDL tests pass, including rejection cases and
+reset-only state and memory fallback coverage.
