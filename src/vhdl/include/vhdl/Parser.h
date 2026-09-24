@@ -35,7 +35,8 @@ struct Expression {
         Others,
         Aggregate,
         Range,
-        BitStringLiteral
+        BitStringLiteral,
+        Call
     };
     std::vector<std::unique_ptr<Expression>> elements;
     Kind kind;
@@ -95,6 +96,7 @@ struct ArrayTypeDeclaration {
     DiscreteRange indexRange;
     TypeMark elementType;
     SourceSpan span;
+    std::optional<Name> indexSubtype;
 };
 
 enum class AssignmentKind { Signal, Variable };
@@ -180,6 +182,7 @@ struct EntityInstantiation {
     SourceSpan span;
     std::vector<std::optional<Name>> formals;
     bool component = false;
+    std::vector<std::vector<std::unique_ptr<Expression>>> actualIndices;
 };
 
 struct GenerateStatement {
@@ -187,6 +190,8 @@ struct GenerateStatement {
     DiscreteRange range;
     std::vector<Assignment> assignments;
     std::vector<GenerateStatement> generates;
+    Name label;
+    std::vector<EntityInstantiation> instantiations;
 };
 
 struct PackageDeclaration {
@@ -210,6 +215,7 @@ struct ArchitectureBody {
     ContextClause context;
     std::vector<GenerateStatement> generates;
     std::vector<EntityDeclaration> components;
+    std::vector<ConstantDeclaration> constants;
 };
 
 struct DesignFile {

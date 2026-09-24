@@ -203,6 +203,49 @@ end;
     EXPECT_EQ(process.level, "'1'");
 }
 
+TEST(VHDLParserTest, ParenthesizedClockGuardsInSimpleAndStructuredProcesses) {
+    for (const auto* guard : {
+        "clk'event and clk = '1'", "(CLK'EVENT AND Clk = '1')",
+        "((clk'event and clk = '1'))", "(clk'event) and (clk = '1')",
+        "((clk = '1') and ((clk'event)))", "(rising_edge(clk))",
+        "((rising_edge(clk)))"}) {
+        for (const bool structured : {false, true}) {
+            SCOPED_TRACE(guard);
+            SCOPED_TRACE(structured);
+            const std::string source = std::string(
+                "entity reg is port(clk, d : in bit; q : out bit); end; "
+                "architecture rtl of reg is begin process(clk) begin if ") + guard +
+                " then " + (structured ? "for i in 0 to 1 loop q <= d; end loop;" : "q <= d;") +
+                " end if; end process; end;";
+            const auto parsed = vhdl::Parser::parse(source);
+            ASSERT_FALSE(parsed.hasErrors());
+            const auto& process = parsed.syntax.architectures.front().processes.front();
+            EXPECT_EQ(process.eventSignal.canonical, "clk");
+            EXPECT_EQ(process.levelSignal.canonical, "clk");
+            EXPECT_EQ(process.level, "'1'");
+            EXPECT_EQ(process.edgeForm, std::string(guard).find("rising_edge") != std::string::npos
+                ? vhdl::ClockEdgeForm::RisingEdgeCall : vhdl::ClockEdgeForm::EventAndLevel);
+            EXPECT_EQ(process.statements.empty(), !structured);
+        }
+    }
+}
+
+TEST(VHDLParserTest, RejectsIncompleteOrCompoundClockGuards) {
+    for (const auto* guard : {
+        "(clk'event)", "(clk = '1')", "(clk'event or clk = '1')",
+        "(clk'event and clk'event)", "(clk = '1' and clk = '1')",
+        "((clk'event and clk = '1') and d = '1')",
+        "(rising_edge(clk) and clk = '1')", "(clk'event and rising_edge(clk))",
+        "(clk'event and clk = '1'", "clk'event and clk = '1'))"}) {
+        SCOPED_TRACE(guard);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin if ") + guard +
+            " then q <= d; end if; end process; end;";
+        EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    }
+}
+
 TEST(VHDLParserTest, RejectsMalformedRisingEdgeCalls) {
     for (const auto* condition : {
         "rising_edge()", "rising_edge(clk, d)", "rising_edge('1')",
@@ -481,4 +524,43 @@ TEST(VHDLParserTest, PreservesNamedPortAssociations) {
     ASSERT_TRUE(instance.formals[0]);
     EXPECT_EQ(instance.formals[0]->canonical, "y");
     EXPECT_EQ(instance.formals[1]->canonical, "a");
+}
+
+TEST(VHDLParserTest, PreservesConstantArraysCallsAndGeneratedInstances) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity top is end;
+architecture rtl of top is
+  type table_type is array(natural range <>) of integer;
+  constant coefficients : table_type := (1, 2, 3);
+begin
+  lanes: for i in 0 to 2 generate begin
+    u: entity work.leaf generic map(n => coefficients(i))
+      port map(a(i), y(i)(3 downto 0));
+  end generate lanes;
+  y <= std_logic_vector(to_unsigned(5, 3));
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& architecture = parsed.syntax.architectures.front();
+    ASSERT_EQ(architecture.constants.size(), 1u);
+    EXPECT_EQ(architecture.constants.front().value->elements.size(), 3u);
+    ASSERT_TRUE(architecture.arrayTypes.front().indexSubtype);
+    EXPECT_EQ(architecture.arrayTypes.front().indexSubtype->canonical, "natural");
+    const auto& generate = architecture.generates.front();
+    EXPECT_EQ(generate.label.canonical, "lanes");
+    const auto& instance = generate.instantiations.front();
+    EXPECT_EQ(instance.actualIndices[0].size(), 1u);
+    EXPECT_EQ(instance.actualIndices[1].size(), 2u);
+    const auto& conversion = *architecture.assignments.front().value->right;
+    EXPECT_EQ(conversion.kind, vhdl::Expression::Kind::Call);
+    EXPECT_EQ(conversion.elements.size(), 2u);
+}
+
+TEST(VHDLParserTest, RejectsMalformedConstantAndGenerateDeclarations) {
+    for (const auto* declarations : {"constant n : integer;", "type t is array(natural range) of integer;"}) {
+        EXPECT_TRUE(vhdl::Parser::parse(std::string("entity top is end; architecture rtl of top is ") +
+            declarations + " begin end;").hasErrors());
+    }
+    EXPECT_TRUE(vhdl::Parser::parse("entity top is end; architecture rtl of top is begin "
+        "g: for i in 0 to 1 generate begin y <= a; end generate wrong; end;").hasErrors());
 }

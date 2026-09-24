@@ -410,7 +410,13 @@ private:
         if (!name || !expectWord("is") || !expectWord("array") ||
             !expectSymbol("("))
             return std::nullopt;
-        auto indexRange = parseDiscreteRange();
+        std::optional<Name> indexSubtype;
+        std::optional<DiscreteRange> indexRange;
+        if (isNameToken() && look().canonical == "range" && look(2).text == "<>") {
+            indexSubtype = parseName();
+            advance(); advance();
+            indexRange = DiscreteRange{};
+        } else indexRange = parseDiscreteRange();
         if (!indexRange || !expectSymbol(")") || !expectWord("of"))
             return std::nullopt;
         auto elementName = parseName();
@@ -426,7 +432,7 @@ private:
         if (!expectSymbol(";"))
             return std::nullopt;
         return ArrayTypeDeclaration{std::move(*name), std::move(*indexRange),
-            std::move(elementType), join(start, lexed_.tokens[index_ - 1].span)};
+            std::move(elementType), join(start, lexed_.tokens[index_ - 1].span), std::move(indexSubtype)};
     }
 
     std::optional<PackageDeclaration> parsePackage() {
@@ -442,25 +448,9 @@ private:
                 if (!type) return std::nullopt;
                 package.arrayTypes.push_back(std::move(*type));
             } else if (!package.body && acceptWord("constant")) {
-                ConstantDeclaration constant;
-                do {
-                    auto id = parseName();
-                    if (!id) return std::nullopt;
-                    constant.object.names.push_back(*id);
-                } while (acceptSymbol(","));
-                if (!expectSymbol(":")) return std::nullopt;
-                auto type = parseName();
-                if (!type) return std::nullopt;
-                constant.object.type.name = *type;
-                if (acceptSymbol("(")) {
-                    auto range = parseDiscreteRange();
-                    if (!range || !expectSymbol(")")) return std::nullopt;
-                    constant.object.type.constraint = std::move(*range);
-                }
-                if (!expectSymbol(":=")) return std::nullopt;
-                constant.value = parseExpression(0);
-                if (!constant.value || !expectSymbol(";")) return std::nullopt;
-                package.constants.push_back(std::move(constant));
+                auto constant = parseConstantDeclaration();
+                if (!constant) return std::nullopt;
+                package.constants.push_back(std::move(*constant));
             } else if (!package.body && word("component")) {
                 auto component = parseEntity(true);
                 if (!component) return std::nullopt;
@@ -481,8 +471,23 @@ private:
         return package;
     }
 
+    std::optional<ConstantDeclaration> parseConstantDeclaration() {
+        auto object = parseObjectDeclaration(true);
+        if (!object) return std::nullopt;
+        if (!object->initializer) {
+            error("constant requires an initializer", object->span);
+            return std::nullopt;
+        }
+        auto value = std::move(object->initializer);
+        return ConstantDeclaration{std::move(*object), std::move(value)};
+    }
+
     std::optional<GenerateStatement> parseGenerate() {
         GenerateStatement generate;
+        if (isNameToken() && look().text == ":") {
+            generate.label = *parseName();
+            advance();
+        }
         if (!expectWord("for")) return std::nullopt;
         auto iterator = parseName();
         if (!iterator || !expectWord("in")) return std::nullopt;
@@ -490,12 +495,16 @@ private:
         if (!range || !expectWord("generate")) return std::nullopt;
         generate.iterator = *iterator;
         generate.range = std::move(*range);
+        acceptWord("begin");
         while (!atEnd() && !word("end")) {
-            if (isNameToken() && look().text == ":") { advance(); advance(); }
-            if (word("for")) {
+            if (word("for") || (isNameToken() && look().text == ":" && look(2).canonical == "for")) {
                 auto child = parseGenerate();
                 if (!child) return std::nullopt;
                 generate.generates.push_back(std::move(*child));
+            } else if (isNameToken() && look().text == ":") {
+                auto instance = parseEntityInstantiation();
+                if (!instance) return std::nullopt;
+                generate.instantiations.push_back(std::move(*instance));
             } else {
                 auto assignment = parseAssignment();
                 if (!assignment) return std::nullopt;
@@ -503,7 +512,13 @@ private:
             }
         }
         if (!expectWord("end") || !expectWord("generate")) return std::nullopt;
-        if (isNameToken()) parseName();
+        if (isNameToken()) {
+            auto closing = parseName();
+            if (nameKey(*closing) != nameKey(generate.label)) {
+                error("generate end name mismatch", closing->span);
+                return std::nullopt;
+            }
+        }
         if (!expectSymbol(";")) return std::nullopt;
         return generate;
     }
@@ -518,12 +533,16 @@ private:
             return std::nullopt;
         ArchitectureBody architecture{
             std::move(*name), std::move(*entity), {}, {}, {}, {}, {}, start};
-        while (word("signal") || word("type") || word("component")) {
+        while (word("signal") || word("type") || word("component") || word("constant")) {
             if (acceptWord("signal")) {
                 auto declaration = parseObjectDeclaration(true);
                 if (!declaration)
                     return std::nullopt;
                 architecture.signals.push_back(std::move(*declaration));
+            } else if (acceptWord("constant")) {
+                auto declaration = parseConstantDeclaration();
+                if (!declaration) return std::nullopt;
+                architecture.constants.push_back(std::move(*declaration));
             } else if (word("component")) {
                 auto component = parseEntity(true);
                 if (!component) return std::nullopt;
@@ -541,7 +560,7 @@ private:
         // which language feature must be implemented before the design can be
         // lowered faithfully.
         for (const auto declaration : {
-                 "subtype", "constant", "variable", "shared", "file",
+                 "subtype", "variable", "shared", "file",
                  "alias", "attribute", "function", "procedure",
                  "package", "use", "group", "disconnect", "configuration"}) {
             if (word(declaration)) {
@@ -555,10 +574,10 @@ private:
         while (!atEnd() && !word("end")) {
             const auto before = current().span.start.offset;
             if (isNameToken() && look().text == ":" &&
-                (look(2).canonical == "process" || look(2).canonical == "for")) {
+                look(2).canonical == "process") {
                 advance(); advance();
             }
-            if (word("for")) {
+            if (word("for") || (isNameToken() && look().text == ":" && look(2).canonical == "for")) {
                 auto generate = parseGenerate();
                 if (!generate) return std::nullopt;
                 architecture.generates.push_back(std::move(*generate));
@@ -648,6 +667,7 @@ private:
             return std::nullopt;
         std::vector<Name> actuals;
         std::vector<std::optional<Name>> formals;
+        std::vector<std::vector<std::unique_ptr<Expression>>> actualIndices;
         if (!symbol(")")) {
             do {
                 if (word("open")) {
@@ -663,6 +683,13 @@ private:
                     actual = parseName();
                     if (!actual) return std::nullopt;
                 }
+                std::vector<std::unique_ptr<Expression>> indices;
+                while (acceptSymbol("(")) {
+                    auto index = parseIndex();
+                    if (!index || !expectSymbol(")")) return std::nullopt;
+                    indices.push_back(std::move(index));
+                }
+                actualIndices.push_back(std::move(indices));
                 formals.push_back(std::move(formal));
                 actuals.push_back(std::move(*actual));
             } while (acceptSymbol(","));
@@ -672,7 +699,81 @@ private:
         return EntityInstantiation{std::move(*label), std::move(*library),
             std::move(*entity), std::move(architecture), std::move(generics),
             std::move(actuals),
-            join(start, lexed_.tokens[index_ - 1].span), std::move(formals), component};
+            join(start, lexed_.tokens[index_ - 1].span), std::move(formals), component,
+            std::move(actualIndices)};
+    }
+
+    // Parse the restricted clock predicate separately from general expressions.
+    // Parentheses may surround the guard or either event/level operand.
+    struct ClockPredicate {
+        std::optional<Name> eventSignal;
+        std::optional<Name> levelSignal;
+        std::string level;
+        ClockEdgeForm form = ClockEdgeForm::EventAndLevel;
+    };
+
+    std::optional<ClockPredicate> parseClockPredicate(bool operand = false) {
+        ClockPredicate predicate;
+        if (acceptSymbol("(")) {
+            auto nested = parseClockPredicate();
+            if (!nested || !expectSymbol(")")) return std::nullopt;
+            predicate = std::move(*nested);
+        } else if (acceptWord("rising_edge")) {
+            if (!expectSymbol("(")) return std::nullopt;
+            predicate.eventSignal = parseName();
+            if (!predicate.eventSignal || !expectSymbol(")")) return std::nullopt;
+            predicate.levelSignal = predicate.eventSignal;
+            predicate.level = "'1'";
+            predicate.form = ClockEdgeForm::RisingEdgeCall;
+        } else {
+            auto signal = parseName();
+            if (!signal) return std::nullopt;
+            if (acceptSymbol("'")) {
+                if (!expectWord("event")) return std::nullopt;
+                predicate.eventSignal = std::move(signal);
+            } else {
+                if (!expectSymbol("=")) return std::nullopt;
+                const auto token = current();
+                if (token.kind != TokenKind::CharacterLiteral) {
+                    error("expected a clock level character literal", token.span);
+                    return std::nullopt;
+                }
+                advance();
+                predicate.levelSignal = std::move(signal);
+                predicate.level = token.text;
+            }
+        }
+        if (!operand && acceptWord("and")) {
+            auto right = parseClockPredicate(true);
+            if (!right) return std::nullopt;
+            if (predicate.form != ClockEdgeForm::EventAndLevel ||
+                right->form != ClockEdgeForm::EventAndLevel ||
+                (predicate.eventSignal && right->eventSignal) ||
+                (predicate.levelSignal && right->levelSignal)) {
+                error("expected one clock event and one clock level", current().span);
+                return std::nullopt;
+            }
+            if (right->eventSignal) predicate.eventSignal = std::move(right->eventSignal);
+            if (right->levelSignal) {
+                predicate.levelSignal = std::move(right->levelSignal);
+                predicate.level = std::move(right->level);
+            }
+        }
+        return predicate;
+    }
+
+    bool parseClockGuard(ClockedProcess& process) {
+        auto predicate = parseClockPredicate();
+        if (!predicate) return false;
+        if (!predicate->eventSignal || !predicate->levelSignal) {
+            error("expected rising_edge or a clock event and level guard", current().span);
+            return false;
+        }
+        process.eventSignal = std::move(*predicate->eventSignal);
+        process.levelSignal = std::move(*predicate->levelSignal);
+        process.level = std::move(predicate->level);
+        process.edgeForm = predicate->form;
+        return expectWord("then");
     }
 
     std::optional<ClockedProcess> parseClockedProcess() {
@@ -698,15 +799,13 @@ private:
             if (!declaration) return std::nullopt;
             process.variables.push_back(std::move(*declaration));
         }
-        if (!expectWord("begin") || !expectWord("if") ||
-            !expectWord("rising_edge") || !expectSymbol("(")) return std::nullopt;
-        auto clock = parseName();
-        if (!clock || !expectSymbol(")") || !expectWord("then")) return std::nullopt;
-        process.eventSignal = *clock;
-        process.levelSignal = *clock;
-        process.level = "'1'";
-        process.edgeForm = ClockEdgeForm::RisingEdgeCall;
+        if (!expectWord("begin") || !expectWord("if") || !parseClockGuard(process))
+            return std::nullopt;
         process.sensitivity = process.sensitivityList.front();
+        if (word("end")) {
+            error("expected a statement inside the clock guard", current().span);
+            return std::nullopt;
+        }
         if (!parseStatements(process.statements) || !expectWord("end") ||
             !expectWord("if") || !expectSymbol(";")) return std::nullopt;
         // Unconditional signal assignments outside the edge guard are kept
@@ -781,37 +880,8 @@ private:
         }
         if (!expectWord("begin") || !expectWord("if"))
             return std::nullopt;
-        ClockEdgeForm edgeForm = ClockEdgeForm::EventAndLevel;
-        std::optional<Name> eventSignal;
-        std::optional<Name> levelSignal;
-        std::string level;
-        if (acceptWord("rising_edge")) {
-            edgeForm = ClockEdgeForm::RisingEdgeCall;
-            if (!expectSymbol("("))
-                return std::nullopt;
-            eventSignal = parseName();
-            if (!eventSignal || !expectSymbol(")"))
-                return std::nullopt;
-            levelSignal = *eventSignal;
-            level = "'1'";
-        } else {
-            eventSignal = parseName();
-            if (!eventSignal || !expectSymbol("'") || !expectWord("event") ||
-                !expectWord("and"))
-                return std::nullopt;
-            levelSignal = parseName();
-            if (!levelSignal || !expectSymbol("="))
-                return std::nullopt;
-            const auto levelToken = current();
-            if (levelToken.kind != TokenKind::CharacterLiteral) {
-                error("expected a clock level character literal", levelToken.span);
-                return std::nullopt;
-            }
-            advance();
-            level = levelToken.text;
-        }
-        if (!expectWord("then"))
-            return std::nullopt;
+        ClockedProcess process;
+        if (!parseClockGuard(process)) return std::nullopt;
         std::optional<Name> controlSignal;
         std::string controlLevel;
         if (acceptWord("if")) {
@@ -885,10 +955,10 @@ private:
             !expectSymbol(";") || !expectWord("end") || !expectWord("process") ||
             !expectSymbol(";"))
             return std::nullopt;
-        return ClockedProcess{std::move(*sensitivity), std::move(*eventSignal),
-            std::move(*levelSignal), std::move(level), std::move(assignments),
+        return ClockedProcess{std::move(*sensitivity), std::move(process.eventSignal),
+            std::move(process.levelSignal), std::move(process.level), std::move(assignments),
             std::move(variables), std::move(enableSignal), std::move(enableLevel),
-            std::move(resetSignal), std::move(resetLevel), std::move(resetAssignments), edgeForm,
+            std::move(resetSignal), std::move(resetLevel), std::move(resetAssignments), process.edgeForm,
             join(start, lexed_.tokens[index_ - 1].span)};
     }
 
@@ -1063,7 +1133,23 @@ private:
             expression->span = name->span;
             while (acceptSymbol("(")) {
                 auto index = parseIndex();
-                if (!index || !expectSymbol(")")) return nullptr;
+                if (!index) return nullptr;
+                if (acceptSymbol(",")) {
+                    auto call = std::make_unique<Expression>();
+                    call->kind = Expression::Kind::Call;
+                    call->left = std::move(expression);
+                    call->elements.push_back(std::move(index));
+                    do {
+                        auto argument = parseExpression(0);
+                        if (!argument) return nullptr;
+                        call->elements.push_back(std::move(argument));
+                    } while (acceptSymbol(","));
+                    if (!expectSymbol(")")) return nullptr;
+                    call->span = join(call->left->span, lexed_.tokens[index_ - 1].span);
+                    expression = std::move(call);
+                    continue;
+                }
+                if (!expectSymbol(")")) return nullptr;
                 auto indexed = std::make_unique<Expression>();
                 indexed->kind = Expression::Kind::Indexed;
                 indexed->span = join(expression->span, lexed_.tokens[index_ - 1].span);

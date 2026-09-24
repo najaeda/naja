@@ -148,6 +148,36 @@ end;
       with self.assertRaises(RuntimeError):
         other.loadVHDL(source.name)
 
+  def testVHDLRequiredGenericsAcrossFiles(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    dependency = (
+      "entity child is\n"
+      "generic(\n"
+      "  Nin : positive);\n"
+      "port(a : in bit_vector(Nin-1 downto 0); y : out bit_vector(Nin-1 downto 0)); end;\n"
+      "architecture rtl of child is begin y <= a; end;\n")
+    parent = (
+      "entity parent is port(a : in bit_vector(2 downto 0); y : out bit_vector(2 downto 0)); end;\n"
+      "architecture rtl of parent is begin\n"
+      "u : entity work.child generic map(3) port map(a,y); end;\n")
+    with tempfile.TemporaryDirectory() as directory:
+      child_path = os.path.join(directory, "child.vhd")
+      parent_path = os.path.join(directory, "parent.vhd")
+      with open(child_path, "w") as source:
+        source.write(dependency)
+      with open(parent_path, "w") as source:
+        source.write(parent)
+      with self.assertRaisesRegex(RuntimeError, "missing generic value: nin.*line 3, column 3") as error:
+        db.loadVHDL(child_path, top="child")
+      self.assertIn(child_path, str(error.exception))
+      self.assertIsNone(db.loadVHDL(child_path))
+      design = db.loadVHDL(parent_path, top="parent")
+      self.assertEqual(design.getName(), "parent")
+      self.assertEqual(db.getTopDesign(), design)
+      self.assertEqual(db.loadVHDL(parent_path, top="parent"), design)
+      self.assertIsNone(db.loadVHDL(child_path))
+      self.assertEqual(db.getTopDesign(), design)
+
   def testVHDLArgumentsAndFailureRollback(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with self.assertRaisesRegex(TypeError, "file must be a str path"):

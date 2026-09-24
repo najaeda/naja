@@ -19,8 +19,10 @@
 #include "SNLInstTerm.h"
 #include "SNLRTLPrimitives.h"
 #include "SNLScalarTerm.h"
+#include "SNLScalarNet.h"
 #include "SNLSVConstructor.h"
 #include "VHDLConstructor.h"
+#include "VHDLTestUtils.h"
 
 #include <filesystem>
 #include <fstream>
@@ -44,47 +46,7 @@ class VHDLConstructorTest : public ::testing::Test {
 };
 
 namespace {
-// Evaluate the actual canonical primitive connectivity, with flop outputs
-// supplied as the current state. This also catches undriven data and cycles.
-bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& values,
-                 std::unordered_set<SNLBitNet*>& visiting) {
-  if (net->isConstant0()) return false;
-  if (net->isConstant1()) return true;
-  if (const auto found = values.find(net); found != values.end()) return found->second;
-  if (!visiting.insert(net).second) throw std::runtime_error("combinational cycle");
-  SNLInstance* driver = nullptr;
-  for (auto* term : net->getInstTerms())
-    if (term->getDirection() == SNLTerm::Direction::Output) {
-      if (driver) throw std::runtime_error("multiple drivers");
-      driver = term->getInstance();
-    }
-  if (!driver || NLDB0::isDFF(driver->getModel())) throw std::runtime_error("missing data/state");
-  auto* model = driver->getModel();
-  const auto read = [&](SNLBitTerm* term) {
-    return evaluateRTL(driver->getInstTerm(term)->getNet(), values, visiting);
-  };
-  bool value;
-  if (NLDB0::isMux2(model)) {
-    value = read(NLDB0::getMux2Select(model))
-        ? read(NLDB0::getMux2InputB(model)->getBit(0))
-        : read(NLDB0::getMux2InputA(model)->getBit(0));
-  } else {
-    if (!NLDB0::isGate(model)) throw std::runtime_error("unexpected primitive");
-    SNLTruthTable::ConstantInputs inputs;
-    for (auto* term : driver->getInstTerms())
-      if (term->getDirection() == SNLTerm::Direction::Input)
-        inputs.emplace_back(inputs.size(), evaluateRTL(term->getNet(), values, visiting));
-    const auto table = NLDB0::getPrimitiveTruthTable(model);
-    const auto dependencies = SNLTruthTable::fullDependencies(inputs.size());
-    const auto normalized = table.getGenericType() == SNLTruthTable::GenericType::NONE
-        ? SNLTruthTable(inputs.size(), static_cast<uint64_t>(table.bits()), dependencies)
-        : SNLTruthTable(inputs.size(), table.getGenericType(), dependencies);
-    value = normalized.getReducedWithConstants(inputs).all1();
-  }
-  visiting.erase(net);
-  values[net] = value;
-  return value;
-}
+using naja::NL::test::evaluateRTL;
 
 std::string lfsrSource(unsigned width) {
   return "library ieee; use ieee.std_logic_1164.all; "
@@ -632,6 +594,84 @@ end;
             design->getScalarTerm(NLName("q"))->getNet());
 }
 
+TEST_F(VHDLConstructorTest, ParenthesizedClockGuardPipelineWiring) {
+  for (const auto* type : {"bit", "std_logic"}) {
+    for (const auto* guard : {"(CLK'EVENT AND clk = '1')",
+                             "((clk'event) and (clk = '1'))", "(rising_edge(clk))"}) {
+      SCOPED_TRACE(type);
+      SCOPED_TRACE(guard);
+      auto* design = VHDLConstructor(library_).construct(std::string(
+          "library ieee; use ieee.std_logic_1164.all; "
+          "entity pipeline is ") + (std::string(type) == "std_logic" ? "generic(n : integer range 1 to 1 := 1); " : "") +
+          "port(clk, d : in " + type + "; q : out " + type +
+          "); end; architecture rtl of pipeline is signal a, b : " + type +
+          "; begin process(clk) begin if " + guard +
+          " then a <= d; b <= a; q <= b; end if; end process; end;");
+      ASSERT_EQ(design->getInstances().size(), 3u);
+      const std::unordered_map<SNLBitNet*, SNLBitNet*> expected{
+          {design->getScalarNet(NLName("a")), design->getScalarTerm(NLName("d"))->getNet()},
+          {design->getScalarNet(NLName("b")), design->getScalarNet(NLName("a"))},
+          {design->getScalarTerm(NLName("q"))->getNet(), design->getScalarNet(NLName("b"))}};
+      for (auto* flop : design->getInstances()) {
+        ASSERT_TRUE(NLDB0::isDFF(flop->getModel()));
+        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFClock())->getNet(),
+                  design->getScalarTerm(NLName("clk"))->getNet());
+        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFData())->getNet(),
+                  expected.at(flop->getInstTerm(NLDB0::getDFFOutput())->getNet()));
+      }
+      design->destroy();
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, StructuredEventGuardPreservesVectorCycles) {
+  for (const auto* guard : {"clk'event and clk = '1'", "((CLK'EVENT) and (clk = '1'))"}) {
+    SCOPED_TRACE(guard);
+    auto source = lfsrSource(4);
+    source.replace(source.find("rising_edge(clk)"), std::string("rising_edge(clk)").size(), guard);
+    auto* design = VHDLConstructor(library_).construct(source);
+    auto* state = design->getBusNet(NLName("temp"));
+    ASSERT_NE(state, nullptr);
+    unsigned expected = 0;
+    for (unsigned cycle = 0; cycle < 40; ++cycle) {
+      const bool reset = cycle == 0 || cycle == 21;
+      const bool enable = cycle % 3 != 0;
+      std::unordered_map<SNLBitNet*, bool> values, next;
+      values[design->getScalarTerm(NLName("rst"))->getNet()] = reset;
+      values[design->getScalarTerm(NLName("ena"))->getNet()] = enable;
+      for (unsigned bit = 0; bit < 4; ++bit) values[state->getBit(bit)] = (expected >> bit) & 1;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (auto* flop : design->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
+        EXPECT_EQ(flop->getInstTerm(NLDB0::getDFFClock())->getNet(),
+                  design->getScalarTerm(NLName("clk"))->getNet());
+        next[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] =
+            evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting);
+      }
+      if (reset) expected = 15;
+      else if (enable) expected = (expected >> 1) ^ ((expected & 1) ? 11 : 0);
+      for (unsigned bit = 0; bit < 4; ++bit)
+        EXPECT_EQ(next.at(state->getBit(bit)), bool((expected >> bit) & 1));
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidParenthesizedClockSemantics) {
+  for (const auto* guard : {"(clk'event and d = '1')", "(clk'event and clk = '0')"}) {
+    for (const bool structured : {false, true}) {
+      SCOPED_TRACE(guard);
+      SCOPED_TRACE(structured);
+      const auto source = std::string(
+          "entity invalid is port(clk, d : in bit; q : out bit); end; "
+          "architecture rtl of invalid is begin process(clk) begin if ") + guard +
+          " then " + (structured ? "for i in 0 to 1 loop q <= d; end loop;" : "q <= d;") +
+          " end if; end process; end;";
+      EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+      EXPECT_TRUE(library_->getSNLDesigns().empty());
+    }
+  }
+}
+
 TEST_F(VHDLConstructorTest, RisingEdgeRegisterWiring) {
   auto* design = VHDLConstructor(library_).construct(R"(
 entity rising_reg is port (clk, d : in bit; q : out bit); end;
@@ -887,6 +927,27 @@ TEST_F(VHDLConstructorTest, PipelineConnectivityAndCycles) {
   }
 }
 
+TEST_F(VHDLConstructorTest, EventGuardStructuredEnablePreservesScheduling) {
+  auto* design = VHDLConstructor(library_).construct(pipelineSource(
+      "signal stage : bit;", "stage <= d; if d = '1' then q <= stage; end if;"));
+  auto* stage = design->getScalarNet(NLName("stage"));
+  auto* data = design->getScalarTerm(NLName("d"))->getNet();
+  auto* output = design->getScalarTerm(NLName("q"))->getNet();
+  for (unsigned pattern = 0; pattern < 8; ++pattern) {
+    const bool d = pattern & 1, previous = pattern & 2, q = pattern & 4;
+    std::unordered_map<SNLBitNet*, bool> values{{data, d}, {stage, previous}, {output, q}};
+    std::unordered_set<SNLBitNet*> visiting;
+    unsigned flops = 0;
+    for (auto* flop : design->getInstances()) if (NLDB0::isDFF(flop->getModel())) {
+      ++flops;
+      auto* target = flop->getInstTerm(NLDB0::getDFFOutput())->getNet();
+      EXPECT_EQ(evaluateRTL(flop->getInstTerm(NLDB0::getDFFData())->getNet(), values, visiting),
+                target == stage ? d : (d ? previous : q));
+    }
+    EXPECT_EQ(flops, 2u);
+  }
+}
+
 TEST_F(VHDLConstructorTest, PipelineUnsupportedSemanticsPublishNoDesign) {
   for (const auto& [declarations, writes] : std::vector<std::pair<std::string, std::string>>{
       {"signal stage : std_logic;", "stage <= d; q <= stage;"},
@@ -901,7 +962,6 @@ TEST_F(VHDLConstructorTest, PipelineUnsupportedSemanticsPublishNoDesign) {
       {"signal stage : bit;", "stage <= d; d <= stage;"},
       {"signal stage : bit;", "stage <= d; q <= stage after 1 ns;"},
       {"signal stage : bit;", "stage <= transport d; q <= stage;"},
-      {"signal stage : bit;", "stage <= d; if d = '1' then q <= stage; end if;"},
       {"signal stage : bit;", "stage <= d; q <= stage; else q <= d;"},
       {"signal stage : bit;", "stage <= d; q <= stage; wait;"},
       {"signal stage : bit;", "stage <= d; q <= stage + d;"}}) {
@@ -1426,6 +1486,297 @@ TEST_F(VHDLConstructorTest, InvalidUnsignedArithmeticPublishesNoDesign) {
         "library ieee; use ieee.numeric_std.all; "
         "entity invalid is port(a : in unsigned(2 downto 0); b : in unsigned(1 downto 0); "
         "y : out unsigned(3 downto 0)); end; architecture rtl of invalid is begin ") + assignment + " end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, RTLTopInferenceRejectsAmbiguousRoots) {
+  const auto source = R"(
+entity first is port(a : in bit; y : out bit); end;
+architecture rtl of first is begin
+  g: for i in 0 to 0 generate y <= a; end generate;
+end;
+entity second is port(a : in bit; y : out bit); end;
+architecture rtl of second is begin y <= a; end;
+)";
+  EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+  auto* selected = VHDLConstructor(library_).construct(source, "SECOND");
+  ASSERT_NE(selected, nullptr);
+  EXPECT_EQ(selected->getName(), NLName("second"));
+}
+
+TEST_F(VHDLConstructorTest, RTLTopInferenceRejectsRootlessHierarchy) {
+  const auto source = R"(
+entity first is port(a : in bit; y : out bit); end;
+architecture rtl of first is begin
+  g: for i in 0 to 0 generate
+    u: entity work.second port map(a, y);
+  end generate;
+end;
+entity second is port(a : in bit; y : out bit); end;
+architecture rtl of second is begin
+  u: entity work.first port map(a, y);
+end;
+)";
+  EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
+TEST_F(VHDLConstructorTest, GeneratedFIRHierarchyCycles) {
+  auto* top = VHDLConstructor(library_).constructFile(SNL_VHDL_GENERATED_FIR);
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(top->getName(), NLName("fir_generated"));
+  const auto inputs = naja::NL::test::firInputs(4);
+  const auto outputs = naja::NL::test::simulateFIR(top, inputs);
+  const unsigned coefficients[3][4]{{1, 3, 6, 10}, {10, 6, 3, 1}, {5, 7, 9, 11}};
+  for (size_t cycle = 0; cycle < inputs.size(); ++cycle) {
+    unsigned expected = 0;
+    for (unsigned age = 0; age < 3; ++age) if (cycle >= age)
+      for (unsigned lane = 0; lane < 4; ++lane)
+        if ((inputs[cycle-age] >> lane) & 1) expected += coefficients[age][lane];
+    EXPECT_EQ(outputs[cycle], expected & 31) << "cycle " << cycle;
+  }
+  for (unsigned i = 0; i < 4; ++i)
+    EXPECT_NE(top->getInstance(NLName("lanes[" + std::to_string(i) + "].singleton[0].f")), nullptr);
+  if (const auto* trace = std::getenv("VHDL_FIR_REFERENCE")) {
+    std::ifstream reference(trace);
+    ASSERT_TRUE(reference);
+    for (size_t cycle = 3; cycle < outputs.size(); ++cycle) {
+      unsigned expected;
+      ASSERT_TRUE(reference >> expected);
+      EXPECT_EQ(outputs[cycle], expected) << "NVC cycle " << cycle;
+    }
+    std::string trailing;
+    EXPECT_FALSE(reference >> trailing);
+  }
+}
+
+TEST_F(VHDLConstructorTest, SignedVectorArithmeticExtendsTheSignBit) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.std_logic_signed.all;
+entity signed_math is port(a : in std_logic_vector(3 downto 0);
+  b : in std_logic_vector(5 to 7); sum, diff : out std_logic_vector(8 downto 5); eq : out bit); end;
+architecture rtl of signed_math is
+begin sum <= a + b; diff <= a - b; eq <= '1' when a = b else '0'; end;
+)");
+  for (unsigned a = 0; a < 16; ++a) for (unsigned b = 0; b < 8; ++b) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 4; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (a >> bit) & 1;
+    for (unsigned bit = 0; bit < 3; ++bit)
+      values[design->getBusTerm(NLName("b"))->getBit(7-bit)->getNet()] = (b >> bit) & 1;
+    const int sa = a < 8 ? int(a) : int(a)-16, sb = b < 4 ? int(b) : int(b)-8;
+    for (const auto& [name, result] : std::vector<std::pair<std::string, int>>{{"sum", sa+sb}, {"diff", sa-sb}})
+      for (unsigned bit = 0; bit < 4; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName(name))->getBit(bit+5)->getNet(), values, visiting),
+                  bool((unsigned(result) >> bit) & 1)) << name << ':' << sa << ':' << sb;
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("eq"))->getNet(), values, visiting), sa == sb);
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticConversionsAndIntegerArrayIndexSubtypes) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity conversions is port(a : in std_logic_vector(2 to 5);
+  copy : out unsigned(3 downto 0); truncated, wide : out std_logic_vector(4 downto 0)); end;
+architecture rtl of conversions is
+  constant base : integer := -2147483648;
+  type coefficients is array(integer range <>) of integer;
+  constant table_value : coefficients := (-7, 47);
+  type bounded is array(3 downto 1) of integer;
+  constant table_bounded : bounded := (12, 9, 5);
+  type masks is array(positive range <>) of std_logic_vector(4 downto 0);
+  constant mask : masks := ("11111", "00000");
+begin
+  copy <= unsigned(a);
+  truncated <= std_logic_vector(to_unsigned(table_value(base+1), 5)) and mask(1);
+  wide <= std_logic_vector(to_unsigned(table_bounded(2) + table_value(base), 5));
+end;
+)");
+  for (unsigned pattern = 0; pattern < 16; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 4; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(5-bit)->getNet()] = (pattern >> bit) & 1;
+    for (unsigned bit = 0; bit < 4; ++bit)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("copy"))->getBit(bit)->getNet(), values, visiting),
+                bool((pattern >> bit) & 1));
+    for (const auto& [name, expected] : std::vector<std::pair<std::string, unsigned>>{{"truncated", 15}, {"wide", 2}})
+      for (unsigned bit = 0; bit < 5; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName(name))->getBit(bit)->getNet(), values, visiting),
+                  bool((expected >> bit) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, IndexedPortSlicesPreservePositionAndSharedSpecialization) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity leaf is generic(n : positive); port(a : in bit_vector(n-1 downto 0); y : out bit_vector(1 to n)); end;
+architecture rtl of leaf is begin y <= a; end;
+entity top is port(a : in bit_vector(3 downto 0); y : out bit_vector(4 to 7)); end;
+architecture rtl of top is begin
+  g: for i in 0 to 1 generate
+    u: entity work.leaf generic map(2) port map(a(3-2*i downto 2-2*i), y(4+2*i to 5+2*i));
+  end generate;
+end;
+)", "top");
+  auto* first = top->getInstance(NLName("g[0].u"));
+  auto* second = top->getInstance(NLName("g[1].u"));
+  ASSERT_NE(first, nullptr);
+  ASSERT_NE(second, nullptr);
+  EXPECT_EQ(first->getModel(), second->getModel());
+  for (unsigned i = 0; i < 2; ++i) {
+    auto* child = i ? second : first;
+    auto* model = child->getModel();
+    for (unsigned bit = 0; bit < 2; ++bit) {
+      EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("a"))->getBit(1-bit))->getNet(),
+                top->getBusTerm(NLName("a"))->getBit(3-2*i-bit)->getNet());
+      EXPECT_EQ(child->getInstTerm(model->getBusTerm(NLName("y"))->getBit(1+bit))->getNet(),
+                top->getBusTerm(NLName("y"))->getBit(4+2*i+bit)->getNet());
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidGeneratedFIRAndConversionsPublishNoDesigns) {
+  std::ifstream fixture(SNL_VHDL_GENERATED_FIR);
+  ASSERT_TRUE(fixture);
+  const std::string source((std::istreambuf_iterator<char>(fixture)), {});
+  for (const auto& [before, after] : std::vector<std::pair<std::string, std::string>>{
+      {"  y_out <= result(-1)", "  LANES: for k in 9 to 9 generate begin end generate; y_out <= result(-1)"},
+      {"first(i)", "first(i+1)"}, {"result(i-1)", "result(i)"},
+      {"regx_in(i+j)", "regx_in"}, {"result(i-1)", "regx_in(i)"},
+      {"to_unsigned(c1, n)", "to_unsigned(-1, n)"},
+      {"to_unsigned(c1, n)", "to_unsigned(c1, 0)"},
+      {"to_unsigned(c1, n)", "to_unsigned(c1, -1)"},
+      {"to_unsigned(c1, n)", "to_unsigned(c1, n, 1)"},
+      {"to_unsigned(c1, n)", "to_unsigned(reg_in, n)"},
+      {"to_unsigned(c1, n)", "unknown_function(c1, n)"},
+      {"use ieee.numeric_std.all;", ""},
+      {"constant first : coefficients := (1, 3, 6, 10);", "constant first : coefficients(0 to 4) := (1, 3, 6, 10);"},
+      {"constant third : positive_indices", "constant third : positive_indices(0 to 3)"},
+      {"(1, 3, 6, 10)", "(1, 3, 6, 2147483648)"},
+      {"signal result : results;", "signal first : results; signal result : results;"},
+      {"first(i), second(i), third(i+1), width", "first(i), second(i), third(i+1)"},
+      {"use ieee.std_logic_signed.all;", "use ieee.std_logic_signed.all; use ieee.std_logic_unsigned.all;"}}) {
+    SCOPED_TRACE(after);
+    auto invalid = source;
+    const auto position = invalid.find(before);
+    ASSERT_NE(position, std::string::npos);
+    invalid.replace(position, before.size(), after);
+    EXPECT_THROW(VHDLConstructor(library_).construct(invalid, "fir_generated"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, MissingGenericDiagnosticIncludesSourceLocation) {
+  const std::string source =
+      "entity needs_width is\n"
+      "generic(\n"
+      "  Nin : integer);\n"
+      "port(a : in bit_vector(Nin-1 downto 0); y : out bit_vector(Nin-1 downto 0)); end;\n"
+      "architecture rtl of needs_width is begin y <= a; end;\n";
+  try {
+    VHDLConstructor(library_).construct(source, "needs_width");
+    FAIL() << "An explicit top requires all generic values";
+  } catch (const NLException& exception) {
+    const std::string message = exception.what();
+    EXPECT_NE(message.find("missing generic value: nin"), std::string::npos);
+    EXPECT_NE(message.find("line 3, column 3"), std::string::npos) << message;
+  }
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+  EXPECT_EQ(VHDLConstructor(library_).construct(source), nullptr);
+  auto* top = VHDLConstructor(library_).construct(
+      "entity parent is port(a : in bit_vector(2 downto 0); y : out bit_vector(2 downto 0)); end;\n"
+      "architecture rtl of parent is begin child : entity work.needs_width\n"
+      "generic map(Nin => 3) port map(a, y); end;", "parent");
+  ASSERT_NE(top, nullptr);
+  auto* child = top->getInstance(NLName("child"));
+  ASSERT_NE(child, nullptr);
+  EXPECT_EQ(child->getModel()->getBusTerm(NLName("a"))->getWidth(), 3);
+}
+
+TEST_F(VHDLConstructorTest, RetainedDependencyDiagnosticUsesOriginalFileAndLine) {
+  // The dependency is only elaborated by its parent, after another source was
+  // retained. Neither the parent file nor combined-source line is its location.
+  const auto directory = std::filesystem::temp_directory_path() /
+      ("naja-vhdl-diagnostic-" + std::to_string(reinterpret_cast<uintptr_t>(this)));
+  std::filesystem::create_directories(directory);
+  struct Cleanup {
+    std::filesystem::path directory;
+    ~Cleanup() { std::filesystem::remove_all(directory); }
+  } cleanup{directory};
+  const auto package = directory / "prefix.vhd";
+  const auto child = directory / "child.vhd";
+  const auto parent = directory / "parent.vhd";
+  std::ofstream(package) << "package prefix is\nconstant unused : integer := 1;\nend;\n";
+  std::ofstream(child) <<
+      "entity child is generic(n : positive); port(a : in bit; y : out bit); end;\n"
+      "architecture rtl of child is\n"
+      "begin\n"
+      "  y <= unknown;\n"
+      "end;\n";
+  std::ofstream(parent) <<
+      "entity parent is port(a : in bit; y : out bit); end;\n"
+      "architecture rtl of parent is begin\n"
+      "u : entity work.child generic map(3) port map(a,y); end;\n";
+  VHDLConstructor constructor(library_);
+  EXPECT_EQ(constructor.constructFile(package), nullptr);
+  EXPECT_EQ(constructor.constructFile(child), nullptr);
+  try {
+    constructor.constructFile(parent, "parent");
+    FAIL() << "The invalid dependency must be rejected";
+  } catch (const NLException& exception) {
+    const std::string message = exception.what();
+    EXPECT_NE(message.find("no declaration for object: unknown"), std::string::npos);
+    EXPECT_NE(message.find("in '" + child.string() + "' at line 4, column 8"), std::string::npos) << message;
+  }
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
+TEST_F(VHDLConstructorTest, NumericSignedArithmeticAndConversions) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity numeric_signed_math is port(a : in signed(3 downto 0);
+  b : in signed(5 to 7); sum, diff : out signed(8 downto 5);
+  product : out signed(6 downto 0); joined : out signed(6 downto 0);
+  roundtrip : out unsigned(3 downto 0); eq : out bit); end;
+architecture rtl of numeric_signed_math is
+begin
+  sum <= a + b; diff <= a - b; product <= a * b; joined <= a & b;
+  roundtrip <= unsigned(signed(std_logic_vector(a)));
+  eq <= '1' when a = b else '0';
+end;
+)");
+  for (unsigned a = 0; a < 16; ++a) for (unsigned b = 0; b < 8; ++b) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 4; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (a >> bit) & 1;
+    for (unsigned bit = 0; bit < 3; ++bit)
+      values[design->getBusTerm(NLName("b"))->getBit(7-bit)->getNet()] = (b >> bit) & 1;
+    const int sa = a < 8 ? int(a) : int(a)-16, sb = b < 4 ? int(b) : int(b)-8;
+    for (const auto& [name, result] : std::vector<std::pair<std::string, int>>{
+        {"sum", sa+sb}, {"diff", sa-sb}, {"product", sa*sb},
+        {"joined", int((a << 3) | b)}, {"roundtrip", int(a)}}) {
+      auto* term = design->getBusTerm(NLName(name));
+      for (unsigned bit = 0; bit < term->getWidth(); ++bit)
+        EXPECT_EQ(evaluateRTL(term->getBit(term->getLSB()+bit)->getNet(), values, visiting),
+                  bool((unsigned(result) >> bit) & 1)) << name << ':' << sa << ':' << sb;
+    }
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("eq"))->getNet(), values, visiting), sa == sb);
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidSignedArithmeticPublishesNoDesign) {
+  for (const auto* expression : {"a + b", "a * a", "a & b", "signed(missing)"}) {
+    SCOPED_TRACE(expression);
+    const auto source = std::string(
+        "library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;\n"
+        "entity invalid_signed is port(a : in signed(2 downto 0); b : in unsigned(2 downto 0);\n"
+        "y : out signed(2 downto 0)); end; architecture rtl of invalid_signed is begin\n"
+        "y <= ") + expression + "; end;";
     EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }

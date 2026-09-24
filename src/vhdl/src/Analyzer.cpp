@@ -323,6 +323,7 @@ CheckedType checkExpression(const Expression& expression,
             }
             return record(found->second);
         }
+        case Expression::Kind::Call:
         case Expression::Kind::Indexed:
         case Expression::Kind::Others:
         case Expression::Kind::Aggregate:
@@ -946,10 +947,13 @@ AnalysisResult Analyzer::analyze(const DesignFile& syntax) {
     for (const auto& package : syntax.packages)
         result.diagnostics.push_back({"packages require RTL elaboration", package.name.span});
     for (const auto& architecture : syntax.architectures) {
+        if (!architecture.constants.empty())
+            result.diagnostics.push_back({"architecture constants require RTL elaboration", architecture.span});
         if (!architecture.generates.empty())
             result.diagnostics.push_back({"generate statements require RTL elaboration", architecture.span});
         for (const auto& instance : architecture.instantiations)
-            if (instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
+            if (std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
+                    [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
                     [](const auto& formal) { return formal.has_value(); }))
                 result.diagnostics.push_back({"named/component binding requires RTL elaboration", instance.span});
     }

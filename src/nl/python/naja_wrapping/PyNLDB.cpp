@@ -865,7 +865,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
-    "load one VHDL source file; package-only files return None.\n\n"
+    "load one VHDL source file; package-only files return None.\n"
+    "A single entity with required generics is retained and returns None when top is omitted.\n"
+    "An explicit top requires immediate elaboration.\n\n"
     "Warning:\n"
     "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
     "Args:\n"

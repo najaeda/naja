@@ -31,9 +31,12 @@ class VHDLConstructor {
     SNLDesign* construct(std::string_view source) const;
 
     /// Package-only loads return nullptr and retain declarations in the library.
-    /// Subsequent dependent RTL loads share those declarations.
+    /// Subsequent dependent RTL loads share those declarations. A single RTL
+    /// entity requiring generic values is retained without elaboration when no
+    /// top is specified, so a later parent can supply its generic actuals.
     /// Read, parse, and lower one VHDL source file. An explicit top is required
     /// when the file contains a supported structural hierarchy.
+    /// The RTL path can infer a unique uninstantiated root entity.
     SNLDesign* constructFile(
       const std::filesystem::path& path, std::string_view top = {}) const;
 
@@ -43,6 +46,8 @@ class VHDLConstructor {
     SNLDesign* construct(std::string_view source, std::string_view top) const;
 
   private:
+    SNLDesign* constructSource(std::string_view source, std::string_view top,
+                               const std::string& path) const;
     NLLibrary* library_;
 };
 

@@ -78,22 +78,45 @@ top entity explicitly:
 
    top = netlist.load_vhdl("hierarchy.vhd", top="soc_top")
 
-VHDL loading is experimental. It currently accepts one source file and the
-bounded ``bit``/``bit_vector`` frontend subset documented by the project; it
-supports integer generic defaults and generic-map specialization of vector
-bounds within that subset. An additional indexed RTL subset supports constrained
-arrays, static nested indexing and ``for`` loops, vector registers, synchronous
-reset/enable, and immediate process variables. Imported ``std_logic`` types in
-this subset use two-state synthesis semantics; nonbinary literals, dynamic
-indices and multiple drivers are rejected. General VHDL, generate statements,
-asynchronous processes and general ``numeric_std`` arithmetic remain unsupported.
-The RTL path supports ``numeric_std.unsigned`` vector addition, subtraction,
-multiplication, equality and inequality, and concatenation. Explicit binary
-signal initializers on locally clocked registers are preserved as DFF ``INIT``
-parameters. Architecture-local component declarations and explicit ``signal``
-port classes are accepted. Argument and
-path errors use the same Python exception categories as the other high-level
-loaders. Frontend or lowering failures are reported as :class:`RuntimeError`.
+The RTL path can infer the top when exactly one entity is not instantiated by
+another design unit, including instances inside nested generate statements.
+If there are several roots or no root, pass ``top`` explicitly.
+
+VHDL loading is experimental and implements a bounded, two-state RTL subset.
+It supports integer generic defaults and explicit generic maps, constrained
+arrays, static indexing and slices, nested ``for`` loops and ``for generate``
+statements, component instances, vector registers, synchronous reset/enable,
+and immediate process variables. Generated instances can bind indexed or sliced
+ports; integer constant tables can supply their generic values. Architecture
+and package constants may use positional array aggregates, including
+unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
+
+The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
+multiplication, equality/inequality and concatenation. Static
+``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,
+and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
+``std_logic_signed`` vector addition, subtraction, multiplication and
+equality/inequality are also supported.
+Explicit binary signal initializers on locally clocked registers are preserved
+as DFF ``INIT`` parameters.
+
+Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,
+including parentheses around the guard or its operands, in both simple and
+structured processes. Extra Boolean conditions on the clock guard remain
+unsupported; place enables inside the edge guard. Asynchronous processes,
+nonbinary literals, multiple drivers, dynamic ``to_unsigned`` conversions and
+general VHDL remain unsupported and are diagnosed. Argument and path errors
+use the same Python exception categories as the other high-level loaders.
+Frontend or lowering failures are reported as :class:`RuntimeError`.
+RTL lowering errors include the original file, line, and column.
+
+For separate RTL dependency files, use ``najaeda.naja.NLDB.loadVHDL`` on the
+same database, loading dependencies before the top. A file with one entity that
+requires generic values returns ``None`` when no ``top`` is specified; its
+source is retained for later elaboration by its parent. An explicit ``top``
+requires immediate elaboration and reports missing generic values. The raw API
+also supports package-only files returning ``None``; the high-level loader
+expects a completed top design.
 
 Liberty and primitive libraries
 -------------------------------

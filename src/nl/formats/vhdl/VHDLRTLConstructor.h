@@ -4,10 +4,18 @@
 #pragma once
 
 #include "vhdl/Parser.h"
+#include "NLException.h"
 
 namespace naja::NL {
 class NLLibrary;
 class SNLDesign;
+
+// Preserve the syntax location until the adapter maps it to an input file.
+struct VHDLRTLException : NLException {
+  VHDLRTLException(const std::string& message, vhdl::SourceSpan location):
+      NLException("VHDL constructor: " + message), span(location) {}
+  vhdl::SourceSpan span;
+};
 
 // Statically indexed, two-state RTL profile. This path performs its own
 // elaboration and type checks before returning a completed design.

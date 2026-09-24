@@ -153,7 +153,12 @@ end;
 ```
 
 The clock may use `rising_edge(clk)` or the equivalent
-`clk'event and clk = '1'` guard. The sensitivity, event and level names must
+`clk'event and clk = '1'` guard. Both the simple and structured process
+parsers accept parentheses around the guard or its event/level operands, for
+example `if (clk'event and clk = '1') then` or
+`if (clk'event) and (clk = '1') then`. The event and level operands may also
+appear in reverse order. Extra Boolean conditions on the clock guard remain
+unsupported; put enables inside the edge guard. The sensitivity, event and level names must
 resolve to the same input port.
 Each assignment targets a distinct output port or internal signal; its RHS is
 an input port, internal signal or assigned local variable name (parentheses are accepted). Every internal
@@ -654,3 +659,73 @@ Explicit binary signal initializers on locally clocked registers are encoded in
 canonical DFF `INIT` parameters. Variable initialization, nonbinary values, and
 initialization with other drivers remain rejected. The standalone analyzer
 reports that initialized signals require RTL elaboration.
+
+
+## Generated coefficient-table FIRs
+
+The RTL adapter accepts architecture constants, static integer coefficient
+arrays, and nested `for generate` bodies containing component or direct-entity
+instances. Generate bodies may include `begin`; indexed and sliced port actuals
+are connected in declared positional order. Instance names retain their generate
+path, for example `lanes[3].singleton[0].f`. Generic values can come from static
+coefficient-table reads, and explicitly supplied generics need no default.
+
+Unconstrained array declarations with `natural`, `positive`, or `integer` index
+subtypes can be constrained explicitly on an object or inferred from a positional
+constant aggregate. Inferred bounds begin at the subtype's left bound: 0, 1,
+or -2147483648 respectively. Integer tables are compile-time values, including
+negative entries; this does not add general signed integer memories. Bounds,
+aggregate lengths, integer subtypes, duplicate declarations, and drivers are
+checked before a design is published.
+
+`numeric_std.to_unsigned(value, size)` accepts static natural values through
+2147483647 and result widths of 1 through 65536, truncating high bits when needed.
+Conversions between `unsigned`, `signed`, and `std_logic_vector` preserve the bit sequence.
+`numeric_std.signed` and `std_logic_signed` vector addition/subtraction,
+multiplication and equality/inequality extend the sign bit. Addition/subtraction
+return the maximum operand width; multiplication returns the sum of the widths.
+Mixed numeric signedness requires an explicit conversion. Other signed-package operators,
+dynamic integer conversions, and null vectors remain outside this profile.
+The implementation follows the [IEEE numeric conversion package](https://github.com/ghdl/ghdl/blob/master/libraries/ieee2008/numeric_std-body.vhdl)
+and [Synopsys signed-vector package](https://github.com/ghdl/ghdl/blob/master/libraries/synopsys/std_logic_signed.vhdl).
+
+`fir_generated.vhd` exercises these constructs with ascending and descending
+coefficient tables and nested generated instances. `VHDLGeneratedFIRReference`
+compares its canonical SNL flop/gate network with NVC. An external `fir16.vhd`
+can be checked without copying it into the repository:
+
+```bash
+cmake --build build --target snlVHDLExternalTests
+python3 test/nl/formats/vhdl/compare_fir.py --nvc nvc \
+  --adapter build/test/nl/formats/vhdl/snlVHDLExternalTests \
+  --source /path/to/fir16.vhd --top fir16 --lanes 16 --width 13 \
+  --test VHDLExternalTest.FIR16BenchmarkCycles
+```
+
+The comparison runs 128 cycles with zero, walking-one, and mixed input patterns,
+and checks every output after pipeline initialization (125 samples).
+
+
+## Separate RTL dependencies and diagnostics
+
+The Naja RTL adapter retains file sources in their design library. A file with
+one entity that has required generics can be loaded without selecting a top;
+it returns no design and is elaborated later when a parent supplies a generic
+map. Selecting that entity explicitly still diagnoses missing generic values.
+The raw Python `NLDB.loadVHDL` method returns `None` for these dependency loads,
+as for package-only loads. Sources are retained only after a successful load;
+failed elaboration rolls back its new designs.
+
+RTL errors carry syntax spans through nested lowering, then map them back to
+the original input file, line, and column. This includes errors in retained
+sources encountered while elaborating a later parent file.
+
+The external half-band FIR regression loads all four original sources and checks
+both signed stages against an integer recurrence with independently advancing
+clocks, including minimum and maximum signed inputs:
+
+```bash
+VHDL_FIRDEC_BENCHMARK=/path/to/firdec_DSP/src \
+  build/test/nl/formats/vhdl/snlVHDLExternalTests \
+  --gtest_filter=VHDLExternalTest.FIRDecDSPBenchmarkAndSignedStageCycles
+```

@@ -22,6 +22,8 @@
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 
+#include <boost/multiprecision/cpp_int.hpp>
+
 #include <algorithm>
 #include <charconv>
 #include <cctype>
@@ -32,12 +34,26 @@
 
 namespace naja::NL {
 namespace {
+using boost::multiprecision::int128_t;
 using Expr = vhdl::Expression;
 using Statement = vhdl::SequentialStatement;
 using Bits = std::vector<SNLBitNet*>;
 
+// Nested lowering restores the enclosing location, including on exceptions.
+// Thread-local storage keeps independent constructors' diagnostics isolated.
+thread_local vhdl::SourceSpan diagnosticSpan;
+class DiagnosticScope {
+ public:
+  explicit DiagnosticScope(const vhdl::SourceSpan& span): previous_(diagnosticSpan) {
+    diagnosticSpan = span;
+  }
+  ~DiagnosticScope() { diagnosticSpan = previous_; }
+ private:
+  vhdl::SourceSpan previous_;
+};
+
 [[noreturn]] void fail(const std::string& message) {
-  throw NLException("VHDL constructor: " + message);
+  throw VHDLRTLException(message, diagnosticSpan);
 }
 
 std::string key(const vhdl::Name& name) {
@@ -54,7 +70,7 @@ struct Range {
   bool ascending;
   size_t size() const {
     if (ascending ? left > right : left < right) return 0;
-    const auto width = ascending ? __int128(right) - left + 1 : __int128(left) - right + 1;
+    const auto width = ascending ? int128_t(right) - left + 1 : int128_t(left) - right + 1;
     if (width > 65536) fail("array range exceeds static elaboration limit");
     return static_cast<size_t>(width);
   }
@@ -128,13 +144,17 @@ class RTLConstructor {
       genericOverrides_(std::move(generics)), build_(std::move(build)) {}
 
   void run() {
+    DiagnosticScope location(entity_.span);
     context(entity_.context);
     for (const auto& generic : entity_.generics) {
+      DiagnosticScope location(generic.span);
       const auto type = key(generic.type.name);
-      if ((type != "integer" && type != "natural" && type != "positive") ||
-          !generic.defaultValue)
-        fail("RTL generics require a defaulted integer subtype");
+      if (type != "integer" && type != "natural" && type != "positive")
+        fail("RTL generics require an integer subtype");
       for (const auto& name : generic.names) {
+        DiagnosticScope location(name.span);
+        if (!generic.defaultValue && !genericOverrides_.contains(key(name)))
+          fail("missing generic value: " + key(name));
         const auto value = genericOverrides_.contains(key(name)) ? genericOverrides_.at(key(name)) :
             integer(*generic.defaultValue);
         if (generic.type.constraint) range(*generic.type.constraint).position(value);
@@ -158,7 +178,7 @@ class RTLConstructor {
       if (!localComponents.insert(name).second) fail("duplicate local component: " + name);
       components_[name] = &component;
     }
-    for (const auto& declaration : architecture_.arrayTypes) addArray(declaration);
+    declarations(architecture_.arrayTypes, architecture_.constants);
     for (const auto& signal : architecture_.signals) {
       const auto type = shape(signal.type);
       for (const auto& name : signal.names) addObject(name, type);
@@ -174,6 +194,7 @@ class RTLConstructor {
         }
       }
     }
+    checkLabels(architecture_.generates, architecture_.instantiations);
     State empty;
     for (const auto& assignment : architecture_.assignments)
       concurrent(assignment, empty);
@@ -192,32 +213,144 @@ class RTLConstructor {
 
  private:
   void addArray(const vhdl::ArrayTypeDeclaration& declaration) {
+    DiagnosticScope location(declaration.span);
     const auto name = key(declaration.name);
-    if (arrays_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
+    if (arrayDeclarations_.contains(name) || integerTables_.contains(name) || integers_.contains(name) || objects_.contains(name) ||
         name == "bit" || name == "bit_vector" || name == "std_logic" ||
-        name == "std_logic_vector") fail("duplicate or shadowing array type: " + name);
+        name == "std_logic_vector" || name == "unsigned" || name == "signed" || name == "integer" ||
+        name == "natural" || name == "positive") fail("duplicate or shadowing array type: " + name);
+    if (declaration.indexSubtype) {
+      const auto subtype = key(*declaration.indexSubtype);
+      if (subtype != "integer" && subtype != "natural" && subtype != "positive")
+        fail("unsupported unconstrained array index subtype: " + subtype);
+    }
+    arrayDeclarations_.emplace(name, &declaration);
+    const auto elementName = key(declaration.elementType.name);
+    // Integer tables are evaluated as static values, without synthesizing an
+    // integer memory or losing signed values through a bit-vector conversion.
+    if (elementName == "integer" || elementName == "natural" || elementName == "positive") return;
     auto element = shape(declaration.elementType);
     element.types.insert(element.types.begin(), name);
-    element.ranges.insert(element.ranges.begin(), range(declaration.indexRange));
-    element.size();
+    element.ranges.insert(element.ranges.begin(), declaration.indexSubtype ?
+        Range{0, -1, true} : range(declaration.indexRange));
+    if (!declaration.indexSubtype) element.size();
     arrays_.emplace(name, std::move(element));
     arrayTypeOffsets_.emplace(name, declaration.span.start.offset);
   }
 
-  void lowerGenerate(const vhdl::GenerateStatement& generate, const State& state) {
+  void declarations(const std::vector<vhdl::ArrayTypeDeclaration>& arrays,
+                    const std::vector<vhdl::ConstantDeclaration>& constants) {
+    size_t a = 0, c = 0;
+    while (a < arrays.size() || c < constants.size()) {
+      if (c == constants.size() || (a < arrays.size() &&
+          arrays[a].span.start.offset < constants[c].object.span.start.offset)) addArray(arrays[a++]);
+      else addConstant(constants[c++]);
+    }
+  }
+
+  void checkInteger(int64_t value, const vhdl::TypeMark& type) {
+    const auto name = key(type.name);
+    if (value < INT32_MIN || value > INT32_MAX || (name == "natural" && value < 0) ||
+        (name == "positive" && value < 1)) fail("integer constant violates its subtype");
+    if (type.constraint) range(*type.constraint).position(value);
+  }
+
+  Range constantBounds(const vhdl::ArrayTypeDeclaration& array,
+                       const vhdl::TypeMark& type, const Expr& value) {
+    if (!array.indexSubtype) {
+      if (type.constraint) fail("reconstraining an array type is not supported");
+      return range(array.indexRange);
+    }
+    Range bounds;
+    const auto subtype = key(*array.indexSubtype);
+    const int64_t lower = subtype == "natural" ? 0 : subtype == "positive" ? 1 : INT32_MIN;
+    if (type.constraint) bounds = range(*type.constraint);
+    else {
+      if (value.kind != Expr::Kind::Aggregate || value.elements.empty())
+        fail("unconstrained array constant requires a positional aggregate or explicit bounds");
+      bounds = {lower, lower + int64_t(value.elements.size()) - 1, true};
+    }
+    if (bounds.left < lower || bounds.right < lower || bounds.left > INT32_MAX || bounds.right > INT32_MAX)
+      fail("array bounds violate the index subtype");
+    return bounds;
+  }
+
+  void addConstant(const vhdl::ConstantDeclaration& declaration) {
+    const auto& type = declaration.object.type;
+    const auto name = key(type.name);
+    std::set<std::string> names;
+    for (const auto& id : declaration.object.names)
+      if (!names.insert(key(id)).second || objects_.contains(key(id)) || integers_.contains(key(id)) ||
+          integerTables_.contains(key(id)) || arrayDeclarations_.contains(key(id)))
+        fail("duplicate constant: " + key(id));
+    if (name == "integer" || name == "natural" || name == "positive") {
+      const auto value = integer(*declaration.value);
+      checkInteger(value, type);
+      for (const auto& id : declaration.object.names) integers_.emplace(key(id), value);
+      return;
+    }
+    auto constantType = type;
+    if (arrayDeclarations_.contains(name)) {
+      const auto& array = *arrayDeclarations_.at(name);
+      if (type.name.span.start.offset < array.span.start.offset) fail("array type used before declaration");
+      const auto bounds = constantBounds(array, type, *declaration.value);
+      if (!bounds.size()) fail("null array constant is unsupported");
+      const auto element = key(array.elementType.name);
+      if (element == "integer" || element == "natural" || element == "positive") {
+        if (declaration.value->kind != Expr::Kind::Aggregate ||
+            declaration.value->elements.size() != bounds.size()) fail("integer table aggregate length mismatch");
+        IntegerTable table{bounds, {}};
+        for (const auto& item : declaration.value->elements) {
+          const auto value = integer(*item);
+          checkInteger(value, array.elementType);
+          table.values.push_back(value);
+        }
+        for (const auto& id : declaration.object.names) integerTables_.emplace(key(id), table);
+        return;
+      }
+      if (array.indexSubtype) constantType.constraint = vhdl::DiscreteRange{
+          bounds.left, bounds.right, bounds.ascending, {}, {}, {}};
+    }
+    const auto target = shape(constantType);
+    const auto value = expression(*declaration.value, State{}, &target);
+    for (auto* bit : value.bits) if (!constantValue(bit)) fail("constant initializer must be static and binary");
+    for (const auto& id : declaration.object.names)
+      objects_.emplace(key(id), Object{value, false, false, false, true});
+  }
+
+  void checkLabels(const std::vector<vhdl::GenerateStatement>& generates,
+                   const std::vector<vhdl::EntityInstantiation>& instances) {
+    std::set<std::string> labels;
+    for (const auto& instance : instances)
+      if (!labels.insert(key(instance.label)).second) fail("duplicate concurrent label");
+    for (const auto& generate : generates) {
+      if (!generate.label.spelling.empty() && !labels.insert(key(generate.label)).second)
+        fail("duplicate concurrent label");
+      checkLabels(generate.generates, generate.instantiations);
+    }
+  }
+
+  void lowerGenerate(const vhdl::GenerateStatement& generate, const State& state,
+                     const std::string& prefix = "") {
+    DiagnosticScope location(generate.iterator.span);
     auto name = key(generate.iterator);
-    if (integers_.contains(name) || objects_.contains(name)) fail("shadowed generate parameter");
+    if (integers_.contains(name) || objects_.contains(name) || integerTables_.contains(name) ||
+        arrayDeclarations_.contains(name)) fail("shadowed generate parameter");
     const auto bounds = range(generate.range);
     for (size_t i = 0; i < bounds.size(); ++i) {
       if (++steps_ > 100000) fail("static generate elaboration limit exceeded");
       integers_[name] = bounds.ascending ? bounds.left + i : bounds.left - i;
       for (const auto& assignment : generate.assignments) concurrent(assignment, state);
-      for (const auto& child : generate.generates) lowerGenerate(child, state);
+      const auto scope = prefix + (generate.label.spelling.empty() ? name : generate.label.spelling) +
+          "[" + std::to_string(integers_[name]) + "].";
+      for (const auto& child : generate.generates) lowerGenerate(child, state, scope);
+      for (const auto& instance : generate.instantiations) lowerInstance(instance, scope);
     }
     integers_.erase(name);
   }
 
-  void lowerInstance(const vhdl::EntityInstantiation& instance) {
+  void lowerInstance(const vhdl::EntityInstantiation& instance, const std::string& prefix = "") {
+    DiagnosticScope location(instance.span);
     if (key(instance.library) != "work" || instance.architecture)
       fail("unsupported RTL entity binding");
     const vhdl::EntityDeclaration* entity = nullptr;
@@ -244,7 +377,8 @@ class RTLConstructor {
     const auto parentIntegers = integers_;
     for (const auto& generic : entity->generics)
       for (const auto& name : generic.names) {
-        if (!generic.defaultValue && !overrides.contains(key(name))) fail("missing generic value");
+        DiagnosticScope location(name.span);
+        if (!generic.defaultValue && !overrides.contains(key(name))) fail("missing generic value: " + key(name));
         integers_[key(name)] = overrides.contains(key(name)) ? overrides.at(key(name)) : integer(*generic.defaultValue);
       }
     std::map<std::string, Shape> formalShapes;
@@ -286,7 +420,9 @@ class RTLConstructor {
       ports.push_back(matching);
     }
     if (ports.size() != instance.actuals.size()) fail("port association count mismatch");
-    auto* child = SNLInstance::create(design_, model, NLName(instance.label.spelling));
+    const auto instanceName = prefix + instance.label.spelling;
+    if (!instanceNames_.insert(prefix + key(instance.label)).second) fail("duplicate instance label");
+    auto* child = SNLInstance::create(design_, model, NLName(instanceName));
     std::set<SNLTerm*> bound;
     named = false;
     for (size_t i = 0; i < ports.size(); ++i) {
@@ -301,13 +437,15 @@ class RTLConstructor {
         }
       } else if (named) fail("positional port follows named port");
       if (!port || !bound.insert(port).second) fail("invalid port association");
-      const auto selected = selection(key(instance.actuals[i]));
+      auto selected = selection(key(instance.actuals[i]));
+      if (!instance.actualIndices.empty())
+        for (const auto& indexExpr : instance.actualIndices[i]) index(selected, *indexExpr);
       const auto& object = objects_.at(selected.name);
       std::string formalName = port->getName().getString();
       for (auto& c : formalName) c = std::tolower(static_cast<unsigned char>(c));
-      if (object.value.bits.size() != port->getWidth() || !compatible(object.value.shape, formalShapes.at(formalName)))
+      if (selected.shape.size() != port->getWidth() || !compatible(selected.shape, formalShapes.at(formalName)))
         fail("port type or width mismatch");
-      size_t bit = 0;
+      size_t bit = selected.offset;
       for (auto* term : port->getBits()) {
         auto* net = object.value.bits[bit++];
         if (port->getDirection() == SNLTerm::Direction::Output) {
@@ -323,6 +461,7 @@ class RTLConstructor {
     for (const auto& library : clauses.libraries)
       for (const auto& name : library.names) libraries_.insert(key(name));
     for (const auto& use : clauses.uses) {
+      DiagnosticScope location(use.span);
       if (use.selectedName.size() == 3 && key(use.selectedName[0]) == "work" &&
           key(use.selectedName[2]) == "all") {
         const auto name = key(use.selectedName[1]);
@@ -332,17 +471,9 @@ class RTLConstructor {
           if (!candidate.body && key(candidate.name) == name) package = &candidate;
         if (!package) fail("missing package: " + name);
         const auto callerLibraries = libraries_;
-        const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_, callerNumeric = numeric_;
+        const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_, callerNumeric = numeric_, callerSigned = signed_;
         context(package->context);
-        for (const auto& type : package->arrayTypes) addArray(type);
-        for (const auto& declaration : package->constants) {
-          const auto type = shape(declaration.object.type);
-          const auto value = expression(*declaration.value, State{}, &type);
-          for (const auto& id : declaration.object.names) {
-            if (!objects_.emplace(key(id), Object{value, false, false, false, true}).second)
-              fail("duplicate package constant");
-          }
-        }
+        declarations(package->arrayTypes, package->constants);
         for (const auto& component : package->components)
           if (!components_.emplace(key(component.name), &component).second) fail("ambiguous component");
         libraries_ = callerLibraries;
@@ -350,6 +481,7 @@ class RTLConstructor {
         unsigned_ = callerUnsigned;
         arith_ = callerArith;
         numeric_ = callerNumeric;
+        signed_ = callerSigned;
         continue;
       }
       if (use.selectedName.size() != 3 || key(use.selectedName[0]) != "ieee" ||
@@ -358,6 +490,7 @@ class RTLConstructor {
       const auto package = key(use.selectedName[1]);
       if (package == "std_logic_1164") stdLogic_ = true;
       else if (package == "std_logic_unsigned") unsigned_ = true;
+      else if (package == "std_logic_signed") signed_ = true;
       else if (package == "std_logic_arith") arith_ = true;
       else if (package == "numeric_std") numeric_ = true;
       else
@@ -366,9 +499,14 @@ class RTLConstructor {
   }
 
   int64_t integer(const Expr& expression) {
+    DiagnosticScope location(expression.span);
     if (expression.kind == Expr::Kind::Name) {
       const auto found = integers_.find(key(expression));
       if (found != integers_.end()) return found->second;
+    } else if (expression.kind == Expr::Kind::Indexed && expression.left->kind == Expr::Kind::Name &&
+               integerTables_.contains(key(*expression.left))) {
+      const auto& table = integerTables_.at(key(*expression.left));
+      return table.values.at(table.bounds.position(integer(*expression.right)));
     } else if (expression.kind == Expr::Kind::IntegerLiteral) {
       std::string digits;
       for (char c : expression.text) if (c != '_') digits += c;
@@ -376,14 +514,14 @@ class RTLConstructor {
       const auto result = std::from_chars(digits.data(), digits.data() + digits.size(), value);
       if (result.ec == std::errc{} && result.ptr == digits.data() + digits.size()) return value;
     } else if (expression.kind == Expr::Kind::Unary || expression.kind == Expr::Kind::Binary) {
-      const __int128 left = integer(*expression.left);
-      __int128 value;
+      const int128_t left = integer(*expression.left);
+      int128_t value;
       const auto& op = expression.text;
       if (expression.kind == Expr::Kind::Unary) {
         if (op != "+" && op != "-") fail("unsupported static unary operator");
         value = op == "-" ? -left : left;
       } else {
-        const __int128 right = integer(*expression.right);
+        const int128_t right = integer(*expression.right);
         if (op == "+") value = left + right;
         else if (op == "-") value = left - right;
         else if (op == "*") value = left * right;
@@ -397,18 +535,26 @@ class RTLConstructor {
   }
 
   Range range(const vhdl::DiscreteRange& range) {
+    DiagnosticScope location(range.span);
     return {range.leftExpression ? integer(*range.leftExpression) : range.left,
             range.rightExpression ? integer(*range.rightExpression) : range.right,
             range.ascending};
   }
 
   Shape shape(const vhdl::TypeMark& type) {
+    DiagnosticScope location(type.name.span);
     const auto name = key(type.name);
     if (const auto found = arrays_.find(name); found != arrays_.end()) {
       if (type.name.span.start.offset < arrayTypeOffsets_.at(name))
         fail("array type is used before its declaration: " + name);
-      if (type.constraint) fail("reconstraining an array type is not supported");
-      return found->second;
+      auto result = found->second;
+      const auto& declaration = *arrayDeclarations_.at(name);
+      if (declaration.indexSubtype) {
+        if (!type.constraint) fail("unconstrained array object requires bounds");
+        Expr unused;
+        result.ranges.front() = constantBounds(declaration, type, unused);
+      } else if (type.constraint) fail("reconstraining an array type is not supported");
+      return result;
     }
     if (name == "integer" || name == "natural" || name == "positive") {
       if (!type.constraint) fail("hardware integer requires a nonnegative range");
@@ -424,7 +570,7 @@ class RTLConstructor {
       return {{name}, {}};
     }
     if (name == "bit_vector" || (stdLogic_ && name == "std_logic_vector") ||
-        (numeric_ && name == "unsigned")) {
+        (numeric_ && (name == "unsigned" || name == "signed"))) {
       if (!type.constraint) fail("vector requires a constraint");
       return {{name, name == "bit_vector" ? "bit" : "std_logic"}, {range(*type.constraint)}};
     }
@@ -436,7 +582,7 @@ class RTLConstructor {
     const auto id = key(name);
     if (port && (type.ranges.size() > 1 || type.integerWidth))
       fail("RTL ports require scalar logic or one-dimensional logic vectors");
-    if (objects_.contains(id) || integers_.contains(id) || arrays_.contains(id))
+    if (objects_.contains(id) || integers_.contains(id) || arrayDeclarations_.contains(id) || integerTables_.contains(id))
       fail("duplicate or shadowing object: " + id);
     Bits bits;
     const auto size = type.size();
@@ -557,6 +703,8 @@ class RTLConstructor {
   bool isStatic(const Expr& expr) const {
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr));
+    if (expr.kind == Expr::Kind::Indexed && expr.left->kind == Expr::Kind::Name &&
+        integerTables_.contains(key(*expr.left))) return isStatic(*expr.right);
     return (expr.kind == Expr::Kind::Unary || expr.kind == Expr::Kind::Binary) &&
         (expr.text == "+" || expr.text == "-" || expr.text == "*") &&
         isStatic(*expr.left) && (!expr.right || isStatic(*expr.right));
@@ -644,7 +792,22 @@ class RTLConstructor {
     return readIndex(readSelected(*expr.left, state), *expr.right, state);
   }
 
+  // Operands are extended to the result width before multiplying. Modulo
+  // 2**width multiplication then serves both unsigned and two's-complement bits.
+  Bits multiply(const Bits& left, const Bits& right) {
+    const auto width = left.size();
+    Bits result(width, constant(false));
+    for (size_t shift = 0; shift < width; ++shift) {
+      Bits row(width, constant(false));
+      for (size_t i = shift; i < width; ++i)
+        row[width - 1 - i] = gate("and", left[width - 1 - i + shift], right[width - 1 - shift]);
+      result = add(result, row, false);
+    }
+    return result;
+  }
+
   Value expression(const Expr& expr, const State& state, const Shape* expected = nullptr) {
+    DiagnosticScope location(expr.span);
     Value value;
     Shape inferred;
     if (isStatic(expr)) {
@@ -657,8 +820,32 @@ class RTLConstructor {
       if (!objects_.contains(name)) fail("no declaration for object: " + name);
       value = readObject(name, state);
       for (auto* bit : value.bits) reads_.insert(bit);
+    } else if (expr.kind == Expr::Kind::Call) {
+      if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
+          !numeric_ || expr.elements.size() != 2)
+        fail("unsupported or invisible function call");
+      if (objects_.contains("to_unsigned") || integers_.contains("to_unsigned") ||
+          arrayDeclarations_.contains("to_unsigned") || integerTables_.contains("to_unsigned"))
+        fail("shadowed to_unsigned function");
+      const auto argument = integer(*expr.elements[0]);
+      const auto width = integer(*expr.elements[1]);
+      if (argument < 0 || argument > INT32_MAX || width < 1 || width > 65536)
+        fail("to_unsigned requires a static natural argument and a supported positive size");
+      auto type = vectorShape(width);
+      type.types.front() = "unsigned";
+      value = number(argument, type);
     } else if (expr.kind == Expr::Kind::Indexed) {
-      if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "conv_integer") {
+      if (expr.left->kind == Expr::Kind::Name &&
+          (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
+        const auto target = key(*expr.left);
+        if (!numeric_ || (target == "std_logic_vector" && !stdLogic_))
+          fail("vector conversion requires visible numeric_std and std_logic_1164 types");
+        value = expression(*expr.right, state);
+        const auto source = value.shape.types.front();
+        if (value.shape.ranges.size() != 1 || (source != "unsigned" && source != "signed" && source != "std_logic_vector"))
+          fail("unsupported vector conversion operand");
+        value.shape.types.front() = target;
+      } else if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "conv_integer") {
         if (!unsigned_ || !arith_) fail("conv_integer requires std_logic_arith and std_logic_unsigned");
         value = expression(*expr.right, state);
         if (value.shape.types.front() != "std_logic_vector" || value.bits.size() > 31)
@@ -743,20 +930,43 @@ class RTLConstructor {
         value.bits = left.bits;
         value.bits.insert(value.bits.end(), right.bits.begin(), right.bits.end());
         value.shape = vectorShape(value.bits.size(), left.shape.types.back());
-        if (left.shape.types.front() == "unsigned" || right.shape.types.front() == "unsigned") {
-          if ((left.shape.ranges.size() && left.shape.types.front() != "unsigned") ||
-              (right.shape.ranges.size() && right.shape.types.front() != "unsigned"))
-            fail("concatenation operand type mismatch");
-          value.shape.types.front() = "unsigned";
+        for (const auto* numericType : {"unsigned", "signed"}) {
+          if (left.shape.types.front() == numericType || right.shape.types.front() == numericType) {
+            if ((left.shape.ranges.size() && left.shape.types.front() != numericType) ||
+                (right.shape.ranges.size() && right.shape.types.front() != numericType))
+              fail("concatenation operand type mismatch");
+            value.shape.types.front() = numericType;
+          }
         }
       } else {
-        const bool numericOperation = numeric_ && (arithmetic || expr.text == "*" || comparison);
+        const bool numericOperation = (numeric_ || signed_) && (arithmetic || expr.text == "*" || comparison);
         auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected);
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
+        const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
+        const bool signedOperands = numericSigned || (signed_ && left.shape.types.front() == "std_logic_vector");
+        if (signedOperands && !numericSigned && unsigned_ && (arithmetic || comparison || expr.text == "*"))
+          fail("ambiguous signed/unsigned vector operators");
         const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
             expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
         auto right = expression(*expr.right, state,
-            (unsignedOperands && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape);
+            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape);
+        if (signedOperands && (arithmetic || comparison || expr.text == "*")) {
+          if (right.shape.types.front() != left.shape.types.front()) fail("signed vector operand type mismatch");
+          const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
+              std::max(left.bits.size(), right.bits.size());
+          left.bits.insert(left.bits.begin(), width - left.bits.size(), left.bits.front());
+          right.bits.insert(right.bits.begin(), width - right.bits.size(), right.bits.front());
+          value.shape = vectorShape(width);
+          value.shape.types.front() = left.shape.types.front();
+          if (comparison) {
+            auto* result = equal(left.bits, right.bits);
+            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+          } else if (expr.text == "*") {
+            value.bits = multiply(left.bits, right.bits);
+          } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (expected && !compatible(value.shape, *expected)) fail("assignment or expression type/length mismatch");
+          return value;
+        }
         if (unsignedOperands && (arithmetic || comparison || expr.text == "*")) {
           if (right.shape.types.front() != "unsigned") fail("unsigned operand type mismatch");
           const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
@@ -769,13 +979,7 @@ class RTLConstructor {
             auto* result = equal(left.bits, right.bits);
             value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
           } else if (expr.text == "*") {
-            value.bits = Bits(width, constant(false));
-            for (size_t shift = 0; shift < width; ++shift) {
-              Bits row(width, constant(false));
-              for (size_t i = shift; i < width; ++i)
-                row[width - 1 - i] = gate("and", left.bits[width - 1 - i + shift], right.bits[width - 1 - shift]);
-              value.bits = add(value.bits, row, false);
-            }
+            value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
           if (expected && !compatible(value.shape, *expected))
             fail("assignment or expression type/length mismatch");
@@ -828,6 +1032,7 @@ class RTLConstructor {
     else SNLRTLPrimitives::createGate(design_, SNLRTLPrimitives::GateKind::Buf, {source}, target);
   }
   void concurrent(const vhdl::Assignment& assignment, const State& state) {
+    DiagnosticScope location(assignment.span);
     auto target = selection(assignment);
     const auto& object = objects_.at(target.name);
     if (object.input || object.constant || object.variable || assignment.kind != vhdl::AssignmentKind::Signal)
@@ -837,6 +1042,7 @@ class RTLConstructor {
   }
 
   void assign(const vhdl::Assignment& assignment, State& state) {
+    DiagnosticScope location(assignment.span);
     if (!assignment.indices.empty() && assignment.indices.front()->kind != Expr::Kind::Range &&
         !isStatic(*assignment.indices.front())) {
       const auto name = key(assignment.target);
@@ -893,6 +1099,7 @@ class RTLConstructor {
 
   void statements(const std::vector<Statement>& statements, State& state) {
     for (const auto& statement : statements) {
+      DiagnosticScope location(statement.span);
       if (++steps_ > 100000) fail("static process elaboration limit exceeded");
       if (statement.kind == Statement::Kind::Assignment) assign(statement.assignment, state);
       else if (statement.kind == Statement::Kind::If) {
@@ -923,6 +1130,7 @@ class RTLConstructor {
   }
 
   void lowerProcess(const vhdl::ClockedProcess& process) {
+    DiagnosticScope location(process.span);
     const auto clockName = key(process.eventSignal);
     auto clock = selection(clockName);
     if (!objects_.at(clockName).input || clock.shape.size() != 1 ||
@@ -1003,7 +1211,11 @@ class RTLConstructor {
   std::function<SNLDesign*(const std::string&, const std::map<std::string, int64_t>&)> build_;
   std::set<std::string> imported_;
   std::map<std::string, const vhdl::EntityDeclaration*> components_;
-  bool unsigned_ = false, arith_ = false, numeric_ = false;
+  bool unsigned_ = false, arith_ = false, numeric_ = false, signed_ = false;
+  struct IntegerTable { Range bounds; std::vector<int64_t> values; };
+  std::map<std::string, IntegerTable> integerTables_;
+  std::map<std::string, const vhdl::ArrayTypeDeclaration*> arrayDeclarations_;
+  std::set<std::string> instanceNames_;
   std::map<std::string, int64_t> integers_;
   std::map<std::string, Shape> arrays_;
   std::map<std::string, size_t> arrayTypeOffsets_;
@@ -1022,12 +1234,20 @@ class RTLConstructor {
 
 bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   if (!syntax.packages.empty()) return true;
+  const auto signedContext = [](const vhdl::ContextClause& context) {
+    return std::any_of(context.uses.begin(), context.uses.end(), [](const auto& use) {
+      return use.selectedName.size() == 3 && key(use.selectedName[0]) == "ieee" &&
+          key(use.selectedName[1]) == "std_logic_signed";
+    });
+  };
   for (const auto& entity : syntax.entities) {
-    for (const auto& generic : entity.generics) if (generic.type.constraint) return true;
-    for (const auto& port : entity.ports) if (key(port.type.name) == "unsigned") return true;
+    if (signedContext(entity.context)) return true;
+    for (const auto& generic : entity.generics)
+      if (generic.type.constraint || !generic.defaultValue) return true;
+    for (const auto& port : entity.ports) if (key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
   }
   const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
-    return expression && (expression->kind == Expr::Kind::Indexed ||
+    return expression && (expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
         expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
         expression->kind == Expr::Kind::BitStringLiteral || self(self, expression->left.get()) ||
         self(self, expression->right.get()) || self(self, expression->condition.get()));
@@ -1036,10 +1256,12 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     return !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
   for (const auto& architecture : syntax.architectures) {
-    if (!architecture.generates.empty() || !architecture.components.empty()) return true;
-    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "unsigned") return true;
+    if (signedContext(architecture.context)) return true;
+    if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
+    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
     for (const auto& instance : architecture.instantiations)
-      if (instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
+      if (std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
+          [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
           [](const auto& formal) { return formal.has_value(); })) return true;
     for (const auto& assignment : architecture.assignments)
       if (extendedAssignment(assignment)) return true;
@@ -1070,8 +1292,18 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
   std::string selected(top);
   for (char& c : selected) c = std::tolower(static_cast<unsigned char>(c));
   if (selected.empty()) {
-    if (syntax.entities.size() != 1) fail("multiple RTL entities require an explicit top");
-    selected = key(syntax.entities.front().name);
+    std::set<std::string> candidates;
+    for (const auto& entity : syntax.entities) candidates.insert(key(entity.name));
+    const auto removeChildren = [&](const auto& self, const auto& scope) -> void {
+      for (const auto& instance : scope.instantiations)
+        candidates.erase(key(instance.entity));
+      for (const auto& generate : scope.generates) self(self, generate);
+    };
+    for (const auto& architecture : syntax.architectures)
+      removeChildren(removeChildren, architecture);
+    if (candidates.size() != 1)
+      fail("cannot infer a unique RTL top entity; specify an explicit top");
+    selected = *candidates.begin();
   }
   std::vector<SNLDesign*> created;
   std::set<std::string> active;
@@ -1081,10 +1313,12 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
     const vhdl::EntityDeclaration* entity = nullptr;
     const vhdl::ArchitectureBody* architecture = nullptr;
     for (const auto& candidate : syntax.entities) if (key(candidate.name) == name) {
+      DiagnosticScope location(candidate.span);
       if (entity) fail("duplicate RTL entity");
       entity = &candidate;
     }
     for (const auto& candidate : syntax.architectures) if (key(candidate.entity) == name) {
+      DiagnosticScope location(candidate.span);
       if (architecture) fail("multiple RTL architectures are unsupported");
       architecture = &candidate;
     }

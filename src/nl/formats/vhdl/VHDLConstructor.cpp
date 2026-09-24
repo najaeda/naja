@@ -94,9 +94,16 @@ const vhdl::DiscreteRange* effectiveRange(
 }  // namespace
 
 namespace {
+class LocatedVHDLException final : public NLException {
+ public:
+  using NLException::NLException;
+};
+
 class VHDLSources final : public naja::NajaPrivateProperty {
  public:
   std::string source;
+  struct Input { size_t offset; size_t size; std::string path; };
+  std::vector<Input> inputs;
   std::string getName() const override { return "VHDLSources"; }
   std::string getString() const override { return getName(); }
   static VHDLSources* get(NLLibrary* library) {
@@ -123,7 +130,9 @@ SNLDesign* VHDLConstructor::constructFile(
   const std::string source(
       (std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
   try {
-    return construct(source, top);
+    return constructSource(source, top, path.string());
+  } catch (const LocatedVHDLException&) {
+    throw;
   } catch (const std::exception& exception) {
     throw NLException(
         "VHDL file '" + path.string() + "': " + exception.what());
@@ -132,6 +141,11 @@ SNLDesign* VHDLConstructor::constructFile(
 
 SNLDesign* VHDLConstructor::construct(
     std::string_view source, std::string_view top) const {
+  return constructSource(source, top, {});
+}
+
+SNLDesign* VHDLConstructor::constructSource(
+    std::string_view source, std::string_view top, const std::string& path) const {
   if (!library_) {
     unsupported("null library");
   }
@@ -144,7 +158,13 @@ SNLDesign* VHDLConstructor::construct(
   }
   auto* sources = VHDLSources::get(library_);
   if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty()) {
-    const auto combined = sources->source + "\n" + std::string(source);
+    const auto previous = std::find_if(sources->inputs.begin(), sources->inputs.end(),
+        [&](const auto& input) {
+          return input.path == path && input.size == source.size() &&
+              std::string_view(sources->source).substr(input.offset, input.size) == source;
+        });
+    const bool retained = previous != sources->inputs.end();
+    const auto combined = retained ? sources->source : sources->source + std::string(source);
     auto all = vhdl::Parser::parse(combined);
     if (all.hasErrors()) unsupported("stored VHDL source failed to parse");
     std::string selected(top);
@@ -154,8 +174,42 @@ SNLDesign* VHDLConstructor::construct(
       all.syntax.entities.clear();
       all.syntax.architectures.clear();
     }
-    auto* design = constructVHDLRTL(library_, all.syntax, selected, combined);
-    if (!sources->source.empty() || !parsed.syntax.packages.empty()) sources->source = combined;
+    const auto retain = [&] {
+      if (retained) return;
+      sources->inputs.push_back({sources->source.size(), source.size(), path});
+      sources->source = combined + "\n";
+    };
+    // A generic-dependent unit is parsed now and elaborated when its parent
+    // supplies actuals. An explicitly selected top must still be complete.
+    if (top.empty() && parsed.syntax.entities.size() == 1 &&
+        std::any_of(parsed.syntax.entities.front().generics.begin(),
+            parsed.syntax.entities.front().generics.end(),
+            [](const auto& generic) { return !generic.defaultValue; })) {
+      retain();
+      return nullptr;
+    }
+    SNLDesign* design = nullptr;
+    try {
+      design = constructVHDLRTL(library_, all.syntax, selected, combined);
+    } catch (const VHDLRTLException& exception) {
+      const auto offset = exception.span.start.offset;
+      size_t start = sources->source.size();
+      std::string origin = path;
+      if (offset < start) {
+        for (const auto& input : sources->inputs) {
+          if (input.offset > offset) break;
+          start = input.offset;
+          origin = input.path;
+        }
+      }
+      const auto line = 1 + std::count(combined.begin() + std::min(start, offset),
+          combined.begin() + std::min(offset, combined.size()), '\n');
+      throw LocatedVHDLException(std::string(exception.what()) +
+          (origin.empty() ? "" : " in '" + origin + "'") + " at line " +
+          std::to_string(line) + ", column " +
+          std::to_string(exception.span.start.column));
+    }
+    if (!path.empty() || !sources->source.empty() || !parsed.syntax.packages.empty()) retain();
     return design;
   }
   const auto analyzed = vhdl::Analyzer::analyze(parsed.syntax);

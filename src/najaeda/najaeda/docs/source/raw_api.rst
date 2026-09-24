@@ -314,28 +314,60 @@ expert reference above.
    ``NLDB.loadVHDL(file, top=None)`` loads one VHDL source file and returns its
    ``SNLDesign``. Load package files before their users in the same database:
    a package-only file returns ``None`` and preserves the current top design.
-   Package declarations and dependent entity sources are retained in the live
-   design library for subsequent loads; they are not serialized in NajaIF.
-   Use an explicit ``top`` when a file defines several entities.
+   A file containing one entity with required generic values also returns
+   ``None`` when ``top`` is omitted: its source is retained until a parent
+   supplies those values through a generic map. Pass ``top`` explicitly to
+   require immediate elaboration and diagnose any missing generic values.
+   RTL source files and package declarations are retained in the live design
+   library for subsequent loads; they are not serialized in NajaIF. Load these
+   dependencies through the raw API; the high-level loader expects a completed
+   top design. RTL lowering errors include the original source file, line, and
+   column, including errors in a dependency elaborated by a later load.
+   The RTL path infers a unique uninstantiated root entity, including references
+   inside nested generate statements. Otherwise, specify ``top`` explicitly.
+   The basic structural hierarchy path still requires an explicit ``top``.
 
    The experimental two-state RTL subset supports constrained arrays, package
    array types and positional constant aggregates, binary/octal/hex literals,
-   static slices and loops, nested assignment-only ``for generate`` statements,
+   static slices and loops, nested ``for generate`` statements containing assignments
+   and component/direct-entity instances,
    integer-indexed ROM/RAM reads and clocked writes, and multiple clocked
-   processes with synchronous reset/enable. Nonnegative constrained integer
+   processes with synchronous reset/enable. Both simple and structured processes
+   accept ``rising_edge(clk)`` and ``clk'event and clk = '1'`` guards, including
+   parentheses around the guard or its event/level operands. The event and level
+   names must match the same scalar input clock in the sensitivity list; falling
+   edges and extra Boolean conditions on the guard are rejected.
+   Nonnegative constrained integer
    counters, ``std_logic_unsigned`` addition/subtraction and
    ``conv_integer(std_logic_vector)`` (with ``std_logic_arith`` imported) are
    supported. Component binding requires a matching visible declaration and
-   supports named or positional ports and integer generic specialization.
+   supports named or positional ports (including static indices and slices)
+   and integer generic specialization. A generic can omit its default when its
+   value is supplied by the instance. Architecture/package integer constants
+   and one-dimensional integer constant tables are evaluated statically.
+   Positional aggregates can constrain an otherwise unconstrained array type;
+   inferred indices begin at the index subtype's left bound (0 for ``natural``,
+   1 for ``positive``, and -2147483648 for the supported 32-bit ``integer``).
+   Explicit bounds preserve their direction and are checked against the subtype.
    Hardware operates on legal subtype/index values; simulation bounds checks
    and nine-valued initialization are not implemented. Nonbinary literals,
    conflicting drivers, unsupported package bodies, and unsupported operations
-   are rejected. ``numeric_std.unsigned`` vector addition, subtraction,
+   are rejected. ``numeric_std.unsigned`` and ``numeric_std.signed`` vector addition, subtraction,
    multiplication, equality/inequality and concatenation are supported, including
    mixed operand widths for arithmetic and comparisons. Multiplication produces
    the sum of operand widths; addition/subtraction produce their maximum width.
    Explicit binary signal initializers on locally clocked registers become DFF
    ``INIT`` parameters. Initialization on other drivers is rejected.
+   Static ``numeric_std.to_unsigned(value, size)`` accepts natural values through
+   2147483647 and sizes from 1 through 65536; values wider than the result retain
+   their low bits, as specified by the conversion. Dynamic conversions and null
+   vectors are rejected. Conversions between ``unsigned``, ``signed``, and
+   ``std_logic_vector`` preserve bit positions. Signed arithmetic sign-extends
+   operands; mixed signed/unsigned operands require explicit conversions.
+   With ``std_logic_signed`` visible, vector addition, subtraction, multiplication
+   and equality/inequality use signed operands;
+   ambiguous numeric operations importing both signed and unsigned overloads
+   are rejected.
    Component declarations can also appear in the architecture declarative part,
    and port declarations may explicitly specify the ``signal`` class.
 

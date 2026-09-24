@@ -2,6 +2,7 @@
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_GENERATED_FIR="${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd"
   SNL_VHDL_LOGICAL="${CMAKE_CURRENT_SOURCE_DIR}/logical.vhd"
   SNL_VHDL_HIERARCHY="${CMAKE_CURRENT_SOURCE_DIR}/hierarchy.vhd"
   SNL_VHDL_ENABLED="${CMAKE_CURRENT_SOURCE_DIR}/enabled.vhd"
@@ -28,6 +29,12 @@ target_link_libraries(snlVHDLExternalTests naja_snl_vhdl gtest_main)
 find_program(VHDL_NVC_EXECUTABLE nvc)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
+  add_test(NAME VHDLGeneratedFIRReference
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_fir.py"
+      --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>
+      --source "${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd" --top fir_generated
+      --lanes 4 --width 5 --test VHDLConstructorTest.GeneratedFIRHierarchyCycles)
+  set_tests_properties(VHDLGeneratedFIRReference PROPERTIES TIMEOUT 180)
   add_test(NAME VHDLPipelineReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_pipeline.py"
       --nvc "${VHDL_NVC_EXECUTABLE}" --adapter $<TARGET_FILE:snlVHDLConstructorTests>)
