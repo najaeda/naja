@@ -34,9 +34,10 @@ regress/liberty/
 regress/designs/verilog/megaboom/sources/
 graphify-out
 naja_sv_diagnostics.log
+naja_vhdl_diagnostics.log
 naja_perf.log
 sv_constructor_perf.log
-internal
+/internal/
 /bazel-*
 
 # scratch clone used by ci/check_submodule_bazel_sync.py's ancestor check

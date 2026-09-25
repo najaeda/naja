@@ -1,0 +1,1495 @@
+{
+  "schema": 1,
+  "reference": "nvc 1.23.0 (Using LLVM 23.1.1)\nCopyright (C) 2011-2026  Nick Gasson\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and\nyou are welcome to redistribute it under certain conditions. See the GNU\nGeneral Public Licence for details.\n",
+  "executable": "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+  "standard": "2008",
+  "manifest_sha256": "533e44e233927608537eff541f7cff884281dbf008642a442a968bfca96a0b98",
+  "expectations_sha256": "143b9203192ef4efd1b638bf69b0860d39dc7f12d18ce8328a1a7eed2c57cf68",
+  "source_sha256": {
+    "cases/basic_identifier_case.vhd": "79eee64c0de187e95b079a20bdef739d40a026e00deb6eb9fa5c576e94be08d4",
+    "cases/extended_identifiers.vhd": "2494c39d5e039916b9fe17541ac4f8e11073f4cde2c4e81d9a04ea124eb41132",
+    "cases/based_literals.vhd": "8acf5a53ea3af6fd36778c017afc10ed9cbc6d8f4f8019a992aa68d418b051f6",
+    "cases/return_type_overload.vhd": "4b50736bc4f1b135f88c5b0cc203117463f0999c5bdc5e8fa0dc1c6755fb45cc",
+    "cases/operator_overload.vhd": "cb51f87c0c9933c142d7d484982d667223fb3a71ce1c03241fd6f356fcf68060",
+    "cases/ascending_array.vhd": "a36cfc393601e52041b8512a80f10ccc7b18971574a47fc193cf2c3e92d7db26",
+    "cases/nonzero_descending_array.vhd": "5f271fc37291c1bb6781fec64ef33954304179cedd310998d62e029420afec01",
+    "cases/positional_array_assignment.vhd": "360b6b5c32323fb964717d64e70a94bd5e63114919a2950446b7ea368acb2e0c",
+    "cases/null_array.vhd": "8e279992152b51a0ac8682c1a58b4472d4694e55817f78f8bedef0e9addc29de",
+    "cases/unconstrained_function.vhd": "71d1a2b649fb8c396295501f1673b9b30f31495ced7c4a43e6e1662b59ee4373",
+    "cases/signed_resize.vhd": "ac9b026d7d138ce4dcdee34c9904a40af6b5fb86cd1dbbe68c088790b7c3b7f9",
+    "cases/mod_rem.vhd": "af4cb80c631be96743955ce52946bcbb1c0c73628a44106280d5130dfa0aae2f",
+    "cases/record_aggregate.vhd": "0b46de7978e3c7763c8a24e5cba33fc8c0f35484f99ef419a1d003531e29ae1f",
+    "cases/named_array_aggregate.vhd": "b92ad01e4e49064456a54d3c0af56c159f547e16bc9385a016991c32c42b2f23",
+    "cases/deferred_constant.vhd": "f0885d44b0be52d9bae2c700dd4eaf9095455ef51a94694aa54add9f24f3222d",
+    "cases/generic_generate.vhd": "424b723153c68d29ac183b038baf165d0bee78a1b2c4636e59a56ff1c3172dc3",
+    "cases/architecture_selection.vhd": "e69d574d2f4415d105e3b7c0faf32493692bc280bc1522e24c5cdc6743cf2083",
+    "cases/component_binding.vhd": "a84a83217d5b4e49f624f9dae79e9ef819386c50ee79ad26ce7834ee2ababb6e",
+    "cases/work_library.vhd": "27098bec6189bb3df05e5f2edc6fed879e2a90cb22ef9e65a655bc4e36411b6b",
+    "cases/signal_variable_scheduling.vhd": "9f3069c00059cb6f36b287aeb08dd286c38169cb602bb9e6339fc135bca07e10",
+    "cases/partial_assignment_priority.vhd": "a14d68f4d479e892b485555491666a93e983ae54c5a156522d3cc500c0fd18d6",
+    "cases/variable_retention.vhd": "7e2eb80b903c533207f5ff52e4fcf91fe127208c5420caf1aae9f848754f0ffb",
+    "cases/process_all.vhd": "9607d25eec11aabef0a699a35cced7fd1f9648126009b9c032ed3c62ec9f2b44",
+    "cases/reset_enable.vhd": "7bb7e4d0e55c5aabdaaa2e6e8e57d01e16cb1af97e6620574029198f11d8bc0b",
+    "cases/resolved_drivers.vhd": "12c2420a49a1b91ccafd570c89f2290fca182beed93b4637c0405bb15bf6b5e8",
+    "cases/weak_clock_edge.vhd": "f2deac9a3800dcdfd543d2070fa0dd9ba7d987a84431d9d0820490f4986911c9",
+    "cases/initial_values.vhd": "b527247973abb8f22fb86b2770f73afe8ec21d39abdeea8cdbc606e781140190",
+    "cases/missing_declaration.vhd": "1c75f0344615684ec0c58d19d78d69b33785a655234eaa1cdda3c1ab5f7ecd77",
+    "cases/ambiguous_overload.vhd": "34e876509c9ccb919b211d52b435ba0a130586cd9778d79c3101664ad5a3942d",
+    "cases/distinct_array_types.vhd": "b35587825968cd74948b65eb2f7a327514084545cf1e56d864c03705ad5c820f",
+    "cases/runtime_range_check.vhd": "0e3eea12203dbe015dbb0d975ca2099246c5ec4f6f59a463981b9290409a6519",
+    "cases/runtime_length_check.vhd": "d53f61f1b520467d6cf99311eb9ed0f80966e48f7451ef4dc4c056b6b676a300",
+    "cases/unresolved_drivers.vhd": "b89c4defb443e993c97e035a5b42f8a5c156b760a0c2b4974333ddb1eb1b616a",
+    "cases/duplicate_declaration.vhd": "5a1ba26d9066e18deab399c9fd0c1cb03dcfca37b8a6f1b43ddfdc99a3facd0f",
+    "cases/unary_precedence.vhd": "eb9258d1bb9604ee24adc460cd4bfae66d1f2eb17a79703af593d1c691fcbc70"
+  },
+  "results": [
+    {
+      "id": "basic_identifier_case",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/basic_identifier_case.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:basic_identifier_case\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/basic_identifier_case.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/basic_identifier_case.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "extended_identifiers",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/extended_identifiers.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:extended_identifiers\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/extended_identifiers.vhd:14\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/extended_identifiers.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "based_literals",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/based_literals.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:based_literals\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/based_literals.vhd:14\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/based_literals.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "return_type_overload",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/return_type_overload.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:return_type_overload\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/return_type_overload.vhd:16\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/return_type_overload.vhd:20\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "operator_overload",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/operator_overload.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:operator_overload\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/operator_overload.vhd:15\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/operator_overload.vhd:19\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "ascending_array",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/ascending_array.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:ascending_array\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/ascending_array.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/ascending_array.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "nonzero_descending_array",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/nonzero_descending_array.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:nonzero_descending_array\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/nonzero_descending_array.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/nonzero_descending_array.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "positional_array_assignment",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/positional_array_assignment.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 1ns+0: PROBE_PASS:positional_array_assignment\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/positional_array_assignment.vhd:14\n** Note: 1ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/positional_array_assignment.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "null_array",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/null_array.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:null_array\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/null_array.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/null_array.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "unconstrained_function",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unconstrained_function.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:unconstrained_function\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unconstrained_function.vhd:14\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unconstrained_function.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "signed_resize",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signed_resize.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:signed_resize\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signed_resize.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signed_resize.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "mod_rem",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/mod_rem.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:mod_rem\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/mod_rem.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/mod_rem.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "record_aggregate",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/record_aggregate.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:record_aggregate\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/record_aggregate.vhd:14\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/record_aggregate.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "named_array_aggregate",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/named_array_aggregate.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:named_array_aggregate\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/named_array_aggregate.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/named_array_aggregate.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "deferred_constant",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/deferred_constant.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:deferred_constant\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/deferred_constant.vhd:14\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/deferred_constant.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "generic_generate",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/generic_generate.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 1ns+0: PROBE_PASS:generic_generate\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/generic_generate.vhd:18\n** Note: 1ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/generic_generate.vhd:22\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "architecture_selection",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/architecture_selection.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 1ns+0: PROBE_PASS:architecture_selection\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/architecture_selection.vhd:16\n** Note: 1ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/architecture_selection.vhd:20\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "component_binding",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/component_binding.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 1ns+0: PROBE_PASS:component_binding\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/component_binding.vhd:16\n** Note: 1ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/component_binding.vhd:20\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "work_library",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=probelib",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/work_library.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=probelib",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=probelib",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:work_library\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/work_library.vhd:13\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/work_library.vhd:17\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "signal_variable_scheduling",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signal_variable_scheduling.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 4ns+0: PROBE_PASS:signal_variable_scheduling\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signal_variable_scheduling.vhd:18\n** Note: 4ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/signal_variable_scheduling.vhd:25\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "partial_assignment_priority",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/partial_assignment_priority.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 2ns+0: PROBE_PASS:partial_assignment_priority\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/partial_assignment_priority.vhd:16\n** Note: 2ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/partial_assignment_priority.vhd:20\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "variable_retention",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/variable_retention.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 4ns+0: PROBE_PASS:variable_retention\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/variable_retention.vhd:16\n** Note: 4ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/variable_retention.vhd:21\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "process_all",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/process_all.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 3ns+0: PROBE_PASS:process_all\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/process_all.vhd:13\n** Note: 3ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/process_all.vhd:18\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "reset_enable",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/reset_enable.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 5ns+0: PROBE_PASS:reset_enable\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/reset_enable.vhd:17\n** Note: 5ns+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/reset_enable.vhd:25\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "resolved_drivers",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/resolved_drivers.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "weak_clock_edge",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/weak_clock_edge.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "initial_values",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/initial_values.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "missing_declaration",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/missing_declaration.vhd"
+          ],
+          "returncode": 1,
+          "output": "** Error: no visible declaration for MISSING\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/missing_declaration.vhd:10\n    |\n 10 | constant n : integer := missing;\n    |                         ^^^^^^^\n",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "ambiguous_overload",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/ambiguous_overload.vhd"
+          ],
+          "returncode": 1,
+          "output": "** Error: ambiguous use of name F\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/ambiguous_overload.vhd:12\n    |\n 10 | function f return integer is begin return 1; end;\n    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    | visible declaration of F as F [return INTEGER] from WORK.PROBE body\n 11 | function f return boolean is begin return true; end;\n    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    | visible declaration of F as F [return BOOLEAN] from WORK.PROBE body\n 12 | constant n : boolean := f = f;\n    |                         ^ use of name F here\n",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "distinct_array_types",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/distinct_array_types.vhd"
+          ],
+          "returncode": 1,
+          "output": "** Error: type of initial value FIRST does not match type of declaration SECOND\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/distinct_array_types.vhd:13\n    |\n 13 | constant b : second(1 downto 0) := a;\n    |                                    ^\n",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "runtime_range_check",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/runtime_range_check.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 1,
+          "output": "** Fatal: 1ns+0: value 5 outside of SMALL range 0 to 3 for signal OUTPUT_VALUE\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/runtime_range_check.vhd:17\n    |\n 17 |     wait for 1 ns; output_value <= input_value; wait for 1 ns;\n    |                                    ^^^^^^^^^^^\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "runtime_length_check",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/runtime_length_check.vhd"
+          ],
+          "returncode": 1,
+          "output": "** Error: length of value 4 does not match length of target 2 for signal B\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/runtime_length_check.vhd:16\n    |\n 16 |     wait for 1 ns; b <= a; wait for 1 ns;\n    |                         ^\n",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "unresolved_drivers",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unresolved_drivers.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 1,
+          "output": "** Fatal: (init): unresolved signal Q has multiple sources\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unresolved_drivers.vhd:10\n    |\n 10 | signal q : bit;\n    |        ^ signal Q declared with unresolved type BIT\n 11 | begin\n 12 | q <= '0';\n    | ^^^^^^^^^ driven by process :probe:_p0\n 13 | q <= '1';\n    | ^^^^^^^^^ driven by process :probe:_p1\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    },
+    {
+      "id": "duplicate_declaration",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/duplicate_declaration.vhd"
+          ],
+          "returncode": 1,
+          "output": "** Error: N already declared in this region\n    > /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/duplicate_declaration.vhd:11\n    |\n 10 | constant n : integer := 1;\n    |          ^ previous declaration was here\n 11 | constant n : integer := 2;\n    |          ^ duplicate declaration\n",
+          "timeout": false,
+          "stage": "analyze"
+        }
+      ]
+    },
+    {
+      "id": "unary_precedence",
+      "passed": true,
+      "steps": [
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-a",
+            "/Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unary_precedence.vhd"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "analyze"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-e",
+            "probe"
+          ],
+          "returncode": 0,
+          "output": "",
+          "timeout": false,
+          "stage": "elaborate"
+        },
+        {
+          "command": [
+            "/opt/homebrew/Cellar/nvc/1.23.0/bin/nvc",
+            "--std=2008",
+            "--work=work",
+            "-r",
+            "probe",
+            "--exit-severity=error",
+            "--stop-time=1us",
+            "--stop-delta=1000"
+          ],
+          "returncode": 0,
+          "output": "** Note: 0ms+0: PROBE_PASS:unary_precedence\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unary_precedence.vhd:6\n** Note: 0ms+0: STOP called\n   Procedure STOP [] at lib/std.08/env-body.vhd:32\n   Process :probe:check at /Users/xtof/WORK/naja3/src/vhdl/tests/semantic/cases/unary_precedence.vhd:10\n",
+          "timeout": false,
+          "stage": "run"
+        }
+      ]
+    }
+  ]
+}

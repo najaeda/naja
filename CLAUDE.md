@@ -119,12 +119,33 @@ ci/check_submodule_bazel_sync.py`.
 
 ## Conventions
 
+- Every new file, including test fixtures and helper scripts, must have both copyright and licensing information. For Naja-authored files, add `SPDX-FileCopyrightText: <year> The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>` and `SPDX-License-Identifier: Apache-2.0` using the file format's comment syntax. Preserve third-party attribution and licenses. For files that cannot contain comments, add coverage in `.reuse/dep5`. Before finishing a change that adds files or changes licensing metadata, run `reuse lint` and fix any missing copyright or licensing information introduced by the change.
 - Match the surrounding code's style, naming, and comment density — the SNL layer uses `NL*`/`SNL*` prefixes; follow the local idiom.
 - The SystemVerilog frontend is built on **slang**; sequential lowering and always-block handling live in `SNLSVConstructor` and the "Sequential Assignment Lowering" community — query the graph before touching them.
 - Post-elaboration netlists must never silently encode an unsupported construct incorrectly. If faithful lowering is not available, reject the construct or emit a clear diagnostic rather than dropping a value, leaving a net undriven, or otherwise producing a plausible but wrong netlist.
 - Prefer general frontend support over fixes tailored to one reproducer: identify the shared language semantics and cover representative variations in syntax, type/shape, and downstream use where practical.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
+
+## VHDL and SystemVerilog loading alignment
+
+Keep VHDL and SystemVerilog loading behavior and APIs parallel wherever practical.
+Use the existing SystemVerilog loader as the reference for API names, defaults,
+configuration options, diagnostics, warning deduplication and suppression, report
+file routing, and error handling. Apply this consistently across the C++ loaders,
+raw Python bindings, and high-level `najaeda.netlist` APIs. Prefer matching an
+existing SV convention over introducing a VHDL-specific one. Differences should
+reflect language requirements or clearly documented implementation limits; update
+the relevant documentation and focused tests when introducing such differences.
+
+HDL loading uses `NLLibrary` as the destination and logical-library identity.
+Both Python VHDL and SV loaders accept `library="DESIGN"`; basic library names
+match case-insensitively, extended names exactly, and ambiguous root names are
+errors. Lookup stays within root libraries of the same `NLDB`, without recursive
+or cross-database fallback. In VHDL, `work` always denotes the library owning the
+referenced source unit, including imported package contexts. Retained sources,
+packages, model caches, and elaborated designs must keep that ownership. `std`
+and `ieee` use explicit built-in providers for the supported language subset.
 
 ## Primitive timing-model alignment
 

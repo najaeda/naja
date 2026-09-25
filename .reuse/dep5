@@ -19,6 +19,23 @@ Files: CLAUDE.md AGENTS.md
 Copyright: 2026 The Naja Authors.
 License: Apache-2.0
 
+Files: src/nl/formats/hdl/BUILD.bazel src/nl/formats/hdl/CMakeLists.txt
+ src/nl/formats/vhdl/BUILD.bazel src/nl/formats/vhdl/CMakeLists.txt
+ src/vhdl/BUILD.bazel src/vhdl/CMakeLists.txt src/vhdl/README.md
+ src/vhdl/tests/corpus/manifest.json
+ src/vhdl/tests/semantic/manifest.json
+ src/vhdl/tests/semantic/nvc_expectations.json
+ src/vhdl/tests/semantic/reference.json
+ src/vhdl/tests/semantic/reference_nvc_1.23.0.json
+ src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json
+ src/vhdl/tests/semantic/cases/*.vhd
+ src/vhdl/tests/semantic/run.py src/vhdl/tests/semantic/run_nvc.py
+ src/vhdl/tests/semantic/test_nvc_runner.py src/vhdl/tests/semantic/test_runner.py
+ test/nl/formats/hdl/BUILD.bazel test/nl/formats/hdl/CMakeLists.txt
+ test/nl/formats/vhdl/CMakeLists.txt
+Copyright: 2026 The Naja Authors.
+License: Apache-2.0
+
 Files: test/nl/formats/verilog/benchmarks/* test/nl/snl/kernel/benchs/* test/najaeda/.coveragerc
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0

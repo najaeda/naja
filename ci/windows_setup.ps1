@@ -12,6 +12,7 @@ git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE/vcpkg
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install tbb:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-intrusive:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-dynamic-bitset:x64-windows
+& "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-multiprecision:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-unordered:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-regex:x64-windows
 

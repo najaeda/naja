@@ -9,7 +9,8 @@ attributes, hierarchical paths, occurrences, and equipotentials.
 
 Typical use cases include:
 
-* loading Verilog, elaborated SystemVerilog, Liberty, primitive libraries, and
+* loading Verilog, elaborated SystemVerilog, experimental VHDL, Liberty,
+  primitive libraries, and
   Naja interchange files;
 * exploring hierarchy, ports, nets, instance terminals, and flat connectivity;
 * writing netlist analysis passes such as fanout, logic-level, and design

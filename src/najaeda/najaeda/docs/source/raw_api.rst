@@ -240,7 +240,7 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLUniverse`
      - ``create``, ``destroy``, ``get``, ``getDB``, ``getTopDB``, ``setTopDB``, ``getTopDesign``, ``setTopDesign``, ``getUserDBs``, ``getSNLDesign``, ``getObject``, ``applyDLE``, ``applyConstantPropagation``, ``getMaxFanout``, ``getMaxLogicLevel``
    * - :class:`najaeda.naja.NLDB`
-     - ``create``, ``destroy``, ``getID``, ``getNLID``, ``isTopDB``, ``getLibraries``, ``getLibrary``, ``getGlobalLibraries``, ``getPrimitiveLibraries``, ``getTopDesign``, ``loadVerilog``, ``loadSystemVerilog``, ``loadLibertyPrimitives``, ``loadNajaIF``, ``dumpNajaIF``, ``dumpVerilog``
+     - ``create``, ``destroy``, ``getID``, ``getNLID``, ``isTopDB``, ``getLibraries``, ``getLibrary``, ``getGlobalLibraries``, ``getPrimitiveLibraries``, ``getTopDesign``, ``loadVerilog``, ``loadSystemVerilog``, ``loadVHDL``, ``loadLibertyPrimitives``, ``loadNajaIF``, ``dumpNajaIF``, ``dumpVerilog``
    * - :class:`najaeda.naja.NLLibrary`
      - ``create``, ``createPrimitives``, ``getDB``, ``getID``, ``getNLID``, ``getName``, ``setName``, ``isStandard``, ``isPrimitives``, ``getSNLDesign``, ``getSNLDesigns``, ``getLibrary``
    * - :class:`najaeda.naja.SNLDesign`
@@ -311,7 +311,173 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
-   The raw ``NLDB`` Verilog, SystemVerilog, and Liberty loaders report malformed
+   Both ``NLDB.loadSystemVerilog`` and ``NLDB.loadVHDL`` accept
+   ``library="DESIGN"`` to select a root ``NLLibrary`` in this database. Missing
+   destinations are created. Basic names match case-insensitively, extended
+   names exactly; ambiguous matches fail. Existing positional arguments retain
+   their meaning. The high-level loaders expose the same keyword-only option.
+   VHDL named-library references resolve only within these roots; ``work`` is
+   the library owning the source unit, including imported packages. SV uses
+   this option for destination storage, without cross-library source binding.
+
+   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` loads one VHDL source file and returns its
+   ``SNLDesign``. Load package files before their users in the same database:
+   a package-only file returns ``None`` and preserves the current top design.
+   A file containing one entity with required generic values also returns
+   ``None`` when ``top`` is omitted: its source is retained until a parent
+   supplies those values through a generic map. Pass ``top`` explicitly to
+   require immediate elaboration and diagnose any missing generic values.
+   Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
+   Beta mode; its supported subset and behavior may change between releases.
+   RTL source files and package declarations are retained in the live design
+   library for subsequent loads; they are not serialized in NajaIF. Load these
+   dependencies through the raw API; the high-level loader expects a completed
+   top design. RTL lowering errors include the original source file, line, and
+   column, including errors in a dependency elaborated by a later load.
+   Package function declarations and bodies are also retained for later loads.
+   Pure integer/boolean helpers can elaborate constants and bounds with static
+   arguments; overload resolution and runtime/vector function evaluation are
+   not yet supported. A package-only load validates parsing, not every function
+   body's evaluability. Unsupported calls are diagnosed when elaboration needs
+   them. The high-level loader uses the same evaluator once a top is available.
+   Supported record ports become single ``SNLBusTerm`` objects with descending
+   indices from total width minus one to zero. Fields occupy consecutive bits in
+   declaration order, recursively; record field metadata is not exposed as raw
+   SNL objects. Use :doc:`loading` for the supported record and unresolved-logic
+   subset and current NEORV32 limitations.
+   The RTL path infers a unique uninstantiated root entity, including references
+   inside nested generate statements. Otherwise, specify ``top`` explicitly.
+   The basic structural hierarchy path still requires an explicit ``top``.
+
+   Architecture-local pure functions also support static integer/boolean evaluation.
+   Bodies and default arguments use declarations visible at the function declaration,
+   including enclosing generics and scalar constants. Runtime/vector evaluation,
+   overloading, and architecture function forward declarations remain unsupported.
+   Static function loops support unlabeled ``exit`` and ``exit when``; labeled
+   exits and process-loop exits remain unsupported.
+
+   The loader excludes simulation regions marked by ``pragma``, ``synthesis``,
+   or ``synopsys`` ``translate_off/on`` comments, preserving source locations.
+   Assertion and report statements are ignored, including conditions and
+   ``severity failure``; configuration assertions do not validate generics.
+   Each load logs the first occurrence of each warning code to the console.
+   The diagnostics report records all occurrences with source path, line, and
+   column, and is overwritten per load. Set ``diagnostics_report_path`` to a
+   string path to choose the report, or ``None`` for console-only output.
+   Warning codes currently include ``ignored-assertion`` and ``ignored-report``.
+   Retained dependency sources are not reported again during internal re-parsing.
+   The high-level ``netlist.load_vhdl`` exposes the same option and also accepts
+   ``os.PathLike`` paths.
+   Nested or unbalanced exclusion directives are errors.
+
+   Concurrent ``with ... select`` assignments support static/grouped choices
+   and ``others``, with the same coverage checks as case statements.
+
+   Input port maps accept binary character, string, and binary/octal/hex
+   bit-string literals, checked against the formal port type and width.
+   Output literals and general expression/aggregate actuals remain unsupported.
+
+   Named port associations may select vector elements, slices, and record fields
+   on the formal side, for example ``data_i(0) => data_bit``. Individual associations
+   must be consecutive and cover every scalar subelement exactly once. Overlaps,
+   missing elements, invalid directions or bounds, and type/width mismatches are
+   errors. Formal index expressions currently support integer literals, locally
+   static integer constants, and predefined arithmetic; generics and generate
+   iterators cannot be used as formal indices. Actual selections may still use
+   elaboration-time generic or generate values. Component selections use the
+   component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
+   vector, and record ports in positional or named maps. Their instance terminals
+   remain unconnected, matching SV empty output connections, without a warning.
+   Input defaults are not yet supported, so open inputs remain rejected. Individual
+   formal elements or slices cannot be associated with ``open``.
+   As with connected record ports, their type package currently needs to be visible
+   in the instantiating scope as well as the child entity.
+
+   Processes may repeat their opening label in ``end process label;``, including
+   combinational, clocked, and asynchronous-reset processes inside generates.
+   The closing label is optional; when present it must match the opening label.
+   Basic identifiers are case-insensitive, while extended identifiers retain case.
+
+   Arrays may use an enumeration as their index type, for example
+   ``type requests_t is array(device_t) of request_t;``. Element order follows the
+   enumeration declaration, with nominal index-type checks. Enum literals and
+   constants select elements directly, including record elements in port maps.
+   Explicit enum ranges, descending slices, and unconstrained enum-indexed arrays
+   with explicit object bounds are supported. Runtime enum indices use mux reads
+   and decoded signal writes; clocked enum-indexed arrays retain register lowering
+   rather than RAM inference. Integer-indexed arrays reject enum indices, and
+   enum-indexed arrays reject integer or unrelated-enum indices. Enumeration-indexed
+   integer constant tables and enumeration subtype declarations remain unsupported.
+
+   A single dynamically indexed whole-word clocked write site can infer an
+   uninitialized array as an NLDB0 RAM primitive. Read registers remain explicit
+   DFFs, preserving enables and old-data read/write collisions. Address reset
+   leaves memory contents intact. See :doc:`loading` for inference limits and
+   cases that retain register/mux lowering.
+
+   The experimental two-state RTL subset supports constrained arrays, package
+   array types and positional constant aggregates, binary/octal/hex literals,
+   static slices and loops, nested ``for generate`` and static
+   ``if``/``elsif``/``else generate`` statements containing assignments, clocked
+   processes, and component/direct-entity instances. Generate-local signals,
+   constants, arrays, records, and enumerations have separate bindings and nets per elaborated
+   body; local arrays use register/mux lowering. Internal enum signals, record
+   fields, and arrays preserve nominal type checking and explicit initialization;
+   enum-valued ports are not yet supported. The subset also supports
+   nested sequential cases with static choices, ranges, and ``others``, plus
+   combinational processes with complete assignment coverage and explicit or
+   ``all`` sensitivity. Explicit sensitivity entries accept nested record fields
+   and validate coverage per signal bit. The subset includes integer-indexed
+   ROM/RAM reads and clocked writes, and multiple clocked
+   processes with synchronous reset/enable and constant asynchronous reset/set.
+   Asynchronous state uses canonical NLDB0 DFFRN, DFFR, or DFFS primitives;
+   bits omitted from the reset branch hold while reset is active. See
+   :doc:`loading` for the supported reset idiom and restrictions.
+   Both simple and structured processes
+   accept ``rising_edge(clk)`` and ``clk'event and clk = '1'`` guards, including
+   parentheses around the guard or its event/level operands. The event and level
+   names must match the same scalar input clock in the sensitivity list; falling
+   edges and extra Boolean conditions on the guard are rejected.
+   Nonnegative constrained integer
+   counters, ``std_logic_unsigned`` addition/subtraction and
+   ``conv_integer(std_logic_vector)`` (with ``std_logic_arith`` imported) are
+   supported. Component binding requires a matching visible declaration and
+   supports named or positional ports (including static indices and slices)
+   and integer/boolean generic specialization. Boolean defaults and actuals retain
+   their type (integers are not implicitly converted), including across logical
+   libraries. A generic can omit its default when its
+   value is supplied by the instance. Architecture/package integer constants
+   and one-dimensional integer constant tables are evaluated statically.
+   Positional aggregates can constrain an otherwise unconstrained array type;
+   inferred indices begin at the index subtype's left bound (0 for ``natural``,
+   1 for ``positive``, and -2147483648 for the supported 32-bit ``integer``).
+   Explicit bounds preserve their direction and are checked against the subtype.
+   Hardware operates on legal subtype/index values; simulation bounds checks
+   and nine-valued initialization are not implemented. Nonbinary literals,
+   conflicting drivers, unsupported package bodies, and unsupported operations
+   are rejected. ``numeric_std.unsigned`` and ``numeric_std.signed`` vector addition, subtraction,
+   multiplication, equality/inequality and concatenation are supported, including
+   mixed operand widths for arithmetic and comparisons. Multiplication produces
+   the sum of operand widths; addition/subtraction produce their maximum width.
+   Explicit binary signal initializers on locally clocked registers become DFF
+   ``INIT`` parameters. Initialization on other drivers is rejected.
+   Static ``numeric_std.to_unsigned(value, size)`` accepts natural values through
+   2147483647 and sizes from 1 through 65536; values wider than the result retain
+   their low bits, as specified by the conversion. Dynamic conversions and null
+   vectors are rejected. Conversions between ``unsigned``, ``signed``, and
+   ``std_logic_vector`` preserve bit positions. Signed arithmetic sign-extends
+   operands; mixed signed/unsigned operands require explicit conversions.
+   With ``std_logic_signed`` visible, vector addition, subtraction, multiplication
+   and equality/inequality use signed operands;
+   ambiguous numeric operations importing both signed and unsigned overloads
+   are rejected.
+   Component declarations can also appear in the architecture declarative part,
+   and port declarations may explicitly specify the ``signal`` class.
+
+   These features are also available through the high-level
+   ``najaeda.netlist.load_vhdl`` loader.
+
+   The raw ``NLDB`` Verilog, SystemVerilog, VHDL, and Liberty loaders report malformed
    Python arguments with standard :class:`TypeError` or :class:`ValueError`
    exceptions.  List-entry errors include the option name and index, such as
    ``files[1]`` or ``defines[0]``.  Native parser and elaboration failures

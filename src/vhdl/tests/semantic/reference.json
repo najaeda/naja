@@ -1,0 +1,16 @@
+{
+  "tool": "GHDL",
+  "version": "6.0.0",
+  "build": "6.0.0.r0.ge589c698c",
+  "backend": "LLVM JIT",
+  "standard": "2008",
+  "validated_asset": "https://github.com/ghdl/ghdl/releases/download/v6.0.0/ghdl-llvm-jit-6.0.0-macos15-aarch64.tar.gz",
+  "asset_sha256": "c21312d5a0cc5833e6d8690d8c4343e67f4fc32f070c07343816cd11a31c7769",
+  "package_source_sha256": {
+    "lib/ghdl/src/ieee2008/std_logic_1164.vhdl": "2a34c7d7b2c8ba21b1e91153741399cf2cd23c8b04028dcf53765efeea76de55",
+    "lib/ghdl/src/ieee2008/std_logic_1164-body.vhdl": "6534fe4842c1133199db93725e36a9e973ea8e2ab03890433c013af813d5ce2c",
+    "lib/ghdl/src/ieee2008/numeric_std.vhdl": "318b999d6df570f08b284123348ef5bcfe93720b2471df6905bbbb9b02accd4d",
+    "lib/ghdl/src/ieee2008/numeric_std-body.vhdl": "e7148f94642f8f3a5b13d4853b38892b875e3890cea995c10eacdebf1274328b"
+  },
+  "package_provenance": "IEEE P1076 WG package sources bundled in the pinned GHDL 6.0.0 archive; package headers identify Apache-2.0 licensing. Hashes above identify the exact VHDL-2008 std_logic_1164 and numeric_std declarations and bodies used by the reference run. No package source is copied into the frontend."
+}
