@@ -89,7 +89,9 @@ struct Shape {
   std::vector<std::string> types;
   std::vector<Range> ranges;
   size_t integerWidth = 0;
-  std::vector<std::pair<std::string, Shape>> fields;
+  // Indirection keeps the recursive record shape complete when stored in a
+  // standard-library container (std::pair cannot contain Shape by value here).
+  std::vector<std::pair<std::string, std::shared_ptr<Shape>>> fields;
   const vhdl::EnumerationTypeDeclaration* enumeration = nullptr;
   // Identity of each user-defined array/record dimension, independent of spelling.
   std::vector<const void*> declarations;
@@ -104,7 +106,7 @@ struct Shape {
     if (!fields.empty()) {
       size = 0;
       for (const auto& field : fields) {
-        const auto width = field.second.size();
+        const auto width = field.second->size();
         if (size > 65536 - width) fail("oversized hardware record");
         size += width;
       }
@@ -127,7 +129,7 @@ bool compatible(const Shape& a, const Shape& b) {
         (i < b.declarations.size() ? b.declarations[i] : nullptr)) return false;
   if (a.fields.size() != b.fields.size()) return false;
   for (size_t i = 0; i < a.fields.size(); ++i)
-    if (a.fields[i].first != b.fields[i].first || !compatible(a.fields[i].second, b.fields[i].second)) return false;
+    if (a.fields[i].first != b.fields[i].first || !compatible(*a.fields[i].second, *b.fields[i].second)) return false;
   for (size_t i = 0; i < a.ranges.size(); ++i)
     if (a.ranges[i].size() != b.ranges[i].size() ||
         a.ranges[i].indexEnumeration != b.ranges[i].indexEnumeration) return false;
@@ -598,7 +600,7 @@ class RTLConstructor {
       auto type = shape(field.type);
       for (const auto& fieldName : field.names) {
         if (!names.insert(key(fieldName)).second) fail("duplicate record field: " + key(fieldName));
-        record.fields.emplace_back(key(fieldName), type);
+        record.fields.emplace_back(key(fieldName), std::make_shared<Shape>(type));
       }
     }
     record.size();
@@ -1691,7 +1693,7 @@ class RTLConstructor {
     const auto id = key(name);
     const auto hasEnumeration = [&](const auto& self, const Shape& shape) -> bool {
       if (shape.enumeration) return true;
-      for (const auto& field : shape.fields) if (self(self, field.second)) return true;
+      for (const auto& field : shape.fields) if (self(self, *field.second)) return true;
       return false;
     };
     if (port && hasEnumeration(hasEnumeration, type)) fail("enumerated ports are not yet supported");
@@ -1747,12 +1749,12 @@ class RTLConstructor {
     size_t offset = 0;
     for (const auto& [fieldName, type] : selected.shape.fields) {
       if (fieldName == name) {
-        auto result = type;
+        auto result = *type;
         selected.offset += offset;
         selected.shape = std::move(result);
         return;
       }
-      offset += type.size();
+      offset += type->size();
     }
     fail("no record field: " + name);
   }
@@ -2059,7 +2061,7 @@ class RTLConstructor {
       }
       for (size_t i = 0; i < actuals.size(); ++i) {
         if (!actuals[i]) fail("missing record aggregate field");
-        auto element = expression(*actuals[i], state, &expected->fields[i].second);
+        auto element = expression(*actuals[i], state, expected->fields[i].second.get());
         value.bits.insert(value.bits.end(), element.bits.begin(), element.bits.end());
       }
     } else if (expr.kind == Expr::Kind::Call) {
