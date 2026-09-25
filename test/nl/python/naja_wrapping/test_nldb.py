@@ -89,6 +89,221 @@ class SNLDBTest(unittest.TestCase):
         TypeError, r"files must be a list\[str\], got str"):
       db.loadLibertyPrimitives("./error.lib")
 
+  def testVHDL(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+entity inverter is port(a : in bit; y : out bit); end;
+architecture rtl of inverter is begin y <= not a; end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      with self.assertWarnsRegex(RuntimeWarning, "VHDL parser is in Beta mode"):
+        design = db.loadVHDL(vhdl.name)
+    self.assertEqual(design.getName(), "inverter")
+    self.assertEqual(db.getTopDesign(), design)
+    self.assertTrue(db.isTopDB())
+
+  def testVHDLWarningReport(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "diagnostics.vhd")
+      report = os.path.join(directory, "reports", "warnings.log")
+      with open(path, "w") as output:
+        output.write("entity e is port(y : out bit); end; "
+                     "architecture rtl of e is begin assert false; assert false; "
+                     "process(all) begin y <= '1'; end process; end;")
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=report))
+      with open(report) as output:
+        warnings = output.read()
+      self.assertEqual(warnings.count("[ignored-assertion]"), 2)
+      self.assertIn(path + ":1:", warnings)
+      # Re-parsing retained input does not duplicate warning occurrences.
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=report))
+      with open(report) as output:
+        self.assertEqual(output.read().count("[ignored-assertion]"), 2)
+      self.assertIsNotNone(db.loadVHDL(path, diagnostics_report_path=None))
+      with self.assertRaises(TypeError):
+        db.loadVHDL(path, diagnostics_report_path=1)
+      with self.assertRaises(ValueError):
+        db.loadVHDL(path, diagnostics_report_path="")
+
+  def testVHDLRejectsUnexpectedKeyword(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with self.assertRaises(TypeError):
+      db.loadVHDL("input.vhd", unsupported=True)
+
+  def testVHDLHierarchy(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+entity leaf is port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture structural of top is begin
+  u0: entity work.leaf port map(a, y);
+end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      design = db.loadVHDL(vhdl.name, top="TOP")
+    self.assertEqual(design.getName(), "top")
+    self.assertEqual(db.getTopDesign(), design)
+    self.assertIsNotNone(db.getLibrary("DESIGN").getSNLDesign("leaf"))
+
+  def testVHDLPackageAcrossLoads(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    sources = [
+      "package bytes is type pair is array(0 to 1) of bit_vector(3 downto 0); "
+      'constant rom : pair := (x"A", x"5"); end;',
+      "use work.bytes.all; entity lookup is port(y : out bit_vector(3 downto 0)); end; "
+      "architecture rtl of lookup is begin y <= rom(1); end;",
+      "package empty_pkg is end;",
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+      results = []
+      for index, source in enumerate(sources):
+        path = os.path.join(directory, str(index) + ".vhd")
+        with open(path, "w") as output:
+          output.write(source)
+        results.append(db.loadVHDL(path))
+    self.assertIsNone(results[0])
+    self.assertEqual(results[1].getName(), "lookup")
+    self.assertIsNone(results[2])
+    self.assertEqual(db.getTopDesign(), results[1])
+    other = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as source:
+      source.write(sources[1])
+      source.flush()
+      with self.assertRaises(RuntimeError):
+        other.loadVHDL(source.name)
+
+  def testVHDLRequiredGenericsAcrossFiles(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    dependency = (
+      "entity child is\n"
+      "generic(\n"
+      "  Nin : positive);\n"
+      "port(a : in bit_vector(Nin-1 downto 0); y : out bit_vector(Nin-1 downto 0)); end;\n"
+      "architecture rtl of child is begin y <= a; end;\n")
+    parent = (
+      "entity parent is port(a : in bit_vector(2 downto 0); y : out bit_vector(2 downto 0)); end;\n"
+      "architecture rtl of parent is begin\n"
+      "u : entity work.child generic map(3) port map(a,y); end;\n")
+    with tempfile.TemporaryDirectory() as directory:
+      child_path = os.path.join(directory, "child.vhd")
+      parent_path = os.path.join(directory, "parent.vhd")
+      with open(child_path, "w") as source:
+        source.write(dependency)
+      with open(parent_path, "w") as source:
+        source.write(parent)
+      with self.assertRaisesRegex(RuntimeError, "missing generic value: nin.*line 3, column 3") as error:
+        db.loadVHDL(child_path, top="child")
+      self.assertIn(child_path, str(error.exception))
+      self.assertIsNone(db.loadVHDL(child_path))
+      design = db.loadVHDL(parent_path, top="parent")
+      self.assertEqual(design.getName(), "parent")
+      self.assertEqual(db.getTopDesign(), design)
+      self.assertEqual(db.loadVHDL(parent_path, top="parent"), design)
+      self.assertIsNone(db.loadVHDL(child_path))
+      self.assertEqual(db.getTopDesign(), design)
+
+  def testHDLDestinationLibraries(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      vhdl = os.path.join(directory, "leaf.vhd")
+      sv = os.path.join(directory, "leaf.sv")
+      with open(vhdl, "w") as source:
+        source.write("entity leaf is port(a : in bit; y : out bit); end; "
+                     "architecture rtl of leaf is begin y <= a; end;")
+      with open(sv, "w") as source:
+        source.write("module leaf(input a, output y); assign y = a; endmodule")
+      for loader, files, name in ((db.loadVHDL, vhdl, "VHDLCells"),
+                                  (db.loadSystemVerilog, [sv], "SVCells")):
+        with self.subTest(loader=name):
+          for invalid in (None, 4):
+            with self.assertRaisesRegex(TypeError, "library must be a str"):
+              loader(files, library=invalid)
+          for invalid in ("", "   "):
+            with self.assertRaisesRegex(ValueError, "library must not be empty"):
+              loader(files, library=invalid)
+          loader(files, library=name, diagnostics_report_path=None)
+          self.assertIsNotNone(db.getLibrary(name).getSNLDesign("leaf"))
+          self.assertIsNone(db.getLibrary("DESIGN"))
+      self.assertEqual(db.loadVHDL(vhdl, library="vhdlcells", diagnostics_report_path=None),
+                       db.getLibrary("VHDLCells").getSNLDesign("leaf"))
+      naja.NLLibrary.create(db, "VHDLCELLS")
+      with self.assertRaisesRegex(RuntimeError, "ambiguous HDL library"):
+        db.loadVHDL(vhdl, library="vhdlcells", diagnostics_report_path=None)
+
+  def testVHDLCrossLibraryDependencyDiagnostic(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      child = os.path.join(directory, "child.vhd")
+      parent = os.path.join(directory, "parent.vhd")
+      with open(child, "w") as source:
+        source.write("entity leaf is generic(n : positive); port(y : out bit); end;\n"
+                     "architecture rtl of leaf is begin\n"
+                     "y <= missing; end;\n")
+      with open(parent, "w") as source:
+        source.write("library cells; entity top is port(y : out bit); end;\n"
+                     "architecture rtl of top is begin\n"
+                     "u: entity cells.leaf generic map(n => 1) port map(y); end;")
+      self.assertIsNone(db.loadVHDL(child, library="cells", diagnostics_report_path=None))
+      with self.assertRaises(RuntimeError) as error:
+        db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None)
+      self.assertIn(child, str(error.exception))
+      self.assertIn("line 3", str(error.exception))
+      self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("top"))
+      self.assertIsNone(db.getLibrary("cells").getSNLDesign("leaf__n_1"))
+
+  def testVHDLBooleanGenericDependencyAcrossLibraries(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      child = os.path.join(directory, "leaf.vhd")
+      parent = os.path.join(directory, "parent.vhd")
+      with open(child, "w") as source:
+        source.write("entity leaf is generic(enabled : boolean); port(a : in bit; y : out bit); end; "
+                     "architecture rtl of leaf is begin y <= a when enabled else not a; end;")
+      with open(parent, "w") as source:
+        source.write("package settings is function enabled_f(n : natural) return boolean; end; "
+                     "package body settings is function enabled_f(n : natural) return boolean is "
+                     "begin return n > 0; end; end; "
+                     "library cells; use work.settings.all; "
+                     "entity parent is generic(enabled : boolean := enabled_f(1)); "
+                     "port(a : in bit; y : out bit); end; architecture rtl of parent is begin "
+                     "u: entity cells.leaf generic map(not enabled) port map(a, y); end;")
+      self.assertIsNone(db.loadVHDL(child, library="cells", diagnostics_report_path=None))
+      top = db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None)
+      model = db.getLibrary("cells").getSNLDesign("leaf__enabled_false")
+      self.assertIsNotNone(model)
+      self.assertEqual(top.getInstance("u").getModel(), model)
+      self.assertEqual(db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None), top)
+
+  def testVHDLArgumentsAndFailureRollback(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with self.assertRaisesRegex(TypeError, "file must be a str path"):
+      db.loadVHDL(1)
+    with self.assertRaisesRegex(ValueError, "file must not be empty"):
+      db.loadVHDL("")
+    with self.assertRaisesRegex(TypeError, "top must be a str or None"):
+      db.loadVHDL("missing.vhd", top=1)
+    with self.assertRaisesRegex(ValueError, "top must not be empty"):
+      db.loadVHDL("missing.vhd", top="")
+    with self.assertRaisesRegex(RuntimeError, "cannot open VHDL file"):
+      db.loadVHDL("missing.vhd")
+
+    unsupported = """\
+entity unsupported is port(a : in bit; y : out bit); end;
+architecture rtl of unsupported is begin y <= a and missing; end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(unsupported)
+      vhdl.flush()
+      with self.assertRaises(RuntimeError):
+        db.loadVHDL(vhdl.name)
+    self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("unsupported"))
+
   def testLoadLibertyPrimitivesRenamedFiles(self):
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)

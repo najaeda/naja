@@ -2209,19 +2209,28 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     return top
 
 
+def _validate_hdl_library(library):
+    if not isinstance(library, str):
+        raise TypeError("library must be a str")
+    if not library.strip():
+        raise ValueError("library must not be empty")
+
+
 def load_system_verilog(
         files: Union[str, List[str]],
-        config: SystemVerilogConfig = None) -> Instance:
+        config: SystemVerilogConfig = None, *, library: str = "DESIGN") -> Instance:
     """Load SystemVerilog files into the top design.
 
     :param files: a list of SystemVerilog files to load or a single file.
     :param config: the configuration to use when loading the files.
+    :param library: destination root library name (default "DESIGN").
     :return: the top Instance.
     :rtype: Instance
     :raises TypeError: if files or config have the wrong type.
     :raises ValueError: if no files and no flist are provided, or configuration is empty.
     :raises FileNotFoundError: if an input file or flist does not exist.
     """
+    _validate_hdl_library(library)
     if config is None:
         config = SystemVerilogConfig()
     elif not isinstance(config, SystemVerilogConfig):
@@ -2287,6 +2296,7 @@ def load_system_verilog(
                 else os.fspath(effective_flist)),
             defines=config.defines,
             blackbox_unknown_modules=config.blackbox_unknown_modules,
+            library=library,
             suppress_warnings=config.suppress_warnings,
             keep_ast_link=config.keep_ast_link,
         )
@@ -2299,6 +2309,77 @@ def load_system_verilog(
     logger.info(
         f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
     return top
+
+
+def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
+              diagnostics_report_path: Optional[Union[str, os.PathLike]] =
+              "naja_vhdl_diagnostics.log", library: str = "DESIGN") -> Instance:
+    """Load one VHDL source file into the top design.
+
+    VHDL loading is experimental and currently supports the bounded ``bit`` and
+    ``bit_vector`` subset implemented by the native frontend. Integer and boolean
+    generic defaults and generic-map actuals specialize the supported RTL;
+    integer values can also specialize vector bounds. Pass ``top`` for a
+    supported structural source containing more than one design unit.
+
+    :param file: the VHDL source file to load.
+    :param top: optional top entity name for structural hierarchy.
+    :param diagnostics_report_path: report for all warning occurrences, overwritten
+        per load; None selects console-only. Console warnings appear once per code.
+    :param library: destination root library name (default "DESIGN").
+    :return: the top Instance.
+    :rtype: Instance
+    :raises TypeError: if file or top has the wrong type.
+    :raises ValueError: if file or top is empty, or file is not a regular file.
+    :raises FileNotFoundError: if file does not exist.
+    """
+    _validate_hdl_library(library)
+    if diagnostics_report_path is not None:
+        if not isinstance(diagnostics_report_path, (str, os.PathLike)):
+            raise TypeError("load_vhdl diagnostics_report_path must be a path string or None")
+        diagnostics_report_path = os.fspath(diagnostics_report_path)
+        if not isinstance(diagnostics_report_path, str):
+            raise TypeError("load_vhdl diagnostics_report_path must be a path string or None")
+        if not diagnostics_report_path.strip():
+            raise ValueError(
+                "load_vhdl diagnostics_report_path must not be empty; "
+                "use None for console-only")
+    if not isinstance(file, (str, os.PathLike)):
+        raise TypeError(
+            "VHDL file must be a path string "
+            f"(got {type(file).__name__})")
+    path = os.fspath(file)
+    if not path.strip():
+        raise ValueError("VHDL file must not be empty")
+    if top is not None:
+        if not isinstance(top, str):
+            raise TypeError(
+                "load_vhdl top must be a str or None "
+                f"(got {type(top).__name__})")
+        if not top.strip():
+            raise ValueError("load_vhdl top must not be empty")
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"VHDL input file does not exist: {path!r} "
+            f"(resolved to {os.path.abspath(path)!r})")
+    if not os.path.isfile(path):
+        raise ValueError(
+            f"VHDL input path is not a file: {path!r} "
+            f"(resolved to {os.path.abspath(path)!r})")
+
+    start_time = time.time()
+    logger.info(f"Starting VHDL loading for file: {path}")
+    if top is not None:
+        logger.info(f"VHDL loading top override requested: {top}")
+    __get_top_db().loadVHDL(
+        path, top=top, diagnostics_report_path=diagnostics_report_path,
+        library=library)
+    execution_time = time.time() - start_time
+    loaded_top = get_top()
+    logger.info(
+        f"VHDL loading done for top '{loaded_top.get_name()}' in "
+        f"{execution_time:.2f} seconds")
+    return loaded_top
 
 
 def load_liberty(files: Union[str, List[str]]):

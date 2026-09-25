@@ -29,8 +29,8 @@ if(ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
     PRIVATE NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT)
 endif()
 
-target_link_libraries(naja_snl_systemverilog naja_nl slang::slang)
-target_link_libraries(naja_snl_systemverilog_test naja_nl slang::slang)
+target_link_libraries(naja_snl_systemverilog naja_snl_hdl slang::slang)
+target_link_libraries(naja_snl_systemverilog_test naja_snl_hdl slang::slang)
 
 target_include_directories(naja_snl_systemverilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/frontend)

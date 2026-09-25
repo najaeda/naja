@@ -1,0 +1,200 @@
+{
+  "tool": "vhdl_lang",
+  "project": "VHDL-LS rust_hdl",
+  "version": "0.88.0",
+  "commit": "399acfe1761610b7b5ffb987414d4c115b275101",
+  "license": "MPL-2.0",
+  "asset": "https://github.com/VHDL-LS/rust_hdl/releases/download/v0.88.0/vhdl_lang-aarch64-apple-darwin.zip",
+  "asset_sha256": "0190df0e311e85e9751a28182ea67a32504ad238e41ab9f97abb4f5f7ca0f949",
+  "corpus": "../manifest.json",
+  "comparison": "analysis acceptance/rejection only; runtime and elaboration failures are not expected to be rejected by static analysis",
+  "result": {
+    "probes": 35,
+    "matched": 35,
+    "unexpected": 0,
+    "runtime_only_failures_accepted": [
+      "runtime_range_check",
+      "runtime_length_check",
+      "unresolved_drivers"
+    ]
+  },
+  "api_assessment": "The Rust crate exposes project, parser, syntax tree and semantic APIs. It does not expose a C ABI or hardware-lowering interface. Using it from the planned C++ library requires a maintained FFI or process boundary; feasibility does not establish generic specialization or common Naja elaboration support.",
+  "scope_limit": "This experiment compares static analysis disposition on the semantic probe corpus. It does not compare runtime simulation, hardware lowering, diagnostics quality in depth, throughput, or full language coverage.",
+  "cases": [
+    {
+      "id": "basic_identifier_case",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "extended_identifiers",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "based_literals",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "return_type_overload",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "operator_overload",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "ascending_array",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "nonzero_descending_array",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "positional_array_assignment",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "null_array",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "unconstrained_function",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "signed_resize",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "mod_rem",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "record_aggregate",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "named_array_aggregate",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "deferred_constant",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "generic_generate",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "architecture_selection",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "component_binding",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "work_library",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "signal_variable_scheduling",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "partial_assignment_priority",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "variable_retention",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "process_all",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "reset_enable",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "resolved_drivers",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "weak_clock_edge",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "initial_values",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "missing_declaration",
+      "expected_analysis": "rejected",
+      "observed_analysis": "rejected"
+    },
+    {
+      "id": "ambiguous_overload",
+      "expected_analysis": "rejected",
+      "observed_analysis": "rejected"
+    },
+    {
+      "id": "distinct_array_types",
+      "expected_analysis": "rejected",
+      "observed_analysis": "rejected"
+    },
+    {
+      "id": "runtime_range_check",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "runtime_length_check",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "unresolved_drivers",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    },
+    {
+      "id": "duplicate_declaration",
+      "expected_analysis": "rejected",
+      "observed_analysis": "rejected"
+    },
+    {
+      "id": "unary_precedence",
+      "expected_analysis": "accepted",
+      "observed_analysis": "accepted"
+    }
+  ]
+}
