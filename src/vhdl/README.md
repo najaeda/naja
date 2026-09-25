@@ -830,11 +830,13 @@ constructs still fail loading. C++ callers select the destination with
 console-only). Python callers use `load_vhdl(..., diagnostics_report_path=...)`
 or `NLDB.loadVHDL(..., diagnostics_report_path=...)` (`None` for console-only).
 
-The complete file list now parses. RTL elaboration next stops at named-library
-package visibility: `use neorv32.neorv32_package.all;` at `neorv32_top.vhd:19`
-in the development checkout (line 20136 of the concatenated input). Completing the target also requires runtime vector helpers,
-boolean/vector generics, additional sequential and generate constructs, and
-named-library binding. The complete top has **not** been loaded or validated yet.
+The complete file list now parses and resolves named-library imports when loaded
+into the `neorv32` library. Boolean generics now elaborate. The next unsupported
+generic is `BOOT_ADDR_CUSTOM : std_ulogic_vector(31 downto 0)` at
+`neorv32_top.vhd:30` (line 20147 of the concatenated development input).
+Completing the target still requires vector generics, runtime vector helpers,
+and additional elaboration constructs. The complete top has **not** been loaded
+or validated yet.
 
 
 ## Asynchronous reset/set
@@ -955,3 +957,36 @@ All 198 VHDL tests pass. Self-contained tests cover nested fields, parent record
 whole records, `process(all)`, dynamic field indexing, omitted sibling fields,
 invalid paths, and assignments outside clock guards. NVC independently confirms
 256 input/sensitivity combinations. The full NEORV32 top still does not load.
+
+
+## Logical libraries
+
+Each logical VHDL library maps to a root `NLLibrary` in the destination `NLDB`.
+`work` resolves to the library owning the current unit, including the context of
+an imported package. Named references require visibility through a library clause
+and search only roots of that database: basic names are case-insensitive,
+extended names are exact, and ambiguous matches fail. There is no recursive or
+cross-database fallback. `std.standard` and the supported IEEE packages remain
+explicit built-in providers.
+
+Sources and package declarations are retained on their owning library; duplicate
+checks and model caching distinguish library identity. Cross-library entities
+are elaborated into their own library, using their own interface context.
+The C++ constructor takes that destination `NLLibrary*`. Raw Python
+`db.loadVHDL(..., library="cells")` and high-level
+`netlist.load_vhdl(..., library="cells")` default to `"DESIGN"`, matching the
+new destination option on the SV loaders. SV destination selection does not
+change slang source binding. Source retention remains live-session metadata,
+not serialized in NajaIF.
+
+
+## Boolean generics
+
+The RTL path accepts boolean generic defaults and positional/named actuals,
+alongside integer subtypes. Defaults may reference earlier generics or supported
+pure scalar functions. Boolean generic values participate in static expressions
+and generate selection; required values can be deferred until a parent binds the
+entity, including across libraries and through component instances. Types are
+checked: integer `0`/`1` are not boolean `false`/`true`. Cached model names encode
+boolean overrides as `__name_false` or `__name_true`, retaining existing integer
+specialization naming. Vector generic defaults and actuals are supported for static binary vectors; runtime vector helpers remain unsupported.

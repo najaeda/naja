@@ -5,6 +5,7 @@
 
 #include "NLException.h"
 #include "NLDB0.h"
+#include "SNLHDLLibrary.h"
 #include "SNLInstParameter.h"
 #include "NLLibrary.h"
 #include "NajaPrivateProperty.h"
@@ -89,6 +90,12 @@ struct Shape {
   size_t integerWidth = 0;
   std::vector<std::pair<std::string, Shape>> fields;
   const vhdl::EnumerationTypeDeclaration* enumeration = nullptr;
+  // Identity of each user-defined array/record dimension, independent of spelling.
+  std::vector<const void*> declarations;
+  void removeOuterType() {
+    types.erase(types.begin());
+    if (!declarations.empty()) declarations.erase(declarations.begin());
+  }
   size_t size() const {
     if (integerWidth) return integerWidth;
     size_t size = 1;
@@ -114,6 +121,9 @@ bool compatible(const Shape& a, const Shape& b) {
   if (a.enumeration != b.enumeration) return false;
   if (a.integerWidth && b.integerWidth) return true;
   if (a.types != b.types || a.ranges.size() != b.ranges.size()) return false;
+  for (size_t i = 0; i < std::max(a.declarations.size(), b.declarations.size()); ++i)
+    if ((i < a.declarations.size() ? a.declarations[i] : nullptr) !=
+        (i < b.declarations.size() ? b.declarations[i] : nullptr)) return false;
   if (a.fields.size() != b.fields.size()) return false;
   for (size_t i = 0; i < a.fields.size(); ++i)
     if (a.fields[i].first != b.fields[i].first || !compatible(a.fields[i].second, b.fields[i].second)) return false;
@@ -156,40 +166,124 @@ class RTLSourceProperty final : public naja::NajaPrivateProperty {
   }
 };
 
+class LibraryContext {
+ public:
+  NLLibrary* destination;
+  const std::vector<VHDLLibrarySource>& sources;
+  NLLibrary* owner(size_t offset) const {
+    for (const auto& source : sources)
+      if (offset >= source.offset && offset < source.offset + source.size) return source.library;
+    return destination;
+  }
+  // Concatenation order between libraries is not VHDL declaration order.
+  bool precedes(size_t use, size_t declaration) const {
+    return owner(use) == owner(declaration) && use < declaration;
+  }
+  size_t start(NLLibrary* library) const {
+    for (const auto& source : sources) if (source.library == library) return source.offset;
+    return 0;
+  }
+  NLLibrary* resolve(NLLibrary* work, const std::string& name) const {
+    if (name == "work") return work;
+    NLLibrary* result = nullptr;
+    try {
+      result = findHDLLibrary(work->getDB(), name);
+    } catch (const NLException& error) {
+      fail(error.what());
+    }
+    if (!result) fail("missing VHDL library: " + name);
+    return result;
+  }
+};
+
+struct StaticScalar {
+  int64_t value = 0;
+  bool boolean = false;
+};
+struct GenericValue {
+  StaticScalar scalar;
+  // Binary bits in declaration order, independent of the caller's netlist.
+  std::optional<std::string> bits;
+};
+using GenericValues = std::map<std::string, GenericValue>;
+
 class RTLConstructor {
  public:
   RTLConstructor(SNLDesign* design, const vhdl::EntityDeclaration& entity,
                  const vhdl::ArchitectureBody& architecture,
-                 const vhdl::DesignFile& syntax,
-                 std::map<std::string, int64_t> generics,
-                 std::function<SNLDesign*(const std::string&, const std::map<std::string, int64_t>&)> build):
-      design_(design), entity_(entity), architecture_(architecture), syntax_(syntax),
+                 const vhdl::DesignFile& syntax, const LibraryContext& libraries,
+                 GenericValues generics,
+                 std::function<SNLDesign*(NLLibrary*, const std::string&, const GenericValues&)> build):
+      design_(design), entity_(entity), architecture_(architecture), syntax_(syntax), libraryContext_(libraries),
+      work_(libraries.owner(entity.span.start.offset)),
       genericOverrides_(std::move(generics)), build_(std::move(build)) {}
 
-  void run() {
+  void prepareEntity() {
     DiagnosticScope location(entity_.span);
     context(entity_.context);
     for (const auto& generic : entity_.generics) {
       DiagnosticScope location(generic.span);
       const auto type = key(generic.type.name);
-      if (type != "integer" && type != "natural" && type != "positive")
-        fail("RTL generics require an integer subtype");
+      const bool vector = type == "bit_vector" || type == "std_logic_vector" ||
+          type == "std_ulogic_vector" || type == "unsigned" || type == "signed";
+      if (!vector && type != "integer" && type != "natural" && type != "positive" && type != "boolean")
+        fail("RTL generics require an integer subtype, boolean, or constrained binary vector");
+      std::optional<Shape> target;
+      if (vector) {
+        target = shape(generic.type);
+        target->size();
+      }
       for (const auto& name : generic.names) {
         DiagnosticScope location(name.span);
-        if (!generic.defaultValue && !genericOverrides_.contains(key(name)))
-          fail("missing generic value: " + key(name));
-        const auto value = genericOverrides_.contains(key(name)) ? genericOverrides_.at(key(name)) :
-            integer(*generic.defaultValue);
-        if (generic.type.constraint) range(*generic.type.constraint).position(value);
-        if ((type == "positive" && value < 1) || (type == "natural" && value < 0))
-          fail("generic value violates its subtype");
-        if (functions_.contains(key(name)) || booleans_.contains(key(name)) || !integers_.emplace(key(name), value).second) fail("duplicate generic");
+        const auto id = key(name);
+        if (!generic.defaultValue && !genericOverrides_.contains(id))
+          fail("missing generic value: " + id);
+        if (functions_.contains(id) || objects_.contains(id) ||
+            booleans_.contains(id) || integers_.contains(id)) fail("duplicate generic");
+        const auto* expected = target ? &*target : nullptr;
+        if (genericOverrides_.contains(id) && genericActual_)
+          genericOverrides_.at(id) = genericActual_(id, expected);
+        const auto value = genericOverrides_.contains(id) ? genericOverrides_.at(id) :
+            genericValue(*generic.defaultValue, expected);
+        if (vector) {
+          if (!value.bits || value.bits->size() != target->size()) fail("vector generic type or length mismatch: " + id);
+          Value object{*target, {}};
+          for (char bit : *value.bits) object.bits.push_back(constant(bit == '1'));
+          objects_.emplace(id, Object{std::move(object), false, false, false, true});
+        } else {
+          if (value.bits || value.scalar.boolean != (type == "boolean")) fail("generic value type mismatch: " + id);
+          if (type == "boolean" && generic.type.constraint) fail("boolean generic constraints are unsupported");
+          if (generic.type.constraint) range(*generic.type.constraint).position(value.scalar.value);
+          if ((type == "positive" && value.scalar.value < 1) || (type == "natural" && value.scalar.value < 0))
+            fail("generic value violates its subtype");
+          if (value.scalar.boolean) booleans_.emplace(id, value.scalar.value);
+          else integers_.emplace(id, value.scalar.value);
+        }
       }
     }
+  }
+
+  GenericValue genericValue(const Expr& actual, const Shape* expected) {
+    DiagnosticScope location(actual.span);
+    if (!expected) return {scalar(actual), {}};
+    const auto value = expression(actual, State{}, expected);
+    std::string bits;
+    for (auto* bit : value.bits) {
+      const auto binary = constantValue(bit);
+      if (!binary) fail("vector generic actual must be static and binary");
+      bits += *binary ? '1' : '0';
+    }
+    return {{}, std::move(bits)};
+  }
+
+  void run() {
+    DiagnosticScope location(entity_.span);
+    prepareEntity();
     for (const auto& port : entity_.ports) {
-      if (port.defaultValue) fail("RTL port defaults are not yet supported");
       if (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out)
         fail("RTL ports must be in or out");
+      if (port.defaultValue && port.mode != vhdl::PortMode::In)
+        fail("port defaults are supported only for input ports");
       const auto type = shape(port.type);
       for (const auto& name : port.names)
         addObject(name, type, port.mode == vhdl::PortMode::In,
@@ -400,7 +494,7 @@ class RTLConstructor {
     if (!addressValue.shape.integerWidth) fail("array index must have integer type");
     auto [address, valid] = memoryAddress(name, std::move(addressValue.bits));
     element.ranges.erase(element.ranges.begin());
-    element.types.erase(element.types.begin());
+    element.removeOuterType();
     auto& memory = memories_.at(name);
     // Reuse a port for identical resolved addresses (including constant words).
     for (const auto& read : memory.reads)
@@ -480,6 +574,7 @@ class RTLConstructor {
     }
     auto element = shape(declaration.elementType);
     element.types.insert(element.types.begin(), name);
+    element.declarations.insert(element.declarations.begin(), &declaration);
     element.ranges.insert(element.ranges.begin(), arrayBounds(declaration));
     if (!declaration.indexSubtype) element.size();
     arrays_.emplace(name, std::move(element));
@@ -496,6 +591,7 @@ class RTLConstructor {
         name == "signed" || name == "integer" || name == "natural" || name == "positive" || name == "boolean")
       fail("duplicate or shadowing record type: " + name);
     Shape record{{name}, {}};
+    record.declarations.push_back(&declaration);
     std::set<std::string> names;
     for (const auto& field : declaration.fields) {
       auto type = shape(field.type);
@@ -605,6 +701,10 @@ class RTLConstructor {
       if (functions_.contains(key(id)) || booleans_.contains(key(id)) || !names.insert(key(id)).second || objects_.contains(key(id)) || integers_.contains(key(id)) ||
           integerTables_.contains(key(id)) || (enumerations_.contains(key(id)) || records_.contains(key(id))) || arrayDeclarations_.contains(key(id)))
         fail("duplicate constant: " + key(id));
+    if (name == "string") {
+      // String constants are synthesis diagnostics metadata; retain no hardware value.
+      return;
+    }
     if (name == "boolean") {
       const auto value = scalar(*declaration.value);
       checkStaticType(value, type, nullptr);
@@ -627,7 +727,7 @@ class RTLConstructor {
     auto constantType = type;
     if (arrayDeclarations_.contains(name)) {
       const auto& array = *arrayDeclarations_.at(name);
-      if (type.name.span.start.offset < array.span.start.offset) fail("array type used before declaration");
+      if (libraryContext_.precedes(type.name.span.start.offset, array.span.start.offset)) fail("array type used before declaration");
       const auto bounds = constantBounds(array, type, *declaration.value);
       if (!bounds.size()) fail("null array constant is unsupported");
       const auto element = key(array.elementType.name);
@@ -736,11 +836,14 @@ class RTLConstructor {
 
   void lowerInstance(const vhdl::EntityInstantiation& instance, const std::string& prefix = "") {
     DiagnosticScope location(instance.span);
-    if (key(instance.library) != "work" || instance.architecture)
+    if (instance.architecture)
       fail("unsupported RTL entity binding");
+    if (!libraries_.contains(key(instance.library))) fail("library is not visible: " + key(instance.library));
+    auto* targetLibrary = libraryContext_.resolve(work_, key(instance.library));
     const vhdl::EntityDeclaration* entity = nullptr;
     for (const auto& candidate : syntax_.entities)
-      if (key(candidate.name) == key(instance.entity)) entity = &candidate;
+      if (libraryContext_.owner(candidate.span.start.offset) == targetLibrary &&
+          key(candidate.name) == key(instance.entity)) entity = &candidate;
     if (!entity) fail("missing entity: " + key(instance.entity));
     if (instance.component && !components_.contains(key(instance.entity)))
       fail("component is not visible: " + key(instance.entity));
@@ -748,7 +851,8 @@ class RTLConstructor {
     std::vector<std::string> genericNames;
     for (const auto& generic : interface.generics)
       for (const auto& name : generic.names) genericNames.push_back(key(name));
-    std::map<std::string, int64_t> overrides;
+    GenericValues overrides;
+    std::map<std::string, const Expr*> actuals;
     bool named = false;
     for (size_t i = 0; i < instance.generics.size(); ++i) {
       const auto& association = instance.generics[i];
@@ -757,18 +861,31 @@ class RTLConstructor {
       named |= association.formal.has_value();
       const auto name = association.formal ? key(*association.formal) : genericNames[i];
       if (std::find(genericNames.begin(), genericNames.end(), name) == genericNames.end() ||
-          !overrides.emplace(name, integer(*association.actual)).second) fail("invalid generic association");
+          !actuals.emplace(name, association.actual.get()).second) fail("invalid generic association");
+      overrides.emplace(name, GenericValue{});
     }
+    RTLConstructor childScope(design_, *entity, architecture_, syntax_, libraryContext_, overrides, build_);
+    childScope.genericActual_ = [&](const std::string& name, const Shape* expected) {
+      return genericValue(*actuals.at(name), expected);
+    };
+    childScope.prepareEntity();
+    overrides = childScope.genericOverrides_;
+    const auto parentObjects = objects_;
     const auto parentIntegers = integers_;
+    const auto parentBooleans = booleans_;
     for (const auto& generic : entity->generics)
       for (const auto& name : generic.names) {
-        DiagnosticScope location(name.span);
-        if (!generic.defaultValue && !overrides.contains(key(name))) fail("missing generic value: " + key(name));
-        integers_[key(name)] = overrides.contains(key(name)) ? overrides.at(key(name)) : integer(*generic.defaultValue);
+        const auto id = key(name);
+        integers_.erase(id);
+        booleans_.erase(id);
+        objects_.erase(id);
+        if (childScope.objects_.contains(id)) objects_[id] = childScope.objects_.at(id);
+        else if (childScope.booleans_.contains(id)) booleans_[id] = childScope.booleans_.at(id);
+        else integers_[id] = childScope.integers_.at(id);
       }
     std::map<std::string, Shape> formalShapes;
     for (const auto& port : entity->ports)
-      for (const auto& name : port.names) formalShapes.emplace(key(name), shape(port.type));
+      for (const auto& name : port.names) formalShapes.emplace(key(name), childScope.shape(port.type));
     if (instance.component) {
       const auto& component = *components_.at(key(instance.entity));
       std::map<std::string, vhdl::PortMode> modes;
@@ -795,8 +912,10 @@ class RTLConstructor {
           if (key(declared.names[j]) != key(actual.names[j])) fail("component generic name mismatch");
       }
     }
+    objects_ = parentObjects;
     integers_ = parentIntegers;
-    auto* model = build_(key(instance.entity), overrides);
+    booleans_ = parentBooleans;
+    auto* model = build_(targetLibrary, key(instance.entity), overrides);
     std::vector<SNLTerm*> ports;
     for (const auto& declaration : interface.ports) for (const auto& name : declaration.names) {
       SNLTerm* matching = nullptr;
@@ -889,9 +1008,31 @@ class RTLConstructor {
         child->getInstTerm(term)->setNet(net);
       }
     }
-    for (auto* port : ports) {
-      if (!bound.contains(port) || std::find(bound.at(port).begin(), bound.at(port).end(), false) != bound.at(port).end())
-        fail("incomplete port association: " + port->getName().getString());
+    for (size_t declarationIndex = 0; declarationIndex < interface.ports.size(); ++declarationIndex) {
+      const auto& declaration = interface.ports[declarationIndex];
+      for (const auto& name : declaration.names) {
+        const auto id = key(name);
+        auto* port = ports.front();
+        for (auto* candidate : ports) {
+          std::string candidateName = candidate->getName().getString();
+          for (auto& c : candidateName) c = std::tolower(static_cast<unsigned char>(c));
+          if (candidateName == id) { port = candidate; break; }
+        }
+        const bool complete = bound.contains(port) &&
+            std::find(bound.at(port).begin(), bound.at(port).end(), false) == bound.at(port).end();
+        if (complete) continue;
+        const auto* defaultValue = declaration.defaultValue.get();
+        if (!defaultValue) fail("incomplete port association: " + port->getName().getString());
+        if (port->getDirection() != SNLTerm::Direction::Input)
+          fail("port defaults are supported only for input ports");
+        const auto expected = formalShapes.at(id);
+        const auto value = expression(*defaultValue, State{}, &expected);
+        if (value.bits.size() != port->getWidth() || !compatible(value.shape, expected))
+          fail("port default type or width mismatch");
+        size_t bit = 0;
+        for (auto* term : port->getBits()) child->getInstTerm(term)->setNet(value.bits[bit++]);
+        bound[port].assign(port->getWidth(), true);
+      }
     }
   }
 
@@ -900,16 +1041,24 @@ class RTLConstructor {
       for (const auto& name : library.names) libraries_.insert(key(name));
     for (const auto& use : clauses.uses) {
       DiagnosticScope location(use.span);
-      if (use.selectedName.size() == 3 && key(use.selectedName[0]) == "work" &&
+      if (use.selectedName.size() == 3 && key(use.selectedName[0]) != "ieee" &&
+          key(use.selectedName[0]) != "std" &&
           key(use.selectedName[2]) == "all") {
         const auto name = key(use.selectedName[1]);
-        if (!imported_.insert(name).second) continue;
+        const auto libraryName = key(use.selectedName[0]);
+        if (!libraries_.contains(libraryName)) fail("library is not visible: " + libraryName);
+        auto* targetLibrary = libraryContext_.resolve(work_, libraryName);
+        if (!imported_.insert({targetLibrary, name}).second) continue;
         const vhdl::PackageDeclaration* package = nullptr;
         for (const auto& candidate : syntax_.packages)
-          if (!candidate.body && key(candidate.name) == name) package = &candidate;
+          if (!candidate.body && key(candidate.name) == name &&
+              libraryContext_.owner(candidate.name.span.start.offset) == targetLibrary) package = &candidate;
         if (!package) fail("missing package: " + name);
         const auto callerLibraries = libraries_;
         const bool callerLogic = stdLogic_, callerUnsigned = unsigned_, callerArith = arith_, callerNumeric = numeric_, callerSigned = signed_;
+        auto* callerWork = work_;
+        work_ = targetLibrary;
+        libraries_ = {"std", "work"};
         context(package->context);
         for (const auto& function : package->functions) {
           const auto name = key(function.name);
@@ -920,6 +1069,7 @@ class RTLConstructor {
         declarations(package->arrayTypes, package->constants, package->recordTypes, {}, package->enumerationTypes);
         for (const auto& component : package->components)
           if (!components_.emplace(key(component.name), &component).second) fail("ambiguous component");
+        work_ = callerWork;
         libraries_ = callerLibraries;
         stdLogic_ = callerLogic;
         unsigned_ = callerUnsigned;
@@ -928,6 +1078,8 @@ class RTLConstructor {
         signed_ = callerSigned;
         continue;
       }
+      if (use.selectedName.size() == 3 && key(use.selectedName[0]) == "std" &&
+          key(use.selectedName[1]) == "standard" && key(use.selectedName[2]) == "all") continue;
       if (use.selectedName.size() != 3 || key(use.selectedName[0]) != "ieee" ||
           key(use.selectedName[2]) != "all" || !libraries_.contains("ieee"))
         fail("unsupported RTL package visibility");
@@ -942,10 +1094,6 @@ class RTLConstructor {
     }
   }
 
-  struct StaticScalar {
-    int64_t value = 0;
-    bool boolean = false;
-  };
   using FunctionBinding = std::pair<const vhdl::PackageDeclaration*, const vhdl::FunctionDeclaration*>;
   struct FunctionEnvironment {
     std::map<std::string, StaticScalar> values;
@@ -973,7 +1121,8 @@ class RTLConstructor {
 
   const vhdl::PackageDeclaration* packageBody(const vhdl::PackageDeclaration& declaration) const {
     for (const auto& package : syntax_.packages)
-      if (package.body && key(package.name) == key(declaration.name)) return &package;
+      if (package.body && key(package.name) == key(declaration.name) &&
+          libraryContext_.owner(package.name.span.start.offset) == libraryContext_.owner(declaration.name.span.start.offset)) return &package;
     return nullptr;
   }
 
@@ -1153,7 +1302,7 @@ class RTLConstructor {
     const auto binding = staticFunction(key(prefix), caller);
     if (!binding.second) fail("no visible static package function: " + key(prefix));
     const auto& declaration = *binding.second;
-    if (call.span.start.offset < declaration.span.start.offset)
+    if (libraryContext_.precedes(call.span.start.offset, declaration.span.start.offset))
       fail("function is used before its declaration: " + key(prefix));
     if (!declaration.pure) fail("impure package functions are unsupported");
     if (staticDepth_ >= 64) fail("static function recursion limit exceeded");
@@ -1256,6 +1405,8 @@ class RTLConstructor {
       } else {
         if (integers_.contains(name)) return false;
         if (booleans_.contains(name)) return true;
+        if (const auto found = objects_.find(name); found != objects_.end() &&
+            found->second.value.shape.enumeration) return false;
       }
       if (name == "true" || name == "false") return true;
       if (const auto function = staticFunction(name, scope); function.second)
@@ -1299,7 +1450,7 @@ class RTLConstructor {
         }
         if (scope->package) for (const auto& declaration : scope->package->constants)
           for (const auto& id : declaration.object.names) if (key(id) == name) {
-            if (expression.span.start.offset < declaration.object.span.start.offset)
+            if (libraryContext_.precedes(expression.span.start.offset, declaration.object.span.start.offset))
               fail("package constant used before its declaration");
             if (!activeStaticConstants_.insert(&declaration).second) fail("cyclic static constant");
             StaticScope packageScope;
@@ -1312,11 +1463,44 @@ class RTLConstructor {
       } else {
         if (const auto found = integers_.find(name); found != integers_.end()) return {found->second, false};
         if (const auto found = booleans_.find(name); found != booleans_.end()) return {found->second, true};
+        if (const auto found = objects_.find(name); found != objects_.end() && found->second.constant &&
+            found->second.value.shape.enumeration) {
+          int64_t value = 0;
+          for (size_t i = 0; i < found->second.value.bits.size(); ++i) {
+            const auto bit = constantValue(found->second.value.bits[i]);
+            if (!bit) fail("enumeration literal is not static");
+            if (*bit) value |= int64_t(1) << i;
+          }
+          return {value, false};
+        }
       }
       if (name == "true" || name == "false") return {name == "true", true};
       if (staticFunction(name, scope).second) return callStatic(expression, scope);
     } else if ((expression.kind == Expr::Kind::Indexed || expression.kind == Expr::Kind::Call) &&
                expression.left->kind == Expr::Kind::Name) {
+      const auto builtin = key(*expression.left);
+      const auto& arguments = expression.kind == Expr::Kind::Indexed ?
+          std::vector<const Expr*>{expression.right.get()} : [&] { std::vector<const Expr*> result; for (const auto& e : expression.elements) result.push_back(e.get()); return result; }();
+      if (builtin == "index_size_f" && arguments.size() == 1) {
+        const auto n = scalar(*arguments[0], scope);
+        if (n.boolean || n.value < 1) fail("index_size_f requires a positive integer");
+        int64_t width = 0; for (int64_t v = n.value - 1; v; v >>= 1) ++width;
+        return {std::max<int64_t>(1, width), false};
+      }
+      if (builtin == "sel_natural_f" && arguments.size() == 3) {
+        const auto condition = scalar(*arguments[0], scope);
+        if (!condition.boolean) fail("sel_natural_f condition must be boolean");
+        const auto selected = scalar(*(condition.value ? arguments[1] : arguments[2]), scope);
+        if (selected.boolean) fail("sel_natural_f branch must be natural");
+        return selected;
+      }
+      if (expression.kind == Expr::Kind::Indexed && key(*expression.left) == "boolean") {
+        if (expression.elements.size() != 1 && !expression.right) fail("boolean conversion requires one argument");
+        const auto& argument = expression.right ? *expression.right : *expression.elements.front();
+        const auto value = scalar(argument, scope);
+        if (value.boolean) return value;
+        return {value.value != 0, true};
+      }
       if (!scope && expression.kind == Expr::Kind::Indexed && integerTables_.contains(key(*expression.left))) {
         const auto& table = integerTables_.at(key(*expression.left));
         return {table.values.at(table.bounds.position(staticInteger(*expression.right, scope))), false};
@@ -1458,18 +1642,18 @@ class RTLConstructor {
     if (stdLogic_ && name == "std_ulogic_vector") name = "std_logic_vector";
     if (const auto found = enumerations_.find(name); found != enumerations_.end()) {
       if (type.constraint) fail("enumeration subtype constraints are not supported");
-      if (type.name.span.start.offset < found->second->span.start.offset)
+      if (libraryContext_.precedes(type.name.span.start.offset, found->second->span.start.offset))
         fail("enumeration used before its declaration");
       return {{name}, {}, 0, {}, found->second};
     }
     if (const auto found = records_.find(name); found != records_.end()) {
       if (type.constraint) fail("record type cannot have an array constraint");
-      if (type.name.span.start.offset < recordOffsets_.at(name))
+      if (libraryContext_.precedes(type.name.span.start.offset, recordOffsets_.at(name)))
         fail("record type is used before its declaration: " + name);
       return found->second;
     }
     if (const auto found = arrays_.find(name); found != arrays_.end()) {
-      if (type.name.span.start.offset < arrayTypeOffsets_.at(name))
+      if (libraryContext_.precedes(type.name.span.start.offset, arrayTypeOffsets_.at(name)))
         fail("array type is used before its declaration: " + name);
       auto result = found->second;
       const auto& declaration = *arrayDeclarations_.at(name);
@@ -1591,7 +1775,7 @@ class RTLConstructor {
     }
     const auto position = selected.shape.ranges.front().position(arrayIndex(expression, selected.shape.ranges.front()));
     selected.shape.ranges.erase(selected.shape.ranges.begin());
-    selected.shape.types.erase(selected.shape.types.begin());
+    selected.shape.removeOuterType();
     selected.offset += position * selected.shape.size();
   }
   Selection selection(const Expr& expression) {
@@ -1774,7 +1958,7 @@ class RTLConstructor {
       return value;
     }
     value.shape.ranges.erase(value.shape.ranges.begin());
-    value.shape.types.erase(value.shape.types.begin());
+    value.shape.removeOuterType();
     if (isStaticIndex(indexExpr)) {
       const auto offset = bounds.position(arrayIndex(indexExpr, bounds)) * stride;
       value.bits = Bits(value.bits.begin() + offset, value.bits.begin() + offset + stride);
@@ -1878,9 +2062,15 @@ class RTLConstructor {
         value.bits.insert(value.bits.end(), element.bits.begin(), element.bits.end());
       }
     } else if (expr.kind == Expr::Kind::Call) {
-      if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
+      if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "sel_suv_f" &&
+          expr.elements.size() == 3) {
+        const auto condition = scalar(*expr.elements[0]);
+        if (!condition.boolean) fail("sel_suv_f condition must be boolean");
+        value = expression(*expr.elements[condition.value ? 1 : 2], state, expected);
+      } else if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
           !numeric_ || expr.elements.size() != 2)
         fail("unsupported or invisible function call");
+      else {
       if (objects_.contains("to_unsigned") || integers_.contains("to_unsigned") ||
           arrayDeclarations_.contains("to_unsigned") || integerTables_.contains("to_unsigned"))
         fail("shadowed to_unsigned function");
@@ -1891,6 +2081,7 @@ class RTLConstructor {
       auto type = vectorShape(width);
       type.types.front() = "unsigned";
       value = number(argument, type);
+      }
     } else if (expr.kind == Expr::Kind::Indexed) {
       if (expr.left->kind == Expr::Kind::Name &&
           (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
@@ -1923,7 +2114,7 @@ class RTLConstructor {
         fail("positional aggregate length mismatch");
       value.shape = *expected;
       auto element = *expected;
-      element.types.erase(element.types.begin());
+      element.removeOuterType();
       element.ranges.erase(element.ranges.begin());
       for (const auto& item : expr.elements) {
         const auto part = expression(*item, state, &element);
@@ -1945,7 +2136,7 @@ class RTLConstructor {
         if (expected->ranges.empty()) fail("others aggregate requires an array target");
         auto element = *expected;
         element.ranges.erase(element.ranges.begin());
-        element.types.erase(element.types.begin());
+        element.removeOuterType();
         const auto bits = expression(*expr.left, state, &element).bits;
         for (size_t i = 0; i < expected->ranges.front().size(); ++i)
           value.bits.insert(value.bits.end(), bits.begin(), bits.end());
@@ -2115,7 +2306,7 @@ class RTLConstructor {
       auto& write = state.memoryWrites.at(name);
       auto element = objects_.at(name).value.shape;
       element.ranges.erase(element.ranges.begin());
-      element.types.erase(element.types.begin());
+      element.removeOuterType();
       auto address = expression(*assignment.indices.front(), state);
       if (!address.shape.integerWidth) fail("array index must be integer");
       auto [bits, valid] = memoryAddress(name, std::move(address.bits));
@@ -2136,7 +2327,7 @@ class RTLConstructor {
       const auto bounds = base.shape.ranges.front();
       auto element = base.shape;
       element.ranges.erase(element.ranges.begin());
-      element.types.erase(element.types.begin());
+      element.removeOuterType();
       const auto stride = element.size();
       const auto address = expression(*assignment.indices.front(), state);
       checkIndexType(address, bounds);
@@ -2519,9 +2710,12 @@ class RTLConstructor {
   const vhdl::EntityDeclaration& entity_;
   const vhdl::ArchitectureBody& architecture_;
   const vhdl::DesignFile& syntax_;
-  std::map<std::string, int64_t> genericOverrides_;
-  std::function<SNLDesign*(const std::string&, const std::map<std::string, int64_t>&)> build_;
-  std::set<std::string> imported_;
+  const LibraryContext& libraryContext_;
+  NLLibrary* work_;
+  GenericValues genericOverrides_;
+  std::function<GenericValue(const std::string&, const Shape*)> genericActual_;
+  std::function<SNLDesign*(NLLibrary*, const std::string&, const GenericValues&)> build_;
+  std::set<std::pair<NLLibrary*, std::string>> imported_;
   std::map<std::string, const vhdl::EntityDeclaration*> components_;
   bool unsigned_ = false, arith_ = false, numeric_ = false, signed_ = false;
   struct IntegerTable { Range bounds; std::vector<int64_t> values; };
@@ -2559,16 +2753,19 @@ class RTLConstructor {
 
 bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   if (!syntax.packages.empty()) return true;
-  const auto signedContext = [](const vhdl::ContextClause& context) {
+  const auto rtlContext = [](const vhdl::ContextClause& context) {
     return std::any_of(context.uses.begin(), context.uses.end(), [](const auto& use) {
-      return use.selectedName.size() == 3 && key(use.selectedName[0]) == "ieee" &&
-          key(use.selectedName[1]) == "std_logic_signed";
+      return use.selectedName.size() == 3 && (key(use.selectedName[0]) != "ieee" ||
+          key(use.selectedName[1]) == "std_logic_signed");
     });
   };
   for (const auto& entity : syntax.entities) {
-    if (signedContext(entity.context)) return true;
+    if (rtlContext(entity.context)) return true;
     for (const auto& generic : entity.generics)
-      if (generic.type.constraint || !generic.defaultValue) return true;
+      if (generic.type.constraint || !generic.defaultValue || key(generic.type.name) == "boolean" ||
+          key(generic.type.name) == "bit_vector" || key(generic.type.name) == "std_logic_vector" ||
+          key(generic.type.name) == "std_ulogic_vector" || key(generic.type.name) == "unsigned" ||
+          key(generic.type.name) == "signed") return true;
     for (const auto& port : entity.ports) if (port.defaultValue || key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
   }
   const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
@@ -2583,11 +2780,11 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   for (const auto& architecture : syntax.architectures) {
     if (!architecture.functions.empty()) return true;
     if (!architecture.recordTypes.empty() || !architecture.enumerationTypes.empty()) return true;
-    if (signedContext(architecture.context)) return true;
+    if (rtlContext(architecture.context)) return true;
     if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
     for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
     for (const auto& instance : architecture.instantiations)
-      if (std::any_of(instance.actualOpen.begin(), instance.actualOpen.end(),
+      if (key(instance.library) != "work" || std::any_of(instance.actualOpen.begin(), instance.actualOpen.end(),
           [](bool open) { return open; }) || std::any_of(instance.actualLiterals.begin(), instance.actualLiterals.end(),
           [](const auto& literal) { return bool(literal); }) || std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
           [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
@@ -2606,10 +2803,13 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
 }
 
 SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
-                          std::string_view top, std::string_view source) {
-  std::set<std::string> packages, bodies;
+                          std::string_view top, std::string_view source,
+                          const std::vector<VHDLLibrarySource>& libraries) {
+  const LibraryContext context{library, libraries};
+  std::set<std::pair<NLLibrary*, std::string>> packages, bodies;
   for (const auto& package : syntax.packages) {
-    const auto name = key(package.name);
+    DiagnosticScope location(package.name.span);
+    const auto name = std::make_pair(context.owner(package.name.span.start.offset), key(package.name));
     if (!package.body && !packages.insert(name).second) fail("duplicate package");
     if (package.body && (!packages.contains(name) || !bodies.insert(name).second))
       fail("duplicate package body or body without declaration");
@@ -2622,57 +2822,62 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
   for (char& c : selected) c = std::tolower(static_cast<unsigned char>(c));
   if (selected.empty()) {
     std::set<std::string> candidates;
-    for (const auto& entity : syntax.entities) candidates.insert(key(entity.name));
+    for (const auto& entity : syntax.entities)
+      if (context.owner(entity.span.start.offset) == library) candidates.insert(key(entity.name));
     const auto removeChildren = [&](const auto& self, const auto& scope) -> void {
       for (const auto& instance : scope.instantiations)
-        candidates.erase(key(instance.entity));
+        if (key(instance.library) == "work" ||
+            context.resolve(library, key(instance.library)) == library) candidates.erase(key(instance.entity));
       for (const auto& generate : scope.generates) self(self, generate);
       if constexpr (requires { scope.alternatives; })
         for (const auto& branch : scope.alternatives) self(self, branch);
     };
     for (const auto& architecture : syntax.architectures)
-      removeChildren(removeChildren, architecture);
+      if (context.owner(architecture.span.start.offset) == library) removeChildren(removeChildren, architecture);
     if (candidates.size() != 1)
       fail("cannot infer a unique RTL top entity; specify an explicit top");
     selected = *candidates.begin();
   }
   std::vector<SNLDesign*> created;
-  std::set<std::string> active;
-  std::function<SNLDesign*(const std::string&, const std::map<std::string, int64_t>&)> build;
-  build = [&](const std::string& name, const std::map<std::string, int64_t>& overrides) -> SNLDesign* {
-    if (!active.insert(name).second) fail("recursive RTL hierarchy");
+  std::set<std::pair<NLLibrary*, std::string>> active;
+  std::function<SNLDesign*(NLLibrary*, const std::string&, const GenericValues&)> build;
+  build = [&](NLLibrary* owner, const std::string& name, const GenericValues& overrides) -> SNLDesign* {
+    if (!active.insert({owner, name}).second) fail("recursive RTL hierarchy");
     const vhdl::EntityDeclaration* entity = nullptr;
     const vhdl::ArchitectureBody* architecture = nullptr;
-    for (const auto& candidate : syntax.entities) if (key(candidate.name) == name) {
+    for (const auto& candidate : syntax.entities) if (context.owner(candidate.span.start.offset) == owner && key(candidate.name) == name) {
       DiagnosticScope location(candidate.span);
       if (entity) fail("duplicate RTL entity");
       entity = &candidate;
     }
-    for (const auto& candidate : syntax.architectures) if (key(candidate.entity) == name) {
+    for (const auto& candidate : syntax.architectures) if (context.owner(candidate.span.start.offset) == owner && key(candidate.entity) == name) {
       DiagnosticScope location(candidate.span);
       if (architecture) fail("multiple RTL architectures are unsupported");
       architecture = &candidate;
     }
     if (!entity || !architecture) fail("missing RTL entity or architecture: " + name);
     std::string modelName = entity->name.spelling;
-    for (const auto& [generic, value] : overrides) modelName += "__" + generic + "_" + std::to_string(value);
-    const auto signature = std::string(source.substr(0,
-        std::max(entity->span.end.offset, architecture->span.end.offset))) + modelName;
-    if (auto* existing = library->getSNLDesign(NLName(modelName))) {
+    for (const auto& [generic, value] : overrides)
+      modelName += "__" + generic + "_" +
+          (value.bits ? "v" + *value.bits : value.scalar.boolean ?
+            (value.scalar.value ? "true" : "false") : std::to_string(value.scalar.value));
+    const auto signature = std::string(source.substr(context.start(owner),
+        std::max(entity->span.end.offset, architecture->span.end.offset) - context.start(owner))) + modelName;
+    if (auto* existing = owner->getSNLDesign(NLName(modelName))) {
       auto* property = dynamic_cast<RTLSourceProperty*>(existing->getProperty("VHDLRTLSource"));
       if (!property || property->signature != signature) fail("conflicting RTL design: " + modelName);
-      active.erase(name);
+      active.erase({owner, name});
       return existing;
     }
-    auto* design = SNLDesign::create(library, NLName(modelName));
+    auto* design = SNLDesign::create(owner, NLName(modelName));
     created.push_back(design);
-    RTLConstructor(design, *entity, *architecture, syntax, overrides, build).run();
+    RTLConstructor(design, *entity, *architecture, syntax, context, overrides, build).run();
     RTLSourceProperty::attach(design, signature);
-    active.erase(name);
+    active.erase({owner, name});
     return design;
   };
   try {
-    return build(selected, {});
+    return build(library, selected, {});
   } catch (...) {
     for (auto* design : created) design->destroy();
     throw;

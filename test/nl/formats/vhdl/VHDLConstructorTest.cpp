@@ -2353,10 +2353,12 @@ architecture rtl of recursive is begin y <= (others => '1'); end;
 }
 
 TEST_F(VHDLConstructorTest, RetainedInterfaceDefaultsAndAttributesRequireElaborationSupport) {
-  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+  auto* defaultPort = VHDLConstructor(library_).construct(R"(
 entity default_port is port(a : in bit := '1'; y : out bit); end;
 architecture rtl of default_port is begin y <= a; end;
-)"), NLException);
+)");
+  ASSERT_NE(defaultPort, nullptr);
+  EXPECT_EQ(defaultPort->getName(), NLName("default_port"));
   EXPECT_THROW(VHDLConstructor(library_).construct(R"(
 entity attribute_bounds is port(a : in bit_vector(3 downto 0); y : out bit_vector(a'range)); end;
 architecture rtl of attribute_bounds is begin y <= a; end;
@@ -3800,5 +3802,193 @@ end;
     auto* input = child->getModel()->getBusTerm(NLName("req"));
     for (int bit = 0; bit < 3; ++bit)
       EXPECT_EQ(child->getInstTerm(input->getBitAtPosition(bit))->getNet(), array->getBitAtPosition(3*i+bit));
+  }
+}
+
+TEST_F(VHDLConstructorTest, LogicalLibrariesOwnPackagesEntitiesAndWork) {
+  auto* db = library_->getDB();
+  auto* cells = NLLibrary::create(db, NLName("Cells"));
+  library_->setName(NLName("DESIGN"));
+  VHDLConstructor(cells).construct(
+      "package sizes is constant width : positive := 3; end;");
+  VHDLConstructor(library_).construct(
+      "package sizes is constant width : positive := 7; end;");
+  const std::string child = R"(
+use work.sizes.all;
+entity leaf is generic(n : positive); port(a : in bit_vector(width-1 downto 0);
+y : out bit_vector(width-1 downto 0)); end;
+architecture rtl of leaf is begin y <= a; end;
+)";
+  EXPECT_EQ(VHDLConstructor(cells).construct(child), nullptr);
+  EXPECT_EQ(VHDLConstructor(library_).construct(child), nullptr);
+  const std::string parent = R"(
+library cells; use cells.sizes.all;
+entity parent is port(a : in bit_vector(width-1 downto 0);
+y : out bit_vector(width-1 downto 0)); end;
+architecture rtl of parent is begin
+u: entity cells.leaf generic map(n => 1) port map(a, y);
+end;
+)";
+  auto* top = VHDLConstructor(library_).construct(parent, "parent");
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(top->getLibrary(), library_);
+  auto* model = top->getInstance(NLName("u"))->getModel();
+  EXPECT_EQ(model->getLibrary(), cells);
+  EXPECT_EQ(model->getBusTerm(NLName("a"))->getWidth(), 3);
+  EXPECT_EQ(VHDLConstructor(library_).construct(parent, "parent"), top);
+  const std::string localParent = R"(
+entity local_parent is port(a : in bit_vector(6 downto 0); y : out bit_vector(6 downto 0)); end;
+architecture rtl of local_parent is begin
+u: entity work.leaf generic map(n => 1) port map(a, y); end;
+)";
+  auto* local = VHDLConstructor(library_).construct(localParent, "local_parent");
+  EXPECT_EQ(local->getInstance(NLName("u"))->getModel()->getLibrary(), library_);
+  EXPECT_EQ(local->getInstance(NLName("u"))->getModel()->getBusTerm(NLName("a"))->getWidth(), 7);
+}
+
+TEST_F(VHDLConstructorTest, LogicalLibraryLookupRejectsMissingAndAmbiguousRoots) {
+  const std::string source = R"(
+library cells; use cells.sizes.all;
+entity top is port(y : out bit); end;
+architecture rtl of top is begin y <= '1'; end;
+)";
+  auto* nested = NLLibrary::create(library_, NLName("cells"));
+  (void)nested;
+  EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+  auto* cells = NLLibrary::create(library_->getDB(), NLName("Cells"));
+  VHDLConstructor(cells).construct("package sizes is constant n : integer := 1; end;");
+  NLLibrary::create(library_->getDB(), NLName("CELLS"));
+  try {
+    VHDLConstructor(library_).construct(source);
+    FAIL() << "ambiguous logical library accepted";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string(error.what()).find("ambiguous HDL library"), std::string::npos);
+  }
+}
+
+TEST_F(VHDLConstructorTest, ImportedPackageWorkAndBodyUseDefiningLibrary) {
+  library_->setName(NLName("DESIGN"));
+  auto* cells = NLLibrary::create(library_->getDB(), NLName("cells"));
+  for (auto* library : {library_, cells}) {
+    const auto width = library == cells ? "3" : "7";
+    VHDLConstructor(library).construct(std::string(
+        "package dimensions is constant width : positive := ") + width + "; end;");
+    VHDLConstructor(library).construct(std::string(R"(
+use work.dimensions.all;
+package sizes is
+  constant size : positive := width;
+  function size_f(n : natural) return natural;
+end;
+package body sizes is
+  function size_f(n : natural) return natural is begin return n + )") + width + R"(; end;
+end;
+)");
+  }
+  auto* top = VHDLConstructor(library_).construct(R"(
+library cells; use cells.sizes.all;
+entity top is port(a : in bit_vector(size-1 downto 0);
+y : out bit_vector(size_f(0)-1 downto 0)); end;
+architecture rtl of top is begin y <= a; end;
+)");
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(top->getBusTerm(NLName("a"))->getWidth(), 3);
+}
+
+TEST_F(VHDLConstructorTest, SameNamedLibraryTypesStayNominalAndFailureRollsBack) {
+  library_->setName(NLName("DESIGN"));
+  auto* cells = NLLibrary::create(library_->getDB(), NLName("cells"));
+  for (auto* library : {library_, cells})
+    VHDLConstructor(library).construct(
+        "package types is type word is array(2 downto 0) of bit; end;");
+  VHDLConstructor(cells).construct(R"(
+use work.types.all;
+entity leaf is generic(n : positive); port(a : in word; y : out word); end;
+architecture rtl of leaf is begin y <= a; end;
+)");
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+library cells; use work.types.all;
+entity top is port(a : in word; y : out word); end;
+architecture rtl of top is begin
+u: entity cells.leaf generic map(n => 1) port map(a, y); end;
+)"), NLException);
+  EXPECT_EQ(library_->getSNLDesign(NLName("top")), nullptr);
+  EXPECT_EQ(cells->getSNLDesign(NLName("leaf__n_1")), nullptr);
+}
+
+TEST_F(VHDLConstructorTest, BooleanGenericDefaultsDriveGenerateAndDependentDefaults) {
+  for (const bool enabled : {false, true}) {
+    const auto source = std::string(R"(
+entity top is generic(enabled : boolean := )") + (enabled ? "true" : "false") + R"(;
+  inverted : boolean := not enabled);
+  port(a : in bit; y : out bit); end;
+architecture rtl of top is begin
+  g: if inverted generate y <= not a; else generate y <= a; end generate;
+end;
+)";
+    auto* top = VHDLConstructor(library_).construct(source);
+    for (const bool input : {false, true}) {
+      std::unordered_map<SNLBitNet*, bool> values{{top->getScalarTerm(NLName("a"))->getNet(), input}};
+      std::unordered_set<SNLBitNet*> visiting;
+      EXPECT_EQ(evaluateRTL(top->getScalarTerm(NLName("y"))->getNet(), values, visiting),
+                enabled ? input : !input);
+    }
+    top->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, BooleanGenericActualsAndSpecializationsKeepTypesAndParentScope) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity leaf is generic(enabled : boolean; n : positive := 1);
+  port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= a when enabled else not a; end;
+entity parent is generic(enabled : boolean := true);
+  port(a : in bit; yes_y, no_y, copy_y, parent_y : out bit); end;
+architecture rtl of parent is
+  component leaf is generic(enabled : boolean; n : positive := 1);
+    port(a : in bit; y : out bit); end component;
+begin
+  yes_i: entity work.leaf generic map(true, 2) port map(a, yes_y);
+  no_i: leaf generic map(enabled => not enabled, n => 2) port map(a, no_y);
+  copy_i: entity work.leaf generic map(enabled => 1 > 2, n => 2) port map(a, copy_y);
+  parent_y <= a when enabled else not a;
+end;
+)", "parent");
+  auto* yesModel = top->getInstance(NLName("yes_i"))->getModel();
+  auto* noModel = top->getInstance(NLName("no_i"))->getModel();
+  EXPECT_NE(yesModel, noModel);
+  EXPECT_EQ(noModel, top->getInstance(NLName("copy_i"))->getModel());
+  EXPECT_EQ(yesModel->getName(), NLName("leaf__enabled_true__n_2"));
+  EXPECT_EQ(noModel->getName(), NLName("leaf__enabled_false__n_2"));
+  for (auto* model : {yesModel, noModel, top}) {
+    for (const bool input : {false, true}) {
+      std::unordered_map<SNLBitNet*, bool> values{{model->getScalarTerm(NLName("a"))->getNet(), input}};
+      std::unordered_set<SNLBitNet*> visiting;
+      const auto output = model == top ? "parent_y" : "y";
+      EXPECT_EQ(evaluateRTL(model->getScalarTerm(NLName(output))->getNet(), values, visiting),
+                model == noModel ? !input : input);
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, BooleanGenericTypeMismatchesRejectAndRollBack) {
+  for (const auto* declaration : {"flag : boolean := 1", "n : integer := true",
+                                  "flag : boolean", "flag : boolean := later; later : boolean := true"}) {
+    SCOPED_TRACE(declaration);
+    const auto source = std::string("entity bad is generic(") + declaration +
+        "); port(y : out bit); end; architecture rtl of bad is begin y <= '1'; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source, "bad"), NLException);
+    EXPECT_EQ(library_->getSNLDesign(NLName("bad")), nullptr);
+  }
+  for (const auto* actuals : {"1, 2", "true, false", "true, 0"}) {
+    SCOPED_TRACE(actuals);
+    const auto source = std::string(R"(
+entity leaf is generic(flag : boolean; n : positive); port(y : out bit); end;
+architecture rtl of leaf is begin y <= '1'; end;
+entity parent is port(y : out bit); end;
+architecture rtl of parent is begin
+u: entity work.leaf generic map()") + actuals + R"() port map(y); end;
+)";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source, "parent"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }

@@ -202,6 +202,78 @@ end;
       self.assertIsNone(db.loadVHDL(child_path))
       self.assertEqual(db.getTopDesign(), design)
 
+  def testHDLDestinationLibraries(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      vhdl = os.path.join(directory, "leaf.vhd")
+      sv = os.path.join(directory, "leaf.sv")
+      with open(vhdl, "w") as source:
+        source.write("entity leaf is port(a : in bit; y : out bit); end; "
+                     "architecture rtl of leaf is begin y <= a; end;")
+      with open(sv, "w") as source:
+        source.write("module leaf(input a, output y); assign y = a; endmodule")
+      for loader, files, name in ((db.loadVHDL, vhdl, "VHDLCells"),
+                                  (db.loadSystemVerilog, [sv], "SVCells")):
+        with self.subTest(loader=name):
+          for invalid in (None, 4):
+            with self.assertRaisesRegex(TypeError, "library must be a str"):
+              loader(files, library=invalid)
+          for invalid in ("", "   "):
+            with self.assertRaisesRegex(ValueError, "library must not be empty"):
+              loader(files, library=invalid)
+          loader(files, library=name, diagnostics_report_path=None)
+          self.assertIsNotNone(db.getLibrary(name).getSNLDesign("leaf"))
+          self.assertIsNone(db.getLibrary("DESIGN"))
+      self.assertEqual(db.loadVHDL(vhdl, library="vhdlcells", diagnostics_report_path=None),
+                       db.getLibrary("VHDLCells").getSNLDesign("leaf"))
+      naja.NLLibrary.create(db, "VHDLCELLS")
+      with self.assertRaisesRegex(RuntimeError, "ambiguous HDL library"):
+        db.loadVHDL(vhdl, library="vhdlcells", diagnostics_report_path=None)
+
+  def testVHDLCrossLibraryDependencyDiagnostic(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      child = os.path.join(directory, "child.vhd")
+      parent = os.path.join(directory, "parent.vhd")
+      with open(child, "w") as source:
+        source.write("entity leaf is generic(n : positive); port(y : out bit); end;\n"
+                     "architecture rtl of leaf is begin\n"
+                     "y <= missing; end;\n")
+      with open(parent, "w") as source:
+        source.write("library cells; entity top is port(y : out bit); end;\n"
+                     "architecture rtl of top is begin\n"
+                     "u: entity cells.leaf generic map(n => 1) port map(y); end;")
+      self.assertIsNone(db.loadVHDL(child, library="cells", diagnostics_report_path=None))
+      with self.assertRaises(RuntimeError) as error:
+        db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None)
+      self.assertIn(child, str(error.exception))
+      self.assertIn("line 3", str(error.exception))
+      self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("top"))
+      self.assertIsNone(db.getLibrary("cells").getSNLDesign("leaf__n_1"))
+
+  def testVHDLBooleanGenericDependencyAcrossLibraries(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      child = os.path.join(directory, "leaf.vhd")
+      parent = os.path.join(directory, "parent.vhd")
+      with open(child, "w") as source:
+        source.write("entity leaf is generic(enabled : boolean); port(a : in bit; y : out bit); end; "
+                     "architecture rtl of leaf is begin y <= a when enabled else not a; end;")
+      with open(parent, "w") as source:
+        source.write("package settings is function enabled_f(n : natural) return boolean; end; "
+                     "package body settings is function enabled_f(n : natural) return boolean is "
+                     "begin return n > 0; end; end; "
+                     "library cells; use work.settings.all; "
+                     "entity parent is generic(enabled : boolean := enabled_f(1)); "
+                     "port(a : in bit; y : out bit); end; architecture rtl of parent is begin "
+                     "u: entity cells.leaf generic map(not enabled) port map(a, y); end;")
+      self.assertIsNone(db.loadVHDL(child, library="cells", diagnostics_report_path=None))
+      top = db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None)
+      model = db.getLibrary("cells").getSNLDesign("leaf__enabled_false")
+      self.assertIsNotNone(model)
+      self.assertEqual(top.getInstance("u").getModel(), model)
+      self.assertEqual(db.loadVHDL(parent, library="DESIGN", diagnostics_report_path=None), top)
+
   def testVHDLArgumentsAndFailureRollback(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with self.assertRaisesRegex(TypeError, "file must be a str path"):

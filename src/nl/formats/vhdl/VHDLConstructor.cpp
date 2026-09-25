@@ -6,6 +6,8 @@
 #include "VHDLRTLConstructor.h"
 
 #include "NLException.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
 #include "NajaLog.h"
 #include "NLName.h"
 #include "SNLBitNet.h"
@@ -151,6 +153,8 @@ SNLDesign* VHDLConstructor::constructSource(
     unsupported("null library");
   }
 
+  if (library_->getParentLibrary()) unsupported("VHDL destination must be a root library");
+
   std::ofstream report;
   if (options_.diagnosticsReportPath) {
     const auto& destination = *options_.diagnosticsReportPath;
@@ -192,7 +196,8 @@ SNLDesign* VHDLConstructor::constructSource(
         "parse", diagnostic.message, diagnostic.span));
   }
   auto* sources = VHDLSources::get(library_);
-  if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty()) {
+  if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty() || !path.empty() ||
+      !library_->getName().getString().empty()) {
     const auto previous = std::find_if(sources->inputs.begin(), sources->inputs.end(),
         [&](const auto& input) {
           return input.path == path && input.size == source.size() &&
@@ -200,7 +205,23 @@ SNLDesign* VHDLConstructor::constructSource(
         });
     const bool retained = previous != sources->inputs.end();
     const auto combined = retained ? sources->source : sources->source + std::string(source);
-    auto all = vhdl::Parser::parse(combined, true);
+    std::string compilation;
+    std::vector<VHDLLibrarySource> libraries;
+    struct Origin {size_t offset; std::string path;};
+    std::vector<Origin> origins;
+    for (auto* candidate : library_->getDB()->getLibraries()) {
+      auto* stored = dynamic_cast<VHDLSources*>(candidate->getProperty("VHDLSources"));
+      if (candidate != library_ && (!stored || stored->source.empty())) continue;
+      const auto& text = candidate == library_ ? combined : stored->source;
+      const auto base = compilation.size();
+      libraries.push_back({candidate, base, text.size()});
+      if (stored) for (const auto& input : stored->inputs)
+        origins.push_back({base + input.offset, input.path});
+      if (candidate == library_ && !retained)
+        origins.push_back({base + sources->source.size(), path});
+      compilation += text + "\n";
+    }
+    auto all = vhdl::Parser::parse(compilation, true);
     if (all.hasErrors()) unsupported("stored VHDL source failed to parse");
     std::string selected(top);
     if (selected.empty() && parsed.syntax.entities.size() == 1)
@@ -225,26 +246,25 @@ SNLDesign* VHDLConstructor::constructSource(
     }
     SNLDesign* design = nullptr;
     try {
-      design = constructVHDLRTL(library_, all.syntax, selected, combined);
+      design = constructVHDLRTL(library_, all.syntax, selected, compilation, libraries);
     } catch (const VHDLRTLException& exception) {
       const auto offset = exception.span.start.offset;
-      size_t start = sources->source.size();
+      size_t start = 0;
       std::string origin = path;
-      if (offset < start) {
-        for (const auto& input : sources->inputs) {
-          if (input.offset > offset) break;
-          start = input.offset;
-          origin = input.path;
-        }
+      for (const auto& input : origins) {
+        if (input.offset > offset) break;
+        start = input.offset;
+        origin = input.path;
       }
-      const auto line = 1 + std::count(combined.begin() + std::min(start, offset),
-          combined.begin() + std::min(offset, combined.size()), '\n');
+      const auto line = 1 + std::count(compilation.begin() + std::min(start, offset),
+          compilation.begin() + std::min(offset, compilation.size()), '\n');
       throw LocatedVHDLException(std::string(exception.what()) +
           (origin.empty() ? "" : " in '" + origin + "'") + " at line " +
           std::to_string(line) + ", column " +
           std::to_string(exception.span.start.column));
     }
-    if (!path.empty() || !sources->source.empty() || !parsed.syntax.packages.empty()) retain();
+    if (!path.empty() || !library_->getName().getString().empty() ||
+        !sources->source.empty() || !parsed.syntax.packages.empty()) retain();
     return design;
   }
   const auto analyzed = vhdl::Analyzer::analyze(parsed.syntax);

@@ -184,6 +184,7 @@ TEST_F(VHDLExternalTest, NEORV32DefaultTop) {
     ++count;
   }
   ASSERT_GT(count, 0u);
+  library_->setName(NLName("neorv32"));
   auto* top = VHDLConstructor(library_).construct(source, "neorv32_top");
   ASSERT_NE(top, nullptr);
   EXPECT_EQ(top->getName(), NLName("neorv32_top"));

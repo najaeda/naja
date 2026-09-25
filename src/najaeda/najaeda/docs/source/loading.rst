@@ -83,7 +83,7 @@ another design unit, including instances inside nested generate statements.
 If there are several roots or no root, pass ``top`` explicitly.
 
 VHDL loading is experimental and implements a bounded, two-state RTL subset.
-It supports integer generic defaults and explicit generic maps, constrained
+It supports integer and boolean generic defaults and explicit generic maps, constrained
 arrays, static indexing and slices, nested ``for`` loops, ``for generate`` and
 static ``if``/``elsif``/``else generate`` statements, component instances, vector registers, synchronous reset/enable,
 asynchronous reset/set,
@@ -93,7 +93,7 @@ and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
 
 Conditional generates select the first true branch at elaboration time, using
-static boolean expressions built from integer generics, constants, enclosing
+static boolean expressions built from integer/boolean generics, constants, enclosing
 loop parameters, and supported static package functions. Only the selected
 branch creates hardware. Generate bodies may contain assignments, instances,
 clocked processes, and nested conditional or loop generates. Instance names
@@ -210,11 +210,13 @@ constructs still fail loading. Choose a report path or select console-only outpu
    # Alternatively: diagnostics_report_path=None for console-only warnings.
 
 
-The NEORV32 default ``neorv32_top`` configuration is a development target, not yet
-a supported load. Its complete package parses, and ``index_size_f`` and
-``sel_natural_f`` can elaborate a test design. The complete core file list now
-stops at an assertion/report in ``neorv32_cpu.vhd:156``. Vector helpers
-and further elaboration constructs also remain to be implemented.
+The NEORV32 default ``neorv32_top`` configuration remains a development target.
+The complete core file list parses and resolves its named-library imports when
+loaded into ``library="neorv32"``. Boolean generics now elaborate; the next
+unsupported generic is ``BOOT_ADDR_CUSTOM : std_ulogic_vector(31 downto 0)``
+at ``neorv32_top.vhd:30`` in the development checkout. Vector generics, runtime
+vector helpers, and further elaboration constructs remain unsupported; the
+complete top has not been validated.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
 multiplication, equality/inequality and concatenation. Static
@@ -283,6 +285,46 @@ source is retained for later elaboration by its parent. An explicit ``top``
 requires immediate elaboration and reports missing generic values. The raw API
 also supports package-only files returning ``None``; the high-level loader
 expects a completed top design.
+
+Boolean generic defaults and actuals use typed static expressions, including
+references to earlier generics and supported pure scalar functions. Positional
+and named maps work for both direct entity instances and component bindings.
+Boolean values remain distinct from integers: ``0``/``1`` cannot replace
+``false``/``true``. Boolean specializations have separate cached models, and
+conditions can select generate branches or drive supported boolean expressions.
+Required boolean generics follow the same deferred dependency-loading convention
+as required integer generics. Vector generic values are not yet supported.
+
+HDL destination libraries
+-------------------------
+
+Both loaders accept a keyword-only ``library`` name, defaulting to ``"DESIGN"``:
+
+.. code-block:: python
+
+   top = netlist.load_vhdl("top.vhd", library="neorv32")
+   top = netlist.load_system_verilog("top.sv", library="implementation")
+
+The destination is a root ``NLLibrary`` in the current database. Basic names
+match case-insensitively; extended names retain their case. Missing destinations
+are created, while multiple matching roots are an error. Nested libraries and
+other databases are not searched. This option chooses where SV designs are
+stored; it does not add cross-library SV source binding.
+
+For VHDL, named references such as ``cells.leaf`` and ``cells.types.all`` resolve
+against these roots after a corresponding ``library cells;`` clause. ``work``
+means the defining library of the current entity or package. Dependencies retain
+their own library context, and identically named units in different libraries
+remain distinct. ``std.standard`` and supported IEEE packages use built-in
+providers; general standard-library source compilation is not supported.
+
+Load package-only or generic-dependent files through the raw API first:
+
+.. code-block:: python
+
+   db.loadVHDL("types.vhd", library="cells")
+   db.loadVHDL("leaf.vhd", library="cells")
+   top_design = db.loadVHDL("top.vhd", top="top", library="DESIGN")
 
 Liberty and primitive libraries
 -------------------------------

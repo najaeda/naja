@@ -311,7 +311,16 @@ expert reference above.
    ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
    to disable the report file and keep diagnostics console-only.
 
-   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log")`` loads one VHDL source file and returns its
+   Both ``NLDB.loadSystemVerilog`` and ``NLDB.loadVHDL`` accept
+   ``library="DESIGN"`` to select a root ``NLLibrary`` in this database. Missing
+   destinations are created. Basic names match case-insensitively, extended
+   names exactly; ambiguous matches fail. Existing positional arguments retain
+   their meaning. The high-level loaders expose the same keyword-only option.
+   VHDL named-library references resolve only within these roots; ``work`` is
+   the library owning the source unit, including imported packages. SV uses
+   this option for destination storage, without cross-library source binding.
+
+   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` loads one VHDL source file and returns its
    ``SNLDesign``. Load package files before their users in the same database:
    a package-only file returns ``None`` and preserves the current top design.
    A file containing one entity with required generic values also returns
@@ -432,7 +441,9 @@ expert reference above.
    ``conv_integer(std_logic_vector)`` (with ``std_logic_arith`` imported) are
    supported. Component binding requires a matching visible declaration and
    supports named or positional ports (including static indices and slices)
-   and integer generic specialization. A generic can omit its default when its
+   and integer/boolean generic specialization. Boolean defaults and actuals retain
+   their type (integers are not implicitly converted), including across logical
+   libraries. A generic can omit its default when its
    value is supplied by the instance. Architecture/package integer constants
    and one-dimensional integer constant tables are evaluated statically.
    Positional aggregates can constrain an otherwise unconstrained array type;

@@ -5,6 +5,8 @@
 
 #include "vhdl/Parser.h"
 #include "NLException.h"
+#include <cstddef>
+#include <vector>
 
 namespace naja::NL {
 class NLLibrary;
@@ -17,9 +19,17 @@ struct VHDLRTLException : NLException {
   vhdl::SourceSpan span;
 };
 
+// Offsets identify ownership in the adapter's combined parsing buffer.
+struct VHDLLibrarySource {
+  NLLibrary* library;
+  size_t offset;
+  size_t size;
+};
+
 // Statically indexed, two-state RTL profile. This path performs its own
 // elaboration and type checks before returning a completed design.
 bool requiresVHDLRTL(const vhdl::DesignFile& syntax);
 SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
-                          std::string_view top, std::string_view source);
+                          std::string_view top, std::string_view source,
+                          const std::vector<VHDLLibrarySource>& libraries = {});
 }

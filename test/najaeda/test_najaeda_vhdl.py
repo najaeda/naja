@@ -28,6 +28,36 @@ architecture rtl of inverter is begin y <= not a; end;
         self.assertEqual(1, top.count_input_terms())
         self.assertEqual(1, top.count_output_terms())
 
+    def test_hdl_destination_library(self):
+        with tempfile.TemporaryDirectory() as directory:
+            vhdl = Path(directory) / "leaf.vhd"
+            sv = Path(directory) / "leaf.sv"
+            vhdl.write_text("entity leaf is port(a : in bit; y : out bit); end; "
+                            "architecture rtl of leaf is begin y <= a; end;")
+            sv.write_text("module leaf(input a, output y); assign y = a; endmodule")
+            for loader, path in ((netlist.load_vhdl, vhdl),
+                                 (netlist.load_system_verilog, str(sv))):
+                with self.subTest(loader=loader.__name__):
+                    for invalid in (None, 1):
+                        with self.assertRaises(TypeError):
+                            loader(path, library=invalid)
+                    with self.assertRaises(ValueError):
+                        loader(path, library="")
+                    top = loader(path, library="Cells")
+                    self.assertEqual(top.get_model_name(), "leaf")
+                    self.assertIsNotNone(netlist.naja.NLUniverse.get().getTopDB().getLibrary("Cells"))
+                    netlist.reset()
+
+    def test_load_boolean_generic_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "boolean.vhd"
+            path.write_text("entity top is generic(enabled : boolean := true); "
+                            "port(a : in bit; y : out bit); end; "
+                            "architecture rtl of top is begin y <= a when enabled else not a; end;")
+            top = netlist.load_vhdl(path, library="BooleanCells", diagnostics_report_path=None)
+            self.assertEqual(top.get_model_name(), "top")
+            self.assertEqual(top.count_terms(), 2)
+
     def test_load_vhdl_warning_report(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "diagnostic.vhd"

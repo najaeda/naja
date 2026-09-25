@@ -138,6 +138,15 @@ existing SV convention over introducing a VHDL-specific one. Differences should
 reflect language requirements or clearly documented implementation limits; update
 the relevant documentation and focused tests when introducing such differences.
 
+HDL loading uses `NLLibrary` as the destination and logical-library identity.
+Both Python VHDL and SV loaders accept `library="DESIGN"`; basic library names
+match case-insensitively, extended names exactly, and ambiguous root names are
+errors. Lookup stays within root libraries of the same `NLDB`, without recursive
+or cross-database fallback. In VHDL, `work` always denotes the library owning the
+referenced source unit, including imported package contexts. Retained sources,
+packages, model caches, and elaborated designs must keep that ownership. `std`
+and `ieee` use explicit built-in providers for the supported language subset.
+
 ## Primitive timing-model alignment
 
 `SNLDesignModeling.h` is the canonical C++ primitive timing-model API. Timing
