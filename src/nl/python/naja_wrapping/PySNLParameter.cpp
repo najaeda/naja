@@ -123,8 +123,11 @@ static PyObject* PySNLParameter_getValue(PySNLParameter* self) {
   }
   TRY
   return PyUnicode_FromString(selfObject->getValue().c_str());
+  // The missing-default case is handled above; only defensive exceptions remain.
+  // LCOV_EXCL_START
   NLCATCH
   return nullptr;
+  // LCOV_EXCL_STOP
 }
 
 GetNameMethod(SNLParameter)
