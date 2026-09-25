@@ -2319,8 +2319,8 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
     VHDL loading is experimental and currently supports the bounded ``bit`` and
     ``bit_vector`` subset implemented by the native frontend. Integer and boolean
     generic defaults and generic-map actuals specialize the supported RTL;
-    integer values can also specialize vector bounds. Pass ``top`` for a supported structural source containing more than
-    one design unit.
+    integer values can also specialize vector bounds. Pass ``top`` for a
+    supported structural source containing more than one design unit.
 
     :param file: the VHDL source file to load.
     :param top: optional top entity name for structural hierarchy.
@@ -2341,7 +2341,9 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
         if not isinstance(diagnostics_report_path, str):
             raise TypeError("load_vhdl diagnostics_report_path must be a path string or None")
         if not diagnostics_report_path.strip():
-            raise ValueError("load_vhdl diagnostics_report_path must not be empty; use None for console-only")
+            raise ValueError(
+                "load_vhdl diagnostics_report_path must not be empty; "
+                "use None for console-only")
     if not isinstance(file, (str, os.PathLike)):
         raise TypeError(
             "VHDL file must be a path string "
@@ -2369,7 +2371,9 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
     logger.info(f"Starting VHDL loading for file: {path}")
     if top is not None:
         logger.info(f"VHDL loading top override requested: {top}")
-    __get_top_db().loadVHDL(path, top=top, diagnostics_report_path=diagnostics_report_path, library=library)
+    __get_top_db().loadVHDL(
+        path, top=top, diagnostics_report_path=diagnostics_report_path,
+        library=library)
     execution_time = time.time() - start_time
     loaded_top = get_top()
     logger.info(

@@ -32,6 +32,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <utility>
 
 namespace naja::NL {
 namespace {
