@@ -530,6 +530,13 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     options.diagnosticsReportPath = destination;
   }
 
+  if (PyErr_WarnEx(
+        PyExc_RuntimeWarning,
+        "The VHDL parser is in Beta mode; its supported language subset and behavior may change.",
+        1) < 0) {
+    return nullptr;
+  }
+
   METHOD_HEAD("NLDB.loadVHDL()")
   NLDB* db = selfObject;
   SNLDesign* design = nullptr;

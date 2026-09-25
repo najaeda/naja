@@ -98,7 +98,8 @@ architecture rtl of inverter is begin y <= not a; end;
     with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
       vhdl.write(source)
       vhdl.flush()
-      design = db.loadVHDL(vhdl.name)
+      with self.assertWarnsRegex(RuntimeWarning, "VHDL parser is in Beta mode"):
+        design = db.loadVHDL(vhdl.name)
     self.assertEqual(design.getName(), "inverter")
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
@@ -126,6 +127,11 @@ architecture rtl of inverter is begin y <= not a; end;
         db.loadVHDL(path, diagnostics_report_path=1)
       with self.assertRaises(ValueError):
         db.loadVHDL(path, diagnostics_report_path="")
+
+  def testVHDLRejectsUnexpectedKeyword(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with self.assertRaises(TypeError):
+      db.loadVHDL("input.vhd", unsupported=True)
 
   def testVHDLHierarchy(self):
     db = naja.NLDB.create(naja.NLUniverse.get())

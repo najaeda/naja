@@ -54,7 +54,7 @@ SNLBitNet* bitAtHardwarePosition(SNLNet* net, size_t position) {
     return position == 0 ? bit : nullptr;
   auto* bus = dynamic_cast<SNLBusNet*>(net);
   if (!bus || position >= static_cast<size_t>(bus->getWidth()))
-    return nullptr;
+    return nullptr;  // LCOV_EXCL_LINE: caller validates matching net widths.
   return bus->getBitAtPosition(static_cast<size_t>(bus->getWidth()) - 1 - position);
 }
 

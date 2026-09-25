@@ -78,6 +78,10 @@ top entity explicitly:
 
    top = netlist.load_vhdl("hierarchy.vhd", top="soc_top")
 
+Python VHDL loading emits a :class:`RuntimeWarning` on each parser invocation
+because the frontend is in Beta mode. Its supported language subset and behavior
+may change between releases.
+
 The RTL path can infer the top when exactly one entity is not instantiated by
 another design unit, including instances inside nested generate statements.
 If there are several roots or no root, pass ``top`` explicitly.

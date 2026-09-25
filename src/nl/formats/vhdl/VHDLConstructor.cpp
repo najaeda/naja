@@ -62,7 +62,7 @@ SNLRTLPrimitives::GateKind logicGateKind(std::string_view op) {
   if (op == "nor") return SNLRTLPrimitives::GateKind::Nor;
   if (op == "xor") return SNLRTLPrimitives::GateKind::Xor;
   if (op == "xnor") return SNLRTLPrimitives::GateKind::Xnor;
-  unsupported("unsupported scalar logical operator: " + std::string(op));
+  unsupported("unsupported scalar logical operator: " + std::string(op)); // LCOV_EXCL_LINE: validation admits only the six operators above.
 }
 
 std::string canonicalBasicName(std::string_view name) {
@@ -868,7 +868,7 @@ SNLDesign* VHDLConstructor::constructSource(
             design, select, hardwareBits(whenTrue), hardwareBits(whenFalse), result);
         return result;
       }
-      unsupported("unsupported scalar bit expression during lowering");
+      unsupported("unsupported scalar bit expression during lowering"); // LCOV_EXCL_LINE: validation rejects expression kinds not handled above.
     };
     lowerExpression(*assignment.value, output.net);
   }

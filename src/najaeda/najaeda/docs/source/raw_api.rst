@@ -327,6 +327,8 @@ expert reference above.
    ``None`` when ``top`` is omitted: its source is retained until a parent
    supplies those values through a generic map. Pass ``top`` explicitly to
    require immediate elaboration and diagnose any missing generic values.
+   Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
+   Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design
    library for subsequent loads; they are not serialized in NajaIF. Load these
    dependencies through the raw API; the high-level loader expects a completed

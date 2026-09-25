@@ -21,7 +21,8 @@ architecture rtl of inverter is begin y <= not a; end;
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "inverter.vhd"
             path.write_text(source, encoding="utf-8")
-            top = netlist.load_vhdl(path)
+            with self.assertWarnsRegex(RuntimeWarning, "VHDL parser is in Beta mode"):
+                top = netlist.load_vhdl(path)
 
         self.assertEqual("inverter", top.get_model_name())
         self.assertEqual(2, top.count_terms())
@@ -112,6 +113,14 @@ end;
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "VHDL input path is not a file"):
                 netlist.load_vhdl(directory)
+
+    def test_load_vhdl_rejects_bytes_report_pathlike(self):
+        class BytesPath:
+            def __fspath__(self):
+                return b"warnings.log"
+
+        with self.assertRaisesRegex(TypeError, "diagnostics_report_path must be a path string"):
+            netlist.load_vhdl("missing.vhd", diagnostics_report_path=BytesPath())
 
 
 if __name__ == "__main__":

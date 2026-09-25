@@ -198,6 +198,8 @@ TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
       design_, SNLRTLPrimitives::GateKind::And, {bit, foreign}, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createGate(
       design_, SNLRTLPrimitives::GateKind::And, {bit}, bus), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createGate(
+      design_, static_cast<SNLRTLPrimitives::GateKind>(-1), {bit}, bit), NLException);
   EXPECT_THROW(SNLRTLPrimitives::createBitwiseGate(
       design_, SNLRTLPrimitives::GateKind::And, {bus, bit}, bus), NLException);
   EXPECT_TRUE(design_->getInstances().empty());
