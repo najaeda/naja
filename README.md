@@ -80,7 +80,7 @@ flowchart LR
     lib@{ shape: disk}
     pythonlibs@{ shape: disk}
     sv:::input
-    vhdl::input
+    vhdl:::input
     slang:::frontend
     naja-verilog:::frontend
     naja-vhdl:::frontend
