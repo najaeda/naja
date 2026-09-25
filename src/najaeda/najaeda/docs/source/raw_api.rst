@@ -237,6 +237,8 @@ semantic source of truth.
 
    * - Object
      - Main public methods and values
+   * - :class:`najaeda.naja.SNLParameter`
+     - ``create_decimal``, ``create_binary``, ``create_boolean``, ``create_string`` (optional default value), ``hasDefaultValue``, ``getValue``, ``getName``, ``getDesign``, ``destroy``
    * - :class:`najaeda.naja.NLUniverse`
      - :meth:`create <najaeda.naja.NLUniverse.create>`, :meth:`destroy <najaeda.naja.NLUniverse.destroy>`, :meth:`get <najaeda.naja.NLUniverse.get>`, :meth:`getDB <najaeda.naja.NLUniverse.getDB>`, :meth:`getTopDB <najaeda.naja.NLUniverse.getTopDB>`, :meth:`setTopDB <najaeda.naja.NLUniverse.setTopDB>`, :meth:`getTopDesign <najaeda.naja.NLUniverse.getTopDesign>`, :meth:`setTopDesign <najaeda.naja.NLUniverse.setTopDesign>`, :meth:`getUserDBs <najaeda.naja.NLUniverse.getUserDBs>`, :meth:`getSNLDesign <najaeda.naja.NLUniverse.getSNLDesign>`, :meth:`getObject <najaeda.naja.NLUniverse.getObject>`, :meth:`applyDLE <najaeda.naja.NLUniverse.applyDLE>`, :meth:`applyConstantPropagation <najaeda.naja.NLUniverse.applyConstantPropagation>`, :meth:`getMaxFanout <najaeda.naja.NLUniverse.getMaxFanout>`, :meth:`getMaxLogicLevel <najaeda.naja.NLUniverse.getMaxLogicLevel>`
    * - :class:`najaeda.naja.NLDB`
@@ -582,6 +584,36 @@ Design objects
    :members:
    :undoc-members:
    :inherited-members:
+
+Use the raw API to declare model parameters and set instance values; these
+operations do not currently have high-level ``najaeda.netlist`` wrappers.
+The final value argument of ``create_decimal(design, name[, value])``,
+``create_string(design, name[, value])``,
+``create_boolean(design, name[, value])``, and
+``create_binary(design, name, size[, value])`` is optional. Omitting it creates
+a required parameter with no default. The binary creator retains its existing
+``size`` argument.
+
+.. code-block:: python
+
+   width = naja.SNLParameter.create_decimal(model, "WIDTH")
+   assert not width.hasDefaultValue()
+   naja.SNLInstParameter.create(instance, width, "8")
+
+``hasDefaultValue()`` distinguishes an absent default from an explicit zero,
+false, or empty string. ``getValue()`` returns the default as a string, or
+``None`` if there is none. Instance values are obtained separately with
+``SNLInstParameter.getValue()``. Cloning and NajaIF snapshots preserve default
+presence, including empty string defaults.
+
+Instances may be constructed before their required values are attached. Verilog
+export rejects an instance missing a required value, and always emits supplied
+values for required parameters. The current Verilog writer cannot emit a model
+declaration without a default and reports an error for such declarations;
+it does not emit SystemVerilog parameter port lists. A model supplied externally
+may still be instantiated when its declaration is excluded from the export.
+Parameter-derived truth tables require a model default. Changing an instance
+parameter does not re-elaborate the model's ports or topology.
 
 .. autoclass:: najaeda.naja.SNLParameter
    :members:

@@ -5,6 +5,7 @@
 
 #pragma once
 #include <boost/intrusive/set.hpp>
+#include <optional>
 
 #include "NLName.h"
 #include "NajaObject.h"
@@ -45,11 +46,17 @@ class SNLParameter : public NajaObject {
      */
     static SNLParameter* create(SNLDesign* design, const NLName& name, Type type, const std::string& value);
     
+    /// \brief Create a required parameter without a default value.
+    static SNLParameter* create(SNLDesign* design, const NLName& name, Type type);
+
     /// \brief Destroy this SNLParameter.
     void destroy();
     /// \return this SNLParameter name.
     NLName getName() const { return name_; }
-    std::string getValue() const { return value_; }
+    /// \return whether this parameter has a default (including an empty string).
+    bool hasDefaultValue() const { return value_.has_value(); }
+    /// \return the default value; throws NLException if no default exists.
+    std::string getValue() const;
     Type getType() const { return type_; }
     /// \return this SNLParameter owning SNLDesign.
     SNLDesign* getDesign() const { return design_; }
@@ -71,7 +78,7 @@ class SNLParameter : public NajaObject {
     };
     bool deepCompare(const SNLParameter* other, std::string& reason) const;
   private:
-    SNLParameter(SNLDesign* design, const NLName& name, Type type, const std::string& value);
+    SNLParameter(SNLDesign* design, const NLName& name, Type type, std::optional<std::string> value);
     static void preCreate(SNLDesign* design, const NLName& name);
     void postCreate();
     void destroyFromDesign();
@@ -79,7 +86,7 @@ class SNLParameter : public NajaObject {
     SNLDesign*                          design_                 { nullptr };
     NLName                              name_                   {};
     Type                                type_                   { Type::Decimal };
-    std::string                         value_                  {};
+    std::optional<std::string>          value_                  {};
     boost::intrusive::set_member_hook<> designParametersHook_   {};
 };
 
