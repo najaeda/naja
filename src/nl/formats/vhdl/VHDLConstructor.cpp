@@ -356,7 +356,7 @@ SNLDesign* VHDLConstructor::constructSource(
         for (const auto& name : port.names) formals.emplace_back(&port, &name);
       }
       if (formals.size() != instantiation.actuals.size())
-        unsupported("positional port-map arity mismatch");
+        unsupported("positional port-map arity mismatch"); // LCOV_EXCL_LINE: Analyzer::analyze rejects port-map arity mismatches.
       for (std::size_t index = 0; index < formals.size(); ++index) {
         const auto actual = objects.find(std::string(nameKey(instantiation.actuals[index])));
         if (actual == objects.end()) unsupported("port-map actual has no declaration");
@@ -365,7 +365,7 @@ SNLDesign* VHDLConstructor::constructSource(
         const auto formalWidth = supportedWidth(formals[index].first->type,
             analyzed.getRange(instantiation, formals[index].first->type));
         if (actualWidth != formalWidth)
-          unsupported("port-map actual and formal widths differ");
+          unsupported("port-map actual and formal widths differ"); // LCOV_EXCL_LINE: Analyzer::analyze checks actual/formal vector widths.
         const auto formalMode = formals[index].first->mode;
         if (formalMode == vhdl::PortMode::In &&
             actual->second.mode == vhdl::PortMode::Out)
@@ -396,6 +396,8 @@ SNLDesign* VHDLConstructor::constructSource(
     if (library_->getSNLDesign(NLName(topEntity->name.spelling)))
       unsupported("a design with the top entity name already exists");
 
+    std::vector<SNLDesign*> createdModels;
+    SNLDesign* topDesign = nullptr;
     try {
       std::unordered_map<std::string, SNLDesign*> models;
       for (const auto& specialization : childKeys) {
@@ -428,20 +430,22 @@ SNLDesign* VHDLConstructor::constructSource(
             edits.push_back({generic.defaultValue->span.start.offset - entityStart,
                 generic.defaultValue->span.end.offset - generic.defaultValue->span.start.offset,
                 std::to_string(*value)});
-          } else {
+          } else { // LCOV_EXCL_START: generics without defaults are routed to RTL elaboration.
             edits.push_back({generic.type.name.span.end.offset - entityStart, 0,
                 " := " + std::to_string(*value)});
-          }
+          } // LCOV_EXCL_STOP
         }
         std::sort(edits.begin(), edits.end(),
             [](const Edit& left, const Edit& right) { return left.start > right.start; });
         for (const auto& edit : edits)
           childSource.replace(edit.start, edit.length, edit.value);
         auto* model = construct(childSource);
+        createdModels.push_back(model);
         model->setName(NLName(specialization));
         models.emplace(specialization, model);
       }
       auto* design = SNLDesign::create(library_, NLName(topEntity->name.spelling));
+      topDesign = design;
       std::unordered_map<std::string, SNLNet*> nets;
       for (const auto& port : topEntity->ports) {
         const auto direction = port.mode == vhdl::PortMode::In
@@ -490,16 +494,16 @@ SNLDesign* VHDLConstructor::constructSource(
       }
       return design;
     } catch (...) {
-      if (auto* design = library_->getSNLDesign(NLName(topEntity->name.spelling)))
-        design->destroy();
-      for (const auto& childKey : childKeys)
-        if (auto* design = library_->getSNLDesign(NLName(entities.at(childKey)->name.spelling)))
-          design->destroy();
+      // Only destroy objects owned by this construction, including renamed
+      // specializations; an existing design may have caused the failure.
+      if (topDesign)
+        topDesign->destroy(); // LCOV_EXCL_LINE: post-validation top wiring can fail only through an internal/allocation failure.
+      for (auto* model : createdModels) model->destroy();
       throw;
     }
   }
   if (parsed.syntax.entities.size() != 1 || parsed.syntax.architectures.size() != 1) {
-    unsupported("exactly one entity and one architecture are supported");
+    unsupported("exactly one entity and one architecture are supported"); // LCOV_EXCL_LINE: non-unit entity/architecture counts enter the hierarchy branch, which returns or throws.
   }
 
   const auto& entity = parsed.syntax.entities.front();
@@ -507,7 +511,7 @@ SNLDesign* VHDLConstructor::constructSource(
     unsupported("selected top does not match the source entity");
   const auto& architecture = parsed.syntax.architectures.front();
   if (nameKey(entity.name) != nameKey(architecture.entity)) {
-    unsupported("architecture does not belong to the entity");
+    unsupported("architecture does not belong to the entity"); // LCOV_EXCL_LINE: Analyzer::analyze rejects an architecture with no matching entity.
   }
   if (architecture.assignments.size() + architecture.processes.size() != 1) {
     unsupported("exactly one concurrent assignment or clocked process is supported");
@@ -640,7 +644,7 @@ SNLDesign* VHDLConstructor::constructSource(
       const auto& target = write.target;
       if (write.kind == vhdl::AssignmentKind::Variable) {
         if (!retained.contains(target))
-          unsupported("variable state write does not name retained storage");
+          unsupported("variable state write does not name retained storage"); // LCOV_EXCL_LINE: the scheduler emits variable writes only for retained variables.
       } else {
         if (!internals.contains(target))
           checkMode(target, vhdl::PortMode::Out, "assignment target");
@@ -688,11 +692,11 @@ SNLDesign* VHDLConstructor::constructSource(
         }
         case vhdl::Expression::Kind::CharacterLiteral:
           if (expression.text != "'0'" && expression.text != "'1'")
-            unsupported("only bit character literals '0' and '1' are supported");
+            unsupported("only bit character literals '0' and '1' are supported"); // LCOV_EXCL_LINE: analysis rejects non-binary character literals in bit expressions.
           return;
         case vhdl::Expression::Kind::Unary:
           if (expression.text != "not")
-            unsupported("unsupported scalar unary expression");
+            unsupported("unsupported scalar unary expression"); // LCOV_EXCL_LINE: only unary not produces an admitted bit or bit_vector expression.
           self(self, *expression.left);
           return;
         case vhdl::Expression::Kind::Binary:
@@ -770,10 +774,10 @@ SNLDesign* VHDLConstructor::constructSource(
   const auto findSignal = [&signals](std::string_view name) -> Signal& {
     const auto it = signals.find(std::string(name));
     if (it == signals.end()) {
-      unsupported("name is not a supported scalar signal: " + std::string(name));
+      unsupported("name is not a supported scalar signal: " + std::string(name)); // LCOV_EXCL_LINE: validation resolves every referenced name before lowering.
     }
     return it->second;
-  };
+  }; // LCOV_EXCL_LINE: compiler exception cleanup for the validated lookup above.
   if (clocked) {
     auto& select = findSignal(selectName);
     // The frontend has frozen RHS values at each scheduled write, applying
@@ -803,7 +807,7 @@ SNLDesign* VHDLConstructor::constructSource(
         return SNLScalarNet::create(design);
       const auto* range = analyzed.getRange(expression);
       if (!range)
-        unsupported("vector expression has no constrained range");
+        unsupported("vector expression has no constrained range"); // LCOV_EXCL_LINE: analysis rejects unconstrained vectors before lowering.
       return SNLBusNet::create(
         design, static_cast<NLID::Bit>(range->left),
         static_cast<NLID::Bit>(range->right));
@@ -863,7 +867,7 @@ SNLDesign* VHDLConstructor::constructSource(
         auto* result = requestedOutput ? requestedOutput : createExpressionNet(expression);
         auto* select = dynamic_cast<SNLBitNet*>(findSignal(selectName).net);
         if (!select)
-          unsupported("conditional select must be scalar bit");
+          unsupported("conditional select must be scalar bit"); // LCOV_EXCL_LINE: expression validation requires a scalar bit select before lowering.
         SNLRTLPrimitives::createMux(
             design, select, hardwareBits(whenTrue), hardwareBits(whenFalse), result);
         return result;

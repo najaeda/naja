@@ -3992,3 +3992,184 @@ u: entity work.leaf generic map()") + actuals + R"() port map(y); end;
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }
+
+TEST_F(VHDLConstructorTest, SimplePathValidationDiagnostics) {
+  const auto check = [&](const std::string& source, const std::string& diagnostic,
+                         const std::string& top = "") {
+    SCOPED_TRACE(source);
+    try {
+      VHDLConstructor(library_).construct(source, top);
+      FAIL() << "expected: " << diagnostic;
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos)
+          << error.what();
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  };
+  const std::string leaf = "entity leaf is port(a : in bit; y : out bit); end; "
+      "architecture rtl of leaf is begin y <= a; end; ";
+  const auto hierarchy = [&](const std::string& ports, const std::string& declarations,
+                             const std::string& body) {
+    return leaf + "entity top is port(" + ports + "); end; "
+        "architecture rtl of top is " + declarations + " begin " + body + " end;";
+  };
+  check(leaf + "entity top is end;", "exactly one architecture", "top");
+  check(leaf + "entity top is end; architecture a of top is begin end; "
+      "architecture b of top is begin end;", "exactly one architecture", "top");
+  check(hierarchy("a : in bit; y : out bit", "", "u: entity work.leaf port map(a,y); y <= a;"),
+      "cannot mix behavior", "top");
+  check(hierarchy("a : in bit; y : out bit", "", ""), "no entity instances", "top");
+  check(hierarchy("a : in bit; y : out bit; spare : inout bit", "", "u: entity work.leaf port map(a,y);"),
+      "hierarchy ports", "top");
+  check(hierarchy("a : in bit; y : out bit", "signal spare : boolean;", "u: entity work.leaf port map(a,y);"),
+      "hierarchy signals", "top");
+  check(hierarchy("a : in bit; y : out bit", "", "u: entity work.top port map(a,y);"),
+      "recursive hierarchy", "top");
+  check("entity child is port(a : inout bit; y : out bit); end; "
+      "architecture rtl of child is begin y <= a; end; "
+      "entity top is port(a : in bit; y : out bit); end; "
+      "architecture rtl of top is begin u: entity work.child port map(a,y); end;",
+      "child ports", "top");
+  check(hierarchy("a : in bit; y : out bit", "", "u: entity work.leaf port map(a,a);"),
+      "cannot drive a top input", "top");
+  check(leaf, "selected top does not match", "other");
+  const auto scalar = [&](const std::string& extraPorts, const std::string& declarations,
+                          const std::string& expression) {
+    return "entity top is port(a, s : in bit; y : out bit" + extraPorts + "); end; "
+        "architecture rtl of top is " + declarations + " begin y <= " + expression + "; end;";
+  };
+  check(scalar("", "", "a when s /= '1' else '0'"), "expected an equality condition");
+  check(scalar("", "", "a when s = '0' else '0'"), "condition must compare");
+  check(scalar("; spare : in integer", "", "a"), "only scalar bit and constrained bit_vector ports");
+  check(scalar("; spare : in bit_vector(2147483648 downto 2147483648)", "", "a"), "bounds exceed");
+  check(scalar("; spare : inout bit", "", "a"), "only in and out ports");
+  check(scalar("", "signal spare : boolean;", "a"), "only scalar bit internal signals");
+  check(scalar("", "signal spare : bit;", "a"), "internal signals currently require");
+  check(scalar("", "", "a when s = '1' else a when s = '1' else '0'"), "expression shape");
+  const auto clocked = [&](const std::string& declarations, const std::string& body) {
+    return "entity top is port(clk, rst, d : in bit; q, r : out bit); end; "
+        "architecture rtl of top is begin process(clk) " + declarations +
+        " begin if clk'event and clk = '1' then " + body + " end if; end process; end;";
+  };
+  check(clocked("variable spare : boolean;", "q <= d;"), "only scalar bit process variables");
+  check(clocked("", "if rst = '1' then q <= '0'; q <= '0'; else q <= d; end if;"),
+      "multiple synchronous reset writes");
+  check(clocked("", "if rst = '1' then q <= '0'; else q <= d; r <= d; end if;"),
+      "reset and data branches must assign the same targets");
+}
+
+TEST_F(VHDLConstructorTest, SimpleScalarHierarchyAndSourceProperty) {
+  const auto source = R"(
+entity leaf is port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture rtl of top is signal link : bit; begin
+  first: entity work.leaf port map(a, link);
+  second: entity work.leaf port map(link, y);
+end;
+)";
+  auto* top = VHDLConstructor(library_).construct(source, "top");
+  ASSERT_NE(top, nullptr);
+  auto* first = top->getInstance(NLName("first"));
+  auto* second = top->getInstance(NLName("second"));
+  ASSERT_NE(first, nullptr);
+  ASSERT_NE(second, nullptr);
+  EXPECT_EQ(first->getModel(), second->getModel());
+  EXPECT_EQ(first->getInstTerm(first->getModel()->getScalarTerm(NLName("y")))->getNet(),
+      top->getNet(NLName("link")));
+  EXPECT_EQ(second->getInstTerm(second->getModel()->getScalarTerm(NLName("a")))->getNet(),
+      top->getNet(NLName("link")));
+  auto* property = library_->getProperty("VHDLSources");
+  ASSERT_NE(property, nullptr);
+  EXPECT_EQ(property->getString(), "VHDLSources");
+  try {
+    VHDLConstructor(library_).construct(source, "top");
+    FAIL() << "expected duplicate top rejection";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string(error.what()).find("top entity name already exists"), std::string::npos);
+  }
+  EXPECT_EQ(library_->getSNLDesign(NLName("top")), top);
+}
+
+TEST_F(VHDLConstructorTest, SimpleDefaultedGenericSpecializations) {
+  auto* top = VHDLConstructor(library_).construct(R"(
+entity leaf is generic(n, m : positive := 2; extra : natural := 0);
+  port(a : in bit_vector(n-1 downto 0); y : out bit_vector(m-1 downto 0)); end;
+architecture rtl of leaf is begin y <= a; end;
+entity top is port(a : in bit_vector(2 downto 0); y, z : out bit_vector(2 downto 0)); end;
+architecture rtl of top is begin
+  first: entity work.leaf generic map(3, 3, 1) port map(a, y);
+  second: entity work.leaf generic map(3, 3, 2) port map(a, z);
+end;
+)", "top");
+  ASSERT_NE(top, nullptr);
+  auto* first = top->getInstance(NLName("first"));
+  auto* second = top->getInstance(NLName("second"));
+  ASSERT_NE(first, nullptr);
+  ASSERT_NE(second, nullptr);
+  EXPECT_NE(first->getModel(), second->getModel());
+  EXPECT_EQ(first->getModel()->getName(), NLName("leaf_extra_1_m_3_n_3"));
+  EXPECT_EQ(second->getModel()->getName(), NLName("leaf_extra_2_m_3_n_3"));
+  EXPECT_EQ(first->getModel()->getBusTerm(NLName("a"))->getWidth(), 3);
+  EXPECT_EQ(second->getModel()->getBusTerm(NLName("y"))->getWidth(), 3);
+}
+
+TEST_F(VHDLConstructorTest, SimpleHierarchyRollbackPreservesExistingDesigns) {
+  auto* existing = SNLDesign::create(library_, NLName("blocked"));
+  const std::string prefix = R"(
+entity leaf is generic(n : positive := 2); port(a : in bit; y : out bit); end;
+architecture rtl of leaf is begin y <= a; end;
+entity blocked is port(a : in bit; y : out bit); end;
+architecture rtl of blocked is begin y <= a; end;
+entity top is port(a : in bit; y, z : out bit); end;
+architecture rtl of top is begin
+  first: entity work.leaf generic map(3) port map(a, y);
+  second: entity work.blocked port map(a, z);
+end;
+)";
+  EXPECT_THROW(VHDLConstructor(library_).construct(prefix, "top"), NLException);
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  EXPECT_EQ(library_->getSNLDesign(NLName("blocked")), existing);
+  EXPECT_EQ(library_->getSNLDesign(NLName("leaf_n_3")), nullptr);
+  EXPECT_EQ(library_->getSNLDesign(NLName("top")), nullptr);
+  try {
+    VHDLConstructor(library_).construct(R"(
+entity grouped is generic(n, m : positive := 2); port(a : in bit; y : out bit); end;
+architecture rtl of grouped is begin y <= a; end;
+entity top is port(a : in bit; y : out bit); end;
+architecture rtl of top is begin
+  u: entity work.grouped generic map(2, 3) port map(a, y);
+end;
+)", "top");
+    FAIL() << "expected grouped generic rejection";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string(error.what()).find("grouped generics with different actual values"),
+        std::string::npos) << error.what();
+  }
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  EXPECT_EQ(library_->getSNLDesign(NLName("blocked")), existing);
+}
+
+TEST_F(VHDLConstructorTest, SimpleExtendedIdentifierExpression) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity escaped is port(\A\ : in bit; y : out bit); end;
+architecture rtl of escaped is begin y <= \A\; end;
+)");
+  ASSERT_NE(design, nullptr);
+  ASSERT_NE(design->getScalarTerm(NLName("\\A\\")), nullptr);
+  EXPECT_EQ(design->getInstances().size(), 1);
+}
+
+TEST_F(VHDLConstructorTest, FileParseDiagnosticIncludesPath) {
+  const auto path = std::filesystem::temp_directory_path() / "naja-vhdl-invalid-coverage.vhd";
+  { std::ofstream file(path); file << "entity broken is"; }
+  try {
+    VHDLConstructor(library_).constructFile(path);
+    ADD_FAILURE() << "expected parse failure";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string(error.what()).find(path.string()), std::string::npos);
+    EXPECT_NE(std::string(error.what()).find("parse failed"), std::string::npos);
+  }
+  std::filesystem::remove(path);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
