@@ -10,8 +10,9 @@ import os
 import re
 import sys
 
-# Add the src directory to sys.path
-sys.path.insert(0, os.path.abspath('../../../'))
+# Prefer the installed package (including its compiled extension). Fall back
+# to the source package for local builds with the extension on PYTHONPATH.
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 
 def read_naja_release():
@@ -43,15 +44,16 @@ extensions = [
 
 try:
     from najaeda import naja as raw_naja
-    sys.modules.setdefault("najaeda.naja", raw_naja)
-    tags.add("raw_naja_available")
-    autodoc_mock_imports = []
-except Exception:
-    autodoc_mock_imports = ["naja", "najaeda.naja"]
+except Exception as error:
+    raise RuntimeError(
+        "The documentation requires the compiled najaeda extension. "
+        "Install this checkout with pip, or add the matching CMake Python "
+        "extension directory to PYTHONPATH before running Sphinx."
+    ) from error
+sys.modules.setdefault("najaeda.naja", raw_naja)
 
 templates_path = ['_templates']
 exclude_patterns = []
-suppress_warnings = ["autodoc.mocked_object"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
