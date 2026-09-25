@@ -14,9 +14,10 @@ https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebo
 
 ## What is Naja?
 
-Naja is an open source EDA framework for loading, elaborating, analyzing, optimizing, and transforming hardware designs from RTL SystemVerilog through structural netlists. It is usable from Python or C++.
+Naja is an open source EDA framework for loading, elaborating, analyzing, optimizing, and transforming hardware designs from SystemVerilog and VHDL RTL through structural netlists. It is usable from Python or C++.
 
 - **SV/Verilog frontend** — parse Verilog and elaborate SystemVerilog RTL into a browsable design model
+- **VHDL frontend (Beta)** — parse and elaborate supported VHDL RTL into the same design model
 - **Netlist analysis** — hierarchy, connectivity, equipotentials
 - **Logic optimization** — dead logic elimination, constant propagation
 - **ECO transformations** — direct netlist editing
@@ -28,7 +29,8 @@ The diagram below shows how formats, frontends, APIs, and companion tools
 integrate around Naja's C++ netlist engine:
 
 - **Design inputs** — SystemVerilog is parsed and elaborated through
-  [`slang`](https://github.com/MikePopoloski/slang); gate-level Verilog can be
+  [`slang`](https://github.com/MikePopoloski/slang); VHDL is parsed and elaborated
+  through the **naja-vhdl** frontend (Beta); gate-level Verilog can be
   loaded and emitted; and Liberty plus the
   [Python primitive libraries](./src/najaeda/najaeda/primitives/) provide cell
   and primitive models.
@@ -57,8 +59,10 @@ config:
 ---
 flowchart LR
     sv["`**SystemVerilog**`"] ==> slang(["`**slang**<br>SystemVerilog Frontend`"])
+    vhdl["`**VHDL**`"] ==> naja-vhdl["`**naja-vhdl**<br> VHDL Frontend (Beta)`"]
     verilog["`**gate-level verilog**`"] ==> naja-verilog["`**naja-verilog**<br>gate verilog Parser`"]
     naja-verilog ==> naja["`**naja C++ · netlist engine**<br><br>hierarchy · buses<br>bit-level nets &amp; terms · connectivity<br>Primitive Functional Models`"]
+    naja-vhdl =="`**Elaboration**`"==> naja
     najaif@{ label: "**naja-if**<br>Logical View Interchange Format<br>Cap'n Proto" } <==> naja
     slang =="`**Elaboration**`"==> naja
     naja <==> najaeda["`**najaeda**<br>Python API`"]
@@ -69,24 +73,27 @@ flowchart LR
     pythonlibs["`**Python libraries**<br>naja representation`"] ==> naja
 
     sv@{ shape: disk}
+    vhdl@{ shape: disk}
     verilog@{ shape: disk}
     naja@{ shape: rounded}
     najaif@{ shape: disk}
     lib@{ shape: disk}
     pythonlibs@{ shape: disk}
-     sv:::input
-     slang:::frontend
-     naja-verilog:::frontend
-     verilog:::input
-     naja:::core
-     najaif:::input
-     najaeda:::api
-     kf:::tool
-     kfm:::tool
-     ns:::tool
-     scope:::tool
-     lib:::input
-     pythonlibs:::input
+    sv:::input
+    vhdl:::input
+    slang:::frontend
+    naja-verilog:::frontend
+    naja-vhdl:::frontend
+    verilog:::input
+    naja:::core
+    najaif:::input
+    najaeda:::api
+    kf:::tool
+    kfm:::tool
+    ns:::tool
+    scope:::tool
+    lib:::input
+    pythonlibs:::input
     classDef input fill:#eef2ff,stroke:#6366f1,color:#1e1b4b,stroke-width:2px
     classDef frontend fill:#fff7ed,stroke:#f97316,color:#431407,stroke-width:2px
     classDef core fill:#fef2f2,stroke:#ef4444,color:#450a0a,stroke-width:3px
@@ -112,11 +119,17 @@ The best entry point is the [`najaeda`](https://pypi.org/project/najaeda/) Pytho
 pip install najaeda
 ```
 
+Requires Python 3.10 or later. Pre-built wheels are published for:
+
+- Linux x86_64 and AArch64 (`manylinux_2_28`; glibc 2.28 or later)
+- macOS Apple Silicon (arm64), macOS 11 or later
+- Windows x86_64
+
 Full documentation: [najaeda.readthedocs.io](https://najaeda.readthedocs.io/en/latest/)
 
 For AI-assisted design exploration, [`naja-scope`](https://github.com/najaeda/naja-scope)
 is a najaeda-based MCP server that gives MCP-compatible assistants a precise,
-structured view of elaborated SystemVerilog designs. Instead of pasting large
+structured view of elaborated SystemVerilog or VHDL designs. Instead of pasting large
 RTL files into chat, agents can ask targeted questions — what drives a signal,
 what is inside a module, where a net comes from — and get small, exact answers
 with file-and-line references.

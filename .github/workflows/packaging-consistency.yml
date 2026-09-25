@@ -1,0 +1,21 @@
+name: Packaging support consistency
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Check Python, wheel, and documentation support declarations
+        run: python3 ci/check_python_support_sync.py

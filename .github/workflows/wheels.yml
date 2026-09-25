@@ -188,11 +188,9 @@ jobs:
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
-        run: python -m pip install cibuildwheel==4.1.0 delvewheel
+        run: python -m pip install cibuildwheel==4.2.1 delvewheel
       - name: Build wheels
         env:
-          # Python 3.15 remains in beta and is not selected without this opt-in.
-          CIBW_ENABLE: cpython-prerelease
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
           CIBW_ENVIRONMENT_MACOS: >-
             SKLEARN_SKIP_NETWORK_TESTS=1
@@ -202,6 +200,7 @@ jobs:
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BEFORE_ALL_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass

@@ -113,3 +113,28 @@ TEST_F(SNLParameterTest, testInstanceParameterCreationError) {
     SNLInstParameter::create(instance, param, "ERROR"),
     NLException);
 }
+
+TEST_F(SNLParameterTest, requiredParameters) {
+  auto parameter = SNLParameter::create(design_, NLName("WIDTH"), SNLParameter::Type::Decimal);
+  EXPECT_FALSE(parameter->hasDefaultValue());
+  EXPECT_THROW(parameter->getValue(), NLException);
+  EXPECT_NE(std::string::npos, parameter->getDescription().find("no default"));
+  EXPECT_THROW(SNLParameter::create(design_, NLName("WIDTH"), SNLParameter::Type::Decimal), NLException);
+
+  auto empty = SNLParameter::create(design_, NLName("TEXT"), SNLParameter::Type::String, "");
+  EXPECT_TRUE(empty->hasDefaultValue());
+  EXPECT_EQ("", empty->getValue());
+  auto clone = design_->clone(NLName("clone"));
+  std::string reason;
+  EXPECT_TRUE(parameter->deepCompare(clone->getParameter(NLName("WIDTH")), reason));
+  EXPECT_FALSE(clone->getParameter(NLName("WIDTH"))->hasDefaultValue());
+  EXPECT_TRUE(clone->getParameter(NLName("TEXT"))->hasDefaultValue());
+  EXPECT_EQ("", clone->getParameter(NLName("TEXT"))->getValue());
+
+  auto other = SNLDesign::create(designsLib_);
+  auto requiredText = SNLParameter::create(other, NLName("TEXT"), SNLParameter::Type::String);
+  EXPECT_FALSE(empty->deepCompare(requiredText, reason));
+  auto instance = SNLInstance::create(other, design_);
+  auto actual = SNLInstParameter::create(instance, parameter, "8");
+  EXPECT_EQ("8", actual->getValue());
+}

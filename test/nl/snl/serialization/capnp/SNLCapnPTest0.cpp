@@ -387,3 +387,23 @@ TEST_F(SNLCapNpTest0, incompatibleManifestSchemaThrows) {
       ::testing::HasSubstr("producer naja version test-producer, git hash test-hash"));
   }
 }
+
+TEST_F(SNLCapNpTest0, requiredParameterRoundTrip) {
+  auto model = db_->getLibrary(NLName("MYLIB"))->getSNLDesign(NLName("model0"));
+  auto required = SNLParameter::create(model, NLName("REQUIRED"), SNLParameter::Type::String);
+  SNLParameter::create(model, NLName("EMPTY"), SNLParameter::Type::String, "");
+  auto instance = db_->getTopDesign()->getInstance(NLName("instance1"));
+  SNLInstParameter::create(instance, required, "");
+  auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "requiredParameterRoundTrip.snl";
+  SNLCapnP::dump(db_, outPath);
+  db_->setID(2);
+  auto loaded = SNLCapnP::load(outPath);
+  std::string reason;
+  EXPECT_TRUE(db_->deepCompare(loaded, reason)) << reason;
+  auto loadedModel = loaded->getLibrary(NLName("MYLIB"))->getSNLDesign(NLName("model0"));
+  EXPECT_FALSE(loadedModel->getParameter(NLName("REQUIRED"))->hasDefaultValue());
+  EXPECT_TRUE(loadedModel->getParameter(NLName("EMPTY"))->hasDefaultValue());
+  EXPECT_EQ("", loadedModel->getParameter(NLName("EMPTY"))->getValue());
+  EXPECT_EQ("", loaded->getTopDesign()->getInstance(NLName("instance1"))
+    ->getInstParameter(NLName("REQUIRED"))->getValue());
+}

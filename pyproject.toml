@@ -52,6 +52,8 @@ regex = 'NAJA_VERSION\s*\{\s*"(?P<value>[^"]+)"\s*\}'
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"
+Repository = "https://github.com/najaeda/naja"
+Issues = "https://github.com/najaeda/naja/issues"
 
 [tool.cibuildwheel]
 build-verbosity = 1

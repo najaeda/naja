@@ -721,3 +721,23 @@ TEST_F(SNLVRLDumperTestParameters, testWideMuxAndMemoryPrimitiveFileDump) {
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_dffssne #("));
   EXPECT_EQ(1u, countSubstring(primitiveDump, "module naja_divmod #("));
 }
+
+TEST_F(SNLVRLDumperTestParameters, requiredParameterDeclarationRejected) {
+  SNLParameter::create(top_, NLName("WIDTH"), SNLParameter::Type::Decimal);
+  SNLVRLDumper dumper;
+  std::ostringstream out;
+  EXPECT_THROW(dumper.dumpDesign(top_, out), SNLVRLDumperException);
+}
+
+TEST_F(SNLVRLDumperTestParameters, requiredInstanceParameter) {
+  auto parameter = SNLParameter::create(model_, NLName("TEXT"), SNLParameter::Type::String);
+  auto instance = SNLInstance::create(top_, model_, NLName("inst"));
+  SNLVRLDumper dumper;
+  dumper.setDumpHierarchy(false);
+  std::ostringstream missing;
+  EXPECT_THROW(dumper.dumpDesign(top_, missing), SNLVRLDumperException);
+  SNLInstParameter::create(instance, parameter, "");
+  std::ostringstream out;
+  EXPECT_NO_THROW(dumper.dumpDesign(top_, out));
+  EXPECT_NE(std::string::npos, out.str().find(".TEXT(\"\")"));
+}

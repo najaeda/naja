@@ -28,7 +28,7 @@ std::string SNLParameter::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLParameter::SNLParameter(SNLDesign* design, const NLName& name, Type type, const std::string& value):
+SNLParameter::SNLParameter(SNLDesign* design, const NLName& name, Type type, std::optional<std::string> value):
   design_(design), name_(name), type_(type), value_(value)
 {}
 
@@ -37,6 +37,20 @@ SNLParameter* SNLParameter::create(SNLDesign* design, const NLName& name, Type t
   SNLParameter* parameter = new SNLParameter(design, name, type, value);
   parameter->postCreate();
   return parameter;
+}
+
+SNLParameter* SNLParameter::create(SNLDesign* design, const NLName& name, Type type) {
+  preCreate(design, name);
+  auto parameter = new SNLParameter(design, name, type, std::nullopt);
+  parameter->postCreate();
+  return parameter;
+}
+
+std::string SNLParameter::getValue() const {
+  if (not hasDefaultValue()) {
+    throw NLException("SNLParameter " + getName().getString() + " has no default value");
+  }
+  return *value_;
 }
 
 void SNLParameter::postCreate() {
@@ -63,7 +77,7 @@ bool SNLParameter::deepCompare(const SNLParameter* other, std::string& reason) c
   if (getName() != other->getName()) {
     return false;
   }
-  if (getValue() not_eq other->getValue()) {
+  if (getType() != other->getType() || value_ != other->value_) {
     return false;
   }
   return true;
@@ -87,7 +101,7 @@ std::string SNLParameter::getDescription() const {
   stream << "<" << std::string(getTypeName());
   stream << " " + getType().getString();
   stream << " " + getName().getString();
-  stream << " " << getValue();
+  stream << " " << (hasDefaultValue() ? getValue() : "<no default>");
   stream << ">";
   return stream.str(); 
 }

@@ -235,6 +235,9 @@ bool shouldDumpInstParameter(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLInstParameter* instParameter) {
   const auto* parameter = instParameter->getParameter();
+  if (not parameter->hasDefaultValue()) {
+    return true;
+  }
   if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
       parameter->getName() == naja::NL::NLName("INIT") &&
       isZeroVerilogIntegerLiteral(instParameter->getValue())) {
@@ -1766,6 +1769,14 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  for (auto parameter: instance->getModel()->getParameters()) {
+    if (not parameter->hasDefaultValue() &&
+        not instance->getInstParameter(parameter->getName())) {
+      throw SNLVRLDumperException(
+        "Missing value for required parameter " + parameter->getName().getString() +
+        " on instance " + instance->getString());
+    }
+  }
   if (NLDB0::isMux2(instance->getModel())) {
     emitNajaMux2Model_ = true;
     emitNajaPrimitiveModels_ = true;
@@ -2214,6 +2225,12 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o) {
+  if (not parameter->hasDefaultValue()) {
+    throw SNLVRLDumperException(
+      "Cannot emit required parameter " + parameter->getName().getString() +
+      " in design " + parameter->getDesign()->getString() +
+      ": Verilog parameter declarations require a default value");
+  }
   o << "parameter " << parameter->getName().getString() << " = ";
   if (parameter->getType()==SNLParameter::Type::String) {
     o << "\"" << parameter->getValue() << "\"";
