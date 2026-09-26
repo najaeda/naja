@@ -25,7 +25,7 @@ jobs:
     outputs:
       artifact_name: parser-generated-sources
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: true
 
@@ -44,7 +44,7 @@ jobs:
           cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: parser-generated-sources
           path: generated/*
@@ -162,16 +162,16 @@ jobs:
 
     steps:
       # build steps
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: true
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.11"
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: parser-generated-sources
           path: generated
@@ -189,6 +189,33 @@ jobs:
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==4.2.1 delvewheel
+      - name: Configure Windows dependency cache
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cachePath = Join-Path $env:RUNNER_TEMP 'vcpkg-binary-cache'
+          New-Item -ItemType Directory -Force -Path $cachePath | Out-Null
+          Add-Content $env:GITHUB_ENV "VCPKG_BINARY_SOURCES=clear;files,$cachePath,readwrite"
+          Add-Content $env:GITHUB_ENV "VCPKG_CACHE_IMAGE=$env:ImageOS-$env:ImageVersion"
+      - name: Restore Windows dependency cache
+        if: runner.os == 'Windows'
+        id: vcpkg-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          # Share native dependencies across Python versions; refresh on runner
+          # image updates so a new compiler can populate its own cache.
+          key: vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ env.VCPKG_CACHE_IMAGE }}-${{ hashFiles('ci/windows_setup.ps1') }}
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./ci/windows_setup.ps1
+      - name: Save Windows dependency cache
+        if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
       - name: Build wheels
         env:
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
@@ -202,9 +229,6 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_BEFORE_ALL_WINDOWS: >
-            pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
-            -File {project}\ci\windows_setup.ps1
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -274,8 +298,6 @@ jobs:
             echo "macOS wheel compatibility check failed."
             exit 1
           fi
-      #Reminder!!: actions/upload-artifact and actions/download-artifact
-      #need to have same version
       - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
@@ -286,12 +308,12 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -338,8 +360,6 @@ jobs:
     permissions:
       id-token: write
     steps:
-      #Reminder!!: actions/upload-artifact and actions/download-artifact
-      #need to have same version
       - uses: actions/download-artifact@v8
         with:
           pattern: cibw-*
@@ -351,7 +371,7 @@ jobs:
           name: sdist
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
@@ -374,7 +394,7 @@ jobs:
         with:
           name: sdist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true

@@ -9596,6 +9596,32 @@ TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupport
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInvalidGuardedRangeConditionDiagnostic) {
+  SNLSVConstructor constructor(library_);
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "invalid_guarded_range_condition";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "repro.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module repro(input logic en, input logic [31:0] addr, output logic fault);\n"
+         << "  localparam bit RV64 = 0;\n"
+         << "  always_comb begin\n"
+         << "    fault = 0;\n"
+         << "    if (en && RV64 && (|addr[31:34] != 1'b0)) fault = 1;\n"
+         << "  end\n"
+         << "endmodule\n";
+  svFile.close();
+
+  // Slang diagnoses the reversed range as a warning but invalidates the
+  // enclosing condition before Naja can fold its constant-false guard.
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {"InvalidExpression", "Slang rejected the expression", "repro.sv:5:",
+     "en && RV64 && (|addr[31:34] != 1'b0)"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
