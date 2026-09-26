@@ -1,7 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 # SPDX-License-Identifier: Apache-2.0
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_INDEXED_TABLES="${CMAKE_CURRENT_SOURCE_DIR}/indexed_tables.vhd"
   SNL_VHDL_ASYNCHRONOUS_RESET="${CMAKE_CURRENT_SOURCE_DIR}/asynchronous_reset.vhd"
   SNL_VHDL_MEMORY="${CMAKE_CURRENT_SOURCE_DIR}/memory.vhd"
   SNL_VHDL_GENERATED_FIR="${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd"
@@ -31,6 +33,15 @@ target_link_libraries(snlVHDLExternalTests naja_snl_vhdl gtest_main)
 
 find_program(VHDL_NVC_EXECUTABLE nvc)
 find_package(Python3 COMPONENTS Interpreter QUIET)
+find_program(VHDL_IVERILOG_EXECUTABLE iverilog)
+find_program(VHDL_VVP_EXECUTABLE vvp)
+if(Python3_Interpreter_FOUND AND VHDL_IVERILOG_EXECUTABLE AND VHDL_VVP_EXECUTABLE)
+  add_test(NAME VHDLIndexedTablesVerilog
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_indexed_tables.py"
+      --adapter $<TARGET_FILE:snlVHDLConstructorTests>
+      --iverilog "${VHDL_IVERILOG_EXECUTABLE}" --vvp "${VHDL_VVP_EXECUTABLE}")
+  set_tests_properties(VHDLIndexedTablesVerilog PROPERTIES TIMEOUT 180)
+endif()
 if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
   add_test(NAME VHDLGeneratedFIRReference
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compare_fir.py"
@@ -38,8 +49,6 @@ if(VHDL_NVC_EXECUTABLE AND Python3_Interpreter_FOUND)
       --source "${CMAKE_CURRENT_SOURCE_DIR}/fir_generated.vhd" --top fir_generated
       --lanes 4 --width 5 --test VHDLConstructorTest.GeneratedFIRHierarchyCycles)
   set_tests_properties(VHDLGeneratedFIRReference PROPERTIES TIMEOUT 180)
-  find_program(VHDL_IVERILOG_EXECUTABLE iverilog)
-  find_program(VHDL_VVP_EXECUTABLE vvp)
   set(VHDL_MEMORY_DUMP_ARGS)
   if(VHDL_IVERILOG_EXECUTABLE AND VHDL_VVP_EXECUTABLE)
     list(APPEND VHDL_MEMORY_DUMP_ARGS --iverilog "${VHDL_IVERILOG_EXECUTABLE}" --vvp "${VHDL_VVP_EXECUTABLE}")
