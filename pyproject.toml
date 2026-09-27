@@ -31,6 +31,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)"
 ]
 
+[project.optional-dependencies]
+schematic = ["naja-schematic>=0.1.1"]
+
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
