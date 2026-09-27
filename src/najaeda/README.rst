@@ -58,6 +58,10 @@ Installation
 
     pip install najaeda
 
+For the optional `schematic viewer <https://github.com/najaeda/naja-schematic>`_,
+run ``pip install "najaeda[schematic]"``. In a notebook, use
+``from najaeda.schematic import show; show()`` to display the currently loaded design.
+
 Requires Python 3.10 or later. Pre-built wheels are published for:
 
 * Linux x86_64 and AArch64 (``manylinux_2_28``; glibc 2.28 or later)
