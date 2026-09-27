@@ -759,3 +759,15 @@ values with the reader build; regenerate snapshots after changing builds.
 .. autofunction:: najaeda.naja.intent_parameters_of
 .. autofunction:: najaeda.naja.intent_type_of
 .. autofunction:: najaeda.naja.intent_package_member
+
+Memory reset roles
+------------------
+
+For DB0 ``naja_mem__*`` primitives and other designs with a memory interface,
+``SNLBitTerm.getRole()`` reports ``SNLTermRole.SyncReset`` for synchronous
+resets and ``SNLTermRole.AsyncReset`` for asynchronous resets. Both satisfy
+``is_reset()``; synchronous resets also satisfy ``is_sync_reset()``.
+``getResetActiveLevel()`` returns ``SNLActiveLevel.Low`` for either active-low
+reset mode and ``SNLActiveLevel.High`` for either active-high mode. With no
+reset enabled, the reset pin has role ``Other`` and active level ``NA``.
+The same queries on ``SNLInstTerm`` follow the model's bit term.
