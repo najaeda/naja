@@ -1496,6 +1496,37 @@ architecture rtl of lookup is begin y <= rom(conv_integer(a)); end;
   }
 }
 
+TEST_F(VHDLConstructorTest, UnsupportedConversionOperandsDoNotPublishDesigns) {
+  for (const auto& [conversion, operandType, resultType, diagnostic] :
+      std::vector<std::tuple<std::string, std::string, std::string, std::string>>{
+          {"unsigned", "std_logic", "unsigned(0 downto 0)", "unsupported vector conversion operand"},
+          {"signed", "bit_vector(3 downto 0)", "signed(3 downto 0)", "unsupported vector conversion operand"},
+          {"std_logic_vector", "bit_vector(3 downto 0)", "std_logic_vector(3 downto 0)",
+              "unsupported vector conversion operand"},
+          {"to_integer", "std_logic", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"to_integer", "std_logic_vector(1 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"to_integer", "unsigned(31 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"conv_integer", "std_logic", "integer range 0 to 3", "unsupported conv_integer argument"},
+          {"conv_integer", "unsigned(1 downto 0)", "integer range 0 to 3", "unsupported conv_integer argument"},
+          {"conv_integer", "std_logic_vector(31 downto 0)", "integer range 0 to 3",
+              "unsupported conv_integer argument"}}) {
+    SCOPED_TRACE(conversion + "(" + operandType + ")");
+    const auto source =
+        "library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+        "use ieee.std_logic_arith.all; use ieee.std_logic_unsigned.all; "
+        "entity conversion is port(a : in " + operandType + "); end; "
+        "architecture rtl of conversion is signal y : " + resultType + "; "
+        "begin y <= " + conversion + "(a); end;";
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "unsupported conversion accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
 TEST_F(VHDLConstructorTest, UnsignedArithmeticWidthsAndDirections) {
   auto* design = VHDLConstructor(library_).construct(R"(
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;

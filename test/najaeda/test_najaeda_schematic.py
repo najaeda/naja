@@ -4,6 +4,7 @@
 
 import importlib
 import sys
+from types import ModuleType
 import unittest
 from unittest.mock import patch
 
@@ -38,6 +39,18 @@ class NajaedaSchematicTest(unittest.TestCase):
         for name in ("show", "diagnosis_response", "handle_request", "__version__"):
             with self.subTest(name=name):
                 self.assertIs(getattr(schematic, name), getattr(naja_schematic, name))
+
+    def test_public_api_with_stub_viewer(self):
+        viewer = ModuleType("naja_schematic")
+        exports = ["show", "diagnosis_response", "handle_request", "__version__"]
+        for name in exports:
+            setattr(viewer, name, object())
+        with patch.dict(sys.modules, {"naja_schematic": viewer}):
+            schematic = importlib.import_module("najaeda.schematic")
+            self.assertEqual(schematic.__all__, exports)
+            for name in exports:
+                with self.subTest(name=name):
+                    self.assertIs(getattr(schematic, name), getattr(viewer, name))
 
 
 if __name__ == "__main__":
