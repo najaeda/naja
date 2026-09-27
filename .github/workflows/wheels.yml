@@ -25,7 +25,7 @@ jobs:
     outputs:
       artifact_name: parser-generated-sources
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
@@ -162,16 +162,16 @@ jobs:
 
     steps:
       # build steps
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - name: Setup Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8
         with:
           name: parser-generated-sources
           path: generated
@@ -200,7 +200,7 @@ jobs:
       - name: Restore Windows dependency cache
         if: runner.os == 'Windows'
         id: vcpkg-cache
-        uses: actions/cache/restore@v6.1.0
+        uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/vcpkg-binary-cache
           # Share native dependencies across Python versions; refresh on runner
