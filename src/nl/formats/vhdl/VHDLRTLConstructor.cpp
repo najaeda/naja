@@ -32,6 +32,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <tuple>
 #include <utility>
 
 namespace naja::NL {
@@ -1814,6 +1815,8 @@ class RTLConstructor {
   }
   Bits mux(SNLBitNet* condition, const Bits& yes, const Bits& no) {
     if (auto value = constantValue(condition)) return *value ? yes : no;
+    const auto cacheKey = std::make_tuple(condition, yes, no);
+    if (const auto found = muxes_.find(cacheKey); found != muxes_.end()) return found->second;
     Bits result(yes.size());
     for (size_t first = 0; first < yes.size();) {
       if (yes[first] == no[first] || !yes[first] || !no[first]) {
@@ -1837,7 +1840,23 @@ class RTLConstructor {
             : static_cast<SNLBusNet*>(output)->getBitAtPosition(i - first);
       first = end;
     }
+    muxes_.emplace(cacheKey, result);
     return result;
+  }
+  SNLBitNet* cachedGate(const std::string& op, Bits inputs) {
+    // All supported multi-input gates are commutative.
+    std::sort(inputs.begin(), inputs.end(), std::less<SNLBitNet*>{});
+    const auto cacheKey = std::make_pair(op, inputs);
+    if (const auto found = gates_.find(cacheKey); found != gates_.end()) return found->second;
+    using Gate = SNLRTLPrimitives::GateKind;
+    static const std::map<std::string, Gate> kinds{{"and", Gate::And}, {"or", Gate::Or},
+        {"xor", Gate::Xor}, {"nand", Gate::Nand}, {"nor", Gate::Nor},
+        {"xnor", Gate::Xnor}, {"not", Gate::Not}};
+    auto* output = SNLScalarNet::create(design_);
+    SNLRTLPrimitives::createGate(design_, kinds.at(op),
+        std::vector<SNLNet*>(inputs.begin(), inputs.end()), output);
+    gates_.emplace(cacheKey, output);
+    return output;
   }
   SNLBitNet* gate(const std::string& op, SNLBitNet* a, SNLBitNet* b = nullptr) {
     using Gate = SNLRTLPrimitives::GateKind;
@@ -1853,11 +1872,20 @@ class RTLConstructor {
       if (op == "nand" || op == "nor" || op == "xnor") value = !value;
       return constant(value);
     }
-    auto* output = SNLScalarNet::create(design_);
-    std::vector<SNLNet*> inputs{a};
-    if (b) inputs.push_back(b);
-    SNLRTLPrimitives::createGate(design_, kind->second, inputs, output);
-    return output;
+    if (b && (av || bv)) {
+      const bool value = av ? *av : *bv;
+      auto* other = av ? b : a;
+      if (op == "and" || op == "nand") {
+        auto* result = value ? other : constant(false);
+        return op == "nand" ? gate("not", result) : result;
+      }
+      if (op == "or" || op == "nor") {
+        auto* result = value ? constant(true) : other;
+        return op == "nor" ? gate("not", result) : result;
+      }
+      return (value == (op == "xor")) ? gate("not", other) : other;
+    }
+    return cachedGate(op, b ? Bits{a, b} : Bits{a});
   }
 
   Bits add(const Bits& left, const Bits& right, bool subtract) {
@@ -1912,10 +1940,16 @@ class RTLConstructor {
   }
   SNLBitNet* equal(const Bits& a, const Bits& b) {
     if (a.size() != b.size()) fail("internal comparison width mismatch");
-    auto* result = constant(true);
-    for (size_t i = 0; i < a.size(); ++i)
-      result = gate("and", result, gate("xnor", a[i], b[i]));
-    return result;
+    Bits matches;
+    for (size_t i = 0; i < a.size(); ++i) {
+      auto* match = gate("xnor", a[i], b[i]);
+      if (const auto value = constantValue(match)) {
+        if (!*value) return constant(false);
+      } else matches.push_back(match);
+    }
+    if (matches.empty()) return constant(true);
+    if (matches.size() == 1) return matches.front();
+    return cachedGate("and", std::move(matches));
   }
   Shape vectorShape(size_t width, const std::string& scalar = "std_logic") {
     if (!width) fail("empty vector");
@@ -1970,16 +2004,54 @@ class RTLConstructor {
     for (auto* bit : value.bits) readBit(bit);
     auto address = expression(indexExpr, state);
     checkIndexType(address, bounds);
-    Bits result(stride, constant(false));
-    for (size_t i = 0; i < bounds.size(); ++i) {
-      auto index = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
-      if (index < 0) fail("dynamic indexing of negative bounds is unsupported");
-      const auto width = std::max<size_t>(address.bits.size(), 32);
-      auto* select = equal(resize(address.bits, width), number(index, {{"integer"}, {}, width}).bits);
-      result = mux(select, Bits(value.bits.begin() + i * stride,
-          value.bits.begin() + (i + 1) * stride), result);
+    const auto low = std::min(bounds.left, bounds.right);
+    const auto high = std::max(bounds.left, bounds.right);
+    if (low < 0) fail("dynamic indexing of negative bounds is unsupported");
+    // Retain every nonconstant address bit. Truncating to ceil(log2(depth))
+    // would alias out-of-range reads onto valid entries. Widen narrow indices
+    // too, so unreachable entries cannot alias in the primitive model.
+    while (address.bits.size() > 1 && constantValue(address.bits.front()) == false)
+      address.bits.erase(address.bits.begin());
+    size_t width = 1;
+    for (auto bound = uint64_t(high); bound >>= 1;) ++width;
+    width = std::max(width, address.bits.size());
+    address.bits = resize(address.bits, width);
+    if (low) address.bits = add(address.bits, number(low, {{"integer"}, {}, width}).bits, true);
+    auto* model = NLDB0::getOrCreateTableSelect({stride, bounds.size(), width});
+    Bits data;
+    for (size_t entry = 0; entry < bounds.size(); ++entry) {
+      const auto position = bounds.ascending ? entry : bounds.size() - 1 - entry;
+      for (size_t bit = stride; bit; --bit) {
+        auto* net = value.bits[position * stride + bit - 1];
+        if (const auto binary = constantValue(net)) net = constant(*binary);
+        data.push_back(net);
+      }
     }
-    value.bits = std::move(result);
+    Bits inputs = data;
+    inputs.insert(inputs.end(), address.bits.begin(), address.bits.end());
+    const auto cacheKey = std::make_pair(model, inputs);
+    if (const auto found = tables_.find(cacheKey); found != tables_.end()) {
+      value.bits = found->second;
+      return value;
+    }
+    auto* instance = SNLInstance::create(design_, model);
+    // Verilog export uses the shared parameterized module, not the canonical
+    // model's name or default dimensions.
+    for (const auto& [parameter, size] : std::vector<std::pair<std::string, size_t>>{
+        {"WIDTH", stride}, {"DEPTH", bounds.size()}, {"ABITS", width}})
+      SNLInstParameter::create(instance, model->getParameter(NLName(parameter)), std::to_string(size));
+    for (size_t bit = 0; bit < data.size(); ++bit)
+      instance->getInstTerm(NLDB0::getTableSelectData(model)->getBit(bit))->setNet(data[bit]);
+    for (size_t bit = 0; bit < width; ++bit)
+      instance->getInstTerm(NLDB0::getTableSelectAddress(model)->getBit(bit))->setNet(address.bits[width - 1 - bit]);
+    auto* output = SNLBusNet::create(design_, stride - 1, 0);
+    value.bits.clear();
+    for (size_t bit = stride; bit; --bit) {
+      auto* net = output->getBit(bit - 1);
+      instance->getInstTerm(NLDB0::getTableSelectOutput(model)->getBit(bit - 1))->setNet(net);
+      value.bits.push_back(net);
+    }
+    tables_.emplace(cacheKey, value.bits);
     return value;
   }
 
@@ -2096,11 +2168,16 @@ class RTLConstructor {
         if (value.shape.ranges.size() != 1 || (source != "unsigned" && source != "signed" && source != "std_logic_vector"))
           fail("unsupported vector conversion operand");
         value.shape.types.front() = target;
-      } else if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "conv_integer") {
-        if (!unsigned_ || !arith_) fail("conv_integer requires std_logic_arith and std_logic_unsigned");
+      } else if (expr.left->kind == Expr::Kind::Name &&
+          (key(*expr.left) == "conv_integer" || key(*expr.left) == "to_integer")) {
+        const bool numeric = key(*expr.left) == "to_integer";
+        if (numeric ? !numeric_ : (!unsigned_ || !arith_))
+          fail(numeric ? "to_integer requires numeric_std" :
+              "conv_integer requires std_logic_arith and std_logic_unsigned");
         value = expression(*expr.right, state);
-        if (value.shape.types.front() != "std_logic_vector" || value.bits.size() > 31)
-          fail("unsupported conv_integer argument");
+        if (value.shape.ranges.size() != 1 ||
+            value.shape.types.front() != (numeric ? "unsigned" : "std_logic_vector") || value.bits.size() > 31)
+          fail(numeric ? "unsupported to_integer argument" : "unsupported conv_integer argument");
         value.shape = {{"integer"}, {}, value.bits.size()};
       } else value = readSelected(expr, state);
       for (auto* bit : value.bits) readBit(bit);
@@ -2740,6 +2817,9 @@ class RTLConstructor {
   std::string objectPrefix_;
   std::vector<std::pair<std::string, Object>> generatedObjects_;
   std::map<std::string, Memory> memories_;
+  std::map<std::pair<std::string, Bits>, SNLBitNet*> gates_;
+  std::map<std::tuple<SNLBitNet*, Bits, Bits>, Bits> muxes_;
+  std::map<std::pair<SNLDesign*, Bits>, Bits> tables_;
   std::set<SNLBitNet*> drivers_, reads_;
   std::map<SNLBitNet*, bool> initialValues_;
   std::set<SNLBitNet*> initializedFlops_;

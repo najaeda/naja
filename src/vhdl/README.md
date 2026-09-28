@@ -58,6 +58,18 @@ definite assignment, array ports, hierarchy, initialization, and asynchronous
 processes remain unsupported. Elaboration is bounded to 65,536 bits per object
 and 100,000 expanded statements.
 
+The current adapter also lowers dynamic reads of constant, signal and variable
+arrays to `naja_table_select`, with element nets packed in numeric index order.
+Constant-driven ROM signals keep constant DATA even when their assignment appears
+after the read. Nonnegative nonzero bounds are normalized without dropping high
+address bits; ascending and descending declarations preserve element order.
+Unknown and out-of-range addresses yield X in exported Verilog. Both Synopsys
+`conv_integer` and `numeric_std.to_integer(unsigned(...))` indices are supported
+up to 31 bits; signed conversions and dynamic negative bounds are diagnosed.
+Combinational gates, muxes and table reads are shared within each design, gates
+fold constant operands, and equality uses a reduction of the nonconstant matches.
+Inferred memories continue to use `naja_mem`.
+
 The standalone analyzer and scalar scheduler diagnose syntax requiring this
 profile; the adapter performs its own checked RTL elaboration and discards the
 design on any failure. The original scalar integration path remains available.

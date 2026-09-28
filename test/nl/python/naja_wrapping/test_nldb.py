@@ -7,6 +7,7 @@ import gzip
 import shutil
 import tempfile
 import unittest
+import warnings
 import zipfile
 import naja
 import faulthandler 
@@ -103,6 +104,14 @@ architecture rtl of inverter is begin y <= not a; end;
     self.assertEqual(design.getName(), "inverter")
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
+
+  def testVHDLBetaWarningAsError(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with warnings.catch_warnings():
+      warnings.simplefilter("error", RuntimeWarning)
+      with self.assertRaisesRegex(RuntimeWarning, "VHDL parser is in Beta mode"):
+        db.loadVHDL("input.vhd")
+    self.assertEqual(len(list(db.getLibraries())), 0)
 
   def testVHDLWarningReport(self):
     db = naja.NLDB.create(naja.NLUniverse.get())

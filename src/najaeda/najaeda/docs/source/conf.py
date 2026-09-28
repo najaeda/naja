@@ -10,8 +10,12 @@ import os
 import re
 import sys
 
-# Add the src directory to sys.path
-sys.path.insert(0, os.path.abspath('../../../'))
+from docutils import nodes
+from sphinx.errors import ExtensionError
+
+# Prefer the installed package (including its compiled extension). Fall back
+# to the source package for local builds with the extension on PYTHONPATH.
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 
 def read_naja_release():
@@ -43,15 +47,48 @@ extensions = [
 
 try:
     from najaeda import naja as raw_naja
-    sys.modules.setdefault("najaeda.naja", raw_naja)
-    tags.add("raw_naja_available")
-    autodoc_mock_imports = []
-except Exception:
-    autodoc_mock_imports = ["naja", "najaeda.naja"]
+except Exception as error:
+    raise RuntimeError(
+        "The documentation requires the compiled najaeda extension. "
+        "Install this checkout with pip, or add the matching CMake Python "
+        "extension directory to PYTHONPATH before running Sphinx."
+    ) from error
+sys.modules.setdefault("najaeda.naja", raw_naja)
+
+
+def check_raw_api_links(app, doctree, docname):
+    """Reject dangling raw API links, including targets removed by ``only``."""
+    if docname != 'raw_api':
+        return
+    target_ids = {
+        target_id
+        for node in doctree.findall(nodes.Element)
+        for target_id in node.get('ids', [])
+    }
+    missing = {
+        node['refid']
+        for node in doctree.findall(nodes.reference)
+        if node.get('refid', '').startswith('najaeda.naja.')
+        and node['refid'] not in target_ids
+    }
+    if missing:
+        raise ExtensionError(
+            'Raw API reference targets are missing: ' + ', '.join(sorted(missing))
+        )
+
+
+def check_raw_api_reference(app, env, node, contnode):
+    target = node.get('reftarget', '')
+    if target.startswith('najaeda.naja.'):
+        raise ExtensionError(f'Unresolved raw API reference: {target}')
+
+
+def setup(app):
+    app.connect('doctree-resolved', check_raw_api_links)
+    app.connect('missing-reference', check_raw_api_reference)
 
 templates_path = ['_templates']
 exclude_patterns = []
-suppress_warnings = ["autodoc.mocked_object"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

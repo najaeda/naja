@@ -235,6 +235,9 @@ bool shouldDumpInstParameter(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLInstParameter* instParameter) {
   const auto* parameter = instParameter->getParameter();
+  if (not parameter->hasDefaultValue()) {
+    return true;
+  }
   if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
       parameter->getName() == naja::NL::NLName("INIT") &&
       isZeroVerilogIntegerLiteral(instParameter->getValue())) {
@@ -1766,6 +1769,14 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  for (auto parameter: instance->getModel()->getParameters()) {
+    if (not parameter->hasDefaultValue() &&
+        not instance->getInstParameter(parameter->getName())) {
+      throw SNLVRLDumperException(
+        "Missing value for required parameter " + parameter->getName().getString() +
+        " on instance " + instance->getString());
+    }
+  }
   if (NLDB0::isMux2(instance->getModel())) {
     emitNajaMux2Model_ = true;
     emitNajaPrimitiveModels_ = true;
@@ -2120,6 +2131,18 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
   for (auto term: design->getBitTerms()) {
     auto net = term->getNet();
     if (net) {
+      if (term->getDirection() == SNLTerm::Direction::Output &&
+          (net->isAssign0() || net->isAssign1() || net->isAssignX() || net->isAssignZ())) {
+        // Constants substitute at input uses, but must also drive top-level
+        // outputs, including bits whose net and terminal share the same name.
+        auto* busBit = dynamic_cast<SNLBusTermBit*>(term);
+        const auto name = busBit ?
+            dumpName(busBit->getBus()->getName().getString()) + "[" + std::to_string(busBit->getBit()) + "]" :
+            dumpName(term->getName().getString());
+        o << "assign " << name << " = 1'b" << getAssignConstantBitValue(net) << ";\n";
+        atLeastOne = true;
+        continue;
+      }
       if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
         if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
           //same name ?
@@ -2214,6 +2237,12 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o) {
+  if (not parameter->hasDefaultValue()) {
+    throw SNLVRLDumperException(
+      "Cannot emit required parameter " + parameter->getName().getString() +
+      " in design " + parameter->getDesign()->getString() +
+      ": Verilog parameter declarations require a default value");
+  }
   o << "parameter " << parameter->getName().getString() << " = ";
   if (parameter->getType()==SNLParameter::Type::String) {
     o << "\"" << parameter->getValue() << "\"";

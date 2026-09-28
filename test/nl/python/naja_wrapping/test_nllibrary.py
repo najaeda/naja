@@ -35,6 +35,7 @@ class NLLibraryTest(unittest.TestCase):
     self.assertFalse(lib1.isPrimitives())
     self.assertListEqual([lib1], list(db.getLibraries()))
     self.assertListEqual([], list(db.getPrimitiveLibraries()))
+    self.assertListEqual([], list(lib1.getLibraries()))
 
     lib1.setName('RENAMEDLIB1')
     self.assertIsNone(db.getLibrary("LIB1"))
@@ -48,11 +49,14 @@ class NLLibraryTest(unittest.TestCase):
     self.assertEqual(lib2, lib1.getLibrary("LIB2"))
     self.assertTrue(lib2.isStandard())
     self.assertFalse(lib2.isPrimitives())
+    self.assertListEqual([lib2], list(lib1.getLibraries()))
     self.assertListEqual([lib1, lib2], list(db.getGlobalLibraries()))
 
     #create anonymous sublib
     anonajaib = naja.NLLibrary.create(lib1)
     self.assertIsNotNone(anonajaib)
+    self.assertListEqual([lib2, anonajaib], list(lib1.getLibraries()))
+    self.assertListEqual([], list(lib2.getLibraries()))
 
   def testErrors(self):
     u = naja.NLUniverse.get()

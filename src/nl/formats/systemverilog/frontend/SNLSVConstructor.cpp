@@ -18214,6 +18214,9 @@ endmodule
 
     // LCOV_EXCL_START
     std::string describeExpressionKind(slang::ast::ExpressionKind kind) const {
+      if (kind == slang::ast::ExpressionKind::Invalid) {
+        return "InvalidExpression";
+      }
       if (kind == slang::ast::ExpressionKind::UnaryOp) {
         return "UnaryOp";
       }
@@ -18315,7 +18318,21 @@ endmodule
       }
       std::ostringstream description;
       description << describeExpressionKind(stripped->kind);
-      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+      if (stripped->kind == slang::ast::ExpressionKind::Invalid) {
+        description << " (Slang rejected the expression; check Slang diagnostics)";
+        // InvalidExpression has no source range; its retained child can still
+        // identify the expression that failed semantic checking.
+        const auto* child = stripped->as<slang::ast::InvalidExpression>().child;
+        if (child) {
+          const auto range = getSourceRange(*child);
+          if (const auto info = getSourceInfo(range)) {
+            description << " at " << info->file << ":" << info->line << ":" << info->column;
+          }
+          if (const auto excerpt = getSourceExcerpt(range)) {
+            description << " [" << *excerpt << "]";
+          }
+        }
+      } else if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
         description << " op=" << slang::ast::OpInfo::getText(binaryExpr.op);
       } else if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
