@@ -222,6 +222,17 @@ at ``neorv32_top.vhd:30`` in the development checkout. Vector generics, runtime
 vector helpers, and further elaboration constructs remain unsupported; the
 complete top has not been validated.
 
+Dynamic array reads lower to ``naja_table_select`` for constant arrays,
+constant-driven ROM signals, and general signal or variable arrays. Identical
+lookups within a design share the primitive. Nonnegative ascending and descending
+bounds are supported, including nonzero lower bounds. Indices can use
+``conv_integer`` with the Synopsys packages or ``to_integer(unsigned(...))``
+with ``numeric_std`` (up to 31 input bits). Address bits are preserved so
+out-of-range or unknown addresses produce X in exported Verilog rather than
+wrapping to a valid entry. Dynamic negative bounds and signed ``to_integer``
+remain unsupported. Inferred writable memories retain their existing memory
+primitive lowering.
+
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
 multiplication, equality/inequality and concatenation. Static
 ``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,

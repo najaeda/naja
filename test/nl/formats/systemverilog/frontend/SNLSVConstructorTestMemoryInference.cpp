@@ -1182,6 +1182,13 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
+  auto* reset = NLDB0::getMemoryReset(memoryInst->getModel());
+  ASSERT_NE(nullptr, reset);
+  EXPECT_EQ(SNLDesignModeling::SNLTermRole::SyncReset,
+            SNLDesignModeling::getTermRole(reset));
+  EXPECT_EQ(SNLDesignModeling::SNLActiveLevel::High,
+            SNLDesignModeling::getResetActiveLevel(reset));
+
 
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));
@@ -1253,6 +1260,13 @@ endmodule
     }
   }
   ASSERT_NE(nullptr, memoryInst);
+  auto* reset = NLDB0::getMemoryReset(memoryInst->getModel());
+  ASSERT_NE(nullptr, reset);
+  EXPECT_EQ(SNLDesignModeling::SNLTermRole::SyncReset,
+            SNLDesignModeling::getTermRole(reset));
+  EXPECT_EQ(SNLDesignModeling::SNLActiveLevel::Low,
+            SNLDesignModeling::getResetActiveLevel(reset));
+
 
   auto* rstEnableParam = memoryInst->getInstParameter(NLName("RST_ENABLE"));
   auto* rstAsyncParam = memoryInst->getInstParameter(NLName("RST_ASYNC"));

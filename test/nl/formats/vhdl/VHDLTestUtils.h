@@ -75,7 +75,15 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     return evaluateRTL(driver->getInstTerm(term)->getNet(), values, visiting, memories);
   };
   bool value;
-  if (NLDB0::isMemory(model)) {
+  if (NLDB0::isTableSelect(model)) {
+    const auto signature = NLDB0::getTableSelectSignature(driver);
+    size_t address = 0;
+    for (size_t i = signature.abits; i; --i)
+      address = address * 2 + read(NLDB0::getTableSelectAddress(model)->getBit(i - 1));
+    if (address >= signature.depth) throw std::runtime_error("unknown table select result");
+    const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
+    value = read(NLDB0::getTableSelectData(model)->getBit(address * signature.width + bit));
+  } else if (NLDB0::isMemory(model)) {
     if (!memories) throw std::runtime_error("missing memory state");
     const auto signature = NLDB0::getMemorySignature(driver);
     const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();

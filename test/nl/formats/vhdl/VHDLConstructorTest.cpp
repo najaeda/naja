@@ -1237,6 +1237,114 @@ end;
   }
 }
 
+TEST_F(VHDLConstructorTest, ConstantFoldingAndCombinationalSharing) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity folded is port(a, b, s : in bit; v : in bit_vector(3 downto 0);
+  y : out bit_vector(11 downto 0)); end;
+architecture rtl of folded is begin
+  y(0) <= a and '0'; y(1) <= '1' and a;
+  y(2) <= '0' or a; y(3) <= a or '1';
+  y(4) <= a xnor '0'; y(5) <= '1' xnor a;
+  y(6) <= a when true else b;
+  y(7) <= a when s = '1' else a;
+  y(8) <= a and b; y(9) <= b and a;
+  y(10) <= '1' when v = "0010" else '0';
+  y(11) <= '1' when v = "0010" else '0';
+end;
+)");
+  size_t inverters = 0, reductions = 0, ands = 0, muxes = 0;
+  for (auto* instance : design->getInstances()) {
+    const auto* model = instance->getModel();
+    if (NLDB0::isMux2(model)) ++muxes;
+    if (!NLDB0::isGate(model)) continue;
+    if (NLDB0::getGateName(model) == "not") ++inverters;
+    if (NLDB0::getGateName(model) == "and") {
+      ++ands;
+      if (NLDB0::getGateNTerms(model)->getWidth() == 4) ++reductions;
+    }
+    EXPECT_NE(NLDB0::getGateName(model), "xnor");
+  }
+  EXPECT_EQ(inverters, 4u);
+  EXPECT_EQ(ands, 2u);
+  EXPECT_EQ(reductions, 1u);
+  EXPECT_EQ(muxes, 1u);
+  for (unsigned pattern = 0; pattern < 128; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    for (const auto& [name, shift] : {std::pair{"a", 0u}, {"b", 1u}, {"s", 2u}})
+      values[design->getScalarTerm(NLName(name))->getNet()] = (pattern >> shift) & 1;
+    const auto v = pattern >> 3;
+    for (unsigned bit = 0; bit < 4; ++bit)
+      values[design->getBusTerm(NLName("v"))->getBit(bit)->getNet()] = (v >> bit) & 1;
+    const bool a = pattern & 1, b = pattern & 2;
+    const bool expected[]{false, a, a, true, !a, a, a, a, a && b, a && b, v == 2, v == 2};
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 12; ++bit)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting), expected[bit]);
+  }
+  if (const auto* directory = std::getenv("VHDL_TABLE_DUMP")) {
+    SNLVRLDumper dumper;
+    dumper.setSingleFile(true);
+    dumper.setTopFileName("folded.v");
+    dumper.dumpDesign(design, directory);
+  }
+}
+
+TEST_F(VHDLConstructorTest, IndexedTablePrimitivesAndSharing) {
+  auto* design = VHDLConstructor(library_).constructFile(SNL_VHDL_INDEXED_TABLES);
+  ASSERT_NE(design, nullptr);
+  size_t tables = 0, constantTables = 0, muxes = 0, gates = 0, flops = 0;
+  for (auto* instance : design->getInstances()) {
+    auto* model = instance->getModel();
+    if (NLDB0::isTableSelect(model)) {
+      ++tables;
+      const auto signature = NLDB0::getTableSelectSignature(instance);
+      EXPECT_EQ(signature.width, 8u);
+      EXPECT_EQ(signature.depth, 3u);
+      EXPECT_TRUE(signature.abits == 2 || signature.abits == 3);
+      bool constants = true;
+      for (auto* bit : NLDB0::getTableSelectData(model)->getBits()) {
+        auto* net = instance->getInstTerm(bit)->getNet();
+        constants &= net->isConstant0() || net->isConstant1();
+      }
+      constantTables += constants;
+    } else if (NLDB0::isMux2(model)) ++muxes;
+    else if (NLDB0::isDFF(model)) ++flops;
+    else if (NLDB0::isGate(model)) ++gates;
+    else FAIL() << "unexpected primitive: " << model->getName().getString();
+  }
+  // Three equivalent zero-based reads and both offset directions share.
+  // The late-driven ROM still has constant DATA, independently of statement order.
+  EXPECT_EQ(tables, 5u);
+  EXPECT_EQ(constantTables, 4u);
+  EXPECT_EQ(muxes, 0u);
+  EXPECT_EQ(flops, 3u);
+  EXPECT_LT(gates, 90u);
+  const auto flopped = dffBits(design);
+  ASSERT_EQ(flopped.size(), 24u);
+  for (unsigned pattern = 0; pattern < 256; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    for (unsigned bit = 0; bit < 8; ++bit)
+      values[design->getBusTerm(NLName("d"))->getBit(bit)->getNet()] = (pattern >> bit) & 1;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (const auto& flop : flopped) values[flop.output] = evaluateRTL(flop.data, values, visiting);
+    for (unsigned address = 0; address < 3; ++address) {
+      auto current = values;
+      for (unsigned bit = 0; bit < 3; ++bit)
+        current[design->getBusTerm(NLName("addr"))->getBit(bit)->getNet()] = (address >> bit) & 1;
+      const unsigned expected = address == 0 ? pattern : address == 1 ? (pattern ^ 255) : (pattern ^ 0xa5);
+      for (unsigned bit = 0; bit < 8; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("writable_q"))->getBit(bit)->getNet(), current, visiting),
+                  bool((expected >> bit) & 1));
+    }
+  }
+  if (const auto* directory = std::getenv("VHDL_TABLE_DUMP")) {
+    SNLVRLDumper dumper;
+    dumper.setSingleFile(true);
+    dumper.setTopFileName("indexed_tables.v");
+    dumper.dumpDesign(design, directory);
+  }
+}
+
 TEST_F(VHDLConstructorTest, PackageROMAndDynamicMemoryCycles) {
   VHDLConstructor constructor(library_);
   EXPECT_EQ(constructor.construct(R"(
@@ -1384,6 +1492,37 @@ architecture rtl of lookup is begin y <= rom(conv_integer(a)); end;
     ASSERT_NE(invalid.find(before), std::string::npos);
     invalid.replace(invalid.find(before), before.size(), after);
     EXPECT_THROW(VHDLConstructor(library_).construct(invalid), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, UnsupportedConversionOperandsDoNotPublishDesigns) {
+  for (const auto& [conversion, operandType, resultType, diagnostic] :
+      std::vector<std::tuple<std::string, std::string, std::string, std::string>>{
+          {"unsigned", "std_logic", "unsigned(0 downto 0)", "unsupported vector conversion operand"},
+          {"signed", "bit_vector(3 downto 0)", "signed(3 downto 0)", "unsupported vector conversion operand"},
+          {"std_logic_vector", "bit_vector(3 downto 0)", "std_logic_vector(3 downto 0)",
+              "unsupported vector conversion operand"},
+          {"to_integer", "std_logic", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"to_integer", "std_logic_vector(1 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"to_integer", "unsigned(31 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
+          {"conv_integer", "std_logic", "integer range 0 to 3", "unsupported conv_integer argument"},
+          {"conv_integer", "unsigned(1 downto 0)", "integer range 0 to 3", "unsupported conv_integer argument"},
+          {"conv_integer", "std_logic_vector(31 downto 0)", "integer range 0 to 3",
+              "unsupported conv_integer argument"}}) {
+    SCOPED_TRACE(conversion + "(" + operandType + ")");
+    const auto source =
+        "library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+        "use ieee.std_logic_arith.all; use ieee.std_logic_unsigned.all; "
+        "entity conversion is port(a : in " + operandType + "); end; "
+        "architecture rtl of conversion is signal y : " + resultType + "; "
+        "begin y <= " + conversion + "(a); end;";
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "unsupported conversion accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
+    }
     EXPECT_TRUE(library_->getSNLDesigns().empty());
   }
 }

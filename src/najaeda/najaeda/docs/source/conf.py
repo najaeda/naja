@@ -10,6 +10,9 @@ import os
 import re
 import sys
 
+from docutils import nodes
+from sphinx.errors import ExtensionError
+
 # Prefer the installed package (including its compiled extension). Fall back
 # to the source package for local builds with the extension on PYTHONPATH.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
@@ -51,6 +54,38 @@ except Exception as error:
         "extension directory to PYTHONPATH before running Sphinx."
     ) from error
 sys.modules.setdefault("najaeda.naja", raw_naja)
+
+
+def check_raw_api_links(app, doctree, docname):
+    """Reject dangling raw API links, including targets removed by ``only``."""
+    if docname != 'raw_api':
+        return
+    target_ids = {
+        target_id
+        for node in doctree.findall(nodes.Element)
+        for target_id in node.get('ids', [])
+    }
+    missing = {
+        node['refid']
+        for node in doctree.findall(nodes.reference)
+        if node.get('refid', '').startswith('najaeda.naja.')
+        and node['refid'] not in target_ids
+    }
+    if missing:
+        raise ExtensionError(
+            'Raw API reference targets are missing: ' + ', '.join(sorted(missing))
+        )
+
+
+def check_raw_api_reference(app, env, node, contnode):
+    target = node.get('reftarget', '')
+    if target.startswith('najaeda.naja.'):
+        raise ExtensionError(f'Unresolved raw API reference: {target}')
+
+
+def setup(app):
+    app.connect('doctree-resolved', check_raw_api_links)
+    app.connect('missing-reference', check_raw_api_reference)
 
 templates_path = ['_templates']
 exclude_patterns = []

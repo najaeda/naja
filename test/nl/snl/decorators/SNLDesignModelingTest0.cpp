@@ -555,6 +555,28 @@ TEST_F(SNLDesignModelingTest0,
   EXPECT_TRUE(SNLDesignModeling::isDataInput(inst->getInstTerm(wdata0)));
   EXPECT_TRUE(SNLDesignModeling::isDataOutput(inst->getInstTerm(rdata0)));
 
+  using Mode = SNLDesignModeling::MemoryResetMode;
+  using Role = SNLDesignModeling::SNLTermRole;
+  using Level = SNLDesignModeling::SNLActiveLevel;
+  struct ResetCase { Mode mode; Role role; Level level; };
+  for (const auto& resetCase : {
+           ResetCase{Mode::None, Role::Other, Level::NA},
+           ResetCase{Mode::AsyncLow, Role::AsyncReset, Level::Low},
+           ResetCase{Mode::AsyncHigh, Role::AsyncReset, Level::High},
+           ResetCase{Mode::SyncLow, Role::SyncReset, Level::Low},
+           ResetCase{Mode::SyncHigh, Role::SyncReset, Level::High}}) {
+    SCOPED_TRACE(static_cast<int>(resetCase.mode));
+    interface.resetMode = resetCase.mode;
+    SNLDesignModeling::setMemoryInterface(mem, interface);
+    EXPECT_EQ(resetCase.role, SNLDesignModeling::getTermRole(rst));
+    EXPECT_EQ(resetCase.level, SNLDesignModeling::getResetActiveLevel(rst));
+    EXPECT_EQ(resetCase.role, SNLDesignModeling::getTermRole(inst->getInstTerm(rst)));
+    EXPECT_EQ(resetCase.level,
+              SNLDesignModeling::getResetActiveLevel(inst->getInstTerm(rst)));
+    EXPECT_EQ(resetCase.role != Role::Other, SNLDesignModeling::isReset(rst));
+    EXPECT_EQ(resetCase.role == Role::SyncReset, SNLDesignModeling::isSyncReset(rst));
+  }
+
   auto plain = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("PLAIN"));
   auto plainIn = SNLScalarTerm::create(
       plain, SNLTerm::Direction::Input, NLName("I"));

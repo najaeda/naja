@@ -316,6 +316,26 @@ TEST_F(SNLVRLDumperTestParameters, testDefaultInstanceParametersAreOmitted) {
   EXPECT_EQ(std::string::npos, dumped.find(".SAME_STR("));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testConstantOutputNetsDrivePorts) {
+  auto* scalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, NLName("constant_out"));
+  auto* scalarNet = SNLScalarNet::create(top_, NLName("constant_out"));
+  scalarNet->setType(SNLNet::Type::Assign1);
+  scalar->setNet(scalarNet);
+  auto* bus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 3, 0, NLName("constant.bus"));
+  auto* busNet = SNLBusNet::create(top_, 3, 0, NLName("constant.bus"));
+  bus->setNet(busNet);
+  const SNLNet::Type types[]{SNLNet::Type::Assign0, SNLNet::Type::Assign1,
+      SNLNet::Type::AssignX, SNLNet::Type::AssignZ};
+  for (int bit = 0; bit < 4; ++bit) busNet->getBit(bit)->setType(types[bit]);
+  std::ostringstream out;
+  SNLVRLDumper().dumpDesign(top_, out);
+  const auto dumped = out.str();
+  EXPECT_NE(dumped.find("assign constant_out = 1'b1;"), std::string::npos);
+  for (int bit = 0; bit < 4; ++bit)
+    EXPECT_NE(dumped.find("assign \\constant.bus [" + std::to_string(bit) + "] = 1'b" + "01xz"[bit] + ";"),
+              std::string::npos);
+}
+
 TEST_F(SNLVRLDumperTestParameters, testFullyUnconnectedInstancePortsAreDumped) {
   ASSERT_TRUE(top_);
   ASSERT_TRUE(model_);

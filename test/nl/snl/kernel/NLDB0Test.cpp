@@ -1111,12 +1111,15 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
 
+  using Role = SNLDesignModeling::SNLTermRole;
+  using Level = SNLDesignModeling::SNLActiveLevel;
   auto checkMemory = [](NLDB0::MemoryResetMode mode,
                         const char* expectedName,
                         const char* expectedEnable,
                         const char* expectedAsync,
                         const char* expectedActiveLow,
-                        SNLDesignModeling::MemoryResetMode expectedModelingMode) {
+                        SNLDesignModeling::MemoryResetMode expectedModelingMode,
+                        Role expectedRole, Level expectedLevel) {
     NLDB0::MemorySignature signature;
     signature.width = 4;
     signature.depth = 8;
@@ -1131,6 +1134,12 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     EXPECT_EQ(expectedEnable, memory->getParameter(NLName("RST_ENABLE"))->getValue());
     EXPECT_EQ(expectedAsync, memory->getParameter(NLName("RST_ASYNC"))->getValue());
     EXPECT_EQ(expectedActiveLow, memory->getParameter(NLName("RST_ACTIVE_LOW"))->getValue());
+    auto* reset = NLDB0::getMemoryReset(memory);
+    ASSERT_NE(nullptr, reset);
+    EXPECT_EQ(expectedRole, SNLDesignModeling::getTermRole(reset));
+    EXPECT_EQ(expectedLevel, SNLDesignModeling::getResetActiveLevel(reset));
+    EXPECT_EQ(expectedRole != Role::Other, SNLDesignModeling::isReset(reset));
+    EXPECT_EQ(expectedRole == Role::SyncReset, SNLDesignModeling::isSyncReset(reset));
     EXPECT_EQ(expectedModelingMode, SNLDesignModeling::getMemoryInterface(memory).resetMode);
   };
 
@@ -1140,28 +1149,33 @@ TEST_F(NLDB0Test, testMemoryPrimitiveSyncResetModes) {
     "0",
     "0",
     "0",
-    SNLDesignModeling::MemoryResetMode::None);
+    SNLDesignModeling::MemoryResetMode::None, Role::Other, Level::NA);
+  checkMemory(
+    NLDB0::MemoryResetMode::AsyncLow,
+    "naja_mem__w4_d8_a3_r1_w1_rst_async_low",
+    "1", "1", "1",
+    SNLDesignModeling::MemoryResetMode::AsyncLow, Role::AsyncReset, Level::Low);
   checkMemory(
     NLDB0::MemoryResetMode::AsyncHigh,
     "naja_mem__w4_d8_a3_r1_w1_rst_async_high",
     "1",
     "1",
     "0",
-    SNLDesignModeling::MemoryResetMode::AsyncHigh);
+    SNLDesignModeling::MemoryResetMode::AsyncHigh, Role::AsyncReset, Level::High);
   checkMemory(
     NLDB0::MemoryResetMode::SyncLow,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_low",
     "1",
     "0",
     "1",
-    SNLDesignModeling::MemoryResetMode::SyncLow);
+    SNLDesignModeling::MemoryResetMode::SyncLow, Role::SyncReset, Level::Low);
   checkMemory(
     NLDB0::MemoryResetMode::SyncHigh,
     "naja_mem__w4_d8_a3_r1_w1_rst_sync_high",
     "1",
     "0",
     "0",
-    SNLDesignModeling::MemoryResetMode::SyncHigh);
+    SNLDesignModeling::MemoryResetMode::SyncHigh, Role::SyncReset, Level::High);
 }
 
 TEST_F(NLDB0Test, testLazyPrimitiveLibraryRecreationAndWidthErrors) {

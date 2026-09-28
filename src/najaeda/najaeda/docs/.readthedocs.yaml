@@ -25,8 +25,14 @@ build:
     python: "3.12"
   jobs:
     post_install:
-      # Build this revision, including the extension used by autodoc.
-      - python -m pip install . --config-settings=cmake.define.PREGENERATED_PARSER_SOURCES=OFF --config-settings=build.tool-args=-j2
+      # Autodoc needs this revision's extension, but not optimized machine code.
+      # Avoid spending the documentation build time limit optimizing the frontends.
+      - >-
+        python -m pip install . --verbose
+        --config-settings=cmake.define.PREGENERATED_PARSER_SOURCES=OFF
+        --config-settings=cmake.define.CMAKE_CXX_FLAGS_RELEASE="-O0 -DNDEBUG"
+        --config-settings=cmake.define.CMAKE_C_FLAGS_RELEASE="-O0 -DNDEBUG"
+        --config-settings=build.tool-args=-j2
 
 submodules:
   include: all
