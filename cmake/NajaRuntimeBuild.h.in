@@ -1,0 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+#define NAJA_RUNTIME_GIT_COMMIT "@NAJA_RUNTIME_GIT_COMMIT@"
+#define NAJA_RUNTIME_COMPILER "@NAJA_RUNTIME_COMPILER@"
+#define NAJA_RUNTIME_BUILD_ID "@NAJA_RUNTIME_BUILD_ID@"

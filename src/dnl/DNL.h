@@ -107,6 +107,9 @@ struct SNLInstTermCompare {
 DNL<DNLInstanceFull, DNLTerminalFull>* get();
 bool isCreated();
 void destroy();
+// Exchange without creating or deleting either DNL. The caller owns the
+// detached graph and must serialize access and preserve its source netlist.
+DNLFull* exchange(DNLFull* replacement) noexcept;
 
 class DNLInstanceFull {
  public:

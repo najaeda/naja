@@ -20,6 +20,12 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+set(NAJA_EMBEDDED_LIBRARY_TYPE STATIC)
+if(BUILD_NAJA_PYTHON AND WIN32)
+  # Put these objects in their owning DLL's input list so CMake's automatic
+  # export generation includes SDK entry points from the embedded components.
+  set(NAJA_EMBEDDED_LIBRARY_TYPE OBJECT)
+endif()
 if(BUILD_NAJA_PYTHON AND WIN32)
   # Make imported targets from find_package() globally visible so parent
   # directories can consume fmt exported by thirdparty/slang.

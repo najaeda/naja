@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 if(BUILD_NAJA_PYTHON)
+  include("${PROJECT_SOURCE_DIR}/cmake/NajaPythonSDK.cmake")
   install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/najaeda
     DESTINATION .
     PATTERN "*~" EXCLUDE

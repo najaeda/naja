@@ -1,0 +1,15 @@
+{
+  "api_version": 1,
+  "version": "@NAJA_RUNTIME_VERSION@",
+  "git_commit": "@NAJA_RUNTIME_GIT_COMMIT@",
+  "compiler_id": "@CMAKE_CXX_COMPILER_ID@",
+  "compiler_version": "@CMAKE_CXX_COMPILER_VERSION@",
+  "build_id": "@NAJA_RUNTIME_BUILD_ID@",
+  "python_soabi": "@Python3_SOABI@",
+  "boost_version": "@NAJA_RUNTIME_BOOST_VERSION@",
+  "tbb_version": "@TBB_VERSION@",
+  "system": "@CMAKE_SYSTEM_NAME@",
+  "processor": "@CMAKE_SYSTEM_PROCESSOR@",
+  "pointer_size": @CMAKE_SIZEOF_VOID_P@,
+  "cxx_standard": 20
+}
