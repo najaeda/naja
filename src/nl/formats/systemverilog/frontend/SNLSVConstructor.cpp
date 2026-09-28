@@ -54,6 +54,7 @@
 #include "SNLInstTerm.h"
 #include "SNLParameter.h"
 #include "SNLRTLInfos.h"
+#include "SNLRTLPrimitives.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 
@@ -18213,6 +18214,9 @@ endmodule
 
     // LCOV_EXCL_START
     std::string describeExpressionKind(slang::ast::ExpressionKind kind) const {
+      if (kind == slang::ast::ExpressionKind::Invalid) {
+        return "InvalidExpression";
+      }
       if (kind == slang::ast::ExpressionKind::UnaryOp) {
         return "UnaryOp";
       }
@@ -18314,7 +18318,21 @@ endmodule
       }
       std::ostringstream description;
       description << describeExpressionKind(stripped->kind);
-      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+      if (stripped->kind == slang::ast::ExpressionKind::Invalid) {
+        description << " (Slang rejected the expression; check Slang diagnostics)";
+        // InvalidExpression has no source range; its retained child can still
+        // identify the expression that failed semantic checking.
+        const auto* child = stripped->as<slang::ast::InvalidExpression>().child;
+        if (child) {
+          const auto range = getSourceRange(*child);
+          if (const auto info = getSourceInfo(range)) {
+            description << " at " << info->file << ":" << info->line << ":" << info->column;
+          }
+          if (const auto excerpt = getSourceExcerpt(range)) {
+            description << " [" << *excerpt << "]";
+          }
+        }
+      } else if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
         description << " op=" << slang::ast::OpInfo::getText(binaryExpr.op);
       } else if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
@@ -18740,13 +18758,8 @@ endmodule
       }
       // Connect input bits directly, including constants, concatenations, and
       // reordered slices. They do not need an intermediate packed bus.
-      auto* mux2 = NLDB0::getOrCreateMux2(inA.size());
-      auto* inst = SNLInstance::create(design, mux2);
+      auto* inst = SNLRTLPrimitives::createMux(design, select, inA, inB, outNet);
       annotateSourceInfo(inst, sourceRange);
-      connectInstanceTermBits(inst, NLDB0::getMux2InputA(mux2), inA);
-      connectInstanceTermBits(inst, NLDB0::getMux2InputB(mux2), inB);
-      inst->setTermNet(NLDB0::getMux2Select(mux2), select);
-      inst->setTermNet(NLDB0::getMux2Output(mux2), outNet);
       outBits = collectBits(outNet);
       return true;
     }
@@ -31367,29 +31380,10 @@ endmodule
       SNLNet* qNet,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
       const Symbol* astSymbol = nullptr) {
-      auto dff = NLDB0::getDFF();
-      auto inst = SNLInstance::create(design, dff);
+      auto* inst = SNLRTLPrimitives::createDFF(design, clkNet, dNet, qNet);
       annotateSourceInfo(inst, sourceRange);
       if (auto* effectiveASTSymbol = astSymbol ? astSymbol : activeSequentialASTSymbol_) {
         bindLiveASTLink(inst, *effectiveASTSymbol);
-      }
-      auto cTerm = NLDB0::getDFFClock();
-      auto dTerm = NLDB0::getDFFData();
-      auto qTerm = NLDB0::getDFFOutput();
-      if (cTerm) {
-        if (auto instTerm = inst->getInstTerm(cTerm)) {
-          instTerm->setNet(clkNet);
-        }
-      }
-      if (dTerm) {
-        if (auto instTerm = inst->getInstTerm(dTerm)) {
-          instTerm->setNet(dNet);
-        }
-      }
-      if (qTerm) {
-        if (auto instTerm = inst->getInstTerm(qTerm)) {
-          instTerm->setNet(qNet);
-        }
       }
       attachDFFInitParameter(inst, collectBits(qNet));
     }

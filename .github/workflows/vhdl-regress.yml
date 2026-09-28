@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-License-Identifier: Apache-2.0
+
+name: External VHDL Regress
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  vhdl-regress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+
+      - name: Set up canonical Linux Release toolchain
+        uses: ./.github/actions/setup-linux-release
+        with:
+          cache-scope: naja-module
+
+      - name: Configure canonical Release build
+        run: bash .github/scripts/configure-linux-release.sh
+
+      - name: Build external VHDL regression
+        run: cmake --build build --target snlVHDLExternalTests --config Release --parallel $(nproc)
+
+      - name: Download and test AES decryption benchmark
+        env:
+          VHDL_AES_BENCHMARK: ${{ github.workspace }}/build/vhdl-regress/aes
+          AES_REVISION: 4eea4a7b479f55dfbf385df392cb362a100098d2
+        run: |
+          mkdir -p "${VHDL_AES_BENCHMARK}"
+          for source in aes_pkg key_expansion aes_dec; do
+            curl --fail --location --retry 3 \
+              "https://raw.githubusercontent.com/os-fpga/RTL_Benchmark/${AES_REVISION}/VHDL/Cores/crypto_core/aes_128_192_256/rtl/${source}.vhdl" \
+              --output "${VHDL_AES_BENCHMARK}/${source}.vhdl"
+          done
+          (cd "${VHDL_AES_BENCHMARK}" && sha256sum -c - <<'EOF'
+          15581cce1417308c5fc55893ab31bd78395268df2b8c45e64fcbd1745d6f0d0d  aes_pkg.vhdl
+          474d6c97e491f72370eae8835d97bf07e4d464f82686c4726f90a48fde00ca37  key_expansion.vhdl
+          46361423406d76ef3595c667fee751870b7e1ea60481e212a488145cadd2a32f  aes_dec.vhdl
+          EOF
+          )
+          build/test/nl/formats/vhdl/snlVHDLExternalTests \
+            --gtest_filter=VHDLExternalTest.AESDecryptBenchmark \
+            --gtest_output=xml:build/vhdl-regress/results.xml
+
+      - name: Upload VHDL regression results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: vhdl-regress-results
+          path: build/vhdl-regress/results.xml
+
+      - name: Show ccache statistics
+        if: always()
+        run: ccache --show-stats

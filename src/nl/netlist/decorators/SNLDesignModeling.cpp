@@ -1699,6 +1699,11 @@ SNLDesignModeling::SNLTermRole getMemoryTermRole(
        memory.resetMode == ResetMode::AsyncHigh)) {
     return Role::AsyncReset;
   }
+  if (term == memory.reset &&
+      (memory.resetMode == ResetMode::SyncLow ||
+       memory.resetMode == ResetMode::SyncHigh)) {
+    return Role::SyncReset;
+  }
   auto contains = [term](const SNLDesignModeling::BitTerms& terms) {
     return std::find(terms.begin(), terms.end(), term) != terms.end();
   };
@@ -1746,7 +1751,8 @@ SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
   if (term && hasMemoryInterface(term->getDesign())) {
     auto memory = getMemoryInterface(term->getDesign());
     if (term == memory.reset) {
-      return memory.resetMode == MemoryResetMode::AsyncLow
+      return (memory.resetMode == MemoryResetMode::AsyncLow ||
+              memory.resetMode == MemoryResetMode::SyncLow)
           ? SNLActiveLevel::Low : SNLActiveLevel::High;
     }
   }

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import faulthandler
 
-from najaeda import netlist
+from najaeda import netlist, naja
 
 systemverilog_benchmarks = os.environ.get("SYSTEMVERILOG_BENCHMARKS_PATH")
 if not systemverilog_benchmarks:
@@ -23,6 +23,45 @@ if not najaeda_test_path:
 class NajaEDASystemVerilogTest(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
+
+    def test_memory_sync_reset_role(self):
+        for condition, level in (("rst", naja.SNLActiveLevel.High),
+                                 ("~rst", naja.SNLActiveLevel.Low)):
+            with self.subTest(condition=condition):
+                netlist.reset()
+                with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
+                    source = os.path.join(temp_dir, "memory.sv")
+                    with open(source, "w") as stream:
+                        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module memory(input logic clk, rst,
+              input logic [1:0] addr, input logic [7:0] data,
+              output logic [7:0] q);
+  logic [7:0] mem_q [0:3];
+  logic [7:0] mem_d [0:3];
+  always_comb begin
+    mem_d = mem_q;
+    mem_d[addr] = data;
+  end
+  always_ff @(posedge clk) begin
+    if (CONDITION) mem_q <= '{8'h10, 8'h21, 8'h32, 8'h43};
+    else mem_q <= mem_d;
+  end
+  assign q = mem_q[addr];
+endmodule
+""".replace("CONDITION", condition))
+                    netlist.load_system_verilog(source)
+                    top = naja.NLUniverse.get().getTopDesign()
+                    memories = [inst.getModel() for inst in top.getInstances()
+                                if inst.getModel().getName().startswith("naja_mem__")]
+                    self.assertEqual(1, len(memories))
+                    reset = memories[0].getScalarTerm("RST")
+                    self.assertIsNotNone(reset)
+                    self.assertEqual(naja.SNLTermRole.SyncReset, reset.getRole())
+                    self.assertTrue(reset.is_reset())
+                    self.assertTrue(reset.is_sync_reset())
+                    self.assertFalse(reset.is_async_reset())
+                    self.assertEqual(level, reset.getResetActiveLevel())
 
     def test_system_verilog_config_diagnostics_default(self):
         config = netlist.SystemVerilogConfig()

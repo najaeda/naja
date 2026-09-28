@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+
+cc_test(
+    name = "snlRTLPrimitivesTests",
+    srcs = ["SNLRTLPrimitivesTest.cpp"],
+    deps = [
+        "//src/nl/formats/hdl:naja_snl_hdl",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "reference": {
+    "tool": "GHDL",
+    "version": "6.0.0",
+    "archive_sha256": "c21312d5a0cc5833e6d8690d8c4343e67f4fc32f070c07343816cd11a31c7769"
+  },
+  "corpora": [
+    {
+      "name": "uart-for-fpga core",
+      "repository": "https://github.com/jakubcabal/uart-for-fpga",
+      "revision": "9aed72b1057ebcba9f5e302118e3dc856ad68ba0",
+      "license": "MIT",
+      "standard": "VHDL-1993",
+      "scope": ["rtl/uart.vhd", "rtl/comp/*.vhd"],
+      "source_files": 6,
+      "source_bytes": 28588,
+      "entry": "uart",
+      "result": "GHDL analysis/import and elaboration-order query passed"
+    },
+    {
+      "name": "Domipheus RPU RV32I core",
+      "repository": "https://github.com/Domipheus/RPU",
+      "revision": "200284e361c667f21fb571809050ba4e0343d7ce",
+      "revision_date": "2020-09-12",
+      "license": "Apache-2.0",
+      "standard": "VHDL-2008",
+      "scope": ["vhdl/*.vhd"],
+      "source_files": 11,
+      "source_bytes": 119156,
+      "entry": "core",
+      "result": "GHDL analysis/import and elaboration-order query passed"
+    },
+    {
+      "name": "NEORV32 core",
+      "repository": "https://github.com/stnolting/neorv32",
+      "revision": "e25059f2d7fa948342516c0722bbf2b19039ab3c",
+      "license": "BSD-3-Clause",
+      "standard": "VHDL-2008",
+      "scope": ["rtl/core/*.vhd"],
+      "source_files": 54,
+      "source_bytes": 1076906,
+      "library": "neorv32",
+      "entry": "neorv32_top",
+      "result": "GHDL analysis/import and elaboration-order query passed"
+    },
+    {
+      "name": "NEORV32 complete RTL",
+      "repository": "https://github.com/stnolting/neorv32",
+      "revision": "e25059f2d7fa948342516c0722bbf2b19039ab3c",
+      "license": "BSD-3-Clause",
+      "standard": "VHDL-2008",
+      "scope": ["rtl/**/*.vhd"],
+      "source_files": 61,
+      "source_bytes": 1150319,
+      "library": "neorv32",
+      "entry": "neorv32_top",
+      "result": "GHDL analysis/import and elaboration-order query passed for all 61 RTL VHDL files"
+    }
+  ],
+  "rights_review": {
+    "reviewed_date": "2026-09-21",
+    "scope": "Reference validation and ephemeral test use; no upstream RTL is vendored in this repository.",
+    "findings": [
+      {
+        "name": "uart-for-fpga core",
+        "license": "MIT",
+        "evidence": "https://github.com/jakubcabal/uart-for-fpga/blob/master/LICENSE",
+        "condition": "Retain the copyright and license notice when redistributing source or substantial portions."
+      },
+      {
+        "name": "Domipheus RPU RV32I core",
+        "license": "Apache-2.0",
+        "evidence": "https://github.com/Domipheus/RPU",
+        "condition": "Preserve the license, applicable copyright and NOTICE information, and mark modified files if source is redistributed."
+      },
+      {
+        "name": "NEORV32 core and complete RTL",
+        "license": "BSD-3-Clause",
+        "evidence": "https://github.com/stnolting/neorv32/blob/main/LICENSE",
+        "condition": "Retain notices, license conditions and disclaimer; do not use contributor names for endorsement."
+      }
+    ],
+    "limitation": "This is a repository-level review, not a line-by-line audit of every file at each pinned revision. Recheck the exact revision and file-level notices before vendoring or redistributing source or generated artifacts."
+  },
+  "binary_profile_review": {
+    "reviewed_date": "2026-09-21",
+    "tool": "GHDL",
+    "version": "6.0.0 (6.0.0.r0.ge589c698c)",
+    "method": "Source review for scalar std_logic values outside '0'/'1', weak-value defaults, and dash assignments, followed by synthesis of each listed entry design. This is a feasibility check, not a complete driver or behavioral-equivalence audit.",
+    "findings": [
+      {
+        "name": "uart-for-fpga core",
+        "result": "GHDL synthesis completed for UART; source scan found no explicit U/X/Z/W/L/H/- scalar logic literals or input port defaults in the selected RTL scope.",
+        "implication": "No immediate value-domain obstacle was found in this small sample; driver and simulation behavior still require frontend-specific validation."
+      },
+      {
+        "name": "Domipheus RPU RV32I core",
+        "result": "GHDL synthesis completed for core after analyzing component units before the top; source scan found no explicit U/X/Z/W/L/H/- scalar logic literals or input port defaults in the selected RTL scope.",
+        "implication": "No immediate value-domain obstacle was found in this medium sample; synthesis success does not establish single-driver behavior or semantic equivalence."
+      },
+      {
+        "name": "NEORV32 core",
+        "result": "GHDL synthesis completed for neorv32_top. The reviewed RTL contains explicit 'X' undefined results in the ALU and LSU, '-' don't-care assignments in the SMC, and 'L'/'H' defaults on top-level inputs; its std_ulogic types remain nine-valued despite disallowing multiple resolved drivers.",
+        "implication": "This sample is not compatible with a strict binary-only profile without an explicit, documented synthesis policy for these constructs. Do not silently coerce them."
+      }
+    ],
+    "conclusion": "The corpus does not validate a blanket binary-only compatibility claim. A restricted binary hardware profile remains plausible for designs whose analyzed behavior is binary and single-driver, but the NEORV32 scope requires explicit policy or rejection. Static literal scans and successful GHDL synthesis do not prove driver counts, reachability, observability, or equivalence.",
+    "artifacts": "Temporary work libraries and generated synthesis output were kept outside the repository; no RTL or generated netlist was added."
+  },
+  "limitations": "These are three projects spanning small, medium and large RTL scopes. Counts include VHDL files only. The licenses indicate no apparent blocker for reference validation or ephemeral test use when their terms are followed. Do not add upstream RTL to source distributions without checking exact pinned-revision notices. Analysis, hierarchy resolution and synthesis checks do not establish simulation equivalence or frontend correctness."
+}

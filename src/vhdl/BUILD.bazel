@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+
+cc_library(
+    name = "vhdl_frontend",
+    srcs = [
+        "src/Analyzer.cpp",
+        "src/Lexer.cpp",
+        "src/Parser.cpp",
+    ],
+    hdrs = glob(["include/vhdl/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)

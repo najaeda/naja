@@ -31,6 +31,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)"
 ]
 
+[project.optional-dependencies]
+schematic = ["naja-schematic>=0.1.1"]
+
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
@@ -52,6 +55,8 @@ regex = 'NAJA_VERSION\s*\{\s*"(?P<value>[^"]+)"\s*\}'
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"
+Repository = "https://github.com/najaeda/naja"
+Issues = "https://github.com/najaeda/naja/issues"
 
 [tool.cibuildwheel]
 build-verbosity = 1

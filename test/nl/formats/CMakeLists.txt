@@ -4,4 +4,6 @@
 
 add_subdirectory(liberty)
 add_subdirectory(verilog)
+add_subdirectory(hdl)
+add_subdirectory(vhdl)
 add_subdirectory(systemverilog)

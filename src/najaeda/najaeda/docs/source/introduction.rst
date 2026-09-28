@@ -9,7 +9,8 @@ attributes, hierarchical paths, occurrences, and equipotentials.
 
 Typical use cases include:
 
-* loading Verilog, elaborated SystemVerilog, Liberty, primitive libraries, and
+* loading Verilog, elaborated SystemVerilog, experimental VHDL, Liberty,
+  primitive libraries, and
   Naja interchange files;
 * exploring hierarchy, ports, nets, instance terminals, and flat connectivity;
 * writing netlist analysis passes such as fanout, logic-level, and design
@@ -52,7 +53,15 @@ Installation
     
     pip install najaeda
 
-Requires Python 3.10 or later.
+For the optional `schematic viewer <https://github.com/najaeda/naja-schematic>`_,
+run ``pip install "najaeda[schematic]"``. In a notebook, use
+``from najaeda.schematic import show; show()`` to display the currently loaded design.
+
+Requires Python 3.10 or later. Pre-built wheels are published for:
+
+* Linux x86_64 and AArch64 (``manylinux_2_28``; glibc 2.28 or later)
+* macOS Apple Silicon (arm64), macOS 11 or later
+* Windows x86_64
 
 Bug Reports
 -----------

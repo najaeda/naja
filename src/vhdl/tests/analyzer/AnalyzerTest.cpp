@@ -1,0 +1,1120 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+
+#include "vhdl/Analyzer.h"
+#include <gtest/gtest.h>
+#include <limits>
+
+namespace {
+
+vhdl::AnalysisResult analyze(std::string_view source) {
+    const auto parsed = vhdl::Parser::parse(source);
+    EXPECT_FALSE(parsed.hasErrors());
+    return vhdl::Analyzer::analyze(parsed.syntax);
+}
+
+TEST(VHDLAnalyzerTest, AppliesGenericDefaultsAndInstanceActualsToRanges) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity leaf is
+  generic(width : positive := 4; extra : natural := width + 1);
+  port(a : in bit_vector(width-1 downto 0); q : out bit_vector(extra-1 downto 0));
+end;
+architecture rtl of leaf is
+  signal state : bit_vector(width-1 downto 0);
+begin state <= a; end;
+entity top is port(a : in bit_vector(7 downto 0); q : out bit_vector(8 downto 0)); end;
+architecture structural of top is begin
+  u: entity work.leaf generic map(width => 8, extra => 9) port map(a, q);
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& leaf = parsed.syntax.entities.front();
+    ASSERT_NE(result.getRange(leaf.ports[0].type), nullptr);
+    EXPECT_EQ(result.getRange(leaf.ports[0].type)->left, 3);
+    EXPECT_EQ(result.getRange(leaf.ports[0].type)->right, 0);
+    const auto& instance = parsed.syntax.architectures[1].instantiations.front();
+    EXPECT_EQ(result.getGenericValue(instance, "WIDTH"), 8);
+    EXPECT_EQ(result.getGenericValue(instance, "extra"), 9);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesMissingAndInvalidGenericActuals) {
+    EXPECT_TRUE(analyze(R"(
+entity leaf is generic(n : positive); port(q : out bit_vector(n-1 downto 0)); end;
+entity top is port(q : out bit_vector(2 downto 0)); end;
+architecture rtl of top is begin u: entity work.leaf port map(q); end;
+)").hasErrors());
+    EXPECT_TRUE(analyze(R"(
+entity leaf is generic(n : positive := 2); port(q : out bit_vector(n-1 downto 0)); end;
+entity top is port(q : out bit_vector(2 downto 0)); end;
+architecture rtl of top is begin
+  u: entity work.leaf generic map(n => 0) port map(q);
+end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ChecksIntegerArithmeticBoundaries) {
+    const auto min = std::numeric_limits<std::int64_t>::min();
+    const auto max = std::numeric_limits<std::int64_t>::max();
+    const std::vector<std::pair<std::string, std::optional<std::int64_t>>> cases{
+        {"hi + 0", max}, {"lo + 0", min},
+        {"hi + 1", std::nullopt}, {"lo + (-1)", std::nullopt},
+        {"hi + lo", -1}, {"lo - lo", 0}, {"hi - hi", 0},
+        {"lo - 1", std::nullopt}, {"hi - (-1)", std::nullopt},
+        {"hi * 1", max}, {"lo * 1", min},
+        {"1 * lo", min}, {"lo * 0", 0}, {"0 * lo", 0},
+        {"hi * 2", std::nullopt}, {"2 * hi", std::nullopt},
+        {"lo * 2", std::nullopt}, {"2 * lo", std::nullopt},
+        {"lo * (-1)", std::nullopt}, {"(-1) * lo", std::nullopt},
+        {"(-2) * (-3)", 6}, {"(-2) * 3", -6}, {"2 * (-3)", -6},
+        {"(-4611686018427387904) * 2", min},
+        {"(-4611686018427387904) * (-2)", std::nullopt},
+        {"lo / (-1)", std::nullopt}, {"lo / 1", min},
+        {"lo rem (-1)", 0}, {"lo mod (-1)", 0},
+        {"1 / 0", std::nullopt}, {"1 rem 0", std::nullopt},
+        {"1 mod 0", std::nullopt}, {"-lo", std::nullopt},
+        {"(-7) rem 3", -1}, {"(-7) mod 3", 2},
+        {"7 rem (-3)", 1}, {"7 mod (-3)", -2},
+    };
+    for (const auto& [expression, expected] : cases) {
+        SCOPED_TRACE(expression);
+        const auto parsed = vhdl::Parser::parse(
+            "entity leaf is generic(hi : integer := 9223372036854775807; "
+            "lo : integer := -9223372036854775807 - 1; "
+            "value : integer := " + expression + "); end; "
+            "entity top is end; architecture rtl of top is begin "
+            "u: entity work.leaf port map(); end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+        EXPECT_EQ(result.hasErrors(), !expected.has_value());
+        if (expected) {
+            const auto& instance = parsed.syntax.architectures[0].instantiations[0];
+            EXPECT_EQ(result.getGenericValue(instance, "value"), expected);
+        }
+    }
+}
+
+
+TEST(VHDLAnalyzerTest, ResolvesEntityArchitectureAndConcurrentAssignments) {
+    const auto result = analyze(R"(
+entity top is
+  port (a, b : in bit; y : out bit);
+end entity top;
+architecture rtl of TOP is
+begin
+  y <= A and b;
+end architecture rtl;
+)");
+    EXPECT_FALSE(result.hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ReportsMissingEntityAndNames) {
+    const auto result = analyze(R"(
+entity top is port (a : in bit; y : out bit); end entity top;
+architecture rtl of missing is begin y <= a; end architecture rtl;
+architecture other of top is begin y <= unknown; end architecture other;
+architecture third of top is begin missing <= a; end architecture third;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 3);
+    EXPECT_NE(result.diagnostics[0].message.find("no entity declaration"), std::string::npos);
+    EXPECT_NE(result.diagnostics[1].message.find("no declaration for name"), std::string::npos);
+    EXPECT_NE(result.diagnostics[2].message.find("no declaration for assignment target"),
+              std::string::npos);
+}
+
+TEST(VHDLAnalyzerTest, RejectsDuplicatePortsAndArchitectures) {
+    const auto result = analyze(R"(
+entity top is port (a : in bit; A : out bit); end entity top;
+architecture rtl of top is begin a <= '1'; end architecture rtl;
+architecture RTL of top is begin a <= '0'; end architecture RTL;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 2);
+    EXPECT_NE(result.diagnostics[0].message.find("duplicate port"), std::string::npos);
+    EXPECT_NE(result.diagnostics[1].message.find("duplicate architecture"), std::string::npos);
+}
+
+TEST(VHDLAnalyzerTest, ExtendedIdentifiersPreserveCase) {
+    const auto result = analyze(R"(
+entity top is port (\Data\ : in bit; y : out bit); end entity top;
+architecture rtl of top is begin y <= \data\; end architecture rtl;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 1);
+    EXPECT_NE(result.diagnostics[0].message.find("no declaration for name"), std::string::npos);
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNamesInConditionalAssignments) {
+    const auto result = analyze(R"(
+entity mux is port (a, b, sel : in bit; y : out bit); end entity mux;
+architecture rtl of mux is begin
+  y <= a when missing = '1' else b;
+end architecture rtl;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 1);
+    EXPECT_NE(result.diagnostics[0].message.find("no declaration for name"), std::string::npos);
+    EXPECT_NE(result.diagnostics[0].message.find("missing"), std::string::npos);
+}
+
+TEST(VHDLAnalyzerTest, TypeChecksScalarBitLogicalExpressions) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity logic is port (a, b, c : in bit; y : out bit); end;
+architecture rtl of logic is begin y <= (a and b) xor not c; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::Bit);
+    EXPECT_EQ(result.getType(*expression.left), vhdl::ScalarType::Bit);
+    EXPECT_EQ(result.getType(*expression.right), vhdl::ScalarType::Bit);
+}
+
+TEST(VHDLAnalyzerTest, ResolvesImportedNineValuedLogicWithoutBinaryCollapse) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library IEEE;
+use IEEE.std_logic_1164.all, ieee.numeric_std.all;
+entity logic is port(a, b : in std_logic; y : out std_logic); end;
+architecture rtl of logic is begin y <= (a xor b) and 'X'; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::StdLogic);
+    EXPECT_EQ(result.getType(*expression.right), vhdl::ScalarType::StdLogic);
+
+    for (const auto* literal : {
+        "'U'", "'X'", "'0'", "'1'", "'Z'", "'W'", "'L'", "'H'", "'-'"}) {
+        SCOPED_TRACE(literal);
+        const std::string source = std::string(
+            "library ieee; use ieee.std_logic_1164.all; "
+            "entity p is port(y : out std_logic); end; "
+            "architecture rtl of p is begin y <= ") + literal + "; end;";
+        EXPECT_FALSE(analyze(source).hasErrors());
+    }
+    EXPECT_TRUE(analyze(
+        "library ieee; use ieee.std_logic_1164.all; "
+        "entity p is port(y : out std_logic); end; "
+        "architecture rtl of p is begin y <= 'x'; end;").hasErrors());
+
+    const auto vectors = vhdl::Parser::parse(R"(
+library ieee; use ieee.std_logic_1164.all;
+entity vectors is port(a, b : in std_logic_vector(3 downto 0);
+                       y : out std_logic_vector(0 to 3)); end;
+architecture rtl of vectors is begin y <= a xor b; end;
+)");
+    ASSERT_FALSE(vectors.hasErrors());
+    const auto vectorResult = vhdl::Analyzer::analyze(vectors.syntax);
+    ASSERT_FALSE(vectorResult.hasErrors());
+    EXPECT_EQ(vectorResult.getType(
+                  *vectors.syntax.architectures[0].assignments[0].value),
+              vhdl::ScalarType::StdLogicVector);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvisibleAndUnsupportedPackageTypes) {
+    for (const auto* source : {
+        "entity p is port(a : in std_logic; y : out std_logic); end; "
+        "architecture rtl of p is begin y <= a; end;",
+        "use ieee.std_logic_1164.all; entity p is end;",
+        "library ieee; use ieee.unknown.all; entity p is end;",
+        "library ieee; use ieee.std_logic_1164.std_logic; entity p is end;",
+        "library ieee; use ieee.std_logic_1164.all; entity p is end; "
+        "entity q is port(a : in std_logic); end;"}) {
+        SCOPED_TRACE(source);
+        const auto parsed = vhdl::Parser::parse(source);
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorsAndAdditionWidth) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity adders is port (
+  ua : in unsigned(0 to 2); ub : in unsigned(7 downto 4);
+  sy : out signed(1 downto 0); sa, sb : in signed(1 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of adders is
+  signal uy : unsigned(3 downto 0);
+begin
+  uy <= ua + ub;
+  sy <= sa - sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& addition = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(addition), vhdl::ScalarType::Unsigned);
+    ASSERT_NE(result.getRange(addition), nullptr);
+    EXPECT_EQ(result.getRange(addition)->left, 3);
+    EXPECT_EQ(result.getRange(addition)->right, 0);
+
+    const auto& subtraction = *parsed.syntax.architectures[0].assignments[1].value;
+    EXPECT_EQ(result.getType(subtraction), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(subtraction), nullptr);
+    EXPECT_EQ(result.getRange(subtraction)->left, 1);
+    EXPECT_EQ(result.getRange(subtraction)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesNumericStdVisibilityAndTypeMismatches) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(3 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+entity p is port(a : in unsigned(3 downto 0)); end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 to 0); y : out unsigned(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a + b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorComparisonsAcrossWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity compare is port (
+  ua : in unsigned(0 to 2); ub : in unsigned(7 downto 4);
+  sa : in signed(1 downto 0); sb : in signed(5 downto 0);
+  lt, le, gt, ge, eq, ne : out boolean);
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of compare is begin
+  lt <= ua < ub;
+  le <= ua <= ub;
+  gt <= sa > sb;
+  ge <= sa >= sb;
+  eq <= ua = ub;
+  ne <= sa /= sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    for (const auto& assignment : parsed.syntax.architectures[0].assignments)
+        EXPECT_EQ(result.getType(*assignment.value), vhdl::ScalarType::Boolean);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorComparisons) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(3 downto 0);
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a < b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0); y : out boolean); end;
+architecture rtl of p is begin y <= a = b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in signed(3 to 0); y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a >= b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorMultiplicationWidth) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity multiply is port (
+  ua : in unsigned(0 to 2); ub : in unsigned(7 downto 4);
+  uy : out unsigned(6 downto 0);
+  sa : in signed(1 downto 0); sb : in signed(5 downto 0);
+  sy : out signed(7 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of multiply is begin
+  uy <= ua * ub;
+  sy <= sa * sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& unsignedProduct = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(unsignedProduct), vhdl::ScalarType::Unsigned);
+    ASSERT_NE(result.getRange(unsignedProduct), nullptr);
+    EXPECT_EQ(result.getRange(unsignedProduct)->left, 6);
+    EXPECT_EQ(result.getRange(unsignedProduct)->right, 0);
+
+    const auto& signedProduct = *parsed.syntax.architectures[0].assignments[1].value;
+    EXPECT_EQ(result.getType(signedProduct), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(signedProduct), nullptr);
+    EXPECT_EQ(result.getRange(signedProduct)->left, 7);
+    EXPECT_EQ(result.getRange(signedProduct)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorMultiplication) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(3 downto 0);
+                 y : out unsigned(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a * b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0);
+                 y : out unsigned(7 downto 0)); end;
+architecture rtl of p is begin y <= a * b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in signed(3 to 0); y : out signed(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a * b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorMultiplicationWidth) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_multiply is port (
+  u : in unsigned(0 to 4); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uy0, uy1 : out unsigned(9 downto 0);
+  sy0, sy1 : out signed(15 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_multiply is begin
+  uy0 <= u * 2;
+  uy1 <= n * u;
+  sy0 <= s * i;
+  sy1 <= n * s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& product = *assignments[index].value;
+        EXPECT_EQ(result.getType(product),
+                  index < 2 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(product), nullptr);
+        EXPECT_EQ(result.getRange(product)->left, index < 2 ? 9 : 15);
+        EXPECT_EQ(result.getRange(product)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorMultiplication) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u * i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); n : in natural;
+                 y : out unsigned(7 downto 0)); end;
+architecture rtl of p is begin y <= n * u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(s : in signed(3 to 0); i : in integer;
+                 y : out signed(7 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= s * i; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorDivisionFamilyWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity divide is port (
+  ua : in unsigned(0 to 5); ub : in unsigned(3 downto 0);
+  uq : out unsigned(5 downto 0); ur, um : out unsigned(3 downto 0);
+  sa : in signed(7 downto 0); sb : in signed(2 downto 0);
+  sq : out signed(7 downto 0); sr, sm : out signed(2 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of divide is begin
+  uq <= ua / ub;
+  ur <= ua rem ub;
+  um <= ua mod ub;
+  sq <= sa / sb;
+  sr <= sa rem sb;
+  sm <= sa mod sb;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (const auto index : {0U, 3U}) {
+        ASSERT_NE(result.getRange(*assignments[index].value), nullptr);
+        EXPECT_EQ(result.getRange(*assignments[index].value)->left,
+                  index == 0 ? 5 : 7);
+    }
+    for (const auto index : {1U, 2U, 4U, 5U}) {
+        ASSERT_NE(result.getRange(*assignments[index].value), nullptr);
+        EXPECT_EQ(result.getRange(*assignments[index].value)->left,
+                  index < 3 ? 3 : 2);
+    }
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorDivisionFamily) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); b : in signed(2 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a / b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in unsigned(3 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= a rem b; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a, b : in signed(3 to 0); y : out signed(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= a mod b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorDivisionFamilyWidths) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_divide is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uq0, uq1, ur0, ur1, um0, um1 : out unsigned(5 downto 0);
+  sq0, sq1, sr0, sr1, sm0, sm1 : out signed(7 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_divide is begin
+  uq0 <= u / 0;
+  uq1 <= n / u;
+  ur0 <= u rem 3;
+  ur1 <= n rem u;
+  um0 <= u mod n;
+  um1 <= 4 mod u;
+  sq0 <= s / i;
+  sq1 <= i / s;
+  sr0 <= s rem n;
+  sr1 <= n rem s;
+  sm0 <= s mod i;
+  sm1 <= i mod s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& value = *assignments[index].value;
+        EXPECT_EQ(result.getType(value),
+                  index < 6 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(value), nullptr);
+        EXPECT_EQ(result.getRange(value)->left, index < 6 ? 5 : 7);
+        EXPECT_EQ(result.getRange(value)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[2].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[5].value->left),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorDivisionFamily) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u / i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i rem u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); n : in natural;
+                 y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= u mod n; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(s : in signed(3 to 0); i : in integer;
+                 y : out signed(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i / s; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdSignedUnaryNegation) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity negate is port(a : in signed(0 to 5); y : out signed(5 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of negate is begin y <= -a; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& negation = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(negation), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(negation), nullptr);
+    EXPECT_EQ(result.getRange(negation)->left, 5);
+    EXPECT_EQ(result.getRange(negation)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdUnaryNegation) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 downto 0); y : out signed(3 downto 0)); end;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 to 0); y : out signed(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= -a; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdSignedAbsoluteValue) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity absolute_value is port(a : in signed(0 to 5); y : out signed(5 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of absolute_value is begin y <= abs a; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& absolute = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(absolute.kind, vhdl::Expression::Kind::Unary);
+    EXPECT_EQ(absolute.text, "abs");
+    EXPECT_EQ(result.getType(absolute), vhdl::ScalarType::Signed);
+    ASSERT_NE(result.getRange(absolute), nullptr);
+    EXPECT_EQ(result.getRange(absolute)->left, 5);
+    EXPECT_EQ(result.getRange(absolute)->right, 0);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdSignedAbsoluteValue) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 downto 0); y : out signed(3 downto 0)); end;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(a : in signed(3 to 0); y : out signed(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= abs a; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdVectorLogicalOperators) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity numeric_logic is port (
+  u : in unsigned(0 to 3); v : in unsigned(7 downto 4);
+  s : in signed(2 to 7); t : in signed(8 downto 3);
+  un, ua, uo, una, uno, ux, uxn : out unsigned(3 downto 0);
+  sn, sa, so, sna, sno, sx, sxn : out signed(5 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of numeric_logic is begin
+  un <= not u;
+  ua <= u and v;
+  uo <= u or v;
+  una <= u nand v;
+  uno <= u nor v;
+  ux <= u xor v;
+  uxn <= u xnor v;
+  sn <= not s;
+  sa <= s and t;
+  so <= s or t;
+  sna <= s nand t;
+  sno <= s nor t;
+  sx <= s xor t;
+  sxn <= s xnor t;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& value = *assignments[index].value;
+        EXPECT_EQ(result.getType(value),
+                  index < 7 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(value), nullptr);
+        EXPECT_EQ(result.getRange(value)->left, index < 7 ? 3 : 5);
+        EXPECT_EQ(result.getRange(value)->right, 0);
+    }
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdVectorLogicalOperators) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u, v : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= u and v; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); s : in signed(3 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u xor s; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); v : in unsigned(2 downto 0);
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u or v; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 to 0); y : out unsigned(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= not u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); b : in std_logic;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u and b; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorAdditionAndSubtraction) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_arithmetic is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  uy0, uy1, uy2, uy3 : out unsigned(5 downto 0);
+  sy0, sy1, sy2, sy3 : out signed(7 downto 0));
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_arithmetic is begin
+  uy0 <= u + 1;
+  uy1 <= 2 + u;
+  uy2 <= u - n;
+  uy3 <= n - u;
+  sy0 <= s + i;
+  sy1 <= i + s;
+  sy2 <= s - n;
+  sy3 <= n - s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (std::size_t index = 0; index < assignments.size(); ++index) {
+        const auto& value = *assignments[index].value;
+        EXPECT_EQ(result.getType(value),
+                  index < 4 ? vhdl::ScalarType::Unsigned : vhdl::ScalarType::Signed);
+        ASSERT_NE(result.getRange(value), nullptr);
+        EXPECT_EQ(result.getRange(value)->left, index < 4 ? 5 : 7);
+        EXPECT_EQ(result.getRange(value)->right, 0);
+    }
+    EXPECT_EQ(result.getType(*assignments[0].value->right), vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[1].value->left), vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorAddends) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out unsigned(3 downto 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u + i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of p is begin y <= u - 1; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 to 0); n : in natural;
+                 y : out unsigned(3 to 0)); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u + n; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, ResolvesNumericStdScalarVectorComparisons) {
+    const auto parsed = vhdl::Parser::parse(R"(
+library ieee; use ieee.numeric_std.all;
+entity scalar_compare is port (
+  u : in unsigned(0 to 5); n : in natural;
+  s : in signed(7 downto 0); i : in integer;
+  b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11 : out boolean);
+end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of scalar_compare is begin
+  b0 <= u = 1;
+  b1 <= 2 /= u;
+  b2 <= u < n;
+  b3 <= n <= u;
+  b4 <= u > 3;
+  b5 <= 4 >= u;
+  b6 <= s = i;
+  b7 <= n /= s;
+  b8 <= s < i;
+  b9 <= i <= s;
+  b10 <= s > n;
+  b11 <= n >= s;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& assignments = parsed.syntax.architectures[0].assignments;
+    for (const auto& assignment : assignments)
+        EXPECT_EQ(result.getType(*assignment.value), vhdl::ScalarType::Boolean);
+    EXPECT_EQ(result.getType(*assignments[0].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[1].value->left),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[4].value->right),
+              vhdl::ScalarType::Natural);
+    EXPECT_EQ(result.getType(*assignments[5].value->left),
+              vhdl::ScalarType::Natural);
+}
+
+TEST(VHDLAnalyzerTest, DiagnosesInvalidNumericStdScalarVectorComparisons) {
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u = i; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); i : in integer;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= i < u; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 downto 0); y : out boolean); end;
+architecture rtl of p is begin y <= u >= 1; end;
+)").hasErrors());
+
+    EXPECT_TRUE(analyze(R"(
+library ieee; use ieee.numeric_std.all;
+entity p is port(u : in unsigned(3 to 0); n : in natural;
+                 y : out boolean); end;
+library ieee; use ieee.numeric_std.all;
+architecture rtl of p is begin y <= u /= n; end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, RejectsScalarExpressionTypeMismatches) {
+    for (const auto* expression : {"a and flag", "a = b", "'Z'", "'1' = '0'"}) {
+        const auto parsed = vhdl::Parser::parse(std::string(
+            "entity logic is port(a, b : in bit; flag : in boolean; y : out bit); end; "
+            "architecture rtl of logic is begin y <= ") + expression + "; end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, TypeChecksConstrainedBitVectorsByLength) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity vectors is port (
+  a : in bit_vector(0 to 3);
+  b : in bit_vector(7 downto 4);
+  y : out bit_vector(3 downto 0));
+end;
+architecture rtl of vectors is begin y <= a xor not b; end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto result = vhdl::Analyzer::analyze(parsed.syntax);
+    ASSERT_FALSE(result.hasErrors());
+    const auto& expression = *parsed.syntax.architectures[0].assignments[0].value;
+    EXPECT_EQ(result.getType(expression), vhdl::ScalarType::BitVector);
+    ASSERT_NE(result.getRange(expression), nullptr);
+    EXPECT_EQ(result.getRange(expression)->left, 0);
+    EXPECT_EQ(result.getRange(expression)->right, 3);
+
+    EXPECT_TRUE(analyze(R"(
+entity vectors is port (
+  a : in bit_vector(0 to 3);
+  b : in bit_vector(2 downto 0);
+  y : out bit_vector(3 downto 0));
+end;
+architecture rtl of vectors is begin y <= a and b; end;
+)").hasErrors());
+}
+
+} // namespace
+
+TEST(VHDLAnalyzerTest, ResolvesAllClockedProcessNames) {
+    const auto result = analyze(R"(
+entity reg is port(clk, d : in bit; q : out bit); end;
+architecture rtl of reg is begin
+process(missing_sensitivity) begin
+if missing_event'event and missing_level = '1' then missing_target <= missing_data;
+end if; end process;
+end;
+)");
+    EXPECT_EQ(result.diagnostics.size(), 5);
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksClockEnable) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then if en = '1' then q <= d; end if; end if;
+end process; end;
+)").hasErrors());
+    for (const auto* enable : {"missing", "count"}) {
+        SCOPED_TRACE(enable);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if ") + enable +
+            " = '1' then q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksSynchronousReset) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, rst, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if rst = '1' then q <= '0'; else q <= d; end if;
+end if; end process; end;
+)").hasErrors());
+    for (const auto* reset : {"missing", "count"}) {
+        SCOPED_TRACE(reset);
+        const std::string source = std::string(
+            "entity reg is port(clk, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if ") + reset +
+            " = '1' then q <= '0'; else q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, ResolvesAndTypeChecksResetWithEnable) {
+    EXPECT_FALSE(analyze(R"(
+entity reg is port(clk, rst, en, d : in bit; q : out bit); end;
+architecture rtl of reg is begin process(clk) begin
+if rising_edge(clk) then
+  if rst = '1' then q <= '0'; elsif en = '1' then q <= d; end if;
+end if; end process; end;
+)").hasErrors());
+    for (const auto* enable : {"missing", "count"}) {
+        SCOPED_TRACE(enable);
+        const std::string source = std::string(
+            "entity reg is port(clk, rst, d : in bit; count : in integer; q : out bit); end; "
+            "architecture rtl of reg is begin process(clk) begin "
+            "if rising_edge(clk) then if rst = '1' then q <= '0'; elsif ") + enable +
+            " = '1' then q <= d; end if; end if; end process; end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}
+
+TEST(VHDLAnalyzerTest, InternalSignalsResolveAcrossAllScheduledWrites) {
+    EXPECT_FALSE(analyze(R"(
+entity p is port(clk, d : in bit; q : out bit); end;
+architecture rtl of p is signal Stage : bit;
+begin process(clk) begin if clk'event and clk = '1' then
+q <= STAGE; stage <= d; end if; end process; end;
+)").hasErrors());
+    const auto result = analyze(R"(
+entity p is port(clk, d : in bit; q : out bit); end;
+architecture rtl of p is signal stage, STAGE : bit; signal D : bit;
+begin process(clk) begin if clk'event and clk = '1' then
+stage <= missing; unknown <= stage; end if; end process; end;
+)");
+    ASSERT_EQ(result.diagnostics.size(), 4);
+    EXPECT_NE(result.diagnostics[0].message.find("duplicate signal"), std::string::npos);
+    EXPECT_NE(result.diagnostics[1].message.find("duplicate signal"), std::string::npos);
+    EXPECT_NE(result.diagnostics[2].message.find("missing"), std::string::npos);
+    EXPECT_NE(result.diagnostics[3].message.find("unknown"), std::string::npos);
+}
+
+namespace {
+vhdl::ParseResult variableProcess(const std::string& declarations, const std::string& body) {
+    return vhdl::Parser::parse("entity p is port(clk, d, e : in bit; q, r : out bit); end; "
+        "architecture rtl of p is signal stage : bit; begin process(clk) " + declarations +
+        " begin if clk'event and clk = '1' then " + body + " end if; end process; end;");
+}
+}
+
+TEST(VHDLAnalyzerTest, SchedulesImmediateVariablesAndCurrentSignalsSeparately) {
+    const auto parsed = variableProcess("variable v, copy : bit;",
+        "stage <= d; v := stage; copy := v; q <= copy; v := e; r <= v; copy := d;");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    const auto scheduled = vhdl::Analyzer::schedule(parsed.syntax.architectures[0].processes[0]);
+    ASSERT_FALSE(scheduled.hasErrors());
+    ASSERT_EQ(scheduled.writes.size(), 3);
+    EXPECT_EQ(scheduled.writes[0].target, "stage");
+    EXPECT_EQ(scheduled.writes[0].source, "d");
+    EXPECT_EQ(scheduled.writes[1].target, "q");
+    EXPECT_EQ(scheduled.writes[1].source, "stage");
+    EXPECT_EQ(scheduled.writes[2].target, "r");
+    EXPECT_EQ(scheduled.writes[2].source, "e");
+    EXPECT_LT(scheduled.writes[0].span.end.offset, scheduled.writes[1].span.start.offset);
+}
+
+TEST(VHDLAnalyzerTest, RejectsVariableObjectClassAndScopeErrors) {
+    for (const auto& [decl, body] : std::vector<std::pair<std::string, std::string>>{
+        {"variable v : bit;", "v <= d; q <= v;"},
+        {"variable v : bit;", "stage := d; q <= stage;"},
+        {"variable v : bit;", "missing := d; q <= v;"},
+        {"variable v, V : bit;", "v := d; q <= v;"},
+        {"variable stage : bit;", "stage := d; q <= stage;"},
+        {"variable clk : bit;", "clk := d; q <= clk;"},
+        {"variable v : bit;", "v := missing; q <= v;"}}) {
+        const auto parsed = variableProcess(decl, body);
+        ASSERT_FALSE(parsed.hasErrors());
+        EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    }
+    const auto parsed = vhdl::Parser::parse(R"(
+entity p is port(clk, d : in bit; q, r : out bit); end;
+architecture rtl of p is begin
+process(clk) variable v : bit; begin if clk'event and clk = '1' then
+v := d; q <= v; end if; end process;
+process(clk) begin if clk'event and clk = '1' then r <= v; end if; end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    EXPECT_TRUE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, RejectsRetainedVariableReadsWithoutPartialSchedule) {
+    for (const auto* body : {"q <= v;", "v := v; q <= v;",
+                            "v := not d; q <= v;"}) {
+        const auto parsed = variableProcess("variable v, copy : bit;", body);
+        ASSERT_FALSE(parsed.hasErrors());
+        ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+        const auto scheduled = vhdl::Analyzer::schedule(parsed.syntax.architectures[0].processes[0]);
+        EXPECT_TRUE(scheduled.hasErrors());
+        EXPECT_TRUE(scheduled.writes.empty());
+        EXPECT_LT(scheduled.diagnostics[0].span.start.offset, scheduled.diagnostics[0].span.end.offset);
+    }
+}
+
+TEST(VHDLAnalyzerTest, SchedulesRetainedVariableStateAfterSignalReads) {
+    const auto parsed = variableProcess("variable v : bit;", "q <= v; v := d;");
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_FALSE(vhdl::Analyzer::analyze(parsed.syntax).hasErrors());
+    const auto scheduled = vhdl::Analyzer::schedule(
+        parsed.syntax.architectures[0].processes[0]);
+    ASSERT_FALSE(scheduled.hasErrors());
+    ASSERT_EQ(scheduled.retainedVariables, std::vector<std::string>{"v"});
+    ASSERT_EQ(scheduled.writes.size(), 2);
+    EXPECT_EQ(scheduled.writes[0].target, "q");
+    EXPECT_EQ(scheduled.writes[0].source, "v");
+    EXPECT_EQ(scheduled.writes[0].kind, vhdl::AssignmentKind::Signal);
+    EXPECT_EQ(scheduled.writes[1].target, "v");
+    EXPECT_EQ(scheduled.writes[1].source, "d");
+    EXPECT_EQ(scheduled.writes[1].kind, vhdl::AssignmentKind::Variable);
+}
+
+TEST(VHDLAnalyzerTest, BindsDirectEntityInstancesByPositionAndWidth) {
+    EXPECT_FALSE(analyze(R"(
+entity leaf is port(a : in bit_vector(0 to 3); y : out bit_vector(7 downto 4)); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit_vector(3 downto 0); y : out bit_vector(0 to 3)); end;
+architecture structural of top is signal mid : bit_vector(-2 to 1); begin
+  u0: entity work.leaf port map(a, mid);
+  u1: entity WORK.LEAF port map(mid, y);
+end;
+)").hasErrors());
+}
+
+TEST(VHDLAnalyzerTest, RejectsInvalidDirectEntityBindings) {
+    for (const auto* instance : {
+        "u: entity other.leaf port map(a, y);",
+        "u: entity work.missing port map(a, y);",
+        "u: entity work.leaf port map(a);",
+        "u: entity work.leaf port map(a, missing);",
+        "u: entity work.leaf port map(a, narrow);",
+        "u: entity work.leaf port map(a, y); U: entity work.leaf port map(a, y);"}) {
+        SCOPED_TRACE(instance);
+        const std::string source = std::string(R"(
+entity leaf is port(a : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit_vector(3 downto 0); y : out bit_vector(3 downto 0)); end;
+architecture structural of top is signal narrow : bit_vector(2 downto 0); begin
+)") + instance + " end;";
+        EXPECT_TRUE(analyze(source).hasErrors());
+    }
+}

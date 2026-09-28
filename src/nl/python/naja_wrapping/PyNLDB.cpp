@@ -21,6 +21,8 @@
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
+#include "VHDLConstructor.h"
+#include "SNLHDLLibrary.h"
 
 #include "PyInterface.h"
 #include "PyNLUniverse.h"
@@ -448,8 +450,109 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   return PySNLDesign_Link(top);
 }
 
+// HDL loaders share the same destination-library convention.
+static bool parseHDLLibrary(PyObject* object, std::string& name) {
+  name = "DESIGN";
+  if (!object) return true;
+  if (!PyUnicode_Check(object)) {
+    PyErr_SetString(PyExc_TypeError, "library must be a str");
+    return false;
+  }
+  const auto* text = PyUnicode_AsUTF8(object);
+  if (!text) return false;
+  name = text;
+  if (name.empty() || name.find_first_not_of(" \t\r\n") == std::string::npos) {
+    PyErr_SetString(PyExc_ValueError, "library must not be empty");
+    return false;
+  }
+  return true;
+}
+
+static NLLibrary* hdlDestination(NLDB* db, const std::string& name) {
+  auto* result = findHDLLibrary(db, name);
+  return result ? result : NLLibrary::create(db, NLName(name));
+}
+
+PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+  PyObject* file = nullptr;
+  PyObject* topObject = nullptr;
+  PyObject* libraryObject = nullptr;
+  PyObject* diagnosticsReportPath = nullptr;
+  static const char* const kwords[] = {"file", "top", "diagnostics_report_path", "library", nullptr};
+  if (not PyArg_ParseTupleAndKeywords(
+      args, kwargs, "O|OOO:NLDB.loadVHDL", const_cast<char**>(kwords),
+      &file, &topObject, &diagnosticsReportPath, &libraryObject)) {
+    return nullptr;
+  }
+  std::string libraryName;
+  if (!parseHDLLibrary(libraryObject, libraryName)) return nullptr;
+  if (not PyUnicode_Check(file)) {
+    PyErr_Format(
+      PyExc_TypeError, "NLDB.loadVHDL: file must be a str path, got %s",
+      Py_TYPE(file)->tp_name);
+    return nullptr;
+  }
+  const std::string path = PyUnicode_AsUTF8(file);
+  if (path.empty()) {
+    PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
+    return nullptr;
+  }
+  std::string top;
+  if (topObject != nullptr && topObject != Py_None) {
+    if (not PyUnicode_Check(topObject)) {
+      PyErr_Format(
+        PyExc_TypeError, "NLDB.loadVHDL: top must be a str or None, got %s",
+        Py_TYPE(topObject)->tp_name);
+      return nullptr;
+    }
+    top = PyUnicode_AsUTF8(topObject);
+    if (top.empty()) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: top must not be empty");
+      return nullptr;
+    }
+  }
+
+  VHDLConstructor::ConstructOptions options;
+  if (diagnosticsReportPath == Py_None) {
+    options.diagnosticsReportPath.reset();
+  } else if (diagnosticsReportPath != nullptr) {
+    if (!PyUnicode_Check(diagnosticsReportPath)) {
+      PyErr_SetString(PyExc_TypeError,
+        "NLDB.loadVHDL: diagnostics_report_path must be a str or None");
+      return nullptr;
+    }
+    const std::string destination = PyUnicode_AsUTF8(diagnosticsReportPath);
+    if (destination.empty()) {
+      PyErr_SetString(PyExc_ValueError,
+        "NLDB.loadVHDL: diagnostics_report_path must not be empty; use None for console-only");
+      return nullptr;
+    }
+    options.diagnosticsReportPath = destination;
+  }
+
+  if (PyErr_WarnEx(
+        PyExc_RuntimeWarning,
+        "The VHDL parser is in Beta mode; its supported language subset and behavior may change.",
+        1) < 0) {
+    return nullptr;
+  }
+
+  METHOD_HEAD("NLDB.loadVHDL()")
+  NLDB* db = selfObject;
+  SNLDesign* design = nullptr;
+  TRY
+  auto* designLibrary = hdlDestination(db, libraryName);
+  design = VHDLConstructor(designLibrary, options).constructFile(path, top);
+  if (design) NLUniverse::get()->setTopDesign(design);
+  NLUniverse::get()->setTopDB(db);
+  NLCATCH
+  if (!design) Py_RETURN_NONE;
+  return PySNLDesign_Link(design);
+}
+
 PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
+  PyObject* libraryObject = nullptr;
   int keep_assigns = 1;  // Default: true
   PyObject* elaborated_ast_json_path = nullptr;  // Optional: string
   int pretty_print_elaborated_ast_json = 1;  // Default: true
@@ -465,20 +568,22 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
     "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
-    "blackbox_unknown_modules",
+    "blackbox_unknown_modules", "library",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOOOpp:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOppO:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules)) {
+    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules, &libraryObject)) {
     return nullptr;
   }
 
+  std::string libraryName;
+  if (!parseHDLLibrary(libraryObject, libraryName)) return nullptr;
   if (not PyList_Check(files)) {
     PyErr_Format(
       PyExc_TypeError,
@@ -675,11 +780,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   NLDB* db = selfObject;
   SNLDesign* top = nullptr;
   TRY
-  // SystemVerilog parsing elaborates designs into the DESIGN library.
-  NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
-  if (designLibrary == nullptr) {
-    designLibrary = NLLibrary::create(db, NLName("DESIGN"));
-  }
+  auto* designLibrary = hdlDestination(db, libraryName);
   SNLSVConstructor constructor(designLibrary);
   try {
     constructor.construct(inputPaths, options);
@@ -812,12 +913,24 @@ PyMethodDef PyNLDB_Methods[] = {
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
+  { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
+    "load one VHDL source file; package-only files return None.\n"
+    "A single entity with required generics is retained and returns None when top is omitted.\n"
+    "An explicit top requires immediate elaboration.\n\n"
+    "Warning:\n"
+    "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
+    "Args:\n"
+    "  file (str): input VHDL file\n"
+    "  library (str): destination root library (default DESIGN)\n"
+    "  diagnostics_report_path (str | None): all warning occurrences; defaults to naja_vhdl_diagnostics.log.\n"
+    "  top (str | None, optional): entity selected as the structural top"},
   { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
     "create a design from SystemVerilog format.\n\n"
     "Warning:\n"
     "  SystemVerilog support is under active development and in early beta mode.\n\n"
     "Args:\n"
     "  files (list[str]): input SystemVerilog files\n"
+    "  library (str): destination root library (default DESIGN)\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
     "  elaborated_ast_json_path (str, optional): dump elaborated frontend AST JSON to this path\n"
     "  pretty_print_elaborated_ast_json (bool, optional): pretty-print AST JSON (default True)\n"

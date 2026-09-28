@@ -227,6 +227,33 @@ class SNLDesignTest(unittest.TestCase):
     self.assertGreater(design1, design0)
     self.assertGreaterEqual(design1, design0)
 
+  def testRequiredParameters(self):
+    design = naja.SNLDesign.create(self.lib, "MODEL")
+    top = naja.SNLDesign.create(self.lib, "TOP")
+    instance = naja.SNLInstance.create(top, design, "inst")
+    cases = [
+      (naja.SNLParameter.create_decimal, (), 0, "0"),
+      (naja.SNLParameter.create_binary, (8,), 0, "0"),
+      (naja.SNLParameter.create_boolean, (), False, "0"),
+      (naja.SNLParameter.create_string, (), "", ""),
+    ]
+    for index, (creator, args, default, expected) in enumerate(cases):
+      name = "P" + str(index)
+      required = creator(design, name, *args)
+      self.assertFalse(required.hasDefaultValue())
+      self.assertIsNone(required.getValue())
+      actual = naja.SNLInstParameter.create(instance, required, expected)
+      self.assertEqual(expected, actual.getValue())
+      supplied = creator(design, name + "_DEFAULT", *args, default)
+      self.assertTrue(supplied.hasDefaultValue())
+      self.assertEqual(expected, supplied.getValue())
+      with self.assertRaises(RuntimeError):
+        creator(design, name, *args)
+    clone = design.clone("CLONE")
+    self.assertFalse(clone.getParameter("P3").hasDefaultValue())
+    self.assertTrue(clone.getParameter("P3_DEFAULT").hasDefaultValue())
+    self.assertEqual("", clone.getParameter("P3_DEFAULT").getValue())
+
   def testParameters(self):
     self.assertIsNotNone(self.lib)
     design = naja.SNLDesign.create(self.lib, "DESIGN")

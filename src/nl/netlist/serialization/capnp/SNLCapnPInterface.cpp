@@ -134,7 +134,10 @@ void dumpParameter(
   const SNLParameter* snlParameter) {
   parameter.setName(snlParameter->getName().getString());
   parameter.setType(SNLtoCapNpParameterType(snlParameter->getType()));
-  parameter.setValue(snlParameter->getValue());
+  // A null Text pointer denotes no default; setValue("") preserves an empty default.
+  if (snlParameter->hasDefaultValue()) {
+    parameter.setValue(snlParameter->getValue());
+  }
 }
 
 DesignType SNLtoCapNpDesignType(SNLDesign::Type type) {
@@ -340,8 +343,11 @@ void loadDesignParameter(
   const SNLDesignInterface::Parameter::Reader& parameter) {
   auto name = parameter.getName();
   auto type = parameter.getType();
-  auto value = parameter.getValue();
-  SNLParameter::create(design, NLName(name), CapnPtoSNLParameterType(type), value);
+  if (parameter.hasValue()) {
+    SNLParameter::create(design, NLName(name), CapnPtoSNLParameterType(type), parameter.getValue());
+  } else {
+    SNLParameter::create(design, NLName(name), CapnPtoSNLParameterType(type));
+  }
 }
 
 void loadDesignInterface(
