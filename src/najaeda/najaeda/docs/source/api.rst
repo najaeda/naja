@@ -10,6 +10,7 @@ constants.  Query them with ``Net.is_constx()`` and ``Net.is_constz()``;
 ``Net.is_const()`` covers all four constant values.
 
 For the lower-level compiled extension module, see :doc:`raw_api`.
+For the optional ``najaeda.schematic`` viewer API, see :doc:`schematic`.
 
 .. automodule:: najaeda.netlist
     :members:
