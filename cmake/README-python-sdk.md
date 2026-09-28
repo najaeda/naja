@@ -1,7 +1,8 @@
 # NajaEDA shared-runtime consumer SDK
 
-The development provider version `0.7.24.dev0` includes this SDK. It is not
-compatible with older NajaEDA wheels that do not expose the runtime capsule.
+The development provider built from this source, version `0.7.26`, includes
+this SDK. It is not compatible with NajaEDA wheels that do not expose the
+runtime capsule, including the published `0.7.26` release.
 The provider must be released separately before consumers depending on this
 version can be published. A local source checkout is not a published release.
 
