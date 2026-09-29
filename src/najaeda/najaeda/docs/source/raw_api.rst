@@ -313,6 +313,12 @@ Core database objects
 ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
 to disable the report file and keep diagnostics console-only.
 
+The same loader supports combinational ``casez``/``casex`` result-selection
+functions in continuous assignments, including escaped function names and
+concatenated arguments.
+The high-level ``netlist.load_system_verilog`` API exposes the same support;
+using the raw API is not required. See :doc:`loading` for matching semantics.
+
    Both ``NLDB.loadSystemVerilog`` and ``NLDB.loadVHDL`` accept
    ``library="DESIGN"`` to select a root ``NLLibrary`` in this database. Missing
    destinations are created. Basic names match case-insensitively, extended

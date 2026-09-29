@@ -6779,6 +6779,116 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignWildcardMuxFunctions) {
+  for (const auto width : {1, 5}) {
+    for (const bool useReturn : {false, true}) {
+      for (const bool useCaseX : {false, true}) {
+        const auto name = "wildcard_mux_function_" + std::to_string(width) +
+          (useReturn ? "_return" : "_named") + (useCaseX ? "_casex" : "_casez");
+        SCOPED_TRACE(name);
+        // Exercise non-ANSI function ports, escaped names, and concatenated arguments.
+        const std::string result = useReturn ? "return " : "\\$select$value = ";
+        const char wildcard = useCaseX ? 'x' : '?';
+        std::ostringstream source;
+        source << "module " << name << "(input [" << width - 1
+               << ":0] lo, hi, input [1:0] s, output [" << width - 1
+               << ":0] y, z);\n"
+               << "function [" << width - 1 << ":0] \\$select$value ;\n"
+               << "input [" << width - 1 << ":0] a;\n"
+               << "input [" << 2 * width - 1 << ":0] b;\n"
+               << "input [1:0] s;\n"
+               << "(* parallel_case *) " << (useCaseX ? "casex" : "casez") << " (s)\n"
+               << "2'b" << wildcard << "1: " << result << "b[" << width - 1 << ":0];\n"
+               << "2'b1" << wildcard << ": " << result << "b[" << 2 * width - 1
+               << ":" << width << "];\n"
+               << "default: " << result << "a;\n"
+               << "endcase\nendfunction\n"
+               << "assign y = \\$select$value (" << width << "'b0, {hi, lo}, {s[1], s[0]});\n"
+               << "assign z = \\$select$value (" << width << "'b1, {lo, hi}, {s[0], s[1]});\n"
+               << "endmodule\n";
+        const auto path = writeSVTestFile(name, source.str());
+        SNLSVConstructor constructor(library_);
+        ASSERT_NO_THROW(constructor.construct(path));
+        auto* top = library_->getSNLDesign(NLName(name));
+        ASSERT_NE(nullptr, top);
+
+        // Evaluate the lowered assign/mux network, including overlapping selects.
+        // This checks data ordering and per-call argument isolation as well as loading.
+        const auto evaluate = [&](auto&& self, SNLBitNet* net,
+                                  unsigned lo, unsigned hi, unsigned select,
+                                  unsigned depth) -> bool {
+          if (!net || depth > 100) {
+            ADD_FAILURE() << "Missing net or cyclic mux network";
+            return false;
+          }
+          if (net->isConstant0() || net->isConstant1()) {
+            return net->isConstant1();
+          }
+          for (const auto& input : {std::pair{"lo", lo}, {"hi", hi}, {"s", select}}) {
+            auto* term = top->getTerm(NLName(input.first));
+            for (auto* bit : term->getBits()) {
+              if (bit->getNet() == net) {
+                return (input.second >> bit->getBit()) & 1u;
+              }
+            }
+          }
+          for (auto* driver : net->getInstTerms()) {
+            if (driver->getDirection() != SNLTerm::Direction::Output) {
+              continue;
+            }
+            auto* instance = driver->getInstance();
+            auto* model = instance->getModel();
+            if (NLDB0::isAssign(model)) {
+              return self(self, instance->getInstTerm(NLDB0::getAssignInput())->getNet(),
+                          lo, hi, select, depth + 1);
+            }
+            if (NLDB0::isMux2(model)) {
+              const bool selected = self(self,
+                instance->getInstTerm(NLDB0::getMux2Select(model))->getNet(),
+                lo, hi, select, depth + 1);
+              auto* input = selected ? NLDB0::getMux2InputB(model) : NLDB0::getMux2InputA(model);
+              return self(self, instance->getInstTerm(input->getBit(driver->getBitTerm()->getBit()))->getNet(),
+                          lo, hi, select, depth + 1);
+            }
+          }
+          ADD_FAILURE() << "Unexpected or undriven mux net: " << net->getString();
+          return false;
+        };
+        for (unsigned select = 0; select < 4; ++select) {
+          for (unsigned lo = 0; lo < (1u << width); ++lo) {
+            for (unsigned hi = 0; hi < (1u << width); ++hi) {
+              const unsigned expectedY = (select & 1) ? lo : (select & 2) ? hi : 0;
+              const unsigned expectedZ = (select & 2) ? hi : (select & 1) ? lo : 1;
+              for (const auto& output : {std::pair{"y", expectedY}, {"z", expectedZ}}) {
+                for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+                  EXPECT_EQ(bool((output.second >> bit->getBit()) & 1u),
+                    evaluate(evaluate, bit->getNet(), lo, hi, select, 0))
+                    << output.first << " select=" << select << " lo=" << lo << " hi=" << hi;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignWildcardFunctionNoDefaultUnsupported) {
+  const auto path = writeSVTestFile("wildcard_function_no_default", R"(
+module wildcard_function_no_default(input [1:0] s, input d, output y);
+  function f(input [1:0] select, input value);
+    casez (select)
+      2'b?1: f = value;
+    endcase
+  endfunction
+  assign y = f(s, d);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"Unsupported RHS in continuous assign"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalWithFunctionReturnExprSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

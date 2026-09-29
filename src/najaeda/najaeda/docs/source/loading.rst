@@ -55,6 +55,13 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+Continuous assignments can call combinational functions whose result is selected
+by ``case``, ``casez``, or ``casex``, including functions with escaped names
+and concatenated arguments. Wildcard patterns use
+the frontend's two-state matching behavior; overlapping items retain source-order
+priority. A result must be defined for every selector value; functions with an
+uncovered path are rejected.
+
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
 :class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain
