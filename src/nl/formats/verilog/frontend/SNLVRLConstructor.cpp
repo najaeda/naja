@@ -425,13 +425,11 @@ void SNLVRLConstructor::construct(const Paths& paths) {
     selectedModuleDefs_.clear();
     throw;
   } catch (const std::exception& e) {
-    //LCOV_EXCL_START
     selectedModuleDefs_.clear();
     std::ostringstream reason;
-    reason << "In SNLVRLConstructor construct: "
+    reason << "In SNLVRLConstructor construct (" << getCurrentPath() << "): "
       << e.what();
     throw SNLVRLConstructorException(reason.str());
-    //LCOV_EXCL_STOP
   }
 }
 

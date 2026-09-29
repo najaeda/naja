@@ -54,6 +54,34 @@ class SNLVRLConstructorTest1: public ::testing::Test {
     NLLibrary*  library_;
 };
 
+TEST_F(SNLVRLConstructorTest1, syntaxErrorIdentifiesSecondInputFile) {
+  const auto outPath = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH)
+    / "syntax_error_filename";
+  std::filesystem::create_directories(outPath);
+  const auto validPath = outPath / "valid.v";
+  const auto invalidPath = outPath / "invalid.v";
+  {
+    std::ofstream valid(validPath);
+    ASSERT_TRUE(valid.good());
+    valid << "module valid();\nendmodule\n";
+    std::ofstream invalid(invalidPath);
+    ASSERT_TRUE(invalid.good());
+    invalid << "module invalid();\n  wire ;\nendmodule\n";
+  }
+
+  SNLVRLConstructor constructor(library_);
+  try {
+    constructor.construct(SNLVRLConstructor::Paths{validPath, invalidPath});
+    FAIL() << "Expected Verilog syntax error";
+  } catch (const SNLVRLConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find(invalidPath.string()));
+    EXPECT_EQ(std::string::npos, reason.find(validPath.string()));
+    EXPECT_NE(std::string::npos, reason.find("Parser error:"));
+    EXPECT_NE(std::string::npos, reason.find("begin at line 2 col 8"));
+  }
+}
+
 TEST_F(SNLVRLConstructorTest1, test) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
