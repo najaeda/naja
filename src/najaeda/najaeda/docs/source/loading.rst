@@ -37,6 +37,10 @@ wrong argument and configuration types raise :class:`TypeError`; empty paths
 or unsupported configuration values raise :class:`ValueError`.  Errors for a
 list entry identify its zero-based index (for example, ``files[2]``).
 
+Verilog syntax-error exceptions include the failing input file path alongside
+the parser's line and column range, including when loading multiple files.
+With preprocessing enabled, these positions refer to the preprocessed text.
+
 SystemVerilog
 -------------
 

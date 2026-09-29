@@ -486,6 +486,8 @@ to disable the report file and keep diagnostics console-only.
    remain ``RuntimeError`` subclasses; SystemVerilog failures use the more
    specific ``SystemVerilog*`` exception classes and expose structured
    diagnostic details where available.
+   Verilog syntax errors include the failing input path and the parser's line
+   and column range (positions in preprocessed text when preprocessing is enabled).
 
 .. autoclass:: najaeda.naja.NLLibrary
    :members:
