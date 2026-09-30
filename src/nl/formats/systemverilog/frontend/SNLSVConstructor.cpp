@@ -13046,7 +13046,9 @@ endmodule
         }
 
         const auto& caseStmt = unwrapped->as<slang::ast::CaseStatement>();
-        if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
+        if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal &&
+            caseStmt.condition != slang::ast::CaseStatementCondition::WildcardJustZ &&
+            caseStmt.condition != slang::ast::CaseStatementCondition::WildcardXOrZ) {
           return false;
         }
 
@@ -13063,7 +13065,10 @@ endmodule
           return false;
         }
 
-        for (const auto& item : caseStmt.items) {
+        // Wrap later alternatives first so the first matching source item wins,
+        // including when wildcard patterns overlap.
+        for (auto itemIt = caseStmt.items.rbegin(); itemIt != caseStmt.items.rend(); ++itemIt) {
+          const auto& item = *itemIt;
           if (item.expressions.empty() || !item.stmt) {
             return false; // LCOV_EXCL_LINE
           }

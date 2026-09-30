@@ -37,6 +37,10 @@ wrong argument and configuration types raise :class:`TypeError`; empty paths
 or unsupported configuration values raise :class:`ValueError`.  Errors for a
 list entry identify its zero-based index (for example, ``files[2]``).
 
+Verilog syntax-error exceptions include the failing input file path alongside
+the parser's line and column range, including when loading multiple files.
+With preprocessing enabled, these positions refer to the preprocessed text.
+
 SystemVerilog
 -------------
 
@@ -50,6 +54,13 @@ SystemVerilog
 SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
+
+Continuous assignments can call combinational functions whose result is selected
+by ``case``, ``casez``, or ``casex``, including functions with escaped names
+and concatenated arguments. Wildcard patterns use
+the frontend's two-state matching behavior; overlapping items retain source-order
+priority. A result must be defined for every selector value; functions with an
+uncovered path are rejected.
 
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
