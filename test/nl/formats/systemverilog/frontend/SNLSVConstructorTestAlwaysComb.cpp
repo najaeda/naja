@@ -2254,3 +2254,83 @@ endmodule
     }
   }
 }
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseIndependentLatchLoops) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_SV_BENCHMARKS_PATH) /
+                        "latch_loops/latch_loops.sv");
+  auto* top = library_->getSNLDesign(NLName("latch_loops_top"));
+  ASSERT_NE(nullptr, top);
+  for (const auto* name : {"array_o", "nested_o", "priority_o", "partial_o", "nb_priority_o", "branch_o", "zero_o"}) {
+    auto* output = top->getBusTerm(NLName(name));
+    ASSERT_NE(nullptr, output);
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(1u, countOutputInstTermDrivers(bit->getNet())) << name;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectDependentLatchLoopWrites) {
+  const auto path = createTestDirectory("dependent_latch_loops") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic [7:0] d,
+    output logic [7:0] q, r);
+    always_latch begin
+      if (en) q = d;
+      if (en) r = q;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"read a variable assigned in the same block"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectMixedLatchLoopScheduling) {
+  const auto path = createTestDirectory("mixed_latch_loops") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic [7:0] d,
+    output logic [7:0] q);
+    always_latch begin
+      if (en) q = d;
+      if (!en) q <= d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"mixed blocking and nonblocking"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectLatchLoopFunctionDependencies) {
+  const auto path = createTestDirectory("latch_loop_function") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic [7:0] d,
+    output logic [7:0] q, r);
+    function automatic logic [7:0] read_q(); return q; endfunction
+    always_latch begin
+      if (en) q = d;
+      if (en) r = read_q();
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"calls and expression side effects"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectDynamicLatchLoopTarget) {
+  const auto path = createTestDirectory("dynamic_latch_loop") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, d, input logic [2:0] index,
+    output logic [7:0] q, output logic r);
+    always_latch begin
+      if (en) q[index] = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"statically selected targets"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectLatchLoopConditionDependency) {
+  const auto path = createTestDirectory("latch_loop_condition") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, d, output logic q, r);
+    always_latch begin
+      if (en) q = d;
+      if (q) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"read a variable assigned in the same block"});
+}

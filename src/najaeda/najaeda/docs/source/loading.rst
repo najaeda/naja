@@ -74,6 +74,15 @@ most significant end. Dynamic target selections, target ``with`` clauses,
 overlapping target bits, and sequential streaming assignments remain unsupported
 and are rejected.
 
+``always_latch`` also supports independent guarded writes in statement lists and
+statically bounded, nested ``for`` loops. Targets may be fixed array elements or
+static bit/part selections. Each written bit retains its value while disabled;
+later writes take priority, and unconditional writes become combinational logic.
+This path supports blocking or nonblocking assignments, but rejects mixing them
+on one variable, reading a variable written in the same block, dynamic targets,
+function calls, expression side effects, and timed assignments. Existing simple
+latch patterns retain their separate support.
+
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
 :class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain

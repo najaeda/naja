@@ -319,6 +319,9 @@ concatenated arguments. Combinational compound shifts and fixed-size streaming
 assignment targets are also supported, with the same supported forms and
 explicit rejection of dynamic/overlapping streaming targets described in
 :doc:`loading`.
+Independent guarded ``always_latch`` writes also support static nested loops,
+array elements, partial writes, and source-order priority, subject to the
+dependency and scheduling restrictions in :doc:`loading`.
 The high-level ``netlist.load_system_verilog`` API exposes the same support;
 using the raw API is not required. See :doc:`loading` for matching semantics.
 

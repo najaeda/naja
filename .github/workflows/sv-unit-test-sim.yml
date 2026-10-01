@@ -59,6 +59,7 @@ jobs:
           -c 'set -euo pipefail
               cd /work/test/nl/formats/systemverilog/benchmarks
               for bench in \
+                latch_loops \
                 compound_shifts \
                 simple \
                 up_counter \
@@ -104,6 +105,7 @@ jobs:
               cd /work/test/nl/formats/systemverilog/benchmarks
               primitives_sv=../najaeda_primitives.v
               for bench in \
+                latch_loops \
                 compound_shifts \
                 streaming_lhs \
                 simple \

@@ -34878,11 +34878,11 @@ endmodule
 }
 
 TEST_F(SNLSVConstructorTestSimple,
-       parseAlwaysLatchPriorityIntermediateDifferentLHSUnsupported) {
+       parseAlwaysLatchPriorityIntermediateDifferentLHSSupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
-    "always_latch_priority_intermediate_different_lhs_unsupported",
-    R"(module always_latch_priority_intermediate_different_lhs_unsupported(
+    "always_latch_priority_intermediate_different_lhs_supported",
+    R"(module always_latch_priority_intermediate_different_lhs_supported(
   input  logic en0_i,
   input  logic en1_i,
   input  logic d_i,
@@ -34898,12 +34898,11 @@ TEST_F(SNLSVConstructorTestSimple,
 endmodule
 )");
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported latch block in module "
-     "'always_latch_priority_intermediate_different_lhs_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_latch_priority_intermediate_different_lhs_supported"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDLatch));
 }
 
 TEST_F(SNLSVConstructorTestSimple,
@@ -34931,7 +34930,7 @@ endmodule
     svPath,
     {"Unsupported latch block in module "
      "'always_latch_priority_pattern_conjunction_unsupported'",
-     "unsupported statement pattern for always_latch lowering"});
+     "unsupported condition in independent latch writes"});
 }
 
 TEST_F(SNLSVConstructorTestSimple,

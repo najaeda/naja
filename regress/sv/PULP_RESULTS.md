@@ -112,6 +112,33 @@ Re-running the unmodified release with a 180-second limit:
   times out after 180 seconds in the local Debug build. This is not a full
   Spatz pass.
 
+## Follow-up: independent always_latch writes
+
+The latch lowering now handles independent guarded writes in statement lists
+and statically bounded nested loops. It preserves per-bit retention while an
+enable is low, source-order priority for repeated writes, static array and
+part-select targets, and both blocking and nonblocking scheduling when used
+consistently. Dynamic targets, same-block read-after-write dependencies,
+function calls, timed assignments, and mixed scheduling are rejected.
+
+The focused `latch_loops` fixture passes 16,385 state transitions in both the
+original RTL and the generated Naja netlist. The complete frontend suite passes
+1,140 tests. The ITA register-file modules, MemPool register file, and Snitch
+register file now each load, dump, and pass Verilator lint, so these cases do
+not require a new NLDB0 primitive.
+
+The remaining MemPool full-design failure is unrelated to latch primitives:
+`ctrl_registers.sv` exceeds the 4,096-iteration loop-unroll limit. The
+`axi_dw_downsizer.sv` `resp_precedence` function-call RHS cases are now lowered
+by the frontend's exhaustive fixed-width case-function path. ITA's full
+design still exceeds the local 180-second Debug timeout after the previous
+latch diagnostics disappear.
+
+The exhaustive case path accepts a no-`default` function case only when all
+values of a small fixed-width domain are covered by constant labels. Other
+incomplete cases remain unsupported. This keeps the lowering conservative while
+supporting the AXI response precedence function.
+
 Logs are under `build/pulp-lowering-fixes/`. The initial survey table above is
 retained as the baseline; neither design has been promoted to the passing CI
 tier.

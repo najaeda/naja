@@ -13069,7 +13069,29 @@ endmodule
           return false;
         }
         if (!caseStmt.defaultCase && !mergedHasBits) {
-          return false;
+          const auto caseWidth = getIntegralExpressionBitWidth(caseStmt.expr);
+          if (!caseWidth || *caseWidth > 16) {
+            return false;
+          }
+          const size_t requiredValueCount = size_t{1} << *caseWidth;
+          std::unordered_set<uint64_t> coveredValues;
+          for (const auto& item : caseStmt.items) {
+            for (const auto* expression : item.expressions) {
+              uint64_t value = 0;
+              if (!expression || !getConstantUnsigned(*expression, value)) {
+                return false;
+              }
+              coveredValues.insert(value);
+            }
+          }
+          if (coveredValues.size() != requiredValueCount) {
+            return false;
+          }
+          // All valid enum values are covered. SNL is two-state, so seed the
+          // impossible encoded-enum case with zero rather than inventing a
+          // four-state primitive; valid enum values select a real branch below.
+          mergedBits.assign(targetWidth, const0);
+          mergedHasBits = true;
         }
 
         // Wrap later alternatives first so the first matching source item wins,
@@ -22221,6 +22243,191 @@ endmodule
       }
       chain.defaultAction = defaultAction;
       chain.hasDefault = true;
+      return true;
+    }
+
+    // Lower independent guarded writes, including statically unrolled array writes.
+    // Keep data and write enables separate so untouched bits retain their value
+    // through a latch rather than a combinational feedback mux.
+    bool lowerIndependentLatchWrites(
+      SNLDesign* design,
+      const Statement& stmt,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::string& failureReason) {
+      struct BitWrite {
+        SNLBitNet* output;
+        SNLBitNet* data;
+        SNLBitNet* enable;
+      };
+      std::vector<BitWrite> writes;
+      std::unordered_map<SNLBitNet*, size_t> writeIndices;
+      std::unordered_set<const slang::ast::ValueSymbol*> readSymbols;
+      std::unordered_set<const slang::ast::ValueSymbol*> writtenSymbols;
+      std::unordered_set<const slang::ast::ValueSymbol*> loopVariables;
+      std::unordered_map<const slang::ast::ValueSymbol*, ProceduralAssignmentScheduling> scheduling;
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto mux = [&](SNLBitNet* select, SNLBitNet* low, SNLBitNet* high) -> SNLBitNet* {
+        if (select == const0 || low == high) {
+          return low;
+        }
+        if (select == const1) {
+          return high;
+        }
+        std::vector<SNLBitNet*> result;
+        if (!createMux2Instance(design, select, {low}, {high}, result,
+                                sourceRange, nullptr, true) || result.size() != 1) {
+          return nullptr;
+        }
+        return result.front();
+      };
+      auto collectReads = [&](const Expression& expression) {
+        bool supported = true;
+        auto visitor = slang::ast::makeVisitor(
+          [&](auto&, const slang::ast::ValueExpressionBase& value) {
+            readSymbols.insert(&value.symbol);
+          },
+          [&](auto&, const slang::ast::CallExpression&) { supported = false; },
+          [&](auto&, const slang::ast::AssignmentExpression&) { supported = false; },
+          [&](auto& visitor, const slang::ast::UnaryExpression& unary) {
+            using Op = slang::ast::UnaryOperator;
+            if (unary.op == Op::Preincrement || unary.op == Op::Postincrement ||
+                unary.op == Op::Predecrement || unary.op == Op::Postdecrement) {
+              supported = false;
+            } else {
+              visitor.visitDefault(unary);
+            }
+          });
+        expression.visit(visitor);
+        if (!supported) {
+          failureReason = "calls and expression side effects in independent latch writes are unsupported";
+        }
+        return supported;
+      };
+      std::function<bool(const Statement&, SNLBitNet*)> visit;
+      visit = [&](const Statement& statement, SNLBitNet* guard) -> bool {
+        const auto* current = unwrapStatement(statement);
+        if (!current || guard == const0 || current->kind == slang::ast::StatementKind::Empty) {
+          return true;
+        }
+        if (current->kind == slang::ast::StatementKind::List) {
+          const auto& list = current->as<slang::ast::StatementList>().list;
+          for (const auto* item : list) {
+            const auto* child = item ? unwrapStatement(*item) : nullptr;
+            if (child && child->kind == slang::ast::StatementKind::ForLoop) {
+              for (const auto* variable : child->as<slang::ast::ForLoopStatement>().loopVars) {
+                loopVariables.insert(variable);
+              }
+            }
+          }
+          for (const auto* item : list) {
+            if (item && !visit(*item, guard)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+          const auto& variable = current->as<slang::ast::VariableDeclStatement>().symbol;
+          if (loopVariables.contains(&variable)) {
+            return true;
+          }
+        }
+        if (current->kind == slang::ast::StatementKind::ForLoop) {
+          const auto& loop = current->as<slang::ast::ForLoopStatement>();
+          return unrollForLoopStatement(loop, [&]() { return visit(loop.body, guard); },
+                                        failureReason);
+        }
+        if (current->kind == slang::ast::StatementKind::Conditional) {
+          const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+          if (conditional.conditions.size() != 1 || !conditional.conditions[0].expr ||
+              conditional.conditions[0].pattern) {
+            failureReason = "unsupported condition in independent latch writes";
+            return false;
+          }
+          const auto& condition = *conditional.conditions[0].expr;
+          if (!collectReads(condition)) {
+            return false;
+          }
+          auto* select = resolveCombinationalConditionNet(design, condition, &failureReason);
+          if (!select) {
+            return false;
+          }
+          auto* trueGuard = mux(select, const0, guard);
+          auto* falseGuard = mux(select, guard, const0);
+          return trueGuard && falseGuard && visit(conditional.ifTrue, trueGuard) &&
+            (!conditional.ifFalse || visit(*conditional.ifFalse, falseGuard));
+        }
+        const Expression* lhs = nullptr;
+        AssignAction action;
+        if (!extractAssignment(*current, lhs, action) || !action.rhs ||
+            assignmentActionRequiresCurrentBits(action)) {
+          failureReason = "unsupported statement in independent latch writes";
+          return false;
+        }
+        const auto& assignment = current->as<slang::ast::ExpressionStatement>().expr;
+        if (assignment.as<slang::ast::AssignmentExpression>().timingControl) {
+          failureReason = "timed independent latch writes are unsupported";
+          return false;
+        }
+        const slang::ast::ValueSymbol* root = nullptr;
+        if (!tryGetRootValueSymbolReference(*lhs, root) || hasDynamicSelectionInLHS(*lhs)) {
+          failureReason = "independent latch writes require statically selected targets";
+          return false;
+        }
+        if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
+          failureReason = "mixed blocking and nonblocking independent latch writes";
+          return false;
+        }
+        scheduling[root] = action.scheduling;
+        writtenSymbols.insert(root);
+        if (!collectReads(*action.rhs)) {
+          return false;
+        }
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBits(design, *lhs, lhsBits, &failureReason, true) ||
+            lhsBits.empty()) {
+          return false;
+        }
+        auto dataBits = buildAssignBits(design, action, resolveExpressionNet(design, *lhs),
+                                        lhsBits, nullptr, sourceRange);
+        if (dataBits.size() != lhsBits.size()) {
+          failureReason = "unable to resolve independent latch data";
+          return false;
+        }
+        for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+          auto [it, inserted] = writeIndices.emplace(lhsBits[bit], writes.size());
+          if (inserted) {
+            writes.push_back({lhsBits[bit], dataBits[bit], guard});
+          } else {
+            auto& write = writes[it->second];
+            write.data = mux(guard, write.data, dataBits[bit]);
+            write.enable = mux(guard, write.enable, const1);
+            if (!write.data || !write.enable) {
+              return false;
+            }
+          }
+        }
+        return true;
+      };
+      if (!visit(stmt, const1)) {
+        return false;
+      }
+      // This path deliberately excludes procedural read-after-write and feedback.
+      // Such blocks need scheduling replay, not independent write accumulation.
+      for (const auto* symbol : writtenSymbols) {
+        if (readSymbols.contains(symbol)) {
+          failureReason = "independent latch writes read a variable assigned in the same block";
+          return false;
+        }
+      }
+      for (const auto& write : writes) {
+        if (write.enable == const1) {
+          createAssignInstance(design, write.data, write.output, sourceRange);
+        } else {
+          createDLatchInstance(design, write.enable, write.data, write.output, sourceRange);
+        }
+      }
       return true;
     }
 
@@ -32202,8 +32409,8 @@ endmodule
               std::string& latchFailureReason) -> bool {
           AlwaysLatchPattern pattern;
           if (!extractAlwaysLatchPattern(latchStmt, pattern)) {
-            latchFailureReason = "unsupported statement pattern for always_latch lowering";
-            return false;
+            return lowerIndependentLatchWrites(
+              design, latchStmt, latchSourceRange, latchFailureReason);
           }
 
           auto* lhsNet = resolveExpressionNet(design, *pattern.lhs);
