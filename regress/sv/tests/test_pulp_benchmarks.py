@@ -88,6 +88,26 @@ class PulpBenchmarksTest(unittest.TestCase):
             self.assertEqual("lint_failed", result["status"])
             self.assertIn("verilator is missing", result["error"])
 
+    def test_elaboration_only_does_not_require_a_dump(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "design/variants/default"
+            source.mkdir(parents=True)
+            (source / "filelist.f").write_text("input.sv\n")
+            artifacts = root / "artifacts"
+
+            def execute(command, **kwargs):
+                (artifacts / "design-stats.json").parent.mkdir(parents=True, exist_ok=True)
+                (artifacts / "design-stats.json").write_text('{"top": "top"}')
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(pulp.subprocess, "run", side_effect=execute):
+                result = pulp.run_target(root, "design.default", "top", artifacts, root, 1,
+                                         dump_netlist=False)
+            self.assertEqual("passed", result["status"])
+            self.assertNotIn("dump_bytes", result)
+            self.assertIn("--elaboration-only", result["command"])
+
 
 if __name__ == "__main__":
     unittest.main()

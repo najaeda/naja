@@ -50,7 +50,7 @@ def validate_diagnostics(diagnostics):
         raise RuntimeError("Incomplete or unsupported lowering; see diagnostics.log")
 
 
-def worker(top_name, artifacts):
+def worker(top_name, artifacts, dump_netlist):
     from najaeda import netlist
 
     start = time.monotonic()
@@ -63,15 +63,18 @@ def worker(top_name, artifacts):
     if top.get_name() != top_name or not top.count_terms():
         raise RuntimeError("Missing or unexpected top-level interface")
     validate_diagnostics((artifacts / "diagnostics.log").read_text())
-    top.dump_verilog(str(artifacts / "netlist.v"))
     stats = dict(top=top.get_name(), top_terms=top.count_terms(),
                  top_nets=top.count_nets(), top_instances=top.count_child_instances(),
-                 load_seconds=loaded - start, dump_seconds=time.monotonic() - loaded)
+                 load_seconds=loaded - start)
+    if dump_netlist:
+        top.dump_verilog(str(artifacts / "netlist.v"))
+        stats["dump_seconds"] = time.monotonic() - loaded
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     netlist.reset()
 
 
-def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner=None):
+def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner=None,
+               dump_netlist=True):
     artifacts.mkdir(parents=True, exist_ok=True)
     # Never let stale success products from an earlier run satisfy this run.
     for filename in ("design-stats.json", "netlist.v", "diagnostics.log", "lint.log", "summary.json"):
@@ -82,6 +85,8 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
     (artifacts / "filelist.f").write_text(source_list)
     command = [sys.executable, str(Path(__file__).resolve()), "--worker", top,
                "--output", str(artifacts)]
+    if not dump_netlist:
+        command.append("--elaboration-only")
     env = dict(os.environ, PYTHONPATH=str(najaeda_path))
     record = dict(target=name, top=top, command=command, cwd=str(source_dir),
                   source_count=sum(line.strip().endswith((".v", ".sv"))
@@ -99,13 +104,14 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
     if record["status"] == "passed":
         stats = artifacts / "design-stats.json"
         dump = artifacts / "netlist.v"
-        if not stats.is_file() or not dump.is_file() or dump.stat().st_size == 0:
+        if not stats.is_file() or (dump_netlist and (not dump.is_file() or dump.stat().st_size == 0)):
             record["status"] = "failed"
             record["error"] = "Missing load/dump products"
         else:
             record["design_stats"] = json.loads(stats.read_text())
-            record["dump_bytes"] = dump.stat().st_size
-    if record["status"] == "passed" and lint_runner:
+            if dump_netlist:
+                record["dump_bytes"] = dump.stat().st_size
+    if record["status"] == "passed" and lint_runner and dump_netlist:
         primitives = ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
         flags = ["--lint-only", "--sv", "--top-module", top, "-Wno-ASCRANGE"]
         if lint_runner == "docker":
@@ -153,13 +159,15 @@ def main():
     parser.add_argument("--timeout", type=int, default=120, help="Per-target wall-clock limit in seconds")
     parser.add_argument("--lint-runner", choices=("local", "docker"),
                         help="Also lint each complete dump with Naja primitive models")
+    parser.add_argument("--elaboration-only", action="store_true",
+                        help="Load and validate the design without structural Verilog dumping")
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     args = parser.parse_args()
     args.output = args.output.resolve()
     if args.worker:
-        worker(args.worker, args.output)
+        worker(args.worker, args.output, not args.elaboration_only)
         return 0
-    if args.timeout <= 0 or (args.all and args.case):
+    if args.timeout <= 0 or (args.all and args.case) or (args.elaboration_only and args.lint_runner):
         parser.error("--timeout must be positive; --all and --case are mutually exclusive")
     args.output.mkdir(parents=True, exist_ok=True)
     archive = args.archive or args.output / f"{PACKAGE}.tar.gz"
@@ -176,7 +184,8 @@ def main():
         summary = dict(release=VERSION, url=URL, sha256=SHA256, results=[])
         for name in selected:
             result = run_target(package, name, available[name], args.output / name,
-                                args.najaeda_path.resolve(), args.timeout, args.lint_runner)
+                                args.najaeda_path.resolve(), args.timeout, args.lint_runner,
+                                not args.elaboration_only)
             summary["results"].append(result)
             (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
             print(f"{name}: {result['status']} ({result['seconds']:.2f}s)", flush=True)

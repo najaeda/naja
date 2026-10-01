@@ -20988,8 +20988,14 @@ endmodule
 
       int64_t otherValue = 0;
       if (!getConstantInt64(leftIsLoopVar ? binaryExpr.right() : binaryExpr.left(), otherValue)) {
-        failureReason = "unsupported non-constant for-loop bound expression";
-        return false;
+        uint64_t unsignedValue = 0;
+        const auto& boundExpr = leftIsLoopVar ? binaryExpr.right() : binaryExpr.left();
+        if (!getConstantUnsigned(boundExpr, unsignedValue) ||
+            unsignedValue > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+          failureReason = "unsupported non-constant for-loop bound expression";
+          return false;
+        }
+        otherValue = static_cast<int64_t>(unsignedValue);
       }
 
       const int64_t lhsValue = leftIsLoopVar ? loopValue : otherValue;
@@ -21035,25 +21041,33 @@ endmodule
         return true;
       }
 
-      if (getConstantInt64(rhsExpr, nextLoopValue)) {
-        return true;
-      }
-
       const auto* strippedRHSExpr = stripConversions(rhsExpr);
       if (!strippedRHSExpr ||
           strippedRHSExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
-        return false;
+        return getConstantInt64(rhsExpr, nextLoopValue);
       }
 
       const auto& rhsBinaryExpr = strippedRHSExpr->as<slang::ast::BinaryExpression>();
       int64_t constantOperand = 0;
+      const auto getStepConstant = [&](const Expression& expression, int64_t& value) {
+        if (getConstantInt64(expression, value)) {
+          return true;
+        }
+        uint64_t unsignedValue = 0;
+        if (!getConstantUnsigned(expression, unsignedValue) ||
+            unsignedValue > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+          return false;
+        }
+        value = static_cast<int64_t>(unsignedValue);
+        return true;
+      };
       switch (rhsBinaryExpr.op) {
         case slang::ast::BinaryOperator::Add:
           if (isForLoopControlStepOperand(
                 rhsBinaryExpr.left(),
                 loopSymbol,
                 allowLValueReferenceOperand) &&
-              getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
+              getStepConstant(rhsBinaryExpr.right(), constantOperand)) {
             nextLoopValue = loopValue + constantOperand;
             return true;
           }
@@ -21061,7 +21075,7 @@ endmodule
                 rhsBinaryExpr.right(),
                 loopSymbol,
                 allowLValueReferenceOperand) &&
-              getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
+              getStepConstant(rhsBinaryExpr.left(), constantOperand)) {
             nextLoopValue = constantOperand + loopValue;
             return true;
           }
@@ -21232,13 +21246,14 @@ endmodule
         }
 
         int64_t nextLoopValue = 0;
-        if (evaluateForLoopStepRHS(assignExpr.right(), loopSymbol, loopValue, nextLoopValue)) {
+        if (evaluateForLoopStepRHS(
+              assignExpr.right(), loopSymbol, loopValue, nextLoopValue, true)) {
           loopValue = nextLoopValue;
           return true;
         }
       }
 
-      failureReason = "unsupported for-loop step expression";
+      failureReason = "unsupported for-loop step expression: " + describeExpression(*strippedStepExpr);
       return false;
     }
 
@@ -21305,7 +21320,12 @@ endmodule
         if (iterationCount++ >= kMaxForLoopUnrollIterations) {
           std::ostringstream reason;
           reason << "for-loop unroll iteration limit exceeded (" << kMaxForLoopUnrollIterations
-                 << ")";
+                 << ", variable=" << std::string(loopSymbol->name)
+                 << ", value=" << loopValue;
+          if (auto sourceInfo = getSourceInfo(forStmt.sourceRange)) {
+            reason << ", source_line=" << sourceInfo->line;
+          }
+          reason << ")";
           failureReason = reason.str();
           popBreakContext();
           return false;

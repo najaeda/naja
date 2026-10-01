@@ -127,12 +127,12 @@ original RTL and the generated Naja netlist. The complete frontend suite passes
 register file now each load, dump, and pass Verilator lint, so these cases do
 not require a new NLDB0 primitive.
 
-The remaining MemPool full-design failure is unrelated to latch primitives:
-`ctrl_registers.sv` exceeds the 4,096-iteration loop-unroll limit. The
-`axi_dw_downsizer.sv` `resp_precedence` function-call RHS cases are now lowered
-by the frontend's exhaustive fixed-width case-function path. ITA's full
-design still exceeds the local 180-second Debug timeout after the previous
-latch diagnostics disappear.
+The MemPool full design now elaborates successfully with zero Naja unsupported
+diagnostics. The `axi_dw_downsizer.sv` `resp_precedence` function-call RHS
+cases and the `ctrl_registers.sv` loop-step lowering are handled by the
+frontend. Structural dumping of the full MemPool netlist exceeded 300 seconds
+locally, so CI runs this design as an elaboration-only frontend regression;
+full dumping remains a separate performance investigation.
 
 The exhaustive case path accepts a no-`default` function case only when all
 values of a small fixed-width domain are covered by constant labels. Other
