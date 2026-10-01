@@ -315,7 +315,10 @@ to disable the report file and keep diagnostics console-only.
 
 The same loader supports combinational ``casez``/``casex`` result-selection
 functions in continuous assignments, including escaped function names and
-concatenated arguments.
+concatenated arguments. Combinational compound shifts and fixed-size streaming
+assignment targets are also supported, with the same supported forms and
+explicit rejection of dynamic/overlapping streaming targets described in
+:doc:`loading`.
 The high-level ``netlist.load_system_verilog`` API exposes the same support;
 using the raw API is not required. See :doc:`loading` for matching semantics.
 

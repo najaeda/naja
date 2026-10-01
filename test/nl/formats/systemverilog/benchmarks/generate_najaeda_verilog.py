@@ -9,6 +9,8 @@ from najaeda import netlist
 
 
 BENCHMARKS = (
+    ("compound_shifts/compound_shifts.sv", "compound_shifts/compound_shifts_naja.v"),
+    ("streaming_lhs/streaming_lhs.sv", "streaming_lhs/streaming_lhs_naja.v"),
     ("simple/simple.sv", "simple/simple_naja.v"),
     ("up_counter/up_counter.sv", "up_counter/up_counter_naja.v"),
     ("param_inst/param_inst.sv", "param_inst/param_inst_naja.v"),

@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -2127,4 +2128,129 @@ endmodule
     constructor,
     svPath,
     {"unsupported always_comb assignment LHS: NamedValue base=s_n"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseCompoundShifts) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_SV_BENCHMARKS_PATH) /
+                        "compound_shifts/compound_shifts.sv");
+  auto* top = library_->getSNLDesign(NLName("compound_shifts_top"));
+  ASSERT_NE(nullptr, top);
+  for (const auto* name : {"left_o", "right_o", "arithmetic_left_o", "unsigned_arithmetic_o",
+                          "signed_right_o", "replay_o", "field_o", "constant_o", "giant_o"}) {
+    auto* output = top->getBusTerm(NLName(name));
+    ASSERT_NE(nullptr, output);
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(1u, countOutputInstTermDrivers(bit->getNet())) << name;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseStreamingAssignmentLHS) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_SV_BENCHMARKS_PATH) /
+                        "streaming_lhs/streaming_lhs.sv");
+  auto* top = library_->getSNLDesign(NLName("streaming_lhs_top"));
+  ASSERT_NE(nullptr, top);
+  for (const auto* name : {"forward_o", "reverse_o", "nested_o", "selected_o",
+                          "swap_o", "array_o", "multi_o", "stream_rhs_o"}) {
+    auto* output = top->getBusTerm(NLName(name));
+    ASSERT_NE(nullptr, output);
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(1u, countOutputInstTermDrivers(bit->getNet())) << name;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectDynamicStreamingAssignmentLHS) {
+  const auto path = createTestDirectory("dynamic_streaming_lhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [3:0] d, input logic [1:0] i,
+  output logic [7:0] q);
+  always_comb begin
+    q = '0;
+    {>>{q[i+:4]}} = d;
+  end
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"dynamic or with-clause streaming assignment LHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectOverlappingStreamingAssignmentLHS) {
+  const auto path = createTestDirectory("overlapping_streaming_lhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [15:0] d, output logic [7:0] q);
+  always_comb {>>{q,q}} = d;
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"overlapping streaming assignment targets"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectSequentialStreamingAssignmentLHS) {
+  const auto path = createTestDirectory("sequential_streaming_lhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic clk, input logic [7:0] d,
+  output logic [7:0] q);
+  always_ff @(posedge clk) {>>{q}} <= d;
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectWithClauseStreamingAssignmentLHS) {
+  const auto path = createTestDirectory("with_clause_streaming_lhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [15:0] d,
+  output logic [7:0] q [0:3]);
+  always_comb begin
+    q = '{default:'0};
+    {>>{q with [1:2]}} = d;
+  end
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"with-clause streaming assignment LHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, streamingLHSGoldenValuesFromSlangConstantEvaluation) {
+  const auto path = createTestDirectory("streaming_lhs_constant_reference") / "top.sv";
+  std::ofstream(path) << R"(module top(output wire [15:0][37:0] y);
+  function automatic logic [37:0] reference(input logic [19:0] value);
+    logic [9:0] reverse_value, nested_value, forward_value;
+    logic [3:0] a, b;
+    {<<4{reverse_value}} = value[9:0];
+    {<<4{{<<2{nested_value}}}} = value[9:0];
+    {>>{forward_value}} = value;
+    a = value[3:0];
+    b = value[7:4];
+    {>>{a,b}} = {b,a};
+    return {forward_value,nested_value,reverse_value,a,b};
+  endfunction
+  for (genvar i = 0; i < 16; i++) begin : g
+    // A localparam forces Slang evaluation, independently of Naja's procedural lowering.
+    localparam logic [37:0] EXPECTED = reference(20'(i * 20'h8421));
+    assign y[i] = EXPECTED;
+  end
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* y = top->getBusTerm(NLName("y"));
+  ASSERT_NE(nullptr, y);
+  for (unsigned i = 0; i < 16; ++i) {
+    const uint64_t value = i * 0x8421;
+    const uint64_t reverse = ((value & 3) << 8) | (((value >> 2) & 15) << 4) |
+                             ((value >> 6) & 15);
+    const uint64_t nested = ((reverse & 3) << 8) | (((reverse >> 2) & 3) << 6) |
+      (((reverse >> 4) & 3) << 4) | (((reverse >> 6) & 3) << 2) | ((reverse >> 8) & 3);
+    const uint64_t expected = ((value >> 10) << 28) | (nested << 18) |
+                              (reverse << 8) | (value & 255);
+    for (unsigned bit = 0; bit < 38; ++bit) {
+      auto* net = getSingleAssignInputDriving(y->getBit(i * 38 + bit)->getNet());
+      ASSERT_NE(nullptr, net);
+      EXPECT_TRUE((expected >> bit) & 1 ? net->isAssign1() : net->isAssign0())
+        << "value=" << value << " bit=" << bit;
+    }
+  }
 }

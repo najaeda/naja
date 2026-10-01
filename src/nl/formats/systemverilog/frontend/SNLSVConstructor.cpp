@@ -4672,6 +4672,13 @@ endmodule
       if (!stripped) {
         return std::nullopt; // LCOV_EXCL_LINE
       }
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (stream.isFixedSize() && stream.getBitstreamWidth() > 0) {
+          return static_cast<size_t>(stream.getBitstreamWidth());
+        }
+        return std::nullopt;
+      }
       const auto& canonical = stripped->type->getCanonicalType();
       const auto bitWidth = canonical.getBitstreamWidth();
       if (bitWidth <= 0) {
@@ -19544,6 +19551,15 @@ endmodule
             }
           }
           return;
+        case slang::ast::ExpressionKind::Streaming:
+          for (const auto& stream :
+               stripped->as<slang::ast::StreamingConcatenationExpression>().streams()) {
+            collectExpressionRootValueSymbols(*stream.operand, symbols);
+            if (stream.withExpr) {
+              collectExpressionRootValueSymbols(*stream.withExpr, symbols);
+            }
+          }
+          return;
         case slang::ast::ExpressionKind::Replication: {
           const auto& replication = stripped->as<slang::ast::ReplicationExpression>();
           collectExpressionRootValueSymbols(replication.count(), symbols);
@@ -19725,6 +19741,22 @@ endmodule
       // Save the raw LHS before stripping to root so we can collect index
       // symbols from selections like arr[idx].
       const Expression* rawLhsExpr = lhsExpr;
+      if (lhsExpr && stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+        std::vector<const Expression*> leaves;
+        if (collectStreamingLHSLeaves(*lhsExpr, leaves)) {
+          for (const auto* leaf : leaves) {
+            const slang::ast::ValueSymbol* symbol = nullptr;
+            const auto* root = getTrackedAlwaysCombLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols) &&
+                tryGetRootValueSymbolReference(*root, symbol)) {
+              auto& deps = dependencyMap[symbol];
+              deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+              collectExpressionRootValueSymbols(*action.rhs, deps);
+            }
+          }
+        }
+        return;
+      }
       lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
       if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
         return;
@@ -20423,6 +20455,183 @@ endmodule
         }
       }
       lhsExpressions.push_back(&lhsExpr);
+      return true;
+    }
+
+    bool collectStreamingLHSLeaves(
+      const Expression& expr,
+      std::vector<const Expression*>& leaves) const {
+      const auto* stripped = stripConversions(expr);
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (!stream.isFixedSize()) {
+          return false;
+        }
+        for (const auto& item : stream.streams()) {
+          // Dynamic and with-clause targets need selector-aware writeback.
+          if (item.withExpr || !collectStreamingLHSLeaves(*item.operand, leaves)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        for (const auto* operand : stripped->as<slang::ast::ConcatenationExpression>().operands()) {
+          if (!collectStreamingLHSLeaves(*operand, leaves)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (hasDynamicSelectionInLHS(*stripped)) {
+        return false;
+      }
+      leaves.push_back(stripped);
+      return true;
+    }
+
+    bool resolveStreamingLHSBits(
+      SNLDesign* design,
+      const Expression& expr,
+      std::vector<SNLBitNet*>& bits) {
+      const auto* stripped = stripConversions(expr);
+      bits.clear();
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (!stream.isFixedSize()) {
+          return false;
+        }
+        const auto streams = stream.streams();
+        for (auto it = streams.rbegin(); it != streams.rend(); ++it) {
+          std::vector<SNLBitNet*> operandBits;
+          if (it->withExpr || !resolveStreamingLHSBits(design, *it->operand, operandBits)) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+        if (bits.size() != stream.getBitstreamWidth()) {
+          return false;
+        }
+        // Map RHS bit positions to physical destinations. Packing the LHS
+        // order is the inverse of unpacking the RHS, including a short final
+        // slice when the total width is not a multiple of the slice size.
+        const auto slice = stream.getSliceSize();
+        if (slice && slice < bits.size()) {
+          std::vector<SNLBitNet*> ordered;
+          size_t end = bits.size();
+          while (end) {
+            const size_t begin = ((end - 1) / slice) * slice;
+            ordered.insert(ordered.end(), bits.begin() + begin, bits.begin() + end);
+            end = begin;
+          }
+          bits = std::move(ordered);
+        }
+        return !bits.empty();
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto operands = stripped->as<slang::ast::ConcatenationExpression>().operands();
+        for (auto it = operands.rbegin(); it != operands.rend(); ++it) {
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveStreamingLHSBits(design, **it, operandBits)) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+        return !bits.empty();
+      }
+      return !hasDynamicSelectionInLHS(*stripped) &&
+             resolveAssignmentLHSBits(design, *stripped, bits);
+    }
+
+    bool applyCombinationalStreamingAssignment(
+      SNLDesign* design,
+      const AssignAction& action,
+      const Expression& trackedLhs,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols,
+      std::string& failureReason) {
+      std::vector<const Expression*> leaves;
+      if (!collectStreamingLHSLeaves(*action.lhs, leaves)) {
+        failureReason = "unsupported dynamic or with-clause streaming assignment LHS";
+        return false;
+      }
+      std::vector<SNLBitNet*> destinations;
+      std::unordered_map<const slang::ast::ValueSymbol*, std::vector<SNLBitNet*>> roots;
+      {
+        const auto* savedLhs = activeProceduralReplayLHS_;
+        const auto* savedBits = activeProceduralReplayBits_;
+        auto* savedEnv = activeProceduralReplayEnv_;
+        activeProceduralReplayLHS_ = nullptr;
+        activeProceduralReplayBits_ = nullptr;
+        activeProceduralReplayEnv_ = nullptr;
+        const auto guard = slang::ScopeGuard([&]() {
+          activeProceduralReplayLHS_ = savedLhs;
+          activeProceduralReplayBits_ = savedBits;
+          activeProceduralReplayEnv_ = savedEnv;
+        });
+        if (!resolveStreamingLHSBits(design, *action.lhs, destinations)) {
+          failureReason = "unable to resolve fixed streaming assignment LHS";
+          return false;
+        }
+        for (const auto* leaf : leaves) {
+          const auto* root = getTrackedAlwaysCombLHS(leaf);
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (!tryGetRootValueSymbolReference(*root, symbol) ||
+              !resolveAssignmentLHSBits(design, *root, roots[symbol])) {
+            failureReason = "unable to resolve streaming assignment storage";
+            return false;
+          }
+        }
+      }
+      auto width = getExpressionBitstreamWidth(*action.rhs);
+      std::vector<SNLBitNet*> source;
+      const auto* savedLhs = activeProceduralReplayLHS_;
+      const auto* savedBits = activeProceduralReplayBits_;
+      activeProceduralReplayLHS_ = &trackedLhs;
+      activeProceduralReplayBits_ = &dataBits;
+      const auto guard = slang::ScopeGuard([&]() {
+        activeProceduralReplayLHS_ = savedLhs;
+        activeProceduralReplayBits_ = savedBits;
+      });
+      if (!width || *width < destinations.size() ||
+          !resolveExpressionBits(design, *action.rhs, *width, source) || source.size() != *width) {
+        failureReason = "unable to resolve streaming assignment RHS";
+        return false;
+      }
+      // Streaming targets consume the most significant bits of a wider RHS.
+      const auto offset = source.size() - destinations.size();
+      std::unordered_map<SNLBitNet*, SNLBitNet*> replacements;
+      for (size_t i = 0; i < destinations.size(); ++i) {
+        if (!replacements.emplace(destinations[i], source[offset + i]).second) {
+          failureReason = "unsupported overlapping streaming assignment targets";
+          return false;
+        }
+      }
+      const auto update = [&](const std::vector<SNLBitNet*>& physical, std::vector<SNLBitNet*>& values) {
+        for (size_t i = 0; i < physical.size(); ++i) {
+          if (auto found = replacements.find(physical[i]); found != replacements.end()) {
+            values[i] = found->second;
+          }
+        }
+      };
+      update(lhsBits, dataBits);
+      if (activeProceduralReplayEnv_ && replaySymbols) {
+        for (const auto& [symbol, physical] : roots) {
+          if (!replaySymbols->contains(symbol)) {
+            continue;
+          }
+          auto [it, inserted] = activeProceduralReplayEnv_->try_emplace(symbol);
+          if (inserted) {
+            it->second = makeCombinationalInitialBits(design, physical);
+          }
+          if (it->second.size() != physical.size()) {
+            failureReason = "inconsistent streaming assignment replay width";
+            return false;
+          }
+          update(physical, it->second);
+        }
+      }
       return true;
     }
 
@@ -24084,6 +24293,21 @@ endmodule
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
+        if (trackAlwaysCombDynamicLHS && lhsExpr &&
+            stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+          std::vector<const Expression*> leaves;
+          if (!collectStreamingLHSLeaves(*lhsExpr, leaves)) {
+            setFailureReason("unsupported dynamic or with-clause streaming assignment LHS");
+            return false;
+          }
+          for (const auto* leaf : leaves) {
+            const auto* root = getTrackedAlwaysCombLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols)) {
+              appendTrackedSelectionLHS(root, lhsExpressions);
+            }
+          }
+          return true;
+        }
         if (trackAlwaysCombDynamicLHS) {
           lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
         } else if (trackSequentialFallbackLHS) {
@@ -25438,6 +25662,59 @@ endmodule
           failureReason =
             "unsupported compound assignment in always_comb without current LHS bits";
           return false;
+        }
+
+        const auto op = *action.compoundOp;
+        const bool shiftLeft = op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+                               op == slang::ast::BinaryOperator::ArithmeticShiftLeft;
+        if (shiftLeft || op == slang::ast::BinaryOperator::LogicalShiftRight ||
+            op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+          // Slang represents a compound assignment as LValueReference op RHS.
+          // The count is self-determined: truncating it to the LHS width can
+          // turn an oversized shift into a small (or zero) shift.
+          const auto* rhs = stripConversions(*action.rhs);
+          if (!rhs || rhs->kind != slang::ast::ExpressionKind::BinaryOp ||
+              rhs->as<slang::ast::BinaryExpression>().op != op) {
+            failureReason = "unsupported compound shift expression";
+            return false;
+          }
+          const auto& count = rhs->as<slang::ast::BinaryExpression>().right();
+          auto countWidth = getIntegralExpressionBitWidth(count);
+          std::vector<SNLBitNet*> countBits;
+          if (!countWidth || !resolveShiftAmountBits(
+                design, count, *countWidth, countBits, &failureReason)) {
+            return false;
+          }
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          const bool signExtend = op == slang::ast::BinaryOperator::ArithmeticShiftRight &&
+                                  action.lhs && action.lhs->type->isSigned();
+          auto* fill = signExtend ? currentBits->back() : const0;
+          assignedBits = *currentBits;
+          for (size_t stage = 0; stage < countBits.size(); ++stage) {
+            if (countBits[stage] == const0) {
+              continue;
+            }
+            const auto distance = stage >= std::numeric_limits<size_t>::digits
+              ? targetWidth : std::min(size_t {1} << stage, targetWidth);
+            std::vector<SNLBitNet*> nextBits;
+            nextBits.reserve(targetWidth);
+            for (size_t bit = 0; bit < targetWidth; ++bit) {
+              auto* shifted = fill;
+              if (shiftLeft ? bit >= distance : distance < targetWidth - bit) {
+                shifted = assignedBits[shiftLeft ? bit - distance : bit + distance];
+              }
+              auto* result = shifted;
+              if (countBits[stage] != const1 && assignedBits[bit] != shifted) {
+                result = SNLScalarNet::create(design);
+                createMux2Instance(design, countBits[stage], assignedBits[bit], shifted,
+                                   result, getSourceRange(*action.rhs));
+              }
+              nextBits.push_back(result);
+            }
+            assignedBits = std::move(nextBits);
+          }
+          return true;
         }
 
         const Expression* compoundRhsExpr = action.rhs;
@@ -28178,6 +28455,14 @@ endmodule
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        if (stripConversions(*assignedLHS)->kind == slang::ast::ExpressionKind::Streaming) {
+          if (preserveAssignmentScheduling || !assignmentUpdatesActiveProceduralValue(action)) {
+            failureReason = "unsupported sequential streaming assignment";
+            return false;
+          }
+          return applyCombinationalStreamingAssignment(
+            design, action, lhsExpr, lhsBits, dataBits, replaySymbols, failureReason);
+        }
         const bool assignsCurrentLhs =
           assignedLHS &&
           (sameLhs(assignedLHS, &lhsExpr) ||
@@ -28411,6 +28696,19 @@ endmodule
       for (const auto* assignedExpr : assignedExpressions) {
         if (!assignedExpr) {
           continue; // LCOV_EXCL_LINE
+        }
+        if (stripConversions(*assignedExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+          std::vector<SNLBitNet*> streamBits;
+          if (!resolveStreamingLHSBits(design, *assignedExpr, streamBits)) {
+            std::fill(assignedMask.begin(), assignedMask.end(), true);
+            return assignedMask;
+          }
+          for (auto* bit : streamBits) {
+            if (auto found = lhsBitOffsets.find(bit); found != lhsBitOffsets.end()) {
+              assignedMask[found->second] = true;
+            }
+          }
+          continue;
         }
         const auto* trackedAssignedExpr = getTrackedAlwaysCombLHS(assignedExpr);
         const bool targetsTrackedLhs =
