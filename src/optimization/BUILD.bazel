@@ -28,7 +28,6 @@ cc_library(
     deps = [
         "//src/bne:naja_bne",
         "//src/dnl:naja_dnl",
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
     ],
 )

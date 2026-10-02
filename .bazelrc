@@ -2,6 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Modules not yet on the Bazel Central Registry come from the in-tree
+# registry (see bazel/registry/README.md); everything else from BCR.
+common --registry=file://%workspace%/bazel/registry
+common --registry=https://bcr.bazel.build/
+
 # Matches CMakeLists.txt:59's `set(CMAKE_CXX_STANDARD 20)` -- applied
 # globally here rather than per-target, same as the CMake build.
 build --cxxopt=-std=c++20
@@ -18,7 +23,7 @@ build -c opt
 # Force fully static linking on every platform. Found via live Ubuntu
 # CI (internal/bazel-migration-plan.md, Phase 8, task #26): Bazel's
 # default --dynamic_mode on Linux can auto-split a large cc_library
-# (here, @slang//:slang's libsvlang.a) that's shared across multiple
+# (here, @sv-lang//:libsvlang) that's shared across multiple
 # test binaries into an intermediate `_solib_k8/*.so`, built with only
 # what that specific linker invocation resolved at the time -- which can
 # come up short on symbols (`slang::SourceLocation::NoLocation`, a

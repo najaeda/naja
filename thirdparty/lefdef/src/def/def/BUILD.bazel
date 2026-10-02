@@ -4,17 +4,24 @@
 
 # Mirrors this directory's own CMakeLists.txt: builds the `def` static
 # library naja actually links (src/nl/formats/lefdef/CMakeLists.txt).
-# See internal/bazel-migration-plan.md (task #13) and
-# bazel/lefdef_bison.bzl for why def.tab.h is treated as an ordinary
-# checked-in header (not generated) here, unlike lef.tab.h in
-# ../../lef/lef.
+# def.tab.h is an ordinary checked-in header here (not generated),
+# unlike lef.tab.h in ../../lef/lef.
 
-load("//bazel:lefdef_bison.bzl", "lefdef_bison_parser")
+load("@bison//:bison.bzl", "bison")
 
-lefdef_bison_parser(
+# No --defines: def/def/*.cpp include the checked-in def.tab.h instead,
+# matching CMake's BISON_TARGET, which names no DEFINES_FILE.
+bison(
     name = "def_parser",
-    src = "def.y",
-    name_prefix = "defyy",
+    srcs = ["def.y"],
+    outs = ["def_parser.cpp"],
+    args = [
+        "-Wconflicts-sr",
+        "-p",
+        "defyy",
+        "--output=$(execpath def_parser.cpp)",
+        "$(execpath def.y)",
+    ],
 )
 
 cc_library(

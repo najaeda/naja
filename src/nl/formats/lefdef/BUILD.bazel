@@ -29,7 +29,6 @@ cc_library(
         "//src/nl/netlist:naja_nl",
         "//thirdparty/lefdef/src/def/def:def",
         "//thirdparty/lefdef/src/lef/lef:lef",
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
     ],
 )

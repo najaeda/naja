@@ -16,6 +16,13 @@ filegroup(
     visibility = ["//test:__subpackages__"],
 )
 
+# A Liberty library with scan flip-flops, reused by downstream test
+# suites (kepler-formal).
+exports_files(
+    ["benchmarks/tests/FF_scan.lib"],
+    visibility = ["//visibility:public"],
+)
+
 cc_test(
     name = "snl_liberty_tests",
     srcs = [

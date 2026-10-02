@@ -3,14 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Checks that CMake's git submodule pins and Bazel's MODULE.bazel pins
-for the same upstream dependency haven't silently drifted apart.
+"""Checks that CMake's git submodule pins and Bazel's pins for the same
+upstream dependency haven't silently drifted apart.
 
 Naja is built by two independent build systems (CMake, the primary one,
 and Bazel, kept as a validated smoke test via ubuntu-bazel.yml/
 macos-bazel.yml). Each pins its own copy of shared dependencies --
 CMake via .gitmodules/git submodule commits under thirdparty/, Bazel via
-MODULE.bazel's git_override()/git_repository() commits. Nothing forces
+the commit archive that MODULE.bazel's bazel_dep version resolves to in
+the in-tree registry (bazel/registry/modules/<name>/<version>/source.json). Nothing forces
 these to move together, so bumping one without the other is an easy,
 silent way for the two build systems to end up testing different
 upstream code without anyone noticing.
@@ -22,13 +23,15 @@ match by design, so it's checked as "the bazel-support pin must still
 contain (be a descendant of, or equal to) the submodule pin" instead,
 i.e. bazel-support must never fall behind main. naja-verilog's own
 `bazel-support` branch was merged into `main` (2026), so it's now
-checked for an exact match like cpptrace and slang, all three tracking
-one branch instead of two. googletest is deliberately excluded: CMake
+checked for an exact match like slang, both tracking one branch instead
+of two. cpptrace is not a Bazel dependency at all (naja's use of it is
+commented out), so there is nothing to compare. googletest is deliberately excluded: CMake
 pins an old submodule dev commit while Bazel takes a BCR release
 (1.17.0.bcr.2) -- a different dependency-sourcing mechanism entirely,
 not something meant to track in lockstep.
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -36,13 +39,13 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODULE_BAZEL = REPO_ROOT / "MODULE.bazel"
+REGISTRY_MODULES = REPO_ROOT / "bazel" / "registry" / "modules"
 
-# path under thirdparty/ -> (bazel module/repo name, upstream remote, mode)
+# path under thirdparty/ -> (bazel module name, upstream remote, mode)
 # mode is "exact" (commits must match) or "ancestor" (submodule commit must
-# be an ancestor of, or equal to, the MODULE.bazel commit).
+# be an ancestor of, or equal to, the Bazel commit).
 SYNC_SPECS = {
-    "thirdparty/cpptrace": ("cpptrace", "https://github.com/jeremy-rifkin/cpptrace", "exact"),
-    "thirdparty/slang": ("slang", "https://github.com/MikePopoloski/slang", "exact"),
+    "thirdparty/slang": ("sv-lang", "https://github.com/MikePopoloski/slang", "exact"),
     "thirdparty/naja-if": ("naja-if", "https://github.com/najaeda/naja-if", "ancestor"),
     "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "exact"),
 }
@@ -66,12 +69,16 @@ def submodule_commit(path: str) -> str:
 def module_bazel_commits() -> dict[str, str]:
     text = MODULE_BAZEL.read_text()
     commits = {}
-    for block in re.finditer(r"git_(?:override|repository)\(([^)]*)\)", text, re.DOTALL):
-        body = block.group(1)
-        name_match = re.search(r'(?:module_name|name)\s*=\s*"([^"]+)"', body)
-        commit_match = re.search(r'commit\s*=\s*"([^"]+)"', body)
-        if name_match and commit_match:
-            commits[name_match.group(1)] = commit_match.group(1)
+    for name, version in re.findall(
+        r'bazel_dep\(name = "([^"]+)", version = "([^"]+)"', text
+    ):
+        source = REGISTRY_MODULES / name / version / "source.json"
+        if not source.is_file():
+            continue  # served by BCR, not pinned to a commit here
+        url = json.loads(source.read_text())["url"]
+        commit_match = re.search(r"/archive/([0-9a-f]{40})\.tar\.gz$", url)
+        if commit_match:
+            commits[name] = commit_match.group(1)
     return commits
 
 
@@ -106,8 +113,8 @@ def main() -> int:
         bazel_commit = bazel_commits.get(bazel_name)
         if bazel_commit is None:
             failures.append(
-                f"{path}: no git_override/git_repository commit found for "
-                f"'{bazel_name}' in MODULE.bazel"
+                f"{path}: no commit archive found for '{bazel_name}' in "
+                "bazel/registry for the version MODULE.bazel depends on"
             )
             continue
 
@@ -130,7 +137,7 @@ def main() -> int:
                     f"{path}: MODULE.bazel '{bazel_name}' pin {bazel_commit} does "
                     f"NOT contain submodule pin {sub_commit} -- the bazel-support "
                     "branch has fallen behind the commit CMake tracks. Rebase/"
-                    "update bazel-support and re-pin MODULE.bazel's commit."
+                    "update bazel-support and add a registry version for it."
                 )
         else:
             raise AssertionError(f"unknown sync mode {mode!r}")

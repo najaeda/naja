@@ -95,3 +95,7 @@ Files: tutorials/README.md tutorials/images/*
  tutorials/notebooks/06_fanout_analysis.ipynb
 Copyright: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 License: Apache-2.0
+
+Files: bazel/registry/*
+Copyright: 2026 The Naja Authors.
+License: Apache-2.0

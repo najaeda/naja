@@ -25,7 +25,7 @@ _DEPS = [
     "//src/nl/formats/hdl:naja_snl_hdl",
     "//src/core:naja_core",
     "//src/nl/netlist:naja_nl",
-    "@slang//:slang",
+    "@sv-lang//:libsvlang",
 ]
 
 cc_library(

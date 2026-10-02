@@ -85,31 +85,32 @@ Docker images), and most workflows use, and it's the one to reach for by
 default. Bazel (`MODULE.bazel`, `BUILD.bazel` throughout the tree) is
 kept in parallel as a validated smoke test only, via `ubuntu-bazel.yml`/
 `macos-bazel.yml` (`bazel build //... && bazel test //...`, no
-submodules — bzlmod fetches its own copies of shared dependencies). It
+submodules, no host packages — every dependency is a `bazel_dep`). It
 is **not** CI's primary gate and doesn't need to track every workflow's
 behavior (sanitizer suppressions, coverage flags, etc.) — just prove the
 Bazel side keeps compiling and passing tests.
 
 **Keep submodule pins and Bazel pins in sync.** CMake pins shared
 upstream dependencies via git submodules (`.gitmodules`, `thirdparty/*`);
-Bazel pins its own copies of the *same* dependencies via
-`git_override()`/`git_repository()` commits in `MODULE.bazel`. Nothing
-forces these to move together — bumping one without the other silently
-makes the two build systems test different upstream code. When you bump
-a submodule commit (or vice versa), update the matching `MODULE.bazel`
-pin in the same change:
+Bazel takes the *same* dependencies as `bazel_dep`s, and those not on
+BCR are pinned to commits by the in-tree registry
+(`bazel/registry/modules/<name>/<version>/source.json`, see
+`bazel/registry/README.md`). Nothing forces these to move together —
+bumping one without the other silently makes the two build systems test
+different upstream code. When you bump a submodule commit (or vice
+versa), add the matching registry version and point `MODULE.bazel` at it
+in the same change:
 
-- `cpptrace`, `slang`: must be an **exact** commit match.
-- `naja-if`, `naja-verilog`: these are the project's own forks, and
-  Bazel tracks a separate `bazel-support` branch (native Bazel BUILD
-  files added on top) rather than the branch CMake tracks — so an exact
-  match isn't meaningful. Instead, the submodule's pinned commit must be
-  an **ancestor of (or equal to)** the `bazel-support` pin, i.e.
-  `bazel-support` must never fall behind main.
+- `slang` (Bazel module `sv-lang`), `naja-verilog`: must be an
+  **exact** commit match.
+- `naja-if`: Bazel tracks a separate `bazel-support` branch (native
+  Bazel BUILD files added on top) rather than the branch CMake tracks —
+  so an exact match isn't meaningful. Instead, the submodule's pinned
+  commit must be an **ancestor of (or equal to)** the `bazel-support`
+  pin, i.e. `bazel-support` must never fall behind main.
 - `googletest`: deliberately excluded — CMake pins an old submodule dev
-  commit, Bazel takes a BCR release (`1.17.0.bcr.2`). Different
-  dependency-sourcing mechanisms entirely; not meant to track in
-  lockstep.
+  commit, Bazel takes a BCR release. Different dependency-sourcing
+  mechanisms entirely; not meant to track in lockstep.
 
 This is enforced automatically: `ci/check_submodule_bazel_sync.py`
 (run by `.github/workflows/dependency-sync-check.yml` on every push/PR)

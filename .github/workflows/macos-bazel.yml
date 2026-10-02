@@ -1,11 +1,10 @@
 name: macOS Bazel Build
 
-# CMake is naja's primary build system (see macos-build.yml) -- this
-# workflow keeps the Bazel side (MODULE.bazel, BUILD.bazel throughout
-# the tree) validated as a smoke test rather than as CI's main gate. See
-# CLAUDE.md's "Build systems: CMake (primary) + Bazel (validated smoke
-# test)" section, and internal/bazel-migration-plan.md for the full
-# history of how this was built out and why it's not CI's primary path.
+# CMake is naja's primary build system -- this workflow keeps the Bazel
+# side (MODULE.bazel, BUILD.bazel throughout the tree) validated. The
+# Bazel build needs no host packages: every library and code generator
+# comes from a Bazel module (BCR, or bazel/registry/ for the few that are
+# not on BCR yet).
 
 on:
   push:
@@ -23,33 +22,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
-      # No `submodules: true` -- Bazel fetches naja-if/naja-verilog/slang
-      # itself (MODULE.bazel), doesn't use the thirdparty/ checkouts.
-      # dependency-sync-check.yml is what keeps these two build systems'
+      # No `submodules: true` -- Bazel doesn't use the thirdparty/
+      # checkouts. dependency-sync-check.yml keeps the two build systems'
       # pins from silently drifting apart.
-
-    - name: Install dependencies
-      # tomlplusplus here is for slang's *own* internal find_package()
-      # (bazel/thirdparty/slang_host_prefixes.bzl queries `brew --prefix
-      # tomlplusplus` for slang's CMAKE_PREFIX_PATH) -- unrelated to this
-      # repo's own @tomlplusplus (vendored via git_repository since
-      # libtomlplusplus-dev isn't apt-installable on Ubuntu; still needed
-      # here regardless of that).
-      run: |
-        brew install capnp tbb bison flex boost fmt tomlplusplus pkg-config
-
-    - name: Set Homebrew paths
-      # Xcode's own toolchain ships an ancient BSD bison/flex
-      # (/Applications/Xcode*/.../usr/bin) that otherwise shadows
-      # Homebrew's -- e.g. that bison doesn't understand GNU bison's
-      # -Wconflicts-sr flag (bazel/lefdef_bison.bzl,
-      # bazel/thirdparty/*/system_tool.bzl's `which("bison")` picks
-      # whichever comes first on PATH).
-      run: |
-        echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH
-        echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH
-        echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH
-        echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
     - uses: bazel-contrib/setup-bazel@0.19.0
       with:

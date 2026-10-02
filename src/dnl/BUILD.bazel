@@ -21,8 +21,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/nl/netlist:naja_nl",
-        "@boost//:headers",
-        "@tbb//:tbb",
-        "@tbb//:tbbmalloc",
+        "@onetbb//:tbb",
+        "@onetbb//:tbbmalloc",
     ],
 )

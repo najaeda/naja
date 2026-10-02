@@ -10,11 +10,11 @@ load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
 # internal/bazel-migration-plan.md (Phase 6, task #21).
 #
 # CMake links naja_python against Python3::Module (this Bazel build's
-# equivalent, @python//:headers -- no libpython linking, symbols resolve
+# equivalent, @rules_python//python/cc:current_py_cc_headers -- no libpython linking, symbols resolve
 # dynamically at import time) or Python3::Python (Python3::Embed
-# equivalent, @python//:embed) depending on BUILD_NAJA_PYTHON. This
+# equivalent, @rules_python//python/cc:current_py_cc_libs) depending on BUILD_NAJA_PYTHON. This
 # target is the Module/extension-module case; naja_edit's embedded mode
-# (task #22) needs its own copy linked against @python//:embed instead,
+# (task #22) needs its own copy linked against @rules_python//python/cc:current_py_cc_libs instead,
 # since a single cc_library can't conditionally pick either at build
 # time the way CMake's option toggle does.
 
@@ -90,7 +90,7 @@ cc_library(
         "//src/nl/netlist:naja_snl_visual",
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
         "//src/optimization:naja_opt",
-        "@python//:headers",
+        "@rules_python//python/cc:current_py_cc_headers",
     ],
 )
 
@@ -134,7 +134,7 @@ cc_binary(
         # mach-o type) -- CPython's dlopen()-based import also accepts a
         # plain dylib on modern macOS, so only -undefined dynamic_lookup
         # (letting Python API symbols resolve at import time, since this
-        # target links no libpython -- see @python//:headers) is needed.
+        # target links no libpython -- see @rules_python//python/cc:current_py_cc_headers) is needed.
         "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
         "//conditions:default": [],
     }),
@@ -142,6 +142,6 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":naja_python",
-        "@python//:headers",
+        "@rules_python//python/cc:current_py_cc_headers",
     ],
 )

@@ -34253,6 +34253,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
+  // Resolve before changing the current directory: the benchmarks path
+  // may be relative.
+  const auto benchmarksPath =
+    std::filesystem::absolute(SNL_SV_BENCHMARKS_PATH);
   const ScopedCurrentPath scopedCurrentPath(outPath);
 
   const auto reportPath = std::filesystem::current_path() / *options.diagnosticsReportPath;
@@ -34260,7 +34264,6 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleUsesDefaultDiagnosticsReport
   std::filesystem::remove(reportPath, ec);
 
   SNLSVConstructor constructor(library_);
-  const std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath / "simple" / "simple.sv");
 
   ASSERT_TRUE(std::filesystem::exists(reportPath));
@@ -34280,10 +34283,13 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleCanDisableDiagnosticsReport)
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
+  // Resolve before changing the current directory: the benchmarks path
+  // may be relative.
+  const auto benchmarksPath =
+    std::filesystem::absolute(SNL_SV_BENCHMARKS_PATH);
   const ScopedCurrentPath scopedCurrentPath(outPath);
 
   SNLSVConstructor constructor(library_);
-  const std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
   EXPECT_NO_THROW(constructor.construct(benchmarksPath / "simple" / "simple.sv", options));
   EXPECT_FALSE(std::filesystem::exists(outPath / "naja_sv_diagnostics.log"));
 }

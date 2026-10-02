@@ -26,6 +26,7 @@ cc_library(
     deps = [
         "//src/core:naja_core",
         "//src/nl/netlist:naja_nl",
+        "@boost.dynamic_bitset",
         "@naja-verilog//:naja_verilog",
     ],
 )
