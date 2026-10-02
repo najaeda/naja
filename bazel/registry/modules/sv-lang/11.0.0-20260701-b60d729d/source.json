@@ -2,8 +2,8 @@
     "url": "https://github.com/MikePopoloski/slang/archive/b60d729d66b9cdeec158b800f898461a138d505e.tar.gz",
     "integrity": "sha256-qfZVkMz0/yCDtJ8PQ1KqxT5kWLBLLxpl4kgUq6OgW8I=",
     "overlay": {
-        "BUILD.bazel": "sha256-CTYEV9RDQYgI5QO1vOS3I0WlP4B/zWB+RjFYW203mh0=",
-        "MODULE.bazel": "sha256-D+Huzpu3pJUB/Ahf7YSZc6EAzB4aWijLXZnJF+WEUIQ=",
+        "BUILD.bazel": "sha256-wWVM30POC9+QVIH8Tunwa3n614ZLBGLWYNEAIOntlNg=",
+        "MODULE.bazel": "sha256-LBlDWQd+McQFO4QE5x0mo4dbPH+UlrUyfPS+aMnf3jg=",
         "private/slang/export_headers/BUILD.bazel": "sha256-R6Dv/CqeG3BKpy2/F7RraVg/6QpVp9R2+itU1P0jUDE=",
         "private/tests/BUILD.bazel": "sha256-szGEhrNgI8xYYT3Dh65sYTxtLgzliigBBI327gTzFnE=",
         "private/tests/pyslang/BUILD.bazel": "sha256-kOhB1jkTVq4BZCuXinob8Em29LMXNLPZWEYUtVZzGfo=",

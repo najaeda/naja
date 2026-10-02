@@ -297,6 +297,7 @@ cc_library(
     defines = ["SLANG_USE_THREADS"],
     deps = [
         "//private/slang/export_headers:slang_export_headers",
+        "@boost.regex",
         "@boost.unordered",
         "@fmt",
         "@tomlplusplus",
