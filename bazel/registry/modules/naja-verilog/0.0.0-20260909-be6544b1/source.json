@@ -4,6 +4,6 @@
     "strip_prefix": "naja-verilog-be6544b128e229ce2aee814e795c1e49b02caf5c",
     "overlay": {
         "BUILD.bazel": "sha256-OCuY0FdD3VSEvvTe6QhSMUxw0q8nYsNP1dSZCvtxI4U=",
-        "MODULE.bazel": "sha256-CmLHk4vzbQJDi5hBgw2Yb7jLVI0ou4rZs1R1Mq3PV3g="
+        "MODULE.bazel": "sha256-XiFTE578Gky0o1+WgoPmG2gbxCvNZCf6/90MlHjumqA="
     }
 }

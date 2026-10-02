@@ -35,8 +35,11 @@ def main(argv):
     if not (root / "MODULE.bazel").is_file():
         sys.exit("{}/MODULE.bazel not found".format(root))
 
+    # Keep fields this script does not compute (mirror_urls, patch_strip).
+    source_json = root / "source.json"
+    source = json.loads(source_json.read_text()) if source_json.is_file() else {}
     with urllib.request.urlopen(url) as response:
-        source = {"url": url, "integrity": integrity(response.read())}
+        source.update(url=url, integrity=integrity(response.read()))
     if strip_prefix:
         source["strip_prefix"] = strip_prefix
 
@@ -49,9 +52,9 @@ def main(argv):
                 if path.is_file()
             }
     if "patches" in source:
-        source["patch_strip"] = 1
+        source.setdefault("patch_strip", 1)
 
-    (root / "source.json").write_text(json.dumps(source, indent=4) + "\n")
+    source_json.write_text(json.dumps(source, indent=4) + "\n")
 
 
 if __name__ == "__main__":

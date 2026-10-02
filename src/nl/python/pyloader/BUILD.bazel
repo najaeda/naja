@@ -7,12 +7,16 @@
 # this PUBLIC against naja_python, which itself defaults to the embedded
 # (Python3::Python) case (see
 # src/nl/python/naja_wrapping/CMakeLists.txt's if/else) -- libpython
-# (@rules_python//python/cc:current_py_cc_libs)
+# (:python_libs)
 # is added directly here for the same reason as
 # test/nl/python/naja_wrapping/BUILD.bazel's najaPythonPropertyTests
 # (a real executable consumer needs a fully linked libpython; a
 # cc_library's own deps don't matter until final link time), and
 # propagates to naja_edit (task #22) and other consumers automatically.
+
+load(":python_libs.bzl", "python_libs")
+
+python_libs(name = "python_libs")
 
 cc_library(
     name = "naja_snl_pyloader",
@@ -26,6 +30,6 @@ cc_library(
     deps = [
         "//src/nl/netlist:naja_nl",
         "//src/nl/python/naja_wrapping:naja_python",
-        "@rules_python//python/cc:current_py_cc_libs",
+        ":python_libs",
     ],
 )

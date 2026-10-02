@@ -14,6 +14,7 @@ common --registry=https://bcr.bazel.build/
 | `naja-if` | not on BCR |
 | `naja-verilog` | not on BCR; the overlay uses BCR `bison`/`flex` instead of host tools |
 | `sv-lang` | BCR has slang `f04e815`; naja is developed against `b60d729` |
+| `bison` | `3.8.2.bcr.10` is BCR's `bcr.9` with gnulib's wrapper headers on `-I` instead of `-isystem`, so bison builds with toolchains that pass libc headers as `-isystem` (hermetic-llvm); see BCR PR #9600 |
 
 The layout is exactly BCR's (`modules/<name>/metadata.json`,
 `modules/<name>/<version>/{MODULE.bazel,source.json,presubmit.yml,overlay/,patches/}`),
