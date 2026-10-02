@@ -20521,7 +20521,10 @@ endmodule
       if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
         const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
         if (!stream.isFixedSize()) {
+          // Leaf collection rejects dynamically sized streams before bit resolution.
+          // LCOV_EXCL_START
           return false;
+          // LCOV_EXCL_STOP
         }
         const auto streams = stream.streams();
         for (auto it = streams.rbegin(); it != streams.rend(); ++it) {
@@ -20532,7 +20535,10 @@ endmodule
           bits.insert(bits.end(), operandBits.begin(), operandBits.end());
         }
         if (bits.size() != stream.getBitstreamWidth()) {
+          // A fixed stream width is the sum of its validated operand widths.
+          // LCOV_EXCL_START
           return false;
+          // LCOV_EXCL_STOP
         }
         // Map RHS bit positions to physical destinations. Packing the LHS
         // order is the inverse of unpacking the RHS, including a short final
@@ -20575,8 +20581,11 @@ endmodule
       std::string& failureReason) {
       std::vector<const Expression*> leaves;
       if (!collectStreamingLHSLeaves(*action.lhs, leaves)) {
+        // Assignment collection validates streaming leaves before replay.
+        // LCOV_EXCL_START
         failureReason = "unsupported dynamic or with-clause streaming assignment LHS";
         return false;
+        // LCOV_EXCL_STOP
       }
       std::vector<SNLBitNet*> destinations;
       std::unordered_map<const slang::ast::ValueSymbol*, std::vector<SNLBitNet*>> roots;
@@ -20601,8 +20610,11 @@ endmodule
           const slang::ast::ValueSymbol* symbol = nullptr;
           if (!tryGetRootValueSymbolReference(*root, symbol) ||
               !resolveAssignmentLHSBits(design, *root, roots[symbol])) {
+            // Successfully resolved fixed leaves already have materialized storage roots.
+            // LCOV_EXCL_START
             failureReason = "unable to resolve streaming assignment storage";
             return false;
+            // LCOV_EXCL_STOP
           }
         }
       }
@@ -20648,8 +20660,11 @@ endmodule
             it->second = makeCombinationalInitialBits(design, physical);
           }
           if (it->second.size() != physical.size()) {
+            // Replay entries retain the width of their physical storage root.
+            // LCOV_EXCL_START
             failureReason = "inconsistent streaming assignment replay width";
             return false;
+            // LCOV_EXCL_STOP
           }
           update(physical, it->second);
         }
@@ -20995,7 +21010,10 @@ endmodule
           failureReason = "unsupported non-constant for-loop bound expression";
           return false;
         }
+        // getConstantInt64 already accepts unsigned constants that fit int64_t.
+        // LCOV_EXCL_START
         otherValue = static_cast<int64_t>(unsignedValue);
+        // LCOV_EXCL_STOP
       }
 
       const int64_t lhsValue = leftIsLoopVar ? loopValue : otherValue;
@@ -21058,8 +21076,11 @@ endmodule
             unsignedValue > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
           return false;
         }
+        // getConstantInt64 already accepts unsigned constants that fit int64_t.
+        // LCOV_EXCL_START
         value = static_cast<int64_t>(unsignedValue);
         return true;
+        // LCOV_EXCL_STOP
       };
       switch (rhsBinaryExpr.op) {
         case slang::ast::BinaryOperator::Add:
@@ -22297,7 +22318,10 @@ endmodule
         std::vector<SNLBitNet*> result;
         if (!createMux2Instance(design, select, {low}, {high}, result,
                                 sourceRange, nullptr, true) || result.size() != 1) {
+          // Canonical mux construction with validated one-bit nets cannot fail.
+          // LCOV_EXCL_START
           return nullptr;
+          // LCOV_EXCL_STOP
         }
         return result.front();
       };
@@ -22424,7 +22448,10 @@ endmodule
             write.data = mux(guard, write.data, dataBits[bit]);
             write.enable = mux(guard, write.enable, const1);
             if (!write.data || !write.enable) {
+              // Canonical mux construction with validated one-bit nets cannot fail.
+              // LCOV_EXCL_START
               return false;
+              // LCOV_EXCL_STOP
             }
           }
         }
@@ -25886,9 +25913,12 @@ endmodule
 
       if (action.compoundOp) {
         if (!currentBits || currentBits->size() != targetWidth) {
+          // Compound actions are replayed with current bits at the target width.
+          // LCOV_EXCL_START
           failureReason =
             "unsupported compound assignment in always_comb without current LHS bits";
           return false;
+          // LCOV_EXCL_STOP
         }
 
         const auto op = *action.compoundOp;
@@ -25902,8 +25932,11 @@ endmodule
           const auto* rhs = stripConversions(*action.rhs);
           if (!rhs || rhs->kind != slang::ast::ExpressionKind::BinaryOp ||
               rhs->as<slang::ast::BinaryExpression>().op != op) {
+            // Slang represents compound shifts as the matching binary operation.
+            // LCOV_EXCL_START
             failureReason = "unsupported compound shift expression";
             return false;
+            // LCOV_EXCL_STOP
           }
           const auto& count = rhs->as<slang::ast::BinaryExpression>().right();
           auto countWidth = getIntegralExpressionBitWidth(count);

@@ -2334,3 +2334,327 @@ TEST_F(SNLSVConstructorTestAlwaysComb, rejectLatchLoopConditionDependency) {
   SNLSVConstructor constructor(library_);
   expectUnsupportedConstruct(constructor, path, {"read a variable assigned in the same block"});
 }
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchConditionCallCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_condition_call") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    function automatic logic f(input logic a); return a; endfunction
+    always_latch begin
+      if (f(en)) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"calls and expression side effects"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchConditionIncrementCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_condition_increment") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if (++d) q = en;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"calls and expression side effects"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchConditionAssignmentCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_condition_assignment") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if ((d = en)) q = en;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"calls and expression side effects"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchTimedWriteCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_timed_write") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if (en) q <= #1 d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"timed independent latch writes"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchRealConditionCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_real_condition") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in, input real condition,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if (condition) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"Unsupported latch block"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchUnresolvedDataCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_unresolved_data") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output logic [1:0] q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if (en) q = d ** en;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve independent latch data"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchRealTargetCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_real_target") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, input logic d_in,
+    output real q, output logic r);
+    logic d;
+    assign d = d_in;
+    always_latch begin
+      if (en) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"Unsupported latch block"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectReturnFunctionWideCaseWithoutDefaultCoverage) {
+  const auto path = createTestDirectory("reject_return_function_wide_case_without_default") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [16:0] a, output logic q);
+    function automatic logic f(input logic [16:0] a);
+      case (a)
+        17'd0: return 1;
+      endcase
+    endfunction
+    always_comb q = f(a);
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve always_comb RHS bits for Call"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectReturnFunctionUnsupportedDefaultCoverage) {
+  const auto path = createTestDirectory("reject_return_function_unsupported_default") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [16:0] a, output logic q);
+    function automatic logic f(input logic [16:0] a);
+      case (a)
+        0: return 1;
+        default: while (a) return 0;
+      endcase
+    endfunction
+    always_comb q = f(a);
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve always_comb RHS bits for Call"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingUnresolvedRHSCoverage) {
+  const auto path = createTestDirectory("reject_streaming_unresolved_rhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a, output logic [7:0] q);
+    function automatic logic [7:0] f(input logic [7:0] a);
+      while (a) return a;
+      return 0;
+    endfunction
+    always_comb begin
+      {>>{q}} = f(a);
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve streaming assignment RHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectCompoundShiftUnresolvedCountCoverage) {
+  const auto path = createTestDirectory("reject_compound_shift_unresolved_count") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a, output logic [7:0] q);
+    function automatic logic [7:0] f(input logic [7:0] a);
+      while (a) return a;
+      return 0;
+    endfunction
+    always_comb begin
+      q = a;
+      q <<= f(a);
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"failed to resolve shift amount bits"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingNonblockingAssignmentCoverage) {
+  const auto path = createTestDirectory("reject_streaming_nonblocking_assignment") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a, output logic [7:0] q);
+    always_comb begin
+      {>>{q}} <= a;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"scheduling-sensitive combinational non-blocking assignment has an ambiguous target"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingMissingStorageCoverage) {
+  const auto path = createTestDirectory("reject_streaming_missing_storage") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [15:0] d, output logic [7:0] q);
+    byte missing[];
+    always_comb {>>{{q, missing[0]}}} = d;
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve fixed streaming assignment LHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingDynamicConcatenationLeafCoverage) {
+  const auto path = createTestDirectory("reject_streaming_dynamic_concatenation_leaf") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a, output logic [7:0] q);
+    always_comb begin
+      {>>{{q[a[0]],q[1]}}} = a;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"dynamic or with-clause streaming assignment LHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseExhaustiveReturnFunctionCaseCoverage) {
+  const auto path = createTestDirectory("parse_exhaustive_return_function_case") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic a, output logic q);
+    function automatic logic f(input logic a);
+      case (a)
+        0: return 1'b0;
+        1: return 1'b1;
+      endcase
+    endfunction
+    always_comb q = f(a);
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countOutputInstTermDrivers(top->getScalarTerm(NLName("q"))->getNet()));
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseStreamingConcatenationBitConnectionsCoverage) {
+  const auto path = createTestDirectory("parse_streaming_concatenation_bit_connections") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a, output logic [7:0] q);
+    always_comb {>>{{q[7:4], q[3:0]}}} = a;
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* q = top->getBusTerm(NLName("q"));
+  auto* a = top->getBusTerm(NLName("a"));
+  ASSERT_NE(nullptr, q);
+  ASSERT_NE(nullptr, a);
+  for (int bit = 0; bit < 8; ++bit) {
+    EXPECT_EQ(a->getBit(bit)->getNet(), getSingleAssignInputDriving(q->getBit(bit)->getNet()));
+  }
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingDynamicRHSCoverage) {
+  const auto path = createTestDirectory("reject_streaming_dynamic_rhs") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a[0:3], input logic [1:0] n, output logic [7:0] q);
+    always_comb {>>{q}} = {>>{a with [0+:n]}};
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unable to resolve streaming assignment RHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectStreamingDynamicStorageCoverage) {
+  const auto path = createTestDirectory("reject_streaming_dynamic_storage") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [7:0] a);
+    byte q[];
+    always_comb {>>{q}} = a;
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"dynamic or with-clause streaming assignment LHS"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectForLoopUnsignedStepOverflowCoverage) {
+  const auto path = createTestDirectory("reject_for_loop_unsigned_step_overflow") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic [3:0] d, output logic [3:0] q);
+    localparam logic [63:0] STEP = 64'h8000000000000000;
+    always_comb for (longint unsigned i = 0; i < 4; i = i + STEP) q[i] = d[i];
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unsupported for-loop step expression"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectIndependentLatchLocalDeclarationCoverage) {
+  const auto path = createTestDirectory("reject_independent_latch_local_declaration") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, d, output logic q, r);
+    always_latch begin
+      automatic logic tmp;
+      if (en) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unsupported statement in independent latch writes"});
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseIndependentLatchConstantGuardCoverage) {
+  const auto path = createTestDirectory("parse_independent_latch_constant_guard") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, d, output logic q, r);
+    always_latch begin
+      if (1) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(top->getScalarTerm(NLName("d"))->getNet(),
+            getSingleAssignInputDriving(top->getScalarTerm(NLName("q"))->getNet()));
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parseIndependentLatchEmptyAndFalseGuardCoverage) {
+  const auto path = createTestDirectory("parse_independent_latch_empty_and_false_guard") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic en, d, output logic q, r);
+    always_latch begin
+      ;
+      if (0) q = d;
+      if (en) r = d;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countOutputInstTermDrivers(top->getScalarTerm(NLName("q"))->getNet()));
+  EXPECT_EQ(1u, countOutputInstTermDrivers(top->getScalarTerm(NLName("r"))->getNet()));
+}
+
+TEST_F(SNLSVConstructorTestAlwaysComb, rejectSequentialStreamingSchedulingReplayCoverage) {
+  const auto path = createTestDirectory("reject_sequential_streaming_scheduling_replay") / "top.sv";
+  std::ofstream(path) << R"(module top(input logic clk, input logic [7:0] d, output logic [7:0] q, r);
+    always_ff @(posedge clk) begin
+      q = d;
+      {>>{q}} = d;
+      // Reading q into another target forces scheduling replay.
+      r = q;
+    end
+  endmodule)";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"unsupported sequential streaming assignment"});
+}
