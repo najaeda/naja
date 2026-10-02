@@ -88,6 +88,40 @@ class PulpBenchmarksTest(unittest.TestCase):
             self.assertEqual("lint_failed", result["status"])
             self.assertIn("verilator is missing", result["error"])
 
+    def test_lint_inputs_share_the_artifact_directory(self):
+        for runner in ("local", "docker"):
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / "design/variants/default"
+                source.mkdir(parents=True)
+                (source / "filelist.f").write_text("input.sv\n")
+                artifacts = root / "artifacts"
+                artifacts.mkdir()
+                primitives = artifacts / "najaeda_primitives.v"
+                primitives.write_text("stale")
+
+                def execute(command, **kwargs):
+                    if command[0] == sys.executable:
+                        self.assertFalse(primitives.exists())
+                        (artifacts / "netlist.v").write_text("module top; endmodule\n")
+                        (artifacts / "design-stats.json").write_text('{"top": "top"}')
+                    else:
+                        reference = pulp.ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+                        self.assertEqual(reference.read_bytes(), primitives.read_bytes())
+                        inputs = command[command.index("-Wno-ASCRANGE") + 1:]
+                        expected = ["netlist.v", "najaeda_primitives.v"]
+                        if runner == "docker":
+                            self.assertEqual(1, command.count("-v"))
+                            self.assertIn(f"{artifacts}:/work:ro", command)
+                            self.assertEqual([f"/work/{name}" for name in expected], inputs)
+                        else:
+                            self.assertEqual([str(artifacts / name) for name in expected], inputs)
+                    return subprocess.CompletedProcess(command, 0)
+
+                with patch.object(pulp.subprocess, "run", side_effect=execute):
+                    result = pulp.run_target(root, "design.default", "top", artifacts, root, 1, runner)
+                self.assertEqual("passed", result["status"])
+
     def test_elaboration_only_does_not_require_a_dump(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

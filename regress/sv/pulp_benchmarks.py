@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -77,7 +78,8 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
                dump_netlist=True):
     artifacts.mkdir(parents=True, exist_ok=True)
     # Never let stale success products from an earlier run satisfy this run.
-    for filename in ("design-stats.json", "netlist.v", "diagnostics.log", "lint.log", "summary.json"):
+    for filename in ("design-stats.json", "netlist.v", "najaeda_primitives.v",
+                     "diagnostics.log", "lint.log", "summary.json"):
         (artifacts / filename).unlink(missing_ok=True)
     design, variant = name.split(".")
     source_dir = package / design / "variants" / variant
@@ -112,14 +114,16 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
             if dump_netlist:
                 record["dump_bytes"] = dump.stat().st_size
     if record["status"] == "passed" and lint_runner and dump_netlist:
-        primitives = ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
+        primitives = artifacts / "najaeda_primitives.v"
+        shutil.copyfile(ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v",
+                        primitives)
         flags = ["--lint-only", "--sv", "--top-module", top, "-Wno-ASCRANGE"]
         if lint_runner == "docker":
             cidfile = artifacts / "lint-container.cid"
             cidfile.unlink(missing_ok=True)
             command = ["docker", "run", "--rm", "--cidfile", str(cidfile), "-v", f"{artifacts}:/work:ro",
-                       "-v", f"{primitives}:/primitives.v:ro", "--entrypoint", "verilator",
-                       "verilator/verilator:v5.046", *flags, "/work/netlist.v", "/primitives.v"]
+                       "--entrypoint", "verilator",
+                       "verilator/verilator:v5.046", *flags, "/work/netlist.v", "/work/najaeda_primitives.v"]
         else:
             command = ["verilator", *flags, str(artifacts / "netlist.v"), str(primitives)]
         record["lint_command"] = command

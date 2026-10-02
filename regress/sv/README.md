@@ -580,8 +580,10 @@ Missing lint tools fail; they do not silently skip.
 
 The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
 configuration, runs the small tier and lints each complete generated netlist
-with Naja's primitive models. Manual dispatch with `survey=true` attempts all
-23 variants. It always uploads diagnostics, commands, counts, netlists, and
+with Naja's `najaeda_primitives.v` simulation models, copied into each case's
+artifact directory. Both local and Docker lint use this copy; Docker mounts
+the artifact directory once for both inputs. Manual dispatch with `survey=true`
+attempts all 23 variants. It always uploads diagnostics, commands, counts, netlists, and
 summaries. This is a frontend load/dump and syntax/linking regression, **not a
 functional equivalence or simulation test**. No technology library is needed.
 
