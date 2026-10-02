@@ -60,7 +60,16 @@
 #include "PySNLUniquifier.h"
 
 #include "NajaVersion.h"
+#include "NajaPythonRuntimeAPI.h"
+#if __has_include("NajaRuntimeBuild.h")
+#include "NajaRuntimeBuild.h"
+#else
+#define NAJA_RUNTIME_GIT_COMMIT "unknown"
+#define NAJA_RUNTIME_COMPILER "unknown"
+#define NAJA_RUNTIME_BUILD_ID "unavailable"
+#endif
 #include "NLObject.h"
+#include "NLUniverse.h"
 #include "SNLSVConstructor.h"
 #include "SNLSVIntent.h"
 #include "SNLDesign.h"
@@ -76,6 +85,36 @@ namespace {
 
 constexpr const char* kFrontendSymbolCapsuleName = "naja.frontend.Symbol";
 constexpr const char* kFrontendCompilationCapsuleName = "naja.frontend.Compilation";
+
+void* runtimeGetUniverse() {
+  return naja::NL::NLUniverse::get();
+}
+
+void* runtimeUnwrapDesign(PyObject* object) {
+  if (object == nullptr || !IsPySNLDesign(object)) {
+    PyErr_SetString(PyExc_TypeError,
+        "Expected an SNLDesign from this NajaEDA runtime");
+    return nullptr;
+  }
+  auto* design = PYSNLDesign_O(object);
+  if (design == nullptr) {
+    PyErr_SetString(PyExc_ReferenceError, "The NajaEDA design was destroyed");
+    return nullptr;
+  }
+  return design;
+}
+
+const NajaPythonRuntimeAPI runtimeAPI = {
+  NAJA_PYTHON_RUNTIME_API_VERSION,
+  sizeof(NajaPythonRuntimeAPI),
+  naja::NAJA_VERSION.c_str(),
+  NAJA_RUNTIME_GIT_COMMIT,
+  NAJA_RUNTIME_COMPILER,
+  NAJA_RUNTIME_BUILD_ID,
+  naja::NL::NLUniverse::getRuntimeIdentity(),
+  runtimeGetUniverse,
+  runtimeUnwrapDesign,
+};
 
 PyObject* wrapNLObject(naja::NL::NLObject* object) {
   using namespace naja::NL;
@@ -859,6 +898,16 @@ PyMODINIT_FUNC PyInit_naja(void) {
     Py_DECREF(mod);
     return nullptr;
     // LCOV_EXCL_STOP
+  }
+
+  PyObject* runtimeCapsule = PyCapsule_New(
+      const_cast<NajaPythonRuntimeAPI*>(&runtimeAPI),
+      NAJA_PYTHON_RUNTIME_CAPSULE, nullptr);
+  if (runtimeCapsule == nullptr ||
+      PyModule_AddObject(mod, "_C_API", runtimeCapsule) < 0) {
+    Py_XDECREF(runtimeCapsule);
+    Py_DECREF(mod);
+    return nullptr;
   }
 
   PyModule_AddType(mod, &PyTypeSNLAttribute);

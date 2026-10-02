@@ -9,7 +9,7 @@ capnp_generate_cpp(najaCommonSources najaCommonHeaders ${CAPNPC_SRC_PREFIX}/naja
 capnp_generate_cpp(najaNLInterfaceSources najaNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_interface.capnp)
 capnp_generate_cpp(najaNLImplementationSources najaNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_implementation.capnp)
 
-add_library(naja_nl_dump STATIC
+add_library(naja_nl_dump ${NAJA_EMBEDDED_LIBRARY_TYPE}
     ${najaCommonSources} ${najaNLInterfaceSources}
     ${najaNLImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp

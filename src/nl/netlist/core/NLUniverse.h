@@ -83,6 +83,10 @@ class NLUniverse final: public NLObject {
     /// \sa setTopDB()
     static NLDB* getTopDB();
 
+    /// Stable identity of this loaded native runtime, even with no universe.
+    /// Consumers must compare this token before exchanging borrowed objects.
+    static const void* getRuntimeIdentity() noexcept;
+
     /// \return the top SNLDesign or null if it has not been set.
     /// \sa setTopDesign()
     static SNLDesign* getTopDesign();

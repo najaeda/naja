@@ -1,0 +1,112 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors
+# SPDX-License-Identifier: Apache-2.0
+# This file describes this installed wheel, including repaired library names.
+include_guard(GLOBAL)
+include(CMakeFindDependencyMacro)
+find_dependency(Python3 COMPONENTS Interpreter Development.Module)
+find_dependency(TBB)
+find_path(NajaEDA_BOOST_INCLUDE_DIR boost/intrusive/set.hpp REQUIRED)
+
+get_filename_component(NajaEDA_PACKAGE_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${NajaEDA_PACKAGE_DIR}/sdk.py" --cmake
+    --import-lib-dir "${CMAKE_CURRENT_BINARY_DIR}/najaeda-import-libraries"
+  RESULT_VARIABLE sdk_result OUTPUT_VARIABLE sdk_config ERROR_VARIABLE sdk_error)
+if(NOT sdk_result EQUAL 0)
+  message(FATAL_ERROR "Cannot inspect the NajaEDA runtime SDK: ${sdk_error}")
+endif()
+string(SHA256 sdk_path_hash "${NajaEDA_PACKAGE_DIR}")
+set(sdk_config_file "${CMAKE_CURRENT_BINARY_DIR}/najaeda-sdk-${sdk_path_hash}.cmake")
+file(WRITE "${sdk_config_file}" "${sdk_config}")
+include("${sdk_config_file}")
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL NajaEDA_POINTER_SIZE)
+  message(FATAL_ERROR "NajaEDA provider and consumer have different pointer sizes")
+endif()
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL NajaEDA_COMPILER_ID)
+  message(FATAL_ERROR "NajaEDA provider uses ${NajaEDA_COMPILER_ID}, consumer uses ${CMAKE_CXX_COMPILER_ID}")
+endif()
+if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL NajaEDA_COMPILER_VERSION)
+  message(FATAL_ERROR "NajaEDA SDK requires compiler ${NajaEDA_COMPILER_VERSION}, found ${CMAKE_CXX_COMPILER_VERSION}")
+endif()
+if(NajaEDA_PYTHON_SOABI AND NOT Python3_SOABI STREQUAL NajaEDA_PYTHON_SOABI)
+  message(FATAL_ERROR "NajaEDA SDK Python ABI is ${NajaEDA_PYTHON_SOABI}, found ${Python3_SOABI}")
+endif()
+file(READ "${NajaEDA_BOOST_INCLUDE_DIR}/boost/version.hpp" _naja_boost_header)
+string(REGEX MATCH "#define BOOST_VERSION ([0-9]+)" _naja_boost_match "${_naja_boost_header}")
+if(NOT CMAKE_MATCH_1 STREQUAL NajaEDA_BOOST_VERSION)
+  message(FATAL_ERROR "NajaEDA SDK requires Boost headers ${NajaEDA_BOOST_VERSION}, found ${CMAKE_MATCH_1}")
+endif()
+if(NajaEDA_TBB_VERSION AND NOT TBB_VERSION VERSION_EQUAL NajaEDA_TBB_VERSION)
+  message(FATAL_ERROR "NajaEDA SDK requires TBB ${NajaEDA_TBB_VERSION}, found ${TBB_VERSION}")
+endif()
+
+# Keep the matching TBB headers found above, but do not introduce a second
+# allocator/runtime when wheel repair has bundled TBB into this provider.
+foreach(dependency IN ITEMS tbb tbbmalloc)
+  if(DEFINED NajaEDA_${dependency}_LIBRARY)
+    get_filename_component(_naja_dependency_name "${NajaEDA_${dependency}_LIBRARY}" NAME)
+    foreach(suffix IN ITEMS "" _RELEASE _DEBUG _RELWITHDEBINFO _MINSIZEREL)
+      set_property(TARGET TBB::${dependency} PROPERTY IMPORTED_LOCATION${suffix}
+        "${NajaEDA_${dependency}_LIBRARY}")
+      set_property(TARGET TBB::${dependency} PROPERTY IMPORTED_SONAME${suffix}
+        "${_naja_dependency_name}")
+      if(WIN32)
+        set_property(TARGET TBB::${dependency} PROPERTY IMPORTED_IMPLIB${suffix}
+          "${NajaEDA_${dependency}_IMPLIB}")
+      endif()
+    endforeach()
+  endif()
+endforeach()
+
+foreach(runtime IN ITEMS naja_nl naja_dnl naja_bne naja_opt naja_metrics naja_python)
+  if(TARGET ${runtime})
+    message(FATAL_ERROR "NajaEDA cannot share a runtime with an existing ${runtime} target")
+  endif()
+  add_library(${runtime} SHARED IMPORTED GLOBAL)
+  set_target_properties(${runtime} PROPERTIES
+    IMPORTED_LOCATION "${NajaEDA_${runtime}_LIBRARY}"
+    # A user's CPATH can contain an older Naja SDK. Imported targets normally
+    # use -isystem, which searches after CPATH; these version-matched headers
+    # must instead retain ordinary explicit -I precedence.
+    SYSTEM FALSE
+    IMPORTED_NO_SYSTEM TRUE
+    INTERFACE_INCLUDE_DIRECTORIES "${NajaEDA_INCLUDE_DIRS};${NajaEDA_BOOST_INCLUDE_DIR}"
+    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${NajaEDA_BOOST_INCLUDE_DIR}"
+    INTERFACE_COMPILE_FEATURES cxx_std_20)
+  if(WIN32)
+    set_property(TARGET ${runtime} PROPERTY IMPORTED_IMPLIB "${NajaEDA_${runtime}_IMPLIB}")
+  endif()
+endforeach()
+target_link_libraries(naja_dnl INTERFACE naja_nl TBB::tbb TBB::tbbmalloc)
+target_link_libraries(naja_bne INTERFACE naja_nl naja_dnl)
+target_link_libraries(naja_opt INTERFACE naja_nl naja_dnl naja_bne)
+target_link_libraries(naja_metrics INTERFACE naja_nl naja_dnl)
+target_link_libraries(naja_python INTERFACE
+  naja_nl naja_dnl naja_bne naja_opt naja_metrics Python3::Module)
+foreach(component IN ITEMS naja_core naja_nl_dump naja_snl_liberty
+    naja_snl_systemverilog naja_snl_verilog naja_snl_visual)
+  add_library(${component} INTERFACE IMPORTED GLOBAL)
+  if(component STREQUAL "naja_core")
+    set_property(TARGET ${component} PROPERTY INTERFACE_LINK_LIBRARIES naja_nl)
+  else()
+    set_property(TARGET ${component} PROPERTY INTERFACE_LINK_LIBRARIES naja_python)
+  endif()
+endforeach()
+add_library(NajaEDA::runtime INTERFACE IMPORTED GLOBAL)
+set_property(TARGET NajaEDA::runtime PROPERTY INTERFACE_LINK_LIBRARIES naja_python)
+
+# Repair-renamed Mach-O install IDs need an explicit post-link relocation in
+# build trees. Consumers call this from the directory that owns their target.
+function(najaeda_fixup_consumer target)
+  if(NOT TARGET "${target}")
+    message(FATAL_ERROR "Unknown NajaEDA consumer target: ${target}")
+  endif()
+  if(APPLE)
+    set(sdk_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../sdk.py")
+    set_property(TARGET "${target}" APPEND PROPERTY LINK_DEPENDS "${sdk_script}")
+    add_custom_command(TARGET "${target}" POST_BUILD
+      COMMAND "${Python3_EXECUTABLE}" "${sdk_script}"
+        --fixup-consumer "$<TARGET_FILE:${target}>"
+      VERBATIM)
+  endif()
+endfunction()
+set(NajaEDA_FOUND TRUE)
