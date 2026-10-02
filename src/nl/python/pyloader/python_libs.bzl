@@ -8,13 +8,13 @@ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
 def _python_libs_impl(ctx):
-    # @rules_python//python/cc:current_py_cc_libs forwards the toolchain's
-    # CcInfo, whose linker inputs are owned by a target inside the Python
-    # toolchain repository. cc_binary's dynamic_deps filtering only keeps
-    # linker inputs whose owner it can reach through attributes, and it
-    # cannot reach toolchain targets, so a binary linking naja_runtime
-    # dynamically would silently drop libpython. Owning the linker inputs
-    # here keeps them.
+    # cc_binary's dynamic_deps filtering only keeps linker inputs whose
+    # owner its graph aspect visits. @rules_python//python/cc:current_py_cc_libs
+    # neither advertises CcInfo (so the aspect skips it) nor owns its linker
+    # inputs (they belong to a target in the Python toolchain repository,
+    # reached only through toolchain resolution). A binary that links
+    # naja_runtime dynamically would therefore silently drop libpython. This
+    # rule advertises CcInfo and owns the linker inputs, which keeps them.
     cc_info = ctx.attr.libs[CcInfo]
     linker_inputs = [
         cc_common.create_linker_input(
@@ -34,6 +34,7 @@ def _python_libs_impl(ctx):
 
 python_libs = rule(
     implementation = _python_libs_impl,
+    provides = [CcInfo],
     attrs = {
         "libs": attr.label(
             default = "@rules_python//python/cc:current_py_cc_libs",
