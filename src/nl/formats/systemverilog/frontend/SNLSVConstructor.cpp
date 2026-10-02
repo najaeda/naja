@@ -4672,6 +4672,13 @@ endmodule
       if (!stripped) {
         return std::nullopt; // LCOV_EXCL_LINE
       }
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (stream.isFixedSize() && stream.getBitstreamWidth() > 0) {
+          return static_cast<size_t>(stream.getBitstreamWidth());
+        }
+        return std::nullopt;
+      }
       const auto& canonical = stripped->type->getCanonicalType();
       const auto bitWidth = canonical.getBitstreamWidth();
       if (bitWidth <= 0) {
@@ -13062,7 +13069,29 @@ endmodule
           return false;
         }
         if (!caseStmt.defaultCase && !mergedHasBits) {
-          return false;
+          const auto caseWidth = getIntegralExpressionBitWidth(caseStmt.expr);
+          if (!caseWidth || *caseWidth > 16) {
+            return false;
+          }
+          const size_t requiredValueCount = size_t{1} << *caseWidth;
+          std::unordered_set<uint64_t> coveredValues;
+          for (const auto& item : caseStmt.items) {
+            for (const auto* expression : item.expressions) {
+              uint64_t value = 0;
+              if (!expression || !getConstantUnsigned(*expression, value)) {
+                return false;
+              }
+              coveredValues.insert(value);
+            }
+          }
+          if (coveredValues.size() != requiredValueCount) {
+            return false;
+          }
+          // All valid enum values are covered. SNL is two-state, so seed the
+          // impossible encoded-enum case with zero rather than inventing a
+          // four-state primitive; valid enum values select a real branch below.
+          mergedBits.assign(targetWidth, const0);
+          mergedHasBits = true;
         }
 
         // Wrap later alternatives first so the first matching source item wins,
@@ -19544,6 +19573,15 @@ endmodule
             }
           }
           return;
+        case slang::ast::ExpressionKind::Streaming:
+          for (const auto& stream :
+               stripped->as<slang::ast::StreamingConcatenationExpression>().streams()) {
+            collectExpressionRootValueSymbols(*stream.operand, symbols);
+            if (stream.withExpr) {
+              collectExpressionRootValueSymbols(*stream.withExpr, symbols);
+            }
+          }
+          return;
         case slang::ast::ExpressionKind::Replication: {
           const auto& replication = stripped->as<slang::ast::ReplicationExpression>();
           collectExpressionRootValueSymbols(replication.count(), symbols);
@@ -19725,6 +19763,22 @@ endmodule
       // Save the raw LHS before stripping to root so we can collect index
       // symbols from selections like arr[idx].
       const Expression* rawLhsExpr = lhsExpr;
+      if (lhsExpr && stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+        std::vector<const Expression*> leaves;
+        if (collectStreamingLHSLeaves(*lhsExpr, leaves)) {
+          for (const auto* leaf : leaves) {
+            const slang::ast::ValueSymbol* symbol = nullptr;
+            const auto* root = getTrackedAlwaysCombLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols) &&
+                tryGetRootValueSymbolReference(*root, symbol)) {
+              auto& deps = dependencyMap[symbol];
+              deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+              collectExpressionRootValueSymbols(*action.rhs, deps);
+            }
+          }
+        }
+        return;
+      }
       lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
       if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
         return;
@@ -20426,6 +20480,198 @@ endmodule
       return true;
     }
 
+    bool collectStreamingLHSLeaves(
+      const Expression& expr,
+      std::vector<const Expression*>& leaves) const {
+      const auto* stripped = stripConversions(expr);
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (!stream.isFixedSize()) {
+          return false;
+        }
+        for (const auto& item : stream.streams()) {
+          // Dynamic and with-clause targets need selector-aware writeback.
+          if (item.withExpr || !collectStreamingLHSLeaves(*item.operand, leaves)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        for (const auto* operand : stripped->as<slang::ast::ConcatenationExpression>().operands()) {
+          if (!collectStreamingLHSLeaves(*operand, leaves)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      if (hasDynamicSelectionInLHS(*stripped)) {
+        return false;
+      }
+      leaves.push_back(stripped);
+      return true;
+    }
+
+    bool resolveStreamingLHSBits(
+      SNLDesign* design,
+      const Expression& expr,
+      std::vector<SNLBitNet*>& bits) {
+      const auto* stripped = stripConversions(expr);
+      bits.clear();
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& stream = stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (!stream.isFixedSize()) {
+          // Leaf collection rejects dynamically sized streams before bit resolution.
+          // LCOV_EXCL_START
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        const auto streams = stream.streams();
+        for (auto it = streams.rbegin(); it != streams.rend(); ++it) {
+          std::vector<SNLBitNet*> operandBits;
+          if (it->withExpr || !resolveStreamingLHSBits(design, *it->operand, operandBits)) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+        if (bits.size() != stream.getBitstreamWidth()) {
+          // A fixed stream width is the sum of its validated operand widths.
+          // LCOV_EXCL_START
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        // Map RHS bit positions to physical destinations. Packing the LHS
+        // order is the inverse of unpacking the RHS, including a short final
+        // slice when the total width is not a multiple of the slice size.
+        const auto slice = stream.getSliceSize();
+        if (slice && slice < bits.size()) {
+          std::vector<SNLBitNet*> ordered;
+          size_t end = bits.size();
+          while (end) {
+            const size_t begin = ((end - 1) / slice) * slice;
+            ordered.insert(ordered.end(), bits.begin() + begin, bits.begin() + end);
+            end = begin;
+          }
+          bits = std::move(ordered);
+        }
+        return !bits.empty();
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto operands = stripped->as<slang::ast::ConcatenationExpression>().operands();
+        for (auto it = operands.rbegin(); it != operands.rend(); ++it) {
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveStreamingLHSBits(design, **it, operandBits)) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+        return !bits.empty();
+      }
+      return !hasDynamicSelectionInLHS(*stripped) &&
+             resolveAssignmentLHSBits(design, *stripped, bits);
+    }
+
+    bool applyCombinationalStreamingAssignment(
+      SNLDesign* design,
+      const AssignAction& action,
+      const Expression& trackedLhs,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols,
+      std::string& failureReason) {
+      std::vector<const Expression*> leaves;
+      if (!collectStreamingLHSLeaves(*action.lhs, leaves)) {
+        // Assignment collection validates streaming leaves before replay.
+        // LCOV_EXCL_START
+        failureReason = "unsupported dynamic or with-clause streaming assignment LHS";
+        return false;
+        // LCOV_EXCL_STOP
+      }
+      std::vector<SNLBitNet*> destinations;
+      std::unordered_map<const slang::ast::ValueSymbol*, std::vector<SNLBitNet*>> roots;
+      {
+        const auto* savedLhs = activeProceduralReplayLHS_;
+        const auto* savedBits = activeProceduralReplayBits_;
+        auto* savedEnv = activeProceduralReplayEnv_;
+        activeProceduralReplayLHS_ = nullptr;
+        activeProceduralReplayBits_ = nullptr;
+        activeProceduralReplayEnv_ = nullptr;
+        const auto guard = slang::ScopeGuard([&]() {
+          activeProceduralReplayLHS_ = savedLhs;
+          activeProceduralReplayBits_ = savedBits;
+          activeProceduralReplayEnv_ = savedEnv;
+        });
+        if (!resolveStreamingLHSBits(design, *action.lhs, destinations)) {
+          failureReason = "unable to resolve fixed streaming assignment LHS";
+          return false;
+        }
+        for (const auto* leaf : leaves) {
+          const auto* root = getTrackedAlwaysCombLHS(leaf);
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (!tryGetRootValueSymbolReference(*root, symbol) ||
+              !resolveAssignmentLHSBits(design, *root, roots[symbol])) {
+            // Successfully resolved fixed leaves already have materialized storage roots.
+            // LCOV_EXCL_START
+            failureReason = "unable to resolve streaming assignment storage";
+            return false;
+            // LCOV_EXCL_STOP
+          }
+        }
+      }
+      auto width = getExpressionBitstreamWidth(*action.rhs);
+      std::vector<SNLBitNet*> source;
+      const auto* savedLhs = activeProceduralReplayLHS_;
+      const auto* savedBits = activeProceduralReplayBits_;
+      activeProceduralReplayLHS_ = &trackedLhs;
+      activeProceduralReplayBits_ = &dataBits;
+      const auto guard = slang::ScopeGuard([&]() {
+        activeProceduralReplayLHS_ = savedLhs;
+        activeProceduralReplayBits_ = savedBits;
+      });
+      if (!width || *width < destinations.size() ||
+          !resolveExpressionBits(design, *action.rhs, *width, source) || source.size() != *width) {
+        failureReason = "unable to resolve streaming assignment RHS";
+        return false;
+      }
+      // Streaming targets consume the most significant bits of a wider RHS.
+      const auto offset = source.size() - destinations.size();
+      std::unordered_map<SNLBitNet*, SNLBitNet*> replacements;
+      for (size_t i = 0; i < destinations.size(); ++i) {
+        if (!replacements.emplace(destinations[i], source[offset + i]).second) {
+          failureReason = "unsupported overlapping streaming assignment targets";
+          return false;
+        }
+      }
+      const auto update = [&](const std::vector<SNLBitNet*>& physical, std::vector<SNLBitNet*>& values) {
+        for (size_t i = 0; i < physical.size(); ++i) {
+          if (auto found = replacements.find(physical[i]); found != replacements.end()) {
+            values[i] = found->second;
+          }
+        }
+      };
+      update(lhsBits, dataBits);
+      if (activeProceduralReplayEnv_ && replaySymbols) {
+        for (const auto& [symbol, physical] : roots) {
+          if (!replaySymbols->contains(symbol)) {
+            continue;
+          }
+          auto [it, inserted] = activeProceduralReplayEnv_->try_emplace(symbol);
+          if (inserted) {
+            it->second = makeCombinationalInitialBits(design, physical);
+          }
+          if (it->second.size() != physical.size()) {
+            // Replay entries retain the width of their physical storage root.
+            // LCOV_EXCL_START
+            failureReason = "inconsistent streaming assignment replay width";
+            return false;
+            // LCOV_EXCL_STOP
+          }
+          update(physical, it->second);
+        }
+      }
+      return true;
+    }
+
     bool isForLoopControlSymbolRef(const Expression& expr, const Symbol& symbol) const {
       const auto* stripped = stripConversions(expr);
       if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
@@ -20757,8 +21003,17 @@ endmodule
 
       int64_t otherValue = 0;
       if (!getConstantInt64(leftIsLoopVar ? binaryExpr.right() : binaryExpr.left(), otherValue)) {
-        failureReason = "unsupported non-constant for-loop bound expression";
-        return false;
+        uint64_t unsignedValue = 0;
+        const auto& boundExpr = leftIsLoopVar ? binaryExpr.right() : binaryExpr.left();
+        if (!getConstantUnsigned(boundExpr, unsignedValue) ||
+            unsignedValue > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+          failureReason = "unsupported non-constant for-loop bound expression";
+          return false;
+        }
+        // getConstantInt64 already accepts unsigned constants that fit int64_t.
+        // LCOV_EXCL_START
+        otherValue = static_cast<int64_t>(unsignedValue);
+        // LCOV_EXCL_STOP
       }
 
       const int64_t lhsValue = leftIsLoopVar ? loopValue : otherValue;
@@ -20804,25 +21059,36 @@ endmodule
         return true;
       }
 
-      if (getConstantInt64(rhsExpr, nextLoopValue)) {
-        return true;
-      }
-
       const auto* strippedRHSExpr = stripConversions(rhsExpr);
       if (!strippedRHSExpr ||
           strippedRHSExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
-        return false;
+        return getConstantInt64(rhsExpr, nextLoopValue);
       }
 
       const auto& rhsBinaryExpr = strippedRHSExpr->as<slang::ast::BinaryExpression>();
       int64_t constantOperand = 0;
+      const auto getStepConstant = [&](const Expression& expression, int64_t& value) {
+        if (getConstantInt64(expression, value)) {
+          return true;
+        }
+        uint64_t unsignedValue = 0;
+        if (!getConstantUnsigned(expression, unsignedValue) ||
+            unsignedValue > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+          return false;
+        }
+        // getConstantInt64 already accepts unsigned constants that fit int64_t.
+        // LCOV_EXCL_START
+        value = static_cast<int64_t>(unsignedValue);
+        return true;
+        // LCOV_EXCL_STOP
+      };
       switch (rhsBinaryExpr.op) {
         case slang::ast::BinaryOperator::Add:
           if (isForLoopControlStepOperand(
                 rhsBinaryExpr.left(),
                 loopSymbol,
                 allowLValueReferenceOperand) &&
-              getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
+              getStepConstant(rhsBinaryExpr.right(), constantOperand)) {
             nextLoopValue = loopValue + constantOperand;
             return true;
           }
@@ -20830,7 +21096,7 @@ endmodule
                 rhsBinaryExpr.right(),
                 loopSymbol,
                 allowLValueReferenceOperand) &&
-              getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
+              getStepConstant(rhsBinaryExpr.left(), constantOperand)) {
             nextLoopValue = constantOperand + loopValue;
             return true;
           }
@@ -21001,13 +21267,14 @@ endmodule
         }
 
         int64_t nextLoopValue = 0;
-        if (evaluateForLoopStepRHS(assignExpr.right(), loopSymbol, loopValue, nextLoopValue)) {
+        if (evaluateForLoopStepRHS(
+              assignExpr.right(), loopSymbol, loopValue, nextLoopValue, true)) {
           loopValue = nextLoopValue;
           return true;
         }
       }
 
-      failureReason = "unsupported for-loop step expression";
+      failureReason = "unsupported for-loop step expression: " + describeExpression(*strippedStepExpr);
       return false;
     }
 
@@ -21074,7 +21341,12 @@ endmodule
         if (iterationCount++ >= kMaxForLoopUnrollIterations) {
           std::ostringstream reason;
           reason << "for-loop unroll iteration limit exceeded (" << kMaxForLoopUnrollIterations
-                 << ")";
+                 << ", variable=" << std::string(loopSymbol->name)
+                 << ", value=" << loopValue;
+          if (auto sourceInfo = getSourceInfo(forStmt.sourceRange)) {
+            reason << ", source_line=" << sourceInfo->line;
+          }
+          reason << ")";
           failureReason = reason.str();
           popBreakContext();
           return false;
@@ -22012,6 +22284,197 @@ endmodule
       }
       chain.defaultAction = defaultAction;
       chain.hasDefault = true;
+      return true;
+    }
+
+    // Lower independent guarded writes, including statically unrolled array writes.
+    // Keep data and write enables separate so untouched bits retain their value
+    // through a latch rather than a combinational feedback mux.
+    bool lowerIndependentLatchWrites(
+      SNLDesign* design,
+      const Statement& stmt,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::string& failureReason) {
+      struct BitWrite {
+        SNLBitNet* output;
+        SNLBitNet* data;
+        SNLBitNet* enable;
+      };
+      std::vector<BitWrite> writes;
+      std::unordered_map<SNLBitNet*, size_t> writeIndices;
+      std::unordered_set<const slang::ast::ValueSymbol*> readSymbols;
+      std::unordered_set<const slang::ast::ValueSymbol*> writtenSymbols;
+      std::unordered_set<const slang::ast::ValueSymbol*> loopVariables;
+      std::unordered_map<const slang::ast::ValueSymbol*, ProceduralAssignmentScheduling> scheduling;
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto mux = [&](SNLBitNet* select, SNLBitNet* low, SNLBitNet* high) -> SNLBitNet* {
+        if (select == const0 || low == high) {
+          return low;
+        }
+        if (select == const1) {
+          return high;
+        }
+        std::vector<SNLBitNet*> result;
+        if (!createMux2Instance(design, select, {low}, {high}, result,
+                                sourceRange, nullptr, true) || result.size() != 1) {
+          // Canonical mux construction with validated one-bit nets cannot fail.
+          // LCOV_EXCL_START
+          return nullptr;
+          // LCOV_EXCL_STOP
+        }
+        return result.front();
+      };
+      auto collectReads = [&](const Expression& expression) {
+        bool supported = true;
+        auto visitor = slang::ast::makeVisitor(
+          [&](auto&, const slang::ast::ValueExpressionBase& value) {
+            readSymbols.insert(&value.symbol);
+          },
+          [&](auto&, const slang::ast::CallExpression&) { supported = false; },
+          [&](auto&, const slang::ast::AssignmentExpression&) { supported = false; },
+          [&](auto& visitor, const slang::ast::UnaryExpression& unary) {
+            using Op = slang::ast::UnaryOperator;
+            if (unary.op == Op::Preincrement || unary.op == Op::Postincrement ||
+                unary.op == Op::Predecrement || unary.op == Op::Postdecrement) {
+              supported = false;
+            } else {
+              visitor.visitDefault(unary);
+            }
+          });
+        expression.visit(visitor);
+        if (!supported) {
+          failureReason = "calls and expression side effects in independent latch writes are unsupported";
+        }
+        return supported;
+      };
+      std::function<bool(const Statement&, SNLBitNet*)> visit;
+      visit = [&](const Statement& statement, SNLBitNet* guard) -> bool {
+        const auto* current = unwrapStatement(statement);
+        if (!current || guard == const0 || current->kind == slang::ast::StatementKind::Empty) {
+          return true;
+        }
+        if (current->kind == slang::ast::StatementKind::List) {
+          const auto& list = current->as<slang::ast::StatementList>().list;
+          for (const auto* item : list) {
+            const auto* child = item ? unwrapStatement(*item) : nullptr;
+            if (child && child->kind == slang::ast::StatementKind::ForLoop) {
+              for (const auto* variable : child->as<slang::ast::ForLoopStatement>().loopVars) {
+                loopVariables.insert(variable);
+              }
+            }
+          }
+          for (const auto* item : list) {
+            if (item && !visit(*item, guard)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+          const auto& variable = current->as<slang::ast::VariableDeclStatement>().symbol;
+          if (loopVariables.contains(&variable)) {
+            return true;
+          }
+        }
+        if (current->kind == slang::ast::StatementKind::ForLoop) {
+          const auto& loop = current->as<slang::ast::ForLoopStatement>();
+          return unrollForLoopStatement(loop, [&]() { return visit(loop.body, guard); },
+                                        failureReason);
+        }
+        if (current->kind == slang::ast::StatementKind::Conditional) {
+          const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+          if (conditional.conditions.size() != 1 || !conditional.conditions[0].expr ||
+              conditional.conditions[0].pattern) {
+            failureReason = "unsupported condition in independent latch writes";
+            return false;
+          }
+          const auto& condition = *conditional.conditions[0].expr;
+          if (!collectReads(condition)) {
+            return false;
+          }
+          auto* select = resolveCombinationalConditionNet(design, condition, &failureReason);
+          if (!select) {
+            return false;
+          }
+          auto* trueGuard = mux(select, const0, guard);
+          auto* falseGuard = mux(select, guard, const0);
+          return trueGuard && falseGuard && visit(conditional.ifTrue, trueGuard) &&
+            (!conditional.ifFalse || visit(*conditional.ifFalse, falseGuard));
+        }
+        const Expression* lhs = nullptr;
+        AssignAction action;
+        if (!extractAssignment(*current, lhs, action) || !action.rhs ||
+            assignmentActionRequiresCurrentBits(action)) {
+          failureReason = "unsupported statement in independent latch writes";
+          return false;
+        }
+        const auto& assignment = current->as<slang::ast::ExpressionStatement>().expr;
+        if (assignment.as<slang::ast::AssignmentExpression>().timingControl) {
+          failureReason = "timed independent latch writes are unsupported";
+          return false;
+        }
+        const slang::ast::ValueSymbol* root = nullptr;
+        if (!tryGetRootValueSymbolReference(*lhs, root) || hasDynamicSelectionInLHS(*lhs)) {
+          failureReason = "independent latch writes require statically selected targets";
+          return false;
+        }
+        if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
+          failureReason = "mixed blocking and nonblocking independent latch writes";
+          return false;
+        }
+        scheduling[root] = action.scheduling;
+        writtenSymbols.insert(root);
+        if (!collectReads(*action.rhs)) {
+          return false;
+        }
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBits(design, *lhs, lhsBits, &failureReason, true) ||
+            lhsBits.empty()) {
+          return false;
+        }
+        auto dataBits = buildAssignBits(design, action, resolveExpressionNet(design, *lhs),
+                                        lhsBits, nullptr, sourceRange);
+        if (dataBits.size() != lhsBits.size()) {
+          failureReason = "unable to resolve independent latch data";
+          return false;
+        }
+        for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+          auto [it, inserted] = writeIndices.emplace(lhsBits[bit], writes.size());
+          if (inserted) {
+            writes.push_back({lhsBits[bit], dataBits[bit], guard});
+          } else {
+            auto& write = writes[it->second];
+            write.data = mux(guard, write.data, dataBits[bit]);
+            write.enable = mux(guard, write.enable, const1);
+            if (!write.data || !write.enable) {
+              // Canonical mux construction with validated one-bit nets cannot fail.
+              // LCOV_EXCL_START
+              return false;
+              // LCOV_EXCL_STOP
+            }
+          }
+        }
+        return true;
+      };
+      if (!visit(stmt, const1)) {
+        return false;
+      }
+      // This path deliberately excludes procedural read-after-write and feedback.
+      // Such blocks need scheduling replay, not independent write accumulation.
+      for (const auto* symbol : writtenSymbols) {
+        if (readSymbols.contains(symbol)) {
+          failureReason = "independent latch writes read a variable assigned in the same block";
+          return false;
+        }
+      }
+      for (const auto& write : writes) {
+        if (write.enable == const1) {
+          createAssignInstance(design, write.data, write.output, sourceRange);
+        } else {
+          createDLatchInstance(design, write.enable, write.data, write.output, sourceRange);
+        }
+      }
       return true;
     }
 
@@ -24084,6 +24547,21 @@ endmodule
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
+        if (trackAlwaysCombDynamicLHS && lhsExpr &&
+            stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+          std::vector<const Expression*> leaves;
+          if (!collectStreamingLHSLeaves(*lhsExpr, leaves)) {
+            setFailureReason("unsupported dynamic or with-clause streaming assignment LHS");
+            return false;
+          }
+          for (const auto* leaf : leaves) {
+            const auto* root = getTrackedAlwaysCombLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols)) {
+              appendTrackedSelectionLHS(root, lhsExpressions);
+            }
+          }
+          return true;
+        }
         if (trackAlwaysCombDynamicLHS) {
           lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
         } else if (trackSequentialFallbackLHS) {
@@ -25435,9 +25913,68 @@ endmodule
 
       if (action.compoundOp) {
         if (!currentBits || currentBits->size() != targetWidth) {
+          // Compound actions are replayed with current bits at the target width.
+          // LCOV_EXCL_START
           failureReason =
             "unsupported compound assignment in always_comb without current LHS bits";
           return false;
+          // LCOV_EXCL_STOP
+        }
+
+        const auto op = *action.compoundOp;
+        const bool shiftLeft = op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+                               op == slang::ast::BinaryOperator::ArithmeticShiftLeft;
+        if (shiftLeft || op == slang::ast::BinaryOperator::LogicalShiftRight ||
+            op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+          // Slang represents a compound assignment as LValueReference op RHS.
+          // The count is self-determined: truncating it to the LHS width can
+          // turn an oversized shift into a small (or zero) shift.
+          const auto* rhs = stripConversions(*action.rhs);
+          if (!rhs || rhs->kind != slang::ast::ExpressionKind::BinaryOp ||
+              rhs->as<slang::ast::BinaryExpression>().op != op) {
+            // Slang represents compound shifts as the matching binary operation.
+            // LCOV_EXCL_START
+            failureReason = "unsupported compound shift expression";
+            return false;
+            // LCOV_EXCL_STOP
+          }
+          const auto& count = rhs->as<slang::ast::BinaryExpression>().right();
+          auto countWidth = getIntegralExpressionBitWidth(count);
+          std::vector<SNLBitNet*> countBits;
+          if (!countWidth || !resolveShiftAmountBits(
+                design, count, *countWidth, countBits, &failureReason)) {
+            return false;
+          }
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          const bool signExtend = op == slang::ast::BinaryOperator::ArithmeticShiftRight &&
+                                  action.lhs && action.lhs->type->isSigned();
+          auto* fill = signExtend ? currentBits->back() : const0;
+          assignedBits = *currentBits;
+          for (size_t stage = 0; stage < countBits.size(); ++stage) {
+            if (countBits[stage] == const0) {
+              continue;
+            }
+            const auto distance = stage >= std::numeric_limits<size_t>::digits
+              ? targetWidth : std::min(size_t {1} << stage, targetWidth);
+            std::vector<SNLBitNet*> nextBits;
+            nextBits.reserve(targetWidth);
+            for (size_t bit = 0; bit < targetWidth; ++bit) {
+              auto* shifted = fill;
+              if (shiftLeft ? bit >= distance : distance < targetWidth - bit) {
+                shifted = assignedBits[shiftLeft ? bit - distance : bit + distance];
+              }
+              auto* result = shifted;
+              if (countBits[stage] != const1 && assignedBits[bit] != shifted) {
+                result = SNLScalarNet::create(design);
+                createMux2Instance(design, countBits[stage], assignedBits[bit], shifted,
+                                   result, getSourceRange(*action.rhs));
+              }
+              nextBits.push_back(result);
+            }
+            assignedBits = std::move(nextBits);
+          }
+          return true;
         }
 
         const Expression* compoundRhsExpr = action.rhs;
@@ -28178,6 +28715,14 @@ endmodule
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        if (stripConversions(*assignedLHS)->kind == slang::ast::ExpressionKind::Streaming) {
+          if (preserveAssignmentScheduling || !assignmentUpdatesActiveProceduralValue(action)) {
+            failureReason = "unsupported sequential streaming assignment";
+            return false;
+          }
+          return applyCombinationalStreamingAssignment(
+            design, action, lhsExpr, lhsBits, dataBits, replaySymbols, failureReason);
+        }
         const bool assignsCurrentLhs =
           assignedLHS &&
           (sameLhs(assignedLHS, &lhsExpr) ||
@@ -28411,6 +28956,19 @@ endmodule
       for (const auto* assignedExpr : assignedExpressions) {
         if (!assignedExpr) {
           continue; // LCOV_EXCL_LINE
+        }
+        if (stripConversions(*assignedExpr)->kind == slang::ast::ExpressionKind::Streaming) {
+          std::vector<SNLBitNet*> streamBits;
+          if (!resolveStreamingLHSBits(design, *assignedExpr, streamBits)) {
+            std::fill(assignedMask.begin(), assignedMask.end(), true);
+            return assignedMask;
+          }
+          for (auto* bit : streamBits) {
+            if (auto found = lhsBitOffsets.find(bit); found != lhsBitOffsets.end()) {
+              assignedMask[found->second] = true;
+            }
+          }
+          continue;
         }
         const auto* trackedAssignedExpr = getTrackedAlwaysCombLHS(assignedExpr);
         const bool targetsTrackedLhs =
@@ -31904,8 +32462,8 @@ endmodule
               std::string& latchFailureReason) -> bool {
           AlwaysLatchPattern pattern;
           if (!extractAlwaysLatchPattern(latchStmt, pattern)) {
-            latchFailureReason = "unsupported statement pattern for always_latch lowering";
-            return false;
+            return lowerIndependentLatchWrites(
+              design, latchStmt, latchSourceRange, latchFailureReason);
           }
 
           auto* lhsNet = resolveExpressionNet(design, *pattern.lhs);

@@ -545,3 +545,63 @@ Remove the SV regress work directory:
 ```sh
 python3 regress/sv/sv_regress.py clean
 ```
+
+## PULP prepared EDA benchmarks
+
+`pulp_benchmarks.py` complements the repository-checkout cases with the
+[self-contained PULP release](https://github.com/pulp-platform/eda-benchmarks/releases/tag/v0.1.0).
+It pins v0.1.0 and verifies the release archive's SHA-256 before extraction.
+No RTL is vendored, generated, patched, or substituted. Each target uses the
+release's `targets.mk` top and its variant-local `filelist.f`, including the
+supplied wrappers, include directories, defines, and memory stubs.
+
+```sh
+# Small PR tier: CV32E40P, FP32 FMA, minimal Ibex, and SPI host.
+# Downloads the pinned release unless --archive supplies a local copy.
+python3 regress/sv/pulp_benchmarks.py --lint-runner local
+
+# Complete, bounded survey; known failures deliberately return nonzero.
+python3 regress/sv/pulp_benchmarks.py --all --timeout 90
+
+# Individual cases and custom build/package locations are supported.
+python3 regress/sv/pulp_benchmarks.py \
+  --case ibex.full --timeout 120 \
+  --archive /tmp/pulp-benchmarks-v0.1.0.tar.gz \
+  --najaeda-path build/test/najaeda --output build/pulp-full-ibex
+```
+
+Use the Python interpreter matching the built Naja extension (Python 3.12+
+for archive extraction). The runner itself needs only the standard library;
+the built `najaeda` package must also have its normal runtime dependencies.
+`--lint-runner docker` uses the same Verilator v5.046 image as the external SV
+runner; `local` requires Verilator on PATH. Omitting the option runs load/dump
+only. Each load/dump and lint subprocess has a separate wall-clock limit.
+Missing lint tools fail; they do not silently skip.
+
+The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
+configuration, runs the small tier and lints each complete generated netlist
+with Naja's `najaeda_primitives.v` simulation models, copied into each case's
+artifact directory. Both local and Docker lint use this copy; Docker mounts
+the artifact directory once for both inputs. Manual dispatch with `survey=true`
+attempts all 23 variants. It always uploads diagnostics, commands, counts, netlists, and
+summaries. This is a frontend load/dump and syntax/linking regression, **not a
+functional equivalence or simulation test**. No technology library is needed.
+
+Naja uses its ordinary strict loading behavior. The upstream Yosys flow's
+`--compat-mode`, `--compat=vcs`, `--allow-use-before-declare`,
+`--best-effort-hierarchy`, and variant-specific `yosys-slang.args` are not
+silently forwarded or emulated. In particular, unknown-module blackboxing is
+disabled. Naja unsupported diagnostics fail the run. Ordinary Slang warnings,
+2-state comparison warnings, and memory-inference fallbacks remain in reports;
+a fallback to generic sequential lowering is not itself an unsupported error.
+
+Artifacts default to `build/pulp-benchmarks/<design>.<variant>/` with an aggregate
+`summary.json` in the parent directory. Each case has its own process, so a
+crash, exception, or timeout does not prevent subsequent cases from running.
+A timeout is an incomplete measurement, not proof of unsupported RTL. Stale
+netlist/statistics files are removed before each case. Temporary extracted RTL
+is removed afterward; the archive checksum and copied variant filelist make
+source selection reproducible.
+
+The initial [23-variant survey and CI selection](PULP_RESULTS.md) records the
+local build, timing limits, diagnostics, and remaining verification limits.
