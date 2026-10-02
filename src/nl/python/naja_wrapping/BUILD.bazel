@@ -112,10 +112,15 @@ cc_shared_library(
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
         "//src/optimization:naja_opt",
     ],
+    # The runtime links these statically and exports them, so that
+    # binaries linking it (naja.so, kepler-formal) use its single copy
+    # instead of linking their own. Package patterns rather than target
+    # labels: zlib's BCR target behind @zlib//:z lives in a subpackage.
     exports_filter = [
         "//src:__subpackages__",
-        "@fmt//:fmt",
-        "@zlib//:z",
+        "@fmt//:__subpackages__",
+        "@onetbb//:__subpackages__",
+        "@zlib//:__subpackages__",
     ],
     user_link_flags = select({
         "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
