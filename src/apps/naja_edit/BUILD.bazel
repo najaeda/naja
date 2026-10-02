@@ -16,6 +16,8 @@
 # here instead, matching this migration's convention throughout of not
 # relying on undeclared transitive header visibility.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "naja_edit",
     srcs = ["NajaEdit.cpp"],

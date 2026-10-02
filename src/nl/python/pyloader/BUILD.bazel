@@ -14,6 +14,7 @@
 # cc_library's own deps don't matter until final link time), and
 # propagates to naja_edit (task #22) and other consumers automatically.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":python_libs.bzl", "python_libs")
 
 python_libs(name = "python_libs")

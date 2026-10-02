@@ -7,6 +7,7 @@
 # def.tab.h is an ordinary checked-in header here (not generated),
 # unlike lef.tab.h in ../../lef/lef.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@bison//:bison.bzl", "bison")
 
 # No --defines: def/def/*.cpp include the checked-in def.tab.h instead,

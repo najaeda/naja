@@ -10,6 +10,8 @@
 # serialization/ is add_subdirectory'd by CMake alongside this library
 # but isn't a dependency of naja_nl itself -- ported separately (task #16).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_nl",
     srcs = [

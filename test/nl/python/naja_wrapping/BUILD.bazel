@@ -17,6 +17,8 @@
 # here supplies the missing linkopts at final-link time without needing
 # a second, embed-linked copy of the whole naja_python library.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "najaPythonPropertyTests",
     srcs = ["NajaPythonPropertyTest.cpp"],

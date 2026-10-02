@@ -7,6 +7,7 @@
 # lef.tab.h is generated here, whereas def (in ../../def/def) uses a
 # checked-in def.tab.h.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@bison//:bison.bzl", "bison")
 
 # -p lefyy keeps yyparse/yylex from colliding with the def parser.

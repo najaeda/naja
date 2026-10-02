@@ -9,6 +9,8 @@
 # needed by test/nl/formats/systemverilog/frontend (Phase 5, task #20).
 # See internal/bazel-migration-plan.md (Phase 4, task #17).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 _HDRS = [
     "frontend/SNLSVConstructor.h",
     "frontend/SNLSVConstructorException.h",

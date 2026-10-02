@@ -13,6 +13,7 @@
 # defined anywhere in the CMake tree (a no-op variable expansion) --
 # neither is ported either.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":naja_version.bzl", "naja_git_hash")
 
 genrule(
