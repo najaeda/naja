@@ -118,6 +118,66 @@ checks exactly this and fails CI if a pin has drifted. Run it locally
 after bumping any of these dependencies: `python3
 ci/check_submodule_bazel_sync.py`.
 
+## Bazel: a BCR-ready module
+
+naja's Bazel build is meant to be published to the Bazel Central
+Registry (BCR) and consumed by other modules (kepler-formal does) with a
+plain `bazel_dep`. Keep it that way. Invariants:
+
+- `MODULE.bazel` contains only `bazel_dep`s. No `http_archive`,
+  `git_override`, `archive_override`, module extensions or repository
+  rules of our own; overrides are ignored for non-root modules, so they
+  would only hide breakage that consumers then hit.
+- Nothing runs cmake/make inside Bazel (no `rules_foreign_cc`), and
+  nothing is found on the host (`PATH`, pkg-config, `python3-config`,
+  system headers). Tools and libraries come from Bazel modules: bison
+  and flex rules from BCR `bison`/`flex`, Python from `rules_python`.
+- Load every rule (`@rules_cc//cc:cc_library.bzl`,
+  `@rules_shell//shell:sh_test.bzl`, …); Bazel 9 has no native ones.
+- Fix a dependency in its own module (registry entry or upstream), never
+  by patching its BUILD files from this repository, and never by asking
+  consumers to patch naja.
+
+**Where dependencies come from.** `.bazelrc` lists the in-tree registry
+`bazel/registry/` ahead of BCR; Bazel takes each `name@version` from the
+first registry that has it. The in-tree registry holds what is not on
+BCR yet, in BCR's exact layout (`MODULE.bazel`, `source.json`,
+`overlay/`, `patches/`, `presubmit.yml`). `bazel/registry/README.md`
+lists the entries and why each exists. To add or bump one: new version
+directory, `bazel/registry/update_source.py <name> <version> <url>
+[<strip_prefix>]`, point the `bazel_dep` at it. Unreleased commits use
+`<release>-<YYYYMMDD>-<commit>` versions. Never change a version's
+contents once something depends on it; add a new version. (When you do
+edit one in place during development, `bazel shutdown` first: Bazel
+caches registry entries as immutable.)
+
+**Publishing to BCR** is copying `bazel/registry/modules/<name>/` into a
+bazel-central-registry pull request (presubmit runs the entry's
+`presubmit.yml`), then deleting it here. Order: the leaves (`naja-if`,
+`naja-verilog`, `sv-lang`, `bison`) before naja itself.
+
+**Known traps** (each already fixed; don't reintroduce):
+
+- hermetic toolchains (BCR `llvm`, used by kepler-formal) pass libc
+  headers as early `-isystem` flags. Libraries whose own headers must
+  shadow libc's (gnulib in bison) need `-I`, not `includes = [...]`;
+  hence the registry's `bison 3.8.2.bcr.10`. Building only with the host
+  toolchain hides this class of bug, and also hides headers leaking in
+  from `/usr/include` (slang's `boost/regex.hpp` did).
+- `cc_shared_library` (`naja_runtime`) drops linker inputs its graph
+  aspect cannot see: rules must advertise `CcInfo` and own their linker
+  inputs. That's why `src/nl/python/pyloader/python_libs.bzl` re-owns
+  libpython instead of using `current_py_cc_libs` directly. Libraries
+  linked into `naja_runtime` that a binary also uses (TBB, zlib) must be
+  in its `exports_filter`, or the binary links a second copy.
+- `NAJA_GIT_HASH` comes from the module version
+  (`src/core/naja_version.bzl`): "unknown" when naja is the root module.
+
+**Before merging Bazel changes**, besides `bazel test //...` here, build
+naja as a dependency with a hermetic toolchain: kepler-formal's tests
+(`bazel test //... --override_module=naja=<path to this checkout>`) are
+the reference consumer.
+
 ## Conventions
 
 - Whenever the `najaeda` version is incremented, update the pinned `najaeda` version in all Colab tutorials under `tutorials/notebooks/` and the local installation command in `tutorials/README.md` in the same change.
