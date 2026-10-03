@@ -2,7 +2,7 @@
 
 module(
     name = "sv-lang",
-    version = "11.0.0-20260701-b60d729d",
+    version = "11.0.0-20260701-b60d729d.bcr.1",
     bazel_compatibility = [">=7.2.1"],
 )
 

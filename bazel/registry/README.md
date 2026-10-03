@@ -13,7 +13,7 @@ common --registry=https://bcr.bazel.build/
 |---|---|
 | `naja-if` | not on BCR |
 | `naja-verilog` | not on BCR; the overlay uses BCR `bison`/`flex` instead of host tools |
-| `sv-lang` | BCR has slang `f04e815`; naja is developed against `b60d729` |
+| `sv-lang` | BCR has slang `f04e815`; naja is developed against `b60d729`. `.bcr.1` defines `SLANG_STATIC_DEFINE`, as upstream does for static builds, which gcc 11 needs |
 | `bison` | `3.8.2.bcr.10` is BCR's `bcr.9` with gnulib's wrapper headers on `-I` instead of `-isystem`, so bison builds with toolchains that pass libc headers as `-isystem` (hermetic-llvm); see BCR PR #9600 |
 
 The layout is exactly BCR's (`modules/<name>/metadata.json`,
@@ -21,7 +21,7 @@ The layout is exactly BCR's (`modules/<name>/metadata.json`,
 so publishing a module is a matter of copying its directory into a
 [bazel-central-registry](https://github.com/bazelbuild/bazel-central-registry)
 pull request, then deleting it here. As in BCR, `overlay/MODULE.bazel` is
-a symlink to the version's `MODULE.bazel`.
+a copy of the version's `MODULE.bazel` (BCR rejects symlinks).
 
 ## Versions
 

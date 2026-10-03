@@ -3,8 +3,8 @@
     "integrity": "sha256-qfZVkMz0/yCDtJ8PQ1KqxT5kWLBLLxpl4kgUq6OgW8I=",
     "overlay": {
         "BUILD.bazel": "sha256-wWVM30POC9+QVIH8Tunwa3n614ZLBGLWYNEAIOntlNg=",
-        "MODULE.bazel": "sha256-LBlDWQd+McQFO4QE5x0mo4dbPH+UlrUyfPS+aMnf3jg=",
-        "private/slang/export_headers/BUILD.bazel": "sha256-R6Dv/CqeG3BKpy2/F7RraVg/6QpVp9R2+itU1P0jUDE=",
+        "MODULE.bazel": "sha256-6A6oeLLovN9KvA5S3mg8+w7chibNuD/FLneNXL0nAxk=",
+        "private/slang/export_headers/BUILD.bazel": "sha256-FxyT2whtMPTD1S7qHKobNXbmsfgQ8C0taPiW4TVc7zo=",
         "private/tests/BUILD.bazel": "sha256-szGEhrNgI8xYYT3Dh65sYTxtLgzliigBBI327gTzFnE=",
         "private/tests/pyslang/BUILD.bazel": "sha256-kOhB1jkTVq4BZCuXinob8Em29LMXNLPZWEYUtVZzGfo=",
         "private/tests/pyslang/test.py": "sha256-wFIT9/C8ioU35gXxN7DL0JxC66krax4jtQUYz95KkAc=",
