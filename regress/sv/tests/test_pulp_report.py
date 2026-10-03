@@ -26,8 +26,9 @@ class PulpReportTest(unittest.TestCase):
         self.assertIn('&lt;bad&gt;&#124; input', report)
 
     def test_trace_pass_does_not_hide_scoreboard_failure(self):
-        report = render([], dict(status='failed', results={'original_simulation': dict(status='failed', seconds=1)},
+        report = render([], dict(status='failed', weight_read_delay_ps=1, results={'original_simulation': dict(status='failed', seconds=1)},
                                  rtl_netlist_comparison=dict(status='passed', transactions=2048)))
+        self.assertIn('Weight-buffer read propagation delay: 1 ps.', report)
         self.assertIn('Overall: **failed**', report)
         self.assertIn('comparison: **passed**', report)
         self.assertIn('2,048', report)

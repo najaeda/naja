@@ -625,9 +625,9 @@ local build, timing limits, diagnostics, and remaining verification limits.
 scoreboard at the exact revision used by the prepared release. It runs both
 the prepared RTL and the Naja structural dump against the same seed-0,
 64-by-64 attention/feedforward vectors, with bias and randomized stalls.
-This is currently a diagnostic workflow, not a passing CI gate: local
-Verilator 5.052 simulation of the original RTL already reports golden-vector
-mismatches. A passing elaboration must not be interpreted as passing this test.
+This is a separate functional validation command; the default PULP CI job
+does not run it. A passing elaboration must not be interpreted as passing
+this test.
 
 ```sh
 python3 -m venv /tmp/ita-vectors
@@ -658,6 +658,57 @@ behavioral SRAM. The generated simulation attaches that same model to its
 otherwise empty SRAM leaf, checking the pinned variant's exact port shape;
 the raw dump is preserved. This validates the surrounding logic with an
 external memory model, not Naja lowering of SRAM behavior.
+
+Both simulations apply a **1 ps propagation delay to the latch-based weight
+buffer's read port**. Verilator 5.052 otherwise exposes a transient previous
+write-data value to a same-edge reader when a bank is reused. The generated
+buffer's gates and latches are retained; only its output connection gains the
+same delay as the RTL. This is a timed simulation model, not zero-delay
+simulation or timing signoff. It adds no full clock cycle at the 2 ns clock
+period. The unmodified dump remains in `dump/netlist.v`.
+
+`--weight-read-delay-ps 0` disables the model to reproduce the original
+zero-delay failures; the default is 1 and the accepted range is 0..100 ps.
+The report records `weight_read_delay_ps`, so a passing modeled run is not
+confused with a zero-delay run. Delaying the cascaded clock gates themselves
+is not equivalent and is not used.
+
+`ita_latch_repro.sv` is a small independent reproducer. With its default 1 ps
+read delay, these commands must both pass:
+
+```sh
+iverilog -g2012 -s ita_latch_repro -o /tmp/ita-latch-repro \
+  regress/sv/ita_latch_repro.sv regress/sv/ita_latch_dut.sv
+vvp /tmp/ita-latch-repro
+verilator --binary --timing --top-module ita_latch_repro -Wno-fatal \
+  --Mdir /tmp/ita-latch-verilator regress/sv/ita_latch_repro.sv regress/sv/ita_latch_dut.sv
+/tmp/ita-latch-verilator/Vita_latch_repro
+```
+
+For the zero-delay control, add `-Pita_latch_repro.READ_DELAY_PS=0` to Icarus
+or `-GREAD_DELAY_PS=0` to Verilator. Locally, Icarus captures `0x11` as expected;
+Verilator 5.052 captures the transient `0x22` and fails the assertion.
+
+To repeat the elaboration/primitive investigation, with Icarus, Verilator,
+and the built najaeda module available:
+
+```sh
+PYTHONPATH=build/test/najaeda python3 regress/sv/ita_primitive_check.py
+```
+
+This elaborates only `ita_latch_dut.sv`; testbench timing stays outside Naja.
+It runs 12 configurations: RTL, generated netlist with the existing primitive,
+and generated netlist with a temporary nonblocking latch candidate, each on
+both simulators with 0/1 ps read propagation. JSON results and build/run logs
+are saved in `build/ita-primitive-check/`. The candidate changes only an
+artifact copy of `najaeda_primitives.v`.
+
+Exit success means all models agree within each simulator/delay combination
+and all 1 ps controls pass; **it does not mean zero-delay golden checks pass**.
+Each `golden_status` remains explicit. On Verilator 5.052 the NBA candidate
+still fails at zero delay, with a `COMBDLY` warning; Icarus and Naja-generated
+logic agree with the source RTL. These results do not justify a change to
+Naja elaboration or its generic latch primitive for this issue.
 
 The testbench adapter reads packed-array `$fscanf` targets through scalar
 temporaries to avoid invalid Verilator-generated C++, checks scan success,

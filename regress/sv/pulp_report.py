@@ -70,7 +70,8 @@ def render(suites, functional=None):
     if functional is None:
         lines += ['Not run in this job. The experimental upstream testbench is a separate validation path.', '']
     else:
-        lines += [f'Overall: **{cell(functional["status"])}**', '', '| Stage | Result | Seconds |', '|---|---|---:|']
+        lines += [f'Weight-buffer read propagation delay: {number(functional.get("weight_read_delay_ps"))} ps.', '',
+                  f'Overall: **{cell(functional["status"])}**', '', '| Stage | Result | Seconds |', '|---|---|---:|']
         for stage, result in functional['results'].items():
             lines.append(f'| {cell(stage)} | {cell(result["status"])} | {seconds(result.get("seconds"))} |')
         comparison = functional.get('rtl_netlist_comparison', {})

@@ -36,6 +36,22 @@ class ITASimulationTest(unittest.TestCase):
             with self.subTest(netlist=bad), self.assertRaises(ValueError):
                 ita.attach_memory(bad)
 
+    def test_read_delay_preserves_logic_and_rejects_unexpected_models(self):
+        name = "ita_register_file_1w_multi_port_read_we"
+        for shape in ("[8191:0]", "[N_READ-1:0][DATA_WIDTH-1:0]"):
+            source = (f"module {name}(output logic {shape} ReadData);\n"
+                      "assign ReadData = storage;\nendmodule")
+            self.assertEqual(source, ita.model_weight_read_delay(source, 0))
+            result = ita.model_weight_read_delay(source, 1)
+            self.assertIn("assign #(1ps) ReadData = naja_sim_read_data;", result)
+            self.assertIn("assign naja_sim_read_data = storage;", result)
+            for bad in (source * 2, source.replace(shape, "[31:0]"), result):
+                with self.subTest(source=bad), self.assertRaises(ValueError):
+                    ita.model_weight_read_delay(bad, 1)
+        for delay in (-1, 101):
+            with self.assertRaises(ValueError):
+                ita.model_weight_read_delay(source, delay)
+
     def test_download_cache_is_checksum_checked(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'download'
