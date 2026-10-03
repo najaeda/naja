@@ -19,6 +19,10 @@ Files: CLAUDE.md AGENTS.md
 Copyright: 2026 The Naja Authors.
 License: Apache-2.0
 
+Files: .bcr/*
+Copyright: 2026 The Naja Authors.
+License: Apache-2.0
+
 Files: src/nl/formats/hdl/BUILD.bazel src/nl/formats/hdl/CMakeLists.txt
  src/nl/formats/vhdl/BUILD.bazel src/nl/formats/vhdl/CMakeLists.txt
  src/vhdl/BUILD.bazel src/vhdl/CMakeLists.txt src/vhdl/README.md

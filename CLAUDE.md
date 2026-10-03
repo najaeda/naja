@@ -154,7 +154,11 @@ caches registry entries as immutable.)
 **Publishing to BCR** is copying `bazel/registry/modules/<name>/` into a
 bazel-central-registry pull request (presubmit runs the entry's
 `presubmit.yml`), then deleting it here. Order: the leaves (`naja-if`,
-`naja-verilog`, `sv-lang`, `bison`) before naja itself.
+`naja-verilog`, `sv-lang`, `bison`) before naja itself. naja itself is
+published from a release tag by the publish-to-bcr app, using the
+templates in `.bcr/` (maintainers: xtofalex, nanocoh). Registry entries
+contain no symlinks: BCR rejects them, so `overlay/MODULE.bazel` is a
+copy.
 
 **Known traps** (each already fixed; don't reintroduce):
 

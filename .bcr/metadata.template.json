@@ -1,5 +1,5 @@
 {
-    "homepage": "https://github.com/najaeda/naja-if",
+    "homepage": "https://github.com/najaeda/naja",
     "maintainers": [
         {
             "github": "xtofalex",
@@ -13,10 +13,8 @@
         }
     ],
     "repository": [
-        "github:najaeda/naja-if"
+        "github:najaeda/naja"
     ],
-    "versions": [
-        "0.0.0-20260723-099677d9"
-    ],
+    "versions": [],
     "yanked_versions": {}
 }

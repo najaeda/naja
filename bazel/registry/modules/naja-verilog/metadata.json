@@ -1,6 +1,17 @@
 {
     "homepage": "https://github.com/najaeda/naja-verilog",
-    "maintainers": [],
+    "maintainers": [
+        {
+            "github": "xtofalex",
+            "github_user_id": 3635601,
+            "name": "Christophe Alexandre"
+        },
+        {
+            "github": "nanocoh",
+            "github_user_id": 115838389,
+            "name": "Noam Cohen"
+        }
+    ],
     "repository": [
         "github:najaeda/naja-verilog"
     ],
