@@ -13,6 +13,8 @@
 # CLAUDE.md's "NajaIF snapshot compatibility" section for what
 # SNLDumpManifest.cpp's snl.mf handling is actually for.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_nl_dump",
     srcs = [
@@ -35,6 +37,7 @@ cc_library(
     deps = [
         "//src/core:naja_core",
         "//src/nl/netlist:naja_nl",
+        "@boost.asio",
         "@naja-if//:naja_common_capnp",
         "@naja-if//:naja_nl_implementation_capnp",
         "@naja-if//:naja_nl_interface_capnp",

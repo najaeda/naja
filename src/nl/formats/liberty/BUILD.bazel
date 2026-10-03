@@ -6,6 +6,8 @@
 # `naja_snl_liberty` library. See internal/bazel-migration-plan.md
 # (Phase 4, task #17).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_snl_liberty",
     srcs = [

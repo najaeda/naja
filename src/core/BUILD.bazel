@@ -13,13 +13,14 @@
 # defined anywhere in the CMake tree (a no-op variable expansion) --
 # neither is ported either.
 
-load("@naja_git_version//:git_version.bzl", "NAJA_GIT_HASH")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load(":naja_version.bzl", "naja_git_hash")
 
 genrule(
     name = "naja_version_h",
     srcs = ["NajaVersion.h.in"],
     outs = ["NajaVersion.h"],
-    cmd = "sed 's/@NAJA_GIT_HASH@/%s/' $< > $@" % NAJA_GIT_HASH,
+    cmd = "sed 's/@NAJA_GIT_HASH@/%s/' $< > $@" % naja_git_hash(),
 )
 
 cc_library(
@@ -48,7 +49,7 @@ cc_library(
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
+        "@boost.intrusive",
     ],
 )

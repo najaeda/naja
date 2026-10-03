@@ -9,6 +9,8 @@
 # paths, same pattern validated in
 # test/nl/formats/verilog/frontend/BUILD.bazel.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "snlVRLDumperTests",
     srcs = [

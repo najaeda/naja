@@ -6,6 +6,8 @@
 # as "." -- see test/core/BUILD.bazel's NAJA_CORE_TESTS_PATH for the same
 # pattern.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "snlCapnPTests",
     srcs = [

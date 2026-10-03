@@ -16,6 +16,8 @@
 # here instead, matching this migration's convention throughout of not
 # relying on undeclared transitive header visibility.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "naja_edit",
     srcs = ["NajaEdit.cpp"],
@@ -31,6 +33,5 @@ cc_binary(
         "//src/nl/python/pyloader:naja_snl_pyloader",
         "//src/optimization:naja_opt",
         "//thirdparty/argparse-3.1:argparse",
-        "@boost//:headers",
     ],
 )

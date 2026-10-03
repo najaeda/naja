@@ -7,6 +7,8 @@
 # (Reduction.cpp~ is a stray backup file, not part of the CMake SOURCES
 # list either -- excluded here too.)
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_opt",
     srcs = [
@@ -28,7 +30,6 @@ cc_library(
     deps = [
         "//src/bne:naja_bne",
         "//src/dnl:naja_dnl",
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
     ],
 )

@@ -6,6 +6,8 @@
 # see task #19's notes. ENABLE_TEST_DOT defaults OFF in CMake; not wired
 # up here either.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "loadlessLogicRemoverTests",
     srcs = ["LoadlessLogicRemoverTests.cpp"],
