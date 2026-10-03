@@ -4,11 +4,9 @@
 
 """Bazel module for naja.
 
-Every dependency is a plain bazel_dep. Modules that are not yet on the
-Bazel Central Registry (naja-if, naja-verilog) are served by the
-registry in bazel/registry/, which .bazelrc lists ahead of BCR, as is
-sv-lang at the slang commit naja is developed against. See
-bazel/registry/README.md.
+Every dependency is a plain bazel_dep. Versions that are not on the
+Bazel Central Registry yet come from their open BCR pull requests,
+which .bazelrc lists ahead of BCR.
 """
 
 module(

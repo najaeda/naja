@@ -11,7 +11,7 @@ and Bazel, kept as a validated smoke test via ubuntu-bazel.yml/
 macos-bazel.yml). Each pins its own copy of shared dependencies --
 CMake via .gitmodules/git submodule commits under thirdparty/, Bazel via
 the commit archive that MODULE.bazel's bazel_dep version resolves to in
-the in-tree registry (bazel/registry/modules/<name>/<version>/source.json). Nothing forces
+the registries .bazelrc lists (modules/<name>/<version>/source.json). Nothing forces
 these to move together, so bumping one without the other is an easy,
 silent way for the two build systems to end up testing different
 upstream code without anyone noticing.
@@ -35,11 +35,13 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODULE_BAZEL = REPO_ROOT / "MODULE.bazel"
-REGISTRY_MODULES = REPO_ROOT / "bazel" / "registry" / "modules"
+BAZELRC = REPO_ROOT / ".bazelrc"
 
 # path under thirdparty/ -> (bazel module name, upstream remote, mode)
 # mode is "exact" (commits must match) or "ancestor" (submodule commit must
@@ -66,16 +68,35 @@ def submodule_commit(path: str) -> str:
     return out.split()[2]
 
 
+def registries() -> list[str]:
+    """The --registry URLs from .bazelrc, in lookup order."""
+    return re.findall(r"^common --registry=(\S+?)/?$", BAZELRC.read_text(), re.M)
+
+
+def registry_source_json(name: str, version: str) -> dict | None:
+    """source.json for name@version from the first registry that has it,
+    as Bazel resolves it."""
+    for registry in registries():
+        url = f"{registry}/modules/{name}/{version}/source.json"
+        try:
+            with urllib.request.urlopen(url) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+    return None
+
+
 def module_bazel_commits() -> dict[str, str]:
     text = MODULE_BAZEL.read_text()
     commits = {}
     for name, version in re.findall(
         r'bazel_dep\(name = "([^"]+)", version = "([^"]+)"', text
     ):
-        source = REGISTRY_MODULES / name / version / "source.json"
-        if not source.is_file():
-            continue  # served by BCR, not pinned to a commit here
-        url = json.loads(source.read_text())["url"]
+        source = registry_source_json(name, version)
+        if source is None:
+            continue
+        url = source["url"]
         commit_match = re.search(r"/archive/([0-9a-f]{40})\.tar\.gz$", url)
         if commit_match:
             commits[name] = commit_match.group(1)
@@ -114,7 +135,7 @@ def main() -> int:
         if bazel_commit is None:
             failures.append(
                 f"{path}: no commit archive found for '{bazel_name}' in "
-                "bazel/registry for the version MODULE.bazel depends on"
+                "the .bazelrc registries for the version MODULE.bazel depends on"
             )
             continue
 
@@ -137,7 +158,7 @@ def main() -> int:
                     f"{path}: MODULE.bazel '{bazel_name}' pin {bazel_commit} does "
                     f"NOT contain submodule pin {sub_commit} -- the bazel-support "
                     "branch has fallen behind the commit CMake tracks. Rebase/"
-                    "update bazel-support and add a registry version for it."
+                    "update bazel-support and add a BCR version for it."
                 )
         else:
             raise AssertionError(f"unknown sync mode {mode!r}")

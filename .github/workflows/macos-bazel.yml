@@ -3,8 +3,8 @@ name: macOS Bazel Build
 # CMake is naja's primary build system -- this workflow keeps the Bazel
 # side (MODULE.bazel, BUILD.bazel throughout the tree) validated. The
 # Bazel build needs no host packages: every library and code generator
-# comes from a Bazel module (BCR, or bazel/registry/ for the few that are
-# not on BCR yet).
+# comes from a Bazel module (BCR, or an open BCR pull request listed in
+# .bazelrc for the few that are not on BCR yet).
 
 on:
   push:

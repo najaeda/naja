@@ -17,6 +17,3 @@ thirdparty/naja-verilog
 thirdparty/cpptrace
 thirdparty/naja-if
 thirdparty/slang
-
-# Registry entries carry BUILD files for other modules (overlays).
-bazel/registry
