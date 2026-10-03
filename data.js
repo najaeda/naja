@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790940696991,
+  "lastUpdate": 1791030108779,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -14790,6 +14790,108 @@ window.BENCHMARK_DATA = {
             "value": 396135.6210822617,
             "unit": "ns/iter",
             "extra": "iterations: 1755\ncpu: 396016.2626780313 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oyvind.harboe@zylin.com",
+            "name": "Øyvind Harboe",
+            "username": "oharboe"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "20d67a27d95ac8a5fcc1a3657646887aa1a4f328",
+          "message": "bazel: plain bazel_deps from BCR, no host tools (#457)\n\n* bazel: plain bazel_deps, no cmake, no host tools\n\nMake naja's Bazel build ready to be a Bazel Central Registry module:\nMODULE.bazel now contains only bazel_deps.\n\n- slang: sv-lang (native Bazel build) instead of building slang's\n  CMake project through rules_foreign_cc.\n- TBB, Boost, fmt, spdlog, bison/m4: the BCR onetbb, boost.*, fmt,\n  spdlog and bison modules instead of pkg-config/python3-config/PATH\n  probing repository rules, vendored tarballs and the vendored spdlog.\n- Python: the rules_python toolchain for libpython and for the Python\n  test runners.\n- cpptrace, tomlplusplus: dropped; nothing in naja's Bazel build uses\n  them directly.\n- NajaVersion.h: the git hash comes from the module version\n  (<release>-<date>-<commit> for registry builds) instead of a\n  repository rule running git.\n- SV frontend tests: resolve the benchmarks path before changing the\n  current directory, instead of baking the workspace's absolute path in\n  with a repository rule.\n- Export FF_scan.lib for downstream test suites.\n\nModules not on BCR yet (naja-if, naja-verilog, and sv-lang at the slang\ncommit naja is developed against) are served by an in-tree registry in\nbazel/registry/ with BCR's layout, listed ahead of BCR in .bazelrc, so\npublishing them is a copy into a BCR pull request. The naja-verilog\nentry's overlay uses the BCR bison/flex modules. The submodule/Bazel pin\ncheck now reads the registry.\n\nBazel CI no longer installs any host packages.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: export TBB and zlib from naja_runtime\n\nBinaries that link naja_runtime and also depend on TBB or zlib\nthemselves (kepler-formal) must use the runtime's single statically\nlinked copy; cc_shared_library refuses to link them twice. Match by\npackage, since BCR zlib's target behind @zlib//:z is in a subpackage.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: sv-lang registry entry depends on boost.regex\n\nslang's WaiverManager uses boost::regex header-only; with the host\ntoolchain it was silently picked up from /usr/include.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: build under hermetic toolchains; keep libpython in dynamic links\n\n- bison 3.8.2.bcr.10 in the in-tree registry: BCR's bcr.9 with gnulib's\n  wrapper headers on -I rather than -isystem. Toolchains that pass libc\n  headers as -isystem (hermetic-llvm) otherwise shadow them and bison\n  fails to compile. naja and naja-verilog ask for it.\n- pyloader: re-own libpython's linker inputs. current_py_cc_libs\n  forwards a toolchain target's CcInfo, which cc_binary's dynamic_deps\n  filtering cannot see, so a binary linking naja_runtime dynamically\n  silently dropped libpython.\n- update_source.py keeps source.json fields it does not compute\n  (mirror_urls, patch_strip).\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: python_libs advertises CcInfo\n\ncc_shared_library's graph aspect only visits rules that advertise\nCcInfo; without provides=[CcInfo] the re-owned libpython was still\ndropped from binaries that link naja_runtime dynamically.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: load rules_cc/rules_shell rules explicitly\n\nBazel 9 removed the native cc_* and sh_* rules; a module consumed\nunder Bazel 9 must load them.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* CLAUDE.md: Bazel invariants, registry workflow and known traps\n\nSo agents (and people) keep the Bazel build BCR-ready: what may go in\nMODULE.bazel, how the in-tree registry works, how to publish to BCR, and\nthe toolchain/linking traps already hit once.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: sv-lang 11.0.0-20260701-b60d729d.bcr.1 builds with gcc 11\n\nslang's BS_thread_pool.hpp has `class SLANG_EXPORT [[nodiscard]]\nthis_thread`; with SLANG_EXPORT expanding to a GNU attribute, gcc 11\nrejects it, which broke the ubuntu-22.04 Bazel CI job. slang is built\nas a static library, and upstream defines SLANG_STATIC_DEFINE for static\nbuilds, which makes SLANG_EXPORT empty. The overlay now does the same.\n\nAlso replace the overlay/MODULE.bazel symlinks with copies: BCR rejects\nsymlinks in registry entries.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: publish-to-bcr templates, BCR maintainers, current presubmit platforms\n\n- .bcr/ holds the publish-to-bcr templates for naja itself, with\n  xtofalex and nanocoh as the module's BCR maintainers.\n- naja-if and naja-verilog list the same maintainers.\n- naja-if, naja-verilog presubmit: debian13, ubuntu2204, ubuntu2404,\n  macos_arm64 on Bazel 8.x and 9.x (debian11 is past end of life).\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: naja-verilog needs only BCR's bison 3.8.2.bcr.9\n\nnaja-verilog builds with the bison already on BCR, so its BCR entry\ndoesn't wait on bison 3.8.2.bcr.10. naja itself still asks for bcr.10\n(needed with the hermetic llvm toolchain), and the highest version in\nthe module graph wins.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* bazel: take unreleased modules from their BCR pull requests\n\nbison 3.8.2.bcr.10, sv-lang 11.0.0-20260701-b60d729d.bcr.1, naja-if and\nnaja-verilog are submitted to BCR, one pull request each\n(bazelbuild/bazel-central-registry#10879, #10882, #10881, #10885).\n.bazelrc lists each PR's commit as a registry ahead of BCR, so the\nin-tree registry goes away; drop a line as its PR merges.\ncheck_submodule_bazel_sync.py reads source.json from those registries.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-03T14:18:57+02:00",
+          "tree_id": "0c79bbd067a4aa67ce30c1a006ecb0334d6105f5",
+          "url": "https://github.com/najaeda/naja/commit/20d67a27d95ac8a5fcc1a3657646887aa1a4f328"
+        },
+        "date": 1791030107516,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 211825.3422818681,
+            "unit": "ns/iter",
+            "extra": "iterations: 3278\ncpu: 211811.4694935937 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 306838.7907180375,
+            "unit": "ns/iter",
+            "extra": "iterations: 2284\ncpu: 306811.33844133094 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1797485.5612745353,
+            "unit": "ns/iter",
+            "extra": "iterations: 408\ncpu: 1794224.3627450985 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17788833.950000085,
+            "unit": "ns/iter",
+            "extra": "iterations: 40\ncpu: 17784515.550000004 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1187.6253826374027,
+            "unit": "ns/iter",
+            "extra": "iterations: 588024\ncpu: 1187.5251554358329 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 11857.02217283538,
+            "unit": "ns/iter",
+            "extra": "iterations: 58946\ncpu: 11853.743901197702 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 175647.14489699906,
+            "unit": "ns/iter",
+            "extra": "iterations: 4272\ncpu: 175634.64208801492 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 472789.29687502695,
+            "unit": "ns/iter",
+            "extra": "iterations: 1472\ncpu: 472749.3892663045 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 424398.45151513757,
+            "unit": "ns/iter",
+            "extra": "iterations: 1650\ncpu: 424321.089696969 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 349424.73668492254,
+            "unit": "ns/iter",
+            "extra": "iterations: 2009\ncpu: 349398.99502239964 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 67313974.77778323,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 67305519.1111111 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 20817.902608798708,
+            "unit": "ns/iter",
+            "extra": "iterations: 33617\ncpu: 20816.712734628316 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 396744.48868768755,
+            "unit": "ns/iter",
+            "extra": "iterations: 1768\ncpu: 396682.50791856303 ns\nthreads: 1"
           }
         ]
       }
