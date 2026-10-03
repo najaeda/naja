@@ -143,6 +143,74 @@ Logs are under `build/pulp-lowering-fixes/`. The initial survey table above is
 retained as the baseline; neither design has been promoted to the passing CI
 tier.
 
+## Follow-up: expanded elaboration tier (2026-10-03)
+
+Rebuilt Naja `20d67a27` in the existing macOS arm64 Release build, using
+Python 3.14 and the same checksum-verified v0.1.0 archive. The workflow now
+adds `ita.default`, `cvfpu.full`, and `cva6.default` alongside `mempool.minpool` in the strict
+elaboration-only tier, with a 240-second limit per case:
+
+| Target | Elaboration outcome | Wall-clock seconds |
+| --- | --- | ---: |
+| `mempool.minpool` | pass | 24.66 |
+| `ita.default` | pass | 52.00 |
+| `cvfpu.full` | pass | 11.03 |
+| `cva6.default` | pass | 27.98 |
+
+Each passing case has a successful diagnostics summary, no error/fatal or
+Naja unsupported diagnostics, the expected top, and a nonempty top interface.
+These measurements include process startup and cleanup; other local work was
+running, so they are not isolated performance measurements. This tier does
+not establish structural dump, lint, simulation, or equivalence success.
+
+`snitch_cluster.minimal` completes in Release but fails strict elaboration
+after about 50 seconds on register aggregate types and sequential lowering
+in `snitch_cluster_peripheral`. `spatz.default` fails after about 75 seconds
+on an unresolved function-call RHS in `spatz_vfu.sv:1522` (`always_comb`).
+O-POPE and Serial Link also remain failures
+when rechecked with the refreshed Debug build. They are not promoted.
+
+Release reports are under `build/pulp-expansion-release/`; the additional
+failure reports are under `build/pulp-expansion-extra/`. CI writes the
+elaboration tier into `build/pulp-benchmarks/elaboration/`, so its aggregate
+summary no longer overwrites the complete-dump tier's summary.
+
+## ITA upstream functional validation (2026-10-03)
+
+The experimental `ita_simulation.py` runner reuses upstream ITA revision
+`ba96519becce195d64e85eb9a5302e8a1d5487e7`, matching the benchmark release,
+and its golden-vector generator and seven-phase testbench. Local validation
+used Verilator 5.052, Naja `20d67a27` Release, Python 3.14, NumPy 2.5.3, and
+ONNX 1.23.1. Vectors use seed 0, dimensions S/E/P/F=64, one head, bias,
+identity activation, and randomized stalls (Verilator seed 1).
+
+The original RTL and Naja netlist each completed all **2,048 output
+transactions**, with **identical phase, output data, and timestamps**. This
+is finite simulation evidence of preserved behavior, not formal equivalence.
+Both also reported the **same six mismatches against upstream golden values**.
+The first occurs in phase 3 at 4622.6 ns: actual
+`80131f1db08af3ec80807f753c7f80dd`, expected
+`80131f1db08af3ec80807f753c7f80ef`. The cause of this shared baseline mismatch
+has not been established; the runner returns failure even when RTL and
+netlist traces agree. It is not promoted to a green CI gate.
+
+The synthesis SRAM stub is replaced by the upstream behavioral model on the
+RTL side; the same model is attached to the generated netlist's explicit
+SRAM blackbox. Its shape is checked (256 words, 416 bits, two ports, one-cycle
+latency). The generated logic is otherwise unchanged. The testbench adapter
+works around Verilator's packed-array `$fscanf` C++ generation issue using
+scalar temporaries and checks successful reads. Golden comparisons remain
+intact, with complete transaction counts required.
+
+Flat optimized Verilation hit an internal compiler fault; flat `-O0`
+exceeded a 300-second limit. Hierarchical Verilation of the four large
+datapaths succeeded, and the generated simulation completed in about
+2.6 seconds. This is now the runner's default compile strategy.
+
+Reports and logs are under `build/ita-simulation/`, including
+`functional-comparison.json`, `original-complete-run.log`, and
+`generated-complete-run.log`. See the README for the repeatable command.
+
 ## Reproduction and interpretation
 
 See [README.md](README.md#pulp-prepared-eda-benchmarks) for the commands and

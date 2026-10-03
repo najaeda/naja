@@ -68,6 +68,23 @@ class PulpBenchmarksTest(unittest.TestCase):
                 self.assertEqual(1, run.call_args.kwargs["timeout"])
                 self.assertEqual(source, run.call_args.kwargs["cwd"])
 
+    def test_dump_timeout_preserves_completed_statistics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "design/variants/default"
+            source.mkdir(parents=True)
+            (source / "filelist.f").write_text("input.sv\n")
+            artifacts = root / "artifacts"
+
+            def execute(command, **kwargs):
+                (artifacts / "design-stats.json").write_text('{"top_terms": 5}')
+                raise subprocess.TimeoutExpired(command, 1)
+
+            with patch.object(pulp.subprocess, "run", side_effect=execute):
+                result = pulp.run_target(root, "design.default", "top", artifacts, root, 1)
+            self.assertEqual("timeout", result["status"])
+            self.assertEqual(5, result["design_stats"]["top_terms"])
+
     def test_lint_failure_is_not_a_load_dump_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

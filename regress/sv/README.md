@@ -582,7 +582,20 @@ The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
 configuration, runs the small tier and lints each complete generated netlist
 with Naja's `najaeda_primitives.v` simulation models, copied into each case's
 artifact directory. Both local and Docker lint use this copy; Docker mounts
-the artifact directory once for both inputs. Manual dispatch with `survey=true`
+the artifact directory once for both inputs. A second tier elaborates
+`mempool.minpool`, `ita.default`, `cvfpu.full`, and `cva6.default`, with a 240-second limit per
+case and the same strict diagnostic checks. This tier does not dump or lint
+netlists; its artifacts and aggregate summary live in
+`build/pulp-benchmarks/elaboration/`, preserving the complete-dump summary.
+To reproduce it locally:
+
+```sh
+python3 regress/sv/pulp_benchmarks.py \
+  --case mempool.minpool --case ita.default --case cvfpu.full --case cva6.default \
+  --elaboration-only --timeout 240 --output build/pulp-benchmarks/elaboration
+```
+
+Manual dispatch with `survey=true`
 attempts all 23 variants. It always uploads diagnostics, commands, counts, netlists, and
 summaries. This is a frontend load/dump and syntax/linking regression, **not a
 functional equivalence or simulation test**. No technology library is needed.
@@ -605,3 +618,82 @@ source selection reproducible.
 
 The initial [23-variant survey and CI selection](PULP_RESULTS.md) records the
 local build, timing limits, diagnostics, and remaining verification limits.
+
+### ITA upstream functional validation (experimental)
+
+`ita_simulation.py` reuses the upstream ITA test generator and seven-phase
+scoreboard at the exact revision used by the prepared release. It runs both
+the prepared RTL and the Naja structural dump against the same seed-0,
+64-by-64 attention/feedforward vectors, with bias and randomized stalls.
+This is currently a diagnostic workflow, not a passing CI gate: local
+Verilator 5.052 simulation of the original RTL already reports golden-vector
+mismatches. A passing elaboration must not be interpreted as passing this test.
+
+```sh
+python3 -m venv /tmp/ita-vectors
+/tmp/ita-vectors/bin/pip install numpy onnx
+python3 regress/sv/ita_simulation.py \
+  --archive /tmp/pulp-benchmarks-v0.1.0.tar.gz \
+  --generator-python /tmp/ita-vectors/bin/python \
+  --najaeda-path build/test/najaeda
+```
+
+Use the interpreter matching the compiled Naja extension for the runner.
+Verilator with `--binary --timing` support and a C++ toolchain must be on PATH.
+`--no-stalls`, `--seed`, `--jobs`, `--timeout` (per subprocess), and
+`--verilator-opt` support diagnosis. By default,
+`--hierarchical` with Verilator's default optimizations compiles the large generated controller,
+dot-product, requantizer, and softmax modules as separate blocks; this avoids
+flattening their full combined simulation model during Verilation.
+The local optimized flat build hit an internal Verilator fault, and a flat
+`-O0` build exceeded 300 seconds. `--no-hierarchical` allows reproducing these
+compiler issues. Failures and timeouts return nonzero.
+Hierarchical builds use one build job to avoid a Verilator 5.052 recursive
+makefile regeneration race; `--jobs` controls the original-RTL build.
+Flat and hierarchical generated models use separate build directories.
+
+All downloaded sources are commit-pinned and SHA-256 checked. The original
+simulation replaces the synthesis SRAM stub with the matching upstream
+behavioral SRAM. The generated simulation attaches that same model to its
+otherwise empty SRAM leaf, checking the pinned variant's exact port shape;
+the raw dump is preserved. This validates the surrounding logic with an
+external memory model, not Naja lowering of SRAM behavior.
+
+The testbench adapter reads packed-array `$fscanf` targets through scalar
+temporaries to avoid invalid Verilator-generated C++, checks scan success,
+and requires all eight groups of 256 output transactions (phase 3 has two
+groups). Like upstream, it continues checking after a golden mismatch;
+the runner rejects any log containing a mismatch. It also records all 2,048
+output transactions and compares their phase, value, and time between RTL
+and netlist. That comparison is reported separately and cannot override a
+failed golden check. It does not replace expected outputs with RTL results.
+Simulation warnings are retained in logs rather than made
+fatal; this runner is separate from strict netlist lint.
+
+Artifacts, commands, timings, and stage outcomes are written under
+`build/ita-simulation/`, including `summary.json`, `original-run.log`, and
+`generated-build.log`. Both simulations must pass for overall success.
+
+### PULP job report
+
+The PULP workflow publishes a GitHub Actions job summary and includes `report.md`
+in its `pulp-sv-regress` artifact, even when a regression fails. Each selected
+case reports its result, load/statistics/dump/lint timings, and total worker plus
+lint time. Unselected release variants and unavailable results are explicit.
+The larger-design elaboration tier also runs after a smoke-tier failure.
+
+The benchmark worker uses the najaeda `count_child_instances()`, `count_terms()`,
+`count_bit_terms()`, `count_nets()`, and `count_bit_nets()` APIs on the elaborated
+top. Counts describe the top model, not flattened hierarchy or mapped cell area.
+Statistics are saved before dumping, so a later dump failure can retain them.
+
+Regenerate the report from existing JSON without loading najaeda:
+
+```bash
+python3 regress/sv/pulp_report.py --root build/pulp-benchmarks
+```
+
+An optional `--functional build/ita-simulation/summary.json` includes the
+experimental ITA upstream scoreboard and RTL/netlist trace comparison as
+separate results. The workflow does not run that experimental simulation by
+default. Setting `GITHUB_STEP_SUMMARY` appends the report to the GitHub job page.

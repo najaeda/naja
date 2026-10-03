@@ -66,10 +66,14 @@ def worker(top_name, artifacts, dump_netlist):
     validate_diagnostics((artifacts / "diagnostics.log").read_text())
     stats = dict(top=top.get_name(), top_terms=top.count_terms(),
                  top_nets=top.count_nets(), top_instances=top.count_child_instances(),
+                 top_bit_terms=top.count_bit_terms(), top_bit_nets=top.count_bit_nets(),
                  load_seconds=loaded - start)
+    stats["stats_seconds"] = time.monotonic() - loaded
+    (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     if dump_netlist:
+        dumping = time.monotonic()
         top.dump_verilog(str(artifacts / "netlist.v"))
-        stats["dump_seconds"] = time.monotonic() - loaded
+        stats["dump_seconds"] = time.monotonic() - dumping
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     netlist.reset()
 
@@ -103,8 +107,10 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
         except subprocess.TimeoutExpired:
             record["status"] = "timeout"
     record["seconds"] = round(time.monotonic() - start, 3)
+    stats = artifacts / "design-stats.json"
+    if stats.is_file():
+        record["design_stats"] = json.loads(stats.read_text())
     if record["status"] == "passed":
-        stats = artifacts / "design-stats.json"
         dump = artifacts / "netlist.v"
         if not stats.is_file() or (dump_netlist and (not dump.is_file() or dump.stat().st_size == 0)):
             record["status"] = "failed"
@@ -185,7 +191,12 @@ def main():
         unknown = set(selected) - available.keys()
         if unknown:
             parser.error(f"Unknown cases: {sorted(unknown)}; available: {list(available)}")
-        summary = dict(release=VERSION, url=URL, sha256=SHA256, results=[])
+        summary = dict(release=VERSION, url=URL, sha256=SHA256,
+                       selected=selected, inventory=list(available),
+                       mode=("elaboration" if args.elaboration_only else
+                             "load + dump + lint" if args.lint_runner else "load + dump"),
+                       results=[])
+        (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
         for name in selected:
             result = run_target(package, name, available[name], args.output / name,
                                 args.najaeda_path.resolve(), args.timeout, args.lint_runner,
