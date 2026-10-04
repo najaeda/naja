@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791105298666,
+  "lastUpdate": 1791149564992,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -15096,6 +15096,108 @@ window.BENCHMARK_DATA = {
             "value": 224866.63096632186,
             "unit": "ns/iter",
             "extra": "iterations: 3436\ncpu: 204557.5488940972 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "noam.chn1@gmail.com",
+            "name": "Noam Cohen",
+            "username": "nanocoh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "931afedebbd6269bb5e1f27a2cc2cc1a73dfc37f",
+          "message": "Do not infer a memory for an array written from several always blocks (#455)\n\n* Model divmod outputs with generic truth tables\n\n* Add Python sequential model API\n\n* Add instance-parameterized truth tables\n\n* Share Naja runtime with Python extension in Bazel\n\n* Fix Bazel Python test runtime loading\n\n* Link TBB into Bazel shared runtime\n\n* Keep mixed FF/latch Liberty cells loadable\n\n* Fix Liberty state cells getting constant truth tables\n\n* Preserve timing for opaque Liberty state cells\n\n* test: improve Naja API coverage\n\n* test: cover remaining modeling branches\n\n* Add shared Python runtime SDK and safe parameter lifetimes\n\n* Keep the upstream 0.7.26 version for the SDK provider\n\nThe fix7 merge carried its 0.7.24.dev0 version onto main. Use the\nversion from main instead so the provider built from this source\nmatches the release it is based on.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>\n\n* Do not infer a memory for an array written from several always blocks\n\nMemory inference matched one sequential block per array. When an unpacked\narray was written by one always block per element, as a generate loop\nproduces, the first block became the memory's write port and the others\nwere skipped as already inferred. The generic sequential lowering then\nbuilt a flop for each skipped block, and that flop drove the memory's read\ndata net a second time. Every cone through such a net was unverifiable.\n\nCount the sequential blocks that write each candidate array first. An\narray with more than one writer block is left to the generic sequential\nlowering for all of its writers, with a warning naming the array and the\nnumber of blocks. Arrays with a single writer block are unchanged.\n\nReported in keplertech/kepler-formal#250 on Systolic_MAC_with_DFT, whose\nself compare covered 15 of 24 outputs. It now proves 24 of 24.\n\n* Reduce the Python shared-runtime SDK to the shipped headers\n\nInstall the headers matching the wheel's libraries under najaeda/sdk/include\nand keep the Windows export change. A native consumer such as kepler-formal\nresolves the installed libraries, validates the build and swaps the DNL\nsingleton itself, so remove sdk.py, the CMake package and build identity\nfiles, the _C_API capsule, NLUniverse::getRuntimeIdentity, DNL::exchange\nand their tests.\n\n---------\n\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>",
+          "timestamp": "2026-10-04T23:30:32+02:00",
+          "tree_id": "7d9210b05222c5974e42d11db67a0c59a0f0f9de",
+          "url": "https://github.com/najaeda/naja/commit/931afedebbd6269bb5e1f27a2cc2cc1a73dfc37f"
+        },
+        "date": 1791149563534,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 163102.02304797605,
+            "unit": "ns/iter",
+            "extra": "iterations: 4252\ncpu: 163096.60112888052 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 226854.7734426189,
+            "unit": "ns/iter",
+            "extra": "iterations: 3050\ncpu: 226816.75081967216 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1312736.3867925112,
+            "unit": "ns/iter",
+            "extra": "iterations: 530\ncpu: 1312671.8471698111 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 13260369.566038026,
+            "unit": "ns/iter",
+            "extra": "iterations: 53\ncpu: 13259292.622641511 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 996.0229662617091,
+            "unit": "ns/iter",
+            "extra": "iterations: 701725\ncpu: 995.8511339912355 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 9808.353570627787,
+            "unit": "ns/iter",
+            "extra": "iterations: 71304\ncpu: 9807.798622798147 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 105046.29012627267,
+            "unit": "ns/iter",
+            "extra": "iterations: 6573\ncpu: 105026.41776966372 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 328000.34509985807,
+            "unit": "ns/iter",
+            "extra": "iterations: 2153\ncpu: 327917.0176497909 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 293878.0443514588,
+            "unit": "ns/iter",
+            "extra": "iterations: 2390\ncpu: 293776.8397489544 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 244789.4808495748,
+            "unit": "ns/iter",
+            "extra": "iterations: 2872\ncpu: 244792.7409470753 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 52600292.69999791,
+            "unit": "ns/iter",
+            "extra": "iterations: 10\ncpu: 52595257.09999995 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 16801.147886289684,
+            "unit": "ns/iter",
+            "extra": "iterations: 40876\ncpu: 16800.74909482336 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 298749.04282590834,
+            "unit": "ns/iter",
+            "extra": "iterations: 2335\ncpu: 298632.3957173741 ns\nthreads: 1"
           }
         ]
       }
