@@ -5,6 +5,58 @@ SPDX-License-Identifier: Apache-2.0
 
 # PULP EDA benchmark frontend survey
 
+## C910 sequential lowering follow-up (2026-10-04)
+
+The working-tree fix on top of `3989a4b1` addresses actual lowering errors
+behind the mixed-assignment diagnostics. Whole-vector replay was emitting
+flops for bits that the process never wrote, and nested reset writes could
+emit duplicate drivers. The MMU's `lsu_data_flop[58:0]` consequently also drove
+bits `[63:59]`, which belong to a separate RTL process. AXI `id_queue` element
+and field resets similarly overlapped. The frontend now masks emitted storage
+to the process's assigned bits and merges nested targets before replay.
+The mask also applies to direct and blocking-scheduling replay, with loop
+selections resolved in their iteration context.
+
+Simulation exposed a second issue in conditional multi-assignment lowering:
+mixed zero/one asynchronous resets were implemented as data muxes. These now
+use separate reset/set cells, preserving asynchronous behavior, reset polarity,
+and clock edge. The focused regression checks one driver per output bit and
+compares dumped Verilog with the original RTL for both clock edges and reset
+polarities, including nested partial writes, procedural loops, blocking replay,
+reset assertions between clock edges, and X-valued data.
+
+The final local run loads/dumps C910 in 16.51 seconds and completes Verilator
+5.052 lint in 142.62 seconds. The previous **five `BLKANDNBLK` errors and six
+`MULTIDRIVEN` warnings are gone**. Four `UNOPTFLAT` warnings remain around AXI response/ready paths through the
+zero-memory adapter, demux, and burst unwrap. No lint suppression was added;
+C910 remains outside the passing strict-lint tier.
+
+A separate diagnostic lint of the unmodified source RTL also reports
+`UNOPTFLAT` through the zero-memory response, burst-unwrap `b_cnt_err`, and
+AXI arbitration path. It reports one cycle warning rather than the generated
+netlist's four; this establishes a source-side warning in the same region,
+not bit-level equivalence of all reported cycles. That diagnostic run uses
+`-Wno-fatal` to collect upstream warnings and is **not** a strict-lint pass.
+Its log is under `build/pulp-c910-original-lint/`.
+
+Further diagnostic runs distinguish packed dependency tracking from a change
+in logic. Adding `/* verilator split_var */` to internal packed wires alone
+leaves all four `UNOPTFLAT` warnings. Adding the annotation to packed child
+module ports as well eliminates them. Public top-level ports are excluded:
+Verilator cannot split them and otherwise emits five `SPLITVAR` warnings.
+The annotated copy completes strict lint with return code 0 in 116.86 seconds,
+using the original runner flags and no additional warning suppression. This
+provides evidence that packed-port dependency tracking contributes to these
+reports; it is not a functional equivalence proof. The annotations are confined
+to diagnostic artifacts, so the ordinary dump still reports four warnings.
+Commands and the successful result are recorded under
+`build/pulp-c910-split-ports-diagnostic/strict-summary.json`.
+
+Validation passes all 1,165 frontend tests, all four existing PULP smoke designs,
+and the Sphinx HTML build. Final C910 artifacts are under
+`build/pulp-c910-sequential-verified/`; smoke artifacts are under
+`build/pulp-c910-fix-smoke/`.
+
 ## C910 division/remainder follow-up (2026-10-04)
 
 The working-tree fix on top of `5fb0566a` corrects two independent issues:

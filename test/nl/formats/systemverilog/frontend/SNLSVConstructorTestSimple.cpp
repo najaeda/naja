@@ -24531,6 +24531,145 @@ endmodule
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, sequentialPartialWritesHaveSingleDriver) {
+  for (bool negativeClock : {false, true}) {
+    for (bool activeHighReset : {false, true}) {
+      const auto name = std::string("partial_sequential_drivers_") +
+        (negativeClock ? "neg_" : "pos_") + (activeHighReset ? "high" : "low");
+      SCOPED_TRACE(name);
+      auto replaceAll = [](std::string& text, const std::string& from, const std::string& to) {
+        size_t pos = 0;
+        while ((pos = text.find(from, pos)) != std::string::npos) {
+          text.replace(pos, from.size(), to);
+          pos += to.size();
+        }
+      };
+      std::string source = R"(
+module partial_sequential_drivers(
+  input logic clk, rst_n, en, sel,
+  input logic [7:0] d,
+  output logic [7:0] q, plain, scheduled,
+  output logic [3:0] echo_o,
+  output logic [1:0][3:0] entries
+);
+  always @(posedge clk or negedge rst_n)
+    if (!rst_n) q[5:0] <= '0;
+    else if (en) q[5:0] <= d[5:0];
+    else if (sel) q[5:0] <= {q[5:3], d[2:0]};
+  always @(posedge clk or negedge rst_n)
+    if (!rst_n) q[7:6] <= '0;
+    else if (en) q[7:6] <= d[7:6];
+  always @(posedge clk) begin
+    plain[2:0] <= d[2:0];
+    plain[5:3] <= d[5:3];
+  end
+  always @(posedge clk) plain[7:6] <= d[7:6];
+  always @(posedge clk) begin
+    for (int j = 0; j < 4; j++) scheduled[j] = d[j];
+    echo_o <= scheduled[3:0];
+  end
+  always @(posedge clk) scheduled[7:4] <= d[7:4];
+  for (genvar i = 0; i < 2; i++) begin
+    always @(posedge clk or negedge rst_n)
+      if (!rst_n) begin
+        entries[i] <= '0;
+        entries[i][0] <= 1'b1;
+      end else entries[i] <= d[i*4+:4];
+  end
+endmodule
+)";
+      replaceAll(source, "partial_sequential_drivers", name);
+      if (negativeClock) replaceAll(source, "posedge clk", "negedge clk");
+      if (activeHighReset) {
+        replaceAll(source, "negedge rst_n", "posedge rst_n");
+        replaceAll(source, "!rst_n", "rst_n");
+      }
+      const auto svPath = writeSVTestFile(name, source);
+      SNLSVConstructor constructor(library_);
+      constructor.construct(svPath);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (const auto* name : {"q", "entries", "plain", "scheduled", "echo_o"}) {
+        auto* net = top->getNet(NLName(name));
+        ASSERT_NE(nullptr, net);
+        for (auto* bit : net->getBits()) {
+          size_t drivers = 0;
+          for (auto* term : bit->getInstTerms()) {
+            if (term->getDirection() == SNLTerm::Direction::Output) ++drivers;
+          }
+          EXPECT_EQ(1u, drivers) << name << " " << bit->getDescription();
+        }
+      }
+      const auto dumpedPath = dumpTopAndGetVerilogPath(top, name + "_dump");
+      if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+          std::system("command -v vvp >/dev/null 2>&1") != 0) {
+        GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+      }
+      auto reference = readTextFile(svPath);
+      reference.replace(reference.find(name), name.size(), "reference");
+      const auto tbPath = svPath.parent_path() / "tb.sv";
+      std::ofstream tb(tbPath);
+      std::string bench = R"(
+module tb;
+  reg clk = 0, rst_n = 1, en = 0, sel = 0;
+  reg [7:0] d = 0;
+  wire [7:0] q, entries, plain, scheduled, expected_q, expected_entries;
+  wire [7:0] expected_plain, expected_scheduled;
+  wire [3:0] echo_o, expected_echo;
+  partial_sequential_drivers dut(.*);
+  reference ref_dut(.clk(clk), .rst_n(rst_n), .en(en), .sel(sel), .d(d),
+                   .q(expected_q), .entries(expected_entries), .plain(expected_plain),
+                   .scheduled(expected_scheduled), .echo_o(expected_echo));
+  task check;
+    begin
+      #1;
+      if (q !== expected_q || entries !== expected_entries ||
+          plain !== expected_plain || scheduled !== expected_scheduled || echo_o !== expected_echo)
+        $fatal(1, "partial write mismatch q=%h expected=%h entries=%h expected=%h",
+               q, expected_q, entries, expected_entries);
+    end
+  endtask
+  integer i;
+  initial begin
+    #1; rst_n = 0; check;
+    rst_n = 1;
+    for (i = 0; i < 32; i = i + 1) begin
+      d = i * 13; en = i & 1; sel = (i >> 1) & 1;
+      #1; clk = 1; check; clk = 0; check;
+    end
+    rst_n = 0; check;
+    rst_n = 1; d = 'x; en = 1; #1; clk = 1; check;
+    clk = 0; rst_n = 0; check;
+    $finish;
+  end
+endmodule
+)";
+      replaceAll(bench, "partial_sequential_drivers", name);
+      if (negativeClock) {
+        replaceAll(bench, "clk = 0", "clk = IDLE");
+        replaceAll(bench, "clk = 1", "clk = 0");
+        replaceAll(bench, "clk = IDLE", "clk = 1");
+      }
+      if (activeHighReset) {
+        replaceAll(bench, "rst_n = 0", "rst_n = ACTIVE");
+        replaceAll(bench, "rst_n = 1", "rst_n = 0");
+        replaceAll(bench, "rst_n = ACTIVE", "rst_n = 1");
+      }
+      tb << reference << bench;
+      tb.close();
+      auto quote = [](const std::filesystem::path& path) {
+        return "\"" + path.string() + "\"";
+      };
+      const auto executable = svPath.parent_path() / "simulation.vvp";
+      const auto command = "iverilog -g2012 -s tb -o " + quote(executable) +
+        " " + quote(tbPath) + " " + quote(dumpedPath) +
+        " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+      ASSERT_EQ(0, std::system(command.c_str()));
+      ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, divModDumpFourStateSimulation) {
   for (auto width: {1u, 4u, 40u}) {
     for (bool isSigned: {false, true}) {

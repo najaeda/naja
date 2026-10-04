@@ -28923,13 +28923,60 @@ endmodule
       return false; // LCOV_EXCL_LINE
     }
 
-    std::vector<bool> makeCombinationalAssignedBitMask(
+    std::vector<bool> makeProceduralAssignedBitMask(
       SNLDesign* design,
       const Statement& stmt,
       const Expression& lhsExpr,
       const std::vector<SNLBitNet*>& lhsBits,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
       std::vector<bool> assignedMask(lhsBits.size(), false);
+      const auto* current = unwrapStatement(stmt);
+      auto mergeStatement = [&](const Statement& child) {
+        const auto childMask = makeProceduralAssignedBitMask(
+          design, child, lhsExpr, lhsBits, ignoredSymbols);
+        for (size_t bit = 0; bit < assignedMask.size(); ++bit) {
+          assignedMask[bit] = assignedMask[bit] || childMask[bit];
+        }
+      };
+      // Resolve loop-dependent selections while the iteration context is live.
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        std::string reason;
+        if (!unrollForLoopStatement(loop, [&]() {
+              mergeStatement(loop.body);
+              return true;
+            }, reason)) {
+          std::fill(assignedMask.begin(), assignedMask.end(), true);
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* child : current->as<slang::ast::StatementList>().list) {
+          if (child) mergeStatement(*child);
+          if (isCurrentForLoopBreakRequested()) break;
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        bool value = false;
+        if (conditional.conditions.size() == 1 && conditional.conditions[0].expr &&
+            !conditional.conditions[0].pattern &&
+            tryEvaluateConstantConditionBit(*conditional.conditions[0].expr, value)) {
+          if (value) mergeStatement(conditional.ifTrue);
+          else if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
+        } else {
+          mergeStatement(conditional.ifTrue);
+          if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) mergeStatement(*item.stmt);
+        if (caseStmt.defaultCase) mergeStatement(*caseStmt.defaultCase);
+        return assignedMask;
+      }
       std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
       lhsBitOffsets.reserve(lhsBits.size());
       for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
@@ -28975,13 +29022,18 @@ endmodule
           sameLhs(assignedExpr, &lhsExpr) ||
           sameLhs(trackedAssignedExpr, &lhsExpr) ||
           isTrackedSelectionSubLhsOf(assignedExpr, &lhsExpr);
-        if (!targetsTrackedLhs) {
+        if (!targetsTrackedLhs &&
+            stripConversions(*assignedExpr)->kind != slang::ast::ExpressionKind::Concatenation &&
+            stripConversions(lhsExpr)->kind != slang::ast::ExpressionKind::Concatenation) {
           continue;
         }
 
         if (hasDynamicSelectionInLHS(*assignedExpr)) {
-          std::fill(assignedMask.begin(), assignedMask.end(), true);
-          return assignedMask;
+          if (targetsTrackedLhs) {
+            std::fill(assignedMask.begin(), assignedMask.end(), true);
+            return assignedMask;
+          }
+          continue;
         }
 
         std::vector<SNLBitNet*> assignedBits;
@@ -29148,7 +29200,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeCombinationalLHSScopeName(*lhsExpr, lhsBits.size()));
 #endif
-          const auto assignedBitMask = makeCombinationalAssignedBitMask(
+          const auto assignedBitMask = makeProceduralAssignedBitMask(
             design,
             stmt,
             *lhsExpr,
@@ -29248,6 +29300,37 @@ endmodule
         carryBits,
         sourceRange);
       return !incrementerBits.empty();
+    }
+
+    void restrictSequentialAssignmentBits(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::vector<SNLBitNet*>* resetBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
+      // Whole-symbol replay needs feedback for untouched bits, but must not
+      // create storage driving bits that this process never assigns.
+      auto* savedReplayEnv = activeProceduralReplayEnv_;
+      activeProceduralReplayEnv_ = nullptr;
+      const auto replayGuard = slang::ScopeGuard([&]() {
+        activeProceduralReplayEnv_ = savedReplayEnv;
+      });
+      const auto assignedMask = makeProceduralAssignedBitMask(
+        design, stmt, lhsExpr, lhsBits, ignoredSymbols);
+      size_t assigned = 0;
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        if (assignedMask[bit]) {
+          lhsBits[assigned] = lhsBits[bit];
+          dataBits[assigned] = dataBits[bit];
+          if (resetBits) (*resetBits)[assigned] = (*resetBits)[bit];
+          ++assigned;
+        }
+      }
+      lhsBits.resize(assigned);
+      dataBits.resize(assigned);
+      if (resetBits) resetBits->resize(assigned);
     }
 
     bool emitSequentialDataAssignment(
@@ -29437,6 +29520,11 @@ endmodule
           failureReason = "sequential procedural scheduling replay failed: " + failureReason; // LCOV_EXCL_LINE
           return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: replay helper failure propagation.
         }
+        restrictSequentialAssignmentBits(
+          design, stmt, *lhsExpr, lhsBits, dataBits, nullptr, ignoredSymbols);
+        if (lhsBits.empty()) {
+          continue;
+        }
         if (!emitSequentialDataAssignment(
               design,
               *lhsExpr,
@@ -29473,6 +29561,39 @@ endmodule
           "sequential conditional assignment width mismatch for ",
           describeLHSForDiagnostics(lhsExpr));
         return false;
+      }
+
+      // Mixed constant reset values require separate reset and set cells.
+      // A data-input mux would lose the asynchronous reset event.
+      if (asyncResetEventExpr && asyncResetEventEdge && lhsBits.size() > 1) {
+        auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        const bool allConstant = std::all_of(resetBits.begin(), resetBits.end(),
+          [&](auto* bit) { return bit == constZero || bit == constOne; });
+        if (allConstant &&
+            std::any_of(resetBits.begin(), resetBits.end(),
+              [&](auto* bit) { return bit != resetBits.front(); })) {
+          for (auto* resetValue : {constZero, constOne}) {
+            std::vector<SNLBitNet*> selectedLhs;
+            std::vector<SNLBitNet*> selectedData;
+            std::vector<SNLBitNet*> selectedReset;
+            for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+              if (resetBits[bit] == resetValue) {
+                selectedLhs.push_back(lhsBits[bit]);
+                selectedData.push_back(dataBits[bit]);
+                selectedReset.push_back(resetValue);
+              }
+            }
+            if (!emitSequentialConditionalAssignment(
+                  design, lhsExpr, lhsNet, selectedLhs, std::move(selectedData),
+                  selectedReset, resetConditionExpr, clkNet, clockEdge,
+                  asyncResetEventExpr, asyncResetEventEdge, blockSourceRange,
+                  failureReason)) {
+              return false;
+            }
+          }
+          return true;
+        }
       }
 
       const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
@@ -29523,6 +29644,12 @@ endmodule
                 *asyncResetEventExpr)) {
             asyncResetControlNet = candidateResetNet;
             useAsyncResetDFFRN = true;
+          } else if (*asyncResetEventEdge == slang::ast::EdgeKind::NegEdge &&
+                     resetToOne && NLDB0::getDFFS() &&
+                     isActiveLowResetConditionForSignal(
+                       resetConditionExpr, *asyncResetEventExpr)) {
+            asyncResetControlNet = createNotBitGate(design, candidateResetNet, resetSourceRange);
+            useAsyncResetDFFS = true;
           } else if (
             *asyncResetEventEdge == slang::ast::EdgeKind::PosEdge &&
             isActiveHighResetConditionForSignal(
@@ -29571,6 +29698,11 @@ endmodule
           // LCOV_EXCL_STOP
         }
         dataBits = std::move(rstBits);
+      }
+
+      if (clockEdge == slang::ast::EdgeKind::NegEdge &&
+          (useAsyncResetDFFRN || useAsyncResetDFFR || useAsyncResetDFFS)) {
+        clkNet = createNotBitGate(design, clkNet, blockSourceRange);
       }
 
       bool emittedVectorSequential = false;
@@ -30881,6 +31013,13 @@ endmodule
         }
       }
 
+      // Replay overlapping targets once, preserving source-order priority.
+      std::vector<const Expression*> trackedLHSExpressions;
+      for (const auto* lhsExpr : conditionalLHSExpressions) {
+        appendTrackedSelectionLHS(lhsExpr, trackedLHSExpressions);
+      }
+      conditionalLHSExpressions = std::move(trackedLHSExpressions);
+
       SequentialStatementAssignmentCache assignmentCache;
       for (const auto* lhsExpr : conditionalLHSExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
@@ -30941,6 +31080,11 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
 
+        restrictSequentialAssignmentBits(
+          design, *current, *lhsExpr, lhsBits, dataBits, &resetBits, ignoredSymbols);
+        if (lhsBits.empty()) {
+          continue;
+        }
         if (!emitSequentialConditionalAssignment(
               design,
               *lhsExpr,
@@ -31218,6 +31362,8 @@ endmodule
           return false;
         }
 
+        restrictSequentialAssignmentBits(
+          design, *current, *lhsExpr, lhsBits, dataBits, nullptr, ignoredSymbols);
         for (size_t i = 0; i < lhsBits.size(); ++i) {
           if (clockEdge == slang::ast::EdgeKind::NegEdge) {
             createDFFNInstance(

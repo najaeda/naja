@@ -67,6 +67,13 @@ Combinational procedural lowering supports compound shifts (``<<=``, ``>>=``,
 right-shift behavior. Blocking assignments earlier in the block are visible to
 subsequent shifts.
 
+Sequential multi-assignment lowering preserves the bits written by each process:
+replaying a whole vector to resolve overlapping assignments does not create
+flops for untouched bits. Nested writes to the same target retain source-order
+priority and share one driver per bit. In the conditional multi-assignment path,
+mixed binary asynchronous reset values use separate reset/set cells, including
+active-low controls and negative-edge clocks, rather than a clocked data mux.
+
 Fixed-size streaming assignment targets in ``always_comb`` support both stream
 directions, explicit slice sizes (including partial slices), nested streams,
 multiple targets, and fixed unpacked arrays. A wider source is consumed from its
