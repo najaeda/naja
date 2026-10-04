@@ -8,7 +8,7 @@ set(SOURCES
 
 SET(HEADERS SNLLibertyConstructor.h)
 
-add_library(naja_snl_liberty STATIC ${SOURCES})
+add_library(naja_snl_liberty ${NAJA_EMBEDDED_LIBRARY_TYPE} ${SOURCES})
 set_property(TARGET naja_snl_liberty PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(naja_snl_liberty

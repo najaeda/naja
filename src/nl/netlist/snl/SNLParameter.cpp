@@ -66,10 +66,14 @@ void SNLParameter::preCreate(SNLDesign* design, const NLName& name) {
 
 void SNLParameter::destroy() {
   design_->removeParameter(this);
+  NajaObject::preDestroy();
   delete this;
 }
 
 void SNLParameter::destroyFromDesign() {
+  // Notify property owners before freeing the parameter, including Python
+  // wrappers that may outlive the design or universe.
+  NajaObject::preDestroy();
   delete this;
 }
 

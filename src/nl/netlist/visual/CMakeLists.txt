@@ -9,7 +9,7 @@ set(NETLIST_GRAPH_HEADERS
   NetlistGraph.h NetlistGraph_impl.h
 )
 
-add_library(naja_snl_visual STATIC ${NETLIST_GRAPH_SOURCES})
+add_library(naja_snl_visual ${NAJA_EMBEDDED_LIBRARY_TYPE} ${NETLIST_GRAPH_SOURCES})
 set_property(TARGET naja_snl_visual PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(naja_snl_visual PUBLIC naja_nl)
