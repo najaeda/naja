@@ -13,7 +13,7 @@ set(HEADERS
   frontend/SNLSVIntent.h
 )
 
-add_library(naja_snl_systemverilog STATIC ${SOURCES})
+add_library(naja_snl_systemverilog ${NAJA_EMBEDDED_LIBRARY_TYPE} ${SOURCES})
 set_property(TARGET naja_snl_systemverilog PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_library(naja_snl_systemverilog_test STATIC EXCLUDE_FROM_ALL ${SOURCES})

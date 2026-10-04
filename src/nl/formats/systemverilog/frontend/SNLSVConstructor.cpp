@@ -7450,23 +7450,58 @@ endmodule
         }
       }
 
-      for (const auto* seqBlock : sequentialBlocks) {
-        const Statement* candidateStmt = &seqBlock->getBody();
+      // An inferred memory is owned by one sequential block. A symbol written
+      // from several blocks (for example one always block per element in a
+      // generate loop) would leave the other writers to the generic lowering,
+      // which then drives the memory's read data a second time. Such a symbol
+      // is left to the generic lowering for all of its writers.
+      const auto collectDirectCandidates =
+        [&](const slang::ast::ProceduralBlockSymbol& seqBlock,
+            std::vector<const slang::ast::ValueSymbol*>& candidates) {
+        const Statement* candidateStmt = &seqBlock.getBody();
         if (const auto* timed = findTimedStatement(*candidateStmt)) {
           candidateStmt = &timed->stmt;
         }
         candidateStmt = candidateStmt ? unwrapStatement(*candidateStmt) : nullptr;
         if (!candidateStmt) {
-          continue; // LCOV_EXCL_LINE
+          return; // LCOV_EXCL_LINE
         }
-        std::vector<const slang::ast::ValueSymbol*> candidates;
         std::unordered_set<const slang::ast::ValueSymbol*> seenCandidates;
         collectDirectSequentialMemoryCandidates(
           *candidateStmt,
           candidates,
           seenCandidates);
+      };
+      std::unordered_map<const slang::ast::ValueSymbol*, size_t> directWriterBlocks;
+      for (const auto* seqBlock : sequentialBlocks) {
+        std::vector<const slang::ast::ValueSymbol*> candidates;
+        collectDirectCandidates(*seqBlock, candidates);
+        for (const auto* stateSymbol : candidates) {
+          if (stateSymbol) {
+            ++directWriterBlocks[stateSymbol];
+          }
+        }
+      }
+
+      for (const auto* seqBlock : sequentialBlocks) {
+        std::vector<const slang::ast::ValueSymbol*> candidates;
+        collectDirectCandidates(*seqBlock, candidates);
         for (const auto* stateSymbol : candidates) {
           if (!stateSymbol || inferredMemoryByStateSymbol_.contains(stateSymbol)) {
+            continue;
+          }
+          if (directWriterBlocks[stateSymbol] > 1) {
+            if (warnedUninferredMemorySymbols_.insert(stateSymbol).second) {
+              std::ostringstream reason;
+              reason << "Memory '" << std::string(stateSymbol->name)
+                     << "' was not inferred as naja_mem: written from "
+                     << directWriterBlocks[stateSymbol]
+                     << " sequential blocks; using generic sequential lowering";
+              reportWarning(
+                "uninferred_memory_generic_sequential_lowering",
+                reason.str(),
+                getSourceRange(*stateSymbol));
+            }
             continue;
           }
           InferredMemory memory;
