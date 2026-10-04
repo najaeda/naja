@@ -24531,6 +24531,92 @@ endmodule
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, divModDumpFourStateSimulation) {
+  for (auto width: {1u, 4u, 40u}) {
+    for (bool isSigned: {false, true}) {
+      const auto name = "divmod_w" + std::to_string(width) + (isSigned ? "_signed" : "_unsigned");
+      SCOPED_TRACE(name);
+      std::ostringstream source;
+      source << "module " << name << "(input logic clk, input logic "
+        << (isSigned ? "signed " : "") << "[" << width - 1 << ":0] A, B, "
+        << "output logic [" << width - 1 << ":0] Q, R, SQ, SR);\n"
+        << "assign Q = A / B;\nassign R = A % B;\n"
+        << "always_ff @(posedge clk) begin SQ <= A / B; SR <= A % B; end\nendmodule\n";
+      const auto svPath = writeSVTestFile(name, source.str());
+      SNLSVConstructor constructor(library_);
+      constructor.construct(svPath);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_GT(countDivModInstances(top, width, isSigned), 0u);
+      const auto dumpedPath = dumpTopAndGetVerilogPath(top, name + "_dump");
+      const auto primitivesPath = dumpedPath.parent_path() / "naja_primitives.v";
+      ASSERT_TRUE(std::filesystem::exists(primitivesPath));
+      const auto dumped = readTextFile(dumpedPath);
+      if (width != 1 || isSigned) {
+        if (width != 1) {
+          EXPECT_NE(std::string::npos, dumped.find(".WIDTH(" + std::to_string(width) + ")"));
+        } else {
+          EXPECT_EQ(std::string::npos, dumped.find(".WIDTH("));
+        }
+        if (isSigned) {
+          EXPECT_NE(std::string::npos, dumped.find(".SIGNED(1)"));
+        } else {
+          EXPECT_EQ(std::string::npos, dumped.find(".SIGNED("));
+        }
+      }
+      if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+          std::system("command -v vvp >/dev/null 2>&1") != 0) {
+        GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+      }
+      auto reference = source.str();
+      reference.replace(reference.find(name), name.size(), "reference");
+      const auto tbPath = svPath.parent_path() / "tb.sv";
+      std::ofstream tb(tbPath);
+      ASSERT_TRUE(tb.good());
+      tb << reference << "module tb;\nlocalparam WIDTH = " << width << ";\n"
+        << "reg clk = 0; reg [WIDTH-1:0] A, B;\n"
+        << "wire [WIDTH-1:0] Q, R, SQ, SR, eq, er, esq, esr;\n"
+        << name << " dut(.*);\n"
+        << "reference ref_dut(.clk(clk), .A(A), .B(B), .Q(eq), .R(er), .SQ(esq), .SR(esr));\n"
+        << R"(task check;
+  begin
+    #1;
+    if (Q !== eq || R !== er) $fatal(1, "combinational divmod mismatch A=%h B=%h Q=%h expected=%h R=%h expected=%h", A, B, Q, eq, R, er);
+    clk = 1; #1;
+    if (SQ !== esq || SR !== esr) $fatal(1, "sequential divmod mismatch");
+    clk = 0;
+  end
+endtask
+integer i, j;
+initial begin
+  for (i = 0; i < 16; i = i + 1) begin
+    for (j = 0; j < 16; j = j + 1) begin
+      A = 40'h8100000000 | i; B = j; check;
+    end
+  end
+  A = -7; B = -3; check;
+  A = 7; B = -3; check;
+  A = 1 << (WIDTH-1); B = -1; check;
+  A = 'x; B = 3; check;
+  A = 3; B = 'x; check;
+  A = 'z; B = 1; check;
+  $finish;
+end
+endmodule
+)";
+      tb.close();
+      auto quotePath = [](const std::filesystem::path& path) {
+        return "\"" + path.string() + "\"";
+      };
+      const auto executablePath = svPath.parent_path() / "simulation.vvp";
+      const auto compile = "iverilog -g2012 -s tb -o " + quotePath(executablePath) +
+        " " + quotePath(tbPath) + " " + quotePath(dumpedPath) + " " + quotePath(primitivesPath);
+      ASSERT_EQ(0, std::system(compile.c_str()));
+      ASSERT_EQ(0, std::system(("vvp " + quotePath(executablePath)).c_str()));
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousDivModResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(

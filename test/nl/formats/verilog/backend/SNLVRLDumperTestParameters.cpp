@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 #include "NLDB0.h"
 #include "SNLVRLDumper.h"
@@ -575,8 +576,124 @@ TEST_F(SNLVRLDumperTestParameters, testDivModInstanceAndPrimitiveFileDump) {
   ASSERT_TRUE(std::filesystem::exists(primitivePath));
   const auto primitiveDump = readTextFile(primitivePath);
   EXPECT_NE(std::string::npos, primitiveDump.find("module naja_divmod #("));
-  EXPECT_NE(std::string::npos, primitiveDump.find("assign Q = SIGNED ?"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Q = $signed(A) / $signed(B)"));
   EXPECT_EQ(std::string::npos, primitiveDump.find("naja_divmod__s_w8"));
+}
+
+TEST_F(SNLVRLDumperTestParameters, testDivModModelDefaultsAndInstanceOverrides) {
+  for (auto width: {1u, 8u, 40u}) {
+    for (bool isSigned: {false, true}) {
+      NLDB0::DivModSignature signature;
+      signature.width = width;
+      signature.isSigned = isSigned;
+      auto* model = NLDB0::getOrCreateDivMod(signature);
+      auto* instance = SNLInstance::create(top_, model, NLName("divmod"));
+      ASSERT_TRUE(instance->getInstParameters().empty());
+      for (bool overrideParameters: {false, true}) {
+        if (overrideParameters) {
+          SNLInstParameter::create(instance, model->getParameter(NLName("WIDTH")),
+            std::to_string(width + 1));
+          SNLInstParameter::create(instance, model->getParameter(NLName("SIGNED")),
+            isSigned ? "0" : "1");
+        }
+        std::ostringstream out;
+        SNLVRLDumper dumper;
+        dumper.dumpDesign(top_, out);
+        const auto dumped = out.str();
+        const bool emittedSignedness = isSigned != overrideParameters;
+        const auto emittedWidth = overrideParameters ? width + 1 : width;
+        if (emittedWidth != 1 || emittedSignedness) {
+          if (emittedWidth != 1) {
+            EXPECT_NE(std::string::npos, dumped.find(".WIDTH(" + std::to_string(emittedWidth) + ")"));
+          } else {
+            EXPECT_EQ(std::string::npos, dumped.find(".WIDTH("));
+          }
+          if (emittedSignedness) {
+            EXPECT_NE(std::string::npos, dumped.find(".SIGNED(1)"));
+          } else {
+            EXPECT_EQ(std::string::npos, dumped.find(".SIGNED("));
+          }
+        } else {
+          EXPECT_NE(std::string::npos, dumped.find("naja_divmod divmod"));
+        }
+      }
+      instance->destroy();
+    }
+  }
+}
+
+TEST_F(SNLVRLDumperTestParameters, testMemoryAndTableSelectModelDefaults) {
+  for (bool memory: {true, false}) {
+    auto* instance = memory ? createMemoryInstance() : createTableSelectInstance();
+    ASSERT_NE(nullptr, instance);
+    std::vector<SNLInstParameter*> overrides;
+    for (auto* parameter: instance->getInstParameters()) {
+      overrides.push_back(parameter);
+    }
+    for (auto* parameter: overrides) {
+      parameter->destroy();
+    }
+    ASSERT_TRUE(instance->getInstParameters().empty());
+    std::ostringstream out;
+    SNLVRLDumper dumper;
+    dumper.dumpDesign(top_, out);
+    const auto dumped = out.str();
+    EXPECT_NE(std::string::npos, dumped.find(memory ? ".WIDTH(8)" : ".WIDTH(4)"));
+    EXPECT_NE(std::string::npos, dumped.find(memory ? ".DEPTH(16)" : ".DEPTH(3)"));
+    EXPECT_NE(std::string::npos, dumped.find(memory ? ".ABITS(4)" : ".ABITS(2)"));
+    if (memory) {
+      EXPECT_NE(std::string::npos, dumped.find(".RD_PORTS(2)"));
+      EXPECT_NE(std::string::npos, dumped.find(".WR_PORTS(2)"));
+      EXPECT_NE(std::string::npos, dumped.find(".RST_ENABLE(1)"));
+      EXPECT_NE(std::string::npos, dumped.find(".RST_ASYNC(1)"));
+      EXPECT_EQ(std::string::npos, dumped.find(".RST_ACTIVE_LOW("));
+      EXPECT_EQ(std::string::npos, dumped.find(".INIT("));
+    }
+    // An override matching the generic module default must win over the model.
+    SNLInstParameter::create(instance, instance->getModel()->getParameter(NLName("DEPTH")), "1");
+    std::ostringstream overridden;
+    dumper.dumpDesign(top_, overridden);
+    EXPECT_EQ(std::string::npos, overridden.str().find(".DEPTH("));
+    instance->destroy();
+  }
+}
+
+TEST_F(SNLVRLDumperTestParameters, testSequentialModelDefaultsAndInitOverrides) {
+  for (auto factory: {
+      NLDB0::getOrCreateDFF, NLDB0::getOrCreateDFFN,
+      NLDB0::getOrCreateDFFRN, NLDB0::getOrCreateDFFR,
+      NLDB0::getOrCreateDFFS, NLDB0::getOrCreateDFFE,
+      NLDB0::getOrCreateDFFRE, NLDB0::getOrCreateDFFSE,
+      NLDB0::getOrCreateDFFSR, NLDB0::getOrCreateDFFSRN,
+      NLDB0::getOrCreateDFFSS, NLDB0::getOrCreateDFFSSN,
+      NLDB0::getOrCreateDFFSRE, NLDB0::getOrCreateDFFSRNE,
+      NLDB0::getOrCreateDFFSSE, NLDB0::getOrCreateDFFSSNE,
+      NLDB0::getOrCreateDLatch}) {
+    auto* model = factory(8);
+    SCOPED_TRACE(model->getName().getString());
+    auto* instance = SNLInstance::create(top_, model, NLName("seq"));
+    SNLVRLDumper dumper;
+    std::ostringstream defaults;
+    dumper.dumpDesign(top_, defaults);
+    EXPECT_NE(std::string::npos, defaults.str().find(".WIDTH(8)"));
+    EXPECT_EQ(std::string::npos, defaults.str().find(".INIT("));
+    if (auto* init = model->getParameter(NLName("INIT"))) {
+      init->destroy();
+      init = SNLParameter::create(model, NLName("INIT"), SNLParameter::Type::Binary, "8'ha5");
+      std::ostringstream initialized;
+      dumper.dumpDesign(top_, initialized);
+      EXPECT_NE(std::string::npos, initialized.str().find(".INIT(8'ha5)"));
+      auto* override = SNLInstParameter::create(instance, init, NLDB0::getUndefinedDFFInitValue(8));
+      std::ostringstream undefined;
+      dumper.dumpDesign(top_, undefined);
+      EXPECT_EQ(std::string::npos, undefined.str().find(".INIT("));
+      override->setValue("8'h5a");
+      std::ostringstream overridden;
+      dumper.dumpDesign(top_, overridden);
+      EXPECT_NE(std::string::npos, overridden.str().find(".INIT(8'h5a)"));
+    }
+    instance->destroy();
+  }
 }
 
 TEST_F(SNLVRLDumperTestParameters, testTableSelectInstanceDump) {

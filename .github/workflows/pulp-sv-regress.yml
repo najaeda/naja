@@ -15,9 +15,14 @@ on:
       - 'regress/sv/pulp_report.py'
       - 'regress/sv/ita_simulation.py'
       - 'regress/sv/tests/test_ita_simulation.py'
+      - 'test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v'
+      - '.github/actions/setup-linux-release/**'
+      - '.github/scripts/configure-linux-release.sh'
       - '.github/workflows/pulp-sv-regress.yml'
   push:
     branches: [main]
+  schedule:
+    - cron: '23 2 * * *'
   workflow_dispatch:
     inputs:
       survey:
@@ -35,7 +40,12 @@ concurrency:
 jobs:
   pulp-sv:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    name: pulp-${{ matrix.tier }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: ${{ fromJSON((github.event_name == 'schedule' || inputs.survey == true) && '["regression", "ita", "survey"]' || '["regression", "ita"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,6 +67,7 @@ jobs:
           cp -R src/najaeda/najaeda build/test/najaeda/
           ln -sf "${GITHUB_WORKSPACE}/build/src/nl/python/naja_wrapping/naja.so" build/test/najaeda/najaeda/naja.so
       - name: Test benchmark runner
+        if: matrix.tier == 'regression'
         run: |
           python3 -m unittest discover -s regress/sv/tests -p 'test_pulp*.py'
           python3 -m unittest discover -s regress/sv/tests -p test_ita_simulation.py
@@ -67,8 +78,9 @@ jobs:
             https://github.com/pulp-platform/eda-benchmarks/releases/download/v0.1.0/pulp-benchmarks-v0.1.0.tar.gz \
             -o "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz"
       - name: Run PULP frontend regression
+        if: matrix.tier != 'ita'
         env:
-          SURVEY: ${{ inputs.survey }}
+          SURVEY: ${{ matrix.tier == 'survey' }}
         run: |
           args=()
           if [[ "${SURVEY}" == 'true' ]]; then args+=(--all); fi
@@ -76,22 +88,63 @@ jobs:
             --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
             --timeout 120 --lint-runner docker "${args[@]}"
       - name: Run larger-design frontend elaboration regression
-        if: ${{ !cancelled() && steps.rtl.outcome == 'success' }}
+        if: ${{ !cancelled() && matrix.tier == 'regression' && steps.rtl.outcome == 'success' }}
         run: |
           python3 regress/sv/pulp_benchmarks.py \
             --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
             --case mempool.minpool --case ita.default --case cvfpu.full --case cva6.default \
             --elaboration-only --timeout 240 \
             --output build/pulp-benchmarks/elaboration
+      - name: Install ITA simulation dependencies
+        if: matrix.tier == 'ita'
+        run: |
+          sudo apt-get install -yq autoconf bison flex help2man python3-venv
+          python3 -m venv "${RUNNER_TEMP}/ita-vectors"
+          "${RUNNER_TEMP}/ita-vectors/bin/pip" install numpy==2.5.3 onnx==1.23.1
+      - name: Cache Verilator 5.052
+        if: matrix.tier == 'ita'
+        id: verilator
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/ita-verilator
+          key: ita-verilator-${{ runner.os }}-${{ runner.arch }}-ubuntu24-ea338be98e1e838d3518809ce8899f85a009963c-v1
+      - name: Build pinned Verilator 5.052
+        if: matrix.tier == 'ita' && steps.verilator.outputs.cache-hit != 'true'
+        env:
+          VERILATOR_REV: ea338be98e1e838d3518809ce8899f85a009963c
+        run: |
+          git init "${RUNNER_TEMP}/verilator-src"
+          git -C "${RUNNER_TEMP}/verilator-src" fetch --depth 1 https://github.com/verilator/verilator.git "${VERILATOR_REV}"
+          git -C "${RUNNER_TEMP}/verilator-src" checkout --detach FETCH_HEAD
+          cd "${RUNNER_TEMP}/verilator-src"
+          autoconf
+          ./configure --prefix="${RUNNER_TEMP}/ita-verilator"
+          make -j "$(nproc)"
+          make install
+      - name: Run ITA golden-scoreboard and RTL/netlist simulation
+        if: matrix.tier == 'ita'
+        run: |
+          export PATH="${RUNNER_TEMP}/ita-verilator/bin:${PATH}"
+          verilator --version
+          python3 regress/sv/ita_simulation.py \
+            --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
+            --generator-python "${RUNNER_TEMP}/ita-vectors/bin/python" \
+            --output build/pulp-benchmarks/ita \
+            --seed 0 --weight-read-delay-ps 1 --timeout 1200 --jobs 2
       - name: Publish PULP job summary
         if: always()
-        run: python3 regress/sv/pulp_report.py
+        run: python3 regress/sv/pulp_report.py --functional build/pulp-benchmarks/ita/summary.json
       - name: Upload reports and generated netlists
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: pulp-sv-regress
-          path: build/pulp-benchmarks
+          name: pulp-sv-regress-${{ matrix.tier }}
+          path: |
+            build/pulp-benchmarks
+            !build/pulp-benchmarks/ita/*-obj/**
+            !build/pulp-benchmarks/ita/upstream/**
+            !build/pulp-benchmarks/ita/prepared/**
+            !build/pulp-benchmarks/ita/*.tar.gz
           retention-days: 7
       - name: Show ccache statistics
         if: always()

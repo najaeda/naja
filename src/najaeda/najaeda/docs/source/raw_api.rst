@@ -51,6 +51,28 @@ path to select another destination. An unset or empty value disables the
 performance report, which is appropriate when embedding Naja in a host Python
 process.
 
+Verilog dumps and primitive models
+----------------------------------
+
+``SNLDesign.dumpVerilog`` and ``NLDB.dumpVerilog`` emit ``naja_primitives.v``
+beside the structural output when Naja primitive models are needed. Include
+that generated file when linting or simulating the dump. Use the models from
+the same dump rather than a separately maintained primitive library.
+
+For built-in Naja primitives, the dump preserves effective parameter values:
+instance overrides take precedence over model defaults, and parameters are
+emitted when those values differ from the generated module's defaults. This
+applies to mux and sequential widths, flop initialization, memory dimensions
+and controls, table-select dimensions, and division/remainder width and
+signedness. Explicit overrides equal to a generated module default may be
+omitted even when the specialized model has a different default. Ordinary
+modules retain their own declared defaults.
+
+The generated division/remainder model implements signed and unsigned
+quotient and remainder operations separately. The high-level
+:meth:`najaeda.netlist.Instance.dump_verilog` uses the same dumper; raw API
+calls are not required for this behavior.
+
 Object identity and hashing
 ---------------------------
 

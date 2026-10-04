@@ -78,7 +78,7 @@ def render(suites, functional=None):
         lines += ['', f'RTL/netlist trace comparison: **{cell(comparison.get("status", "not run"))}**; '
                   f'transactions: {number(comparison.get("transactions"))}. '
                   'A matching trace does not override a failed upstream golden scoreboard.', '']
-    lines += ['Full JSON results, diagnostics, logs and generated netlists are in the `pulp-sv-regress` artifact.', '',
+    lines += ['Full JSON results, diagnostics, logs and generated netlists are in this job’s `pulp-sv-regress-*` artifact.', '',
               'Times are measured wall-clock seconds. Total includes worker startup/cleanup and lint; '
               'unavailable measurements are shown as —. Statistics may survive a later dump or lint failure.', '']
     return '\n'.join(lines)

@@ -5,6 +5,138 @@ SPDX-License-Identifier: Apache-2.0
 
 # PULP EDA benchmark frontend survey
 
+## C910 division/remainder follow-up (2026-10-04)
+
+The working-tree fix on top of `5fb0566a` corrects two independent issues:
+the PULP runner now lints with the dumper-generated `naja_primitives.v`, and
+the dumper preserves division/remainder model defaults even when no instance
+parameter overrides exist. Both C910 instances retain `.WIDTH(40)` and
+unsigned operation. The shared parameter emitter omits `.SIGNED(0)` because
+it matches the generated module's default. The generated model also uses separate signed
+and unsigned branches: the previous conditional expression incorrectly
+performed unsigned arithmetic for cases such as signed 4-bit `1 / -1`.
+
+The rebuilt Release frontend loads and dumps C910 in 25.06 seconds. Verilator
+5.052 now completes lint in 128.42 seconds with **no missing-module or width
+errors**, but reports five `BLKANDNBLK` errors, six `MULTIDRIVEN` warnings, and
+four `UNOPTFLAT` warnings. These involve the MMU data flop, AXI linked-data
+queues, separately clocked datapath bits, and combinational paths; their causes
+are not established by this run. No suppression of those diagnostics was added, and C910
+remains outside the passing lint tier. The follow-up used a 240-second limit
+and records its commands, generated models, netlist, and diagnostics under
+`build/pulp-c910-fixed/`.
+
+Focused simulation compares source RTL with the dumped design at widths 1,
+4, and 40, signed and unsigned, for both combinational and clocked quotient
+and remainder outputs. It covers 1,572 input vectors, including division by
+zero, negative operands, signed overflow, and X/Z inputs. The original model
+fails the signed comparison; the corrected model passes. Lint timeouts now
+terminate the full process group, including Verilator launcher children.
+
+The four existing smoke designs (CV32E40P, FP32 FMA, minimal Ibex, SPI host)
+all pass load/dump/lint with the generated models. The generated latch model
+carries the same narrowly scoped intentional-latch annotation as the previous
+handwritten model. Validation also passes 76 dumper tests, 1,164 frontend
+tests, 12 PULP runner/report tests, five ITA adapter tests, and the Sphinx HTML
+build. The smoke artifacts are under `build/pulp-generated-model-smoke/`.
+
+## Current full survey (2026-10-04)
+
+Reconfigured and rebuilt the existing macOS arm64 **Release** build from
+Naja `5fb0566a` (0.7.27), using Python 3.14.7, Verilator 5.052, and the same
+SHA-256-verified v0.1.0 archive as the original survey. The working-tree changes
+at measurement time only affect CI/reporting/documentation, not the frontend.
+All 23 variants were attempted without RTL edits, compatibility relaxations,
+or unknown-module blackboxing. Each load/dump and each lint has a separate
+120-second wall-clock limit. These are local results, not Ubuntu CI timings.
+
+**Frontend outcome: 12/23 elaborate successfully; 11/23 also finish dumping.**
+The remaining 11 fail with diagnostics: four Slang compilation failures
+(Ara, Cheshire, NVDLA, RedMule) and seven Naja lowering failures (O-POPE,
+Serial Link, four Snitch variants, Spatz). Terapool elaborates successfully
+but does not finish dumping within the combined load/dump limit.
+
+The initial end-to-end sweep records four strict lint passes, one lint
+failure (C910), six lint timeouts, eleven load failures, and one load/dump
+timeout. The local Verilator Perl launcher left child processes running after
+some timeouts. Those children were stopped; all six timed-out lint cases were
+subsequently rechecked with process-group cleanup. The original JSON records
+are retained rather than overwritten. Timings from the initial sweep are not
+isolated performance measurements.
+
+After clean lint follow-ups, **four variants pass the complete load/dump/lint
+path**, two have confirmed lint failures (full Ibex and C910), and five still
+exceed the 120-second lint limit (CVA6, full CVFPU, ITA, MinPool, MemPool).
+Together with eleven load failures and Terapool's dump timeout, these account
+for all 23 variants. The five clean lint timeouts used new process groups and
+killed the entire group on timeout, preventing the earlier orphan overlap.
+
+| Variant | Load/dump result | Load/dump wall time (s) | Observation |
+|---|---|---:|---|
+| `ara.default` | failed | 0.84 | Slang: implicit enum conversions in `lane_sequencer.sv`. |
+| `cheshire.default` | failed | 0.78 | Slang: enum conversion and `dtmcs_q` used before declaration. |
+| `cv32e40p.default` | pass | 1.31 | Strict lint passes. |
+| `cva6.default` | pass | 37.95 | Loads and dumps; flat lint exceeds 120 seconds in both the initial survey and clean follow-up. |
+| `cvfpu.fp32_fma` | pass | 0.41 | Strict lint passes. |
+| `cvfpu.full` | pass | 12.67 | Loads and dumps; flat lint exceeds 120 seconds in both the initial survey and clean follow-up. |
+| `ibex.minimal` | pass | 0.84 | Strict lint passes. |
+| `ibex.full` | pass | 2.78 | Loads and dumps; follow-up lint fails two shadow-ALU `UNOPTFLAT` warnings. |
+| `ita.default` | pass | 50.25 | Loads and dumps; flat lint exceeds 120 seconds in both the initial survey and clean follow-up. |
+| `mempool.minpool` | pass | 65.13 | Loads and dumps; flat lint exceeds 120 seconds in both the initial survey and clean follow-up. |
+| `mempool.mempool` | pass | 119.27 | Loads and dumps; flat lint exceeds 120 seconds in both the initial survey and clean follow-up. |
+| `mempool.terapool` | timeout | 120.64 | Elaboration passes; dump exceeds the 120-second combined budget. |
+| `nvdla.top` | failed | 0.73 | Slang: inconsistent/missing timescales. |
+| `opope.default` | failed | 6.88 | Naja: continuous-assignment LHS in `hci_core_fifo.sv:278`. |
+| `pulp_c910.default` | pass | 32.62 | Loads and dumps; lint cannot find simulation primitive `naja_divmod`. |
+| `redmule.default` | failed | 0.46 | Slang: implicit conversions to `fp_format_e`. |
+| `serial_link.default` | failed | 0.78 | Naja: register/interface aggregate types (`reg2hw`, `hw2reg`). |
+| `snitch_cluster.minimal` | failed | 46.46 | Naja: conditional RHS in `axi_burst_splitter_gran`; peripheral register aggregates/sequential lowering. |
+| `snitch_cluster.default` | failed | 59.46 | Naja: conditional RHS in `axi_burst_splitter_gran`; peripheral register aggregates/sequential lowering. |
+| `snitch_cluster.default_latch` | failed | 54.58 | Naja: conditional RHS in `axi_burst_splitter_gran`; peripheral register aggregates/sequential lowering. |
+| `snitch_cluster.occamy` | failed | 57.44 | Naja: conditional RHS in `axi_burst_splitter_gran`; peripheral register aggregates/sequential lowering. |
+| `spatz.default` | failed | 86.91 | Naja: function-call RHS in `spatz_vfu.sv:1522`. |
+| `spi_host.default` | pass | 0.30 | Strict lint passes. |
+
+Terapool's separate 240-second elaboration-only follow-up passes in 64.39 s
+(including startup/cleanup; load itself is 53.93 s). Full Ibex's separate lint
+follow-up fails in 33.71 s with the two known `UNOPTFLAT` warnings; its limit
+was 240 seconds. Thus its initial `lint_timeout` does not replace the confirmed
+lint diagnostic.
+
+Notable changes from the October 1 baseline:
+
+- C910's parser errors no longer reproduce. It loads and dumps, but the lint
+  harness lacks the `naja_divmod` simulation module referenced by the dump.
+- All three MemPool variants elaborate; MinPool and MemPool also dump.
+- CVA6, full CVFPU, and ITA load and dump.
+- All four Snitch variants now finish and report explicit lowering failures.
+  They are no longer merely inconclusive timeouts.
+- Spatz's compound-shift issue is gone; the function-call RHS remains unsupported.
+
+Raw results, build provenance, logs, generated netlists, and the rendered
+report are under `build/pulp-current-survey/`. `verified-summary.json` and
+`verified-report.md` combine the initial sweep with the completed lint
+follow-ups. Lint follow-ups have separate
+`lint-followup.json` and `lint-followup.log` files in each case directory.
+Terapool's elaboration follow-up is under `build/pulp-current-elaboration/`.
+No functional simulation was rerun as part of this survey; earlier ITA
+functional results below remain separate evidence.
+
+Reproduction (using a package linked to the freshly built Release extension):
+
+```sh
+python3 regress/sv/pulp_benchmarks.py --all \
+  --archive /tmp/pulp-benchmarks-v0.1.0.tar.gz \
+  --najaeda-path build/pulp-current-package \
+  --output build/pulp-current-survey --timeout 120 --lint-runner local
+python3 regress/sv/pulp_benchmarks.py --case mempool.terapool --elaboration-only \
+  --archive /tmp/pulp-benchmarks-v0.1.0.tar.gz \
+  --najaeda-path build/pulp-current-package \
+  --output build/pulp-current-elaboration --timeout 240
+```
+
+## Original baseline (2026-10-01)
+
 Measured on 2026-10-01 with Naja `927b9ca2` (0.7.27), rebuilt from source
 using the existing macOS arm64 **Debug** CMake build and Python 3.14. The input is the
 [prepared v0.1.0 release](https://github.com/pulp-platform/eda-benchmarks/releases/tag/v0.1.0),

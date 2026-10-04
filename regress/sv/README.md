@@ -580,9 +580,12 @@ Missing lint tools fail; they do not silently skip.
 
 The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
 configuration, runs the small tier and lints each complete generated netlist
-with Naja's `najaeda_primitives.v` simulation models, copied into each case's
-artifact directory. Both local and Docker lint use this copy; Docker mounts
-the artifact directory once for both inputs. A second tier elaborates
+with the matching `naja_primitives.v` emitted by Naja beside each dump.
+Both local and Docker lint use these generated models, including parameterized
+division/remainder primitives; Docker mounts the artifact directory once for
+both inputs. Dumps containing no Naja primitives need only the netlist file.
+Worker and lint timeouts terminate the full process group, so local Verilator
+launcher children do not survive a timed-out case. A second tier elaborates
 `mempool.minpool`, `ita.default`, `cvfpu.full`, and `cva6.default`, with a 240-second limit per
 case and the same strict diagnostic checks. This tier does not dump or lint
 netlists; its artifacts and aggregate summary live in
@@ -595,10 +598,14 @@ python3 regress/sv/pulp_benchmarks.py \
   --elaboration-only --timeout 240 --output build/pulp-benchmarks/elaboration
 ```
 
-Manual dispatch with `survey=true`
-attempts all 23 variants. It always uploads diagnostics, commands, counts, netlists, and
-summaries. This is a frontend load/dump and syntax/linking regression, **not a
-functional equivalence or simulation test**. No technology library is needed.
+A nightly run at 02:23 UTC and manual dispatch with `survey=true` add an
+independent survey job that attempts all 23 variants with a 120-second limit
+per load/dump and per lint. Known failures keep that job red; matrix fail-fast
+is disabled so the regression and ITA jobs still finish. PRs and ordinary
+pushes run only the regression and ITA jobs. It always uploads diagnostics, commands, counts, netlists, and
+summaries. The survey and frontend tiers check load/dump and syntax/linking; they do
+not establish functional correctness. The separate ITA job adds functional
+simulation, not formal equivalence. No technology library is needed.
 
 Naja uses its ordinary strict loading behavior. The upstream Yosys flow's
 `--compat-mode`, `--compat=vcs`, `--allow-use-before-declare`,
@@ -625,9 +632,19 @@ local build, timing limits, diagnostics, and remaining verification limits.
 scoreboard at the exact revision used by the prepared release. It runs both
 the prepared RTL and the Naja structural dump against the same seed-0,
 64-by-64 attention/feedforward vectors, with bias and randomized stalls.
-This is a separate functional validation command; the default PULP CI job
-does not run it. A passing elaboration must not be interpreted as passing
-this test.
+The PULP workflow runs this command in an independent `pulp-ita` job on PRs,
+pushes, nightly runs, and manual dispatch. CI pins Verilator 5.052 to commit
+`ea338be98e1e838d3518809ce8899f85a009963c`, caches its installation, and uses
+NumPy 2.5.3 and ONNX 1.23.1 in a separate generator environment. It runs vector
+seed 0 with stall seed 1, requiring both golden scoreboards and the exact
+2,048-transaction phase/data/timestamp comparison to pass. Each subprocess
+has a 1,200-second timeout. Additional seeds remain a local validation option.
+A passing elaboration must not be interpreted as passing this test.
+
+Each matrix job publishes its own summary and `pulp-sv-regress-<tier>` artifact,
+including failure logs. ITA artifacts retain the raw dump, adapted simulation
+sources, vector hashes, commands, and scoreboard logs; extracted upstream
+sources, archives, and compiled simulator objects are excluded.
 
 ```sh
 python3 -m venv /tmp/ita-vectors
@@ -746,5 +763,6 @@ python3 regress/sv/pulp_report.py --root build/pulp-benchmarks
 
 An optional `--functional build/ita-simulation/summary.json` includes the
 experimental ITA upstream scoreboard and RTL/netlist trace comparison as
-separate results. The workflow does not run that experimental simulation by
-default. Setting `GITHUB_STEP_SUMMARY` appends the report to the GitHub job page.
+separate results. The workflow supplies `build/pulp-benchmarks/ita/summary.json`
+for its ITA job. Setting `GITHUB_STEP_SUMMARY` appends the report to the GitHub
+job page.
