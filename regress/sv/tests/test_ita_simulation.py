@@ -6,12 +6,32 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ita_simulation as ita
 
 
 class ITASimulationTest(unittest.TestCase):
+    def test_parallel_pipelines_overlap_and_keep_failures(self):
+        barrier = threading.Barrier(2)
+        def pipeline(name, flist):
+            barrier.wait(timeout=5)
+            return {name: {"status": "failed" if name == "generated" else "passed"}}
+        results = dict(ita.run_pipelines(
+            [("original", "rtl.f"), ("generated", "dump.f")], pipeline, True))
+        self.assertEqual("passed", results["original"]["original"]["status"])
+        self.assertEqual("failed", results["generated"]["generated"]["status"])
+
+    def test_serial_pipelines_preserve_order(self):
+        visited = []
+        def pipeline(name, flist):
+            visited.append(name)
+            return flist
+        self.assertEqual([("original", "rtl.f"), ("generated", "dump.f")],
+                         list(ita.run_pipelines([("original", "rtl.f"), ("generated", "dump.f")], pipeline)))
+        self.assertEqual(["original", "generated"], visited)
+
     def test_scoreboard_requires_all_outputs_and_no_mismatch(self):
         lines = [f'256 outputs were checked in phase {p}.'
                  for p in (0, 1, 2, 3, 3, 4, 5, 6)]

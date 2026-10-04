@@ -24531,6 +24531,88 @@ endmodule
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, verilatorPackedPortSplittingPreservesLogic) {
+  const auto svPath = writeSVTestFile("packed_port_split", R"(
+module packed_child(input [3:0] a, output [3:0] y);
+  assign y[0] = a[0] ^ a[2];
+  assign y[1] = a[1] & a[3];
+  assign y[2] = a[0];
+  assign y[3] = a[1];
+endmodule
+module packed_port_split(input [3:0] d, output [3:0] y);
+  wire [3:0] a;
+  assign a = {y[2], d[2:0]};
+  packed_child child(a, y);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("packed_port_split"));
+  ASSERT_NE(nullptr, top);
+  const auto dumpedPath = dumpTopAndGetVerilogPath(top, "packed_port_split_dump");
+  SNLVRLDumper dumper;
+  dumper.setVerilatorSplitPackedSignals(true);
+  dumper.setTopFileName(dumpedPath.filename().string());
+  dumper.dumpDesign(top, dumpedPath.parent_path());
+  const auto text = readTextFile(dumpedPath);
+  EXPECT_NE(std::string::npos, text.find("a /* verilator split_var */"));
+  EXPECT_EQ(std::string::npos, text.find("d /* verilator split_var */"));
+  auto quote = [](const std::filesystem::path& path) {
+    return "\"" + path.string() + "\"";
+  };
+  if (std::system("command -v verilator >/dev/null 2>&1") == 0) {
+    const auto lint = "verilator --lint-only --sv --top-module packed_port_split " +
+      quote(dumpedPath);
+    ASSERT_EQ(0, std::system(lint.c_str()));
+    // A genuine bit-level loop must remain visible despite the annotation.
+    auto cyclic = readTextFile(svPath);
+    cyclic.replace(cyclic.find("{y[2], d[2:0]}"), std::string("{y[2], d[2:0]}").size(), "{d[3:1], y[0]}");
+    const auto cyclePath = writeSVTestFile("packed_port_cycle", cyclic);
+    // Use a distinct library to avoid reusing the previously elaborated model.
+    auto* cycleLibrary = NLLibrary::create(library_->getDB(), NLName("CYCLE"));
+    SNLSVConstructor cycleConstructor(cycleLibrary);
+    cycleConstructor.construct(cyclePath);
+    auto* cyclicTop = cycleLibrary->getSNLDesign(NLName("packed_port_split"));
+    ASSERT_NE(nullptr, cyclicTop);
+    const auto cycleDump = dumpTopAndGetVerilogPath(cyclicTop, "packed_port_cycle_dump");
+    dumper.setTopFileName(cycleDump.filename().string());
+    dumper.dumpDesign(cyclicTop, cycleDump.parent_path());
+    const auto cycleLog = cycleDump.parent_path() / "lint.log";
+    const auto cycleLint = "verilator --lint-only --sv --top-module packed_port_split " +
+      quote(cycleDump) + " > " + quote(cycleLog) + " 2>&1";
+    EXPECT_NE(0, std::system(cycleLint.c_str()));
+    EXPECT_NE(std::string::npos, readTextFile(cycleLog).find("UNOPTFLAT"));
+  }
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+  }
+  const auto tbPath = dumpedPath.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg [3:0] d;
+  wire [3:0] y;
+  packed_port_split dut(.*);
+  integer i;
+  initial begin
+    for (i = 0; i < 16; i = i + 1) begin
+      d = i; #1;
+      if (y !== {d[1], d[0], d[1] & d[0], d[0] ^ d[2]}) $fatal(1, "packed-port mismatch");
+    end
+    d = 4'bx01z; #1;
+    if (y !== {d[1], d[0], d[1] & d[0], d[0] ^ d[2]}) $fatal(1, "four-state packed-port mismatch");
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto executable = dumpedPath.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(dumpedPath);
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
 TEST_F(SNLSVConstructorTestSimple, sequentialPartialWritesHaveSingleDriver) {
   for (bool negativeClock : {false, true}) {
     for (bool activeHighReset : {false, true}) {

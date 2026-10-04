@@ -88,14 +88,39 @@ def read(path):
     return json.loads(path.read_text()) if path.is_file() else None
 
 
+def collect_artifacts(root):
+    suites, functional = [], None
+    if root.is_dir():
+        for artifact in sorted(root.iterdir()):
+            if not artifact.is_dir():
+                continue
+            for suffix in ('summary.json', 'elaboration/summary.json'):
+                path = artifact / suffix
+                if path.is_file():
+                    suites.append((artifact.name, read(path)))
+            candidate = artifact / 'ita/summary.json'
+            if candidate.is_file():
+                if functional is not None:
+                    raise ValueError('Multiple ITA functional reports in downloaded artifacts')
+                functional = read(candidate)
+    return suites, functional
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path('build/pulp-benchmarks'))
     parser.add_argument('--functional', type=Path)
+    parser.add_argument('--aggregate-root', type=Path, help='Directory of separately downloaded job artifacts')
     args = parser.parse_args()
-    report = render([('Load / dump / lint', read(args.root / 'summary.json')),
-                     ('Larger-design elaboration', read(args.root / 'elaboration/summary.json'))],
-                    read(args.functional) if args.functional else None)
+    if args.aggregate_root:
+        suites, functional = collect_artifacts(args.aggregate_root)
+        if not suites:
+            suites = [('Parallel job reports', None)]
+    else:
+        suites = [('Load / dump / lint', read(args.root / 'summary.json')),
+                  ('Larger-design elaboration', read(args.root / 'elaboration/summary.json'))]
+        functional = read(args.functional) if args.functional else None
+    report = render(suites, functional)
     args.root.mkdir(parents=True, exist_ok=True)
     (args.root / 'report.md').write_text(report)
     if os.environ.get('GITHUB_STEP_SUMMARY'):

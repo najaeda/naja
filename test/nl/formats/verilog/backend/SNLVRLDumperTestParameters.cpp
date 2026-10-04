@@ -878,3 +878,47 @@ TEST_F(SNLVRLDumperTestParameters, requiredInstanceParameter) {
   EXPECT_NO_THROW(dumper.dumpDesign(top_, out));
   EXPECT_NE(std::string::npos, out.str().find(".TEXT(\"\")"));
 }
+
+TEST_F(SNLVRLDumperTestParameters, testVerilatorSplitPackedSignalsScope) {
+  auto* childInput = SNLBusTerm::create(model_, SNLTerm::Direction::Input, 3, 0, NLName("data_i"));
+  SNLBusTerm::create(model_, SNLTerm::Direction::Output, 0, 3, NLName("data_o"));
+  SNLScalarTerm::create(model_, SNLTerm::Direction::Input, NLName("enable"));
+  SNLBusNet::create(model_, 3, 0, NLName("internal_bus"));
+  auto* input = SNLBusTerm::create(top_, SNLTerm::Direction::Input, 3, 0, NLName("data_i"));
+  auto* bus = SNLBusNet::create(top_, 3, 0, NLName("top_bus"));
+  input->setNet(bus);
+  auto* instance = SNLInstance::create(top_, model_, NLName("child"));
+  instance->setTermNet(childInput, bus);
+  SNLVRLDumper dumper;
+  std::ostringstream plain;
+  dumper.dumpDesign(top_, plain);
+  EXPECT_EQ(std::string::npos, plain.str().find("split_var"));
+  SNLVRLDumper::Configuration config;
+  config.setVerilatorSplitPackedSignals(true);
+  dumper.setConfiguration(config);
+  std::ostringstream annotated;
+  dumper.dumpDesign(top_, annotated);
+  const auto text = annotated.str();
+  EXPECT_NE(std::string::npos, text.find("input [3:0] data_i /* verilator split_var */"));
+  EXPECT_NE(std::string::npos, text.find("output [0:3] data_o /* verilator split_var */"));
+  EXPECT_NE(std::string::npos, text.find("wire [3:0] internal_bus /* verilator split_var */;"));
+  EXPECT_NE(std::string::npos, text.find("wire [3:0] top_bus /* verilator split_var */;"));
+  const auto topStart = text.find("module top(");
+  ASSERT_NE(std::string::npos, topStart);
+  EXPECT_EQ(std::string::npos, text.substr(topStart, text.find(");", topStart) - topStart).find("split_var"));
+  EXPECT_EQ(std::string::npos, text.find("enable /* verilator split_var */"));
+  const auto directory = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) / "split_packed_multi_file";
+  std::filesystem::create_directories(directory);
+  dumper.setSingleFile(false);
+  dumper.dumpDesign(top_, directory);
+  EXPECT_NE(std::string::npos, readTextFile(directory / "model.v").find(
+    "data_i /* verilator split_var */"));
+  const auto multiTop = readTextFile(directory / "top.v");
+  EXPECT_EQ(std::string::npos, multiTop.substr(0, multiTop.find(");")).find("split_var"));
+  std::ostringstream libraryDump;
+  dumper.dumpLibrary(top_->getLibrary(), libraryDump);
+  EXPECT_EQ(std::string::npos, libraryDump.str().find("data_i /* verilator split_var */"));
+  std::ostringstream reused;
+  dumper.dumpDesign(model_, reused);
+  EXPECT_EQ(std::string::npos, reused.str().substr(0, reused.str().find(");")).find("split_var"));
+}

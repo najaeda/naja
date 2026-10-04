@@ -84,6 +84,8 @@ class SNLVRLDumper {
         RTLInfoDumpMode getRTLInfoDumpMode() const { return rtlInfoDumpMode_; }
         void setDumpAssignsAsInstances(bool mode) { dumpAssignsAsInstances_ = mode; }
         bool isDumpAssignsAsInstances() const { return dumpAssignsAsInstances_; }
+        void setVerilatorSplitPackedSignals(bool mode) { verilatorSplitPackedSignals_ = mode; }
+        bool isVerilatorSplitPackedSignals() const { return verilatorSplitPackedSignals_; }
       private:
         bool        singleFile_       {true};
         std::string topFileName_      {};
@@ -91,6 +93,7 @@ class SNLVRLDumper {
         bool        dumpHierarchy_    {true};
         RTLInfoDumpMode rtlInfoDumpMode_ {RTLInfoDumpMode::CompactAttribute};
         bool        dumpAssignsAsInstances_ {false};
+        bool        verilatorSplitPackedSignals_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
@@ -106,6 +109,9 @@ class SNLVRLDumper {
     void setDumpRTLInfosAsAttributes(bool mode);
     void setRTLInfoDumpMode(RTLInfoDumpMode mode);
     void setDumpAssignsAsInstances(bool mode);
+    void setVerilatorSplitPackedSignals(bool mode) {
+      configuration_.setVerilatorSplitPackedSignals(mode);
+    }
 
     /**
      * \param design SNLDesign to dump.
@@ -304,6 +310,7 @@ class SNLVRLDumper {
       std::ostream& o,
       const DesignInsideAnonymousNaming& naming);
 
+    const SNLDesign*        publicDesign_           {nullptr};
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
     DetailedPerfReport      detailedPerfReport_     {};

@@ -5,6 +5,34 @@ SPDX-License-Identifier: Apache-2.0
 
 # PULP EDA benchmark frontend survey
 
+## C910 standard verification pass (2026-10-04)
+
+C910 now passes the standard prepared-PULP runner, with **load/dump in
+19.72 seconds and strict Verilator 5.052 lint in 149.60 seconds**. The native
+Verilog dumper exposes opt-in `verilatorSplitPackedSignals` through its C++
+configuration, raw `SNLDesign.dumpVerilog` keyword, and high-level
+`VerilogDumpConfig`. The runner enables it for prepared-PULP dumps. Internal
+bus nets and packed child-module ports receive `split_var` comments; public
+top ports are excluded. No logic or warning-suppression flags change.
+Artifacts are under `build/pulp-c910-standard-split/`.
+
+The focused regression passes strict lint and four-state simulation for an
+acyclic packed-port design, and verifies that a genuine bit-level feedback
+loop still triggers `UNOPTFLAT`. Scope tests cover ascending/descending bus
+ports, scalar exclusion, public top exclusion, multiple output files,
+library streams, and reuse of the dumper. Validation passes 79 dumper tests,
+1,166 frontend tests, 17 raw design tests, 21 high-level SystemVerilog tests,
+12 PULP runner/report tests, all four existing PULP smoke designs, Sphinx,
+and workflow actionlint. Smoke artifacts are under
+`build/pulp-standard-split-smoke/`.
+
+C910 has a separate regular `pulp-c910` workflow job on PRs, pushes, schedules,
+and manual dispatch. It shares ITA's pinned Verilator 5.052 source build and
+uses a 300-second limit per stage. This is load/dump/lint coverage; full C910
+functional simulation is not yet part of the workflow. The broad nightly
+survey retains its independent 120-second stage limit. The new GitHub job
+has been configured locally but has not yet been run on GitHub.
+
 ## C910 sequential lowering follow-up (2026-10-04)
 
 The working-tree fix on top of `3989a4b1` addresses actual lowering errors
@@ -493,3 +521,31 @@ The maintained runner reproduced all 12 outcomes in
 `build/ita-primitive-check-repeat/summary.json`, with per-configuration logs.
 Its comparison outcome is `matched`; golden failures remain explicitly marked
 `failed` rather than being relabeled as passing functional tests.
+
+
+## Parallel workflow (2026-10-04)
+
+Regular runs now fan out into ten independent verification jobs: four smoke
+checks, four elaboration checks, strict C910 lint, and the ITA functional
+simulation. Survey runs add eighteen distinct variants, for twenty-eight
+verification jobs covering all twenty-three variants. There is no matrix
+concurrency cap; available GitHub runner capacity determines actual overlap.
+
+Naja and pinned Verilator are built once and shared through runtime artifacts.
+Case planning, both builds, and runner unit tests start independently. Frontend
+cases do not wait for Verilator. ITA's original and generated build/simulation
+pipelines run concurrently; hierarchical generated compilation retains one
+compiler job because of the documented Verilator recursive-make issue, while
+the original build receives the remaining compiler budget. Per-case failures
+do not cancel sibling jobs, and small JSON artifacts feed a combined report.
+
+The updated PULP workflow passes actionlint, and all twenty runner/report unit
+tests pass, including a barrier test proving both ITA pipelines overlap. The
+regular and survey case plans were evaluated locally against the pinned RTL
+archive. The GitHub artifact-transfer path still requires a CI run.
+
+The concurrent ITA run also passed both golden scoreboards and the exact
+phase/data/timestamp comparison for 2,048 transactions using vector seed 0,
+stalls, and the disclosed 1 ps weight-read delay. The original RTL build
+finished while the generated build continued. Full results are in
+`build/ita-parallel-verification/summary.json`.

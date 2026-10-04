@@ -139,6 +139,15 @@ pattern shows the intended ownership flow:
    a.setNet(n)
    y.setNet(n)
 
+For Verilator verification, ``SNLDesign.dumpVerilog(path, top_file_name,
+verilatorSplitPackedSignals=True)`` annotates internal bus nets and packed
+child-module ports with ``/* verilator split_var */``. Public top-module ports
+are excluded. The keyword defaults to ``False``; comments affect Verilator's
+dependency tracking and do not change the netlist logic or suppress warnings.
+The high-level API exposes the same option through
+``najaeda.netlist.VerilogDumpConfig``. Library-only dumps annotate internal nets
+but leave module ports unannotated because no single public top is specified.
+
 Object lifetime and safety
 --------------------------
 

@@ -1392,6 +1392,10 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     const auto termName = term->getName().getString();
     nbChars += termName.size();
     o << dumpName(termName);
+    if (configuration_.isVerilatorSplitPackedSignals() && publicDesign_ &&
+        design != publicDesign_ && dynamic_cast<const SNLBusTerm*>(term)) {
+      o << " /* verilator split_var */";
+    }
   }
   o << ");";
 }
@@ -1412,6 +1416,9 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
   o << dumpName(netName.getString());
+  if (configuration_.isVerilatorSplitPackedSignals() && dynamic_cast<const SNLBusNet*>(net)) {
+    o << " /* verilator split_var */";
+  }
   o << ";" << '\n';
   return true;
 }
@@ -2715,6 +2722,11 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+  if (!publicDesign_) publicDesign_ = design;
+  struct PublicDesignGuard {
+    const SNLDesign*& design;
+    ~PublicDesignGuard() { design = nullptr; }
+  } publicDesignGuard {publicDesign_};
   std::string context("dumpDesign(stream): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
   DetailedPerfSessionGuard sessionGuard(*this, context);
@@ -2848,6 +2860,11 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  publicDesign_ = design;
+  struct PublicDesignGuard {
+    const SNLDesign*& design;
+    ~PublicDesignGuard() { design = nullptr; }
+  } publicDesignGuard {publicDesign_};
   std::string context("dumpDesign(path): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
   context += " -> ";
@@ -2905,6 +2922,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
         "//"
       );
       outFile << '\n';
+      streamDumper.publicDesign_ = publicDesign_;
       streamDumper.dumpDesign(design, outFile);
       emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
       emitNajaMux2Model = emitNajaMux2Model or streamDumper.emitNajaMux2Model_;

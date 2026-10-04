@@ -41,6 +41,14 @@ Verilog syntax-error exceptions include the failing input file path alongside
 the parser's line and column range, including when loading multiple files.
 With preprocessing enabled, these positions refer to the preprocessed text.
 
+Verilog dumps can opt into Verilator's packed-signal splitting with
+``VerilogDumpConfig(verilatorSplitPackedSignals=True)`` passed to
+``Instance.dump_verilog``. This adds ``/* verilator split_var */`` comments to
+internal bus nets and child-module bus ports so Verilator can track dependencies
+between separate packed sections. Public top-module ports are excluded. The
+option defaults to ``False`` and adds no warning suppression or logic changes.
+Genuine bit-level combinational loops still produce lint diagnostics.
+
 SystemVerilog
 -------------
 
