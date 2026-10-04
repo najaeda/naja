@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 # Bazel equivalent of .github/workflows/najaeda-examples.yml: runs
 # run_regress.py, which walks its own cwd's immediate subdirectories and
 # executes every *.py example script in each (task #28).
@@ -21,16 +23,17 @@ sh_test(
         "src/najaeda/najaeda",
         "$(rootpath //src/nl/python/naja_wrapping:naja.so)",
         "$(rootpath //src/nl/python/naja_wrapping:naja_runtime)",
-        "$(rootpath @python3_tool//:python3)",
+        "$(PYTHON3_ROOTPATH)",
         "src/najaeda/examples",
     ],
+    toolchains = ["@rules_python//python:current_py_toolchain"],
     data = [
         ":examples_sources",
         "//src/najaeda/benchmarks",
         "//src/najaeda/najaeda:sources",
         "//src/nl/python/naja_wrapping:naja.so",
         "//src/nl/python/naja_wrapping:naja_runtime",
-        "@python3_tool//:python3",
+        "@rules_python//python:current_py_toolchain",
     ],
     # Not gtest/ctest-shaped output; run_regress.py's own logging is the
     # useful signal, and each example script can take a few seconds

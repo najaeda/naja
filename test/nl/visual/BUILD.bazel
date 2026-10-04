@@ -5,6 +5,8 @@
 # ENABLE_TEST_DOT (Graphviz rendering) defaults OFF in CMake; not wired
 # up here either.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "snl_visual_tests",
     srcs = ["SNLVisualTests.cpp"],

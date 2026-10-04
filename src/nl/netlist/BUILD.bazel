@@ -10,6 +10,8 @@
 # serialization/ is add_subdirectory'd by CMake alongside this library
 # but isn't a dependency of naja_nl itself -- ported separately (task #16).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_nl",
     srcs = [
@@ -79,8 +81,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/core:naja_core",
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
+        "@boost.intrusive",
     ],
 )
 
