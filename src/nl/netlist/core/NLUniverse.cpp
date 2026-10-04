@@ -73,10 +73,6 @@ NLUniverse* NLUniverse::get() {
   return universe_;
 }
 
-const void* NLUniverse::getRuntimeIdentity() noexcept {
-  return &universe_;
-}
-
 void NLUniverse::addDBAndSetID(NLDB* db) {
   if (dbs_.empty()) {
     db->id_ = 0;

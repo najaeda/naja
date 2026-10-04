@@ -69,11 +69,6 @@ DNL<DNLInstanceFull, DNLTerminalFull>* dnlFull_ = nullptr;
 bool isCreated() {
   return dnlFull_ != nullptr;
 }
-DNLFull* exchange(DNLFull* replacement) noexcept {
-  auto* previous = dnlFull_;
-  dnlFull_ = replacement;
-  return previous;
-}
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
   assert(NLUniverse::get());
   NajaPerf::Scope scope("DNL::create");
