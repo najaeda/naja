@@ -159,7 +159,7 @@ jobs:
           VERILATOR_REV: ea338be98e1e838d3518809ce8899f85a009963c
         run: |
           sudo apt-get update
-          sudo apt-get install -yq autoconf bison flex help2man
+          sudo apt-get install -yq autoconf bison flex libfl-dev help2man
           git init "${RUNNER_TEMP}/verilator-src"
           git -C "${RUNNER_TEMP}/verilator-src" fetch --depth 1 https://github.com/verilator/verilator.git "${VERILATOR_REV}"
           git -C "${RUNNER_TEMP}/verilator-src" checkout --detach FETCH_HEAD
