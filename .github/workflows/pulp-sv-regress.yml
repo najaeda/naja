@@ -13,6 +13,8 @@ on:
       - 'regress/sv/pulp_benchmarks.py'
       - 'regress/sv/tests/test_pulp*.py'
       - 'regress/sv/pulp_report.py'
+      - 'regress/sv/ita_simulation.py'
+      - 'regress/sv/tests/test_ita_simulation.py'
       - '.github/workflows/pulp-sv-regress.yml'
   push:
     branches: [main]
@@ -55,7 +57,9 @@ jobs:
           cp -R src/najaeda/najaeda build/test/najaeda/
           ln -sf "${GITHUB_WORKSPACE}/build/src/nl/python/naja_wrapping/naja.so" build/test/najaeda/najaeda/naja.so
       - name: Test benchmark runner
-        run: python3 -m unittest discover -s regress/sv/tests -p 'test_pulp*.py'
+        run: |
+          python3 -m unittest discover -s regress/sv/tests -p 'test_pulp*.py'
+          python3 -m unittest discover -s regress/sv/tests -p test_ita_simulation.py
       - name: Download pinned prepared RTL
         id: rtl
         run: |

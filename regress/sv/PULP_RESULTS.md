@@ -191,13 +191,13 @@ Both also reported the **same six mismatches against upstream golden values**.
 The first occurs in phase 3 at 4622.6 ns: actual
 `80131f1db08af3ec80807f753c7f80dd`, expected
 `80131f1db08af3ec80807f753c7f80ef`. The cause of this shared baseline mismatch
-has not been established; the runner returns failure even when RTL and
+was not established in that initial run (see the follow-up below); the runner returns failure even when RTL and
 netlist traces agree. It is not promoted to a green CI gate.
 
 The synthesis SRAM stub is replaced by the upstream behavioral model on the
 RTL side; the same model is attached to the generated netlist's explicit
 SRAM blackbox. Its shape is checked (256 words, 416 bits, two ports, one-cycle
-latency). The generated logic is otherwise unchanged. The testbench adapter
+latency). The initial zero-delay run otherwise left the generated logic unchanged. The testbench adapter
 works around Verilator's packed-array `$fscanf` C++ generation issue using
 scalar temporaries and checks successful reads. Golden comparisons remain
 intact, with complete transaction counts required.
@@ -226,3 +226,86 @@ flow enables permissive compatibility options that this runner does not apply.
 The local code knowledge graph was refreshed incrementally for code. Its full
 semantic refresh needs an unavailable LLM API key; the code refresh also
 reported existing duplicate-node collisions in `SNLDesignModeling`.
+
+
+## ITA zero-delay mismatch diagnosis (2026-10-03)
+
+The six golden mismatches originate at the latch-based weight buffer read
+boundary in Verilator 5.052. Instrumenting the original RTL found eight
+64-output blocks whose final captured weight vector differed from the other
+63 vectors: transactions 831, 959, 1087, 1535, 1599, 1727, 1855 and 1919.
+Only the first 128-bit write chunk was overwritten; six corruptions survived
+requantization/saturation as visible output mismatches in processing lane 0.
+The expected values in the scoreboard match the on-disk golden vectors.
+
+The reduced `ita_latch_repro.sv` isolates the scheduling difference without
+Naja or the ITA testbench. At the same edge as a bank overwrite, Icarus reads
+the bank's old `0x11`, while Verilator reads the shared write register's
+transient `0x22`; the final bank contents are `0x33` in both. The full upstream
+buffer also reproduces this in Verilator with `-O0`. Verilator documents that
+its conversion of nonblocking assignments in combinational logic can cause
+simulation races: <https://verilator.org/guide/latest/warnings.html#combdly>.
+
+The runner now models 1 ps read propagation on that buffer in both RTL and
+generated simulation. This preserves the complete buffer logic and golden
+vectors, while separating the memory output update from the reader's clock
+edge. The JSON and Markdown reports disclose the delay; setting
+`--weight-read-delay-ps 0` retains the failing control. The original structural
+dump is not edited. A delay on the cascaded clock gates was tested and rejected
+because it changes enable sampling; the implemented model delays only read data.
+
+
+Validation with the 1 ps model completed successfully on the same local
+Verilator 5.052 / Naja `20d67a27` Release environment:
+
+| Stage | Result | Seconds |
+| --- | --- | ---: |
+| Vector generation | pass | 0.958 |
+| Naja load + dump | pass | 45.524 |
+| Original RTL build | pass | 8.398 |
+| Original golden scoreboard | pass | 0.188 |
+| Generated netlist build | pass | 317.899 |
+| Generated golden scoreboard | pass | 2.697 |
+| RTL/netlist trace comparison | pass, 2,048 transactions | — |
+
+Reusing these binaries, all six combinations of vector seeds 0/1/2 and
+Verilator stall seeds 1/7 also passed both golden scoreboards and exact
+phase/data/timestamp comparison: **12,288 compared transactions**. Seed-0
+vectors were restored afterward. Reports are in
+`build/ita-simulation-timed/summary.json` and `seed-matrix.json`; the combined
+PULP/ITA Markdown preview is `build/pulp-report-check/report.md`.
+This establishes finite functional coverage under the disclosed read-delay
+and external SRAM models. The full ITA simulation remains an explicit local
+command; CI now includes its adapter unit tests but does not run the full
+functional simulation by default.
+
+
+## Naja primitive follow-up (2026-10-03)
+
+The reproducer is now split into synthesizable `ita_latch_dut.sv` and a
+simulation-only `ita_latch_repro.sv` driver. `ita_primitive_check.py` elaborates
+only the DUT, with no unsupported diagnostics, and dumps 27 immediate
+instances including five `naja_dlatch` instances and two `naja_dff` instances.
+The read propagation delay is on the testbench feedback connection, outside
+elaboration. No timing construct is silently discarded during lowering.
+
+| Simulator | Read delay | Source RTL | Naja primitives | Nonblocking latch candidate |
+| --- | ---: | --- | --- | --- |
+| Icarus | 0 ps | pass (`0x11`) | pass (`0x11`) | pass (`0x11`) |
+| Icarus | 1 ps | pass (`0x11`) | pass (`0x11`) | pass (`0x11`) |
+| Verilator 5.052 | 0 ps | fail (`0x22`) | fail (`0x22`) | fail (`0x22`) |
+| Verilator 5.052 | 1 ps | pass (`0x11`) | pass (`0x11`) | pass (`0x11`) |
+
+The observed value is the reader flop's captured data; the memory's settled
+contents are `0x33` in every case. The temporary candidate changes only
+`if (E) Q = D` to `if (E) Q <= D` in an artifact copy of `naja_dlatch`.
+Verilator emits `COMBDLY` for this assignment and the zero-delay failure
+persists. No elaboration mismatch was observed, and switching the primitive
+to nonblocking assignment does not resolve this case. The generic primitive
+and Naja frontend remain unchanged; the disclosed ITA read-delay model stays
+in the simulation harness.
+
+The maintained runner reproduced all 12 outcomes in
+`build/ita-primitive-check-repeat/summary.json`, with per-configuration logs.
+Its comparison outcome is `matched`; golden failures remain explicitly marked
+`failed` rather than being relabeled as passing functional tests.

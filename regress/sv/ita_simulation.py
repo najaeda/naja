@@ -62,6 +62,37 @@ def adapt_testbench(source, vectors):
     return source.replace("$finish();", '$display("NAJA_ITA_COMPLETE");\n    $finish();')
 
 
+def model_weight_read_delay(source, delay_ps):
+    """Model latch-memory read propagation without replacing its elaborated logic.
+
+    Verilator's zero-delay gated latch scheduling can expose a transient old
+    write-data value to a same-edge reader. Delay only the read port, equally
+    on RTL and dump; delaying cascaded clock gates changes their enable timing.
+    """
+    if not 0 <= delay_ps <= 100:
+        raise ValueError("Weight read delay must be between 0 and 100 ps")
+    name = "ita_register_file_1w_multi_port_read_we"
+    matches = list(re.finditer(r"module " + name + r"\b.*?endmodule", source, re.S))
+    if len(matches) != 1:
+        raise ValueError("Expected exactly one ITA weight buffer module")
+    match = matches[0]
+    module = match.group()
+    header, body = module.split(");", 1)
+    port = re.search(r"output\s+(?:logic\s+)?((?:\[[^]]+\]\s*)+)ReadData\b", header)
+    shape = re.sub(r"\s+", "", port[1]) if port else None
+    if shape not in ("[N_READ-1:0][DATA_WIDTH-1:0]", "[8191:0]"):
+        raise ValueError("ITA weight buffer read port shape changed")
+    if "naja_sim_read_data" in module:
+        raise ValueError("ITA weight read delay already applied")
+    if delay_ps == 0:
+        return source
+    body = re.sub(r"\bReadData\b", "naja_sim_read_data", body)
+    prefix = ("\n  timeunit 1ns; timeprecision 1ps;\n"
+              f"  wire {port[1]} naja_sim_read_data;\n"
+              f"  assign #({delay_ps}ps) ReadData = naja_sim_read_data;\n")
+    return source[:match.start()] + header + ");" + prefix + body + source[match.end():]
+
+
 def attach_memory(netlist):
     # This adapter is specific to the checksum-pinned ita.default variant.
     # Reject shape changes instead of silently simulating the wrong memory.
@@ -128,18 +159,21 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--weight-read-delay-ps", type=int, default=1,
+                        help="Latch-memory read propagation delay (0 reproduces the zero-delay race)")
     parser.add_argument("--no-stalls", action="store_true")
     parser.add_argument("--verilator-opt", choices=("default", "0", "1", "2", "3"),
                         default="default")
     parser.add_argument("--hierarchical", action=argparse.BooleanOptionalAction, default=True,
                         help="Compile large generated datapaths as separate Verilator blocks")
     args = parser.parse_args()
-    if args.timeout <= 0 or args.jobs <= 0:
-        parser.error("timeout and jobs must be positive")
+    if args.timeout <= 0 or args.jobs <= 0 or not 0 <= args.weight_read_delay_ps <= 100:
+        parser.error("timeout/jobs must be positive; weight read delay must be 0..100 ps")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     summary = dict(ita_revision=ITA_REV, memory_revision=MEM_REV, seed=args.seed,
-                   stalls=not args.no_stalls, status="running", results={})
+                   stalls=not args.no_stalls, weight_read_delay_ps=args.weight_read_delay_ps,
+                   status="running", results={})
     def save():
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     try:
@@ -178,6 +212,10 @@ def main():
                 line = "+incdir+" + str((source / line[8:]).resolve())
             elif not line.startswith("+"):
                 line = str(memory if line.endswith("tc_sram_stubs.sv") else (source / line).resolve())
+            if line.endswith("/ita_register_file_1w_multi_port_read_we.sv"):
+                buffer = out / "weight_buffer.sv"
+                buffer.write_text(model_weight_read_delay(Path(line).read_text(), args.weight_read_delay_ps))
+                line = str(buffer)
             lines.append(line)
         original.write_text("\n".join(lines + list(map(str, clocks)) + [str(tb)]) + "\n")
         dump = pulp.run_target(package, "ita.default", "ita", out / "dump",
@@ -187,7 +225,8 @@ def main():
         lists = {"original": original}
         if dump["status"] == "passed":
             netlist = out / "generated.v"
-            netlist.write_text(attach_memory((out / "dump/netlist.v").read_text()))
+            netlist.write_text(model_weight_read_delay(
+                attach_memory((out / "dump/netlist.v").read_text()), args.weight_read_delay_ps))
             mem_model = out / "memory.sv"
             mem_model.write_text(memory.read_text().replace("module tc_sram #(", "module ita_sim_sram #("))
             generated = out / "generated.f"
