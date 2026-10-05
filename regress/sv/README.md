@@ -576,7 +576,8 @@ the built `najaeda` package must also have its normal runtime dependencies.
 `--lint-runner docker` uses the same Verilator v5.046 image as the external SV
 runner; `local` requires Verilator on PATH. Omitting the option runs load/dump
 only. Each load/dump and lint subprocess has a separate wall-clock limit.
-Missing lint tools fail; they do not silently skip.
+Lint uses `--verilate-jobs 0` to use the CPUs available to Verilator for internal
+compilation. Missing lint tools fail; they do not silently skip.
 
 The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
 configuration, runs the small tier and lints each complete generated netlist
@@ -599,7 +600,7 @@ python3 regress/sv/pulp_benchmarks.py \
 ```
 
 C910 also runs on every PR, push, and dispatch in an independent `pulp-c910`
-job. It uses the same source-pinned Verilator 5.052 build as ITA and a 300-second
+job. It uses the same source-pinned Verilator 5.052 build as ITA and a 600-second
 limit for each load/dump and strict-lint stage. The prepared PULP runner enables
 `VerilogDumpConfig(verilatorSplitPackedSignals=True)` for its dumps. This
 tracks packed child-module ports and internal buses separately, leaves public
@@ -619,7 +620,7 @@ functional validation. A nightly run at 02:23 UTC or manual `survey=true` adds
 with the five regular full checks. That produces **28 independent verification
 jobs**, including the four elaboration checks and ITA. Each additional survey
 variant has its own 120-second limit per load/dump and per lint; C910 retains
-its separate 300-second limit. Known failures fail only their own jobs.
+its separate 600-second limit. Known failures fail only their own jobs.
 Matrix fail-fast is disabled, so other variants finish and retain reports.
 No complete-check case is duplicated between regular and survey jobs.
 

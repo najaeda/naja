@@ -139,7 +139,8 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
         inputs = [artifacts / "netlist.v"]
         if primitives.is_file():
             inputs.append(primitives)
-        flags = ["--lint-only", "--sv", "--top-module", top, "-Wno-ASCRANGE"]
+        flags = ["--lint-only", "--verilate-jobs", "0", "--sv", "--top-module", top,
+                 "-Wno-ASCRANGE"]
         if lint_runner == "docker":
             cidfile = artifacts / "lint-container.cid"
             cidfile.unlink(missing_ok=True)
