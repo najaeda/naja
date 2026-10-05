@@ -3367,6 +3367,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
 #endif
+      MemoryWriterCensus memoryWriters;
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
@@ -3377,7 +3378,7 @@ endmodule
 #endif
         // Infer memories before materializing variables so successfully
         // inferred unpacked arrays never expand into a raw SNL bit net.
-        inferMemories(design, body);
+        inferMemories(design, body, memoryWriters);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
@@ -3422,6 +3423,7 @@ endmodule
           svPerfReport_.currentLoweringStep,
           "prepare_inferred_memories");
 #endif
+        validateMemoryWriters(design, memoryWriters);
         prepareInferredMemories(design);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -6529,6 +6531,84 @@ endmodule
       return false;
     }
 
+    using MemoryWriterCensus = std::unordered_map<
+      const slang::ast::ValueSymbol*,
+      std::unordered_map<const slang::ast::ProceduralBlockSymbol*,
+                         std::vector<const Expression*>>>;
+
+    MemoryWriterCensus collectMemoryWriters(const slang::ast::InstanceBodySymbol& body) {
+      MemoryWriterCensus writers;
+      auto collect = [&](const Symbol& sym) {
+        if (sym.kind != SymbolKind::ProceduralBlock) {
+          return;
+        }
+        const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
+        if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
+            block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
+          return;
+        }
+        // Ownership is independent of inference eligibility: include whole-array
+        // assignments and every indexed assignment, with one entry per block.
+        auto visitor = slang::ast::makeVisitor(
+          [&](auto& visitor, const slang::ast::AssignmentExpression& assignment) {
+            const slang::ast::ValueSymbol* symbol = nullptr;
+            NLDB0::MemorySignature signature;
+            if (tryGetRootValueSymbolReference(assignment.left(), symbol) && symbol &&
+                getSupportedMemorySignature(symbol->getType(), signature)) {
+              writers[symbol][&block].push_back(&assignment.left());
+            }
+            visitor.visitDefault(assignment);
+          });
+        block.getBody().visit(visitor);
+      };
+      visitElaboratedNonGenerateMembers(body, collect);
+      return writers;
+    }
+
+    void validateMemoryWriters(SNLDesign* design, const MemoryWriterCensus& writers) {
+      // Generic lowering may share an array only when each block owns a
+      // statically disjoint set of bits. Never return an ambiguous netlist.
+      bool rejected = false;
+      for (const auto& [symbol, blocks] : writers) {
+        if (blocks.size() < 2) {
+          continue;
+        }
+        std::unordered_set<SNLBitNet*> ownedBits;
+        bool supported = true;
+        for (const auto& [block, assignments] : blocks) {
+          std::unordered_set<SNLBitNet*> blockBits;
+          for (const auto* lhs : assignments) {
+            std::vector<SNLBitNet*> bits;
+            if (hasDynamicSelectionInLHS(*lhs) ||
+                !resolveAssignmentLHSBits(design, *lhs, bits, nullptr, true)) {
+              supported = false;
+              break;
+            }
+            blockBits.insert(bits.begin(), bits.end());
+          }
+          for (auto* bit : blockBits) {
+            if (!ownedBits.insert(bit).second) {
+              supported = false;
+            }
+          }
+          if (!supported) {
+            break;
+          }
+        }
+        if (!supported) {
+          rejected = true;
+          reportUnsupportedError(
+            "Memory '" + std::string(symbol->name) +
+              "': multiple sequential writers require disjoint constant selections; "
+              "overlapping or dynamic writes are unsupported",
+            getSourceRange(*symbol));
+        }
+      }
+      if (rejected) {
+        throwIfUnsupportedElements();
+      }
+    }
+
     void collectDirectSequentialMemoryCandidates(
       const Statement& stmt,
       std::vector<const slang::ast::ValueSymbol*>& candidates,
@@ -7345,7 +7425,8 @@ endmodule
       }
     }
 
-    void inferMemories(SNLDesign* /*design*/, const InstanceBodySymbol& body) {
+    void inferMemories(
+      SNLDesign* /*design*/, const InstanceBodySymbol& body, MemoryWriterCensus& writerCensus) {
       inferredMemories_.clear();
       inferredMemoryByStateSymbol_.clear();
       inferredMemoryCombBlocks_.clear();
@@ -7371,6 +7452,25 @@ endmodule
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
+
+      writerCensus = collectMemoryWriters(body);
+      const auto hasMultipleWriters = [&](const slang::ast::ValueSymbol* symbol) {
+        const auto found = writerCensus.find(symbol);
+        if (found == writerCensus.end() || found->second.size() < 2) {
+          return false;
+        }
+        if (warnedUninferredMemorySymbols_.insert(symbol).second) {
+          std::ostringstream reason;
+          reason << "Memory '" << std::string(symbol->name)
+                 << "' was not inferred as naja_mem: written from "
+                 << found->second.size()
+                 << " sequential blocks; using generic sequential lowering";
+          reportWarning(
+            "uninferred_memory_generic_sequential_lowering",
+            reason.str(), getSourceRange(*symbol));
+        }
+        return true;
+      };
 
       for (const auto* blockPtr : combinationalBlocks) {
         const auto& block = *blockPtr;
@@ -7418,6 +7518,10 @@ endmodule
             continue; // LCOV_EXCL_LINE
           }
 
+          if (hasMultipleWriters(stateSymbol)) {
+            continue;
+          }
+
           InferredMemory memory;
           memory.stateSymbol = stateSymbol;
           memory.shadowSymbol = shadowSymbol;
@@ -7450,11 +7554,6 @@ endmodule
         }
       }
 
-      // An inferred memory is owned by one sequential block. A symbol written
-      // from several blocks (for example one always block per element in a
-      // generate loop) would leave the other writers to the generic lowering,
-      // which then drives the memory's read data a second time. Such a symbol
-      // is left to the generic lowering for all of its writers.
       const auto collectDirectCandidates =
         [&](const slang::ast::ProceduralBlockSymbol& seqBlock,
             std::vector<const slang::ast::ValueSymbol*>& candidates) {
@@ -7472,16 +7571,6 @@ endmodule
           candidates,
           seenCandidates);
       };
-      std::unordered_map<const slang::ast::ValueSymbol*, size_t> directWriterBlocks;
-      for (const auto* seqBlock : sequentialBlocks) {
-        std::vector<const slang::ast::ValueSymbol*> candidates;
-        collectDirectCandidates(*seqBlock, candidates);
-        for (const auto* stateSymbol : candidates) {
-          if (stateSymbol) {
-            ++directWriterBlocks[stateSymbol];
-          }
-        }
-      }
 
       for (const auto* seqBlock : sequentialBlocks) {
         std::vector<const slang::ast::ValueSymbol*> candidates;
@@ -7490,18 +7579,7 @@ endmodule
           if (!stateSymbol || inferredMemoryByStateSymbol_.contains(stateSymbol)) {
             continue;
           }
-          if (directWriterBlocks[stateSymbol] > 1) {
-            if (warnedUninferredMemorySymbols_.insert(stateSymbol).second) {
-              std::ostringstream reason;
-              reason << "Memory '" << std::string(stateSymbol->name)
-                     << "' was not inferred as naja_mem: written from "
-                     << directWriterBlocks[stateSymbol]
-                     << " sequential blocks; using generic sequential lowering";
-              reportWarning(
-                "uninferred_memory_generic_sequential_lowering",
-                reason.str(),
-                getSourceRange(*stateSymbol));
-            }
+          if (hasMultipleWriters(stateSymbol)) {
             continue;
           }
           InferredMemory memory;
