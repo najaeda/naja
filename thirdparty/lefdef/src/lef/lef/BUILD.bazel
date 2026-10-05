@@ -4,17 +4,29 @@
 
 # Mirrors this directory's own CMakeLists.txt: builds the `lef` static
 # library naja actually links (src/nl/formats/lefdef/CMakeLists.txt).
-# See internal/bazel-migration-plan.md (task #13) and
-# bazel/lefdef_bison.bzl for why lef.tab.h is freshly generated here but
-# def (in ../../def/def) uses an already-checked-in def.tab.h instead.
+# lef.tab.h is generated here, whereas def (in ../../def/def) uses a
+# checked-in def.tab.h.
 
-load("//bazel:lefdef_bison.bzl", "lefdef_bison_parser")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@bison//:bison.bzl", "bison")
 
-lefdef_bison_parser(
+# -p lefyy keeps yyparse/yylex from colliding with the def parser.
+bison(
     name = "lef_parser",
-    src = "lef.y",
-    name_prefix = "lefyy",
-    hdr_out = "lef.tab.h",
+    srcs = ["lef.y"],
+    outs = [
+        "lef_parser.cpp",
+        "lef.tab.h",
+    ],
+    args = [
+        "-Wconflicts-sr",
+        "-p",
+        "lefyy",
+        "--output=$(execpath lef_parser.cpp)",
+        "-d",
+        "--defines=$(execpath lef.tab.h)",
+        "$(execpath lef.y)",
+    ],
 )
 
 cc_library(

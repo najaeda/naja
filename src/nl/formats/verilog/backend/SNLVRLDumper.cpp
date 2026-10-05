@@ -190,6 +190,18 @@ bool isZeroVerilogIntegerLiteral(const std::string& value) {
          });
 }
 
+bool isNajaSequentialModel(const naja::NL::SNLDesign* model) {
+  using namespace naja::NL;
+  return NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
+      NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) || NLDB0::isDFFS(model) ||
+      NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
+      NLDB0::isDFFSE(model) ||
+      NLDB0::isDFFSR(model) || NLDB0::isDFFSRN(model) ||
+      NLDB0::isDFFSS(model) || NLDB0::isDFFSSN(model) ||
+      NLDB0::isDFFSRE(model) || NLDB0::isDFFSRNE(model) ||
+      NLDB0::isDFFSSE(model) || NLDB0::isDFFSSNE(model);
+}
+
 std::string getEmittedDefaultParameterValue(
   const naja::NL::SNLInstance* instance,
   const naja::NL::SNLParameter* parameter) {
@@ -228,22 +240,32 @@ std::string getEmittedDefaultParameterValue(
       return "1";
     }
   }
+  if (NLDB0::isMux2(instance->getModel()) || isNajaSequentialModel(instance->getModel())) {
+    if (parameterName == NLName("WIDTH")) {
+      return "1";
+    }
+    if (isNajaSequentialModel(instance->getModel()) && parameterName == NLName("INIT")) {
+      // The emitted INIT default is all X, independent of a customized model default.
+      const auto width = instance->getModel()->getTerm(NLName("Q"))->getWidth();
+      return NLDB0::getUndefinedDFFInitValue(width);
+    }
+  }
   return parameter->getValue();
 }
 
-bool shouldDumpInstParameter(
+bool shouldDumpParameter(
   const naja::NL::SNLInstance* instance,
-  const naja::NL::SNLInstParameter* instParameter) {
-  const auto* parameter = instParameter->getParameter();
+  const naja::NL::SNLParameter* parameter,
+  const std::string& value) {
   if (not parameter->hasDefaultValue()) {
     return true;
   }
   if (naja::NL::NLDB0::isMemory(instance->getModel()) &&
       parameter->getName() == naja::NL::NLName("INIT") &&
-      isZeroVerilogIntegerLiteral(instParameter->getValue())) {
+      isZeroVerilogIntegerLiteral(value)) {
     return false;
   }
-  return normalizeParameterValue(parameter->getType(), instParameter->getValue()) !=
+  return normalizeParameterValue(parameter->getType(), value) !=
          normalizeParameterValue(
            parameter->getType(),
            getEmittedDefaultParameterValue(instance, parameter));
@@ -1370,6 +1392,10 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     const auto termName = term->getName().getString();
     nbChars += termName.size();
     o << dumpName(termName);
+    if (configuration_.isVerilatorSplitPackedSignals() && publicDesign_ &&
+        design != publicDesign_ && dynamic_cast<const SNLBusTerm*>(term)) {
+      o << " /* verilator split_var */";
+    }
   }
   o << ");";
 }
@@ -1390,6 +1416,9 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
   o << dumpName(netName.getString());
+  if (configuration_.isVerilatorSplitPackedSignals() && dynamic_cast<const SNLBusNet*>(net)) {
+    o << " /* verilator split_var */";
+  }
   o << ";" << '\n';
   return true;
 }
@@ -1687,46 +1716,48 @@ void SNLVRLDumper::dumpInstanceInterface(
 void SNLVRLDumper::dumpInstParameters(
   const SNLInstance* instance,
   std::ostream& o) {
-  std::vector<const SNLInstParameter*> dumpedParameters;
-  for (auto instParameter: instance->getInstParameters()) {
-    if (shouldDumpInstParameter(instance, instParameter)) {
-      dumpedParameters.push_back(instParameter);
+  std::vector<std::pair<const SNLParameter*, std::string>> dumpedParameters;
+  // Replacing a specialized primitive with a generic module can change its defaults.
+  for (auto* parameter: instance->getModel()->getParameters()) {
+    const auto* instParameter = instance->getInstParameter(parameter->getName());
+    const auto value = instParameter ? instParameter->getValue() : parameter->getValue();
+    if (shouldDumpParameter(instance, parameter, value)) {
+      dumpedParameters.emplace_back(parameter, value);
     }
   }
   std::sort(
     dumpedParameters.begin(),
     dumpedParameters.end(),
-    [](const SNLInstParameter* lhs, const SNLInstParameter* rhs) {
-      return lhs->getName().getString() < rhs->getName().getString();
+    [](const auto& lhs, const auto& rhs) {
+      return lhs.first->getName().getString() < rhs.first->getName().getString();
     });
   if (not dumpedParameters.empty()) {
     bool first = true;
     o << "#(" << '\n';
-    for (auto instParameter: dumpedParameters) {
+    for (const auto& [parameter, value]: dumpedParameters) {
       if (not first) {
         o << "," << '\n';
       }
       first = false;
-      o << "  ." << instParameter->getName().getString();
+      o << "  ." << parameter->getName().getString();
       o << "(";
-      auto parameter = instParameter->getParameter();
       if (parameter->getType() == SNLParameter::Type::String) {
-        o << "\"" << instParameter->getValue() << "\"";
+        o << "\"" << value << "\"";
       } else if (parameter->getType() == SNLParameter::Type::Boolean) {
-        if (instParameter->getValue()=="0" or instParameter->getValue()=="FALSE") {
+        if (value=="0" or value=="FALSE") {
           o << "\"FALSE\"";
-        } else if (instParameter->getValue()=="1" or instParameter->getValue()=="TRUE") {
+        } else if (value=="1" or value=="TRUE") {
           o << "\"TRUE\"";
         } else {
           std::ostringstream reason;
           reason << "Error while writing verilog: in design " << instance->getDesign()->getString();
           reason << ", for instance " << instance->getName().getString();
           reason << ", wrong boolean value in instance parameter " << parameter->getDescription();
-          reason << ": " << instParameter->getDescription();
+          reason << ": " << value;
           throw SNLVRLDumperException(reason.str());
         }
       } else {
-        o << instParameter->getValue();
+        o << value;
       }
       o << ")";
     }
@@ -1786,20 +1817,9 @@ bool SNLVRLDumper::dumpInstance(
     } else {
       instanceName = instance->getName().getString();
     }
-    std::string widthValue = "1";
-    if (auto* widthParam = instance->getModel()->getParameter(NLName("WIDTH"))) {
-      widthValue = widthParam->getValue();
-    }
-    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
-      widthValue = widthInstParam->getValue();
-    }
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
     o << getNajaPrimitiveModelName(instance->getModel()) << " ";
-    if (widthValue != "1") {
-      o << "#(" << '\n';
-      o << "  .WIDTH(" << widthValue << ")" << '\n';
-      o << ") ";
-    }
+    dumpInstParameters(instance, o);
     o << dumpName(instanceName);
     dumpInstanceInterface(instance, o, naming);
     o << ";" << '\n';
@@ -1855,15 +1875,7 @@ bool SNLVRLDumper::dumpInstance(
     o << ";" << '\n';
     return true;
   }
-  if (auto* model = instance->getModel();
-      NLDB0::isDFF(model) || NLDB0::isDLatch(model) || NLDB0::isDFFN(model) ||
-      NLDB0::isDFFRN(model) || NLDB0::isDFFR(model) || NLDB0::isDFFS(model) ||
-      NLDB0::isDFFE(model) || NLDB0::isDFFRE(model) ||
-      NLDB0::isDFFSE(model) ||
-      NLDB0::isDFFSR(model) || NLDB0::isDFFSRN(model) ||
-      NLDB0::isDFFSS(model) || NLDB0::isDFFSSN(model) ||
-      NLDB0::isDFFSRE(model) || NLDB0::isDFFSRNE(model) ||
-      NLDB0::isDFFSSE(model) || NLDB0::isDFFSSNE(model)) {
+  if (auto* model = instance->getModel(); isNajaSequentialModel(model)) {
     emitNajaPrimitiveModels_ = true;
     std::string instanceName;
     if (instance->isUnnamed()) {
@@ -1872,28 +1884,9 @@ bool SNLVRLDumper::dumpInstance(
       instanceName = instance->getName().getString();
     }
     std::string modelName = getNajaPrimitiveModelName(model);
-    std::string widthValue = "1";
-    if (auto* widthParam = model->getParameter(NLName("WIDTH"))) {
-      widthValue = widthParam->getValue();
-    }
-    if (auto* widthInstParam = instance->getInstParameter(NLName("WIDTH"))) {
-      widthValue = widthInstParam->getValue();
-    }
-    const SNLInstParameter* initInstParam = instance->getInstParameter(NLName("INIT"));
-    const bool dumpInit =
-      initInstParam && shouldDumpInstParameter(instance, initInstParam);
     dumpAttributes(instance, o, AttributeDumpSite::Instance);
     o << modelName << " ";
-    if (widthValue != "1" || dumpInit) {
-      o << "#(" << '\n';
-      o << "  .WIDTH(" << widthValue << ")";
-      if (dumpInit) {
-        o << "," << '\n';
-        o << "  .INIT(" << initInstParam->getValue() << ")";
-      }
-      o << '\n';
-      o << ") ";
-    }
+    dumpInstParameters(instance, o);
     o << dumpName(instanceName);
     dumpInstanceInterface(instance, o, naming);
     o << ";" << '\n';
@@ -2397,6 +2390,8 @@ void SNLVRLDumper::dumpNajaDFFModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
+  // Retention is intentional in this Verilog-compatible latch model.
+  o << "/* verilator lint_off LATCH */\n";
   o << "module naja_dlatch #(\n";
   o << "  parameter WIDTH = 1\n";
   o << ") (\n";
@@ -2408,6 +2403,7 @@ void SNLVRLDumper::dumpNajaDLatchModel(std::ostream& o) {
   o << "    if (E) Q = D;\n";
   o << "  end\n";
   o << "endmodule //naja_dlatch\n";
+  o << "/* verilator lint_on LATCH */\n";
 }
 
 void SNLVRLDumper::dumpNajaDFFNModel(std::ostream& o) {
@@ -2611,8 +2607,13 @@ void SNLVRLDumper::dumpNajaDivModModel(std::ostream& o) {
   o << "  output [WIDTH-1:0] Q,\n";
   o << "  output [WIDTH-1:0] R\n";
   o << ");\n";
-  o << "  assign Q = SIGNED ? $signed(A) / $signed(B) : A / B;\n";
-  o << "  assign R = SIGNED ? $signed(A) % $signed(B) : A % B;\n";
+  o << "  generate if (SIGNED) begin : gen_signed\n";
+  o << "    assign Q = $signed(A) / $signed(B);\n";
+  o << "    assign R = $signed(A) % $signed(B);\n";
+  o << "  end else begin : gen_unsigned\n";
+  o << "    assign Q = A / B;\n";
+  o << "    assign R = A % B;\n";
+  o << "  end endgenerate\n";
   o << "endmodule //naja_divmod\n";
 }
 
@@ -2721,6 +2722,11 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+  if (!publicDesign_) publicDesign_ = design;
+  struct PublicDesignGuard {
+    const SNLDesign*& design;
+    ~PublicDesignGuard() { design = nullptr; }
+  } publicDesignGuard {publicDesign_};
   std::string context("dumpDesign(stream): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
   DetailedPerfSessionGuard sessionGuard(*this, context);
@@ -2854,6 +2860,11 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  publicDesign_ = design;
+  struct PublicDesignGuard {
+    const SNLDesign*& design;
+    ~PublicDesignGuard() { design = nullptr; }
+  } publicDesignGuard {publicDesign_};
   std::string context("dumpDesign(path): ");
   context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
   context += " -> ";
@@ -2911,6 +2922,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
         "//"
       );
       outFile << '\n';
+      streamDumper.publicDesign_ = publicDesign_;
       streamDumper.dumpDesign(design, outFile);
       emitNajaMemModel = emitNajaMemModel or streamDumper.emitNajaMemModel_;
       emitNajaMux2Model = emitNajaMux2Model or streamDumper.emitNajaMux2Model_;

@@ -11,6 +11,8 @@
 # scratch dir for log-file tests) as "." -- Bazel's cc_test sandbox
 # working directory is writable at test-run time, same role.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "najaCoreTests",
     srcs = [

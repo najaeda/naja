@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
 
 # Mirrors this directory's own CMakeLists.txt: builds `naja_python` (the
@@ -10,11 +12,11 @@ load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
 # internal/bazel-migration-plan.md (Phase 6, task #21).
 #
 # CMake links naja_python against Python3::Module (this Bazel build's
-# equivalent, @python//:headers -- no libpython linking, symbols resolve
+# equivalent, @rules_python//python/cc:current_py_cc_headers -- no libpython linking, symbols resolve
 # dynamically at import time) or Python3::Python (Python3::Embed
-# equivalent, @python//:embed) depending on BUILD_NAJA_PYTHON. This
+# equivalent, @rules_python//python/cc:current_py_cc_libs) depending on BUILD_NAJA_PYTHON. This
 # target is the Module/extension-module case; naja_edit's embedded mode
-# (task #22) needs its own copy linked against @python//:embed instead,
+# (task #22) needs its own copy linked against @rules_python//python/cc:current_py_cc_libs instead,
 # since a single cc_library can't conditionally pick either at build
 # time the way CMake's option toggle does.
 
@@ -90,7 +92,7 @@ cc_library(
         "//src/nl/netlist:naja_snl_visual",
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
         "//src/optimization:naja_opt",
-        "@python//:headers",
+        "@rules_python//python/cc:current_py_cc_headers",
     ],
 )
 
@@ -112,10 +114,15 @@ cc_shared_library(
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
         "//src/optimization:naja_opt",
     ],
+    # The runtime links these statically and exports them, so that
+    # binaries linking it (naja.so, kepler-formal) use its single copy
+    # instead of linking their own. Package patterns rather than target
+    # labels: zlib's BCR target behind @zlib//:z lives in a subpackage.
     exports_filter = [
         "//src:__subpackages__",
-        "@fmt//:fmt",
-        "@zlib//:z",
+        "@fmt//:__subpackages__",
+        "@onetbb//:__subpackages__",
+        "@zlib//:__subpackages__",
     ],
     user_link_flags = select({
         "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
@@ -134,7 +141,7 @@ cc_binary(
         # mach-o type) -- CPython's dlopen()-based import also accepts a
         # plain dylib on modern macOS, so only -undefined dynamic_lookup
         # (letting Python API symbols resolve at import time, since this
-        # target links no libpython -- see @python//:headers) is needed.
+        # target links no libpython -- see @rules_python//python/cc:current_py_cc_headers) is needed.
         "@platforms//os:macos": ["-undefined", "dynamic_lookup"],
         "//conditions:default": [],
     }),
@@ -142,6 +149,6 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":naja_python",
-        "@python//:headers",
+        "@rules_python//python/cc:current_py_cc_headers",
     ],
 )

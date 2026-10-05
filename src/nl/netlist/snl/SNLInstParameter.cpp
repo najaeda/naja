@@ -50,6 +50,9 @@ void SNLInstParameter::preDestroy() {
 }
 
 void SNLInstParameter::destroyFromInstance() {
+  // The owning instance is already clearing its parameter collection. Still
+  // release properties so retained Python wrappers are invalidated.
+  super::preDestroy();
   delete this;
 }
 

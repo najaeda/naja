@@ -5,6 +5,8 @@
 # Mirrors this directory's own CMakeLists.txt: builds the `naja_metrics`
 # library. See internal/bazel-migration-plan.md (Phase 4, task #18).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "naja_metrics",
     srcs = [
@@ -26,7 +28,6 @@ cc_library(
     deps = [
         "//src/bne:naja_bne",
         "//src/dnl:naja_dnl",
-        "//thirdparty/spdlog-1.17.0:spdlog",
-        "@boost//:headers",
+        "@spdlog",
     ],
 )

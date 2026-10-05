@@ -835,8 +835,7 @@ SNLDesign* VHDLConstructor::constructSource(
         auto* input = findSignal(name).net;
         if (!requestedOutput)
           return input;
-        SNLRTLPrimitives::createBitwiseGate(
-            design, SNLRTLPrimitives::GateKind::Buf, {input}, requestedOutput);
+        SNLRTLPrimitives::createAssign(design, input, requestedOutput);
         return requestedOutput;
       }
       if (expression.kind == vhdl::Expression::Kind::CharacterLiteral) {

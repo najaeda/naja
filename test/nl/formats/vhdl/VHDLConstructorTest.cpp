@@ -15,6 +15,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
+#include "SNLEquipotential.h"
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 #include "SNLRTLPrimitives.h"
@@ -82,6 +83,70 @@ begin
 end;
 )";
 }
+}
+
+TEST_F(VHDLConstructorTest, WiringAssignmentsTraverseEquipotentials) {
+  const std::vector<std::string> sources = {
+    "entity wiring is port(a : in bit; y : out bit); end; "
+    "architecture rtl of wiring is begin y <= a; end;",
+    "entity wiring is port(a : in bit_vector(3 downto 0); "
+    "y : out bit_vector(0 to 3)); end; "
+    "architecture rtl of wiring is begin y <= a; end;",
+    "library ieee; use ieee.std_logic_1164.all; "
+    "entity wiring is port(a : in std_logic_vector(3 downto 0); "
+    "y : out std_logic_vector(0 to 1)); end; "
+    "architecture rtl of wiring is signal temp : std_logic_vector(1 downto 0); "
+    "begin temp <= a(2 downto 1); y <= temp; end;",
+    "library ieee; use ieee.std_logic_1164.all; "
+    "entity wiring is port(a : in std_logic; y : out std_logic); end; "
+    "architecture rtl of wiring is begin process(all) begin y <= a; end process; end;"
+  };
+  for (const auto& source : sources) {
+    SCOPED_TRACE(source);
+    VHDLConstructor constructor(library_);
+    auto* design = constructor.construct(source);
+    ASSERT_NE(design, nullptr);
+    for (auto* instance : design->getInstances()) EXPECT_TRUE(instance->getModel()->isAssign());
+    for (auto* output : design->getBitTerms()) {
+      if (output->getDirection() != SNLTerm::Direction::Output) continue;
+      SNLEquipotential standard(output);
+      EXPECT_EQ(standard.getTermsSet().size(), 1);
+      SNLEquipotential traversed(output, SNLEquipotential::Mode::TraverseAssigns);
+      EXPECT_EQ(traversed.getTermsSet().size(), 2);
+      EXPECT_TRUE(traversed.getInstTermOccurrencesSet().empty());
+      auto* input = *traversed.getTermsSet().begin();
+      if (input == output) input = *traversed.getTermsSet().rbegin();
+      EXPECT_EQ(input->getDirection(), SNLTerm::Direction::Input);
+      if (auto* bit = dynamic_cast<SNLBusTermBit*>(output)) {
+        const auto expected = source.find("temp") != std::string::npos
+            ? 2 - bit->getBit() : 3 - bit->getBit();
+        ASSERT_NE(dynamic_cast<SNLBusTermBit*>(input), nullptr);
+        EXPECT_EQ(static_cast<SNLBusTermBit*>(input)->getBit(), expected);
+      }
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, AssignTraversalStopsAtLogicAndStorage) {
+  for (const auto* body : {"y <= not a;", "y <= a when sel = '1' else b;",
+      "process(clk) begin if rising_edge(clk) then y <= a; end if; end process;"}) {
+    SCOPED_TRACE(body);
+    const auto source = std::string("library ieee; use ieee.std_logic_1164.all; "
+        "entity boundary is port(a, b, sel, clk : in bit; y : out bit); end; "
+        "architecture rtl of boundary is begin ") + body + " end;";
+    VHDLConstructor constructor(library_);
+    auto* design = constructor.construct(source);
+    auto* output = design->getScalarTerm(NLName("y"));
+    SNLEquipotential traversed(output, SNLEquipotential::Mode::TraverseAssigns);
+    EXPECT_EQ(traversed.getTermsSet().size(), 1);
+    ASSERT_EQ(traversed.getInstTermOccurrencesSet().size(), 1);
+    auto* term = dynamic_cast<SNLInstTerm*>(
+        traversed.getInstTermOccurrencesSet().begin()->getObject());
+    ASSERT_NE(term, nullptr);
+    EXPECT_FALSE(term->getInstance()->getModel()->isAssign());
+    design->destroy();
+  }
 }
 
 TEST_F(VHDLConstructorTest, IndexedLFSRResetEnableAndCycles) {
@@ -1310,6 +1375,7 @@ TEST_F(VHDLConstructorTest, IndexedTablePrimitivesAndSharing) {
     } else if (NLDB0::isMux2(model)) ++muxes;
     else if (NLDB0::isDFF(model)) ++flops;
     else if (NLDB0::isGate(model)) ++gates;
+    else if (NLDB0::isAssign(model)) continue;
     else FAIL() << "unexpected primitive: " << model->getName().getString();
   }
   // Three equivalent zero-based reads and both offset directions share.
@@ -2952,7 +3018,8 @@ end;
     auto* design = VHDLConstructor(library).construct(text);
     ASSERT_NE(design, nullptr);
     for (auto* instance : design->getInstances())
-      EXPECT_TRUE(NLDB0::isGate(instance->getModel()) || NLDB0::isMux2(instance->getModel()));
+      EXPECT_TRUE(NLDB0::isAssign(instance->getModel()) ||
+          NLDB0::isGate(instance->getModel()) || NLDB0::isMux2(instance->getModel()));
     for (unsigned pattern = 0; pattern < 64; ++pattern) {
       const auto d = pattern & 15;
       const bool en = pattern & 16, force = pattern & 32;

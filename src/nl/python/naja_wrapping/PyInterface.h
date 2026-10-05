@@ -469,8 +469,10 @@ inline Py_hash_t finishPyHash(Py_uhash_t hash) {
 #define GetBoolAttribute(SELF_TYPE, METHOD) \
   static PyObject* Py##SELF_TYPE##_##METHOD(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE"."#METHOD"()") \
+    TRY \
     if (selfObject->METHOD()) Py_RETURN_TRUE; \
     Py_RETURN_FALSE; \
+    NLCATCH \
   }
 
 #define GetSizetAttribute(SELF_TYPE, METHOD) \
@@ -482,8 +484,10 @@ inline Py_hash_t finishPyHash(Py_uhash_t hash) {
 #define GetBoolAttributeWithFunction(SELF_TYPE, METHOD, FUNCTION) \
   static PyObject* Py##SELF_TYPE##_##METHOD(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE"."#METHOD"()") \
+    TRY \
     if (FUNCTION(selfObject)) Py_RETURN_TRUE; \
     Py_RETURN_FALSE; \
+    NLCATCH \
   }
 
 #define LoadObjectConstant(DICTIONARY, CONSTANT_VALUE, CONSTANT_NAME)  \

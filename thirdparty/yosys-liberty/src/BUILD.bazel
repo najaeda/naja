@@ -9,6 +9,8 @@
 # *.ll~/*.cpp~ backup files alongside it are leftover artifacts from an
 # earlier bison/flex-based version, not part of the active build).
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "yosys_liberty",
     srcs = ["YosysLibertyParser.cpp"],

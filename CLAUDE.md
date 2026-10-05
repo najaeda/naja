@@ -99,37 +99,98 @@ Docker images), and most workflows use, and it's the one to reach for by
 default. Bazel (`MODULE.bazel`, `BUILD.bazel` throughout the tree) is
 kept in parallel as a validated smoke test only, via `ubuntu-bazel.yml`/
 `macos-bazel.yml` (`bazel build //... && bazel test //...`, no
-submodules — bzlmod fetches its own copies of shared dependencies). It
+submodules, no host packages — every dependency is a `bazel_dep`). It
 is **not** CI's primary gate and doesn't need to track every workflow's
 behavior (sanitizer suppressions, coverage flags, etc.) — just prove the
 Bazel side keeps compiling and passing tests.
 
 **Keep submodule pins and Bazel pins in sync.** CMake pins shared
 upstream dependencies via git submodules (`.gitmodules`, `thirdparty/*`);
-Bazel pins its own copies of the *same* dependencies via
-`git_override()`/`git_repository()` commits in `MODULE.bazel`. Nothing
-forces these to move together — bumping one without the other silently
-makes the two build systems test different upstream code. When you bump
-a submodule commit (or vice versa), update the matching `MODULE.bazel`
-pin in the same change:
+Bazel takes the *same* dependencies as `bazel_dep`s, and those not on
+BCR are pinned to commits by their registry entries
+(`modules/<name>/<version>/source.json` in the registries `.bazelrc`
+lists). Nothing forces these to move together —
+bumping one without the other silently makes the two build systems test
+different upstream code. When you bump a submodule commit (or vice
+versa), submit the matching BCR version and point `MODULE.bazel` at it
+in the same change:
 
-- `cpptrace`, `slang`: must be an **exact** commit match.
-- `naja-if`, `naja-verilog`: these are the project's own forks, and
-  Bazel tracks a separate `bazel-support` branch (native Bazel BUILD
-  files added on top) rather than the branch CMake tracks — so an exact
-  match isn't meaningful. Instead, the submodule's pinned commit must be
-  an **ancestor of (or equal to)** the `bazel-support` pin, i.e.
-  `bazel-support` must never fall behind main.
+- `slang` (Bazel module `sv-lang`), `naja-verilog`: must be an
+  **exact** commit match.
+- `naja-if`: Bazel tracks a separate `bazel-support` branch (native
+  Bazel BUILD files added on top) rather than the branch CMake tracks —
+  so an exact match isn't meaningful. Instead, the submodule's pinned
+  commit must be an **ancestor of (or equal to)** the `bazel-support`
+  pin, i.e. `bazel-support` must never fall behind main.
 - `googletest`: deliberately excluded — CMake pins an old submodule dev
-  commit, Bazel takes a BCR release (`1.17.0.bcr.2`). Different
-  dependency-sourcing mechanisms entirely; not meant to track in
-  lockstep.
+  commit, Bazel takes a BCR release. Different dependency-sourcing
+  mechanisms entirely; not meant to track in lockstep.
 
 This is enforced automatically: `ci/check_submodule_bazel_sync.py`
 (run by `.github/workflows/dependency-sync-check.yml` on every push/PR)
 checks exactly this and fails CI if a pin has drifted. Run it locally
 after bumping any of these dependencies: `python3
 ci/check_submodule_bazel_sync.py`.
+
+## Bazel: a BCR-ready module
+
+naja's Bazel build is meant to be published to the Bazel Central
+Registry (BCR) and consumed by other modules (kepler-formal does) with a
+plain `bazel_dep`. Keep it that way. Invariants:
+
+- `MODULE.bazel` contains only `bazel_dep`s. No `http_archive`,
+  `git_override`, `archive_override`, module extensions or repository
+  rules of our own; overrides are ignored for non-root modules, so they
+  would only hide breakage that consumers then hit.
+- Nothing runs cmake/make inside Bazel (no `rules_foreign_cc`), and
+  nothing is found on the host (`PATH`, pkg-config, `python3-config`,
+  system headers). Tools and libraries come from Bazel modules: bison
+  and flex rules from BCR `bison`/`flex`, Python from `rules_python`.
+- Load every rule (`@rules_cc//cc:cc_library.bzl`,
+  `@rules_shell//shell:sh_test.bzl`, …); Bazel 9 has no native ones.
+- Fix a dependency in its own module (registry entry or upstream), never
+  by patching its BUILD files from this repository, and never by asking
+  consumers to patch naja.
+
+**Where dependencies come from.** Everything comes from BCR. A module
+version that is not on BCR yet comes from its open
+bazel-central-registry pull request: `.bazelrc` lists the PR's commit
+(`https://raw.githubusercontent.com/<fork>/bazel-central-registry/<sha>/`)
+ahead of BCR, and Bazel takes each `name@version` from the first
+registry that has it. Drop the line once the PR merges. Unreleased
+commits use `<release>-<YYYYMMDD>-<commit>` versions. Never change a
+version's contents once something depends on it; add a new version.
+When a PR needs a fix, push a new commit (don't force-push, so pinned
+commits stay reachable) and move the pin.
+
+**Publishing to BCR**: one module per bazel-central-registry pull
+request, each based on BCR main, so each goes in on its own. naja itself is
+published from a release tag by the publish-to-bcr app, using the
+templates in `.bcr/` (maintainers: xtofalex, nanocoh), once its
+dependencies are on BCR. BCR rejects symlinks in entries, so
+`overlay/MODULE.bazel` is a copy.
+
+**Known traps** (each already fixed; don't reintroduce):
+
+- hermetic toolchains (BCR `llvm`, used by kepler-formal) pass libc
+  headers as early `-isystem` flags. Libraries whose own headers must
+  shadow libc's (gnulib in bison) need `-I`, not `includes = [...]`;
+  hence the registry's `bison 3.8.2.bcr.10`. Building only with the host
+  toolchain hides this class of bug, and also hides headers leaking in
+  from `/usr/include` (slang's `boost/regex.hpp` did).
+- `cc_shared_library` (`naja_runtime`) drops linker inputs its graph
+  aspect cannot see: rules must advertise `CcInfo` and own their linker
+  inputs. That's why `src/nl/python/pyloader/python_libs.bzl` re-owns
+  libpython instead of using `current_py_cc_libs` directly. Libraries
+  linked into `naja_runtime` that a binary also uses (TBB, zlib) must be
+  in its `exports_filter`, or the binary links a second copy.
+- `NAJA_GIT_HASH` comes from the module version
+  (`src/core/naja_version.bzl`): "unknown" when naja is the root module.
+
+**Before merging Bazel changes**, besides `bazel test //...` here, build
+naja as a dependency with a hermetic toolchain: kepler-formal's tests
+(`bazel test //... --override_module=naja=<path to this checkout>`) are
+the reference consumer.
 
 ## Conventions
 

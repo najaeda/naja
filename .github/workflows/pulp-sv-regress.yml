@@ -1,0 +1,385 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-License-Identifier: Apache-2.0
+
+name: PULP SV Regress
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/nl/**'
+      - 'src/najaeda/**'
+      - 'thirdparty/slang'
+      - 'regress/sv/pulp_benchmarks.py'
+      - 'regress/sv/tests/test_pulp*.py'
+      - 'regress/sv/pulp_report.py'
+      - 'regress/sv/ita_simulation.py'
+      - 'regress/sv/tests/test_ita_simulation.py'
+      - 'test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v'
+      - '.github/actions/setup-linux-release/**'
+      - '.github/scripts/configure-linux-release.sh'
+      - '.github/workflows/pulp-sv-regress.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+    inputs:
+      survey:
+        description: 'Survey all 23 variants (known failures fail their individual jobs)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    name: PULP case plan
+    outputs:
+      cases: ${{ steps.matrix.outputs.cases }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Download pinned prepared RTL
+        run: |
+          curl -L --fail --retry 3 \
+            https://github.com/pulp-platform/eda-benchmarks/releases/download/v0.1.0/pulp-benchmarks-v0.1.0.tar.gz \
+            -o "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz"
+      - name: Select independent cases
+        id: matrix
+        env:
+          SURVEY: ${{ github.event_name == 'schedule' || inputs.survey == true }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, sys, tempfile
+          from pathlib import Path
+          sys.path.insert(0, 'regress/sv')
+          import pulp_benchmarks as pulp
+          archive = Path(os.environ['RUNNER_TEMP']) / 'pulp-benchmarks-v0.1.0.tar.gz'
+          with tempfile.TemporaryDirectory() as directory:
+              inventory = pulp.targets(pulp.unpack(archive, Path(directory)))
+          rows = [dict(case=name, mode='lint', tier='regression') for name in pulp.SMOKE]
+          rows += [dict(case=name, mode='elaboration', tier='elaboration')
+                   for name in ('mempool.minpool', 'ita.default', 'cvfpu.full', 'cva6.default')]
+          if os.environ['SURVEY'] == 'true':
+              rows += [dict(case=name, mode='lint', tier='survey') for name in inventory
+                       if name not in (*pulp.SMOKE, 'pulp_c910.default')]
+          assert all(row['case'] in inventory for row in rows)
+          assert len({(row['case'], row['mode']) for row in rows}) == len(rows)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('cases=' + json.dumps(dict(include=rows), separators=(',', ':')) + '\n')
+          PYCODE
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pulp-prepared-rtl
+          path: ${{ runner.temp }}/pulp-benchmarks-v0.1.0.tar.gz
+          retention-days: 1
+
+  runner-tests:
+    runs-on: ubuntu-24.04
+    name: PULP runner tests
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: |
+          python3 -m unittest discover -s regress/sv/tests -p 'test_pulp*.py'
+          python3 -m unittest discover -s regress/sv/tests -p test_ita_simulation.py
+
+  build-naja:
+    runs-on: ubuntu-24.04
+    name: Build shared Naja runtime
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+      - uses: ./.github/actions/setup-linux-release
+        with:
+          cache-scope: naja-module
+      - name: Configure canonical Release build
+        run: bash .github/scripts/configure-linux-release.sh
+      - name: Build najaeda Python extension
+        run: cmake --build build --target naja --parallel $(nproc)
+      - name: Package relocatable runtime
+        run: |
+          python3 - <<'PYCODE'
+          import hashlib, shutil
+          from pathlib import Path
+          package = Path('build/pulp-runtime/najaeda')
+          shutil.copytree('src/najaeda/najaeda', package)
+          # Preserve SONAME aliases when gathering all built shared libraries.
+          for library in Path('build').rglob('*.so*'):
+              if library.is_file() and 'pulp-runtime' not in library.parts:
+                  destination = package / library.name
+                  if destination.exists():
+                      assert hashlib.sha256(destination.read_bytes()).digest() == hashlib.sha256(library.read_bytes()).digest(), library
+                  else:
+                      shutil.copy2(library, destination)
+          assert (package / 'naja.so').is_file()
+          PYCODE
+          export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/pulp-runtime/najaeda:${LD_LIBRARY_PATH:-}"
+          PYTHONPATH=build/pulp-runtime python3 -c 'from najaeda import netlist; print(netlist.create_top("runtime_check").get_name()); netlist.reset()'
+          tar -czf "${RUNNER_TEMP}/pulp-naja-runtime.tar.gz" -C build/pulp-runtime najaeda
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pulp-naja-runtime
+          path: ${{ runner.temp }}/pulp-naja-runtime.tar.gz
+          retention-days: 1
+      - name: Show ccache statistics
+        if: always()
+        run: ccache --show-stats
+
+  build-verilator:
+    runs-on: ubuntu-24.04
+    name: Build shared Verilator 5.052
+    timeout-minutes: 30
+    steps:
+      - uses: actions/cache@v5
+        id: verilator
+        with:
+          path: ${{ runner.temp }}/ita-verilator
+          key: ita-verilator-${{ runner.os }}-${{ runner.arch }}-ubuntu24-ea338be98e1e838d3518809ce8899f85a009963c-v1
+      - name: Build pinned Verilator
+        if: steps.verilator.outputs.cache-hit != 'true'
+        env:
+          VERILATOR_REV: ea338be98e1e838d3518809ce8899f85a009963c
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq autoconf bison flex libfl-dev help2man
+          git init "${RUNNER_TEMP}/verilator-src"
+          git -C "${RUNNER_TEMP}/verilator-src" fetch --depth 1 https://github.com/verilator/verilator.git "${VERILATOR_REV}"
+          git -C "${RUNNER_TEMP}/verilator-src" checkout --detach FETCH_HEAD
+          cd "${RUNNER_TEMP}/verilator-src"
+          autoconf
+          ./configure --prefix="${RUNNER_TEMP}/ita-verilator"
+          make -j "$(nproc)"
+          make install
+      - name: Package Verilator
+        run: |
+          "${RUNNER_TEMP}/ita-verilator/bin/verilator" --version
+          tar -czf "${RUNNER_TEMP}/pulp-verilator.tar.gz" -C "${RUNNER_TEMP}" ita-verilator
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pulp-verilator-runtime
+          path: ${{ runner.temp }}/pulp-verilator.tar.gz
+          retention-days: 1
+
+  frontend:
+    needs: [plan, build-naja]
+    runs-on: ubuntu-24.04
+    name: pulp-${{ matrix.tier }}-${{ matrix.case }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.cases) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq libboost-dev libcapnp-dev libtbb-dev libfl2
+      - uses: actions/download-artifact@v8
+        with:
+          name: pulp-naja-runtime
+          path: ${{ runner.temp }}/pulp-naja-runtime
+      - uses: actions/download-artifact@v8
+        with:
+          name: pulp-prepared-rtl
+          path: ${{ runner.temp }}
+      - name: Restore and check Naja runtime
+        run: |
+          mkdir -p build/test/najaeda
+          tar -xzf "${RUNNER_TEMP}/pulp-naja-runtime/pulp-naja-runtime.tar.gz" -C build/test/najaeda
+          echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/build/test/najaeda/najaeda:${LD_LIBRARY_PATH:-}" >> "${GITHUB_ENV}"
+          export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/test/najaeda/najaeda:${LD_LIBRARY_PATH:-}"
+          PYTHONPATH=build/test/najaeda python3 -c 'from najaeda import netlist; print(netlist.create_top("runtime_check").get_name()); netlist.reset()'
+      - name: Run independent benchmark
+        env:
+          CASE: ${{ matrix.case }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          args=(--lint-runner docker --timeout 120)
+          if [[ "${MODE}" == 'elaboration' ]]; then
+            args=(--elaboration-only --timeout 240 --output build/pulp-benchmarks/elaboration)
+          fi
+          python3 regress/sv/pulp_benchmarks.py \
+            --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
+            --case "${CASE}" "${args[@]}"
+      - name: Publish PULP job summary
+        if: always()
+        run: python3 regress/sv/pulp_report.py --functional build/pulp-benchmarks/ita/summary.json
+      - name: Package small job summaries
+        if: always()
+        run: |
+          python3 - <<'PYCODE'
+          import shutil
+          from pathlib import Path
+          root = Path('build/pulp-benchmarks')
+          destination = Path('build/pulp-summary-artifact')
+          destination.mkdir(parents=True, exist_ok=True)
+          for suffix in ('summary.json', 'elaboration/summary.json', 'ita/summary.json'):
+              source = root / suffix
+              if source.is_file():
+                  target = destination / suffix
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, target)
+          PYCODE
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pulp-summary-${{ matrix.tier }}-${{ matrix.case }}
+          path: build/pulp-summary-artifact
+          retention-days: 7
+      - name: Upload reports and generated netlists
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pulp-sv-regress-${{ matrix.tier }}-${{ matrix.case }}
+          path: |
+            build/pulp-benchmarks
+            !build/pulp-benchmarks/ita/*-obj/**
+            !build/pulp-benchmarks/ita/upstream/**
+            !build/pulp-benchmarks/ita/prepared/**
+            !build/pulp-benchmarks/ita/*.tar.gz
+          retention-days: 7
+
+  verification:
+    needs: [plan, build-naja, build-verilator]
+    runs-on: ubuntu-24.04
+    name: pulp-${{ matrix.task }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [c910, ita]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq libboost-dev libcapnp-dev libtbb-dev libfl2
+      - uses: actions/download-artifact@v8
+        with:
+          name: pulp-naja-runtime
+          path: ${{ runner.temp }}/pulp-naja-runtime
+      - uses: actions/download-artifact@v8
+        with:
+          name: pulp-prepared-rtl
+          path: ${{ runner.temp }}
+      - name: Restore and check Naja runtime
+        run: |
+          mkdir -p build/test/najaeda
+          tar -xzf "${RUNNER_TEMP}/pulp-naja-runtime/pulp-naja-runtime.tar.gz" -C build/test/najaeda
+          echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/build/test/najaeda/najaeda:${LD_LIBRARY_PATH:-}" >> "${GITHUB_ENV}"
+          export LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/test/najaeda/najaeda:${LD_LIBRARY_PATH:-}"
+          PYTHONPATH=build/test/najaeda python3 -c 'from najaeda import netlist; print(netlist.create_top("runtime_check").get_name()); netlist.reset()'
+      - uses: actions/download-artifact@v8
+        with:
+          name: pulp-verilator-runtime
+          path: ${{ runner.temp }}/pulp-verilator-runtime
+      - name: Restore pinned Verilator
+        run: |
+          tar -xzf "${RUNNER_TEMP}/pulp-verilator-runtime/pulp-verilator.tar.gz" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/ita-verilator/bin" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/ita-verilator/bin/verilator" --version
+      - name: Run C910 strict frontend regression
+        if: matrix.task == 'c910'
+        run: |
+          python3 regress/sv/pulp_benchmarks.py \
+            --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
+            --case pulp_c910.default --timeout 600 --lint-runner local
+      - name: Install ITA vector dependencies
+        if: matrix.task == 'ita'
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/ita-vectors"
+          "${RUNNER_TEMP}/ita-vectors/bin/pip" install numpy==2.5.3 onnx==1.23.1
+      - name: Run concurrent ITA golden-scoreboard and RTL/netlist simulations
+        if: matrix.task == 'ita'
+        run: |
+          python3 regress/sv/ita_simulation.py \
+            --archive "${RUNNER_TEMP}/pulp-benchmarks-v0.1.0.tar.gz" \
+            --generator-python "${RUNNER_TEMP}/ita-vectors/bin/python" \
+            --output build/pulp-benchmarks/ita \
+            --seed 0 --weight-read-delay-ps 1 --timeout 1200 \
+            --parallel-simulations --jobs "$(nproc)"
+      - name: Publish PULP job summary
+        if: always()
+        run: python3 regress/sv/pulp_report.py --functional build/pulp-benchmarks/ita/summary.json
+      - name: Package small job summaries
+        if: always()
+        run: |
+          python3 - <<'PYCODE'
+          import shutil
+          from pathlib import Path
+          root = Path('build/pulp-benchmarks')
+          destination = Path('build/pulp-summary-artifact')
+          destination.mkdir(parents=True, exist_ok=True)
+          for suffix in ('summary.json', 'elaboration/summary.json', 'ita/summary.json'):
+              source = root / suffix
+              if source.is_file():
+                  target = destination / suffix
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, target)
+          PYCODE
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pulp-summary-${{ matrix.task }}
+          path: build/pulp-summary-artifact
+          retention-days: 7
+      - name: Upload reports and generated netlists
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pulp-sv-regress-${{ matrix.task }}
+          path: |
+            build/pulp-benchmarks
+            !build/pulp-benchmarks/ita/*-obj/**
+            !build/pulp-benchmarks/ita/upstream/**
+            !build/pulp-benchmarks/ita/prepared/**
+            !build/pulp-benchmarks/ita/*.tar.gz
+          retention-days: 7
+
+  report:
+    needs: [frontend, verification]
+    if: always()
+    runs-on: ubuntu-24.04
+    name: Combined PULP results
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: pulp-summary-*
+          path: build/pulp-job-artifacts
+      - name: Publish all independent job results
+        if: always()
+        run: python3 regress/sv/pulp_report.py --aggregate-root build/pulp-job-artifacts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pulp-combined-report
+          path: build/pulp-benchmarks/report.md
+          retention-days: 7

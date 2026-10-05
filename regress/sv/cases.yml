@@ -85,11 +85,11 @@ cases:
       - term: noc_req_o
         direction: fanin
         expected:
-          nodes: 13941
-          edges: 27142
-          leaves: 93
+          nodes: 13947
+          edges: 27144
+          leaves: 99
           roots: 471
-          registers: 86
+          registers: 92
           ports: 3
           blackboxes: 4
           internal: 13377

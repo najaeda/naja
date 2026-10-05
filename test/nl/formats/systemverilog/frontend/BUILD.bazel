@@ -3,15 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Same workspace-relative-path + data pattern as
-# test/nl/formats/verilog/frontend/BUILD.bazel, except
-# SNL_SV_BENCHMARKS_PATH must be absolute here: SNLSVConstructorTestSimple.cpp's
-# parseSimpleModuleUsesDefaultDiagnosticsReportPath calls
-# std::filesystem::current_path() to change CWD mid-test, which a
-# workspace-relative define wouldn't survive (see bazel/workspace_root.bzl).
+# test/nl/formats/verilog/frontend/BUILD.bazel.
 # ENABLE_SV_CONSTRUCTOR_PERF_REPORT defaults OFF in CMake; not wired up
 # here either.
 
-load("@naja_workspace_root//:workspace_root.bzl", "WORKSPACE_ROOT")
+
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_test(
     name = "snlSVConstructorTests",
@@ -26,7 +23,7 @@ cc_test(
     copts = ["-std=c++20"],
     data = ["//test/nl/formats/systemverilog:benchmarks"],
     defines = [
-        'SNL_SV_BENCHMARKS_PATH=\\"%s/test/nl/formats/systemverilog/benchmarks\\"' % WORKSPACE_ROOT,
+        'SNL_SV_BENCHMARKS_PATH=\\"test/nl/formats/systemverilog/benchmarks\\"',
         'SNL_SV_DUMPER_TEST_PATH=\\".\\"',
     ],
     deps = [

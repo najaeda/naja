@@ -8,6 +8,8 @@
 # buildable, matching how google_benchmark is registered in MODULE.bazel
 # as an ordinary bazel_dep rather than behind any flag.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "snl_bench",
     srcs = ["SNLNetlistBench.cpp"],

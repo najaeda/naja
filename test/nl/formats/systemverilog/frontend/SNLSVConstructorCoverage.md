@@ -53,6 +53,24 @@ are still expected in real designs:
 - `parseContinuousMuxDirectConstantsAndDestinations`: zero constants select
   the zero-net cache and reuse the same net across mux bits and instances.
 
+The `SNLSVConstructorTestAlwaysComb.*Coverage` tests also cover:
+
+- Exhaustive return-function cases without a default, wide non-exhaustive cases,
+  and unsupported statements in a default branch.
+- Nested concatenation streaming targets, checked bit by bit against their
+  source connections; dynamic storage, dynamic selections, unresolved storage,
+  unresolved RHS expressions, and dynamically sized RHS streams.
+- Missing streaming storage through both the assigned-bit mask and replay
+  resolvers, including recursive concatenation failure propagation.
+- Sequential streaming rejection during scheduling replay: a blocking write
+  followed by a read into another target forces this path. A separate test
+  checks the earlier combinational nonblocking-assignment diagnostic.
+- Independent latch condition calls and side effects, real conditions and
+  targets, delayed nonblocking writes, unsupported data expressions, local
+  declarations, empty statements, and constant true/false guards.
+- An unsigned loop-step parameter exceeding `INT64_MAX`, and a compound shift
+  whose count cannot be lowered.
+
 ## Deliberate LCOV Exclusions
 
 The lines below are marked `LCOV_EXCL_LINE` because they require internal
@@ -148,3 +166,18 @@ the current architecture:
 - Priority `always_latch` mux / OR construction and controlled-negedge clock
   inversion use validated nets and canonical DB0 primitives. Their null-result
   diagnostics require an internal primitive-construction failure.
+
+- Streaming LHS bit resolution: assignment collection has already rejected
+  dynamic streams and invalid leaves. Fixed widths must equal the sum of operand
+  widths; successfully resolved fixed leaves must have materialized roots, and
+  replay entries keep their root storage width. These invariant checks remain
+  defensive. Recursive operand-resolution failures are **tested**, not excluded.
+- Loop-bound and step unsigned fallbacks: `getConstantInt64` already accepts
+  unsigned constants fitting `int64_t`. Success after that helper failed is
+  defensive; the unsigned-overflow rejection is tested with a typed parameter.
+- Independent latch mux construction failures require failure of canonical DB0
+  primitives with validated one-bit inputs. Constant guard shortcuts are tested.
+- Compound assignment replay always supplies current bits at the target width;
+  Slang represents compound shifts with the matching binary operation. Missing
+  current bits and malformed compound-shift AST guards are excluded, while an
+  unresolvable shift count is tested.

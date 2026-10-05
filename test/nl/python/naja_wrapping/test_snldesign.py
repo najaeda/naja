@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
+import tempfile
+from pathlib import Path
 import naja
 
 class SNLDesignTest(unittest.TestCase):
@@ -16,6 +18,20 @@ class SNLDesignTest(unittest.TestCase):
     if naja.NLUniverse.get():
       naja.NLUniverse.get().destroy()
       del self.lib
+
+  def test_dump_verilog_split_packed_signals(self):
+    top = naja.SNLDesign.create(self.lib, "top")
+    child = naja.SNLDesign.create(self.lib, "child")
+    naja.SNLBusTerm.create(top, naja.SNLTerm.Direction.Input, 3, 0, "public_i")
+    naja.SNLBusTerm.create(child, naja.SNLTerm.Direction.Input, 3, 0, "child_i")
+    naja.SNLInstance.create(top, child, "instance")
+    with tempfile.TemporaryDirectory() as directory:
+      top.dumpVerilog(directory, "plain.v")
+      self.assertNotIn("split_var", Path(directory, "plain.v").read_text())
+      top.dumpVerilog(directory, "split.v", verilatorSplitPackedSignals=True)
+      text = Path(directory, "split.v").read_text()
+      self.assertIn("child_i /* verilator split_var */", text)
+      self.assertNotIn("public_i /* verilator split_var */", text)
 
   def assertNLID(self, obj):
     nlid = obj.getNLID()

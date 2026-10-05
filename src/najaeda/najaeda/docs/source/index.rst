@@ -30,6 +30,7 @@ available through :mod:`najaeda.netlist`.
    quickstart
    loading
    editing
+   schematic
    netlist_classes
    common_classes
    visitors

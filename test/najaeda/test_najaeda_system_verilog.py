@@ -177,6 +177,23 @@ endmodule
                 dumped_text = dumped_file.read()
             self.assertIn("assign_module", dumped_text)
 
+    def test_dump_verilog_split_packed_signals(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+            source = os.path.join(directory, "packed.sv")
+            with open(source, "w", encoding="utf-8") as stream:
+                stream.write("module child(input [3:0] a, output [3:0] y); "
+                             "assign y = a; endmodule\n"
+                             "module top(input [3:0] a, output [3:0] y); "
+                             "child i(a,y); endmodule\n")
+            top = netlist.load_system_verilog([source], config=netlist.SystemVerilogConfig(top="top"))
+            path = os.path.join(directory, "split.v")
+            top.dump_verilog(path, config=netlist.VerilogDumpConfig(verilatorSplitPackedSignals=True))
+            with open(path, encoding="utf-8") as stream:
+                text = stream.read()
+            child_text, top_text = text.split("module top(")
+            self.assertIn("split_var", child_text)
+            self.assertNotIn("split_var", top_text.split(");", 1)[0])
+
     def test_dump_verilog_config_rejects_invalid_rtl_info_mode(self):
         with self.assertRaises(ValueError) as context:
             netlist.VerilogDumpConfig(rtlInfoDumpMode="Invalid")
