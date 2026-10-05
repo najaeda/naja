@@ -51,6 +51,28 @@ path to select another destination. An unset or empty value disables the
 performance report, which is appropriate when embedding Naja in a host Python
 process.
 
+Verilog dumps and primitive models
+----------------------------------
+
+``SNLDesign.dumpVerilog`` and ``NLDB.dumpVerilog`` emit ``naja_primitives.v``
+beside the structural output when Naja primitive models are needed. Include
+that generated file when linting or simulating the dump. Use the models from
+the same dump rather than a separately maintained primitive library.
+
+For built-in Naja primitives, the dump preserves effective parameter values:
+instance overrides take precedence over model defaults, and parameters are
+emitted when those values differ from the generated module's defaults. This
+applies to mux and sequential widths, flop initialization, memory dimensions
+and controls, table-select dimensions, and division/remainder width and
+signedness. Explicit overrides equal to a generated module default may be
+omitted even when the specialized model has a different default. Ordinary
+modules retain their own declared defaults.
+
+The generated division/remainder model implements signed and unsigned
+quotient and remainder operations separately. The high-level
+:meth:`najaeda.netlist.Instance.dump_verilog` uses the same dumper; raw API
+calls are not required for this behavior.
+
 Object identity and hashing
 ---------------------------
 
@@ -116,6 +138,15 @@ pattern shows the intended ownership flow:
 
    a.setNet(n)
    y.setNet(n)
+
+For Verilator verification, ``SNLDesign.dumpVerilog(path, top_file_name,
+verilatorSplitPackedSignals=True)`` annotates internal bus nets and packed
+child-module ports with ``/* verilator split_var */``. Public top-module ports
+are excluded. The keyword defaults to ``False``; comments affect Verilator's
+dependency tracking and do not change the netlist logic or suppress warnings.
+The high-level API exposes the same option through
+``najaeda.netlist.VerilogDumpConfig``. Library-only dumps annotate internal nets
+but leave module ports unannotated because no single public top is specified.
 
 Object lifetime and safety
 --------------------------
@@ -785,3 +816,14 @@ resets and ``SNLTermRole.AsyncReset`` for asynchronous resets. Both satisfy
 reset mode and ``SNLActiveLevel.High`` for either active-high mode. With no
 reset enabled, the reset pin has role ``Other`` and active level ``NA``.
 The same queries on ``SNLInstTerm`` follow the model's bit term.
+
+Gate predicates and truth-table errors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SNLDesign.isConst0()``, ``isConst1()``, ``isConst()``, ``isInv()``,
+``isBuf()``, and the gate-family predicates return ``False`` when a model
+has per-output truth tables instead of a single truth table (for example,
+a full adder). ``getTruthTable()`` requires a single truth table; native
+errors raise ``RuntimeError`` with the native diagnostic preserved.
+Use ``getTruthTableByOutputID()`` to query an individual output. Its native
+errors also raise ``RuntimeError``.

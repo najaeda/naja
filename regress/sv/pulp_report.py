@@ -78,7 +78,7 @@ def render(suites, functional=None):
         lines += ['', f'RTL/netlist trace comparison: **{cell(comparison.get("status", "not run"))}**; '
                   f'transactions: {number(comparison.get("transactions"))}. '
                   'A matching trace does not override a failed upstream golden scoreboard.', '']
-    lines += ['Full JSON results, diagnostics, logs and generated netlists are in the `pulp-sv-regress` artifact.', '',
+    lines += ['Full JSON results, diagnostics, logs and generated netlists are in this job’s `pulp-sv-regress-*` artifact.', '',
               'Times are measured wall-clock seconds. Total includes worker startup/cleanup and lint; '
               'unavailable measurements are shown as —. Statistics may survive a later dump or lint failure.', '']
     return '\n'.join(lines)
@@ -88,14 +88,39 @@ def read(path):
     return json.loads(path.read_text()) if path.is_file() else None
 
 
+def collect_artifacts(root):
+    suites, functional = [], None
+    if root.is_dir():
+        for artifact in sorted(root.iterdir()):
+            if not artifact.is_dir():
+                continue
+            for suffix in ('summary.json', 'elaboration/summary.json'):
+                path = artifact / suffix
+                if path.is_file():
+                    suites.append((artifact.name, read(path)))
+            candidate = artifact / 'ita/summary.json'
+            if candidate.is_file():
+                if functional is not None:
+                    raise ValueError('Multiple ITA functional reports in downloaded artifacts')
+                functional = read(candidate)
+    return suites, functional
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path('build/pulp-benchmarks'))
     parser.add_argument('--functional', type=Path)
+    parser.add_argument('--aggregate-root', type=Path, help='Directory of separately downloaded job artifacts')
     args = parser.parse_args()
-    report = render([('Load / dump / lint', read(args.root / 'summary.json')),
-                     ('Larger-design elaboration', read(args.root / 'elaboration/summary.json'))],
-                    read(args.functional) if args.functional else None)
+    if args.aggregate_root:
+        suites, functional = collect_artifacts(args.aggregate_root)
+        if not suites:
+            suites = [('Parallel job reports', None)]
+    else:
+        suites = [('Load / dump / lint', read(args.root / 'summary.json')),
+                  ('Larger-design elaboration', read(args.root / 'elaboration/summary.json'))]
+        functional = read(args.functional) if args.functional else None
+    report = render(suites, functional)
     args.root.mkdir(parents=True, exist_ok=True)
     (args.root / 'report.md').write_text(report)
     if os.environ.get('GITHUB_STEP_SUMMARY'):

@@ -3367,6 +3367,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
 #endif
+      MemoryWriterCensus memoryWriters;
       {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         NajaPerf::Scope scope(makePerfScopeName("inferMemories"));
@@ -3377,7 +3378,7 @@ endmodule
 #endif
         // Infer memories before materializing variables so successfully
         // inferred unpacked arrays never expand into a raw SNL bit net.
-        inferMemories(design, body);
+        inferMemories(design, body, memoryWriters);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       maybeWriteSVPerfReportSnapshot();
@@ -3422,6 +3423,7 @@ endmodule
           svPerfReport_.currentLoweringStep,
           "prepare_inferred_memories");
 #endif
+        validateMemoryWriters(design, memoryWriters);
         prepareInferredMemories(design);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -6529,6 +6531,84 @@ endmodule
       return false;
     }
 
+    using MemoryWriterCensus = std::unordered_map<
+      const slang::ast::ValueSymbol*,
+      std::unordered_map<const slang::ast::ProceduralBlockSymbol*,
+                         std::vector<const Expression*>>>;
+
+    MemoryWriterCensus collectMemoryWriters(const slang::ast::InstanceBodySymbol& body) {
+      MemoryWriterCensus writers;
+      auto collect = [&](const Symbol& sym) {
+        if (sym.kind != SymbolKind::ProceduralBlock) {
+          return;
+        }
+        const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
+        if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
+            block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
+          return;
+        }
+        // Ownership is independent of inference eligibility: include whole-array
+        // assignments and every indexed assignment, with one entry per block.
+        auto visitor = slang::ast::makeVisitor(
+          [&](auto& visitor, const slang::ast::AssignmentExpression& assignment) {
+            const slang::ast::ValueSymbol* symbol = nullptr;
+            NLDB0::MemorySignature signature;
+            if (tryGetRootValueSymbolReference(assignment.left(), symbol) && symbol &&
+                getSupportedMemorySignature(symbol->getType(), signature)) {
+              writers[symbol][&block].push_back(&assignment.left());
+            }
+            visitor.visitDefault(assignment);
+          });
+        block.getBody().visit(visitor);
+      };
+      visitElaboratedNonGenerateMembers(body, collect);
+      return writers;
+    }
+
+    void validateMemoryWriters(SNLDesign* design, const MemoryWriterCensus& writers) {
+      // Generic lowering may share an array only when each block owns a
+      // statically disjoint set of bits. Never return an ambiguous netlist.
+      bool rejected = false;
+      for (const auto& [symbol, blocks] : writers) {
+        if (blocks.size() < 2) {
+          continue;
+        }
+        std::unordered_set<SNLBitNet*> ownedBits;
+        bool supported = true;
+        for (const auto& [block, assignments] : blocks) {
+          std::unordered_set<SNLBitNet*> blockBits;
+          for (const auto* lhs : assignments) {
+            std::vector<SNLBitNet*> bits;
+            if (hasDynamicSelectionInLHS(*lhs) ||
+                !resolveAssignmentLHSBits(design, *lhs, bits, nullptr, true)) {
+              supported = false;
+              break;
+            }
+            blockBits.insert(bits.begin(), bits.end());
+          }
+          for (auto* bit : blockBits) {
+            if (!ownedBits.insert(bit).second) {
+              supported = false;
+            }
+          }
+          if (!supported) {
+            break;
+          }
+        }
+        if (!supported) {
+          rejected = true;
+          reportUnsupportedError(
+            "Memory '" + std::string(symbol->name) +
+              "': multiple sequential writers require disjoint constant selections; "
+              "overlapping or dynamic writes are unsupported",
+            getSourceRange(*symbol));
+        }
+      }
+      if (rejected) {
+        throwIfUnsupportedElements();
+      }
+    }
+
     void collectDirectSequentialMemoryCandidates(
       const Statement& stmt,
       std::vector<const slang::ast::ValueSymbol*>& candidates,
@@ -7345,7 +7425,8 @@ endmodule
       }
     }
 
-    void inferMemories(SNLDesign* /*design*/, const InstanceBodySymbol& body) {
+    void inferMemories(
+      SNLDesign* /*design*/, const InstanceBodySymbol& body, MemoryWriterCensus& writerCensus) {
       inferredMemories_.clear();
       inferredMemoryByStateSymbol_.clear();
       inferredMemoryCombBlocks_.clear();
@@ -7371,6 +7452,25 @@ endmodule
         }
       };
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
+
+      writerCensus = collectMemoryWriters(body);
+      const auto hasMultipleWriters = [&](const slang::ast::ValueSymbol* symbol) {
+        const auto found = writerCensus.find(symbol);
+        if (found == writerCensus.end() || found->second.size() < 2) {
+          return false;
+        }
+        if (warnedUninferredMemorySymbols_.insert(symbol).second) {
+          std::ostringstream reason;
+          reason << "Memory '" << std::string(symbol->name)
+                 << "' was not inferred as naja_mem: written from "
+                 << found->second.size()
+                 << " sequential blocks; using generic sequential lowering";
+          reportWarning(
+            "uninferred_memory_generic_sequential_lowering",
+            reason.str(), getSourceRange(*symbol));
+        }
+        return true;
+      };
 
       for (const auto* blockPtr : combinationalBlocks) {
         const auto& block = *blockPtr;
@@ -7418,6 +7518,10 @@ endmodule
             continue; // LCOV_EXCL_LINE
           }
 
+          if (hasMultipleWriters(stateSymbol)) {
+            continue;
+          }
+
           InferredMemory memory;
           memory.stateSymbol = stateSymbol;
           memory.shadowSymbol = shadowSymbol;
@@ -7450,11 +7554,6 @@ endmodule
         }
       }
 
-      // An inferred memory is owned by one sequential block. A symbol written
-      // from several blocks (for example one always block per element in a
-      // generate loop) would leave the other writers to the generic lowering,
-      // which then drives the memory's read data a second time. Such a symbol
-      // is left to the generic lowering for all of its writers.
       const auto collectDirectCandidates =
         [&](const slang::ast::ProceduralBlockSymbol& seqBlock,
             std::vector<const slang::ast::ValueSymbol*>& candidates) {
@@ -7472,16 +7571,6 @@ endmodule
           candidates,
           seenCandidates);
       };
-      std::unordered_map<const slang::ast::ValueSymbol*, size_t> directWriterBlocks;
-      for (const auto* seqBlock : sequentialBlocks) {
-        std::vector<const slang::ast::ValueSymbol*> candidates;
-        collectDirectCandidates(*seqBlock, candidates);
-        for (const auto* stateSymbol : candidates) {
-          if (stateSymbol) {
-            ++directWriterBlocks[stateSymbol];
-          }
-        }
-      }
 
       for (const auto* seqBlock : sequentialBlocks) {
         std::vector<const slang::ast::ValueSymbol*> candidates;
@@ -7490,18 +7579,7 @@ endmodule
           if (!stateSymbol || inferredMemoryByStateSymbol_.contains(stateSymbol)) {
             continue;
           }
-          if (directWriterBlocks[stateSymbol] > 1) {
-            if (warnedUninferredMemorySymbols_.insert(stateSymbol).second) {
-              std::ostringstream reason;
-              reason << "Memory '" << std::string(stateSymbol->name)
-                     << "' was not inferred as naja_mem: written from "
-                     << directWriterBlocks[stateSymbol]
-                     << " sequential blocks; using generic sequential lowering";
-              reportWarning(
-                "uninferred_memory_generic_sequential_lowering",
-                reason.str(),
-                getSourceRange(*stateSymbol));
-            }
+          if (hasMultipleWriters(stateSymbol)) {
             continue;
           }
           InferredMemory memory;
@@ -28958,13 +29036,60 @@ endmodule
       return false; // LCOV_EXCL_LINE
     }
 
-    std::vector<bool> makeCombinationalAssignedBitMask(
+    std::vector<bool> makeProceduralAssignedBitMask(
       SNLDesign* design,
       const Statement& stmt,
       const Expression& lhsExpr,
       const std::vector<SNLBitNet*>& lhsBits,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
       std::vector<bool> assignedMask(lhsBits.size(), false);
+      const auto* current = unwrapStatement(stmt);
+      auto mergeStatement = [&](const Statement& child) {
+        const auto childMask = makeProceduralAssignedBitMask(
+          design, child, lhsExpr, lhsBits, ignoredSymbols);
+        for (size_t bit = 0; bit < assignedMask.size(); ++bit) {
+          assignedMask[bit] = assignedMask[bit] || childMask[bit];
+        }
+      };
+      // Resolve loop-dependent selections while the iteration context is live.
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& loop = current->as<slang::ast::ForLoopStatement>();
+        std::string reason;
+        if (!unrollForLoopStatement(loop, [&]() {
+              mergeStatement(loop.body);
+              return true;
+            }, reason)) {
+          std::fill(assignedMask.begin(), assignedMask.end(), true); // LCOV_EXCL_LINE: Loop collection / replay rejects non-unrollable loops before mask construction.
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        for (const auto* child : current->as<slang::ast::StatementList>().list) {
+          if (child) mergeStatement(*child);
+          if (isCurrentForLoopBreakRequested()) break;
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        bool value = false;
+        if (conditional.conditions.size() == 1 && conditional.conditions[0].expr &&
+            !conditional.conditions[0].pattern &&
+            tryEvaluateConstantConditionBit(*conditional.conditions[0].expr, value)) {
+          if (value) mergeStatement(conditional.ifTrue);
+          else if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
+        } else {
+          mergeStatement(conditional.ifTrue);
+          if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
+        }
+        return assignedMask;
+      }
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) mergeStatement(*item.stmt);
+        if (caseStmt.defaultCase) mergeStatement(*caseStmt.defaultCase);
+        return assignedMask;
+      }
       std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
       lhsBitOffsets.reserve(lhsBits.size());
       for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
@@ -29010,13 +29135,18 @@ endmodule
           sameLhs(assignedExpr, &lhsExpr) ||
           sameLhs(trackedAssignedExpr, &lhsExpr) ||
           isTrackedSelectionSubLhsOf(assignedExpr, &lhsExpr);
-        if (!targetsTrackedLhs) {
+        if (!targetsTrackedLhs &&
+            stripConversions(*assignedExpr)->kind != slang::ast::ExpressionKind::Concatenation &&
+            stripConversions(lhsExpr)->kind != slang::ast::ExpressionKind::Concatenation) {
           continue;
         }
 
         if (hasDynamicSelectionInLHS(*assignedExpr)) {
-          std::fill(assignedMask.begin(), assignedMask.end(), true);
-          return assignedMask;
+          if (targetsTrackedLhs) {
+            std::fill(assignedMask.begin(), assignedMask.end(), true);
+            return assignedMask;
+          }
+          continue; // LCOV_EXCL_LINE: Unrelated scalar targets are skipped above; dynamic concatenation targets are rejected before masking.
         }
 
         std::vector<SNLBitNet*> assignedBits;
@@ -29183,7 +29313,7 @@ endmodule
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
           NajaPerf::Scope scope(makeCombinationalLHSScopeName(*lhsExpr, lhsBits.size()));
 #endif
-          const auto assignedBitMask = makeCombinationalAssignedBitMask(
+          const auto assignedBitMask = makeProceduralAssignedBitMask(
             design,
             stmt,
             *lhsExpr,
@@ -29282,7 +29412,38 @@ endmodule
         incBits,
         carryBits,
         sourceRange);
-      return !incrementerBits.empty();
+      return !incrementerBits.empty(); // LCOV_EXCL_LINE: Direct assignment table collection rejects self-increments before this helper is called.
+    }
+
+    void restrictSequentialAssignmentBits(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      std::vector<SNLBitNet*>* resetBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
+      // Whole-symbol replay needs feedback for untouched bits, but must not
+      // create storage driving bits that this process never assigns.
+      auto* savedReplayEnv = activeProceduralReplayEnv_;
+      activeProceduralReplayEnv_ = nullptr;
+      const auto replayGuard = slang::ScopeGuard([&]() {
+        activeProceduralReplayEnv_ = savedReplayEnv;
+      });
+      const auto assignedMask = makeProceduralAssignedBitMask(
+        design, stmt, lhsExpr, lhsBits, ignoredSymbols);
+      size_t assigned = 0;
+      for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+        if (assignedMask[bit]) {
+          lhsBits[assigned] = lhsBits[bit];
+          dataBits[assigned] = dataBits[bit];
+          if (resetBits) (*resetBits)[assigned] = (*resetBits)[bit];
+          ++assigned;
+        }
+      }
+      lhsBits.resize(assigned);
+      dataBits.resize(assigned);
+      if (resetBits) resetBits->resize(assigned);
     }
 
     bool emitSequentialDataAssignment(
@@ -29472,6 +29633,11 @@ endmodule
           failureReason = "sequential procedural scheduling replay failed: " + failureReason; // LCOV_EXCL_LINE
           return DirectSequentialConditionalLowering::Failed; // LCOV_EXCL_LINE: replay helper failure propagation.
         }
+        restrictSequentialAssignmentBits(
+          design, stmt, *lhsExpr, lhsBits, dataBits, nullptr, ignoredSymbols);
+        if (lhsBits.empty()) {
+          continue; // LCOV_EXCL_LINE: Collected replay targets have at least one assignment after constant-control pruning.
+        }
         if (!emitSequentialDataAssignment(
               design,
               *lhsExpr,
@@ -29504,10 +29670,43 @@ endmodule
       if (lhsBits.empty() ||
           dataBits.size() != lhsBits.size() ||
           resetBits.size() != lhsBits.size()) {
-        failureReason = formatQuotedDescriptionFailure(
-          "sequential conditional assignment width mismatch for ",
-          describeLHSForDiagnostics(lhsExpr));
-        return false;
+        failureReason = formatQuotedDescriptionFailure( // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+          "sequential conditional assignment width mismatch for ", // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+          describeLHSForDiagnostics(lhsExpr)); // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+        return false; // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+      }
+
+      // Mixed constant reset values require separate reset and set cells.
+      // A data-input mux would lose the asynchronous reset event.
+      if (asyncResetEventExpr && asyncResetEventEdge && lhsBits.size() > 1) {
+        auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* constOne = static_cast<SNLBitNet*>(getConstNet(design, true));
+        const bool allConstant = std::all_of(resetBits.begin(), resetBits.end(),
+          [&](auto* bit) { return bit == constZero || bit == constOne; });
+        if (allConstant &&
+            std::any_of(resetBits.begin(), resetBits.end(),
+              [&](auto* bit) { return bit != resetBits.front(); })) {
+          for (auto* resetValue : {constZero, constOne}) {
+            std::vector<SNLBitNet*> selectedLhs;
+            std::vector<SNLBitNet*> selectedData;
+            std::vector<SNLBitNet*> selectedReset;
+            for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+              if (resetBits[bit] == resetValue) {
+                selectedLhs.push_back(lhsBits[bit]);
+                selectedData.push_back(dataBits[bit]);
+                selectedReset.push_back(resetValue);
+              }
+            }
+            if (!emitSequentialConditionalAssignment(
+                  design, lhsExpr, lhsNet, selectedLhs, std::move(selectedData),
+                  selectedReset, resetConditionExpr, clkNet, clockEdge,
+                  asyncResetEventExpr, asyncResetEventEdge, blockSourceRange,
+                  failureReason)) {
+              return false; // LCOV_EXCL_LINE: Recursive reset/set groups have validated widths; emitter failure propagation.
+            }
+          }
+          return true;
+        }
       }
 
       const auto* savedActiveSequentialASTSymbol = activeSequentialASTSymbol_;
@@ -29558,6 +29757,12 @@ endmodule
                 *asyncResetEventExpr)) {
             asyncResetControlNet = candidateResetNet;
             useAsyncResetDFFRN = true;
+          } else if (*asyncResetEventEdge == slang::ast::EdgeKind::NegEdge &&
+                     resetToOne && NLDB0::getDFFS() &&
+                     isActiveLowResetConditionForSignal(
+                       resetConditionExpr, *asyncResetEventExpr)) {
+            asyncResetControlNet = createNotBitGate(design, candidateResetNet, resetSourceRange);
+            useAsyncResetDFFS = true;
           } else if (
             *asyncResetEventEdge == slang::ast::EdgeKind::PosEdge &&
             isActiveHighResetConditionForSignal(
@@ -29606,6 +29811,11 @@ endmodule
           // LCOV_EXCL_STOP
         }
         dataBits = std::move(rstBits);
+      }
+
+      if (clockEdge == slang::ast::EdgeKind::NegEdge &&
+          (useAsyncResetDFFRN || useAsyncResetDFFR || useAsyncResetDFFS)) {
+        clkNet = createNotBitGate(design, clkNet, blockSourceRange);
       }
 
       bool emittedVectorSequential = false;
@@ -30916,6 +31126,13 @@ endmodule
         }
       }
 
+      // Replay overlapping targets once, preserving source-order priority.
+      std::vector<const Expression*> trackedLHSExpressions;
+      for (const auto* lhsExpr : conditionalLHSExpressions) {
+        appendTrackedSelectionLHS(lhsExpr, trackedLHSExpressions);
+      }
+      conditionalLHSExpressions = std::move(trackedLHSExpressions);
+
       SequentialStatementAssignmentCache assignmentCache;
       for (const auto* lhsExpr : conditionalLHSExpressions) {
         auto* lhsNet = resolveAssignmentBaseNet(design, *lhsExpr);
@@ -30976,6 +31193,11 @@ endmodule
           return false; // LCOV_EXCL_LINE
         }
 
+        restrictSequentialAssignmentBits(
+          design, *current, *lhsExpr, lhsBits, dataBits, &resetBits, ignoredSymbols);
+        if (lhsBits.empty()) {
+          continue; // LCOV_EXCL_LINE: Fallback target collection prunes inactive branches and zero-iteration loops.
+        }
         if (!emitSequentialConditionalAssignment(
               design,
               *lhsExpr,
@@ -31250,9 +31472,11 @@ endmodule
               tempIndex,
               failureReason,
               ignoredSymbols)) {
-          return false;
+          return false; // LCOV_EXCL_LINE: Assignment replay failure propagation; diagnostics are tested at the replay helper.
         }
 
+        restrictSequentialAssignmentBits(
+          design, *current, *lhsExpr, lhsBits, dataBits, nullptr, ignoredSymbols);
         for (size_t i = 0; i < lhsBits.size(); ++i) {
           if (clockEdge == slang::ast::EdgeKind::NegEdge) {
             createDFFNInstance(

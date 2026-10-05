@@ -4,12 +4,36 @@
 import sys
 from pathlib import Path
 import unittest
+import json
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pulp_report import render
+from pulp_report import render, collect_artifacts
 
 
 class PulpReportTest(unittest.TestCase):
+    def test_collect_parallel_artifacts_preserves_modes_and_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, suffix, mode, status in (
+                    ('pulp-lint-a', 'summary.json', 'load + dump + lint', 'failed'),
+                    ('pulp-elab-b', 'elaboration/summary.json', 'elaboration', 'passed')):
+                path = root / name / suffix
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(dict(release='0.1.0', mode=mode,
+                    selected=[name], inventory=[name], results=[dict(target=name, status=status)])))
+            path = root / 'pulp-ita/ita/summary.json'
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps(dict(status='failed', results={})))
+            suites, functional = collect_artifacts(root)
+            self.assertEqual(2, len(suites))
+            self.assertEqual('failed', functional['status'])
+            report = render(suites, functional)
+            self.assertIn('❌ failed', report)
+            self.assertIn('elaboration', report)
+            self.assertIn('Overall: **failed**', report)
+            self.assertEqual(([], None), collect_artifacts(root / 'missing'))
+
     def test_partial_run_and_measurements(self):
         summary = dict(release='0.1.0', selected=['a', 'b', 'c'], inventory=['a', 'b', 'c', 'd'],
                        results=[dict(target='a', status='passed', seconds=2, lint_seconds=3,

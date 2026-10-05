@@ -41,6 +41,14 @@ Verilog syntax-error exceptions include the failing input file path alongside
 the parser's line and column range, including when loading multiple files.
 With preprocessing enabled, these positions refer to the preprocessed text.
 
+Verilog dumps can opt into Verilator's packed-signal splitting with
+``VerilogDumpConfig(verilatorSplitPackedSignals=True)`` passed to
+``Instance.dump_verilog``. This adds ``/* verilator split_var */`` comments to
+internal bus nets and child-module bus ports so Verilator can track dependencies
+between separate packed sections. Public top-module ports are excluded. The
+option defaults to ``False`` and adds no warning suppression or logic changes.
+Genuine bit-level combinational loops still produce lint diagnostics.
+
 SystemVerilog
 -------------
 
@@ -66,6 +74,13 @@ Combinational procedural lowering supports compound shifts (``<<=``, ``>>=``,
 ``<<<=``, ``>>>=``), preserving the full shift-count width and signed arithmetic
 right-shift behavior. Blocking assignments earlier in the block are visible to
 subsequent shifts.
+
+Sequential multi-assignment lowering preserves the bits written by each process:
+replaying a whole vector to resolve overlapping assignments does not create
+flops for untouched bits. Nested writes to the same target retain source-order
+priority and share one driver per bit. In the conditional multi-assignment path,
+mixed binary asynchronous reset values use separate reset/set cells, including
+active-low controls and negative-edge clocks, rather than a clocked data mux.
 
 Fixed-size streaming assignment targets in ``always_comb`` support both stream
 directions, explicit slice sizes (including partial slices), nested streams,
@@ -127,6 +142,12 @@ and immediate process variables. Generated instances can bind indexed or sliced
 ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
+
+Simple signal wiring assignments such as ``y <= a;`` use canonical DB0 Assign
+instances, one per bit. ``Equipotential.Mode.TRAVERSE_ASSIGNS`` crosses these
+connections, including slices and positional vector mappings. Constants remain
+net driving types; logic gates, multiplexers, and registers remain traversal
+boundaries.
 
 Conditional generates select the first true branch at elaboration time, using
 static boolean expressions built from integer/boolean generics, constants, enclosing

@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
+import signal
 import subprocess
 import sys
 import tarfile
@@ -72,17 +72,32 @@ def worker(top_name, artifacts, dump_netlist):
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     if dump_netlist:
         dumping = time.monotonic()
-        top.dump_verilog(str(artifacts / "netlist.v"))
+        top.dump_verilog(str(artifacts / "netlist.v"), config=netlist.VerilogDumpConfig(
+            verilatorSplitPackedSignals=True))
         stats["dump_seconds"] = time.monotonic() - dumping
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     netlist.reset()
+
+
+def run_command(command, timeout, **kwargs):
+    # Verilator's launcher spawns a child; bound the entire invocation.
+    with subprocess.Popen(command, start_new_session=True, **kwargs) as process:
+        try:
+            return subprocess.CompletedProcess(command, process.wait(timeout=timeout))
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+            raise
 
 
 def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner=None,
                dump_netlist=True):
     artifacts.mkdir(parents=True, exist_ok=True)
     # Never let stale success products from an earlier run satisfy this run.
-    for filename in ("design-stats.json", "netlist.v", "najaeda_primitives.v",
+    for filename in ("design-stats.json", "netlist.v", "najaeda_primitives.v", "naja_primitives.v",
                      "diagnostics.log", "lint.log", "summary.json"):
         (artifacts / filename).unlink(missing_ok=True)
     design, variant = name.split(".")
@@ -100,8 +115,8 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
     start = time.monotonic()
     with (artifacts / "load-dump.log").open("w") as log:
         try:
-            result = subprocess.run(command, cwd=source_dir, env=env, stdout=log,
-                                    stderr=subprocess.STDOUT, timeout=timeout)
+            result = run_command(command, cwd=source_dir, env=env, stdout=log,
+                                 stderr=subprocess.STDOUT, timeout=timeout)
             record["returncode"] = result.returncode
             record["status"] = "passed" if result.returncode == 0 else "failed"
         except subprocess.TimeoutExpired:
@@ -120,24 +135,26 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
             if dump_netlist:
                 record["dump_bytes"] = dump.stat().st_size
     if record["status"] == "passed" and lint_runner and dump_netlist:
-        primitives = artifacts / "najaeda_primitives.v"
-        shutil.copyfile(ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v",
-                        primitives)
-        flags = ["--lint-only", "--sv", "--top-module", top, "-Wno-ASCRANGE"]
+        primitives = artifacts / "naja_primitives.v"
+        inputs = [artifacts / "netlist.v"]
+        if primitives.is_file():
+            inputs.append(primitives)
+        flags = ["--lint-only", "--verilate-jobs", "0", "--sv", "--top-module", top,
+                 "-Wno-ASCRANGE"]
         if lint_runner == "docker":
             cidfile = artifacts / "lint-container.cid"
             cidfile.unlink(missing_ok=True)
             command = ["docker", "run", "--rm", "--cidfile", str(cidfile), "-v", f"{artifacts}:/work:ro",
                        "--entrypoint", "verilator",
-                       "verilator/verilator:v5.046", *flags, "/work/netlist.v", "/work/najaeda_primitives.v"]
+                       "verilator/verilator:v5.046", *flags, *[f"/work/{path.name}" for path in inputs]]
         else:
-            command = ["verilator", *flags, str(artifacts / "netlist.v"), str(primitives)]
+            command = ["verilator", *flags, *map(str, inputs)]
         record["lint_command"] = command
         start = time.monotonic()
         with (artifacts / "lint.log").open("w") as log:
             try:
-                result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT,
-                                        timeout=timeout)
+                result = run_command(command, stdout=log, stderr=subprocess.STDOUT,
+                                     timeout=timeout)
                 record["lint_returncode"] = result.returncode
                 if result.returncode:
                     record["status"] = "lint_failed"

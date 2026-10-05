@@ -576,13 +576,17 @@ the built `najaeda` package must also have its normal runtime dependencies.
 `--lint-runner docker` uses the same Verilator v5.046 image as the external SV
 runner; `local` requires Verilator on PATH. Omitting the option runs load/dump
 only. Each load/dump and lint subprocess has a separate wall-clock limit.
-Missing lint tools fail; they do not silently skip.
+Lint uses `--verilate-jobs 0` to use the CPUs available to Verilator for internal
+compilation. Missing lint tools fail; they do not silently skip.
 
 The `PULP SV Regress` workflow builds Naja using the canonical Linux Release
 configuration, runs the small tier and lints each complete generated netlist
-with Naja's `najaeda_primitives.v` simulation models, copied into each case's
-artifact directory. Both local and Docker lint use this copy; Docker mounts
-the artifact directory once for both inputs. A second tier elaborates
+with the matching `naja_primitives.v` emitted by Naja beside each dump.
+Both local and Docker lint use these generated models, including parameterized
+division/remainder primitives; Docker mounts the artifact directory once for
+both inputs. Dumps containing no Naja primitives need only the netlist file.
+Worker and lint timeouts terminate the full process group, so local Verilator
+launcher children do not survive a timed-out case. A second tier elaborates
 `mempool.minpool`, `ita.default`, `cvfpu.full`, and `cva6.default`, with a 240-second limit per
 case and the same strict diagnostic checks. This tier does not dump or lint
 netlists; its artifacts and aggregate summary live in
@@ -595,10 +599,34 @@ python3 regress/sv/pulp_benchmarks.py \
   --elaboration-only --timeout 240 --output build/pulp-benchmarks/elaboration
 ```
 
-Manual dispatch with `survey=true`
-attempts all 23 variants. It always uploads diagnostics, commands, counts, netlists, and
-summaries. This is a frontend load/dump and syntax/linking regression, **not a
-functional equivalence or simulation test**. No technology library is needed.
+C910 also runs on every PR, push, and dispatch in an independent `pulp-c910`
+job. It uses the same source-pinned Verilator 5.052 build as ITA and a 600-second
+limit for each load/dump and strict-lint stage. The prepared PULP runner enables
+`VerilogDumpConfig(verilatorSplitPackedSignals=True)` for its dumps. This
+tracks packed child-module ports and internal buses separately, leaves public
+top-level ports unannotated, and does not suppress combinational-cycle warnings.
+
+The workflow builds Naja once and distributes a checked Python 3.12 native
+runtime to the verification jobs. The prepared RTL download/matrix planning,
+Naja build, pinned Verilator build, and runner unit tests start independently.
+Every consumer checks the restored native runtime before running a benchmark.
+There is no workflow `max-parallel` cap; GitHub schedules jobs according to the
+account's available runner concurrency.
+
+Regular runs fan out into **10 independent verification jobs**: four complete
+smoke checks, four larger-design elaboration checks, C910 strict lint, and ITA
+functional validation. A nightly run at 02:23 UTC or manual `survey=true` adds
+18 further complete-check jobs, covering **all 23 release variants** together
+with the five regular full checks. That produces **28 independent verification
+jobs**, including the four elaboration checks and ITA. Each additional survey
+variant has its own 120-second limit per load/dump and per lint; C910 retains
+its separate 600-second limit. Known failures fail only their own jobs.
+Matrix fail-fast is disabled, so other variants finish and retain reports.
+No complete-check case is duplicated between regular and survey jobs.
+
+The survey and frontend checks do not establish functional correctness. The
+separate ITA job adds functional simulation, not formal equivalence. No
+technology library is needed.
 
 Naja uses its ordinary strict loading behavior. The upstream Yosys flow's
 `--compat-mode`, `--compat=vcs`, `--allow-use-before-declare`,
@@ -625,9 +653,28 @@ local build, timing limits, diagnostics, and remaining verification limits.
 scoreboard at the exact revision used by the prepared release. It runs both
 the prepared RTL and the Naja structural dump against the same seed-0,
 64-by-64 attention/feedforward vectors, with bias and randomized stalls.
-This is a separate functional validation command; the default PULP CI job
-does not run it. A passing elaboration must not be interpreted as passing
-this test.
+The PULP workflow runs this command in an independent `pulp-ita` job on PRs,
+pushes, nightly runs, and manual dispatch. CI pins Verilator 5.052 to commit
+`ea338be98e1e838d3518809ce8899f85a009963c`, caches its installation, and uses
+NumPy 2.5.3 and ONNX 1.23.1 in a separate generator environment. It runs vector
+seed 0 with stall seed 1, requiring both golden scoreboards and the exact
+2,048-transaction phase/data/timestamp comparison to pass. Each subprocess
+has a 1,200-second timeout. Additional seeds remain a local validation option.
+A passing elaboration must not be interpreted as passing this test.
+CI enables `--parallel-simulations`: the original RTL and generated netlist
+build/simulation pipelines run concurrently in separate directories and logs.
+`--jobs` is a total compiler-job budget shared by the active pipelines (at least
+two jobs are required for concurrent execution).
+The generated hierarchical build keeps its required single compiler job to
+avoid the known Verilator recursive-make issue. Scoreboard validation and trace
+comparison still require both independent runs to pass. Local runs remain
+sequential unless the option is supplied.
+
+
+Each matrix job publishes its own summary and `pulp-sv-regress-<tier>` artifact,
+including failure logs. ITA artifacts retain the raw dump, adapted simulation
+sources, vector hashes, commands, and scoreboard logs; extracted upstream
+sources, archives, and compiled simulator objects are excluded.
 
 ```sh
 python3 -m venv /tmp/ita-vectors
@@ -728,10 +775,14 @@ Artifacts, commands, timings, and stage outcomes are written under
 ### PULP job report
 
 The PULP workflow publishes a GitHub Actions job summary and includes `report.md`
-in its `pulp-sv-regress` artifact, even when a regression fails. Each selected
+in each `pulp-sv-regress-*` artifact, even when a regression fails. Each selected
 case reports its result, load/statistics/dump/lint timings, and total worker plus
 lint time. Unselected release variants and unavailable results are explicit.
-The larger-design elaboration tier also runs after a smoke-tier failure.
+Elaboration jobs are independent of smoke results. A final report job downloads
+only the small `pulp-summary-*` artifacts and combines every available JSON
+result into `pulp-combined-report`, without downloading the generated netlists.
+Preparation/runtime artifacts expire after one day; result artifacts remain
+available for seven days.
 
 The benchmark worker uses the najaeda `count_child_instances()`, `count_terms()`,
 `count_bit_terms()`, `count_nets()`, and `count_bit_nets()` APIs on the elaborated
@@ -742,9 +793,12 @@ Regenerate the report from existing JSON without loading najaeda:
 
 ```bash
 python3 regress/sv/pulp_report.py --root build/pulp-benchmarks
+# Downloaded job artifacts must each retain their own subdirectory.
+python3 regress/sv/pulp_report.py --aggregate-root build/pulp-job-artifacts
 ```
 
 An optional `--functional build/ita-simulation/summary.json` includes the
 experimental ITA upstream scoreboard and RTL/netlist trace comparison as
-separate results. The workflow does not run that experimental simulation by
-default. Setting `GITHUB_STEP_SUMMARY` appends the report to the GitHub job page.
+separate results. The workflow supplies `build/pulp-benchmarks/ita/summary.json`
+for its ITA job. Setting `GITHUB_STEP_SUMMARY` appends the report to the GitHub
+job page.

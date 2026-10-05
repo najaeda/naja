@@ -144,18 +144,19 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   int dumpRTLInfosAsAttributes = 0;
   int dumpAssignsAsInstances = 0;
   const char* rtlInfoDumpMode = nullptr;
+  int verilatorSplitPackedSignals = 0;
 
   static const char* const kwords[] = {
     "path", "top_file_name", "dumpRTLInfosAsAttributes", "dumpAssignsAsInstances",
-    "rtlInfoDumpMode",
+    "rtlInfoDumpMode", "verilatorSplitPackedSignals",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|pps:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|ppsp:SNLDesign.dumpVerilog",
     const_cast<char**>(kwords),
     &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances,
-    &rtlInfoDumpMode)) {
+    &rtlInfoDumpMode, &verilatorSplitPackedSignals)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
@@ -173,6 +174,7 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
     dumper.setRTLInfoDumpMode(*parsedMode);
   }
   dumper.setDumpAssignsAsInstances(dumpAssignsAsInstances);
+  dumper.setVerilatorSplitPackedSignals(verilatorSplitPackedSignals);
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;
@@ -498,8 +500,10 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
 
 // Return the truth table for design
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
+  METHOD_HEAD("SNLDesign.getTruthTable()")
+  TRY
   const SNLTruthTable& truthTable =
-      SNLDesignModeling::getTruthTable(self->object_);
+      SNLDesignModeling::getTruthTable(selfObject);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -510,6 +514,7 @@ PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) {
     PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
+  NLCATCH
 }
 
 // Return the truth table for design by output ID
@@ -520,6 +525,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
+  TRY
   SNLTruthTable truthTable =
       SNLDesignModeling::getTruthTable(selfObject, outputID);
   if (!truthTable.isInitialized()) {
@@ -532,6 +538,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
     PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
+  NLCATCH
 }
 
 static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {

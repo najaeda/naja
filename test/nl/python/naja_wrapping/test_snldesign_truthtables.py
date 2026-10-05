@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
+import tempfile
+from pathlib import Path
 import naja
 
 class SNLDesignTruthTablesTest(unittest.TestCase):
@@ -84,6 +86,39 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
     self.assertTrue(xnor2.isXnor())
     self.assertFalse(xnor2.isXor())
     self.assertFalse(xnor2.isMux())
+
+  def testFullAdderPredicates(self):
+    with tempfile.TemporaryDirectory() as directory:
+      source = Path(directory) / "add.sv"
+      source.write_text("module top(input [1:0] a, b, output [1:0] y); "
+                        "assign y = a + b; endmodule")
+      top = self.designs.getDB().loadSystemVerilog([str(source)])
+    instances = list(top.getInstances())
+    self.assertTrue(instances)
+    for instance in instances:
+      model = instance.getModel()
+      for name in ("isConst0", "isConst1", "isConst", "isInv", "isBuf",
+                   "isAnd", "isNand", "isOr", "isNor", "isXor", "isXnor", "isMux"):
+        self.assertFalse(getattr(model, name)())
+      with self.assertRaisesRegex(RuntimeError, "FA has two outputs"):
+        model.getTruthTable()
+      self.assertFalse(model.isConst0())
+
+  def testMultiOutputTruthTableErrors(self):
+    prim = naja.SNLDesign.createPrimitive(self.primitives, "MULTI")
+    i = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "I")
+    o0 = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O0")
+    o1 = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O1")
+    init = naja.SNLParameter.create_binary(prim, "INIT", 2, 2)
+    prim.setTruthTableFromParameter(o0, [i], init)
+    prim.setTruthTableFromParameter(o1, [i], init)
+    with self.assertRaisesRegex(RuntimeError, "design has per-output truth tables"):
+      prim.getTruthTable()
+    for name in ("isConst0", "isConst1", "isConst", "isInv", "isBuf",
+                 "isAnd", "isNand", "isOr", "isNor", "isXor", "isXnor", "isMux"):
+      with self.subTest(predicate=name):
+        self.assertFalse(getattr(prim, name)())
+    self.assertEqual([1, 2], prim.getTruthTableByOutputID(o0.getID()))
 
   def testPrimitiveTruthTableErrors(self):
     prim = naja.SNLDesign.createPrimitive(self.primitives, "AND2")

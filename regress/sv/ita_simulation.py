@@ -5,6 +5,7 @@
 """Run the pinned upstream ITA golden-vector testbench on RTL and a Naja dump."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import os
@@ -149,6 +150,19 @@ def execute(command, cwd, log, timeout):
     return record
 
 
+def run_pipelines(items, run_pipeline, parallel=False):
+    """Run independent variants without sharing build directories or reports."""
+    if not parallel:
+        for name, flist in items:
+            yield name, run_pipeline(name, flist)
+        return
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {executor.submit(run_pipeline, name, flist): name
+                   for name, flist in items}
+        for future in as_completed(futures):
+            yield futures[future], future.result()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=pulp.ROOT / "build/ita-simulation")
@@ -156,7 +170,10 @@ def main():
     parser.add_argument("--najaeda-path", type=Path, default=pulp.ROOT / "build/test/najaeda")
     parser.add_argument("--generator-python", default=sys.executable,
                         help="Python with numpy and onnx installed")
-    parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--jobs", type=int, default=4,
+                        help="Total compiler-job budget shared by concurrent simulations")
+    parser.add_argument("--parallel-simulations", action="store_true",
+                        help="Build and simulate RTL and generated netlist concurrently")
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--weight-read-delay-ps", type=int, default=1,
@@ -169,10 +186,13 @@ def main():
     args = parser.parse_args()
     if args.timeout <= 0 or args.jobs <= 0 or not 0 <= args.weight_read_delay_ps <= 100:
         parser.error("timeout/jobs must be positive; weight read delay must be 0..100 ps")
+    if args.parallel_simulations and args.jobs < 2:
+        parser.error("parallel simulations require at least two compiler jobs")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     summary = dict(ita_revision=ITA_REV, memory_revision=MEM_REV, seed=args.seed,
                    stalls=not args.no_stalls, weight_read_delay_ps=args.weight_read_delay_ps,
+                   parallel_simulations=args.parallel_simulations, compiler_jobs=args.jobs,
                    status="running", results={})
     def save():
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -236,7 +256,8 @@ def main():
                      *clocks, tb]
             generated.write_text("\n".join(map(str, files)) + "\n")
             lists["generated"] = generated
-        for name, flist in lists.items():
+        def run_pipeline(name, flist):
+            results = {}
             hierarchical = name == "generated" and args.hierarchical
             obj = out / (f"{name}-hier-obj" if hierarchical else f"{name}-obj")
             # Avoid stale executables after an unsuccessful rebuild.
@@ -251,16 +272,19 @@ def main():
             optimization = [] if args.verilator_opt == "default" else [f"-O{args.verilator_opt}"]
             # Verilator 5.052 can recurse rebuilding the top makefile when
             # parallel hierarchical jobs update wrapper timestamps underneath it.
-            jobs = 1 if hierarchical else args.jobs
+            jobs = args.jobs
+            if hierarchical:
+                jobs = 1
+            elif args.parallel_simulations and len(lists) > 1:
+                jobs = max(1, args.jobs - 1) if args.hierarchical else max(1, args.jobs // len(lists))
             build = execute(["verilator", "--binary", "--timing", *optimization,
                              "-j", jobs, "--top-module", "ita_tb", "-Wno-fatal",
                              "+define+BIAS=1", f"+define+NO_STALLS={int(args.no_stalls)}",
                              "--Mdir", obj, *extra, "-f", flist], out,
                             out / f"{name}-build.log", args.timeout)
-            summary["results"][f"{name}_build"] = build
-            save()
+            results[f"{name}_build"] = build
             if build["status"] != "passed":
-                continue
+                return results
             run = execute([obj / "Vita_tb", "+verilator+seed+1"], out,
                           out / f"{name}-run.log", args.timeout)
             if run["status"] == "passed":
@@ -268,7 +292,10 @@ def main():
                     validate_simulation((out / f"{name}-run.log").read_text())
                 except ValueError as error:
                     run.update(status="failed", error=str(error))
-            summary["results"][f"{name}_simulation"] = run
+            results[f"{name}_simulation"] = run
+            return results
+        for name, results in run_pipelines(lists.items(), run_pipeline, args.parallel_simulations):
+            summary["results"].update(results)
             save()
         try:
             traces = [output_trace((out / f"{name}-run.log").read_text())

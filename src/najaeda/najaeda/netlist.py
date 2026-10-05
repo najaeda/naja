@@ -1880,6 +1880,7 @@ class Instance:
         dump_kwargs = {
             "dumpRTLInfosAsAttributes": config.dumpRTLInfosAsAttributes,
             "dumpAssignsAsInstances": config.dumpAssignsAsInstances,
+            "verilatorSplitPackedSignals": config.verilatorSplitPackedSignals,
         }
         if config.dumpRTLInfosAsAttributes:
             dump_kwargs["rtlInfoDumpMode"] = config.rtlInfoDumpMode
@@ -2032,6 +2033,7 @@ class VerilogDumpConfig:
     dumpRTLInfosAsAttributes: bool = False
     rtlInfoDumpMode: str = "CompactAttribute"
     dumpAssignsAsInstances: bool = False
+    verilatorSplitPackedSignals: bool = False
 
     def __post_init__(self):
         allowed = {"None", "VerboseAttributes", "CompactAttribute"}

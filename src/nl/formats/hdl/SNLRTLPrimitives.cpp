@@ -171,6 +171,24 @@ SNLInstance* SNLRTLPrimitives::createGate(
   return instance;
 }
 
+std::vector<SNLInstance*> SNLRTLPrimitives::createAssign(
+  SNLDesign* design, SNLNet* input, SNLNet* output) {
+  const auto width = output ? static_cast<size_t>(output->getWidth()) : 0;
+  if (width == 0 || !validNet(design, input, width) ||
+      !validNet(design, output, width)) {
+    throw NLException("SNLRTLPrimitives::createAssign: invalid nets or widths");
+  }
+  std::vector<SNLInstance*> instances;
+  instances.reserve(width);
+  for (size_t position = 0; position < width; ++position) {
+    auto* instance = SNLInstance::create(design, NLDB0::getAssign());
+    instance->setTermNet(NLDB0::getAssignInput(), bitAtHardwarePosition(input, position));
+    instance->setTermNet(NLDB0::getAssignOutput(), bitAtHardwarePosition(output, position));
+    instances.push_back(instance);
+  }
+  return instances;
+}
+
 std::vector<SNLInstance*> SNLRTLPrimitives::createBitwiseGate(
   SNLDesign* design, GateKind kind,
   const std::vector<SNLNet*>& inputs, SNLNet* output) {

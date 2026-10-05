@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -56,7 +57,7 @@ class PulpBenchmarksTest(unittest.TestCase):
                 artifacts.mkdir()
                 (artifacts / "netlist.v").write_text("stale")
                 (artifacts / "design-stats.json").write_text("{}")
-                with patch.object(pulp.subprocess, "run") as run:
+                with patch.object(pulp, "run_command") as run:
                     if isinstance(outcome, Exception):
                         run.side_effect = outcome
                     else:
@@ -80,7 +81,7 @@ class PulpBenchmarksTest(unittest.TestCase):
                 (artifacts / "design-stats.json").write_text('{"top_terms": 5}')
                 raise subprocess.TimeoutExpired(command, 1)
 
-            with patch.object(pulp.subprocess, "run", side_effect=execute):
+            with patch.object(pulp, "run_command", side_effect=execute):
                 result = pulp.run_target(root, "design.default", "top", artifacts, root, 1)
             self.assertEqual("timeout", result["status"])
             self.assertEqual(5, result["design_stats"]["top_terms"])
@@ -100,7 +101,7 @@ class PulpBenchmarksTest(unittest.TestCase):
                 (artifacts / "design-stats.json").write_text('{"top": "top"}')
                 return subprocess.CompletedProcess(command, 0)
 
-            with patch.object(pulp.subprocess, "run", side_effect=execute):
+            with patch.object(pulp, "run_command", side_effect=execute):
                 result = pulp.run_target(root, "design.default", "top", artifacts, root, 1, "local")
             self.assertEqual("lint_failed", result["status"])
             self.assertIn("verilator is missing", result["error"])
@@ -114,19 +115,19 @@ class PulpBenchmarksTest(unittest.TestCase):
                 (source / "filelist.f").write_text("input.sv\n")
                 artifacts = root / "artifacts"
                 artifacts.mkdir()
-                primitives = artifacts / "najaeda_primitives.v"
+                primitives = artifacts / "naja_primitives.v"
                 primitives.write_text("stale")
 
                 def execute(command, **kwargs):
                     if command[0] == sys.executable:
                         self.assertFalse(primitives.exists())
                         (artifacts / "netlist.v").write_text("module top; endmodule\n")
+                        primitives.write_text("// freshly generated primitive models\n")
                         (artifacts / "design-stats.json").write_text('{"top": "top"}')
                     else:
-                        reference = pulp.ROOT / "test/nl/formats/systemverilog/benchmarks/najaeda_primitives.v"
-                        self.assertEqual(reference.read_bytes(), primitives.read_bytes())
+                        self.assertEqual("// freshly generated primitive models\n", primitives.read_text())
                         inputs = command[command.index("-Wno-ASCRANGE") + 1:]
-                        expected = ["netlist.v", "najaeda_primitives.v"]
+                        expected = ["netlist.v", "naja_primitives.v"]
                         if runner == "docker":
                             self.assertEqual(1, command.count("-v"))
                             self.assertIn(f"{artifacts}:/work:ro", command)
@@ -135,9 +136,43 @@ class PulpBenchmarksTest(unittest.TestCase):
                             self.assertEqual([str(artifacts / name) for name in expected], inputs)
                     return subprocess.CompletedProcess(command, 0)
 
-                with patch.object(pulp.subprocess, "run", side_effect=execute):
+                with patch.object(pulp, "run_command", side_effect=execute):
                     result = pulp.run_target(root, "design.default", "top", artifacts, root, 1, runner)
                 self.assertEqual("passed", result["status"])
+
+    def test_timeout_stops_launcher_children(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "child-survived"
+            ready = Path(tmp) / "child-started"
+            child = ("import time; from pathlib import Path; Path(" + repr(str(ready)) +
+                     ").touch(); time.sleep(2); Path(" + repr(str(marker)) + ").touch()")
+            launcher = "import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', " + repr(child) + "]); time.sleep(10)"
+            with self.assertRaises(subprocess.TimeoutExpired):
+                pulp.run_command([sys.executable, "-c", launcher], timeout=1)
+            self.assertTrue(ready.exists())
+            time.sleep(1.2)
+            self.assertFalse(marker.exists())
+
+    def test_primitive_free_dump_can_be_linted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "design/variants/default"
+            source.mkdir(parents=True)
+            (source / "filelist.f").write_text("input.sv\n")
+            artifacts = root / "artifacts"
+
+            def execute(command, **kwargs):
+                if command[0] == sys.executable:
+                    (artifacts / "netlist.v").write_text("module top; endmodule\n")
+                    (artifacts / "design-stats.json").write_text('{"top": "top"}')
+                else:
+                    self.assertEqual([str(artifacts / "netlist.v")],
+                                     command[command.index("-Wno-ASCRANGE") + 1:])
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(pulp, "run_command", side_effect=execute):
+                result = pulp.run_target(root, "design.default", "top", artifacts, root, 1, "local")
+            self.assertEqual("passed", result["status"])
 
     def test_elaboration_only_does_not_require_a_dump(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -152,7 +187,7 @@ class PulpBenchmarksTest(unittest.TestCase):
                 (artifacts / "design-stats.json").write_text('{"top": "top"}')
                 return subprocess.CompletedProcess(command, 0)
 
-            with patch.object(pulp.subprocess, "run", side_effect=execute):
+            with patch.object(pulp, "run_command", side_effect=execute):
                 result = pulp.run_target(root, "design.default", "top", artifacts, root, 1,
                                          dump_netlist=False)
             self.assertEqual("passed", result["status"])

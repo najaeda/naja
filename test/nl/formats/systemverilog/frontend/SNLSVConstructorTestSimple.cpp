@@ -24531,6 +24531,313 @@ endmodule
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, verilatorPackedPortSplittingPreservesLogic) {
+  const auto svPath = writeSVTestFile("packed_port_split", R"(
+module packed_child(input [3:0] a, output [3:0] y);
+  assign y[0] = a[0] ^ a[2];
+  assign y[1] = a[1] & a[3];
+  assign y[2] = a[0];
+  assign y[3] = a[1];
+endmodule
+module packed_port_split(input [3:0] d, output [3:0] y);
+  wire [3:0] a;
+  assign a = {y[2], d[2:0]};
+  packed_child child(a, y);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("packed_port_split"));
+  ASSERT_NE(nullptr, top);
+  const auto dumpedPath = dumpTopAndGetVerilogPath(top, "packed_port_split_dump");
+  SNLVRLDumper dumper;
+  dumper.setVerilatorSplitPackedSignals(true);
+  dumper.setTopFileName(dumpedPath.filename().string());
+  dumper.dumpDesign(top, dumpedPath.parent_path());
+  const auto text = readTextFile(dumpedPath);
+  EXPECT_NE(std::string::npos, text.find("a /* verilator split_var */"));
+  EXPECT_EQ(std::string::npos, text.find("d /* verilator split_var */"));
+  auto quote = [](const std::filesystem::path& path) {
+    return "\"" + path.string() + "\"";
+  };
+  if (std::system("command -v verilator >/dev/null 2>&1") == 0) {
+    const auto lint = "verilator --lint-only --sv --top-module packed_port_split " +
+      quote(dumpedPath);
+    ASSERT_EQ(0, std::system(lint.c_str()));
+    // A genuine bit-level loop must remain visible despite the annotation.
+    auto cyclic = readTextFile(svPath);
+    cyclic.replace(cyclic.find("{y[2], d[2:0]}"), std::string("{y[2], d[2:0]}").size(), "{d[3:1], y[0]}");
+    const auto cyclePath = writeSVTestFile("packed_port_cycle", cyclic);
+    // Use a distinct library to avoid reusing the previously elaborated model.
+    auto* cycleLibrary = NLLibrary::create(library_->getDB(), NLName("CYCLE"));
+    SNLSVConstructor cycleConstructor(cycleLibrary);
+    cycleConstructor.construct(cyclePath);
+    auto* cyclicTop = cycleLibrary->getSNLDesign(NLName("packed_port_split"));
+    ASSERT_NE(nullptr, cyclicTop);
+    const auto cycleDump = dumpTopAndGetVerilogPath(cyclicTop, "packed_port_cycle_dump");
+    dumper.setTopFileName(cycleDump.filename().string());
+    dumper.dumpDesign(cyclicTop, cycleDump.parent_path());
+    const auto cycleLog = cycleDump.parent_path() / "lint.log";
+    const auto cycleLint = "verilator --lint-only --sv --top-module packed_port_split " +
+      quote(cycleDump) + " > " + quote(cycleLog) + " 2>&1";
+    EXPECT_NE(0, std::system(cycleLint.c_str()));
+    EXPECT_NE(std::string::npos, readTextFile(cycleLog).find("UNOPTFLAT"));
+  }
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+  }
+  const auto tbPath = dumpedPath.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg [3:0] d;
+  wire [3:0] y;
+  packed_port_split dut(.*);
+  integer i;
+  initial begin
+    for (i = 0; i < 16; i = i + 1) begin
+      d = i; #1;
+      if (y !== {d[1], d[0], d[1] & d[0], d[0] ^ d[2]}) $fatal(1, "packed-port mismatch");
+    end
+    d = 4'bx01z; #1;
+    if (y !== {d[1], d[0], d[1] & d[0], d[0] ^ d[2]}) $fatal(1, "four-state packed-port mismatch");
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto executable = dumpedPath.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(dumpedPath);
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+TEST_F(SNLSVConstructorTestSimple, sequentialPartialWritesHaveSingleDriver) {
+  for (bool negativeClock : {false, true}) {
+    for (bool activeHighReset : {false, true}) {
+      const auto name = std::string("partial_sequential_drivers_") +
+        (negativeClock ? "neg_" : "pos_") + (activeHighReset ? "high" : "low");
+      SCOPED_TRACE(name);
+      auto replaceAll = [](std::string& text, const std::string& from, const std::string& to) {
+        size_t pos = 0;
+        while ((pos = text.find(from, pos)) != std::string::npos) {
+          text.replace(pos, from.size(), to);
+          pos += to.size();
+        }
+      };
+      std::string source = R"(
+module partial_sequential_drivers(
+  input logic clk, rst_n, en, sel,
+  input logic [7:0] d,
+  output logic [7:0] q, plain, scheduled,
+  output logic [3:0] echo_o,
+  output logic [1:0][3:0] entries
+);
+  always @(posedge clk or negedge rst_n)
+    if (!rst_n) q[5:0] <= '0;
+    else if (en) q[5:0] <= d[5:0];
+    else if (sel) q[5:0] <= {q[5:3], d[2:0]};
+  always @(posedge clk or negedge rst_n)
+    if (!rst_n) q[7:6] <= '0;
+    else if (en) q[7:6] <= d[7:6];
+  always @(posedge clk) begin
+    plain[2:0] <= d[2:0];
+    plain[5:3] <= d[5:3];
+  end
+  always @(posedge clk) plain[7:6] <= d[7:6];
+  always @(posedge clk) begin
+    for (int j = 0; j < 4; j++) scheduled[j] = d[j];
+    echo_o <= scheduled[3:0];
+  end
+  always @(posedge clk) scheduled[7:4] <= d[7:4];
+  for (genvar i = 0; i < 2; i++) begin
+    always @(posedge clk or negedge rst_n)
+      if (!rst_n) begin
+        entries[i] <= '0;
+        entries[i][0] <= 1'b1;
+      end else entries[i] <= d[i*4+:4];
+  end
+endmodule
+)";
+      replaceAll(source, "partial_sequential_drivers", name);
+      if (negativeClock) replaceAll(source, "posedge clk", "negedge clk");
+      if (activeHighReset) {
+        replaceAll(source, "negedge rst_n", "posedge rst_n");
+        replaceAll(source, "!rst_n", "rst_n");
+      }
+      const auto svPath = writeSVTestFile(name, source);
+      SNLSVConstructor constructor(library_);
+      constructor.construct(svPath);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (const auto* name : {"q", "entries", "plain", "scheduled", "echo_o"}) {
+        auto* net = top->getNet(NLName(name));
+        ASSERT_NE(nullptr, net);
+        for (auto* bit : net->getBits()) {
+          size_t drivers = 0;
+          for (auto* term : bit->getInstTerms()) {
+            if (term->getDirection() == SNLTerm::Direction::Output) ++drivers;
+          }
+          EXPECT_EQ(1u, drivers) << name << " " << bit->getDescription();
+        }
+      }
+      const auto dumpedPath = dumpTopAndGetVerilogPath(top, name + "_dump");
+      if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+          std::system("command -v vvp >/dev/null 2>&1") != 0) {
+        GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+      }
+      auto reference = readTextFile(svPath);
+      reference.replace(reference.find(name), name.size(), "reference");
+      const auto tbPath = svPath.parent_path() / "tb.sv";
+      std::ofstream tb(tbPath);
+      std::string bench = R"(
+module tb;
+  reg clk = 0, rst_n = 1, en = 0, sel = 0;
+  reg [7:0] d = 0;
+  wire [7:0] q, entries, plain, scheduled, expected_q, expected_entries;
+  wire [7:0] expected_plain, expected_scheduled;
+  wire [3:0] echo_o, expected_echo;
+  partial_sequential_drivers dut(.*);
+  reference ref_dut(.clk(clk), .rst_n(rst_n), .en(en), .sel(sel), .d(d),
+                   .q(expected_q), .entries(expected_entries), .plain(expected_plain),
+                   .scheduled(expected_scheduled), .echo_o(expected_echo));
+  task check;
+    begin
+      #1;
+      if (q !== expected_q || entries !== expected_entries ||
+          plain !== expected_plain || scheduled !== expected_scheduled || echo_o !== expected_echo)
+        $fatal(1, "partial write mismatch q=%h expected=%h entries=%h expected=%h",
+               q, expected_q, entries, expected_entries);
+    end
+  endtask
+  integer i;
+  initial begin
+    #1; rst_n = 0; check;
+    rst_n = 1;
+    for (i = 0; i < 32; i = i + 1) begin
+      d = i * 13; en = i & 1; sel = (i >> 1) & 1;
+      #1; clk = 1; check; clk = 0; check;
+    end
+    rst_n = 0; check;
+    rst_n = 1; d = 'x; en = 1; #1; clk = 1; check;
+    clk = 0; rst_n = 0; check;
+    $finish;
+  end
+endmodule
+)";
+      replaceAll(bench, "partial_sequential_drivers", name);
+      if (negativeClock) {
+        replaceAll(bench, "clk = 0", "clk = IDLE");
+        replaceAll(bench, "clk = 1", "clk = 0");
+        replaceAll(bench, "clk = IDLE", "clk = 1");
+      }
+      if (activeHighReset) {
+        replaceAll(bench, "rst_n = 0", "rst_n = ACTIVE");
+        replaceAll(bench, "rst_n = 1", "rst_n = 0");
+        replaceAll(bench, "rst_n = ACTIVE", "rst_n = 1");
+      }
+      tb << reference << bench;
+      tb.close();
+      auto quote = [](const std::filesystem::path& path) {
+        return "\"" + path.string() + "\"";
+      };
+      const auto executable = svPath.parent_path() / "simulation.vvp";
+      const auto command = "iverilog -g2012 -s tb -o " + quote(executable) +
+        " " + quote(tbPath) + " " + quote(dumpedPath) +
+        " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+      ASSERT_EQ(0, std::system(command.c_str()));
+      ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, divModDumpFourStateSimulation) {
+  for (auto width: {1u, 4u, 40u}) {
+    for (bool isSigned: {false, true}) {
+      const auto name = "divmod_w" + std::to_string(width) + (isSigned ? "_signed" : "_unsigned");
+      SCOPED_TRACE(name);
+      std::ostringstream source;
+      source << "module " << name << "(input logic clk, input logic "
+        << (isSigned ? "signed " : "") << "[" << width - 1 << ":0] A, B, "
+        << "output logic [" << width - 1 << ":0] Q, R, SQ, SR);\n"
+        << "assign Q = A / B;\nassign R = A % B;\n"
+        << "always_ff @(posedge clk) begin SQ <= A / B; SR <= A % B; end\nendmodule\n";
+      const auto svPath = writeSVTestFile(name, source.str());
+      SNLSVConstructor constructor(library_);
+      constructor.construct(svPath);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_GT(countDivModInstances(top, width, isSigned), 0u);
+      const auto dumpedPath = dumpTopAndGetVerilogPath(top, name + "_dump");
+      const auto primitivesPath = dumpedPath.parent_path() / "naja_primitives.v";
+      ASSERT_TRUE(std::filesystem::exists(primitivesPath));
+      const auto dumped = readTextFile(dumpedPath);
+      if (width != 1 || isSigned) {
+        if (width != 1) {
+          EXPECT_NE(std::string::npos, dumped.find(".WIDTH(" + std::to_string(width) + ")"));
+        } else {
+          EXPECT_EQ(std::string::npos, dumped.find(".WIDTH("));
+        }
+        if (isSigned) {
+          EXPECT_NE(std::string::npos, dumped.find(".SIGNED(1)"));
+        } else {
+          EXPECT_EQ(std::string::npos, dumped.find(".SIGNED("));
+        }
+      }
+      if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+          std::system("command -v vvp >/dev/null 2>&1") != 0) {
+        GTEST_SKIP() << "Icarus Verilog is required for the four-state comparison";
+      }
+      auto reference = source.str();
+      reference.replace(reference.find(name), name.size(), "reference");
+      const auto tbPath = svPath.parent_path() / "tb.sv";
+      std::ofstream tb(tbPath);
+      ASSERT_TRUE(tb.good());
+      tb << reference << "module tb;\nlocalparam WIDTH = " << width << ";\n"
+        << "reg clk = 0; reg [WIDTH-1:0] A, B;\n"
+        << "wire [WIDTH-1:0] Q, R, SQ, SR, eq, er, esq, esr;\n"
+        << name << " dut(.*);\n"
+        << "reference ref_dut(.clk(clk), .A(A), .B(B), .Q(eq), .R(er), .SQ(esq), .SR(esr));\n"
+        << R"(task check;
+  begin
+    #1;
+    if (Q !== eq || R !== er) $fatal(1, "combinational divmod mismatch A=%h B=%h Q=%h expected=%h R=%h expected=%h", A, B, Q, eq, R, er);
+    clk = 1; #1;
+    if (SQ !== esq || SR !== esr) $fatal(1, "sequential divmod mismatch");
+    clk = 0;
+  end
+endtask
+integer i, j;
+initial begin
+  for (i = 0; i < 16; i = i + 1) begin
+    for (j = 0; j < 16; j = j + 1) begin
+      A = 40'h8100000000 | i; B = j; check;
+    end
+  end
+  A = -7; B = -3; check;
+  A = 7; B = -3; check;
+  A = 1 << (WIDTH-1); B = -1; check;
+  A = 'x; B = 3; check;
+  A = 3; B = 'x; check;
+  A = 'z; B = 1; check;
+  $finish;
+end
+endmodule
+)";
+      tb.close();
+      auto quotePath = [](const std::filesystem::path& path) {
+        return "\"" + path.string() + "\"";
+      };
+      const auto executablePath = svPath.parent_path() / "simulation.vvp";
+      const auto compile = "iverilog -g2012 -s tb -o " + quotePath(executablePath) +
+        " " + quotePath(tbPath) + " " + quotePath(dumpedPath) + " " + quotePath(primitivesPath);
+      ASSERT_EQ(0, std::system(compile.c_str()));
+      ASSERT_EQ(0, std::system(("vvp " + quotePath(executablePath)).c_str()));
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousDivModResolveFailureUnsupported) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
@@ -36899,4 +37206,149 @@ endmodule
     {"Unsupported RHS in continuous assign in module "
      "'countones_operand_resolve_failure_unsupported'",
      "Call width=3"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialFallbackNegedgePartialAssignments) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_fallback_negedge_partial",
+    R"(module seq_fallback_negedge_partial(
+  input logic clk, input logic [3:0] d, output logic [3:0] q
+);
+  always_ff @(negedge clk) begin
+    q[0] <= d[0];
+    q[2] <= d[2];
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_fallback_negedge_partial"));
+  ASSERT_NE(nullptr, top);
+  auto* q = top->getBusNet(NLName("q"));
+  auto* d = top->getBusNet(NLName("d"));
+  ASSERT_NE(nullptr, q);
+  ASSERT_NE(nullptr, d);
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  for (int bit : {0, 2}) {
+    size_t drivers = 0;
+    for (auto* term : q->getBit(bit)->getInstTerms()) {
+      if (term->getBitTerm() != NLDB0::getDFFNOutput()) continue;
+      ++drivers;
+      auto* inst = term->getInstance();
+      EXPECT_EQ(d->getBit(bit), inst->getInstTerm(NLDB0::getDFFNData())->getNet());
+      EXPECT_EQ(top->getNet(NLName("clk")),
+        inst->getInstTerm(NLDB0::getDFFNClock())->getNet());
+    }
+    EXPECT_EQ(1u, drivers);
+  }
+  EXPECT_TRUE(q->getBit(1)->getInstTerms().empty());
+  EXPECT_TRUE(q->getBit(3)->getInstTerms().empty());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalIncrementer) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_conditional_incrementer",
+    R"(module seq_direct_conditional_incrementer(
+  input logic clk, rst, output logic [3:0] q, r
+);
+  always_ff @(posedge clk) begin
+    if (rst) begin q <= 4'b0; r <= 4'b0; end
+    else begin q <= q + 1'b1; r <= r + 1'b1; end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_direct_conditional_incrementer"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(8u, countDFFBits(top));
+  EXPECT_NE(nullptr, top->getNet(NLName("inc_q")));
+  EXPECT_NE(nullptr, top->getNet(NLName("inc_r")));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalNegedgeMixedAsyncReset) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_conditional_negedge_mixed_reset",
+    R"(module seq_direct_conditional_negedge_mixed_reset(
+  input logic clk, rst, input logic [3:0] d, output logic [3:0] q, r
+);
+  always_ff @(negedge clk or posedge rst) begin
+    if (rst) begin q <= 4'b1010; r <= 4'b0000; end
+    else begin q <= d; r <= d; end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_direct_conditional_negedge_mixed_reset"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFS));
+  auto* sourceClock = top->getScalarNet(NLName("clk"));
+  ASSERT_NE(nullptr, sourceClock);
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFFR(inst->getModel()) && !NLDB0::isDFFS(inst->getModel())) continue;
+    auto* clock = inst->getInstTerm(inst->getModel()->getScalarTerm(NLName("C")));
+    ASSERT_NE(nullptr, clock);
+    EXPECT_NE(nullptr, clock->getNet());
+    EXPECT_NE(sourceClock, clock->getNet());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialReplaySkipsConstantFalseTarget) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_replay_constant_false",
+    R"(module seq_replay_constant_false(
+  input logic clk, d, output logic q, r, unused_q
+);
+  always @(posedge clk) begin
+    q = d;
+    r <= q;
+    if (1'b0) unused_q <= d;
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_replay_constant_false"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFBits(top));
+  auto* d = top->getScalarNet(NLName("d"));
+  for (const char* name : {"q", "r"}) {
+    size_t drivers = 0;
+    for (auto* term : top->getScalarNet(NLName(name))->getInstTerms()) {
+      if (term->getBitTerm() != NLDB0::getDFFOutput()) continue;
+      ++drivers;
+      EXPECT_EQ(d, term->getInstance()->getInstTerm(NLDB0::getDFFData())->getNet());
+    }
+    EXPECT_EQ(1u, drivers);
+  }
+  EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetFallbackSkipsConstantFalseTarget) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_reset_fallback_constant_false",
+    R"(module seq_reset_fallback_constant_false(
+  input logic clk, rst, en, d, output logic q, r, unused_q
+);
+  always @(posedge clk) begin
+    if (rst) begin
+      q <= 1'b0;
+      r <= 1'b0;
+      if (1'b0) unused_q <= 1'b0;
+    end else if (en) begin
+      q <= d;
+      r <= d;
+      if (1'b0) unused_q <= d;
+    end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_reset_fallback_constant_false"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFBits(top));
+  EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
 }

@@ -645,9 +645,10 @@ std::string formatStringVector(const std::vector<std::string>& values) {
 void expectUnsupportedConstruct(
   SNLSVConstructor& constructor,
   const std::filesystem::path& svPath,
-  std::initializer_list<const char*> expectedSubstrings) {
+  std::initializer_list<const char*> expectedSubstrings,
+  const SNLSVConstructor::ConstructOptions& options = {}) {
   try {
-    constructor.construct(svPath);
+    constructor.construct(svPath, options);
     FAIL() << "Expected unsupported SystemVerilog element exception";
   } catch (const SNLSVConstructorException& e) {
     const std::string reason = e.what();
@@ -11996,4 +11997,159 @@ endmodule
     constructor,
     svPath,
     {"unsupported statement pattern for sequential lowering"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusGeneratedDisjointElements) {
+  SNLSVConstructor constructor(library_);
+  ScopedEnvVar threshold("NAJA_SV_UNINFERRED_MEMORY_WARNING_BITS", "1");
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "writer_census";
+  std::filesystem::create_directories(directory);
+  const auto source = directory / "writer_census.sv";
+  std::ofstream(source) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module writer_census(input logic clk, input logic [3:0] en, d, output logic [7:0] q);
+  logic mem [0:3];
+  logic other [0:3];
+  for (genvar i = 0; i < 4; i++) begin
+    always_ff @(posedge clk) begin
+      if (en[i]) begin
+        mem[i] <= ~d[i];
+        mem[i] <= d[i];
+        other[i] <= d[i];
+      end
+    end
+    assign q[i] = mem[i];
+    assign q[i+4] = other[i];
+  end
+endmodule
+)";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = directory / "diagnostics.log";
+  testing::internal::CaptureStderr();
+  testing::internal::CaptureStdout();
+  try {
+    constructor.construct(source, options);
+  } catch (...) {
+    (void)testing::internal::GetCapturedStderr();
+    (void)testing::internal::GetCapturedStdout();
+    throw;
+  }
+  (void)testing::internal::GetCapturedStderr();
+  (void)testing::internal::GetCapturedStdout();
+  const auto warnings = readTextFile(*options.diagnosticsReportPath);
+  EXPECT_EQ(1u, countSubstring(warnings, "Memory 'mem' was not inferred as naja_mem"));
+  EXPECT_EQ(1u, countSubstring(warnings, "Memory 'other' was not inferred as naja_mem"));
+  EXPECT_NE(std::string::npos, warnings.find("written from 4 sequential blocks"));
+  auto* top = library_->getSNLDesign(NLName("writer_census"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countMemoryInstances(top));
+  for (auto* net : top->getBitNets()) {
+    EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+  }
+  EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+  const auto dumped = dumpTopAndGetVerilogPath(top, "writer_census_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
+  }
+  const auto tb = dumped.parent_path() / "tb.sv";
+  std::ofstream(tb) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module tb;
+  reg clk = 0;
+  reg [3:0] en = 15, d = 0;
+  wire [7:0] q;
+  reg [3:0] expected = 0;
+  writer_census dut(.*);
+  integer i, j;
+  initial begin
+    #1; clk = 1; #1; clk = 0;
+    for (i = 0; i < 16; i = i + 1)
+      for (j = 0; j < 16; j = j + 1) begin
+        en = i; d = j; #1; clk = 1; #1;
+        expected = (expected & ~en) | (d & en);
+        if (q !== {expected, expected}) $fatal(1, "array writer behavior mismatch");
+        clk = 0; #1;
+      end
+    $finish;
+  end
+endmodule
+)";
+  const auto quote = [](const std::filesystem::path& path) {
+    return "'" + path.string() + "'";
+  };
+  const auto executable = dumped.parent_path() / "simulation.vvp";
+  const auto command = "iverilog -g2012 -s tb -o " + quote(executable) + " " +
+    quote(tb) + " " + quote(dumped) + " " +
+    quote(dumped.parent_path() / "naja_primitives.v");
+  ASSERT_EQ(0, std::system(command.c_str()));
+  EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsOverlappingOwnership) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "writer_ownership";
+  std::filesystem::create_directories(directory);
+  for (bool shadow : {false, true}) {
+    for (bool dynamic : {false, true}) {
+      const auto name = std::string(shadow ? "shadow_ownership" : "whole_array_ownership") +
+        (dynamic ? "_dynamic" : "_constant");
+      const auto source = directory / (std::string(name) + ".sv");
+      std::ofstream sv(source);
+      sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)"
+         << "module " << name << "(input logic clk, input logic [1:0] a, input logic d, output logic q);\n"
+         << "logic mem [0:3]; logic next_mem [0:3];\n";
+      if (shadow) {
+        sv << "always_comb begin next_mem = mem; next_mem[a] = d; end\n"
+           << "always_ff @(posedge clk) mem <= next_mem;\n";
+      } else {
+        sv << "always_ff @(posedge clk) mem <= '{default: 1'b0};\n";
+      }
+      const auto selector = dynamic ? "a" : "0";
+      sv << "always_ff @(posedge clk) begin mem[" << selector
+         << "] <= d; mem[" << selector << "] <= ~d; end\n"
+         << "assign q = mem[a]; endmodule\n";
+      sv.close();
+      SNLSVConstructor constructor(library_);
+      SNLSVConstructor::ConstructOptions options;
+      options.diagnosticsReportPath = directory / (std::string(name) + ".log");
+      testing::internal::CaptureStdout();
+      testing::internal::CaptureStderr();
+      expectUnsupportedConstruct(constructor, source,
+        {"multiple sequential writers require disjoint constant selections",
+         "overlapping or dynamic writes are unsupported"}, options);
+      (void)testing::internal::GetCapturedStdout();
+      (void)testing::internal::GetCapturedStderr();
+      const auto warnings = readTextFile(*options.diagnosticsReportPath);
+      EXPECT_EQ(1u, countSubstring(warnings, "Memory 'mem' was not inferred as naja_mem"));
+      EXPECT_NE(std::string::npos, warnings.find("written from 2 sequential blocks"));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_EQ(0u, countMemoryInstances(top));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusSingleBlockMultipleWrites) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "single_writer";
+  std::filesystem::create_directories(directory);
+  const auto source = directory / "single_writer.sv";
+  std::ofstream(source) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module single_writer(input logic clk, input logic [1:0] a, input logic d, output logic q);
+  logic mem [0:3];
+  always_ff @(posedge clk) begin
+    mem[a] <= ~d;
+    mem[a] <= d;
+  end
+  assign q = mem[a];
+endmodule
+)";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(source);
+  auto* top = library_->getSNLDesign(NLName("single_writer"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(1u, countMemoryInstances(top));
+  EXPECT_TRUE(collectUnsupportedMemoryBoundaryTerms(top).empty());
 }
