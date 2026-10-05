@@ -2547,7 +2547,7 @@ bool SNLDesignModeling::isConst0(const SNLDesign* design) {
   }
   return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
     return truthTable == SNLTruthTable::Logic0();
-  });
+  }); // LCOV_EXCL_LINE: compiler-generated lambda closure coverage artifact
 }
 
 bool SNLDesignModeling::isConst1(const SNLDesign* design) {
@@ -2558,7 +2558,7 @@ bool SNLDesignModeling::isConst1(const SNLDesign* design) {
   }
   return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
     return truthTable == SNLTruthTable::Logic1();
-  });
+  }); // LCOV_EXCL_LINE: compiler-generated lambda closure coverage artifact
 }
 
 bool SNLDesignModeling::isConst(const SNLDesign* design) {
@@ -2570,7 +2570,7 @@ bool SNLDesignModeling::isConst(const SNLDesign* design) {
   return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
     return truthTable == SNLTruthTable::Logic0() ||
            truthTable == SNLTruthTable::Logic1();
-  });
+  }); // LCOV_EXCL_LINE: compiler-generated lambda closure coverage artifact
 }
 
 bool SNLDesignModeling::isInv(const SNLDesign* design) {

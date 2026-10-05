@@ -37207,3 +37207,148 @@ endmodule
      "'countones_operand_resolve_failure_unsupported'",
      "Call width=3"});
 }
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialFallbackNegedgePartialAssignments) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_fallback_negedge_partial",
+    R"(module seq_fallback_negedge_partial(
+  input logic clk, input logic [3:0] d, output logic [3:0] q
+);
+  always_ff @(negedge clk) begin
+    q[0] <= d[0];
+    q[2] <= d[2];
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_fallback_negedge_partial"));
+  ASSERT_NE(nullptr, top);
+  auto* q = top->getBusNet(NLName("q"));
+  auto* d = top->getBusNet(NLName("d"));
+  ASSERT_NE(nullptr, q);
+  ASSERT_NE(nullptr, d);
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  for (int bit : {0, 2}) {
+    size_t drivers = 0;
+    for (auto* term : q->getBit(bit)->getInstTerms()) {
+      if (term->getBitTerm() != NLDB0::getDFFNOutput()) continue;
+      ++drivers;
+      auto* inst = term->getInstance();
+      EXPECT_EQ(d->getBit(bit), inst->getInstTerm(NLDB0::getDFFNData())->getNet());
+      EXPECT_EQ(top->getNet(NLName("clk")),
+        inst->getInstTerm(NLDB0::getDFFNClock())->getNet());
+    }
+    EXPECT_EQ(1u, drivers);
+  }
+  EXPECT_TRUE(q->getBit(1)->getInstTerms().empty());
+  EXPECT_TRUE(q->getBit(3)->getInstTerms().empty());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalIncrementer) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_conditional_incrementer",
+    R"(module seq_direct_conditional_incrementer(
+  input logic clk, rst, output logic [3:0] q, r
+);
+  always_ff @(posedge clk) begin
+    if (rst) begin q <= 4'b0; r <= 4'b0; end
+    else begin q <= q + 1'b1; r <= r + 1'b1; end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_direct_conditional_incrementer"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(8u, countDFFBits(top));
+  EXPECT_NE(nullptr, top->getNet(NLName("inc_q")));
+  EXPECT_NE(nullptr, top->getNet(NLName("inc_r")));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalNegedgeMixedAsyncReset) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_direct_conditional_negedge_mixed_reset",
+    R"(module seq_direct_conditional_negedge_mixed_reset(
+  input logic clk, rst, input logic [3:0] d, output logic [3:0] q, r
+);
+  always_ff @(negedge clk or posedge rst) begin
+    if (rst) begin q <= 4'b1010; r <= 4'b0000; end
+    else begin q <= d; r <= d; end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_direct_conditional_negedge_mixed_reset"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isDFFN));
+  EXPECT_EQ(2u, countPrimitiveInstances(top, NLDB0::isDFFS));
+  auto* sourceClock = top->getScalarNet(NLName("clk"));
+  ASSERT_NE(nullptr, sourceClock);
+  for (auto* inst : top->getInstances()) {
+    if (!NLDB0::isDFFR(inst->getModel()) && !NLDB0::isDFFS(inst->getModel())) continue;
+    auto* clock = inst->getInstTerm(inst->getModel()->getScalarTerm(NLName("C")));
+    ASSERT_NE(nullptr, clock);
+    EXPECT_NE(nullptr, clock->getNet());
+    EXPECT_NE(sourceClock, clock->getNet());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialReplaySkipsConstantFalseTarget) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_replay_constant_false",
+    R"(module seq_replay_constant_false(
+  input logic clk, d, output logic q, r, unused_q
+);
+  always @(posedge clk) begin
+    q = d;
+    r <= q;
+    if (1'b0) unused_q <= d;
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_replay_constant_false"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFBits(top));
+  auto* d = top->getScalarNet(NLName("d"));
+  for (const char* name : {"q", "r"}) {
+    size_t drivers = 0;
+    for (auto* term : top->getScalarNet(NLName(name))->getInstTerms()) {
+      if (term->getBitTerm() != NLDB0::getDFFOutput()) continue;
+      ++drivers;
+      EXPECT_EQ(d, term->getInstance()->getInstTerm(NLDB0::getDFFData())->getNet());
+    }
+    EXPECT_EQ(1u, drivers);
+  }
+  EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetFallbackSkipsConstantFalseTarget) {
+  SNLSVConstructor constructor(library_);
+  const auto svPath = writeSVTestFile(
+    "seq_reset_fallback_constant_false",
+    R"(module seq_reset_fallback_constant_false(
+  input logic clk, rst, en, d, output logic q, r, unused_q
+);
+  always @(posedge clk) begin
+    if (rst) begin
+      q <= 1'b0;
+      r <= 1'b0;
+      if (1'b0) unused_q <= 1'b0;
+    end else if (en) begin
+      q <= d;
+      r <= d;
+      if (1'b0) unused_q <= d;
+    end
+  end
+endmodule
+)");
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("seq_reset_fallback_constant_false"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(2u, countDFFBits(top));
+  EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
+}

@@ -29059,7 +29059,7 @@ endmodule
               mergeStatement(loop.body);
               return true;
             }, reason)) {
-          std::fill(assignedMask.begin(), assignedMask.end(), true);
+          std::fill(assignedMask.begin(), assignedMask.end(), true); // LCOV_EXCL_LINE: Loop collection / replay rejects non-unrollable loops before mask construction.
         }
         return assignedMask;
       }
@@ -29146,7 +29146,7 @@ endmodule
             std::fill(assignedMask.begin(), assignedMask.end(), true);
             return assignedMask;
           }
-          continue;
+          continue; // LCOV_EXCL_LINE: Unrelated scalar targets are skipped above; dynamic concatenation targets are rejected before masking.
         }
 
         std::vector<SNLBitNet*> assignedBits;
@@ -29412,7 +29412,7 @@ endmodule
         incBits,
         carryBits,
         sourceRange);
-      return !incrementerBits.empty();
+      return !incrementerBits.empty(); // LCOV_EXCL_LINE: Direct assignment table collection rejects self-increments before this helper is called.
     }
 
     void restrictSequentialAssignmentBits(
@@ -29636,7 +29636,7 @@ endmodule
         restrictSequentialAssignmentBits(
           design, stmt, *lhsExpr, lhsBits, dataBits, nullptr, ignoredSymbols);
         if (lhsBits.empty()) {
-          continue;
+          continue; // LCOV_EXCL_LINE: Collected replay targets have at least one assignment after constant-control pruning.
         }
         if (!emitSequentialDataAssignment(
               design,
@@ -29670,10 +29670,10 @@ endmodule
       if (lhsBits.empty() ||
           dataBits.size() != lhsBits.size() ||
           resetBits.size() != lhsBits.size()) {
-        failureReason = formatQuotedDescriptionFailure(
-          "sequential conditional assignment width mismatch for ",
-          describeLHSForDiagnostics(lhsExpr));
-        return false;
+        failureReason = formatQuotedDescriptionFailure( // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+          "sequential conditional assignment width mismatch for ", // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+          describeLHSForDiagnostics(lhsExpr)); // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
+        return false; // LCOV_EXCL_LINE: Caller validates nonempty, equally sized assignment/reset vectors.
       }
 
       // Mixed constant reset values require separate reset and set cells.
@@ -29702,7 +29702,7 @@ endmodule
                   selectedReset, resetConditionExpr, clkNet, clockEdge,
                   asyncResetEventExpr, asyncResetEventEdge, blockSourceRange,
                   failureReason)) {
-              return false;
+              return false; // LCOV_EXCL_LINE: Recursive reset/set groups have validated widths; emitter failure propagation.
             }
           }
           return true;
@@ -31196,7 +31196,7 @@ endmodule
         restrictSequentialAssignmentBits(
           design, *current, *lhsExpr, lhsBits, dataBits, &resetBits, ignoredSymbols);
         if (lhsBits.empty()) {
-          continue;
+          continue; // LCOV_EXCL_LINE: Fallback target collection prunes inactive branches and zero-iteration loops.
         }
         if (!emitSequentialConditionalAssignment(
               design,
@@ -31472,7 +31472,7 @@ endmodule
               tempIndex,
               failureReason,
               ignoredSymbols)) {
-          return false;
+          return false; // LCOV_EXCL_LINE: Assignment replay failure propagation; diagnostics are tested at the replay helper.
         }
 
         restrictSequentialAssignmentBits(
