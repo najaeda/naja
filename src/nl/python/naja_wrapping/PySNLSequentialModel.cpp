@@ -379,6 +379,12 @@ PyObject* expressionToPython(const SNLDesignModeling::BooleanExpression& express
   return tuple;
 }
 
+PyObject* optionalExpressionToPython(
+    const std::optional<SNLDesignModeling::BooleanExpression>& expression) {
+  if (!expression) Py_RETURN_NONE;
+  return expressionToPython(*expression, expression->root);
+}
+
 PyObject* modelToPython(const SNLDesignModeling::SequentialModel& model) {
   auto* states = PyList_New(0);
   auto* outputs = PyList_New(0);
@@ -387,8 +393,8 @@ PyObject* modelToPython(const SNLDesignModeling::SequentialModel& model) {
   for (const auto& state : model.states) {
     auto* entry = Py_BuildValue("{s:N,s:N,s:N,s:s}",
         "next_state", expressionToPython(state.nextState, state.nextState.root),
-        "clear", state.clear ? expressionToPython(*state.clear, state.clear->root) : Py_NewRef(Py_None),
-        "preset", state.preset ? expressionToPython(*state.preset, state.preset->root) : Py_NewRef(Py_None),
+        "clear", optionalExpressionToPython(state.clear),
+        "preset", optionalExpressionToPython(state.preset),
         "clear_preset_value", values[static_cast<size_t>(state.clearPresetValue)]);
     if (!entry || PyList_Append(states, entry) < 0) {
       Py_XDECREF(entry); Py_DECREF(states); Py_DECREF(outputs); return nullptr;
