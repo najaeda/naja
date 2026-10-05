@@ -816,3 +816,14 @@ resets and ``SNLTermRole.AsyncReset`` for asynchronous resets. Both satisfy
 reset mode and ``SNLActiveLevel.High`` for either active-high mode. With no
 reset enabled, the reset pin has role ``Other`` and active level ``NA``.
 The same queries on ``SNLInstTerm`` follow the model's bit term.
+
+Gate predicates and truth-table errors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``SNLDesign.isConst0()``, ``isConst1()``, ``isConst()``, ``isInv()``,
+``isBuf()``, and the gate-family predicates return ``False`` when a model
+has per-output truth tables instead of a single truth table (for example,
+a full adder). ``getTruthTable()`` requires a single truth table; native
+errors raise ``RuntimeError`` with the native diagnostic preserved.
+Use ``getTruthTableByOutputID()`` to query an individual output. Its native
+errors also raise ``RuntimeError``.

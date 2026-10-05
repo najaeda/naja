@@ -2519,14 +2519,35 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
   return false;
 }
 
+namespace {
+template<typename Predicate>
+bool isTruthTablePredicate(const SNLDesign* design, Predicate predicate) {
+  try {
+    auto truthTable = SNLDesignModeling::getTruthTable(design);
+    return truthTable.isInitialized() && predicate(truthTable);
+  } catch (const NLException&) {
+    return false;
+  }
+}
+
+bool isTruthTableFamily(
+    const SNLDesign* design,
+    bool (SNLTruthTable::*predicate)() const) {
+  return isTruthTablePredicate(design, [predicate](const SNLTruthTable& truthTable) {
+    return (truthTable.*predicate)();
+  });
+}
+}  // namespace
+
 bool SNLDesignModeling::isConst0(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   // return false if number of values large than 2
   if (property && property->getValues().size() > 3) {
     return false;
   }
-  auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() && truthTable == SNLTruthTable::Logic0();
+  return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
+    return truthTable == SNLTruthTable::Logic0();
+  });
 }
 
 bool SNLDesignModeling::isConst1(const SNLDesign* design) {
@@ -2535,8 +2556,9 @@ bool SNLDesignModeling::isConst1(const SNLDesign* design) {
   if (property && property->getValues().size() > 3) {
     return false;
   }
-  auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() && truthTable == SNLTruthTable::Logic1();
+  return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
+    return truthTable == SNLTruthTable::Logic1();
+  });
 }
 
 bool SNLDesignModeling::isConst(const SNLDesign* design) {
@@ -2545,9 +2567,10 @@ bool SNLDesignModeling::isConst(const SNLDesign* design) {
   if (property && property->getValues().size() > 3) {
     return false;
   }
-  auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() && (truthTable == SNLTruthTable::Logic0() ||
-                                        truthTable == SNLTruthTable::Logic1());
+  return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
+    return truthTable == SNLTruthTable::Logic0() ||
+           truthTable == SNLTruthTable::Logic1();
+  });
 }
 
 bool SNLDesignModeling::isInv(const SNLDesign* design) {
@@ -2556,10 +2579,11 @@ bool SNLDesignModeling::isInv(const SNLDesign* design) {
   if (property && property->getValues().size() > 3) {
     return false;
   }
-  auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() && !truthTable.isGeneric() &&
-         truthTable.size() == 1 && truthTable.bits().size() == 2 &&
-         static_cast<uint64_t>(truthTable.bits()) == 0b01;
+  return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
+    return !truthTable.isGeneric() &&
+           truthTable.size() == 1 && truthTable.bits().size() == 2 &&
+           static_cast<uint64_t>(truthTable.bits()) == 0b01;
+  });
 }
 
 bool SNLDesignModeling::isBuf(const SNLDesign* design) {
@@ -2568,24 +2592,12 @@ bool SNLDesignModeling::isBuf(const SNLDesign* design) {
   if (property && property->getValues().size() > 3) {
     return false;
   }
-  auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() && !truthTable.isGeneric() &&
-         truthTable.size() == 1 && truthTable.bits().size() == 2 &&
-         static_cast<uint64_t>(truthTable.bits()) == 0b10;
+  return isTruthTablePredicate(design, [](const SNLTruthTable& truthTable) {
+    return !truthTable.isGeneric() &&
+           truthTable.size() == 1 && truthTable.bits().size() == 2 &&
+           static_cast<uint64_t>(truthTable.bits()) == 0b10;
+  });
 }
-
-namespace {
-bool isTruthTableFamily(
-    const SNLDesign* design,
-    bool (SNLTruthTable::*predicate)() const) {
-  try {
-    auto truthTable = SNLDesignModeling::getTruthTable(design);
-    return truthTable.isInitialized() && (truthTable.*predicate)();
-  } catch (const NLException&) {
-    return false;
-  }
-}
-}  // namespace
 
 bool SNLDesignModeling::isAnd(const SNLDesign* design) {
   return isTruthTableFamily(design, &SNLTruthTable::isAnd);

@@ -8,6 +8,7 @@ using ::testing::ElementsAre;
 using ::testing::UnorderedElementsAre;
 
 #include "NLUniverse.h"
+#include "NLDB0.h"
 #include "NLException.h"
 #include "NajaDumpableProperty.h"
 
@@ -1148,4 +1149,35 @@ TEST_F(SNLDesignModelingTest0, testSequentialModelAPI) {
   EXPECT_TRUE(stored.states[0].nextState.nodes[constant1].constant);
   EXPECT_EQ(Expression::Operator::State,
             stored.outputs[0].function.nodes[0].operation);
+}
+
+TEST_F(SNLDesignModelingTest0, testMultiOutputGatePredicates) {
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("multi"));
+  SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I"));
+  SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O1"));
+  SNLDesignModeling::setTruthTables(design, {SNLTruthTable(1, 0b10, {1}), SNLTruthTable(1, 0b01, {1})});
+  auto parameterDesign = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("parameters"));
+  auto parameterInput = SNLScalarTerm::create(parameterDesign, SNLTerm::Direction::Input, NLName("I"));
+  auto parameterOutput0 = SNLScalarTerm::create(parameterDesign, SNLTerm::Direction::Output, NLName("O0"));
+  auto parameterOutput1 = SNLScalarTerm::create(parameterDesign, SNLTerm::Direction::Output, NLName("O1"));
+  auto init = SNLParameter::create(parameterDesign, NLName("INIT"), SNLParameter::Type::Binary, "2'b10");
+  SNLDesignModeling::setTruthTableFromParameter(parameterDesign, parameterOutput0, {parameterInput}, init);
+  SNLDesignModeling::setTruthTableFromParameter(parameterDesign, parameterOutput1, {parameterInput}, init);
+  const std::vector<bool (*)(const SNLDesign*)> predicates = {
+    SNLDesignModeling::isConst0, SNLDesignModeling::isConst1, SNLDesignModeling::isConst,
+    SNLDesignModeling::isInv, SNLDesignModeling::isBuf, SNLDesignModeling::isAnd,
+    SNLDesignModeling::isNand, SNLDesignModeling::isOr, SNLDesignModeling::isNor,
+    SNLDesignModeling::isXor, SNLDesignModeling::isXnor, SNLDesignModeling::isMux,
+    SNLDesignModeling::isSequential
+  };
+  for (auto model : {NLDB0::getFA(), NLDB0::getOrCreateTableSelect({2, 2, 1}), design, parameterDesign}) {
+    EXPECT_THROW(SNLDesignModeling::getTruthTable(model), NLException);
+    for (auto predicate : predicates) {
+      EXPECT_NO_THROW(EXPECT_FALSE(predicate(model)));
+    }
+  }
 }

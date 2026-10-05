@@ -500,8 +500,10 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
 
 // Return the truth table for design
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
+  METHOD_HEAD("SNLDesign.getTruthTable()")
+  TRY
   const SNLTruthTable& truthTable =
-      SNLDesignModeling::getTruthTable(self->object_);
+      SNLDesignModeling::getTruthTable(selfObject);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -512,6 +514,7 @@ PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) {
     PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
+  NLCATCH
 }
 
 // Return the truth table for design by output ID
@@ -522,6 +525,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
+  TRY
   SNLTruthTable truthTable =
       SNLDesignModeling::getTruthTable(selfObject, outputID);
   if (!truthTable.isInitialized()) {
@@ -534,6 +538,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
     PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
+  NLCATCH
 }
 
 static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {
