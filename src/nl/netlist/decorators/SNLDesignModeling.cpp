@@ -1663,6 +1663,7 @@ void SNLDesignModeling::setSequentialModel(
     throw NLException("Cannot add invalid sequential model");
   }
   auto property = getOrCreateProperty(design, NO_PARAMETER);
+  std::lock_guard<std::mutex> lock(property->getModeling()->instanceSequentialModelsMutex_);
   property->getModeling()->setSequentialModel_(model);
 }
 
@@ -1677,7 +1678,221 @@ SNLDesignModeling::getSequentialModel(const SNLDesign* design) {
   if (!property || !property->getModeling()->hasSequentialModel_()) {
     throw NLException("Design has no sequential model");
   }
+  if (!property->getModeling()->sequentialModels_.empty()) {
+    throw NLException("Parameterized sequential model requires an instance: " +
+        design->getDescription() + "; use getSequentialModel(instance) to resolve instance overrides and defaults");
+  }
   return property->getModeling()->getSequentialModel_();
+}
+
+void SNLDesignModeling::setSequentialModelFromParameters(
+    SNLDesign* design, const std::vector<std::string>& parameters,
+    const SequentialModelTable& models) {
+  const std::string context = "SNLDesignModeling::setSequentialModelFromParameters: " +
+      (design ? design->getDescription() : std::string("<null design>"));
+  auto fail = [&context](const std::string& detail) {
+    throw NLException(context + ": " + detail);
+  };
+  if (!design) fail("cannot attach a model table to a null design");
+  if (!design->isPrimitive()) fail("destination must be a primitive design");
+  if (parameters.empty()) fail("parameter list is empty; declare at least one numeric selector");
+  if (models.empty()) fail("model table is empty; declare at least one parameter-value entry");
+  std::set<std::string> names;
+  for (size_t i = 0; i < parameters.size(); ++i) {
+    const auto& name = parameters[i];
+    const auto field = "parameters[" + std::to_string(i) + "] <" + name + ">: ";
+    auto* parameter = design->getParameter(NLName(name));
+    if (!parameter) fail(field + "parameter is not declared on this primitive");
+    if (parameter->getType() == SNLParameter::Type::String) {
+      fail(field + "type String is unsupported; expected Binary, Boolean, or Decimal");
+    }
+    if (!names.insert(name).second) fail(field + "duplicate selector name; each parameter must appear once");
+  }
+  size_t entryIndex = 0;
+  for (const auto& [values, model] : models) {
+    std::ostringstream key;
+    key << "models[" << entryIndex++ << "] values=[";
+    for (size_t i = 0; i < values.size(); ++i) {
+      if (i) key << ", ";
+      key << (i < parameters.size() ? parameters[i] : "<extra>") << "=" << values[i];
+    }
+    key << "]: ";
+    const auto entry = key.str();
+    if (values.size() != parameters.size()) {
+      fail(entry + "key has " + std::to_string(values.size()) + " values; expected " +
+          std::to_string(parameters.size()) + " in declared parameter order");
+    }
+    if (model.kind != SequentialModel::Kind::FlipFlop && model.kind != SequentialModel::Kind::Latch) {
+      fail(entry + "invalid kind enum value " + std::to_string(static_cast<int>(model.kind)) +
+          "; expected FlipFlop or Latch");
+    }
+    if (model.states.empty()) fail(entry + "states is empty; at least one state is required");
+    if (model.outputs.empty()) fail(entry + "outputs is empty; at least one output is required");
+    auto validateExpression = [&](const BooleanExpression& expression, const std::string& field) {
+      const auto prefix = entry + field + ": ";
+      if (!expression.isValid()) {
+        fail(prefix + "root node index " + std::to_string(expression.root) +
+            " is outside node array of size " + std::to_string(expression.nodes.size()));
+      }
+      for (size_t i = 0; i < expression.nodes.size(); ++i) {
+        const auto& node = expression.nodes[i];
+        const auto nodeContext = prefix + "nodes[" + std::to_string(i) + "]: ";
+        using Op = BooleanExpression::Operator;
+        if (node.operation < Op::Constant || node.operation > Op::Xor) {
+          fail(nodeContext + "invalid operator enum value " + std::to_string(static_cast<int>(node.operation)) +
+              "; expected Constant, Term, State, Not, And, Or, or Xor");
+        }
+        const char* operatorNames[] = {"Constant", "Term", "State", "Not", "And", "Or", "Xor"};
+        const bool leaf = node.operation == Op::Constant || node.operation == Op::Term || node.operation == Op::State;
+        const size_t expectedOperands = leaf ? 0 : node.operation == Op::Not ? 1 : 2;
+        if (node.operands.size() != expectedOperands) {
+          fail(nodeContext + "operator " + operatorNames[static_cast<size_t>(node.operation)] +
+              " has " + std::to_string(node.operands.size()) + " operands; expected " + std::to_string(expectedOperands));
+        }
+        if (node.operation == Op::Term && !node.term) fail(nodeContext + "Term node has a null term");
+        if (node.operation == Op::Term && node.term->getDesign() != design) {
+          fail(nodeContext + "term " + node.term->getDescription() + " belongs to " +
+              node.term->getDesign()->getDescription() + "; expected the destination primitive");
+        }
+        if (node.operation == Op::State && node.state >= model.states.size()) {
+          fail(nodeContext + "state index " + std::to_string(node.state) + " is outside states array of size " +
+              std::to_string(model.states.size()));
+        }
+        for (size_t j = 0; j < node.operands.size(); ++j) {
+          if (node.operands[j] >= i) {
+            fail(nodeContext + "operands[" + std::to_string(j) + "]=" + std::to_string(node.operands[j]) +
+                " must refer to an earlier node (index < " + std::to_string(i) + "); cyclic/forward references are unsupported");
+          }
+        }
+      }
+    };
+    validateExpression(model.clockedOn, "clocked_on");
+    for (size_t i = 0; i < model.states.size(); ++i) {
+      const auto& state = model.states[i];
+      const auto field = "states[" + std::to_string(i) + "]";
+      if (state.clearPresetValue < SequentialState::ClearPresetValue::Zero ||
+          state.clearPresetValue > SequentialState::ClearPresetValue::Unknown) {
+        fail(entry + field + ".clear_preset_value: invalid enum value " +
+            std::to_string(static_cast<int>(state.clearPresetValue)) + "; expected Zero, One, Hold, Toggle, or Unknown");
+      }
+      validateExpression(state.nextState, field + ".next_state");
+      if (state.clear) validateExpression(*state.clear, field + ".clear");
+      if (state.preset) validateExpression(*state.preset, field + ".preset");
+    }
+    std::set<SNLBitTerm*> outputs;
+    for (size_t i = 0; i < model.outputs.size(); ++i) {
+      const auto& output = model.outputs[i];
+      const auto field = "outputs[" + std::to_string(i) + "]";
+      if (!output.term) fail(entry + field + ": output term is null");
+      if (output.term->getDesign() != design) {
+        fail(entry + field + ": term " + output.term->getDescription() + " belongs to " +
+            output.term->getDesign()->getDescription() + "; expected the destination primitive");
+      }
+      if (output.term->getDirection() != SNLTerm::Direction::Output) {
+        fail(entry + field + ": term " + output.term->getDescription() + "; expected direction Output");
+      }
+      if (!outputs.insert(output.term).second) fail(entry + field + ": duplicate output term " + output.term->getDescription());
+      validateExpression(output.function, field + ".function");
+    }
+  }
+  auto* modeling = getOrCreateProperty(design, NO_PARAMETER)->getModeling();
+  std::lock_guard<std::mutex> lock(modeling->instanceSequentialModelsMutex_);
+  modeling->instanceSequentialModels_.clear();
+  modeling->sequentialModel_.reset();
+  modeling->sequentialParameters_ = parameters;
+  modeling->sequentialModels_ = models;
+}
+
+bool SNLDesignModeling::hasSequentialModelFromParameters(const SNLDesign* design) {
+  auto* property = design ? getProperty(design) : nullptr;
+  return property && !property->getModeling()->sequentialModels_.empty();
+}
+
+const SNLDesignModeling::SequentialModel&
+SNLDesignModeling::getSequentialModel(const SNLInstance* instance) {
+  if (!instance) throw NLException("SNLDesignModeling::getSequentialModel(instance): null instance; expected a live SNLInstance");
+  auto* design = instance->getModel();
+  if (!hasSequentialModelFromParameters(design)) {
+    if (!hasSequentialModel(design)) {
+      throw NLException("SNLDesignModeling::getSequentialModel: " + instance->getDescription() +
+          "; primitive " + design->getDescription() + " has no sequential model; attach a static model or parameter table first");
+    }
+    return getSequentialModel(design);
+  }
+  auto* modeling = getProperty(design)->getModeling();
+  std::lock_guard<std::mutex> lock(modeling->instanceSequentialModelsMutex_);
+  std::vector<std::string> literals;
+  for (const auto& name : modeling->sequentialParameters_) {
+    auto* parameter = design->getParameter(NLName(name));
+    auto* override = instance->getInstParameter(NLName(name));
+    if (!parameter || (!override && !parameter->hasDefaultValue())) {
+      throw NLException("Missing required sequential model parameter <" + name +
+          "> on instance <" + instance->getName().getString() + ">; " + instance->getDescription() +
+          "; primitive " + design->getDescription() + "; " +
+          (!parameter ? "selector declaration was removed from the primitive" :
+           "no instance override and no parameter default; create an SNLInstParameter override or declare a default"));
+    }
+    literals.push_back(override ? override->getValue() : parameter->getValue());
+  }
+  auto cached = modeling->instanceSequentialModels_.find(instance);
+  if (cached != modeling->instanceSequentialModels_.end() &&
+      cached->second.values == literals) return *cached->second.model;
+  std::vector<uint64_t> values;
+  for (size_t i = 0; i < literals.size(); ++i) {
+    try {
+      values.push_back(parseTruthTableParameterValue(literals[i], 1));
+    } catch (const NLException& error) {
+      std::string cause = error.what();
+      for (const std::string label : {"truth-table", "Truth-table"}) {
+        size_t position = 0;
+        while ((position = cause.find(label, position)) != std::string::npos) {
+          cause.replace(position, label.size(), "numeric");
+          position += 7;
+        }
+      }
+      throw NLException("Sequential model parameter <" + modeling->sequentialParameters_[i] + "> on instance <" +
+          instance->getName().getString() + ">; " + instance->getDescription() +
+          "; primitive " + design->getDescription() + "; raw value <" + literals[i] +
+          "> from " + (instance->getInstParameter(NLName(modeling->sequentialParameters_[i])) ?
+          "instance override" : "parameter default") + "; expected an unsigned value representable in 64 bits: " + cause);
+    }
+  }
+  auto selected = modeling->sequentialModels_.find(values);
+  if (selected == modeling->sequentialModels_.end()) {
+    std::ostringstream reason;
+    reason << "No sequential model matches parameters on instance <" << instance->getName().getString()
+        << ">; " << instance->getDescription() << "; primitive " << design->getDescription() << "; resolved values=[";
+    for (size_t i = 0; i < values.size(); ++i) {
+      if (i) reason << ", ";
+      reason << modeling->sequentialParameters_[i] << "=" << values[i] << " (raw <" << literals[i] << ">, "
+          << (instance->getInstParameter(NLName(modeling->sequentialParameters_[i])) ? "override" : "default") << ")";
+    }
+    reason << "]; available keys in declared parameter order=[";
+    bool first = true;
+    for (const auto& [key, model] : modeling->sequentialModels_) {
+      if (!first) reason << ", ";
+      first = false;
+      reason << "[";
+      for (size_t i = 0; i < key.size(); ++i) {
+        if (i) reason << ", ";
+        reason << modeling->sequentialParameters_[i] << "=" << key[i];
+      }
+      reason << "]";
+    }
+    reason << "]; declare a matching table entry or correct the instance parameter values";
+    throw NLException(reason.str());
+  }
+  modeling->instanceSequentialModels_[instance] = {std::move(literals), &selected->second};
+  return selected->second;
+}
+
+void SNLDesignModeling::invalidateSequentialModelCache(const SNLInstance* instance) {
+  if (!instance) return;
+  if (auto* property = getProperty(instance->getModel())) {
+    auto* modeling = property->getModeling();
+    std::lock_guard<std::mutex> lock(modeling->instanceSequentialModelsMutex_);
+    modeling->instanceSequentialModels_.erase(instance);
+  }
 }
 
 void SNLDesignModeling::setTermRole(

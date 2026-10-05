@@ -29,6 +29,7 @@ SNLInstParameter* SNLInstParameter::create(SNLInstance* instance, SNLParameter* 
 void SNLInstParameter::postCreate() {
   instance_->addInstParameter(this);
   SNLDesignModeling::invalidateTruthTableCache(instance_);
+  SNLDesignModeling::invalidateSequentialModelCache(instance_);
 }
 
 void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter) {
@@ -45,6 +46,7 @@ void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter)
 
 void SNLInstParameter::preDestroy() {
   SNLDesignModeling::invalidateTruthTableCache(instance_);
+  SNLDesignModeling::invalidateSequentialModelCache(instance_);
   instance_->removeInstParameter(this);
   super::preDestroy();
 }
@@ -63,6 +65,7 @@ NLName SNLInstParameter::getName() const {
 void SNLInstParameter::setValue(const std::string& value) {
   value_ = value;
   SNLDesignModeling::invalidateTruthTableCache(instance_);
+  SNLDesignModeling::invalidateSequentialModelCache(instance_);
 }
 
 bool SNLInstParameter::deepCompare(const SNLInstParameter* other, std::string& reason) const {

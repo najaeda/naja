@@ -1151,6 +1151,166 @@ TEST_F(SNLDesignModelingTest0, testSequentialModelAPI) {
             stored.outputs[0].function.nodes[0].operation);
 }
 
+TEST_F(SNLDesignModelingTest0, testParameterizedSequentialModel) {
+  using Modeling = SNLDesignModeling;
+  using Expression = Modeling::BooleanExpression;
+  using Op = Expression::Operator;
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* primitives = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("PARAM_DFF"));
+  auto input = [primitive](const char* name) {
+    return SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName(name));
+  };
+  auto* data = input("I");
+  auto* clock = input("CK");
+  auto* load = input("L");
+  auto* reset = input("R");
+  auto* output = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("O"));
+  std::vector<std::string> names {"FALLING_EDGE", "USE_RESET", "USE_ENABLE", "SYNC_RESET", "RESET_VALUE"};
+  std::vector<SNLParameter*> parameters;
+  for (const auto& name : names) {
+    parameters.push_back(SNLParameter::create(primitive, NLName(name), SNLParameter::Type::Binary, "0"));
+  }
+  Modeling::addClockToOutputsArcs(clock, {output});
+  Modeling::addInputsToClockArcs({data, load, reset}, clock);
+  Modeling::SequentialModelTable models;
+  // Cover all 32 configurations, including falling edges.
+  for (uint64_t bits = 0; bits < 32; ++bits) {
+    std::vector<uint64_t> values;
+    for (size_t i = 0; i < 5; ++i) values.push_back((bits >> i) & 1);
+    Modeling::SequentialModel model;
+    auto clk = model.clockedOn.addTerm(clock);
+    model.clockedOn.root = values[0] ? model.clockedOn.addOperation(Op::Not, {clk}) : clk;
+    Modeling::SequentialState state;
+    auto& next = state.nextState;
+    auto d = next.addTerm(data);
+    next.root = d;
+    if (values[2]) {
+      auto l = next.addTerm(load);
+      auto q = next.addState(0);
+      auto nl = next.addOperation(Op::Not, {l});
+      auto ld = next.addOperation(Op::And, {l, d});
+      auto hold = next.addOperation(Op::And, {nl, q});
+      next.root = next.addOperation(Op::Or, {ld, hold});
+    }
+    if (values[1]) {
+      if (values[3]) {
+        auto r = next.addTerm(reset);
+        auto nr = next.addOperation(Op::Not, {r});
+        auto update = next.addOperation(Op::And, {nr, next.root});
+        next.root = values[4] ? next.addOperation(Op::Or, {r, update}) : update;
+      } else {
+        Expression control;
+        control.root = control.addTerm(reset);
+        if (values[4]) state.preset = control;
+        else state.clear = control;
+      }
+    }
+    model.states.push_back(state);
+    Expression q;
+    q.root = q.addState(0);
+    model.outputs.push_back({output, q});
+    models.emplace(values, model);
+  }
+  Modeling::setSequentialModelFromParameters(primitive, names, models);
+  EXPECT_TRUE(Modeling::hasSequentialModel(primitive));
+  EXPECT_TRUE(Modeling::hasSequentialModelFromParameters(primitive));
+  EXPECT_TRUE(Modeling::isSequential(primitive));
+  EXPECT_THROW(Modeling::getSequentialModel(primitive), NLException);
+  EXPECT_THROW(Modeling::getSequentialModel(static_cast<const SNLInstance*>(nullptr)), NLException);
+  auto* instance = SNLInstance::create(top, primitive, NLName("default"));
+  auto* defaultModel = &Modeling::getSequentialModel(instance);
+  EXPECT_EQ(defaultModel, &Modeling::getSequentialModel(instance));
+  EXPECT_FALSE(defaultModel->states[0].clear);
+  EXPECT_EQ(Op::Term, defaultModel->states[0].nextState.nodes[0].operation);
+  std::vector<SNLInstParameter*> overrides;
+  for (auto* parameter : parameters) overrides.push_back(SNLInstParameter::create(instance, parameter, "0"));
+  for (const auto& [values, ignored] : models) {
+    for (size_t i = 0; i < values.size(); ++i) overrides[i]->setValue(values[i] ? "1'b1" : "1'b0");
+    const auto& model = Modeling::getSequentialModel(instance);
+    EXPECT_EQ(&model, &Modeling::getSequentialModel(instance));
+    EXPECT_EQ(values[0] ? Op::Not : Op::Term, model.clockedOn.nodes[model.clockedOn.root].operation);
+    EXPECT_EQ(bool(values[1] && !values[3] && !values[4]), model.states[0].clear.has_value());
+    EXPECT_EQ(bool(values[1] && !values[3] && values[4]), model.states[0].preset.has_value());
+    for (unsigned assignment = 0; assignment < 16; ++assignment) {
+      bool d = assignment & 1, l = assignment & 2, r = assignment & 4, q = assignment & 8;
+      auto evaluate = [&](const auto& self, const Expression& expression, size_t id) -> bool {
+        const auto& node = expression.nodes[id];
+        switch (node.operation) {
+          case Op::Constant: return node.constant;
+          case Op::Term: return node.term == data ? d : node.term == load ? l : r;
+          case Op::State: return q;
+          case Op::Not: return !self(self, expression, node.operands[0]);
+          case Op::And: return self(self, expression, node.operands[0]) && self(self, expression, node.operands[1]);
+          case Op::Or: return self(self, expression, node.operands[0]) || self(self, expression, node.operands[1]);
+          case Op::Xor: return self(self, expression, node.operands[0]) != self(self, expression, node.operands[1]);
+        }
+        return false;
+      };
+      bool expected = values[2] && !l ? q : d;
+      if (values[1] && values[3] && r) expected = values[4];
+      const auto& next = model.states[0].nextState;
+      EXPECT_EQ(expected, evaluate(evaluate, next, next.root));
+      if (model.states[0].clear) EXPECT_EQ(r, evaluate(evaluate, *model.states[0].clear, model.states[0].clear->root));
+      if (model.states[0].preset) EXPECT_EQ(r, evaluate(evaluate, *model.states[0].preset, model.states[0].preset->root));
+    }
+  }
+  // Timing arcs stay conservative even when L or R is unused.
+  EXPECT_EQ(3, Modeling::getClockRelatedInputs(instance->getInstTerm(clock)).size());
+  EXPECT_EQ(1, Modeling::getOutputRelatedClocks(instance->getInstTerm(output)).size());
+  auto* cloned = top->clone(NLName("clone"));
+  EXPECT_EQ(&Modeling::getSequentialModel(instance), &Modeling::getSequentialModel(cloned->getInstance(NLName("default"))));
+  for (auto* override : overrides) override->destroy();
+  EXPECT_EQ(defaultModel, &Modeling::getSequentialModel(instance));
+  auto* required = SNLParameter::create(primitive, NLName("required"), SNLParameter::Type::Boolean);
+  Modeling::setSequentialModelFromParameters(primitive, {"required"}, {{{0}, models.begin()->second}});
+  EXPECT_THROW(Modeling::getSequentialModel(instance), NLException);
+  auto* override = SNLInstParameter::create(instance, required, "0");
+  EXPECT_NO_THROW(Modeling::getSequentialModel(instance));
+  override->setValue("1");
+  EXPECT_THROW(Modeling::getSequentialModel(instance), NLException);
+  override->setValue("1'bx");
+  EXPECT_THROW(Modeling::getSequentialModel(instance), NLException);
+  override->destroy();
+  EXPECT_THROW(Modeling::getSequentialModel(instance), NLException);
+  EXPECT_THROW(Modeling::setSequentialModelFromParameters(primitive, {"absent"}, models), NLException);
+  EXPECT_THROW(Modeling::setSequentialModelFromParameters(primitive, {"required", "required"}, models), NLException);
+  EXPECT_THROW(Modeling::setSequentialModelFromParameters(primitive, {"required"}, {}), NLException);
+  auto invalid = models.begin()->second;
+  auto* foreign = SNLScalarTerm::create(top, SNLTerm::Direction::Input, NLName("foreign"));
+  invalid.clockedOn.nodes[0].term = foreign;
+  EXPECT_THROW(Modeling::setSequentialModelFromParameters(primitive, {"required"}, {{{0}, invalid}}), NLException);
+  auto checkDiagnostic = [&](const Modeling::SequentialModel& model,
+      const std::vector<std::string>& details) {
+    try {
+      Modeling::setSequentialModelFromParameters(primitive, {"required"}, {{{0}, model}});
+      FAIL() << "Invalid model declaration unexpectedly accepted";
+    } catch (const NLException& error) {
+      for (const auto& detail : details) {
+        EXPECT_THAT(error.getReason(), ::testing::HasSubstr(detail));
+      }
+    }
+  };
+  checkDiagnostic(invalid, {"PARAM_DFF", "required=0", "clocked_on", "nodes[0]", "foreign", "belongs to"});
+  invalid = models.begin()->second;
+  invalid.states[0].nextState.root = Expression::InvalidNode;
+  checkDiagnostic(invalid, {"states[0].next_state", "root node index", "node array of size 1"});
+  invalid = models.begin()->second;
+  invalid.states[0].nextState.nodes[0].operation = Op::State;
+  invalid.states[0].nextState.nodes[0].state = 7;
+  checkDiagnostic(invalid, {"states[0].next_state", "nodes[0]", "state index 7", "states array of size 1"});
+  invalid = models.begin()->second;
+  invalid.clockedOn.nodes[0].operation = Op::Not;
+  invalid.clockedOn.nodes[0].operands = {0};
+  checkDiagnostic(invalid, {"clocked_on", "nodes[0]", "operands[0]=0", "index < 0", "cyclic/forward"});
+  Modeling::setSequentialModel(primitive, models.begin()->second);
+  EXPECT_FALSE(Modeling::hasSequentialModelFromParameters(primitive));
+  EXPECT_EQ(&Modeling::getSequentialModel(primitive), &Modeling::getSequentialModel(instance));
+}
+
 TEST_F(SNLDesignModelingTest0, testMultiOutputGatePredicates) {
   NLUniverse::create();
   auto db = NLDB::create(NLUniverse::get());

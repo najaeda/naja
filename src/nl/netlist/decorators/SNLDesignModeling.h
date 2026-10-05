@@ -5,6 +5,7 @@
 
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <list>
 #include <limits>
 #include <map>
@@ -215,6 +216,23 @@ class SNLDesignModeling {
     static void setSequentialModel(SNLDesign* design, const SequentialModel& model);
     static bool hasSequentialModel(const SNLDesign* design);
     static const SequentialModel& getSequentialModel(const SNLDesign* design);
+    // Keys contain unsigned parameter values in the declared parameter order.
+    // Names must identify numeric parameters on the primitive. Instance
+    // overrides take precedence over defaults; missing required parameters and
+    // unmatched keys throw NLException. A table replaces any static model.
+    using SequentialModelTable = std::map<std::vector<uint64_t>, SequentialModel>;
+    static void setSequentialModelFromParameters(SNLDesign* design,
+        const std::vector<std::string>& parameters, const SequentialModelTable& models);
+    static bool hasSequentialModelFromParameters(const SNLDesign* design);
+    // A static model is returned unchanged. For a table, return the selected
+    // stored entry and cache the selection. References survive override changes
+    // but not replacement/destruction of the primitive's model declaration.
+    static const SequentialModel& getSequentialModel(const SNLInstance* instance);
+    // Preserve the existing null-design call despite the instance overload.
+    static const SequentialModel& getSequentialModel(std::nullptr_t) {
+      return getSequentialModel(static_cast<const SNLDesign*>(nullptr));
+    }
+    static void invalidateSequentialModelCache(const SNLInstance* instance);
 
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
@@ -273,8 +291,15 @@ class SNLDesignModeling {
     void setMemoryInterface_(const MemoryInterface& memInterface) { memoryInterface_ = memInterface; }
     bool hasMemoryInterface_() const { return memoryInterface_.has_value(); }
     MemoryInterface getMemoryInterface_() const { return *memoryInterface_; }
-    void setSequentialModel_(const SequentialModel& model) { sequentialModel_ = model; }
-    bool hasSequentialModel_() const { return sequentialModel_.has_value(); }
+    void setSequentialModel_(const SequentialModel& model) {
+      sequentialParameters_.clear();
+      sequentialModels_.clear();
+      instanceSequentialModels_.clear();
+      sequentialModel_ = model;
+    }
+    bool hasSequentialModel_() const {
+      return sequentialModel_.has_value() || !sequentialModels_.empty();
+    }
     const SequentialModel& getSequentialModel_() const { return *sequentialModel_; }
     void setTermRole_(SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
       termRoles_[term] = {role, activeLevel};
@@ -300,6 +325,14 @@ class SNLDesignModeling {
     TimingModel   model_      {};
     std::optional<MemoryInterface> memoryInterface_ {};
     std::optional<SequentialModel> sequentialModel_ {};
+    std::vector<std::string> sequentialParameters_ {};
+    SequentialModelTable sequentialModels_ {};
+    struct CachedSequentialModel {
+      std::vector<std::string> values {};
+      const SequentialModel* model {nullptr};
+    };
+    mutable std::map<const SNLInstance*, CachedSequentialModel> instanceSequentialModels_ {};
+    mutable std::mutex instanceSequentialModelsMutex_ {};
     std::map<SNLBitTerm*, TermRole, SNLBitTerm::InDesignLess> termRoles_ {};
     std::map<size_t, ParameterTruthTable> parameterTruthTables_ {};
     mutable std::map<const SNLInstance*, std::map<size_t, SNLTruthTable>>

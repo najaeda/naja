@@ -97,6 +97,30 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         self.assertTrue(xor2_ins.is_xor())
         self.assertTrue(xnor2_ins.is_xnor())
 
+    def test_xilinx_sequential_instance_models(self):
+        netlist.create_top("Top")
+        netlist.load_primitives("xilinx")
+        library = naja.NLUniverse.get().getTopDB().getLibrary("xilinx")
+        raw_top = naja.NLUniverse.get().getTopDesign()
+        for name in ("FDCE", "FDPE", "FDRE", "FDSE"):
+            primitive = library.getSNLDesign(name)
+            instance = naja.SNLInstance.create(raw_top, primitive, name.lower())
+            self.assertTrue(primitive.hasSequentialModel())
+            self.assertFalse(primitive.hasSequentialModelFromParameters())
+            model = instance.getSequentialModel()
+            self.assertEqual(primitive.getSequentialModel(), model)
+            self.assertEqual("flip_flop", model["kind"])
+            self.assertEqual(("term", primitive.getScalarTerm("C")), model["clocked_on"])
+            state = model["states"][0]
+            if name == "FDCE":
+                self.assertEqual(("term", primitive.getScalarTerm("CLR")), state["clear"])
+            elif name == "FDPE":
+                self.assertEqual(("term", primitive.getScalarTerm("PRE")), state["preset"])
+            else:
+                self.assertIsNone(state["clear"])
+                self.assertIsNone(state["preset"])
+
+
     def test_xilinx_primitives(self):
         top = netlist.create_top('Top')
         i = top.create_input_term("I")
