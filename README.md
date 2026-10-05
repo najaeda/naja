@@ -41,8 +41,8 @@ integrate around Naja's C++ netlist engine:
 - **APIs and tools** — [`najaeda`](https://pypi.org/project/najaeda/) exposes
   the engine through Python. Companion projects build on Naja directly or
   through that API: [`kepler-formal`](https://github.com/keplertech/kepler-formal),
-  [`naja-schematic`](https://github.com/najaeda/naja-schematic), and
-  [`naja-scope`](https://github.com/najaeda/naja-scope).
+  [`naja-schematic`](https://github.com/keplertech/naja-schematic), and
+  [`naja-scope`](https://github.com/keplertech/naja-scope).
 
 ```mermaid
 ---
@@ -106,8 +106,8 @@ flowchart LR
     click najaeda "https://pypi.org/project/najaeda/"
     click kf "https://github.com/keplertech/kepler-formal"
     click kfm "https://github.com/keplertech/kepler-formal-mcp"
-    click ns "https://github.com/najaeda/naja-schematic"
-    click scope "https://github.com/najaeda/naja-scope"
+    click ns "https://github.com/keplertech/naja-schematic"
+    click scope "https://github.com/keplertech/naja-scope"
 
 ```
 

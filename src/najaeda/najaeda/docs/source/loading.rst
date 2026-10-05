@@ -143,6 +143,12 @@ ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
 
+Simple signal wiring assignments such as ``y <= a;`` use canonical DB0 Assign
+instances, one per bit. ``Equipotential.Mode.TRAVERSE_ASSIGNS`` crosses these
+connections, including slices and positional vector mappings. Constants remain
+net driving types; logic gates, multiplexers, and registers remain traversal
+boundaries.
+
 Conditional generates select the first true branch at elaboration time, using
 static boolean expressions built from integer/boolean generics, constants, enclosing
 loop parameters, and supported static package functions. Only the selected

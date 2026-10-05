@@ -2358,7 +2358,7 @@ class RTLConstructor {
     if (!drivers_.insert(target).second) fail("multiple drivers for one signal bit");
     if (auto value = constantValue(source))
       target->setType(*value ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
-    else SNLRTLPrimitives::createGate(design_, SNLRTLPrimitives::GateKind::Buf, {source}, target);
+    else SNLRTLPrimitives::createAssign(design_, source, target);
   }
   void concurrent(const vhdl::Assignment& assignment, const State& state) {
     DiagnosticScope location(assignment.span);

@@ -204,3 +204,23 @@ TEST_F(SNLRTLPrimitivesTest, RejectsInvalidInputsBeforeCreatingInstances) {
       design_, SNLRTLPrimitives::GateKind::And, {bus, bit}, bus), NLException);
   EXPECT_TRUE(design_->getInstances().empty());
 }
+
+TEST_F(SNLRTLPrimitivesTest, AssignRejectsInvalidNetsBeforeCreatingInstances) {
+  auto* input = SNLBusNet::create(design_, 3, 0);
+  auto* output = SNLBusNet::create(design_, 0, 3);
+  auto* scalar = SNLScalarNet::create(design_);
+  auto* other = SNLDesign::create(library_, NLName("other"));
+  auto* foreign = SNLBusNet::create(other, 3, 0);
+  EXPECT_THROW(SNLRTLPrimitives::createAssign(design_, nullptr, output), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createAssign(design_, input, nullptr), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createAssign(design_, scalar, output), NLException);
+  EXPECT_THROW(SNLRTLPrimitives::createAssign(design_, foreign, output), NLException);
+  EXPECT_TRUE(design_->getInstances().empty());
+  const auto instances = SNLRTLPrimitives::createAssign(design_, input, output);
+  ASSERT_EQ(instances.size(), 4);
+  for (size_t position = 0; position < instances.size(); ++position) {
+    EXPECT_EQ(instances[position]->getModel(), NLDB0::getAssign());
+    EXPECT_EQ(instances[position]->getInstTerm(NLDB0::getAssignInput())->getNet(), input->getBit(position));
+    EXPECT_EQ(instances[position]->getInstTerm(NLDB0::getAssignOutput())->getNet(), output->getBit(3 - position));
+  }
+}
