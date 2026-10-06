@@ -1306,9 +1306,52 @@ TEST_F(SNLDesignModelingTest0, testParameterizedSequentialModel) {
   invalid.clockedOn.nodes[0].operation = Op::Not;
   invalid.clockedOn.nodes[0].operands = {0};
   checkDiagnostic(invalid, {"clocked_on", "nodes[0]", "operands[0]=0", "index < 0", "cyclic/forward"});
+  invalid = models.begin()->second;
+  invalid.kind = static_cast<Modeling::SequentialModel::Kind>(99);
+  checkDiagnostic(invalid, {"required=0", "invalid kind enum value 99", "FlipFlop or Latch"});
+  invalid = models.begin()->second;
+  invalid.clockedOn.nodes[0].operation = static_cast<Op>(99);
+  checkDiagnostic(invalid, {"clocked_on", "nodes[0]", "invalid operator enum value 99"});
+  for (auto operation : {Op::Term, Op::Not, Op::And}) {
+    invalid = models.begin()->second;
+    invalid.clockedOn.nodes[0].operation = operation;
+    invalid.clockedOn.nodes[0].operands = operation == Op::Term ? std::vector<size_t>{0} : std::vector<size_t>{};
+    checkDiagnostic(invalid, {"clocked_on", "nodes[0]", "operands; expected"});
+  }
+  invalid = models.begin()->second;
+  invalid.states[0].clearPresetValue = static_cast<Modeling::SequentialState::ClearPresetValue>(99);
+  checkDiagnostic(invalid, {"states[0].clear_preset_value", "invalid enum value 99", "Zero, One, Hold, Toggle, or Unknown"});
+  invalid = models.begin()->second;
+  invalid.outputs[0].term = foreign;
+  checkDiagnostic(invalid, {"outputs[0]", "foreign", "belongs to", "destination primitive"});
+  invalid.outputs[0].term = data;
+  checkDiagnostic(invalid, {"outputs[0]", "expected direction Output"});
+  auto* stringSelector = SNLParameter::create(primitive, NLName("string_selector"), SNLParameter::Type::String, "zero");
+  try {
+    Modeling::setSequentialModelFromParameters(primitive, {stringSelector->getName().getString()}, {{{0}, models.begin()->second}});
+    FAIL() << "String selector unexpectedly accepted";
+  } catch (const NLException& error) {
+    EXPECT_THAT(error.getReason(), ::testing::HasSubstr("parameters[0] <string_selector>"));
+    EXPECT_THAT(error.getReason(), ::testing::HasSubstr("type String is unsupported; expected Binary, Boolean, or Decimal"));
+  }
+  // Failed declarations preserve the previously installed table.
+  EXPECT_TRUE(Modeling::hasSequentialModelFromParameters(primitive));
+  auto* restored = SNLInstParameter::create(instance, required, "0");
+  EXPECT_EQ(Op::Term, Modeling::getSequentialModel(instance).states[0].nextState.nodes[0].operation);
+  restored->destroy();
   Modeling::setSequentialModel(primitive, models.begin()->second);
   EXPECT_FALSE(Modeling::hasSequentialModelFromParameters(primitive));
   EXPECT_EQ(&Modeling::getSequentialModel(primitive), &Modeling::getSequentialModel(instance));
+  auto* noModel = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("NO_MODEL"));
+  auto* unmodeledInstance = SNLInstance::create(top, noModel, NLName("unmodeled"));
+  try {
+    Modeling::getSequentialModel(unmodeledInstance);
+    FAIL() << "Instance without a sequential model unexpectedly accepted";
+  } catch (const NLException& error) {
+    EXPECT_THAT(error.getReason(), ::testing::HasSubstr("unmodeled"));
+    EXPECT_THAT(error.getReason(), ::testing::HasSubstr("NO_MODEL"));
+    EXPECT_THAT(error.getReason(), ::testing::HasSubstr("has no sequential model; attach a static model or parameter table first"));
+  }
 }
 
 TEST_F(SNLDesignModelingTest0, testMultiOutputGatePredicates) {

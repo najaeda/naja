@@ -397,7 +397,9 @@ PyObject* modelToPython(const SNLDesignModeling::SequentialModel& model) {
         "preset", optionalExpressionToPython(state.preset),
         "clear_preset_value", values[static_cast<size_t>(state.clearPresetValue)]);
     if (!entry || PyList_Append(states, entry) < 0) {
+      // LCOV_EXCL_START: Python allocation failure cleanup.
       Py_XDECREF(entry); Py_DECREF(states); Py_DECREF(outputs); return nullptr;
+      // LCOV_EXCL_STOP
     }
     Py_DECREF(entry);
   }
@@ -405,7 +407,9 @@ PyObject* modelToPython(const SNLDesignModeling::SequentialModel& model) {
     auto* entry = Py_BuildValue("(NN)", PySNLBitTerm_Link(output.term),
         expressionToPython(output.function, output.function.root));
     if (!entry || PyList_Append(outputs, entry) < 0) {
+      // LCOV_EXCL_START: Python allocation failure cleanup.
       Py_XDECREF(entry); Py_DECREF(states); Py_DECREF(outputs); return nullptr;
+      // LCOV_EXCL_STOP
     }
     Py_DECREF(entry);
   }

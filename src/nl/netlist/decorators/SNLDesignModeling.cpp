@@ -1774,8 +1774,8 @@ void SNLDesignModeling::setSequentialModelFromParameters(
           state.clearPresetValue > SequentialState::ClearPresetValue::Unknown) {
         fail(entry + field + ".clear_preset_value: invalid enum value " +
             std::to_string(static_cast<int>(state.clearPresetValue)) + "; expected Zero, One, Hold, Toggle, or Unknown");
-      }
-      validateExpression(state.nextState, field + ".next_state");
+      } // LCOV_EXCL_LINE: unreachable fallthrough after the throwing diagnostic.
+      validateExpression(state.nextState, field + ".next_state"); // LCOV_EXCL_LINE: Clang attributes the preceding diagnostic's unreachable fallthrough here; validation is tested.
       if (state.clear) validateExpression(*state.clear, field + ".clear");
       if (state.preset) validateExpression(*state.preset, field + ".preset");
     }

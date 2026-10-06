@@ -227,6 +227,14 @@ class SNLDesignModelingTest(unittest.TestCase):
   def testSequentialModelDeclarationDiagnostics(self):
     reg, pins, parameters, names, models = self.makeParameterizedDFF()
     cases = [
+      (tuple(names), models, ["PARAM_DFF", "expected lists", "parameters="]),
+      (names, tuple(models), ["PARAM_DFF", "expected lists", "models="]),
+      ([42], models, ["PARAM_DFF", "parameters[0]", "parameter name string", "42"]),
+      (names, [None], ["PARAM_DFF", "models[0]=None", "expected a dictionary"]),
+      ([names[0]], [dict(models[0], values=[-1])],
+       ["PARAM_DFF", "models[0]", "values[0]", "outside unsigned 64-bit range"]),
+      ([names[0]], [dict(models[0], values=[1 << 64])],
+       ["PARAM_DFF", "models[0]", "values[0]", "outside unsigned 64-bit range"]),
       ([names[0]], [dict(models[0], values=[0], clocked_on="absent")],
        ["PARAM_DFF", "models[0]", "field=clocked_on", "absent"]),
       ([names[0]], [dict(models[0], values=[0], states=[dict(name="IQ")])],
@@ -244,6 +252,35 @@ class SNLDesignModelingTest(unittest.TestCase):
           reg.setSequentialModelFromParameters(selectors, entries)
         for detail in details:
           self.assertIn(detail, str(caught.exception))
+
+    for args, kwargs in (((), {}), ((names,), {}), ((names, models), {"unexpected": True})):
+      with self.subTest(args=args, kwargs=kwargs):
+        with self.assertRaises(RuntimeError) as caught:
+          reg.setSequentialModelFromParameters(*args, **kwargs)
+        for detail in ("PARAM_DFF", "expected parameters and models arguments", "args=", "kwargs="):
+          self.assertIn(detail, str(caught.exception))
+
+  def testSequentialModelConstantRoundTrip(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "CONSTANT_REG")
+    q = naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Input, "CLK")
+    for value in (False, True):
+      with self.subTest(value=value):
+        reg.setSequentialModel(clocked_on="CLK",
+          states=[dict(name="IQ", next_state=str(int(value)))], outputs=[(q, "IQ")])
+        self.assertIs(reg.getSequentialModel()["states"][0]["next_state"], value)
+
+  def testSequentialModelInstanceErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "NO_MODEL")
+    top = naja.SNLDesign.create(self.designs, "top")
+    instance = naja.SNLInstance.create(top, reg, "ff")
+    with self.assertRaises(RuntimeError) as caught:
+      instance.getSequentialModel()
+    for detail in ("ff", "NO_MODEL", "has no sequential model", "attach a static model or parameter table"):
+      self.assertIn(detail, str(caught.exception))
+    instance.destroy()
+    with self.assertRaisesRegex(RuntimeError, "destroyed instance.*use a live SNLInstance"):
+      instance.getSequentialModel()
 
   def testSequentialModelStateOptions(self):
     clear_preset_values = ("zero", "one", "hold", "toggle", "unknown")
