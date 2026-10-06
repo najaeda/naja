@@ -355,6 +355,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
 void SNLInstance::commonPreDestroy() {
   NAJA_LOG_TRACE("commonPreDestroy {}", getDescription());
   SNLDesignModeling::invalidateTruthTableCache(this);
+  SNLDesignModeling::invalidateSequentialModelCache(this);
 
   for (const auto& sharedPathsElement: sharedPaths_) {
     sharedPathsElement.second->destroyFromInstance();
@@ -612,6 +613,7 @@ void SNLInstance::setModel(SNLDesign* model) {
     model->addSlaveInstance(this);
   }
   SNLDesignModeling::invalidateTruthTableCache(this);
+  SNLDesignModeling::invalidateSequentialModelCache(this);
   model_ = model;
 }
 
