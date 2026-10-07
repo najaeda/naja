@@ -477,9 +477,15 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    the library owning the source unit, including imported packages. SV uses
    this option for destination storage, without cross-library source binding.
 
-   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` loads one VHDL source file and returns its
-   ``SNLDesign``. Load package files before their users in the same database:
-   a package-only file returns ``None`` and preserves the current top design.
+   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` accepts a single path or a ``list[str]`` and returns the selected top's
+   ``SNLDesign``. ``files=`` is an alias for the legacy ``file=`` keyword; the
+   legacy positional argument order is unchanged. All files are parsed before
+   elaboration, and packages, entities, and architectures resolve independently
+   of file order. With ``top=None``, a batch must have one uninstantiated entity
+   in the destination library; multiple roots require an explicit ``top``.
+   Missing dependencies and dependency cycles report the referencing file, line,
+   and column after all inputs have been considered.
+   A package-only load returns ``None`` and preserves the current top design.
    A file containing one entity with required generic values also returns
    ``None`` when ``top`` is omitted: its source is retained until a parent
    supplies those values through a generic map. Pass ``top`` explicitly to

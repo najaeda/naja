@@ -353,8 +353,19 @@ use the same Python exception categories as the other high-level loaders.
 Frontend or lowering failures are reported as :class:`RuntimeError`.
 RTL lowering errors include the original file, line, and column.
 
-For separate RTL dependency files, use ``najaeda.naja.NLDB.loadVHDL`` on the
-same database, loading dependencies before the top. A file with one entity that
+Both ``netlist.load_vhdl`` and ``najaeda.naja.NLDB.loadVHDL`` accept a single
+path or a list of files in any order. All files are parsed before elaboration;
+package declarations and entity/architecture dependencies resolve internally.
+Omit ``top`` to infer the unique uninstantiated entity in the destination
+library, or specify it explicitly when there are several roots. Missing units
+and dependency cycles include the file, line, and column of the reference.
+
+.. code-block:: python
+
+   top = netlist.load_vhdl(
+       ["firdec.vhd", "fir16.vhd", "types.vhd"], top="firdec_DSP")
+
+Separate incremental calls on the same database remain supported. A single file with one entity that
 requires generic values returns ``None`` when no ``top`` is specified; its
 source is retained for later elaboration by its parent. An explicit ``top``
 requires immediate elaboration and reports missing generic values. The raw API

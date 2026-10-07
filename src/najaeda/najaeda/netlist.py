@@ -2313,18 +2313,20 @@ def load_system_verilog(
     return top
 
 
-def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
+def load_vhdl(file: Union[str, os.PathLike, List[Union[str, os.PathLike]]],
+              top: Optional[str] = None, *,
               diagnostics_report_path: Optional[Union[str, os.PathLike]] =
               "naja_vhdl_diagnostics.log", library: str = "DESIGN") -> Instance:
-    """Load one VHDL source file into the top design.
+    """Load VHDL source files into the top design, in any order.
 
     VHDL loading is experimental and currently supports the bounded ``bit`` and
     ``bit_vector`` subset implemented by the native frontend. Integer and boolean
     generic defaults and generic-map actuals specialize the supported RTL;
-    integer values can also specialize vector bounds. Pass ``top`` for a
-    supported structural source containing more than one design unit.
+    integer values can also specialize vector bounds. Files resolve independently
+    of their order. Omit ``top`` for a unique uninstantiated entity, or pass it
+    explicitly to select a root.
 
-    :param file: the VHDL source file to load.
+    :param file: one VHDL source path or a list of paths, in any order.
     :param top: optional top entity name for structural hierarchy.
     :param diagnostics_report_path: report for all warning occurrences, overwritten
         per load; None selects console-only. Console warnings appear once per code.
@@ -2346,13 +2348,22 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
             raise ValueError(
                 "load_vhdl diagnostics_report_path must not be empty; "
                 "use None for console-only")
-    if not isinstance(file, (str, os.PathLike)):
-        raise TypeError(
-            "VHDL file must be a path string "
-            f"(got {type(file).__name__})")
-    path = os.fspath(file)
-    if not path.strip():
-        raise ValueError("VHDL file must not be empty")
+    batch = isinstance(file, list)
+    files = file if batch else [file]
+    if not files:
+        raise ValueError("VHDL files must not be empty")
+    paths = []
+    for item in files:
+        if not isinstance(item, (str, os.PathLike)):
+            raise TypeError(
+                "VHDL file must be a path string or list of paths "
+                f"(got {type(item).__name__})")
+        path = os.fspath(item)
+        if not isinstance(path, str):
+            raise TypeError("VHDL file must be a path string")
+        if not path.strip():
+            raise ValueError("VHDL file must not be empty")
+        paths.append(path)
     if top is not None:
         if not isinstance(top, str):
             raise TypeError(
@@ -2360,22 +2371,23 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
                 f"(got {type(top).__name__})")
         if not top.strip():
             raise ValueError("load_vhdl top must not be empty")
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"VHDL input file does not exist: {path!r} "
-            f"(resolved to {os.path.abspath(path)!r})")
-    if not os.path.isfile(path):
-        raise ValueError(
-            f"VHDL input path is not a file: {path!r} "
-            f"(resolved to {os.path.abspath(path)!r})")
+    for path in paths:
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"VHDL input file does not exist: {path!r} "
+                f"(resolved to {os.path.abspath(path)!r})")
+        if not os.path.isfile(path):
+            raise ValueError(
+                f"VHDL input path is not a file: {path!r} "
+                f"(resolved to {os.path.abspath(path)!r})")
 
     start_time = time.time()
-    logger.info(f"Starting VHDL loading for file: {path}")
+    logger.info(f"Starting VHDL loading for files: {paths}")
     if top is not None:
         logger.info(f"VHDL loading top override requested: {top}")
     __get_top_db().loadVHDL(
-        path, top=top, diagnostics_report_path=diagnostics_report_path,
-        library=library)
+        paths if batch else paths[0], top=top,
+        diagnostics_report_path=diagnostics_report_path, library=library)
     execution_time = time.time() - start_time
     loaded_top = get_top()
     logger.info(

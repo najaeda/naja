@@ -479,6 +479,20 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* libraryObject = nullptr;
   PyObject* diagnosticsReportPath = nullptr;
   static const char* const kwords[] = {"file", "top", "diagnostics_report_path", "library", nullptr};
+  // Keep the legacy file keyword and positional argument order.
+  if (kwargs && PyDict_GetItemString(kwargs, "files")) {
+    if (PyDict_GetItemString(kwargs, "file")) {
+      PyErr_SetString(PyExc_TypeError, "NLDB.loadVHDL: use either file or files");
+      return nullptr;
+    }
+    PyObject* normalized = PyDict_Copy(kwargs);
+    if (!normalized) return nullptr;
+    PyDict_SetItemString(normalized, "file", PyDict_GetItemString(kwargs, "files"));
+    PyDict_DelItemString(normalized, "files");
+    PyObject* result = PyNLDB_loadVHDL(self, args, normalized);
+    Py_DECREF(normalized);
+    return result;
+  }
   if (not PyArg_ParseTupleAndKeywords(
       args, kwargs, "O|OOO:NLDB.loadVHDL", const_cast<char**>(kwords),
       &file, &topObject, &diagnosticsReportPath, &libraryObject)) {
@@ -486,17 +500,32 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   }
   std::string libraryName;
   if (!parseHDLLibrary(libraryObject, libraryName)) return nullptr;
-  if (not PyUnicode_Check(file)) {
-    PyErr_Format(
-      PyExc_TypeError, "NLDB.loadVHDL: file must be a str path, got %s",
-      Py_TYPE(file)->tp_name);
-    return nullptr;
-  }
-  const std::string path = PyUnicode_AsUTF8(file);
-  if (path.empty()) {
-    PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
-    return nullptr;
-  }
+  std::vector<std::filesystem::path> paths;
+  const bool batch = PyList_Check(file);
+  const auto appendPath = [&](PyObject* item) {
+    if (!PyUnicode_Check(item)) {
+      PyErr_Format(PyExc_TypeError,
+          "NLDB.loadVHDL: file must be a str path or list[str], got %s",
+          Py_TYPE(item)->tp_name);
+      return false;
+    }
+    const auto* value = PyUnicode_AsUTF8(item);
+    if (!value) return false;
+    if (!*value) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
+      return false;
+    }
+    paths.emplace_back(value);
+    return true;
+  };
+  if (batch) {
+    if (!PyList_Size(file)) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: files must not be empty");
+      return nullptr;
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(file); ++i)
+      if (!appendPath(PyList_GetItem(file, i))) return nullptr;
+  } else if (!appendPath(file)) return nullptr;
   std::string top;
   if (topObject != nullptr && topObject != Py_None) {
     if (not PyUnicode_Check(topObject)) {
@@ -542,7 +571,9 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   SNLDesign* design = nullptr;
   TRY
   auto* designLibrary = hdlDestination(db, libraryName);
-  design = VHDLConstructor(designLibrary, options).constructFile(path, top);
+  const VHDLConstructor constructor(designLibrary, options);
+  design = batch ? constructor.constructFiles(paths, top) :
+      constructor.constructFile(paths.front(), top);
   if (design) NLUniverse::get()->setTopDesign(design);
   NLUniverse::get()->setTopDB(db);
   NLCATCH
@@ -914,13 +945,13 @@ PyMethodDef PyNLDB_Methods[] = {
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
-    "load one VHDL source file; package-only files return None.\n"
-    "A single entity with required generics is retained and returns None when top is omitted.\n"
-    "An explicit top requires immediate elaboration.\n\n"
+    "load VHDL source files; package-only files return None.\n"
+    "A single-file entity with required generics is retained and returns None when top is omitted.\n"
+    "An explicit top selects the root; batches otherwise infer a unique uninstantiated entity.\n\n"
     "Warning:\n"
     "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
     "Args:\n"
-    "  file (str): input VHDL file\n"
+    "  file (str | list[str]): input files in any order; files is a keyword alias\n"
     "  library (str): destination root library (default DESIGN)\n"
     "  diagnostics_report_path (str | None): all warning occurrences; defaults to naja_vhdl_diagnostics.log.\n"
     "  top (str | None, optional): entity selected as the structural top"},

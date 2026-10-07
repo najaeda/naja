@@ -174,6 +174,7 @@ class LibraryContext {
  public:
   NLLibrary* destination;
   const std::vector<VHDLLibrarySource>& sources;
+  const vhdl::DesignFile& syntax;
   NLLibrary* owner(size_t offset) const {
     for (const auto& source : sources)
       if (offset >= source.offset && offset < source.offset + source.size) return source.library;
@@ -181,7 +182,19 @@ class LibraryContext {
   }
   // Concatenation order between libraries is not VHDL declaration order.
   bool precedes(size_t use, size_t declaration) const {
-    return owner(use) == owner(declaration) && use < declaration;
+    // Declaration order applies within a unit, not between registered units.
+    const auto unitStart = [&](size_t offset) {
+      size_t start = 0;
+      const auto consider = [&](size_t candidate) {
+        if (candidate <= offset) start = std::max(start, candidate);
+      };
+      for (const auto& package : syntax.packages) consider(package.name.span.start.offset);
+      for (const auto& entity : syntax.entities) consider(entity.span.start.offset);
+      for (const auto& architecture : syntax.architectures) consider(architecture.span.start.offset);
+      return start;
+    };
+    return owner(use) == owner(declaration) && use < declaration &&
+        unitStart(use) == unitStart(declaration);
   }
   size_t start(NLLibrary* library) const {
     for (const auto& source : sources) if (source.library == library) return source.offset;
@@ -2900,19 +2913,52 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
 SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
                           std::string_view top, std::string_view source,
                           const std::vector<VHDLLibrarySource>& libraries) {
-  const LibraryContext context{library, libraries};
+  const LibraryContext context{library, libraries, syntax};
   std::set<std::pair<NLLibrary*, std::string>> packages, bodies;
   for (const auto& package : syntax.packages) {
     DiagnosticScope location(package.name.span);
     const auto name = std::make_pair(context.owner(package.name.span.start.offset), key(package.name));
     if (!package.body && !packages.insert(name).second) fail("duplicate package");
-    if (package.body && (!packages.contains(name) || !bodies.insert(name).second))
+    if (package.body && !bodies.insert(name).second)
       fail("duplicate package body or body without declaration");
   }
+  for (const auto& package : syntax.packages) {
+    DiagnosticScope location(package.name.span);
+    if (package.body && !packages.contains(
+        {context.owner(package.name.span.start.offset), key(package.name)}))
+      fail("package body without declaration");
+  }
+  // Resolve package dependencies from the complete index before importing them.
+  std::set<const vhdl::PackageDeclaration*> visiting, visited;
+  std::function<void(const vhdl::PackageDeclaration&)> visitPackage;
+  visitPackage = [&](const auto& package) {
+    if (visited.contains(&package)) return;
+    visiting.insert(&package);
+    auto* owner = context.owner(package.name.span.start.offset);
+    for (const auto& use : package.context.uses) {
+      DiagnosticScope location(use.span);
+      if (use.selectedName.size() != 3) continue;
+      const auto libraryName = key(use.selectedName[0]);
+      if (libraryName == "std" || libraryName == "ieee") continue;
+      auto* target = context.resolve(owner, libraryName);
+      const auto name = key(use.selectedName[1]);
+      const vhdl::PackageDeclaration* dependency = nullptr;
+      for (const auto& candidate : syntax.packages)
+        if (!candidate.body && key(candidate.name) == name &&
+            context.owner(candidate.name.span.start.offset) == target) dependency = &candidate;
+      if (!dependency) fail("missing package: " + name);
+      if (visiting.contains(dependency)) fail("package dependency cycle: " + name);
+      visitPackage(*dependency);
+    }
+    visiting.erase(&package);
+    visited.insert(&package);
+  };
+  for (const auto& package : syntax.packages) visitPackage(package);
   if (syntax.entities.empty() && syntax.architectures.empty()) {
     if (!top.empty()) fail("package source does not define a top entity");
     return nullptr;
   }
+  bool noRoot = false;
   std::string selected(top);
   for (char& c : selected) c = std::tolower(static_cast<unsigned char>(c));
   if (selected.empty()) {
@@ -2929,6 +2975,16 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
     };
     for (const auto& architecture : syntax.architectures)
       if (context.owner(architecture.span.start.offset) == library) removeChildren(removeChildren, architecture);
+    // With no root, follow a member of the cycle so elaboration reports the
+    // offending reference, including its source location.
+    if (candidates.empty()) {
+      noRoot = true;
+      for (const auto& entity : syntax.entities)
+        if (context.owner(entity.span.start.offset) == library) {
+          candidates.insert(key(entity.name));
+          break;
+        }
+    }
     if (candidates.size() != 1)
       fail("cannot infer a unique RTL top entity; specify an explicit top");
     selected = *candidates.begin();
@@ -2937,7 +2993,7 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
   std::set<std::pair<NLLibrary*, std::string>> active;
   std::function<SNLDesign*(NLLibrary*, const std::string&, const GenericValues&)> build;
   build = [&](NLLibrary* owner, const std::string& name, const GenericValues& overrides) -> SNLDesign* {
-    if (!active.insert({owner, name}).second) fail("recursive RTL hierarchy");
+    if (!active.insert({owner, name}).second) fail("entity dependency cycle (recursive RTL hierarchy): " + name);
     const vhdl::EntityDeclaration* entity = nullptr;
     const vhdl::ArchitectureBody* architecture = nullptr;
     for (const auto& candidate : syntax.entities) if (context.owner(candidate.span.start.offset) == owner && key(candidate.name) == name) {
@@ -2972,7 +3028,9 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
     return design;
   };
   try {
-    return build(library, selected, {});
+    auto* design = build(library, selected, {});
+    if (noRoot) fail("cannot infer a unique RTL top entity; specify an explicit top");
+    return design;
   } catch (...) {
     for (auto* design : created) design->destroy();
     throw;
