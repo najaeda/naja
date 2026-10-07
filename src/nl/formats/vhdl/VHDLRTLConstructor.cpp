@@ -1910,7 +1910,7 @@ class RTLConstructor {
       auto* a = left[i - 1];
       auto* b = subtract ? gate("not", right[i - 1]) : right[i - 1];
       auto* sum = SNLScalarNet::create(design_);
-      auto* carryOut = SNLScalarNet::create(design_);
+      auto* carryOut = i > 1 ? SNLScalarNet::create(design_) : nullptr;
       auto* instance = SNLInstance::create(design_, NLDB0::getFA());
       instance->getInstTerm(NLDB0::getFAInputA())->setNet(a);
       instance->getInstTerm(NLDB0::getFAInputB())->setNet(b);
@@ -2118,7 +2118,10 @@ class RTLConstructor {
     return result;
   }
 
-  Value expression(const Expr& expr, const State& state, const Shape* expected = nullptr) {
+  // usedWidth limits construction, not the VHDL result subtype. Unused high
+  // positions are placeholders and must never escape the consuming operation.
+  Value expression(const Expr& expr, const State& state, const Shape* expected = nullptr,
+      size_t usedWidth = 65536) {
     DiagnosticScope location(expr.span);
     Value value;
     Shape inferred;
@@ -2171,7 +2174,31 @@ class RTLConstructor {
           expr.elements.size() == 3) {
         const auto condition = scalar(*expr.elements[0]);
         if (!condition.boolean) fail("sel_suv_f condition must be boolean");
-        value = expression(*expr.elements[condition.value ? 1 : 2], state, expected);
+        value = expression(*expr.elements[condition.value ? 1 : 2], state, expected, usedWidth);
+      } else if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "resize" &&
+          numeric_ && expr.elements.size() == 2) {
+        if (objects_.contains("resize") || integers_.contains("resize") ||
+            functions_.contains("resize")) fail("shadowed resize function");
+        const auto width = integer(*expr.elements[1]);
+        if (width < 1 || width > 65536) fail("resize requires a supported positive size");
+        // Signed resize retains the original sign, including when narrowing.
+        // Determine the subtype without constructing arithmetic first.
+        auto operand = expression(*expr.elements[0], state, nullptr, 0);
+        const auto type = operand.shape.types.front();
+        if (operand.shape.ranges.size() != 1 || (type != "unsigned" && type != "signed"))
+          fail("resize requires a signed or unsigned vector");
+        const auto demand = !usedWidth ? size_t(0) : type == "signed" ? operand.bits.size() :
+            std::min<size_t>(width, usedWidth);
+        operand = expression(*expr.elements[0], state, nullptr, demand);
+        value.shape = vectorShape(width);
+        value.shape.types.front() = type;
+        if (type == "signed") {
+          auto* sign = operand.bits.front();
+          value.bits = resize(std::move(operand.bits), width);
+          if (size_t(width) > demand)
+            std::fill(value.bits.begin(), value.bits.begin() + width - demand, sign);
+          value.bits.front() = sign;
+        } else value.bits = resize(std::move(operand.bits), width);
       } else if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
           !numeric_ || expr.elements.size() != 2)
         fail("unsupported or invisible function call");
@@ -2193,7 +2220,7 @@ class RTLConstructor {
         const auto target = key(*expr.left);
         if (!numeric_ || (target == "std_logic_vector" && !stdLogic_))
           fail("vector conversion requires visible numeric_std and std_logic_1164 types");
-        value = expression(*expr.right, state);
+        value = expression(*expr.right, state, nullptr, usedWidth);
         const auto source = value.shape.types.front();
         if (value.shape.ranges.size() != 1 || (source != "unsigned" && source != "signed" && source != "std_logic_vector"))
           fail("unsupported vector conversion operand");
@@ -2209,16 +2236,28 @@ class RTLConstructor {
             value.shape.types.front() != (numeric ? "unsigned" : "std_logic_vector") || value.bits.size() > 31)
           fail(numeric ? "unsupported to_integer argument" : "unsupported conv_integer argument");
         value.shape = {{"integer"}, {}, value.bits.size()};
+      } else if (expr.left->kind != Expr::Kind::Name &&
+          (expr.right->kind == Expr::Kind::Range || isStaticIndex(*expr.right))) {
+        const auto prefix = expression(*expr.left, state, nullptr, 0);
+        if (prefix.shape.ranges.size() != 1) fail("expression selection requires a vector");
+        const auto bounds = prefix.shape.ranges.front();
+        const auto last = expr.right->kind == Expr::Kind::Range ?
+            arrayIndex(*expr.right->right, bounds) : arrayIndex(*expr.right, bounds);
+        const auto first = expr.right->kind == Expr::Kind::Range ?
+            arrayIndex(*expr.right->left, bounds) : last;
+        const auto demand = prefix.bits.size() - std::min(bounds.position(first), bounds.position(last));
+        value = readIndex(expression(*expr.left, state, nullptr, usedWidth ? demand : 0), *expr.right, state);
       } else value = readSelected(expr, state);
       for (auto* bit : value.bits) readBit(bit);
     } else if (expr.kind == Expr::Kind::Conditional) {
-      const auto condition = expression(*expr.condition, state);
+      const auto condition = expression(*expr.condition, state, nullptr, usedWidth ? 65536 : 0);
       if (condition.shape.types != std::vector<std::string>{"boolean"}) fail("condition must be boolean");
-      auto yes = expression(*expr.left, state, expected);
-      auto no = expression(*expr.right, state, &yes.shape);
+      auto yes = expression(*expr.left, state, expected, usedWidth);
+      auto no = expression(*expr.right, state, &yes.shape, usedWidth);
       if (!compatible(yes.shape, no.shape)) fail("conditional type mismatch");
       value.shape = yes.shape;
-      value.bits = mux(condition.bits.front(), yes.bits, no.bits);
+      const auto width = std::min(usedWidth, yes.bits.size());
+      value.bits = resize(mux(condition.bits.front(), resize(yes.bits, width), resize(no.bits, width)), yes.bits.size());
     } else if (expr.kind == Expr::Kind::Aggregate) {
       if (!expected || expected->ranges.empty() || expr.elements.size() != expected->ranges.front().size())
         fail("positional aggregate length mismatch");
@@ -2271,16 +2310,19 @@ class RTLConstructor {
         }
       }
     } else if (expr.kind == Expr::Kind::Unary) {
-      value = expression(*expr.left, state, expected);
+      value = expression(*expr.left, state, expected, usedWidth);
       if (expr.text != "not" || value.shape.integerWidth || value.shape.enumeration || !value.shape.fields.empty())
         fail("unsupported hardware unary operator");
-      for (auto*& bit : value.bits) bit = gate("not", bit);
+      for (size_t i = value.bits.size() - std::min(usedWidth, value.bits.size()); i < value.bits.size(); ++i)
+        value.bits[i] = gate("not", value.bits[i]);
     } else if (expr.kind == Expr::Kind::Binary) {
       const bool comparison = expr.text == "=" || expr.text == "/=";
       const bool arithmetic = expr.text == "+" || expr.text == "-";
       if (expr.text == "&") {
-        auto left = expression(*expr.left, state);
-        auto right = expression(*expr.right, state);
+        const auto rightShape = expression(*expr.right, state, nullptr, 0).shape;
+        auto left = expression(*expr.left, state, nullptr,
+            usedWidth > rightShape.size() ? usedWidth - rightShape.size() : 0);
+        auto right = expression(*expr.right, state, nullptr, usedWidth);
         if (left.shape.enumeration || right.shape.enumeration || !left.shape.fields.empty() || !right.shape.fields.empty() || left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
             right.shape.ranges.size() > 1 || left.shape.types.back() != right.shape.types.back())
           fail("unsupported concatenation operands");
@@ -2297,7 +2339,8 @@ class RTLConstructor {
         }
       } else {
         const bool numericOperation = (numeric_ || signed_) && (arithmetic || expr.text == "*" || comparison);
-        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected);
+        const auto operandDemand = comparison && usedWidth ? size_t(65536) : usedWidth;
+        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
         const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
         const bool signedOperands = numericSigned || (signed_ && left.shape.types.front() == "std_logic_vector");
@@ -2306,7 +2349,7 @@ class RTLConstructor {
         const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
             expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
         auto right = expression(*expr.right, state,
-            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape);
+            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
         if (signedOperands && (arithmetic || comparison || expr.text == "*")) {
           if (right.shape.types.front() != left.shape.types.front()) fail("signed vector operand type mismatch");
           const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
@@ -2315,12 +2358,18 @@ class RTLConstructor {
           right.bits.insert(right.bits.begin(), width - right.bits.size(), right.bits.front());
           value.shape = vectorShape(width);
           value.shape.types.front() = left.shape.types.front();
+          const auto hardwareWidth = comparison ? width : std::min(width, usedWidth);
+          if (!comparison) {
+            left.bits = resize(std::move(left.bits), hardwareWidth);
+            right.bits = resize(std::move(right.bits), hardwareWidth);
+          }
           if (comparison) {
-            auto* result = equal(left.bits, right.bits);
+            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
             value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (!comparison) value.bits = resize(std::move(value.bits), width);
           if (expected && !compatible(value.shape, *expected)) fail("assignment or expression type/length mismatch");
           return value;
         }
@@ -2332,12 +2381,18 @@ class RTLConstructor {
           right.bits = resize(right.bits, width);
           value.shape = vectorShape(width);
           value.shape.types.front() = "unsigned";
+          const auto hardwareWidth = comparison ? width : std::min(width, usedWidth);
+          if (!comparison) {
+            left.bits = resize(std::move(left.bits), hardwareWidth);
+            right.bits = resize(std::move(right.bits), hardwareWidth);
+          }
           if (comparison) {
-            auto* result = equal(left.bits, right.bits);
+            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
             value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (!comparison) value.bits = resize(std::move(value.bits), width);
           if (expected && !compatible(value.shape, *expected))
             fail("assignment or expression type/length mismatch");
           return value;
@@ -2351,19 +2406,22 @@ class RTLConstructor {
         if ((left.shape.enumeration || right.shape.enumeration) && !comparison)
           fail("enumeration operators currently support only equality and inequality");
         if (comparison) {
-          auto* result = equal(left.bits, right.bits);
+          auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
           value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
         } else if (arithmetic) {
           if (!left.shape.integerWidth && !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
             fail("arithmetic requires integer or std_logic_unsigned operands");
           value.shape = left.shape;
-          value.bits = add(left.bits, right.bits, expr.text == "-");
+          const auto width = std::min(usedWidth,
+              expected && expected->integerWidth ? expected->integerWidth : left.bits.size());
+          value.bits = resize(add(resize(left.bits, width), resize(right.bits, width), expr.text == "-"), left.bits.size());
         } else {
           if (left.shape.ranges.size() > 1 || left.shape.integerWidth || !left.shape.fields.empty())
             fail("bitwise operators require scalar logic, boolean or logic vectors");
           value.shape = left.shape;
-          for (size_t i = 0; i < left.bits.size(); ++i)
-            value.bits.push_back(gate(expr.text, left.bits[i], right.bits[i]));
+          value.bits = Bits(left.bits.size(), constant(false));
+          for (size_t i = left.bits.size() - std::min(usedWidth, left.bits.size()); i < left.bits.size(); ++i)
+            value.bits[i] = gate(expr.text, left.bits[i], right.bits[i]);
         }
       }
     } else fail("unsupported RTL expression");

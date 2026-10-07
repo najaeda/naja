@@ -266,6 +266,35 @@ architecture rtl of add4 is begin s <= a + b; end;
         self.assertEqual([i.getModel().getName() for i in arithmetic], ["naja_fa"] * 4)
         db.destroy()
 
+  def testVHDLTruncatedArithmetic(self):
+    for operation, adders in [("a + b", 4), ("resize(a * b, 4)", 12)]:
+      with self.subTest(operation=operation):
+        db = naja.NLDB.create(naja.NLUniverse.get())
+        source = ("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+                  "entity math4 is port(a, b : in unsigned(3 downto 0); "
+                  "s : out unsigned(3 downto 0)); end; "
+                  "architecture rtl of math4 is begin s <= " + operation + "; end;")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as hdl:
+          hdl.write(source)
+          hdl.flush()
+          with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            top = db.loadVHDL(hdl.name, diagnostics_report_path=None)
+        instances = list(top.getInstances())
+        self.assertEqual(sum(i.getModel().getName() == "naja_fa" for i in instances), adders)
+        for instance in instances:
+          if instance.getModel().getName() == "naja_fa":
+            continue
+          for term in instance.getInstTerms():
+            if term.getDirection() != naja.SNLTerm.Direction.Output:
+              continue
+            net = term.getNet()
+            self.assertIsNotNone(net)
+            self.assertTrue(
+                any(t.getDirection() != naja.SNLTerm.Direction.Output for t in net.getInstTerms()) or
+                any(t.getDirection() != naja.SNLTerm.Direction.Input for t in net.getBitTerms()))
+        db.destroy()
+
   def testVHDLWarningReport(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with tempfile.TemporaryDirectory() as directory:

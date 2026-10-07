@@ -297,6 +297,19 @@ SystemVerilog frontend. Multiplication forms partial products and accumulates
 them with the same full adders; zero partial products and the first accumulation
 need no adder. Supported ``std_logic_unsigned`` addition and subtraction use
 full adders too, including sources that also import ``std_logic_arith``.
+Static ``resize(vector, size)`` calls support unsigned zero extension and
+truncation, and signed sign extension and sign-preserving truncation. Unsigned
+resize and static selections of expression results propagate the required width
+through arithmetic, conversions and nested expressions, so discarded high
+arithmetic bits are not elaborated. Signed resize retains the original sign bit,
+which may require the full arithmetic carry chain. Assignment alone does not
+implicitly truncate numeric vectors: use ``resize`` or an explicit slice to
+match the target length.
+Loading preserves unused RTL signals and registers, and slicing an intermediate
+signal does not propagate a smaller width back to its driver. Such designs may
+still contain dead logic. For a pruned netlist, set the loaded design as the top
+and run ``naja.NLUniverse.get().applyDLE()`` after loading; this also removes
+unused RTL registers. Loading does not run DLE automatically.
 VHDL signal wiring can retain explicit Assign
 primitives; traverse Assigns when comparing arithmetic connectivity.
 Explicit binary signal initializers on locally clocked registers are preserved

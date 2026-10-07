@@ -490,6 +490,11 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    ``None`` when ``top`` is omitted: its source is retained until a parent
    supplies those values through a generic map. Pass ``top`` explicitly to
    require immediate elaboration and diagnose any missing generic values.
+   Arithmetic feeding unsigned ``resize`` or a static expression slice is
+   elaborated at the required width. Loading preserves dead RTL objects and
+   can retain unused logic across intermediate signals; call
+   ``NLUniverse.get().applyDLE()`` after selecting the top for a pruned netlist.
+   See :doc:`loading` for resize semantics and the remaining limits.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design

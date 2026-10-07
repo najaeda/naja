@@ -1661,6 +1661,98 @@ TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameArithmeticModels) {
   }
 }
 
+TEST_F(VHDLConstructorTest, TruncatedArithmeticHasNoUnreadGateOutputs) {
+  for (const auto& [name, operation, expectedAdders] :
+       std::vector<std::tuple<std::string, std::string, unsigned>>{
+           {"add4", "a + b", 4}, {"sub4", "a - b", 4},
+           {"mul4", "resize(a * b, 4)", 12},
+           {"slice4", "resize(a * b, 8)(3 downto 0)", 12},
+           {"sum4", "resize(a + b, 4)", 4},
+           {"diff4", "resize(a - b, 4)", 4},
+           {"nested4", "resize((a * b) + (a * b), 4)", 16},
+           {"convert4", "unsigned(std_logic_vector(resize(a * b, 4)))", 12}}) {
+    SCOPED_TRACE(name);
+    auto* design = VHDLConstructor(library_).construct(
+        "library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+        "entity " + name + " is port(a, b : in unsigned(3 downto 0); "
+        "s : out unsigned(3 downto 0)); end; architecture rtl of " + name +
+        " is begin s <= " + operation + "; end;");
+    unsigned adders = 0;
+    for (auto* instance : design->getInstances()) {
+      if (NLDB0::isFA(instance->getModel())) {
+        ++adders;
+        continue; // Unused full-adder output pins are intentional.
+      }
+      for (auto* term : instance->getInstTerms()) {
+        if (term->getDirection() != SNLTerm::Direction::Output) continue;
+        auto* net = term->getNet();
+        ASSERT_NE(net, nullptr);
+        bool reader = false;
+        for (auto* other : net->getInstTerms())
+          reader |= other->getDirection() != SNLTerm::Direction::Output;
+        for (auto* port : net->getBitTerms())
+          reader |= port->getDirection() != SNLTerm::Direction::Input;
+        EXPECT_TRUE(reader) << instance->getModel()->getName().getString();
+      }
+    }
+    EXPECT_EQ(adders, expectedAdders);
+    for (unsigned a = 0; a < 16; ++a) for (unsigned b = 0; b < 16; ++b) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned bit = 0; bit < 4; ++bit) {
+        values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (a >> bit) & 1;
+        values[design->getBusTerm(NLName("b"))->getBit(bit)->getNet()] = (b >> bit) & 1;
+      }
+      const auto expected = (name == "add4" || name == "sum4") ? a + b : (name == "sub4" || name == "diff4") ? a - b :
+          name == "nested4" ? 2 * a * b : a * b;
+      for (unsigned bit = 0; bit < 4; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("s"))->getBit(bit)->getNet(), values, visiting),
+            bool((expected >> bit) & 1));
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, ResizeRetainsSignedSignAndExtendsVectors) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity resize_math is port(a, b : in signed(3 downto 0);
+  narrow : out signed(3 downto 0); wide : out signed(9 downto 0);
+  unsigned_wide : out unsigned(9 downto 0)); end;
+architecture rtl of resize_math is begin
+  narrow <= resize(a * b, 4); wide <= resize(a * b, 10);
+  unsigned_wide <= resize(unsigned(a) * unsigned(b), 10);
+end;
+)");
+  for (unsigned a = 0; a < 16; ++a) for (unsigned b = 0; b < 16; ++b) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (unsigned bit = 0; bit < 4; ++bit) {
+      values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (a >> bit) & 1;
+      values[design->getBusTerm(NLName("b"))->getBit(bit)->getNet()] = (b >> bit) & 1;
+    }
+    const int product = (a < 8 ? int(a) : int(a)-16) * (b < 8 ? int(b) : int(b)-16);
+    for (const auto& [name, expected] : std::vector<std::pair<std::string, unsigned>>{
+        {"narrow", (unsigned(product) & 7) | (product < 0 ? 8 : 0)},
+        {"wide", unsigned(product)}, {"unsigned_wide", a * b}}) {
+      auto* term = design->getBusTerm(NLName(name));
+      for (unsigned bit = 0; bit < term->getWidth(); ++bit)
+        EXPECT_EQ(evaluateRTL(term->getBit(bit)->getNet(), values, visiting), bool((expected >> bit) & 1));
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidResizePublishesNoDesign) {
+  for (const auto* operation : {"resize(a, 0)", "resize(a, 65537)", "resize(a, b)",
+       "resize(std_logic_vector(a), 4)", "resize(a * b, 3)", "a * b"}) {
+    SCOPED_TRACE(operation);
+    EXPECT_THROW(VHDLConstructor(library_).construct(
+        std::string("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; ") +
+        "entity bad_resize is port(a, b : in unsigned(3 downto 0); s : out unsigned(3 downto 0)); end; "
+        "architecture rtl of bad_resize is begin s <= " + operation + "; end;"), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
 TEST_F(VHDLConstructorTest, LegacyUnsignedArithmeticUsesFullAdders) {
   for (const auto* imports : {"use ieee.std_logic_unsigned.all;",
       "use ieee.std_logic_unsigned.all; use ieee.std_logic_arith.all;"}) {
