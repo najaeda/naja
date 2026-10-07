@@ -63,6 +63,7 @@ set(HEADERS
   core/NLObject.h
   core/NLLibrary.h
   core/NLUniverse.h core/NLDB.h
+  core/NLClock.h
   core/NLDesign.h
   core/NLException.h
   decorators/NLLibraryTruthTables.h
