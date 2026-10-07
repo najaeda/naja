@@ -135,14 +135,19 @@ GetObjectMethod(SNLParameter, SNLDesign, getDesign)
 
 DBoDestroyAttribute(PySNLParameter_destroy, PySNLParameter)
 
+DEFINE_DEPRECATED_ALIAS(PySNLParameter_createString_deprecated, PySNLParameter_createString, "create_string", "createString")
+DEFINE_DEPRECATED_ALIAS(PySNLParameter_createDecimal_deprecated, PySNLParameter_createDecimal, "create_decimal", "createDecimal")
+DEFINE_DEPRECATED_ALIAS(PySNLParameter_createBinary_deprecated, PySNLParameter_createBinary, "create_binary", "createBinary")
+DEFINE_DEPRECATED_ALIAS(PySNLParameter_createBoolean_deprecated, PySNLParameter_createBoolean, "create_boolean", "createBoolean")
+
 PyMethodDef PySNLParameter_Methods[] = {
-  { "create_string", (PyCFunction)PySNLParameter_createString, METH_VARARGS|METH_STATIC,
+  { "createString", (PyCFunction)PySNLParameter_createString, METH_VARARGS|METH_STATIC,
     "SNLParameter string value creator; omit the final value argument for no default"},
-  { "create_decimal", (PyCFunction)PySNLParameter_createDecimal, METH_VARARGS|METH_STATIC,
+  { "createDecimal", (PyCFunction)PySNLParameter_createDecimal, METH_VARARGS|METH_STATIC,
     "SNLParameter int value creator; omit the final value argument for no default"},
-  { "create_binary", (PyCFunction)PySNLParameter_createBinary, METH_VARARGS|METH_STATIC,
+  { "createBinary", (PyCFunction)PySNLParameter_createBinary, METH_VARARGS|METH_STATIC,
     "SNLParameter binary value creator; omit the final value argument for no default"},
-  { "create_boolean", (PyCFunction)PySNLParameter_createBoolean, METH_VARARGS|METH_STATIC,
+  { "createBoolean", (PyCFunction)PySNLParameter_createBoolean, METH_VARARGS|METH_STATIC,
     "SNLParameter boolean value creator; omit the final value argument for no default"},
   { "hasDefaultValue", (PyCFunction)PySNLParameter_hasDefaultValue, METH_NOARGS,
     "Return whether this parameter has a default value."},
@@ -154,6 +159,14 @@ PyMethodDef PySNLParameter_Methods[] = {
     "get SNLParameter owner design"},
   { "destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
     "destroy this SNLParameter."},
+  { "create_string", PySNLParameter_createString_deprecated, METH_VARARGS|METH_STATIC,
+    "deprecated alias of createString; emits a DeprecationWarning."},
+  { "create_decimal", PySNLParameter_createDecimal_deprecated, METH_VARARGS|METH_STATIC,
+    "deprecated alias of createDecimal; emits a DeprecationWarning."},
+  { "create_binary", PySNLParameter_createBinary_deprecated, METH_VARARGS|METH_STATIC,
+    "deprecated alias of createBinary; emits a DeprecationWarning."},
+  { "create_boolean", PySNLParameter_createBoolean_deprecated, METH_VARARGS|METH_STATIC,
+    "deprecated alias of createBoolean; emits a DeprecationWarning."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

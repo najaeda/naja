@@ -19,6 +19,8 @@
 #include "PySNLAttribute.h"
 #include "PySNLDesign.h"
 #include "PySNLParameter.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 #include "PySNLNetType.h"
 #include "PySNLBusNet.h"
 #include "PySNLScalarNet.h"
@@ -511,7 +513,7 @@ static PyObject* astSymbolOf(PyObject*, PyObject* arg) {
   } else if (IsPySNLDesignObject(arg)) {
     object = PYSNLDesignObject_O(arg);
   } else {
-    setError("ast_symbol_of expects an SNLDesign or SNLDesignObject");
+    setError("astSymbolOf expects an SNLDesign or SNLDesignObject");
     return nullptr;
   }
   auto* link = naja::NL::SNLSVLiveASTLinkRegistry::findForObject(object);
@@ -576,7 +578,7 @@ static PyObject* intentAvailable(PyObject*, PyObject*) {
 }
 
 static PyObject* intentTypeOf(PyObject*, PyObject* arg) {
-  auto* object = parseIntentObject(arg, "intent_type_of");
+  auto* object = parseIntentObject(arg, "intentTypeOf");
   if (!object) {
     return nullptr;
   }
@@ -590,7 +592,7 @@ static PyObject* intentTypeOf(PyObject*, PyObject* arg) {
 }
 
 static PyObject* intentParametersOf(PyObject*, PyObject* arg) {
-  auto* object = parseIntentObject(arg, "intent_parameters_of");
+  auto* object = parseIntentObject(arg, "intentParametersOf");
   if (!object) {
     return nullptr;
   }
@@ -655,7 +657,7 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
   const char* package = nullptr;
   const char* member = nullptr;
   if (!PyArg_ParseTuple(args, "ss", &package, &member)) {
-    setError("intent_package_member expects a package and member name");
+    setError("intentPackageMember expects a package and member name");
     return nullptr;
   }
   try {
@@ -672,10 +674,19 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
   // LCOV_EXCL_STOP
 }
 
+DEFINE_DEPRECATED_ALIAS(PyNLDB_snapshotManifest_deprecated, PyNLDB_snapshotManifest, "snapshot_manifest", "snapshotManifest")
+DEFINE_DEPRECATED_ALIAS(liveCompilation_deprecated, liveCompilation, "live_compilation", "liveCompilation")
+DEFINE_DEPRECATED_ALIAS(astSymbolOf_deprecated, astSymbolOf, "ast_symbol_of", "astSymbolOf")
+DEFINE_DEPRECATED_ALIAS(snlObjectsOf_deprecated, snlObjectsOf, "snl_objects_of", "snlObjectsOf")
+DEFINE_DEPRECATED_ALIAS(intentAvailable_deprecated, intentAvailable, "intent_available", "intentAvailable")
+DEFINE_DEPRECATED_ALIAS(intentTypeOf_deprecated, intentTypeOf, "intent_type_of", "intentTypeOf")
+DEFINE_DEPRECATED_ALIAS(intentParametersOf_deprecated, intentParametersOf, "intent_parameters_of", "intentParametersOf")
+DEFINE_DEPRECATED_ALIAS(intentPackageMember_deprecated, intentPackageMember, "intent_package_member", "intentPackageMember")
+
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
-  { "snapshot_manifest", PyNLDB_snapshotManifest, METH_VARARGS,
+  { "snapshotManifest", PyNLDB_snapshotManifest, METH_VARARGS,
     "read a NajaIF snapshot manifest without loading the snapshot" },
   { "log", logMessage, METH_VARARGS, "log a message at the requested level" },
   { "installLoggingHandler", installLoggingHandler, METH_NOARGS,
@@ -686,20 +697,36 @@ static PyMethodDef NajaMethods[] = {
   { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
   { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
   { "clearLogSinks", clearLogSinks, METH_NOARGS, "clear all log sinks" },
-  { "live_compilation", liveCompilation, METH_NOARGS,
+  { "liveCompilation", liveCompilation, METH_NOARGS,
     "Return the live frontend compilation capsule for the latest retained SystemVerilog load." },
-  { "ast_symbol_of", astSymbolOf, METH_O,
+  { "astSymbolOf", astSymbolOf, METH_O,
     "Return the live frontend AST symbol capsule associated with an SNL object, or None." },
-  { "snl_objects_of", snlObjectsOf, METH_O,
+  { "snlObjectsOf", snlObjectsOf, METH_O,
     "Return SNL objects associated with a live frontend AST symbol capsule." },
-  { "intent_available", intentAvailable, METH_NOARGS,
+  { "intentAvailable", intentAvailable, METH_NOARGS,
     "Return whether curated live SystemVerilog source intent data is available." },
-  { "intent_type_of", intentTypeOf, METH_O,
+  { "intentTypeOf", intentTypeOf, METH_O,
     "Return a plain Python dict describing live source type intent for an SNL object, or None." },
-  { "intent_parameters_of", intentParametersOf, METH_O,
+  { "intentParametersOf", intentParametersOf, METH_O,
     "Return a plain Python dict with live source parameter intent for an SNL object, or None." },
-  { "intent_package_member", intentPackageMember, METH_VARARGS,
+  { "intentPackageMember", intentPackageMember, METH_VARARGS,
     "Return a plain Python dict for a live source package member, or None." },
+  { "snapshot_manifest", PyNLDB_snapshotManifest_deprecated, METH_VARARGS,
+    "deprecated alias of snapshotManifest; emits a DeprecationWarning."},
+  { "live_compilation", liveCompilation_deprecated, METH_NOARGS,
+    "deprecated alias of liveCompilation; emits a DeprecationWarning."},
+  { "ast_symbol_of", astSymbolOf_deprecated, METH_O,
+    "deprecated alias of astSymbolOf; emits a DeprecationWarning."},
+  { "snl_objects_of", snlObjectsOf_deprecated, METH_O,
+    "deprecated alias of snlObjectsOf; emits a DeprecationWarning."},
+  { "intent_available", intentAvailable_deprecated, METH_NOARGS,
+    "deprecated alias of intentAvailable; emits a DeprecationWarning."},
+  { "intent_type_of", intentTypeOf_deprecated, METH_O,
+    "deprecated alias of intentTypeOf; emits a DeprecationWarning."},
+  { "intent_parameters_of", intentParametersOf_deprecated, METH_O,
+    "deprecated alias of intentParametersOf; emits a DeprecationWarning."},
+  { "intent_package_member", intentPackageMember_deprecated, METH_VARARGS,
+    "deprecated alias of intentPackageMember; emits a DeprecationWarning."},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -723,6 +750,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyNLID_LinkPyType();
   PyNLDB_LinkPyType();
   PyNLLibrary_LinkPyType();
+  PyNLClock_LinkPyType();
   PySNLAttribute_LinkPyType();
   PySNLDesign_LinkPyType();
   PySNLParameter_LinkPyType();
@@ -753,10 +781,11 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyLogicCone_LinkPyType();
   PySNLOccurrence_LinkPyType();
 
-  PySNLAttributes_LinkPyType();
   PyNLDBs_LinkPyType();
   PyNLLibraries_LinkPyType();
+  PyNLClocks_LinkPyType();
   PySNLDesigns_LinkPyType();
+  PySNLAttributes_LinkPyType();
   PySNLParameters_LinkPyType();
   PySNLTerms_LinkPyType();
   PySNLBitTerms_LinkPyType();
@@ -810,6 +839,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(NLDBsIterator);
   PYTYPE_READY(NLLibraries);
   PYTYPE_READY(NLLibrariesIterator);
+  PYTYPE_READY(NLClocks);
+  PYTYPE_READY(NLClocksIterator);
   PYTYPE_READY(SNLDesigns);
   PYTYPE_READY(SNLDesignsIterator);
   PYTYPE_READY(SNLParameters);
@@ -868,6 +899,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeNLLibrary);
   PyModule_AddType(mod, &PyTypeSNLDesign);
   PyModule_AddType(mod, &PyTypeSNLParameter);
+  PyModule_AddType(mod, &PyTypeNLClock);
   PyModule_AddType(mod, &PyTypeSNLDesignObject);
   PyModule_AddType(mod, &PyTypeSNLNet);
   PyModule_AddType(mod, &PyTypeSNLBusNet);

@@ -5,6 +5,7 @@
 #include "NLDB.h"
 
 #include <list>
+#include <vector>
 #include <sstream>
 
 #include "NajaLog.h"
@@ -176,6 +177,17 @@ NajaCollection<NLLibrary*> NLDB::getPrimitiveLibraries() const {
 NajaCollection<NLLibrary*> NLDB::getLibraries() const {
   auto filter = [](const NLLibrary* l) { return l->isRoot(); };
   return getGlobalLibraries().getSubCollection(filter);
+}
+
+NajaCollection<NLClock*> NLDB::getClocks() const {
+  //Two flattening levels: every library's designs, then every design's clocks.
+  //getGlobalLibraries() is already the flat registry of every library in this
+  //NLDB (root, nested, and primitive), so no library-nesting flatten is needed.
+  auto designClocksFlattener = [](SNLDesign* design) { return design->getClocks(); };
+  auto libraryClocksFlattener = [designClocksFlattener](NLLibrary* library) {
+    return library->getSNLDesigns().getFlatCollection<SNLDesign*, NLClock*, NLClock*>(designClocksFlattener);
+  };
+  return getGlobalLibraries().getFlatCollection<NLLibrary*, NLClock*, NLClock*>(libraryClocksFlattener);
 }
 
 NLID NLDB::getNLID() const {

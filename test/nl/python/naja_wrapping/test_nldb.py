@@ -409,14 +409,14 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertIsNotNone(naja_path)
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
-    manifest = naja.snapshot_manifest(naja_dir)
+    manifest = naja.snapshotManifest(naja_dir)
     self.assertEqual(manifest["schema_version"], (0, 1, 0))
     self.assertEqual(manifest["producer_version"], naja.getVersion())
     self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
 
-    manifest = naja.snapshot_manifest(naja_dir)
+    manifest = naja.snapshotManifest(naja_dir)
     self.assertEqual(manifest["schema_version"], (0, 1, 0))
     self.assertIsNone(naja.NLUniverse.get())
 
@@ -438,12 +438,12 @@ architecture rtl of unsupported is begin y <= a and missing; end;
 
   def testSnapshotManifestInvalidArguments(self):
     with self.assertRaisesRegex(
-        RuntimeError, "malformed naja snapshot_manifest"):
-      naja.snapshot_manifest()
+        RuntimeError, "malformed naja snapshotManifest"):
+      naja.snapshotManifest()
 
     with self.assertRaisesRegex(
-        RuntimeError, "snapshot_manifest argument should be a file path"):
-      naja.snapshot_manifest(42)
+        RuntimeError, "snapshotManifest argument should be a file path"):
+      naja.snapshotManifest(42)
 
   def testLoaderArgumentValidation(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
@@ -615,28 +615,28 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertTrue(net.getSourceLoc()[0].endswith("systemverilog/benchmarks/simple/simple.sv"))
     self.assertTrue(os.path.exists(json_path))
     self.assertTrue(os.path.exists(diagnostics_path))
-    self.assertIsNone(naja.live_compilation())
-    self.assertIsNone(naja.ast_symbol_of(top))
+    self.assertIsNone(naja.liveCompilation())
+    self.assertIsNone(naja.astSymbolOf(top))
     with self.assertRaises(RuntimeError):
-      naja.ast_symbol_of(db)
+      naja.astSymbolOf(db)
     with self.assertRaises(ValueError):
-      naja.snl_objects_of(object())
+      naja.snlObjectsOf(object())
 
     db.destroy()
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
-    self.assertIsNotNone(naja.live_compilation())
-    top_symbol = naja.ast_symbol_of(top)
+    self.assertIsNotNone(naja.liveCompilation())
+    top_symbol = naja.astSymbolOf(top)
     self.assertIsNotNone(top_symbol)
-    self.assertIn(top, naja.snl_objects_of(top_symbol))
-    net_symbol = naja.ast_symbol_of(top.getNet("y"))
+    self.assertIn(top, naja.snlObjectsOf(top_symbol))
+    net_symbol = naja.astSymbolOf(top.getNet("y"))
     self.assertIsNotNone(net_symbol)
-    self.assertIn(top.getNet("y"), naja.snl_objects_of(net_symbol))
-    term_symbol = naja.ast_symbol_of(top.getTerm("a"))
+    self.assertIn(top.getNet("y"), naja.snlObjectsOf(net_symbol))
+    term_symbol = naja.astSymbolOf(top.getTerm("a"))
     self.assertIsNotNone(term_symbol)
-    self.assertIn(top.getTerm("a"), naja.snl_objects_of(term_symbol))
+    self.assertIn(top.getTerm("a"), naja.snlObjectsOf(term_symbol))
 
     # A correctly named capsule whose pointer is unknown to the live registry
     # is valid input and produces an empty result.
@@ -646,10 +646,10 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     capsule_new.restype = ctypes.py_object
     capsule_name = b"naja.frontend.Symbol"
     unknown_symbol = capsule_new(ctypes.c_void_p(1), capsule_name, None)
-    self.assertEqual([], naja.snl_objects_of(unknown_symbol))
+    self.assertEqual([], naja.snlObjectsOf(unknown_symbol))
 
     db.destroy()
-    self.assertIsNone(naja.live_compilation())
+    self.assertIsNone(naja.liveCompilation())
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_assigns=False)
     self.assertIsNotNone(top)
@@ -789,13 +789,13 @@ endmodule
   def testSystemVerilogIntentAPI(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
-    self.assertFalse(naja.intent_available())
+    self.assertFalse(naja.intentAvailable())
     with self.assertRaises(RuntimeError):
-      naja.intent_type_of(db)
+      naja.intentTypeOf(db)
     with self.assertRaises(RuntimeError):
-      naja.intent_parameters_of(db)
+      naja.intentParametersOf(db)
     with self.assertRaises(RuntimeError):
-      naja.intent_package_member("mini_pkg")
+      naja.intentPackageMember("mini_pkg")
 
     with tempfile.TemporaryDirectory() as tempdir:
       sv_file = os.path.join(tempdir, "intent_mini.sv")
@@ -804,11 +804,11 @@ endmodule
 
       top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
       self.assertIsNotNone(top)
-      self.assertTrue(naja.intent_available())
+      self.assertTrue(naja.intentAvailable())
 
       state_q = top.getNet("state_q")
       self.assertIsNotNone(state_q)
-      type_rec = naja.intent_type_of(state_q)
+      type_rec = naja.intentTypeOf(state_q)
       self.assertEqual("mini_pkg::state_e", type_rec["type"])
       self.assertEqual("enum", type_rec["canonical_kind"])
       self.assertTrue(type_rec["src"].endswith("intent_mini.sv:29"))
@@ -819,29 +819,29 @@ endmodule
         {"ST_IDLE": "2'b00", "ST_RUN": "2'b01", "ST_DONE": "2'b11"},
         {m["name"]: m["encoding"] for m in enum["members"]})
 
-      clk_rec = naja.intent_type_of(top.getNet("clk"))
+      clk_rec = naja.intentTypeOf(top.getNet("clk"))
       self.assertEqual("logic", clk_rec["type"])
       self.assertEqual("scalar", clk_rec["canonical_kind"])
       self.assertTrue(clk_rec["src"].endswith("intent_mini.sv:23"))
       self.assertNotIn("enum", clk_rec)
       self.assertNotIn("struct", clk_rec)
-      self.assertEqual(clk_rec, naja.intent_type_of(top.getTerm("clk")))
+      self.assertEqual(clk_rec, naja.intentTypeOf(top.getTerm("clk")))
 
-      byte_rec = naja.intent_type_of(top.getNet("byte_q"))
+      byte_rec = naja.intentTypeOf(top.getNet("byte_q"))
       self.assertEqual("mini_pkg::byte_t", byte_rec["type"])
       self.assertEqual("packed_array", byte_rec["canonical_kind"])
       self.assertTrue(byte_rec["src"].endswith("intent_mini.sv:30"))
       self.assertNotIn("enum", byte_rec)
       self.assertNotIn("struct", byte_rec)
 
-      plain_rec = naja.intent_type_of(top.getNet("plain_q"))
+      plain_rec = naja.intentTypeOf(top.getNet("plain_q"))
       self.assertEqual("logic[3:0]", plain_rec["type"])
       self.assertEqual("packed_array", plain_rec["canonical_kind"])
       self.assertTrue(plain_rec["src"].endswith("intent_mini.sv:31"))
       self.assertNotIn("enum", plain_rec)
       self.assertNotIn("struct", plain_rec)
 
-      payload_rec = naja.intent_type_of(top.getNet("payload_q"))
+      payload_rec = naja.intentTypeOf(top.getNet("payload_q"))
       self.assertEqual("mini_pkg::payload_t", payload_rec["type"])
       self.assertEqual("packed_struct", payload_rec["canonical_kind"])
       self.assertTrue(payload_rec["src"].endswith("intent_mini.sv:32"))
@@ -855,7 +855,7 @@ endmodule
         {"name": "state", "type": "mini_pkg::state_e", "msb": 1, "lsb": 0},
       ], payload["fields"])
 
-      overlay_rec = naja.intent_type_of(top.getNet("overlay_q"))
+      overlay_rec = naja.intentTypeOf(top.getNet("overlay_q"))
       self.assertEqual("mini_pkg::overlay_t", overlay_rec["type"])
       self.assertEqual("packed_union", overlay_rec["canonical_kind"])
       self.assertEqual(8, overlay_rec["struct"]["width"])
@@ -866,16 +866,16 @@ endmodule
       ], overlay_rec["struct"]["fields"])
 
       synthetic = naja.SNLScalarNet.create(top, "synthetic")
-      self.assertIsNone(naja.intent_type_of(synthetic))
-      self.assertIsNone(naja.ast_symbol_of(synthetic))
-      self.assertIsNone(naja.intent_parameters_of(synthetic))
+      self.assertIsNone(naja.intentTypeOf(synthetic))
+      self.assertIsNone(naja.astSymbolOf(synthetic))
+      self.assertIsNone(naja.intentParametersOf(synthetic))
 
       ff = next(
         inst for inst in top.getInstances()
         if inst.getModel().getName() == "naja_dffrn__w2")
-      self.assertEqual(type_rec, naja.intent_type_of(ff))
+      self.assertEqual(type_rec, naja.intentTypeOf(ff))
 
-      params = naja.intent_parameters_of(top)
+      params = naja.intentParametersOf(top)
       self.assertEqual("intent_mini", params["module"])
       self.assertEqual(2, params["count"])
       by_name = {p["name"]: p for p in params["parameters"]}
@@ -886,25 +886,25 @@ endmodule
       self.assertEqual("2", by_name["IDX_W"]["value"])
       self.assertEqual("$clog2(DEPTH)", by_name["IDX_W"]["expr"])
 
-      plen = naja.intent_package_member("mini_pkg", "PLEN")
+      plen = naja.intentPackageMember("mini_pkg", "PLEN")
       self.assertEqual("PLEN", plen["name"])
       self.assertEqual("34", plen["value"])
       self.assertEqual("(32 == 32) ? 34 : 56", plen["expr"])
       self.assertTrue(plen["localparam"])
 
-      package_type = naja.intent_package_member("mini_pkg", "state_e")
+      package_type = naja.intentPackageMember("mini_pkg", "state_e")
       self.assertEqual("mini_pkg::state_e", package_type["type"])
       self.assertEqual("enum", package_type["canonical_kind"])
       self.assertEqual(2, package_type["enum"]["width"])
-      self.assertIsNone(naja.intent_package_member("mini_pkg", "missing"))
+      self.assertIsNone(naja.intentPackageMember("mini_pkg", "missing"))
 
-      state_sym = naja.ast_symbol_of(state_q)
-      linked_objects = naja.snl_objects_of(state_sym)
+      state_sym = naja.astSymbolOf(state_q)
+      linked_objects = naja.snlObjectsOf(state_sym)
       self.assertIn(state_q, linked_objects)
       self.assertIn(ff, linked_objects)
 
     db.destroy()
-    self.assertFalse(naja.intent_available())
+    self.assertFalse(naja.intentAvailable())
 
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()

@@ -67,7 +67,7 @@ deserialized into a truncated or otherwise incorrect netlist.
   of both producer values with `naja::NAJA_VERSION` and
   `naja::NAJA_GIT_HASH`. A mismatch, or a legacy manifest without `P`, throws
   `SNLDumpException`; callers must regenerate the snapshot.
-- `naja.snapshot_manifest(path)` reads only `snl.mf` and returns
+- `naja.snapshotManifest(path)` reads only `snl.mf` and returns
   `schema_version`, `producer_version`, and `producer_git_hash`, without
   creating an `NLUniverse` or loading payloads.
 - This exact-build producer gate is deliberately temporary and conservative.

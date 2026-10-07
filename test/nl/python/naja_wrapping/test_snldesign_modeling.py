@@ -111,7 +111,7 @@ class SNLDesignModelingTest(unittest.TestCase):
       reg, naja.SNLTerm.Direction.Output if name == "O" else
       naja.SNLTerm.Direction.Input, name) for name in ("I", "CK", "L", "R", "O")}
     names = ["FALLING_EDGE", "USE_RESET", "USE_ENABLE", "SYNC_RESET", "RESET_VALUE"]
-    parameters = [naja.SNLParameter.create_binary(reg, name, 1, 0) for name in names]
+    parameters = [naja.SNLParameter.createBinary(reg, name, 1, 0) for name in names]
     models = []
     for edge, init, load, sync, typ in product((0, 1), repeat=5):
       next_state = "(L & I) | (!L & IQ)" if load else "I"
@@ -186,7 +186,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     reg, pins, parameters, names, models = self.makeParameterizedDFF()
     top = naja.SNLDesign.create(self.designs, "top")
     instance = naja.SNLInstance.create(top, reg, "ff")
-    required = naja.SNLParameter.create_binary(reg, "required", 1)
+    required = naja.SNLParameter.createBinary(reg, "required", 1)
     entry = dict(models[0], values=[0])
     reg.setSequentialModelFromParameters(["required"], [entry])
     with self.assertRaisesRegex(RuntimeError, "Missing required.*required.*ff") as caught:
@@ -680,7 +680,7 @@ endmodule
 
   def testParameterizedCombinatorialArcs(self):
     gate = naja.SNLDesign.createPrimitive(self.primitives, "PARAM_GATE")
-    mode = naja.SNLParameter.create_string(gate, "MODE", "NORMAL")
+    mode = naja.SNLParameter.createString(gate, "MODE", "NORMAL")
     i0 = naja.SNLScalarTerm.create(
       gate, naja.SNLTerm.Direction.Input, "I0")
     i1 = naja.SNLScalarTerm.create(

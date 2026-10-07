@@ -208,13 +208,13 @@ static Py_hash_t PyNLID_Hash(PyNLID* self) {
 
 static PyObject* PyNLID_FromString(PyObject*, PyObject* arg) {
   if (not PyUnicode_Check(arg)) {
-    setError("NLID.from_string expects a string");
+    setError("NLID.fromString expects a string");
     return nullptr;
   }
   const std::string value = PyUnicode_AsUTF8(arg);
   constexpr std::string_view prefix = "NLID(";
   if (value.rfind(prefix, 0) != 0 or value.empty() or value.back() != ')') {
-    setError("NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)");
+    setError("NLID.fromString expects NLID(t:db:lib:design:object:instance:bit)");
     return nullptr;
   }
 
@@ -234,7 +234,7 @@ static PyObject* PyNLID_FromString(PyObject*, PyObject* arg) {
       separators[0] != ':' or separators[1] != ':' or separators[2] != ':' or
       separators[3] != ':' or separators[4] != ':' or separators[5] != ':' or
       not stream.eof()) {
-    setError("NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)");
+    setError("NLID.fromString expects NLID(t:db:lib:design:object:instance:bit)");
     return nullptr;
   }
   PyObject* args = Py_BuildValue(
@@ -314,8 +314,10 @@ static PyObject* PyNLID_IsDesign(PyNLID* self) {
   return makeBool(self->object_->type_ == NLID::Type::Design);
 }
 
+DEFINE_DEPRECATED_ALIAS(PyNLID_FromString_deprecated, PyNLID_FromString, "from_string", "fromString")
+
 PyMethodDef PyNLID_Methods[] = {
-  { "from_string", (PyCFunction)PyNLID_FromString, METH_O | METH_STATIC,
+  { "fromString", (PyCFunction)PyNLID_FromString, METH_O | METH_STATIC,
     "Create an NLID from its string representation."},
   { "toTuple", (PyCFunction)PyNLID_ToTuple, METH_NOARGS,
     "Return the seven NLID fields as a tuple."},
@@ -341,6 +343,8 @@ PyMethodDef PyNLID_Methods[] = {
     "Return whether this id identifies a term, term bit, or inst term."},
   { "isDesign", (PyCFunction)PyNLID_IsDesign, METH_NOARGS,
     "Return whether this id identifies a design."},
+  { "from_string", PyNLID_FromString_deprecated, METH_O | METH_STATIC,
+    "deprecated alias of fromString; emits a DeprecationWarning."},
   {NULL, NULL, 0, NULL}
 };
 
