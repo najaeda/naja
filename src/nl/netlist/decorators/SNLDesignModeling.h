@@ -177,6 +177,14 @@ class SNLDesignModeling {
     static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
     static void setTermRole(SNLBitTerm* term, SNLTermRole role,
         SNLActiveLevel activeLevel = SNLActiveLevel::NA);
+    // Entries override static roles for the listed terms. An empty TermRole
+    // (Other, NA) explicitly removes a control role. Omitted terms keep their
+    // static role. Selectors use numeric defaults/overrides, like sequential models.
+    using TermRoles = std::map<SNLBitTerm*, TermRole, SNLBitTerm::InDesignLess>;
+    using TermRoleTable = std::map<std::vector<uint64_t>, TermRoles>;
+    static void setRolesFromParameters(SNLDesign* design,
+        const std::vector<std::string>& parameters, const TermRoleTable& roles);
+    static bool hasRolesFromParameters(const SNLDesign* design);
     static SNLTermRole getTermRole(const SNLBitTerm* term);
     static SNLTermRole getTermRole(const SNLInstTerm* term);
     static SNLActiveLevel getResetActiveLevel(const SNLBitTerm* term);
@@ -308,6 +316,9 @@ class SNLDesignModeling {
       auto it = termRoles_.find(const_cast<SNLBitTerm*>(term));
       return it == termRoles_.end() ? TermRole{} : it->second;
     }
+    TermRole getTermRole_(const SNLInstTerm* term) const;
+    std::vector<std::string> roleParameters_ {};
+    TermRoleTable parameterRoles_ {};
     struct ParameterTruthTable {
       SNLParameter* parameter {nullptr};
       size_t parameterBitOffset {0};

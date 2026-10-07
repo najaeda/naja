@@ -1895,6 +1895,79 @@ void SNLDesignModeling::invalidateSequentialModelCache(const SNLInstance* instan
   }
 }
 
+void SNLDesignModeling::setRolesFromParameters(
+    SNLDesign* design, const std::vector<std::string>& parameters,
+    const TermRoleTable& roles) {
+  const std::string context = "SNLDesignModeling::setRolesFromParameters: " +
+      (design ? design->getDescription() : "<null design>");
+  auto fail = [&context](const std::string& detail) {
+    throw NLException(context + ": " + detail);
+  };
+  if (!design || !design->isPrimitive()) fail("destination must be a primitive design");
+  if (parameters.empty() || roles.empty()) fail("parameter list and role table must be nonempty");
+  std::set<std::string> names;
+  for (const auto& name : parameters) {
+    auto* parameter = design->getParameter(NLName(name));
+    if (!parameter) fail("unknown selector parameter <" + name + ">");
+    if (parameter->getType() == SNLParameter::Type::String) {
+      fail("selector <" + name + "> must be Binary, Boolean, or Decimal");
+    }
+    if (!names.insert(name).second) fail("duplicate selector parameter <" + name + ">");
+  }
+  for (const auto& [values, entry] : roles) {
+    if (values.size() != parameters.size()) fail("values must match the declared parameter order and count");
+    for (const auto& [term, role] : entry) {
+      if (!term || term->getDesign() != design) fail("role term must belong to the destination primitive");
+      if (role.role < SNLTermRole::Clock || role.role > SNLTermRole::ScanEnable) fail("invalid SNLTermRole");
+      if (role.activeLevel < SNLActiveLevel::High || role.activeLevel > SNLActiveLevel::NA) fail("invalid SNLActiveLevel");
+    }
+  }
+  auto* modeling = getOrCreateProperty(design, NO_PARAMETER)->getModeling();
+  modeling->roleParameters_ = parameters;
+  modeling->parameterRoles_ = roles;
+}
+
+bool SNLDesignModeling::hasRolesFromParameters(const SNLDesign* design) {
+  auto* property = design ? getProperty(design) : nullptr;
+  return property && !property->getModeling()->parameterRoles_.empty();
+}
+
+SNLDesignModeling::TermRole SNLDesignModeling::getTermRole_(const SNLInstTerm* term) const {
+  auto* instance = term->getInstance();
+  auto* design = instance->getModel();
+  const std::string context = "Term roles on " + instance->getDescription() +
+      "; primitive " + design->getDescription();
+  std::vector<uint64_t> values;
+  for (const auto& name : roleParameters_) {
+    auto* parameter = design->getParameter(NLName(name));
+    auto* override = instance->getInstParameter(NLName(name));
+    if (!parameter || (!override && !parameter->hasDefaultValue())) {
+      throw NLException(context + ": missing required role parameter <" + name + ">");
+    }
+    const auto& literal = override ? override->getValue() : parameter->getValue();
+    try {
+      values.push_back(parseTruthTableParameterValue(literal, 1));
+    } catch (const NLException& error) {
+      throw NLException(context + ": invalid role parameter <" + name + "> raw value <" + literal +
+          "> from " + (override ? "instance override" : "parameter default") + ": " + error.what());
+    }
+  }
+  auto selected = parameterRoles_.find(values);
+  if (selected == parameterRoles_.end()) {
+    std::ostringstream reason;
+    reason << context << ": no term roles match resolved parameters [";
+    for (size_t i = 0; i < values.size(); ++i) {
+      if (i) reason << ", ";
+      reason << roleParameters_[i] << "=" << values[i];
+    }
+    reason << "]; declare a matching role table entry";
+    throw NLException(reason.str());
+  }
+  auto role = selected->second.find(term->getBitTerm());
+  if (role != selected->second.end()) return role->second;
+  return {getTermRole(term->getBitTerm()), getResetActiveLevel(term->getBitTerm())};
+}
+
 void SNLDesignModeling::setTermRole(
     SNLBitTerm* term, SNLTermRole role, SNLActiveLevel activeLevel) {
   if (!term || !term->getDesign()->isLeaf()) return;
@@ -1953,7 +2026,11 @@ SNLDesignModeling::SNLTermRole SNLDesignModeling::getTermRole(
 
 SNLDesignModeling::SNLTermRole SNLDesignModeling::getTermRole(
     const SNLInstTerm* term) {
-  return term ? getTermRole(term->getBitTerm()) : SNLTermRole::Other;
+  if (!term) return SNLTermRole::Other;
+  if (hasRolesFromParameters(term->getBitTerm()->getDesign())) {
+    return getProperty(term->getBitTerm()->getDesign())->getModeling()->getTermRole_(term).role;
+  }
+  return getTermRole(term->getBitTerm());
 }
 
 SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
@@ -1981,7 +2058,14 @@ SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
 
 SNLDesignModeling::SNLActiveLevel SNLDesignModeling::getResetActiveLevel(
     const SNLInstTerm* term) {
-  return term ? getResetActiveLevel(term->getBitTerm()) : SNLActiveLevel::NA;
+  if (!term) return SNLActiveLevel::NA;
+  if (hasRolesFromParameters(term->getBitTerm()->getDesign())) {
+    const auto role = getProperty(term->getBitTerm()->getDesign())->getModeling()->getTermRole_(term);
+    return role.role == SNLTermRole::AsyncReset || role.role == SNLTermRole::AsyncSet ||
+        role.role == SNLTermRole::SyncReset || role.role == SNLTermRole::SyncSet
+        ? role.activeLevel : SNLActiveLevel::NA;
+  }
+  return getResetActiveLevel(term->getBitTerm());
 }
 
 #define DEFINE_TERM_ROLE_PREDICATE(NAME, ROLE)                    \
@@ -2011,14 +2095,16 @@ bool SNLDesignModeling::isDataInput(const SNLBitTerm* term) {
   return role == SNLTermRole::DataInput || role == SNLTermRole::MemoryWriteData;
 }
 bool SNLDesignModeling::isDataInput(const SNLInstTerm* term) {
-  return term && isDataInput(term->getBitTerm());
+  auto role = getTermRole(term);
+  return role == SNLTermRole::DataInput || role == SNLTermRole::MemoryWriteData;
 }
 bool SNLDesignModeling::isDataOutput(const SNLBitTerm* term) {
   auto role = getTermRole(term);
   return role == SNLTermRole::DataOutput || role == SNLTermRole::MemoryReadData;
 }
 bool SNLDesignModeling::isDataOutput(const SNLInstTerm* term) {
-  return term && isDataOutput(term->getBitTerm());
+  auto role = getTermRole(term);
+  return role == SNLTermRole::DataOutput || role == SNLTermRole::MemoryReadData;
 }
 
 namespace {

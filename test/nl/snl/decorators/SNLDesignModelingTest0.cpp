@@ -1384,3 +1384,66 @@ TEST_F(SNLDesignModelingTest0, testMultiOutputGatePredicates) {
     }
   }
 }
+
+TEST_F(SNLDesignModelingTest0, testParameterizedTermRoles) {
+  using Modeling = SNLDesignModeling;
+  using Role = Modeling::SNLTermRole;
+  using Level = Modeling::SNLActiveLevel;
+  auto* universe = NLUniverse::create();
+  auto* db = NLDB::create(universe);
+  auto* prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* designs = NLLibrary::create(db);
+  auto* top = SNLDesign::create(designs, NLName("top"));
+  auto* model = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("NX_DFF"));
+  auto* reset = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("R"));
+  auto* load = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("L"));
+  auto* clock = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("CK"));
+  auto* mode = SNLParameter::create(model, NLName("mode"), SNLParameter::Type::Decimal, "0");
+  Modeling::setTermRole(reset, Role::AsyncReset, Level::Low);
+  Modeling::setTermRole(load, Role::Enable);
+  Modeling::setTermRole(clock, Role::Clock);
+  Modeling::TermRoleTable table {
+    {{0}, {{reset, {}}, {load, {}}}},
+    {{1}, {{reset, {Role::AsyncReset, Level::High}}, {load, {Role::Enable, Level::NA}}}},
+    {{2}, {{reset, {Role::SyncReset, Level::Low}}, {load, {}}}},
+    {{3}, {{reset, {Role::AsyncSet, Level::High}}, {load, {}}}},
+    {{4}, {{reset, {Role::SyncSet, Level::Low}}, {load, {}}}}
+  };
+  auto* instance = SNLInstance::create(top, model, NLName("ff"));
+  auto* r = instance->getInstTerm(reset);
+  EXPECT_EQ(Role::AsyncReset, Modeling::getTermRole(r));
+  EXPECT_FALSE(Modeling::hasRolesFromParameters(model));
+  Modeling::setRolesFromParameters(model, {"mode"}, table);
+  EXPECT_TRUE(Modeling::hasRolesFromParameters(model));
+  EXPECT_EQ(Role::Other, Modeling::getTermRole(r));
+  EXPECT_FALSE(Modeling::isEnable(instance->getInstTerm(load)));
+  auto* override = SNLInstParameter::create(instance, mode, "0");
+  for (const auto& [key, roles] : table) {
+    override->setValue(std::to_string(key[0]));
+    EXPECT_EQ(roles.at(reset).role, Modeling::getTermRole(r));
+    EXPECT_EQ(roles.at(reset).activeLevel, Modeling::getResetActiveLevel(r));
+    EXPECT_TRUE(Modeling::isClock(instance->getInstTerm(clock)));
+  }
+  override->setValue("5");
+  EXPECT_THROW(Modeling::getTermRole(r), NLException);
+  override->destroy();
+  EXPECT_EQ(Role::Other, Modeling::getTermRole(r));
+  EXPECT_EQ(Role::AsyncReset, Modeling::getTermRole(reset));
+  EXPECT_THROW(Modeling::setRolesFromParameters(nullptr, {"mode"}, table), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(top, {"mode"}, table), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {}, table), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode"}, {}), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"absent"}, table), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode", "mode"}, table), NLException);
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode", "extra"}, table), NLException);
+  auto invalid = table;
+  invalid.begin()->second[reset] = {static_cast<Role>(999), Level::NA};
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode"}, invalid), NLException);
+  invalid.begin()->second[reset] = {Role::Other, static_cast<Level>(999)};
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode"}, invalid), NLException);
+  invalid.clear();
+  invalid[{0}][nullptr] = {};
+  EXPECT_THROW(Modeling::setRolesFromParameters(model, {"mode"}, invalid), NLException);
+  EXPECT_EQ(Role::Other, Modeling::getTermRole(r));
+  EXPECT_FALSE(Modeling::hasRolesFromParameters(nullptr));
+}

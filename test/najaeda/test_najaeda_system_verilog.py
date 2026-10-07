@@ -58,9 +58,9 @@ endmodule
                     reset = memories[0].getScalarTerm("RST")
                     self.assertIsNotNone(reset)
                     self.assertEqual(naja.SNLTermRole.SyncReset, reset.getRole())
-                    self.assertTrue(reset.is_reset())
-                    self.assertTrue(reset.is_sync_reset())
-                    self.assertFalse(reset.is_async_reset())
+                    self.assertTrue(reset.isReset())
+                    self.assertTrue(reset.isSyncReset())
+                    self.assertFalse(reset.isAsyncReset())
                     self.assertEqual(level, reset.getResetActiveLevel())
 
     def test_system_verilog_config_diagnostics_default(self):

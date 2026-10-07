@@ -729,6 +729,61 @@ class Term:
         else:
             return snlterm.getBusTermBit(self.bit)
 
+    def __get_role_term(self):
+        term = self.get_snl_term()
+        if not isinstance(term, naja.SNLBitTerm):
+            raise ValueError("Term roles require a scalar term or a bus bit")
+        path = get_snl_path_from_id_list(self.pathIDs)
+        return path.getTailInstance().getInstTerm(term) if path.size() else term
+
+    def get_role(self):
+        """Return the term role, resolved using this instance's parameters."""
+        return self.__get_role_term().getRole()
+
+    def get_reset_active_level(self):
+        """Return the resolved reset/set active level, or SNLActiveLevel.NA."""
+        return self.__get_role_term().getResetActiveLevel()
+
+    def is_clock(self) -> bool:
+        """Return whether this bit term is a clock in its instance context."""
+        return self.__get_role_term().isClock()
+
+    def is_async_reset(self) -> bool:
+        """Return whether this bit term is an asynchronous reset."""
+        return self.__get_role_term().isAsyncReset()
+
+    def is_async_set(self) -> bool:
+        """Return whether this bit term is an asynchronous set."""
+        return self.__get_role_term().isAsyncSet()
+
+    def is_sync_reset(self) -> bool:
+        """Return whether this bit term is a synchronous reset."""
+        return self.__get_role_term().isSyncReset()
+
+    def is_sync_set(self) -> bool:
+        """Return whether this bit term is a synchronous set."""
+        return self.__get_role_term().isSyncSet()
+
+    def is_reset(self) -> bool:
+        """Return whether this bit term is an asynchronous or synchronous reset."""
+        return self.__get_role_term().isReset()
+
+    def is_enable(self) -> bool:
+        """Return whether this bit term is an enable."""
+        return self.__get_role_term().isEnable()
+
+    def is_data_input(self) -> bool:
+        """Return whether this bit term carries input data."""
+        return self.__get_role_term().isDataInput()
+
+    def is_data_output(self) -> bool:
+        """Return whether this bit term carries output data."""
+        return self.__get_role_term().isDataOutput()
+
+    def is_data(self) -> bool:
+        """Return whether this bit term carries input or output data."""
+        return self.__get_role_term().isData()
+
     def is_bus(self) -> bool:
         """
         :return: True if the term is a bus.

@@ -207,13 +207,13 @@ static PyObject* PyNLDB_loadNajaIF(PyObject*, PyObject* args) {
 
 PyObject* PyNLDB_snapshotManifest(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:naja.snapshot_manifest", &arg)) {
-    setError("malformed naja snapshot_manifest");
+  if (not PyArg_ParseTuple(args, "O:naja.snapshotManifest", &arg)) {
+    setError("malformed naja snapshotManifest");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     std::ostringstream oss;
-    oss << "naja snapshot_manifest argument should be a file path, got: "
+    oss << "naja snapshotManifest argument should be a file path, got: "
       << getStringForPyObject(arg);
     setError(oss.str());
     return nullptr;

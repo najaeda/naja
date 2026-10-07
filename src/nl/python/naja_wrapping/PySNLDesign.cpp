@@ -10,6 +10,7 @@
 #include "PyNLDB.h"
 #include "PyNLLibrary.h"
 
+#include "PySNLBitTerm.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBundleTerm.h"
 #include "PySNLBusTerm.h"
@@ -740,7 +741,101 @@ GetContainerMethod(SNLDesign, SNLAttribute, SNLAttributes, Attributes)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
+static PyObject* PySNLDesign_hasRolesFromParameters(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.hasRolesFromParameters()")
+  return PyBool_FromLong(SNLDesignModeling::hasRolesFromParameters(selfObject));
+}
+
+static PyObject* PySNLDesign_setRolesFromParameters(
+    PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+  METHOD_HEAD("SNLDesign.setRolesFromParameters()")
+  PyObject* parametersObject = nullptr;
+  PyObject* rolesObject = nullptr;
+  static const char* const keywords[] = {"parameters", "roles", nullptr};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", const_cast<char**>(keywords),
+      &parametersObject, &rolesObject)) return nullptr;
+  const std::string context = "SNLDesign.setRolesFromParameters: " + selfObject->getDescription();
+  auto fail = [&context](const std::string& detail) {
+    setError(context + ": " + detail);
+    return static_cast<PyObject*>(nullptr);
+  };
+  if (!PyList_Check(parametersObject) || !PyList_Check(rolesObject)) {
+    return fail("parameters and roles must be lists");
+  }
+  TRY
+  std::vector<std::string> parameters;
+  for (Py_ssize_t i = 0; i < PyList_Size(parametersObject); ++i) {
+    auto* name = PyList_GetItem(parametersObject, i);
+    if (!PyUnicode_Check(name)) return fail("parameter names must be strings");
+    const char* text = PyUnicode_AsUTF8(name);
+    if (!text) return nullptr;
+    parameters.emplace_back(text);
+  }
+  SNLDesignModeling::TermRoleTable table;
+  for (Py_ssize_t i = 0; i < PyList_Size(rolesObject); ++i) {
+    const auto field = "roles[" + std::to_string(i) + "]: ";
+    auto* entry = PyList_GetItem(rolesObject, i);
+    if (!PyDict_Check(entry)) return fail(field + "expected a dictionary with values and roles");
+    auto* valuesObject = PyDict_GetItemString(entry, "values");
+    auto* mapping = PyDict_GetItemString(entry, "roles");
+    if (!valuesObject || !PyList_Check(valuesObject) || !mapping || !PyDict_Check(mapping)) {
+      return fail(field + "expected values list and roles dictionary");
+    }
+    std::vector<uint64_t> values;
+    for (Py_ssize_t j = 0; j < PyList_Size(valuesObject); ++j) {
+      auto* value = PyList_GetItem(valuesObject, j);
+      if (!PyLong_Check(value)) return fail(field + "values must be unsigned 64-bit integers");
+      values.push_back(PyLong_AsUnsignedLongLong(value));
+      if (PyErr_Occurred()) return nullptr;
+    }
+    SNLDesignModeling::TermRoles roles;
+    PyObject* termObject = nullptr;
+    PyObject* roleObject = nullptr;
+    Py_ssize_t position = 0;
+    while (PyDict_Next(mapping, &position, &termObject, &roleObject)) {
+      if (!IsPySNLBitTerm(termObject) || !PYSNLBitTerm_O(termObject)) {
+        return fail(field + "roles keys must be live SNLBitTerm objects");
+      }
+      if (PYSNLBitTerm_O(termObject)->getDesign() != selfObject) {
+        return fail(field + "role term must belong to the destination primitive");
+      }
+      SNLDesignModeling::TermRole role;
+      if (roleObject != Py_None) {
+        if (!PyTuple_Check(roleObject) || PyTuple_Size(roleObject) != 2) {
+          return fail(field + "role must be None or (SNLTermRole, SNLActiveLevel)");
+        }
+        auto* roleValue = PyTuple_GetItem(roleObject, 0);
+        auto* levelValue = PyTuple_GetItem(roleObject, 1);
+        if (!PyLong_Check(roleValue) || !PyLong_Check(levelValue)) {
+          return fail(field + "expected integer SNLTermRole and SNLActiveLevel values");
+        }
+        const auto roleNumber = PyLong_AsLong(roleValue);
+        if (PyErr_Occurred()) return nullptr;
+        const auto levelNumber = PyLong_AsLong(levelValue);
+        if (PyErr_Occurred()) return nullptr;
+        if (roleNumber < 0 || roleNumber > static_cast<long>(SNLDesignModeling::SNLTermRole::ScanEnable) ||
+            levelNumber < 0 || levelNumber > static_cast<long>(SNLDesignModeling::SNLActiveLevel::NA)) {
+          return fail(field + "invalid SNLTermRole or SNLActiveLevel");
+        }
+        role.role = static_cast<SNLDesignModeling::SNLTermRole>(roleNumber);
+        role.activeLevel = static_cast<SNLDesignModeling::SNLActiveLevel>(levelNumber);
+      }
+      roles.emplace(PYSNLBitTerm_O(termObject), role);
+    }
+    if (!table.emplace(std::move(values), std::move(roles)).second) {
+      return fail(field + "duplicate parameter values");
+    }
+  }
+  SNLDesignModeling::setRolesFromParameters(selfObject, parameters, table);
+  NLCATCH
+  Py_RETURN_NONE;
+}
+
 PyMethodDef PySNLDesign_Methods[] = {
+  {"setRolesFromParameters", (PyCFunction)PySNLDesign_setRolesFromParameters,
+    METH_VARARGS | METH_KEYWORDS, "set parameter-dependent primitive term roles."},
+  {"hasRolesFromParameters", (PyCFunction)PySNLDesign_hasRolesFromParameters,
+    METH_NOARGS, "whether parameter-dependent term roles are declared."},
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
   { "getID", (PyCFunction)PySNLDesign_getID, METH_NOARGS,
