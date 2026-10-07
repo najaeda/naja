@@ -292,6 +292,13 @@ multiplication, equality/inequality and concatenation. Static
 and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
 ``std_logic_signed`` vector addition, subtraction, multiplication and
 equality/inequality are also supported.
+Addition and subtraction use canonical ``naja_fa`` full adders, as in the
+SystemVerilog frontend. Multiplication forms partial products and accumulates
+them with the same full adders; zero partial products and the first accumulation
+need no adder. Supported ``std_logic_unsigned`` addition and subtraction use
+full adders too, including sources that also import ``std_logic_arith``.
+VHDL signal wiring can retain explicit Assign
+primitives; traverse Assigns when comparing arithmetic connectivity.
 Explicit binary signal initializers on locally clocked registers are preserved
 as DFF ``INIT`` parameters.
 

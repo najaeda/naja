@@ -113,6 +113,31 @@ architecture rtl of inverter is begin y <= not a; end;
         db.loadVHDL("input.vhd")
     self.assertEqual(len(list(db.getLibraries())), 0)
 
+  def testVHDLAndSystemVerilogFullAdders(self):
+    sources = {
+      ".vhd": """library ieee; use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+entity add4 is port(a, b : in unsigned(3 downto 0); s : out unsigned(3 downto 0)); end;
+architecture rtl of add4 is begin s <= a + b; end;
+""",
+      ".v": "module add4(input [3:0] a, b, output [3:0] s); assign s = a + b; endmodule"
+    }
+    for suffix, source in sources.items():
+      with self.subTest(frontend=suffix):
+        db = naja.NLDB.create(naja.NLUniverse.get())
+        with tempfile.NamedTemporaryFile(mode="w", suffix=suffix) as hdl:
+          hdl.write(source)
+          hdl.flush()
+          if suffix == ".vhd":
+            with warnings.catch_warnings():
+              warnings.simplefilter("ignore", RuntimeWarning)
+              top = db.loadVHDL(hdl.name, diagnostics_report_path=None)
+          else:
+            top = db.loadSystemVerilog([hdl.name], diagnostics_report_path=None)
+        arithmetic = [i for i in top.getInstances() if not i.getModel().isAssign()]
+        self.assertEqual([i.getModel().getName() for i in arithmetic], ["naja_fa"] * 4)
+        db.destroy()
+
   def testVHDLWarningReport(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with tempfile.TemporaryDirectory() as directory:

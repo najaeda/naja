@@ -1889,15 +1889,25 @@ class RTLConstructor {
   }
 
   Bits add(const Bits& left, const Bits& right, bool subtract) {
+    const auto cacheKey = std::make_tuple(left, right, subtract);
+    if (const auto found = adders_.find(cacheKey); found != adders_.end()) return found->second;
     Bits result(left.size());
     auto* carry = constant(subtract);
     for (size_t i = left.size(); i; --i) {
       auto* a = left[i - 1];
       auto* b = subtract ? gate("not", right[i - 1]) : right[i - 1];
-      auto* ab = gate("xor", a, b);
-      result[i - 1] = gate("xor", ab, carry);
-      carry = gate("or", gate("and", a, b), gate("and", ab, carry));
+      auto* sum = SNLScalarNet::create(design_);
+      auto* carryOut = SNLScalarNet::create(design_);
+      auto* instance = SNLInstance::create(design_, NLDB0::getFA());
+      instance->getInstTerm(NLDB0::getFAInputA())->setNet(a);
+      instance->getInstTerm(NLDB0::getFAInputB())->setNet(b);
+      instance->getInstTerm(NLDB0::getFAInputCI())->setNet(carry);
+      instance->getInstTerm(NLDB0::getFAOutputS())->setNet(sum);
+      instance->getInstTerm(NLDB0::getFAOutputCO())->setNet(carryOut);
+      result[i - 1] = sum;
+      carry = carryOut;
     }
+    adders_.emplace(cacheKey, result);
     return result;
   }
 
@@ -2079,11 +2089,18 @@ class RTLConstructor {
   Bits multiply(const Bits& left, const Bits& right) {
     const auto width = left.size();
     Bits result(width, constant(false));
+    bool accumulated = false;
     for (size_t shift = 0; shift < width; ++shift) {
+      if (constantValue(right[width - 1 - shift]) == false) continue;
       Bits row(width, constant(false));
       for (size_t i = shift; i < width; ++i)
         row[width - 1 - i] = gate("and", left[width - 1 - i + shift], right[width - 1 - shift]);
-      result = add(result, row, false);
+      if (std::all_of(row.begin(), row.end(), [&](auto* bit) {
+            return constantValue(bit) == false;
+          })) continue;
+      // Match SV: the first nonzero partial product needs no addition.
+      result = accumulated ? add(result, row, false) : std::move(row);
+      accumulated = true;
     }
     return result;
   }
@@ -2326,16 +2343,8 @@ class RTLConstructor {
         } else if (arithmetic) {
           if (!left.shape.integerWidth && !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
             fail("arithmetic requires integer or std_logic_unsigned operands");
-          auto* carry = constant(expr.text == "-");
           value.shape = left.shape;
-          value.bits.resize(left.bits.size());
-          for (size_t i = left.bits.size(); i; --i) {
-            auto* a = left.bits[i - 1];
-            auto* b = expr.text == "-" ? gate("not", right.bits[i - 1]) : right.bits[i - 1];
-            auto* ab = gate("xor", a, b);
-            value.bits[i - 1] = gate("xor", ab, carry);
-            carry = gate("or", gate("and", a, b), gate("and", ab, carry));
-          }
+          value.bits = add(left.bits, right.bits, expr.text == "-");
         } else {
           if (left.shape.ranges.size() > 1 || left.shape.integerWidth || !left.shape.fields.empty())
             fail("bitwise operators require scalar logic, boolean or logic vectors");
@@ -2818,6 +2827,7 @@ class RTLConstructor {
   std::vector<std::pair<std::string, Object>> generatedObjects_;
   std::map<std::string, Memory> memories_;
   std::map<std::pair<std::string, Bits>, SNLBitNet*> gates_;
+  std::map<std::tuple<Bits, Bits, bool>, Bits> adders_;
   std::map<std::tuple<SNLBitNet*, Bits, Bits>, Bits> muxes_;
   std::map<std::pair<SNLDesign*, Bits>, Bits> tables_;
   std::set<SNLBitNet*> drivers_, reads_;
@@ -2839,7 +2849,9 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   const auto rtlContext = [](const vhdl::ContextClause& context) {
     return std::any_of(context.uses.begin(), context.uses.end(), [](const auto& use) {
       return use.selectedName.size() == 3 && (key(use.selectedName[0]) != "ieee" ||
-          key(use.selectedName[1]) == "std_logic_signed");
+          key(use.selectedName[1]) == "std_logic_signed" ||
+          key(use.selectedName[1]) == "std_logic_unsigned" ||
+          key(use.selectedName[1]) == "std_logic_arith");
     });
   };
   for (const auto& entity : syntax.entities) {
