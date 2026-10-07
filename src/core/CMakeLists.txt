@@ -37,6 +37,8 @@ set(SOURCES
   NajaUtils.cpp
   NajaProperty.cpp
   NajaPrivateProperty.cpp
+  NajaSharedProperty.cpp
+  NajaRelationProperty.cpp
   NajaDumpableProperty.cpp
   NajaPerf.cpp
   NajaLog.cpp
@@ -45,7 +47,7 @@ set(SOURCES
 set(NAJA_CORE_HEADERS
   NajaObject.h
   NajaCollection.h
-  NajaProperty.h NajaPrivateProperty.h
+  NajaProperty.h NajaPrivateProperty.h NajaSharedProperty.h NajaRelationProperty.h
   NajaDumpableProperty.h
   NajaException.h
   NajaPerf.h

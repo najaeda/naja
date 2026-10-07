@@ -44,7 +44,7 @@ class NLIDTest(unittest.TestCase):
     fields = nlid.toTuple()
     self.assertEqual(7, len(fields))
     self.assertEqual(nlid, naja.NLID(*fields))
-    self.assertEqual(nlid, naja.NLID.from_string(str(nlid)))
+    self.assertEqual(nlid, naja.NLID.fromString(str(nlid)))
     self.assertEqual(str(nlid), repr(nlid))
 
   def assertNLIDConstructorError(self, fields, message):
@@ -105,23 +105,23 @@ class NLIDTest(unittest.TestCase):
 
   def test_from_string_rejects_invalid_input(self):
     with self.assertRaises(RuntimeError) as context:
-      naja.NLID.from_string(1)
-    self.assertEqual("NLID.from_string expects a string", str(context.exception))
+      naja.NLID.fromString(1)
+    self.assertEqual("NLID.fromString expects a string", str(context.exception))
 
     for value in ("", "not-an-nlid", "NLID(1:2:3:4:5:6:7"):
       with self.subTest(value=value):
         with self.assertRaises(RuntimeError) as context:
-          naja.NLID.from_string(value)
+          naja.NLID.fromString(value)
         self.assertEqual(
-          "NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)",
+          "NLID.fromString expects NLID(t:db:lib:design:object:instance:bit)",
           str(context.exception))
 
     for value in ("NLID(1:2:3:4:5:6)", "NLID(1:2:3:4:5:6:7:8)", "NLID(1,2:3:4:5:6:7)"):
       with self.subTest(value=value):
         with self.assertRaises(RuntimeError) as context:
-          naja.NLID.from_string(value)
+          naja.NLID.fromString(value)
         self.assertEqual(
-          "NLID.from_string expects NLID(t:db:lib:design:object:instance:bit)",
+          "NLID.fromString expects NLID(t:db:lib:design:object:instance:bit)",
           str(context.exception))
 
   def test_value_semantics_and_get_object(self):

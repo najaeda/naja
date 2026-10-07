@@ -17,6 +17,8 @@ cc_test(
     name = "najaCoreTests",
     srcs = [
         "NajaPrivatePropertyTest.cpp",
+        "NajaSharedPropertyTest.cpp",
+        "NajaRelationPropertyTest.cpp",
         "NajaPerfTests.cpp",
         "NajaLogTests.cpp",
     ],

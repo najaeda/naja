@@ -14,8 +14,8 @@ class SNLDesignCloneTest1(unittest.TestCase):
     i0 = naja.SNLScalarTerm.create(self.design, naja.SNLTerm.Direction.Input, "I0")
     i1 = naja.SNLBusTerm.create(self.design, naja.SNLTerm.Direction.Input, -5, 4, "I1")
     o = naja.SNLScalarTerm.create(self.design, naja.SNLTerm.Direction.Output, "O")
-    p0 = naja.SNLParameter.create_string(self.design, "P0", "Hello")
-    p1 = naja.SNLParameter.create_decimal(self.design, "P1", 42)
+    p0 = naja.SNLParameter.createString(self.design, "P0", "Hello")
+    p1 = naja.SNLParameter.createDecimal(self.design, "P1", 42)
 
   def tearDown(self):
     del self.design

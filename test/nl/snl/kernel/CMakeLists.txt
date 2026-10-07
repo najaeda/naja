@@ -21,6 +21,7 @@ SET(snl_tests
   SNLAttributesTest.cpp
   SNLRTLInfosTest.cpp
   SNLMergeAssignsTest.cpp
+  NLClockTest.cpp
   SNLUtilsTest.cpp
 )
 

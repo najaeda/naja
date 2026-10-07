@@ -248,10 +248,10 @@ class SNLDesignTest(unittest.TestCase):
     top = naja.SNLDesign.create(self.lib, "TOP")
     instance = naja.SNLInstance.create(top, design, "inst")
     cases = [
-      (naja.SNLParameter.create_decimal, (), 0, "0"),
-      (naja.SNLParameter.create_binary, (8,), 0, "0"),
-      (naja.SNLParameter.create_boolean, (), False, "0"),
-      (naja.SNLParameter.create_string, (), "", ""),
+      (naja.SNLParameter.createDecimal, (), 0, "0"),
+      (naja.SNLParameter.createBinary, (8,), 0, "0"),
+      (naja.SNLParameter.createBoolean, (), False, "0"),
+      (naja.SNLParameter.createString, (), "", ""),
     ]
     for index, (creator, args, default, expected) in enumerate(cases):
       name = "P" + str(index)
@@ -275,10 +275,10 @@ class SNLDesignTest(unittest.TestCase):
     design = naja.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
 
-    p0 = naja.SNLParameter.create_decimal(design, "REG", 34)
-    p1 = naja.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
-    p2 = naja.SNLParameter.create_string(design, "MODE", "DEFAULT")
-    p3 = naja.SNLParameter.create_boolean(design, "INVERTED", True)
+    p0 = naja.SNLParameter.createDecimal(design, "REG", 34)
+    p1 = naja.SNLParameter.createBinary(design, "INIT", 16, 0x0000)
+    p2 = naja.SNLParameter.createString(design, "MODE", "DEFAULT")
+    p3 = naja.SNLParameter.createBoolean(design, "INVERTED", True)
     self.assertIsNotNone(p0)
     self.assertEqual("REG", p0.getName())
     self.assertEqual(design, p0.getDesign())
@@ -328,33 +328,33 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsNotNone(self.lib)
     d = naja.SNLDesign.create(self.lib, "DESIGN")
     n = naja.SNLScalarNet.create(d, "net")
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_decimal(d)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_binary(d)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_string(d)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_boolean(d)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createDecimal(d)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBinary(d)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createString(d)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBoolean(d)
 
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_decimal(n, "ERROR", 10)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_binary(n, "ERROR", 4, 0)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_string(n, "ERROR", "ERROR")
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_boolean(n, "ERROR", False)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createDecimal(n, "ERROR", 10)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBinary(n, "ERROR", 4, 0)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createString(n, "ERROR", "ERROR")
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBoolean(n, "ERROR", False)
 
   def testParameterClashErrors(self):
     self.assertIsNotNone(self.lib)
     design = naja.SNLDesign.create(self.lib, "DESIGN")
     self.assertFalse(design.isSequential())
     self.assertIsNotNone(design)
-    p0 = naja.SNLParameter.create_decimal(design, "REG", 34)
-    p1 = naja.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
-    p2 = naja.SNLParameter.create_string(design, "MODE", "DEFAULT")
-    p3 = naja.SNLParameter.create_boolean(design, "INVERTED", True)
+    p0 = naja.SNLParameter.createDecimal(design, "REG", 34)
+    p1 = naja.SNLParameter.createBinary(design, "INIT", 16, 0x0000)
+    p2 = naja.SNLParameter.createString(design, "MODE", "DEFAULT")
+    p3 = naja.SNLParameter.createBoolean(design, "INVERTED", True)
     self.assertIsNotNone(p0)
     self.assertIsNotNone(p1)
     self.assertIsNotNone(p2)
     self.assertIsNotNone(p3)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_decimal(design, "REG", 34)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_string(design, "MODE", "DEFAULT")
-    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.create_boolean(design, "INVERTED", True)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createDecimal(design, "REG", 34)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBinary(design, "INIT", 16, 0x0000)
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createString(design, "MODE", "DEFAULT")
+    with self.assertRaises(RuntimeError) as context: naja.SNLParameter.createBoolean(design, "INVERTED", True)
 
   def testSetTopErrors(self):
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().setTopDesign(self.lib)

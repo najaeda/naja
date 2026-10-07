@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PyNLDB.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 
 #include <Python.h>
 #include <filesystem>
@@ -207,13 +209,13 @@ static PyObject* PyNLDB_loadNajaIF(PyObject*, PyObject* args) {
 
 PyObject* PyNLDB_snapshotManifest(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:naja.snapshot_manifest", &arg)) {
-    setError("malformed naja snapshot_manifest");
+  if (not PyArg_ParseTuple(args, "O:naja.snapshotManifest", &arg)) {
+    setError("malformed naja snapshotManifest");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     std::ostringstream oss;
-    oss << "naja snapshot_manifest argument should be a file path, got: "
+    oss << "naja snapshotManifest argument should be a file path, got: "
       << getStringForPyObject(arg);
     setError(oss.str());
     return nullptr;
@@ -867,6 +869,7 @@ GetObjectMethod(NLDB, SNLDesign, getTopDesign)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, Libraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, GlobalLibraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, PrimitiveLibraries)
+GetContainerMethod(NLDB, NLClock*, NLClocks, Clocks)
 
 static PyObject* PyNLDB_destroy(PyNLDB* self) {
   TRY
@@ -896,6 +899,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "get the NLID."},
   { "isTopDB", (PyCFunction)PyNLDB_isTopDB, METH_NOARGS,
     "Returns True if the NLDB is the top DB."},
+  { "getClocks", (PyCFunction)PyNLDB_getClocks, METH_NOARGS,
+    "get a container of every NLClock defined in the designs of this NLDB."},
   { "getTopDesign", (PyCFunction)PyNLDB_getTopDesign, METH_NOARGS,
     "get the top design."},
   { "loadNajaIF", (PyCFunction)PyNLDB_loadNajaIF, METH_VARARGS | METH_STATIC,

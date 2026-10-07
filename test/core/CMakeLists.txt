@@ -6,6 +6,8 @@ INCLUDE(GoogleTest)
 
 SET(core_tests
     NajaPrivatePropertyTest.cpp
+    NajaSharedPropertyTest.cpp
+    NajaRelationPropertyTest.cpp
     NajaPerfTests.cpp
     NajaLogTests.cpp
 )

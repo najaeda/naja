@@ -90,7 +90,7 @@ class NajaNetlistTest0(unittest.TestCase):
         i2 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I2")
         i3 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I3")
         q = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Output, "Q")
-        naja.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
+        naja.SNLParameter.createBinary(lut4, "INIT", 16, 0x0000)
         netlist.load_verilog(design_files)
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)

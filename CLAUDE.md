@@ -20,6 +20,20 @@ This is a large codebase (~1500 files). A graphify knowledge graph makes orienti
 
 **Keeping it fresh (only if you already have a graph):** after a non-trivial change, `/graphify . --update` re-extracts just the changed files so future queries stay accurate.
 
+## Local research inputs
+
+Machine-local papers and implementation notes may be present under
+`internal/`, which is gitignored. Before implementing a feature, check
+`internal/design/` for a relevant design note and `internal/papers/README.md`
+for its research sources.
+
+Treat the design note as the implementation contract. A paper is supporting
+evidence, not a requirement to implement every idea it contains. When adding a
+paper, catalog it and create or update a design note with exact sections,
+Naja-specific mappings, non-goals, verification criteria, and unresolved
+questions. Do not commit or redistribute papers unless their license permits
+it.
+
 ## What Naja is
 
 Open-source EDA framework for hardware design loading and transformation — from Verilog and SystemVerilog RTL elaboration through structural netlist analysis, optimization, and editing. Usable from C++ and Python (`najaeda`). See [README.md](README.md) for the public overview.
@@ -53,7 +67,7 @@ deserialized into a truncated or otherwise incorrect netlist.
   of both producer values with `naja::NAJA_VERSION` and
   `naja::NAJA_GIT_HASH`. A mismatch, or a legacy manifest without `P`, throws
   `SNLDumpException`; callers must regenerate the snapshot.
-- `naja.snapshot_manifest(path)` reads only `snl.mf` and returns
+- `naja.snapshotManifest(path)` reads only `snl.mf` and returns
   `schema_version`, `producer_version`, and `producer_git_hash`, without
   creating an `NLUniverse` or loading payloads.
 - This exact-build producer gate is deliberately temporary and conservative.
