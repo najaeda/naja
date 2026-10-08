@@ -226,6 +226,52 @@ endmodule
         self.assertEqual(
             "naja_sv_diagnostics.log", config.diagnostics_report_path)
 
+    def test_system_verilog_config_single_unit_validation(self):
+        self.assertFalse(netlist.SystemVerilogConfig().single_unit)
+        for value in ("true", 1, None):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(
+                        TypeError, r"SystemVerilogConfig\.single_unit must be a bool"):
+                    netlist.SystemVerilogConfig(single_unit=value)
+        config = netlist.SystemVerilogConfig()
+        config.single_unit = "true"
+        with self.assertRaisesRegex(
+                TypeError, r"SystemVerilogConfig\.single_unit must be a bool"):
+            netlist.load_system_verilog([], config)
+
+    def test_load_system_verilog_cross_file_macros(self):
+        with tempfile.TemporaryDirectory() as directory:
+            defs = os.path.join(directory, "defs.sv")
+            use = os.path.join(directory, "use.sv")
+            flist_path = os.path.join(directory, "sources.f")
+            with open(defs, "w", encoding="utf-8") as source:
+                source.write("`define CHECK(x) assign x = 1'b1;\n")
+            with open(use, "w", encoding="utf-8") as source:
+                source.write("module macro_top(output logic o); `CHECK(o) endmodule\n")
+            with open(flist_path, "w", encoding="utf-8") as flist:
+                flist.write(f"{defs}\n{use}\n")
+            for use_flist in (False, True):
+                for single_unit in (False, True):
+                    for top_name in (None, "macro_top"):
+                        with self.subTest(flist=use_flist, single_unit=single_unit,
+                                          top=top_name):
+                            netlist.reset()
+                            config = netlist.SystemVerilogConfig(
+                                single_unit=single_unit, top=top_name,
+                                flist=flist_path if use_flist else None,
+                                diagnostics_report_path=None,
+                                keep_assigns=False)
+                            files = [] if use_flist else [defs, use]
+                            if single_unit:
+                                top = netlist.load_system_verilog(files, config)
+                                self.assertEqual("macro_top", top.get_model_name())
+                                self.assertTrue(top.get_term("o").get_lower_net().is_const1())
+                            else:
+                                with self.assertRaisesRegex(
+                                        naja.SystemVerilogSyntaxError,
+                                        "unknown macro or compiler directive '`CHECK'"):
+                                    netlist.load_system_verilog(files, config)
+
     def test_load_system_verilog(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         top = netlist.load_system_verilog(design_files)

@@ -63,6 +63,22 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+Each source file is a separate compilation unit by default
+(``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
+in earlier files without including their definitions, set ``single_unit=True``.
+This enables slang's ``--single-unit`` mode: files share a compilation unit and
+preprocessor macros remain visible to later files in source order. Place macro
+definitions before their uses. The option also applies to sources supplied
+through ``flist`` and can be combined with ``top`` selection.
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(single_unit=True)
+   top = netlist.load_system_verilog(["defs.sv", "use.sv"], config)
+
+   config = netlist.SystemVerilogConfig(single_unit=True, flist="sources.f")
+   top = netlist.load_system_verilog([], config)
+
 Direct nonblocking indexed writes from multiple clocked processes now infer one
 shared ``naja_mem`` primitive, including different clocks and true dual-port RAMs
 with a shared clock. Each write action carries its own clock, enable, address,

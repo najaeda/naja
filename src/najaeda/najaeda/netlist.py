@@ -2119,6 +2119,8 @@ class SystemVerilogConfig:
     blackbox_unknown_modules: bool = False
     # Omit the entire module body if a memory has unsupported multiple writers.
     blackbox_multi_writer_memories: bool = False
+    # Share preprocessor macros across source files in input order.
+    single_unit: bool = False
 
     def __post_init__(self):
         self.validate()
@@ -2130,7 +2132,8 @@ class SystemVerilogConfig:
                 "include_source_info_in_elaborated_ast_json",
                 "keep_ast_link",
                 "blackbox_unknown_modules",
-                "blackbox_multi_writer_memories"):
+                "blackbox_multi_writer_memories",
+                "single_unit"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2282,7 +2285,9 @@ def load_system_verilog(
     """Load SystemVerilog files into the top design.
 
     :param files: a list of SystemVerilog files to load or a single file.
-    :param config: the configuration to use when loading the files.
+    :param config: the configuration to use when loading the files. Set
+        single_unit=True to share macros across files in source order,
+        including files supplied through flist (default: False).
     :param library: destination root library name (default "DESIGN").
     :return: the top Instance.
     :rtype: Instance
@@ -2325,17 +2330,19 @@ def load_system_verilog(
 
     effective_flist = config.flist
     temp_flist_path = None
-    if config.top is not None:
-        # Expose top selection at najaeda layer without changing the C++ API:
-        # build a temporary slang command file.
+    if config.top is not None or config.single_unit:
+        # Forward frontend options through a temporary slang command file.
         with tempfile.NamedTemporaryFile(
-                "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
-            temp_flist_path = top_flist.name
-            top_flist.write(f"--top {config.top}\n")
+                "w", suffix=".f", delete=False, encoding="utf-8") as options_flist:
+            temp_flist_path = options_flist.name
+            if config.top is not None:
+                options_flist.write(f"--top {config.top}\n")
+            if config.single_unit:
+                options_flist.write("--single-unit\n")
             if config.flist:
                 quoted_flist = os.fspath(config.flist).replace(
                     "\\", "\\\\").replace("\"", "\\\"")
-                top_flist.write(f"-f \"{quoted_flist}\"\n")
+                options_flist.write(f"-f \"{quoted_flist}\"\n")
         effective_flist = temp_flist_path
 
     try:
