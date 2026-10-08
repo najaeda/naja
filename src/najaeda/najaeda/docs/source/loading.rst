@@ -138,6 +138,19 @@ the frontend's two-state matching behavior; overlapping items retain source-orde
 priority. A result must be defined for every selector value; functions with an
 uncovered path are rejected.
 
+Combinational function input arguments can include fixed-size unpacked arrays
+of integral elements. Actuals may be local or package parameters, or unpacked
+variables; earlier blocking writes in a combinational block are visible to the
+call. Selected read/modify/write operations and implicit return-variable partial
+writes retain source-order semantics.
+
+Statically bounded ``foreach`` loops are unrolled in combinational and sequential
+blocks and function bodies. Packed and unpacked dimensions iterate in declared
+order (``[3:0]`` visits 3, 2, 1, 0; ``[0:3]`` visits 0, 1, 2, 3), with nested
+iteration for multiple indices and support for omitted indices. Named blocks
+and compound assignments use the same lowering as in ``for`` loops. Dynamically
+sized iterated dimensions are rejected; the unroll limit is 4096 body executions.
+
 Combinational procedural lowering supports compound shifts (``<<=``, ``>>=``,
 ``<<<=``, ``>>>=``), preserving the full shift-count width and signed arithmetic
 right-shift behavior. Blocking assignments earlier in the block are visible to
@@ -165,6 +178,17 @@ This path supports blocking or nonblocking assignments, but rejects mixing them
 on one variable, reading a variable written in the same block, dynamic targets,
 function calls, expression side effects, and timed assignments. Existing simple
 latch patterns retain their separate support.
+
+Input-only function calls capture actual argument bit values, including constant
+packed values and fixed unpacked arrays. Constant bits remain visible inside the
+function body, so bitwise AND with zero or one and XOR with zero fold during
+elaboration, including accumulators initialized with ``'0``. Argument binding and
+returned replay values do not require assign primitives. ``keep_assigns=True``
+retains source-level connections; it does not require copies at function-call
+boundaries. Set ``keep_assigns=False`` to merge remaining assign connections after
+elaboration. Function-local variables written by earlier loops are replayed
+before later loops read them, including partial writes and locally computed
+indices. These dependencies must remain driven in the returned netlist.
 
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
