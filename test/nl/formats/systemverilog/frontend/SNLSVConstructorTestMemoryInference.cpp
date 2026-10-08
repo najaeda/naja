@@ -12025,6 +12025,7 @@ endmodule
 )";
   SNLSVConstructor::ConstructOptions options;
   options.diagnosticsReportPath = directory / "diagnostics.log";
+  options.blackboxMultiWriterMemories = true;
   testing::internal::CaptureStderr();
   testing::internal::CaptureStdout();
   try {
@@ -12042,6 +12043,7 @@ endmodule
   EXPECT_NE(std::string::npos, warnings.find("written from 4 sequential blocks"));
   auto* top = library_->getSNLDesign(NLName("writer_census"));
   ASSERT_NE(nullptr, top);
+  EXPECT_FALSE(top->isBlackBox());
   EXPECT_EQ(0u, countMemoryInstances(top));
   for (auto* net : top->getBitNets()) {
     EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
@@ -12362,4 +12364,175 @@ endmodule
   ASSERT_NE(nullptr, top);
   EXPECT_EQ(1u, countMemoryInstances(top));
   EXPECT_TRUE(collectUnsupportedMemoryBoundaryTerms(top).empty());
+}
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, independentWriteClockMemoryBehavior) {
+  for (const auto& variant : {"dual_clock", "shared_clock", "masked", "masked_shared", "ascending_mask", "priority", "negative_clock", "self_read", "wide_address", "signed_address", "three_writers", "request_gated"}) {
+    SCOPED_TRACE(variant);
+    const bool shared = std::string(variant) == "shared_clock" || std::string(variant) == "masked_shared";
+    const bool ascending = std::string(variant) == "ascending_mask";
+    const bool masked = std::string(variant) == "masked" ||
+      std::string(variant) == "masked_shared" || ascending;
+    const bool wide = std::string(variant) == "wide_address";
+    const bool signedAddress = std::string(variant) == "signed_address";
+    const bool threeWriters = std::string(variant) == "three_writers";
+    const bool requestGated = std::string(variant) == "request_gated";
+    const bool priority = std::string(variant) == "priority";
+    const bool negative = std::string(variant) == "negative_clock";
+    const bool selfRead = std::string(variant) == "self_read";
+    const auto name = std::string("dp_") + variant;
+    const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
+    std::filesystem::create_directories(directory);
+    const auto source = directory / "source.sv";
+    std::string rtl = R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module MODULE(input logic clk_a, clk_b, we_a, we_b, req_a, req_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b, input logic [1:0] mask_a, mask_b,
+              output logic [7:0] rd_a, rd_b);
+  logic [7:0] mem [8];
+  initial for (int i = 0; i < 8; i++) mem[i] = 8'h00;
+  always @(posedge clk_a) begin
+    WRITE_A
+    if (req_a) rd_a <= mem[addr_a];
+  end
+  always @(EDGE_B CLOCK_B) begin
+    WRITE_B
+    if (req_b) rd_b <= mem[addr_b];
+  end
+endmodule
+)";
+    auto replace = [](std::string& text, const std::string& token, const std::string& value) {
+      const auto pos = text.find(token);
+      ASSERT_NE(std::string::npos, pos);
+      text.replace(pos, token.size(), value);
+    };
+    replace(rtl, "MODULE", name);
+    replace(rtl, "CLOCK_B", shared ? "clk_a" : "clk_b");
+    replace(rtl, "EDGE_B", negative ? "negedge" : "posedge");
+    replace(rtl, "WRITE_A", masked
+      ? "if (we_a) for (int i = 0; i < 2; i = i + 1) if (mask_a[i]) mem[addr_a][i*4 +: 4] <= wd_a[i*4 +: 4];"
+      : priority
+        ? "if (we_a) begin mem[addr_a] <= wd_a; if (mask_a[0]) mem[addr_a][3:0] <= wd_a[3:0] ^ 4'hf; end"
+        : selfRead
+          ? "if (we_a) begin mem[addr_a] <= wd_a; mem[addr_a] <= mem[addr_a] + 8'd1; end"
+          : "if (we_a) mem[addr_a] <= wd_a;");
+    replace(rtl, "WRITE_B", masked
+      ? "if (we_b) for (int i = 0; i < 2; i++) if (mask_b[i]) mem[addr_b][i*4 +: 4] <= wd_b[i*4 +: 4];"
+      : "if (we_b) mem[addr_b] <= wd_b;");
+    if (wide || signedAddress)
+      replace(rtl, "input logic [2:0] addr_a, addr_b",
+        signedAddress ? "input logic signed [3:0] addr_a, addr_b" : "input logic [3:0] addr_a, addr_b");
+    if (ascending) {
+      replace(rtl, "logic [7:0] mem", "logic [0:7] mem");
+      replace(rtl, "rd_a <= mem[addr_a];", "rd_a <= {mem[addr_a][0 +: 4], mem[addr_a][4 +: 4]};");
+    }
+    if (requestGated) {
+      replace(rtl, "if (we_a) mem[addr_a] <= wd_a;\n    if (req_a) rd_a <= mem[addr_a];",
+        "if (req_a) begin if (we_a) mem[addr_a] <= wd_a; else rd_a <= mem[addr_a]; end");
+      replace(rtl, "if (we_b) mem[addr_b] <= wd_b;\n    if (req_b) rd_b <= mem[addr_b];",
+        "if (req_b) begin if (we_b) mem[addr_b] <= wd_b; else rd_b <= mem[addr_b]; end");
+    }
+    if (threeWriters) replace(rtl, "endmodule",
+      "always @(posedge clk_a) if (req_b) mem[addr_a + 1] <= wd_a ^ 8'h5a;\nendmodule");
+    std::ofstream(source) << rtl;
+    SNLSVConstructor constructor(library_);
+    SNLSVConstructor::ConstructOptions options;
+    options.diagnosticsReportPath = directory / "diagnostics.log";
+    constructor.construct(source, options);
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_FALSE(top->isBlackBox());
+    EXPECT_EQ(1u, countMemoryInstances(top));
+    auto* memory = top->getInstance(NLName("mem_mem"));
+    ASSERT_NE(nullptr, memory);
+    const auto signature = NLDB0::getMemorySignature(memory);
+    EXPECT_TRUE(signature.independentWriteClocks);
+    EXPECT_EQ(8u, signature.width);
+    EXPECT_EQ(8u, signature.depth);
+    EXPECT_EQ(masked ? 4u : (priority || selfRead || threeWriters ? 3u : 2u), signature.writePorts);
+    EXPECT_EQ(signature.writePorts, memory->getModel()->getBusTerm(NLName("WCLK"))->getWidth());
+    EXPECT_EQ(signature.width * signature.writePorts,
+      memory->getModel()->getBusTerm(NLName("WMASK"))->getWidth());
+    EXPECT_EQ(nullptr, top->getNet(NLName("mem")));
+    EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    EXPECT_TRUE(collectUnsupportedMemoryBoundaryTerms(top).empty());
+    const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+    const auto warnings = readTextFile(*options.diagnosticsReportPath);
+    EXPECT_NE(std::string::npos, warnings.find("multi_clock_memory_collision"));
+    EXPECT_EQ(std::string::npos, warnings.find("using generic sequential lowering"));
+    if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+        std::system("command -v vvp >/dev/null 2>&1") != 0) {
+      GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
+    }
+    auto goldenRTL = rtl;
+    replace(goldenRTL, "module " + name + "(", "module golden(");
+    const auto golden = dumped.parent_path() / "golden.sv";
+    std::ofstream(golden) << goldenRTL;
+    const auto tb = dumped.parent_path() / "tb.sv";
+    std::ofstream bench(tb);
+    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module tb;
+  reg clk_a = 0, clk_b = 0, we_a = 0, we_b = 0, req_a = 1, req_b = 1;
+  reg [)" << (wide || signedAddress ? 3 : 2) << R"(:0] addr_a = 0, addr_b = 1;
+  reg [7:0] wd_a = 0, wd_b = 0;
+  reg [1:0] mask_a = 0, mask_b = 0;
+  wire [7:0] rd_a, rd_b, golden_a, golden_b;
+)" << name << R"( dut(.*);
+  golden reference(.rd_a(golden_a), .rd_b(golden_b), .*);
+  task check;
+    begin
+      if (rd_a !== golden_a || rd_b !== golden_b)
+        $fatal(1, "read mismatch: got %h %h expected %h %h", rd_a, rd_b, golden_a, golden_b);
+    end
+  endtask
+  integer i;
+  initial begin
+    for (i = 0; i < 80; i = i + 1) begin
+      addr_a = i % 8; addr_b = (i + 3) % 8;
+      wd_a = i * 17 + 3; wd_b = i * 11 + 7;
+      we_a = i % 3 != 0; we_b = i % 4 != 0;
+      req_a = i % 5 != 0; req_b = i % 7 != 0;
+      mask_a = i % 4; mask_b = (i + 1) % 4;
+      #2; clk_a = 1; #2; check(); clk_a = 0;
+      #2; clk_b = 1; #2; check(); clk_b = 0; #2; check();
+    end
+)";
+    if (masked) {
+      // Independent writes to disjoint bits of the same word must both survive.
+      bench << R"(
+    addr_a = 2; addr_b = 2; mask_a = 1; mask_b = 2;
+    we_a = 1; we_b = 1; req_a = 1; req_b = 1;
+    wd_a = 8'h0a; wd_b = 8'hb0;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+    we_a = 0; we_b = 0;
+    #2; clk_a = 1; clk_b = 1; #2; check();
+    if (rd_a !== golden_a || rd_b !== golden_b) $fatal(1, "disjoint masks lost data");
+)";
+    }
+    if (wide || signedAddress) {
+      // Invalid full-width addresses must not alias a valid truncated address.
+      bench << R"(
+    addr_a = 8; addr_b = 9; we_a = 1; we_b = 1; req_a = 0; req_b = 0;
+    wd_a = 8'hff; wd_b = 8'hee;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+    addr_a = 0; addr_b = 1; we_a = 0; we_b = 0; req_a = 1; req_b = 1;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+)";
+    }
+    bench << "    $finish;\n  end\nendmodule\n";
+    bench.close();
+    const auto executable = dumped.parent_path() / "sim.out";
+    const auto quote = [](const std::filesystem::path& path) {
+      return "'" + path.string() + "'";
+    };
+    const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+      " " + quote(dumped) + " " + quote(golden) + " " + quote(tb) +
+      " " + quote(dumped.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(compile.c_str()));
+    const auto run = "vvp " + quote(executable);
+    ASSERT_EQ(0, std::system(run.c_str()));
+  }
 }

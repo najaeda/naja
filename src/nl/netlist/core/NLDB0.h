@@ -61,6 +61,8 @@ class NLDB0 {
       size_t          readPorts  {0};
       size_t          writePorts {0};
       MemoryResetMode resetMode  {MemoryResetMode::None};
+      /// Independent write clocks and per-bit masks; reads remain asynchronous.
+      bool independentWriteClocks {false};
 
       bool operator==(const MemorySignature& other) const {
         return width == other.width &&
@@ -68,7 +70,8 @@ class NLDB0 {
                abits == other.abits &&
                readPorts == other.readPorts &&
                writePorts == other.writePorts &&
-               resetMode == other.resetMode;
+               resetMode == other.resetMode &&
+               independentWriteClocks == other.independentWriteClocks;
       }
     };
 

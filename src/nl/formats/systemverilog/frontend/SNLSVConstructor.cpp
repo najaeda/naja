@@ -3423,7 +3423,15 @@ endmodule
           svPerfReport_.currentLoweringStep,
           "prepare_inferred_memories");
 #endif
-        validateMemoryWriters(design, memoryWriters);
+        if (!validateMemoryWriters(design, memoryWriters)) {
+          // Validation runs before any behavioral lowering. Remove internal
+          // nets as well, leaving a port-only model for the entire module.
+          std::vector<SNLNet*> nets;
+          for (auto* net : design->getNets()) nets.push_back(net);
+          for (auto* net : nets) net->destroy();
+          design->setType(SNLDesign::Type::UserBlackBox);
+          return design;
+        }
         prepareInferredMemories(design);
       }
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -3550,6 +3558,9 @@ endmodule
     }
 
     struct InferredMemoryWriteAction {
+      const slang::ast::ProceduralBlockSymbol* writerBlock {nullptr};
+      const slang::ast::Expression* clockExpr {nullptr};
+      bool negativeClock {false};
       const slang::ast::Expression* lhsExpr {nullptr};
       const slang::ast::Expression* selectorExpr {nullptr};
       const slang::ast::Expression* rhsExpr {nullptr};
@@ -3608,6 +3619,11 @@ endmodule
   private:
 
     struct InferredMemoryWritePort {
+      const slang::ast::ProceduralBlockSymbol* writerBlock {nullptr};
+      SNLBitNet* clockNet {nullptr};
+      std::vector<SNLBitNet*> maskBits {};
+      size_t bitOffset {0};
+      size_t bitWidth {0};
       const slang::ast::Expression* selectorExpr {nullptr};
       const slang::ast::Expression* rhsExpr {nullptr};
       SNLBusNet* addrNet {nullptr};
@@ -3625,6 +3641,7 @@ endmodule
       const slang::ast::ProceduralBlockSymbol* combBlock {nullptr};
       const slang::ast::ProceduralBlockSymbol* commitBlock {nullptr};
       const slang::ast::ProceduralBlockSymbol* seqBlock {nullptr};
+      std::vector<const slang::ast::ProceduralBlockSymbol*> writerBlocks {};
       const slang::ast::Expression* clockExpr {nullptr};
       const slang::ast::Expression* resetSignalExpr {nullptr};
       NLDB0::MemorySignature signature {};
@@ -5319,6 +5336,8 @@ endmodule
           if (selectionKind == slang::ast::RangeSelectionKind::IndexedDown) {
             lsbIndex -= static_cast<int64_t>(constantSliceWidth - 1);
           }
+          if (baseType.getFixedRange().left < baseType.getFixedRange().right)
+            lsbIndex += static_cast<int64_t>(constantSliceWidth - 1);
         } else {
           int32_t left = 0;
           int32_t right = 0;
@@ -5329,7 +5348,7 @@ endmodule
             return false;
             // LCOV_EXCL_STOP
           }
-          lsbIndex = std::min<int64_t>(left, right);
+          lsbIndex = right;
         }
 
         if (lsbIndex < std::numeric_limits<int32_t>::min() ||
@@ -6565,11 +6584,16 @@ endmodule
       return writers;
     }
 
-    void validateMemoryWriters(SNLDesign* design, const MemoryWriterCensus& writers) {
+    bool validateMemoryWriters(SNLDesign* design, const MemoryWriterCensus& writers) {
       // Generic lowering may share an array only when each block owns a
       // statically disjoint set of bits. Never return an ambiguous netlist.
       bool rejected = false;
       for (const auto& [symbol, blocks] : writers) {
+        const auto inferred = inferredMemoryByStateSymbol_.find(symbol);
+        if (inferred != inferredMemoryByStateSymbol_.end() &&
+            inferredMemories_[inferred->second].signature.independentWriteClocks) {
+          continue;
+        }
         if (blocks.size() < 2) {
           continue;
         }
@@ -6643,16 +6667,24 @@ endmodule
         }
         if (!supported) {
           rejected = true;
-          reportUnsupportedError(
-            "Memory '" + std::string(symbol->name) +
-              "': multiple sequential writers require disjoint constant selections; "
-              "overlapping or dynamic writes are unsupported",
-            getSourceRange(*symbol));
+          const auto reason = "Memory '" + std::string(symbol->name) +
+            "': multiple sequential writers require disjoint constant selections; "
+            "overlapping or dynamic writes are unsupported for this statement pattern";
+          if (options_.blackboxMultiWriterMemories) {
+            reportWarning(
+              "multi_writer_memory_blackbox",
+              reason + "; blackboxing entire module '" + design->getName().getString() +
+                "' with ports preserved; its internal behavior is omitted",
+              getSourceRange(*symbol));
+          } else {
+            reportUnsupportedError(reason, getSourceRange(*symbol));
+          }
         }
       }
-      if (rejected) {
+      if (rejected && !options_.blackboxMultiWriterMemories) {
         throwIfUnsupportedElements();
       }
+      return !rejected;
     }
 
     void collectDirectSequentialMemoryCandidates(
@@ -6719,7 +6751,8 @@ endmodule
       const slang::ast::ProceduralBlockSymbol& block,
       const slang::ast::ValueSymbol& stateSymbol,
       InferredMemory& memory,
-      std::string& failureReason) {
+      std::string& failureReason,
+      bool allowNegativeClock = false) {
       // Candidate analysis is transactional: all mutable analysis products
       // live in this local object and are committed to `memory` only after the
       // complete reset and write program has matched.
@@ -6748,7 +6781,8 @@ endmodule
       }
 
       auto clockEvent = getSequentialClockEventInfo(*timing, stmt);
-      if (!clockEvent || clockEvent->edge != slang::ast::EdgeKind::PosEdge) {
+      if (!clockEvent || (clockEvent->edge != slang::ast::EdgeKind::PosEdge &&
+          !(allowNegativeClock && clockEvent->edge == slang::ast::EdgeKind::NegEdge))) {
         return false;
       }
       const auto* clockExpr = clockEvent->expr;
@@ -6851,6 +6885,11 @@ endmodule
         candidate.initBits = std::move(initBits);
       }
       candidate.commitActionsByIndex.clear();
+      for (auto& action : directWriteActions) {
+        action.writerBlock = &block;
+        action.clockExpr = clockExpr;
+        action.negativeClock = clockEvent->edge == slang::ast::EdgeKind::NegEdge;
+      }
       candidate.directWriteActions = std::move(directWriteActions);
       candidate.sourceRange = getSourceRange(block);
       memory = std::move(candidate);
@@ -7148,13 +7187,25 @@ endmodule
       if (!current || current->kind != slang::ast::StatementKind::List) {
         return current;
       }
+      // Slang places a for-loop's initialized loop variable declaration
+      // immediately before the loop. Its initializer is consumed by the loop
+      // analysis, so it is not a second independent initial statement.
+      std::unordered_set<const Symbol*> loopVariables;
+      for (const auto* item : current->as<slang::ast::StatementList>().list) {
+        const Statement* candidate = item ? unwrapStatement(*item) : nullptr;
+        if (candidate && candidate->kind == slang::ast::StatementKind::ForLoop) {
+          for (const auto* variable : candidate->as<slang::ast::ForLoopStatement>().loopVars)
+            loopVariables.insert(variable);
+        }
+      }
       const Statement* only = nullptr;
       for (const auto* item : current->as<slang::ast::StatementList>().list) {
         const Statement* candidate = item ? unwrapStatement(*item) : nullptr;
         if (!candidate || candidate->kind == slang::ast::StatementKind::Empty ||
             (candidate->kind == slang::ast::StatementKind::VariableDeclaration &&
-             candidate->as<slang::ast::VariableDeclStatement>().symbol.getInitializer() ==
-               nullptr)) {
+             (candidate->as<slang::ast::VariableDeclStatement>().symbol.getInitializer() ==
+                nullptr || loopVariables.contains(
+                  &candidate->as<slang::ast::VariableDeclStatement>().symbol)))) {
           continue;
         }
         if (only) {
@@ -7500,6 +7551,79 @@ endmodule
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
 
       writerCensus = collectMemoryWriters(body);
+      for (const auto& [symbol, writers] : writerCensus) {
+        if (writers.size() < 2) continue;
+        const auto& stateType = symbol->getType().getCanonicalType();
+        if (std::min(stateType.getFixedRange().left, stateType.getFixedRange().right) != 0 ||
+            stateType.getArrayElementType()->getCanonicalType().isUnpackedArray()) continue;
+        InferredMemory memory;
+        bool matched = true;
+        bool dynamicAddress = false;
+        for (const auto* block : sequentialBlocks) {
+          if (!writers.contains(block)) continue;
+          // Blocking state updates can affect later guards and data within the
+          // process. The independent-port path accepts nonblocking writes only,
+          // apart from statically unrolled loop control variables.
+          std::unordered_set<const Symbol*> loopVariables;
+          auto loops = slang::ast::makeVisitor(
+            [&](auto& visitor, const slang::ast::ForLoopStatement& loop) {
+              for (const auto* variable : loop.loopVars) loopVariables.insert(variable);
+              visitor.visitDefault(loop);
+            });
+          block->getBody().visit(loops);
+          auto scheduling = slang::ast::makeVisitor(
+            [&](auto& visitor, const slang::ast::ForLoopStatement& loop) {
+              // Loop controls are evaluated by unrolling. A blocking update in
+              // the body (including to the iteration variable) is not a port.
+              loop.body.visit(visitor);
+            },
+            [&](auto& visitor, const slang::ast::VariableDeclStatement& declaration) {
+              if (!loopVariables.contains(&declaration.symbol)) matched = false;
+              visitor.visitDefault(declaration);
+            },
+            [&](auto& visitor, const slang::ast::AssignmentExpression& assignment) {
+              if (assignment.isBlocking()) matched = false;
+              visitor.visitDefault(assignment);
+            });
+          block->getBody().visit(scheduling);
+          InferredMemory candidate;
+          std::string reason;
+          if (!matched || !tryMatchDirectSequentialMemoryBlock(
+                *block, *symbol, candidate, reason, true) ||
+              candidate.signature.resetMode != NLDB0::MemoryResetMode::None) {
+            matched = false;
+            break;
+          }
+          if (!memory.stateSymbol) {
+            memory.stateSymbol = symbol;
+            memory.signature = candidate.signature;
+            memory.signature.independentWriteClocks = true;
+            memory.clockExpr = candidate.clockExpr;
+            memory.sourceRange = getSourceRange(*symbol);
+          }
+          for (auto& action : candidate.directWriteActions) {
+            withActiveForLoopConstants(action.loopConstantBindings, [&]() {
+              int32_t index = 0;
+              dynamicAddress |= !getConstantInt32(*action.selectorExpr, index);
+              return true;
+            });
+            memory.directWriteActions.push_back(std::move(action));
+          }
+          memory.writerBlocks.push_back(block);
+        }
+        if (matched && dynamicAddress && memory.writerBlocks.size() == writers.size()) {
+          const auto index = inferredMemories_.size();
+          inferredMemories_.push_back(std::move(memory));
+          inferredMemoryByStateSymbol_[symbol] = index;
+          reportWarning("multi_clock_memory_collision",
+            "Memory '" + std::string(symbol->name) +
+              "' inferred with independent write ports; simultaneous writes from "
+              "different processes to the same address and overlapping bits are "
+              "unspecified (no cross-process priority); same-edge reads return old data",
+            getSourceRange(*symbol));
+        }
+      }
+
       const auto hasMultipleWriters = [&](const slang::ast::ValueSymbol* symbol) {
         const auto found = writerCensus.find(symbol);
         if (found == writerCensus.end() || found->second.size() < 2) {
@@ -7510,7 +7634,10 @@ endmodule
           reason << "Memory '" << std::string(symbol->name)
                  << "' was not inferred as naja_mem: written from "
                  << found->second.size()
-                 << " sequential blocks; using generic sequential lowering";
+                 << " sequential blocks; "
+                 << (options_.blackboxMultiWriterMemories
+                       ? "checking for disjoint constant selections before lowering"
+                       : "using generic sequential lowering");
           reportWarning(
             "uninferred_memory_generic_sequential_lowering",
             reason.str(), getSourceRange(*symbol));
@@ -7689,6 +7816,14 @@ endmodule
           continue;
         }
 
+        if (memory.signature.independentWriteClocks) {
+          reportUnsupportedError(
+            "Memory '" + std::string(memory.stateSymbol->name) +
+              "': independent write ports could not be lowered: " + failureReason,
+            memory.sourceRange);
+          throwIfUnsupportedElements();
+        }
+
         // createNets intentionally deferred these speculative memory symbols.
         // Restore their ordinary nets before generic lowering if preparation
         // unexpectedly rejects the otherwise matched candidate.
@@ -7715,6 +7850,21 @@ endmodule
             memory.sourceRange);
         }
       }
+    }
+
+    SNLBitNet* getIndependentMemoryAddressValidBit(
+      SNLDesign* design, const Expression& selector, size_t addressWidth) {
+      const auto width = getIntegralExpressionBitWidth(selector);
+      std::vector<SNLBitNet*> bits;
+      if (!width || !resolveExpressionBits(design, selector, *width, bits) || bits.empty())
+        return nullptr;
+      SNLBitNet* valid = static_cast<SNLBitNet*>(getConstNet(design, true));
+      const auto range = getSourceRange(selector);
+      for (size_t bit = addressWidth; bit < bits.size(); ++bit)
+        valid = combineConditionAnd(design, valid, negateCondition(design, bits[bit], range), range);
+      if (selector.type->isSigned())
+        valid = combineConditionAnd(design, valid, negateCondition(design, bits.back(), range), range);
+      return valid;
     }
 
     InferredMemoryReadPort* getOrCreateInferredMemoryReadPort(
@@ -7840,6 +7990,20 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
       auto readBits = collectBits(port->dataNet);
+      if (memory.signature.independentWriteClocks) {
+        auto* valid = getIndependentMemoryAddressValidBit(
+          design, elementExpr.selector(), memory.signature.abits);
+        if (!valid) return false;
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        if (valid != const1) {
+          for (auto*& bit : readBits) {
+            auto* gated = SNLScalarNet::create(design);
+            createMux2Instance(design, valid, const0, bit, gated, getSourceRange(expr));
+            bit = gated;
+          }
+        }
+      }
       resizeBitsToWidth(
         readBits,
         memory.signature.width,
@@ -7855,9 +8019,10 @@ endmodule
         [&](const slang::ast::RangeSelectExpression& rangeExpr,
             const std::vector<SNLBitNet*>& valueBits) -> bool {
           bits.clear();
-          const auto valueRange = slang::ConstantRange(
-            static_cast<int32_t>(memory.signature.width - 1),
-            0);
+          const auto& elementType = elementExpr.type->getCanonicalType();
+          const auto valueRange = elementType.hasFixedRange()
+            ? elementType.getFixedRange()
+            : slang::ConstantRange(static_cast<int32_t>(memory.signature.width - 1), 0);
           switch (rangeExpr.getSelectionKind()) {
             case slang::ast::RangeSelectionKind::Simple: {
               int32_t left = 0;
@@ -7894,8 +8059,11 @@ endmodule
                   slang::ast::RangeSelectionKind::IndexedDown) {
                 lsbIndex -= static_cast<int64_t>(sliceWidth - 1);
               }
+              const bool ascending = valueRange.left < valueRange.right;
+              if (ascending) lsbIndex += static_cast<int64_t>(sliceWidth - 1);
               for (int32_t elem = 0; elem < sliceWidth; ++elem) {
-                const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+                const int64_t elemIndex = lsbIndex +
+                  (ascending ? -static_cast<int64_t>(elem) : static_cast<int64_t>(elem));
                 if (elemIndex < std::numeric_limits<int32_t>::min() ||
                     elemIndex > std::numeric_limits<int32_t>::max()) {
                   // LCOV_EXCL_START
@@ -8815,11 +8983,35 @@ endmodule
                 break;
               }
             }
+            if (memory.signature.independentWriteClocks) {
+              auto* valid = getIndependentMemoryAddressValidBit(
+                design, *writeAction.selectorExpr, memory.signature.abits);
+              if (!valid) {
+                failureReason = "unable to resolve full independent memory write address";
+                return false;
+              }
+              effectiveWe = combineConditionAnd(design, effectiveWe, valid, writeAction.sourceRange);
+            }
             if (effectiveWe == const0) {
               return true;
             }
 
             InferredMemoryWritePort writePort;
+            writePort.writerBlock = writeAction.writerBlock;
+            writePort.bitOffset = writeAction.bitOffset;
+            writePort.bitWidth = writeAction.bitWidth;
+            if (memory.signature.independentWriteClocks) {
+              writePort.clockNet = getSingleBitNet(
+                resolveExpressionNet(design, *writeAction.clockExpr));
+              if (!writePort.clockNet) {
+                failureReason = "unable to resolve independent memory write clock";
+                return false;
+              }
+              if (writeAction.negativeClock) {
+                writePort.clockNet = createNotBitGate(
+                  design, writePort.clockNet, writeAction.sourceRange);
+              }
+            }
             writePort.selectorExpr = writeAction.selectorExpr;
             writePort.rhsExpr = writeAction.rhsExpr;
             writePort.sourceRange = writeAction.sourceRange;
@@ -8861,7 +9053,20 @@ endmodule
             const bool needsCommitProgram =
               memory.commitBlock && !memory.commitActionsByIndex.empty();
             std::vector<SNLBitNet*> stateBits;
-            if (!buildInferredMemoryWriteDataBits(
+            if (memory.signature.independentWriteClocks) {
+              // A partial port writes only its mask. Do not read/modify/write
+              // the remaining bits: another clock may update them concurrently.
+              std::vector<SNLBitNet*> assignedBits;
+              if (!resolveExpressionBits(design, *writeAction.rhsExpr,
+                    writeAction.bitWidth, assignedBits) ||
+                  assignedBits.size() != writeAction.bitWidth) {
+                failureReason = "unable to resolve independent memory write data";
+                return false;
+              }
+              writePort.dataBits.assign(memory.signature.width, const0);
+              for (size_t bit = 0; bit < writeAction.bitWidth; ++bit)
+                writePort.dataBits[writeAction.bitOffset + bit] = assignedBits[bit];
+            } else if (!buildInferredMemoryWriteDataBits(
                   design,
                   memory,
                   writeAction,
@@ -8897,6 +9102,30 @@ endmodule
       if (memory.writePorts.empty()) {
         failureReason = "inferred memory did not produce indexed writes";
         return false;
+      }
+
+      if (memory.signature.independentWriteClocks) {
+        for (size_t i = 0; i < memory.writePorts.size(); ++i) {
+          auto& port = memory.writePorts[i];
+          port.maskBits.assign(memory.signature.width, const0);
+          for (size_t bit = port.bitOffset; bit < port.bitOffset + port.bitWidth; ++bit) {
+            SNLBitNet* mask = const1;
+            for (size_t later = i + 1; later < memory.writePorts.size(); ++later) {
+              const auto& next = memory.writePorts[later];
+              if (next.writerBlock != port.writerBlock || bit < next.bitOffset ||
+                  bit >= next.bitOffset + next.bitWidth) continue;
+              auto* sameAddress = buildBitVectorEqualityBit(
+                design, collectBits(port.addrNet), collectBits(next.addrNet), port.sourceRange);
+              auto* overrides = createAndBitGate(
+                design, sameAddress, next.guardWeNet, port.sourceRange);
+              mask = createAndBitGate(design, mask,
+                createNotBitGate(design, overrides, port.sourceRange), port.sourceRange);
+            }
+            port.maskBits[bit] = mask;
+          }
+          createAssignInstance(design, port.guardWeNet, port.weNet);
+        }
+        return true;
       }
 
       for (size_t i = 0; i < memory.writePorts.size(); ++i) {
@@ -9051,6 +9280,7 @@ endmodule
         addInstParam("ABITS", std::to_string(signature.abits));
         addInstParam("RD_PORTS", std::to_string(signature.readPorts));
         addInstParam("WR_PORTS", std::to_string(signature.writePorts));
+        if (signature.independentWriteClocks) addInstParam("MULTI_CLOCK", "1");
         addInstParam("RST_ENABLE", signature.resetMode == NLDB0::MemoryResetMode::None ? "0" : "1");
         addInstParam(
           "RST_ASYNC",
@@ -9080,7 +9310,8 @@ endmodule
         if (!clkNet) {
           throw SNLSVInternalError("Failed to resolve inferred memory clock net"); // LCOV_EXCL_LINE
         }
-        inst->setTermNet(clkTerm, clkNet);
+        inst->setTermNet(clkTerm, signature.independentWriteClocks
+          ? static_cast<SNLBitNet*>(getConstNet(design, false)) : clkNet);
 
         SNLBitNet* rstNet = static_cast<SNLBitNet*>(getConstNet(design, false));
         if (memory.resetSignalExpr) {
@@ -9135,6 +9366,15 @@ endmodule
         }
 
         for (size_t i = 0; i < memory.writePorts.size(); ++i) {
+          if (signature.independentWriteClocks) {
+            inst->getInstTerm(model->getBusTerm(NLName("WCLK"))->getBit(
+              static_cast<NLID::Bit>(i)))->setNet(memory.writePorts[i].clockNet);
+            auto* maskTerm = model->getBusTerm(NLName("WMASK"));
+            for (size_t bit = 0; bit < signature.width; ++bit) {
+              inst->getInstTerm(maskTerm->getBit(static_cast<NLID::Bit>(
+                i * signature.width + bit)))->setNet(memory.writePorts[i].maskBits[bit]);
+            }
+          }
           inst->setTermNet(
             waddrTerm,
             static_cast<NLID::Bit>((i + 1) * signature.abits - 1),
@@ -33359,7 +33599,10 @@ endmodule
         }
         std::unordered_set<const slang::ast::ValueSymbol*> ignoredSequentialSymbols;
         for (const auto& memory : inferredMemories_) {
-          if (memory.lowered && memory.seqBlock == &block && memory.stateSymbol) {
+          if (memory.lowered && memory.stateSymbol &&
+              (memory.seqBlock == &block ||
+               std::find(memory.writerBlocks.begin(), memory.writerBlocks.end(), &block) !=
+                 memory.writerBlocks.end())) {
             ignoredSequentialSymbols.insert(memory.stateSymbol);
           }
         }

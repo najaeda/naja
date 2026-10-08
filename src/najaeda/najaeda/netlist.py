@@ -2117,6 +2117,8 @@ class SystemVerilogConfig:
     # instead of failing the load. Ports are inferred from the instantiation's
     # connections (direction InOut, width from the connected expression).
     blackbox_unknown_modules: bool = False
+    # Omit the entire module body if a memory has unsupported multiple writers.
+    blackbox_multi_writer_memories: bool = False
 
     def __post_init__(self):
         self.validate()
@@ -2127,7 +2129,8 @@ class SystemVerilogConfig:
                 "pretty_print_elaborated_ast_json",
                 "include_source_info_in_elaborated_ast_json",
                 "keep_ast_link",
-                "blackbox_unknown_modules"):
+                "blackbox_unknown_modules",
+                "blackbox_multi_writer_memories"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2353,6 +2356,7 @@ def load_system_verilog(
                 else os.fspath(effective_flist)),
             defines=config.defines,
             blackbox_unknown_modules=config.blackbox_unknown_modules,
+            blackbox_multi_writer_memories=config.blackbox_multi_writer_memories,
             library=library,
             suppress_warnings=config.suppress_warnings,
             keep_ast_link=config.keep_ast_link,

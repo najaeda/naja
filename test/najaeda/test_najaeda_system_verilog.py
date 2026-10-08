@@ -24,6 +24,164 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
 
+    def test_unsupported_multi_writer_memory_blackboxing(self):
+        # Exercise both Python API levels, independent clocks and a shared clock.
+        for raw in (False, True):
+            for clock_b in ("clk_b", "clk_a"):
+                for mode in ("strict", "fallback", "define"):
+                    with self.subTest(raw=raw, clock_b=clock_b, mode=mode):
+                        netlist.reset()
+                        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+                            source = os.path.join(directory, "dp_ram.sv")
+                            report = os.path.join(directory, "diagnostics.log")
+                            with open(source, "w") as stream:
+                                stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b,
+              output logic [7:0] rd_a, rd_b);
+`ifndef SYNTHESIS_MEMORY_BLACK_BOXING
+  logic [7:0] mem [8];
+  always @(posedge clk_a) begin
+    if (we_a) mem[addr_a] = wd_a;
+    rd_a <= mem[addr_a];
+  end
+  always @(posedge CLOCK_B) begin
+    if (we_b) mem[addr_b] = wd_b;
+    rd_b <= mem[addr_b];
+  end
+`endif
+endmodule
+module top(input logic clk_a, clk_b, we_a, we_b,
+           input logic [2:0] addr_a, addr_b,
+           input logic [7:0] wd_a, wd_b,
+           output logic [7:0] rd_a, rd_b, output logic alive);
+  dp_ram ram(.*);
+  assign alive = we_a & we_b;
+endmodule
+""".replace("CLOCK_B", clock_b))
+                            options = dict(
+                                diagnostics_report_path=report,
+                                blackbox_multi_writer_memories=(mode == "fallback"),
+                                defines=(["SYNTHESIS_MEMORY_BLACK_BOXING"]
+                                         if mode == "define" else []))
+                            if raw:
+                                db = naja.NLDB.create(naja.NLUniverse.create())
+                                load = lambda: db.loadSystemVerilog([source], **options)
+                            else:
+                                load = lambda: netlist.load_system_verilog(
+                                    source, netlist.SystemVerilogConfig(**options))
+                            if mode == "strict":
+                                with self.assertRaisesRegex(
+                                        RuntimeError, "multiple sequential writers"):
+                                    load()
+                                continue
+                            load()
+                            top = naja.NLUniverse.get().getTopDesign()
+                            self.assertFalse(top.isBlackBox())
+                            ram = top.getInstance("ram")
+                            self.assertIsNotNone(ram)
+                            model = ram.getModel()
+                            self.assertTrue(model.isBlackBox())
+                            self.assertEqual(0, len(list(model.getInstances())))
+                            self.assertEqual(0 if mode == "fallback" else 10,
+                                             len(list(model.getNets())))
+                            self.assertEqual(10, len(list(model.getTerms())))
+                            for name, width in (("addr_a", 3), ("addr_b", 3),
+                                                ("wd_a", 8), ("wd_b", 8),
+                                                ("rd_a", 8), ("rd_b", 8)):
+                                term = model.getBusTerm(name)
+                                self.assertEqual(width, term.getWidth())
+                                self.assertEqual(naja.SNLTerm.Direction.Output
+                                                 if name.startswith("rd")
+                                                 else naja.SNLTerm.Direction.Input,
+                                                 term.getDirection())
+                            for term in ram.getInstTerms():
+                                self.assertIsNotNone(term.getNet())
+                            self.assertGreater(len(list(top.getInstances())), 1)
+                            with open(report) as stream:
+                                diagnostics = stream.read()
+                            if mode == "fallback":
+                                self.assertIn("multi_writer_memory_blackbox", diagnostics)
+                                self.assertIn("Memory 'mem'", diagnostics)
+                                self.assertIn("blackboxing entire module 'dp_ram'", diagnostics)
+                            else:
+                                self.assertNotIn("multi_writer_memory_blackbox", diagnostics)
+
+    def test_multi_clock_memory_inference_and_snapshot(self):
+        for raw in (False, True):
+            for clock_b in ("clk_b", "clk_a"):
+                with self.subTest(raw=raw, clock_b=clock_b):
+                    netlist.reset()
+                    with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+                        source = os.path.join(directory, "dp_ram.sv")
+                        with open(source, "w") as stream:
+                            stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b,
+              output logic [7:0] rd_a, rd_b);
+  logic [7:0] mem [8];
+  always @(posedge clk_a) begin
+    if (we_a) mem[addr_a] <= wd_a;
+    rd_a <= mem[addr_a];
+  end
+  always @(posedge CLOCK_B) begin
+    if (we_b) mem[addr_b] <= wd_b;
+    rd_b <= mem[addr_b];
+  end
+endmodule
+""".replace("CLOCK_B", clock_b))
+                        report = os.path.join(directory, "diagnostics.log")
+                        if raw:
+                            db = naja.NLDB.create(naja.NLUniverse.create())
+                            db.loadSystemVerilog([source], diagnostics_report_path=report)
+                        else:
+                            netlist.load_system_verilog(source, netlist.SystemVerilogConfig(
+                                diagnostics_report_path=report))
+                        top = naja.NLUniverse.get().getTopDesign()
+                        self.assertFalse(top.isBlackBox())
+                        snapshot = os.path.join(directory, "snapshot")
+                        for restored in (False, True):
+                            if restored:
+                                top.getLibrary().getDB().dumpNajaIF(snapshot)
+                                netlist.reset()
+                                naja.NLDB.loadNajaIF(snapshot)
+                                top = naja.NLUniverse.get().getTopDesign()
+                            memories = [inst for inst in top.getInstances()
+                                        if inst.getModel().getName().startswith("naja_mem__")]
+                            self.assertEqual(1, len(memories))
+                            memory = memories[0]
+                            model = memory.getModel()
+                            self.assertEqual("1", model.getParameter("MULTI_CLOCK").getValue())
+                            self.assertEqual(2, model.getBusTerm("WCLK").getWidth())
+                            self.assertEqual(16, model.getBusTerm("WMASK").getWidth())
+                            for port in range(2):
+                                clock = model.getBusTerm("WCLK").getBusTermBit(port)
+                                self.assertTrue(clock.isClock())
+                                self.assertEqual(20, len(list(
+                                    naja.SNLDesign.getClockRelatedInputs(clock))))
+                                self.assertEqual(16, len(list(
+                                    naja.SNLDesign.getClockRelatedOutputs(clock))))
+                                for bit in range(8):
+                                    mask = model.getBusTerm("WMASK").getBusTermBit(port * 8 + bit)
+                                    self.assertEqual(naja.SNLTermRole.MemoryWriteEnable,
+                                                     mask.getRole())
+                            for term in memory.getInstTerms():
+                                self.assertIsNotNone(term.getNet())
+                            self.assertIsNone(top.getNet("mem"))
+                        with open(report) as stream:
+                            diagnostics = stream.read()
+                        self.assertIn("multi_clock_memory_collision", diagnostics)
+                        self.assertNotIn("multi_writer_memory_blackbox", diagnostics)
+
+    def test_multi_writer_memory_option_validation(self):
+        self.assertFalse(netlist.SystemVerilogConfig().blackbox_multi_writer_memories)
+        with self.assertRaisesRegex(TypeError, "blackbox_multi_writer_memories"):
+            netlist.SystemVerilogConfig(blackbox_multi_writer_memories="true")
+
     def test_memory_sync_reset_role(self):
         for condition, level in (("rst", naja.SNLActiveLevel.High),
                                  ("~rst", naja.SNLActiveLevel.Low)):

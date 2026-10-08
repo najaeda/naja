@@ -215,7 +215,8 @@ std::string getEmittedDefaultParameterValue(
         parameterName == NLName("WR_PORTS")) {
       return "1";
     }
-    if (parameterName == NLName("RST_ENABLE") ||
+    if (parameterName == NLName("MULTI_CLOCK") ||
+        parameterName == NLName("RST_ENABLE") ||
         parameterName == NLName("RST_ASYNC") ||
         parameterName == NLName("RST_ACTIVE_LOW") ||
         parameterName == NLName("INIT_ENABLE")) {
@@ -2624,6 +2625,7 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  parameter ABITS = 1,\n";
   o << "  parameter RD_PORTS = 1,\n";
   o << "  parameter WR_PORTS = 1,\n";
+  o << "  parameter MULTI_CLOCK = 0,\n";
   o << "  parameter RST_ENABLE = 0,\n";
   o << "  parameter RST_ASYNC = 0,\n";
   o << "  parameter RST_ACTIVE_LOW = 0,\n";
@@ -2639,7 +2641,9 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  output reg [RD_PORTS*WIDTH-1:0] RDATA,\n";
   o << "  input [WR_PORTS*ABITS-1:0] WADDR,\n";
   o << "  input [WR_PORTS*WIDTH-1:0] WDATA,\n";
-  o << "  input [WR_PORTS-1:0] WE\n";
+  o << "  input [WR_PORTS-1:0] WE,\n";
+  o << "  input [WR_PORTS-1:0] WCLK,\n";
+  o << "  input [WR_PORTS*WIDTH-1:0] WMASK\n";
   o << ");\n\n";
   o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
   o << "  integer i;\n";
@@ -2651,7 +2655,8 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    begin\n";
   o << "      /* verilator lint_off SELRANGE */\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
-  o << "        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
+  o << "        if (INIT === 1'b0) mem[init_idx] = {WIDTH{1'b0}};\n";
+  o << "        else mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
   o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
   o << "  endtask\n\n";
@@ -2691,7 +2696,18 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    end\n";
   o << "  end\n\n";
   o << "  generate\n";
-  o << "    if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset\n";
+  o << "    if (MULTI_CLOCK) begin : independent_write_clocks\n";
+  o << "      genvar port, bit_index;\n";
+  o << "      for (port = 0; port < WR_PORTS; port = port + 1) begin : write_port\n";
+  o << "        for (bit_index = 0; bit_index < WIDTH; bit_index = bit_index + 1) begin : write_bit\n";
+  o << "          always @(posedge WCLK[port]) begin\n";
+  o << "            if (WE[WR_PORTS-1-port] && WMASK[port*WIDTH+bit_index] &&\n";
+  o << "                WADDR[port*ABITS +: ABITS] < DEPTH)\n";
+  o << "              mem[WADDR[port*ABITS +: ABITS]][bit_index] <= WDATA[port*WIDTH+bit_index];\n";
+  o << "          end\n";
+  o << "        end\n";
+  o << "      end\n";
+  o << "    end else if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset\n";
   o << "      always @(posedge CLK or negedge RST) begin\n";
   o << "        if (!RST)\n";
   o << "          load_init();\n";

@@ -63,6 +63,58 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+Direct nonblocking indexed writes from multiple clocked processes now infer one
+shared ``naja_mem`` primitive, including different clocks and true dual-port RAMs
+with a shared clock. Each write action carries its own clock, enable, address,
+data, and bit mask. Constant packed bit/part selections and statically unrolled
+masked-write loops are supported. Positive and negative clock edges are
+supported; negative edges use an inverted write-clock signal. No raw storage
+array or flops with multiple clocks are created.
+
+Read ports are asynchronous; registered reads and read enables remain ordinary
+flops around the memory. Nonblocking reads on a write edge observe the old data.
+Multiple writes within one process preserve source-order priority per bit;
+untouched bits are masked, rather than written back from an earlier read.
+Simultaneous writes from different processes to the same address and overlapping
+bits are unspecified, as in the source RTL. No cross-process priority is added.
+The ``multi_clock_memory_collision`` diagnostic states this limitation.
+
+This inference supports fixed, one-dimensional unpacked memories whose lowest
+index is zero, with at least one runtime write address. Initialization supports
+the existing constant full-memory for-loop fill. Blocking updates within writer
+processes, whole-array updates, and memory resets shared between independent
+writers remain unsupported. Statically disjoint constant selections retain
+normal generic lowering. Unsupported overlapping or dynamic writers are rejected
+by default. To keep elaborating a larger design, explicitly opt into module
+blackboxing for those unsupported cases:
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(blackbox_multi_writer_memories=True)
+   top = netlist.load_system_verilog("rtl.sv", config)
+
+The entire elaborated module containing the unsupported memory becomes a
+``UserBlackBox`` with its port names, widths, directions, and parent connections
+preserved. All internal behavior is omitted, including logic unrelated to the
+memory. The ``multi_writer_memory_blackbox`` warning identifies the memory and
+module in the normal diagnostics report. Successfully inferred multi-port
+memories retain their behavior even when this fallback option is enabled.
+
+OpenTitan/Pavona's generic ``prim_ram_2p`` already guards its internal body with
+``SYNTHESIS_MEMORY_BLACK_BOXING``. The existing define support is a workaround
+that requires no fallback option:
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(
+       defines=["SYNTHESIS_MEMORY_BLACK_BOXING"])
+   top = netlist.load_system_verilog(["prim_ram_2p_pkg.sv", "prim_ram_2p.sv"], config)
+
+Supply the normal include paths/file list and dependencies for the source tree.
+The macro removes the memory implementation before elaboration; the resulting
+port-only module is detected as a blackbox. It affects every module honoring
+that macro and leaves memory behavior unspecified.
+
 Continuous assignments can call combinational functions whose result is selected
 by ``case``, ``casez``, or ``casex``, including functions with escaped names
 and concatenated arguments. Wildcard patterns use

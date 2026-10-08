@@ -533,6 +533,36 @@ Core database objects
 ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
 to disable the report file and keep diagnostics console-only.
 
+``NLDB.loadSystemVerilog`` infers shared memories for direct nonblocking indexed
+writes from multiple clocked processes, with the same supported forms and
+collision restrictions as :doc:`loading`. No opt-in flag is required. Experts
+can inspect the inferred primitive through ``SNLInstance.getModel()``:
+``MULTI_CLOCK=1`` selects independent write clocks and masks, with ``WCLK``
+(one bit per write action) and ``WMASK`` (``WR_PORTS * WIDTH`` bits).
+``WADDR``/``WDATA``/``WMASK`` use port 0 in the least-significant slice;
+``WE`` uses port 0 in its most-significant bit, matching the existing memory
+interface. ``CLK`` and ``RST`` are tied off for this variant.
+In C++, ``SNLDesignModeling::MemoryInterface.clock`` is null for this variant;
+clients must use each ``MemoryWritePort.clock`` instead of assuming one clock.
+A write port with a null clock inherits the common interface clock. ``RADDR``/``RDATA``
+remain asynchronous read ports; registered reads are separate flops.
+Existing generic parameter, bus-term, and modeling queries expose this model;
+no new Python construction API is required. ``WCLK`` bits have the ``Clock``
+role and ``WMASK`` bits the ``MemoryWriteEnable`` role. Timing queries relate
+each write port's address, data, enable and mask only to its own clock, while
+all read outputs depend on every write clock. The model and connections survive
+NajaIF snapshot round trips. Existing shared-clock memory signatures keep their
+interface and identity.
+
+``NLDB.loadSystemVerilog(..., blackbox_multi_writer_memories=True)`` preserves
+unsupported multi-writer memory modules as port-only ``UserBlackBox`` models
+and emits ``multi_writer_memory_blackbox`` diagnostics. The default is ``False``
+(strict rejection). This omits the entire containing module's behavior for both
+shared-clock and independent-clock writers. Experts can use the raw keyword
+directly; the high-level ``SystemVerilogConfig`` exposes the same option.
+``defines=["SYNTHESIS_MEMORY_BLACK_BOXING"]`` also works with OpenTitan/Pavona
+memory models that honor this macro. See :doc:`loading` for examples and limits.
+
 The same loader supports combinational ``casez``/``casex`` result-selection
 functions in continuous assignments, including escaped function names and
 concatenated arguments. Combinational compound shifts and fixed-size streaming

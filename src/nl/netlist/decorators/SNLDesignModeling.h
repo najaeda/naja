@@ -82,6 +82,8 @@ class SNLDesignModeling {
       // callers may reject them if they only support address/data/mask/enable
       // memories.
       std::vector<BitTerms> extraWriteInputs {};
+      // Overrides MemoryInterface.clock for this port when non-null.
+      SNLBitTerm* clock {nullptr};
     };
     struct MemoryInterface {
       size_t width  {0};
@@ -94,8 +96,11 @@ class SNLDesignModeling {
       std::vector<MemoryWritePort> writePorts {};
 
       bool isValid() const {
-        return clock != nullptr && width > 0 && depth > 0 && abits > 0 &&
-               !readPorts.empty() && !writePorts.empty();
+        if (width == 0 || depth == 0 || abits == 0 ||
+            readPorts.empty() || writePorts.empty()) return false;
+        for (const auto& port : writePorts)
+          if (!port.clock && !clock) return false;
+        return true;
       }
     };
 
