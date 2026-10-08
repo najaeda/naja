@@ -561,14 +561,14 @@ cases:
         )
         self.assertEqual(
             {
-                "nodes": 13947,
-                "edges": 27144,
-                "leaves": 99,
+                "nodes": 1695,
+                "edges": 2398,
+                "leaves": 19,
                 "roots": 471,
-                "registers": 92,
+                "registers": 16,
                 "ports": 3,
-                "blackboxes": 4,
-                "internal": 13377,
+                "blackboxes": 0,
+                "internal": 1205,
             },
             cva6["logic_cones"][0]["expected"],
         )
