@@ -4,6 +4,7 @@
 
 import os
 import gzip
+import re
 import shutil
 import tempfile
 import unittest
@@ -147,7 +148,10 @@ architecture rtl of inverter is begin y <= not a; end;
             self.assertEqual(next(iter(middle.getInstances())).getModel().getName(), "leaf")
             design.dumpVerilog(directory, "netlist.v")
             with open(os.path.join(directory, "netlist.v")) as output:
-              netlist = output.read()
+              # The banner date can change between otherwise identical dumps.
+              netlist = re.sub(
+                r"^// (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) .*\n", "", output.read(),
+                flags=re.MULTILINE)
             if reference is None: reference = netlist
             else: self.assertEqual(netlist, reference)
             self.assertEqual(db.loadVHDL(files, top=explicit, diagnostics_report_path=None), design)
