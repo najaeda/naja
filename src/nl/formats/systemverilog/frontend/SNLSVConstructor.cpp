@@ -4711,8 +4711,12 @@ endmodule
         return true;
       };
       if (appendValue(constant) && bits.size() == targetWidth) return true;
+      // Callers validate the fixed bitstream width of this integral-leaf array.
+      // A mismatch requires an inconsistent constant/type pair from the AST.
+      // LCOV_EXCL_START
       bits.clear();
       return false;
+      // LCOV_EXCL_STOP
     }
 
     std::optional<size_t> getExpressionBitstreamWidth(const Expression& expr) const {
@@ -8057,7 +8061,7 @@ endmodule
           const auto& elementType = elementExpr.type->getCanonicalType();
           const auto valueRange = elementType.hasFixedRange()
             ? elementType.getFixedRange()
-            : slang::ConstantRange(static_cast<int32_t>(memory.signature.width - 1), 0);
+            : slang::ConstantRange(static_cast<int32_t>(memory.signature.width - 1), 0); // LCOV_EXCL_LINE: Slang requires a fixed-range type for a legal range-select.
           switch (rangeExpr.getSelectionKind()) {
             case slang::ast::RangeSelectionKind::Simple: {
               int32_t left = 0;
@@ -12890,7 +12894,7 @@ endmodule
           terminalIsDirectReturnExpression = true;
         }
       } else if (!subroutine->returnValVar) {
-        return false;
+        return false; // LCOV_EXCL_LINE: non-void Slang functions always have an implicit return variable.
       }
 
       auto formalArgs = subroutine->getArguments();
@@ -13076,7 +13080,7 @@ endmodule
       collectProceduralReplayDependencies(*bodyStmt, dependencies, conditionSymbols, nullptr);
       const slang::ast::ValueSymbol* resultSymbol = nullptr;
       if (!tryGetRootValueSymbolReference(*trackedLhsExpr, resultSymbol)) {
-        return false;
+        return false; // LCOV_EXCL_LINE: resolveExpressionNet above only succeeds for value-symbol references.
       }
       auto replaySymbols = getProceduralReplayRelevantSymbols(*resultSymbol, dependencies);
       ProceduralReplayEnv replayEnv;

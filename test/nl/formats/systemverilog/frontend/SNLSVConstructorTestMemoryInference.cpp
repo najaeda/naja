@@ -12536,3 +12536,87 @@ module tb;
     ASSERT_EQ(0, std::system(run.c_str()));
   }
 }
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsDynamicPackedOverlapCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "dynamic_packed_ownership";
+  std::filesystem::create_directories(directory);
+  for (const auto& selection : {"[index +: 2]", "[index]", ".field[index]"}) {
+    SCOPED_TRACE(selection);
+    const auto source = directory / "source.sv";
+    const bool member = std::string(selection).front() == '.';
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk, input logic [1:0] index, input logic d, output logic [7:0] q);\n"
+      << (member ? "typedef struct packed { logic [3:0] field; } word_t; word_t mem[2];\n"
+                 : "logic [3:0] mem[2];\n")
+      << "always_ff @(posedge clk) mem[0]" << selection << " <= '0;\n"
+      << "always_ff @(posedge clk) mem[0]" << selection << " <= '1;\n"
+      << "assign q = {mem[1], mem[0]}; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, source,
+      {"multiple sequential writers require disjoint constant selections"});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    EXPECT_EQ(0u, countMemoryInstances(top));
+    top->destroy();
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsUnresolvedLoopsCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "unresolved_loop_ownership";
+  std::filesystem::create_directories(directory);
+  for (const auto& loop : {
+      "for (int i = 0; i < limit; i++) mem[0][i] <= d;",
+      "for (int i = 0; i < 4; i += limit) mem[0][i] <= d;"}) {
+    SCOPED_TRACE(loop);
+    const auto source = directory / "source.sv";
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk, input int limit, input logic d, output logic [7:0] q);\n"
+      << "logic [3:0] mem[2];\n"
+      << "always_ff @(posedge clk) " << loop << "\n"
+      << "always_ff @(posedge clk) mem[1] <= '0;\n"
+      << "assign q = {mem[1], mem[0]}; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, source,
+      {"multiple sequential writers require disjoint constant selections"});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    top->destroy();
+  }
+}
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, independentMemoryResolutionFailuresCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "independent_memory_failures";
+  std::filesystem::create_directories(directory);
+  for (const auto& variant : {"address", "clock", "data"}) {
+    SCOPED_TRACE(variant);
+    const auto source = directory / "source.sv";
+    const auto address = std::string(variant) == "address" ? "$clog2(addr)" : "addr";
+    const auto clock = std::string(variant) == "clock" ? "$clog2(clk_b)" : "clk_b";
+    const auto data = std::string(variant) == "data" ? "$clog2(d)" : "d";
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk_a, clk_b, we, input logic [2:0] addr,\n"
+      << "input logic [7:0] d, output logic [7:0] q); logic [7:0] mem[8];\n"
+      << "always @(posedge clk_a) if (we) mem[" << address << "] <= " << data << ";\n"
+      << "always @(posedge " << clock << ") if (we) mem[addr] <= d;\n"
+      << "assign q = mem[addr]; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    const auto reason = std::string(variant) == "address"
+      ? "unable to resolve full independent memory write address"
+      : std::string(variant) == "clock"
+        ? "unable to resolve independent memory write clock"
+        : "unable to resolve independent memory write data";
+    expectUnsupportedConstruct(constructor, source,
+      {"independent write ports could not be lowered", reason});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    top->destroy();
+  }
+}

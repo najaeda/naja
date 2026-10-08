@@ -181,3 +181,24 @@ the current architecture:
   Slang represents compound shifts with the matching binary operation. Missing
   current bits and malformed compound-shift AST guards are excluded, while an
   unresolvable shift count is tested.
+
+
+## Requested line coverage (October 2026)
+
+The line numbers below refer to the source before this coverage change.
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 4714–4715 | Excluded: both unpacked-constant callers validate the fixed bitstream width; legal constant arrays have integral leaves whose total width matches that type. |
+| 5369 | `independentWriteClockMemoryBehavior`, ascending packed-word variant. |
+| 6650–6651, 6657 | `memoryWriterCensusRejectsUnresolvedLoopsCoverage`: runtime stop bound and runtime step. |
+| 6670, 6674–6676 | `memoryWriterCensusRejectsDynamicPackedOverlapCoverage`: indexed ranges, packed elements, and packed struct members conservatively own their containing element. |
+| 7855–7859, 7895, 9025–9026, 9042–9043, 9098–9099 | `independentMemoryResolutionFailuresCoverage`: unsupported runtime system calls in addresses, a secondary write clock, and write data must report the specific lowering failure and throw. |
+| 7899, 7901, 8035–8038 | `independentWriteClockMemoryBehavior`, wide and signed address variants, including invalid-address writes that must not alias valid words. |
+| 8060 | Excluded: a parser-backed range-select requires a fixed-range packed base; the width-only alternative is defensive. |
+| 9046–9047 | `independentWriteClockMemoryBehavior`, negative-clock variant. |
+| 9152–9157 | `independentWriteClockMemoryBehavior`, priority and self-read variants, comparing the dumped netlist against RTL simulation. |
+| 12641 | Existing config range-check function tests exercise zero bits in nonzero base/limit constants. |
+| 12893 | Excluded: Slang creates an implicit return variable for every non-void function; a void call cannot supply an integral RHS. |
+| 13079 | Excluded: the preceding successful `resolveExpressionNet` requires a value-symbol reference, which necessarily has a root symbol. |
+| 13602, 13604, 13609, 13621 | `parsePriorityReturnFunctionNestedStatementsCoverage`: nested assignments, duplicate loops, declaration-only blocks, and a loopless unsupported return expression. |
