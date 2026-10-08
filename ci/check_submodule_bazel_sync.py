@@ -87,6 +87,14 @@ def registry_source_json(name: str, version: str) -> dict | None:
     return None
 
 
+def tag_commit(remote: str, tag: str) -> str:
+    """The commit a release tag (as in a BCR release's archive URL) points to."""
+    out = run(["git", "ls-remote", remote, f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"]).stdout
+    refs = dict(reversed(line.split("\t")) for line in out.splitlines())
+    # An annotated tag's ^{} entry is the commit; a lightweight tag has none.
+    return refs.get(f"refs/tags/{tag}^{{}}") or refs[f"refs/tags/{tag}"]
+
+
 def module_bazel_commits() -> dict[str, str]:
     text = MODULE_BAZEL.read_text()
     commits = {}
@@ -98,8 +106,13 @@ def module_bazel_commits() -> dict[str, str]:
             continue
         url = source["url"]
         commit_match = re.search(r"/archive/([0-9a-f]{40})\.tar\.gz$", url)
+        tag_match = re.search(
+            r"^(https://github\.com/[^/]+/[^/]+)/archive/refs/tags/(.+)\.tar\.gz$", url
+        )
         if commit_match:
             commits[name] = commit_match.group(1)
+        elif tag_match:
+            commits[name] = tag_commit(*tag_match.groups())
     return commits
 
 
