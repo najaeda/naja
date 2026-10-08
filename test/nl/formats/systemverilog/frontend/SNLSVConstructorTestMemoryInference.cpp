@@ -12086,6 +12086,216 @@ endmodule
   EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
 }
 
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusLoopIndexedPartSelects) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "loop_writer_census";
+  std::filesystem::create_directories(directory);
+  for (bool reset : {false, true}) {
+    const auto name = reset ? "kmac_shares" : "m3";
+    const auto source = directory / (std::string(name) + ".sv");
+    std::ofstream sv(source);
+    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)";
+    if (!reset) {
+      sv << R"(module m3(input logic clk, en0, en1, input logic [63:0] d0, d1,
+          output logic [127:0] q);
+  logic [127:0] r [2];
+  always_ff @(posedge clk) if (en0) for (int j = 0; j < 2; j++) r[0][64*j+:64] <= d0;
+  always_ff @(posedge clk) if (en1) for (int j = 0; j < 2; j++) r[1][64*j+:64] <= d1;
+  assign q = r[0] ^ r[1];
+endmodule
+)";
+    } else {
+      sv << R"(module kmac_shares #(parameter SwKeyShare = 2)(
+  input logic clk, rst_n, input logic [3:0] qe0, qe1,
+  input logic [127:0] d0, d1, output logic [255:0] q);
+  logic [127:0] sw_key_data_reg [SwKeyShare];
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) sw_key_data_reg[0] <= '0;
+    else for (int j = 0; j < 4; j++)
+      if (qe0[j]) sw_key_data_reg[0][32*j+:32] <= d0[32*j+:32];
+  end
+  if (SwKeyShare > 1) begin : gen_share
+    always_ff @(posedge clk or negedge rst_n) begin
+      if (!rst_n) sw_key_data_reg[1] <= '0;
+      else for (int j = 0; j < 4; j++)
+        if (qe1[j]) sw_key_data_reg[1][127-32*j-:32] <= d1[127-32*j-:32];
+    end
+  end
+  assign q = {sw_key_data_reg[1], sw_key_data_reg[0]};
+endmodule
+)";
+    }
+    sv.close();
+    SNLSVConstructor constructor(library_);
+    constructor.construct(source);
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_EQ(0u, countMemoryInstances(top));
+    for (auto* net : top->getBitNets()) {
+      EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+    }
+    EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    const auto dumped = dumpTopAndGetVerilogPath(top, name);
+    if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+        std::system("command -v vvp >/dev/null 2>&1") != 0) {
+      GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
+    }
+    const auto tb = dumped.parent_path() / "tb.sv";
+    std::ofstream bench(tb);
+    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module tb;
+  reg clk = 0;
+  integer i, j;
+)";
+    if (!reset) {
+      bench << R"(  reg en0 = 1, en1 = 1;
+  reg [63:0] d0 = 0, d1 = 0;
+  reg [63:0] expected0 = 0, expected1 = 0;
+  wire [127:0] q;
+  m3 dut(.*);
+  initial begin
+    #1; clk = 1; #1; clk = 0;
+    for (i = 0; i < 32; i = i + 1) begin
+      en0 = i & 1; en1 = (i >> 1) & 1;
+      d0 = {$random, $random}; d1 = {$random, $random};
+      #1; clk = 1; #1;
+      if (en0) expected0 = d0;
+      if (en1) expected1 = d1;
+      if (q !== {2{expected0 ^ expected1}}) $fatal(1, "m3 enable/data mismatch");
+      clk = 0; #1;
+    end
+    $finish;
+  end
+)";
+    } else {
+      bench << R"(  reg rst_n = 1;
+  reg [3:0] qe0 = 0, qe1 = 0;
+  reg [127:0] d0 = 0, d1 = 0;
+  reg [127:0] expected0 = 0, expected1 = 0;
+  wire [255:0] q;
+  kmac_shares dut(.*);
+  initial begin
+    #1; rst_n = 0; #1;
+    if (q !== 256'b0) $fatal(1, "initial asynchronous reset mismatch");
+    rst_n = 1;
+    for (i = 0; i < 256; i = i + 1) begin
+      qe0 = i; qe1 = i >> 4;
+      d0 = {$random, $random, $random, $random};
+      d1 = {$random, $random, $random, $random};
+      #1; clk = 1; #1;
+      for (j = 0; j < 4; j = j + 1) begin
+        if (qe0[j]) expected0[32*j+:32] = d0[32*j+:32];
+        if (qe1[j]) expected1[127-32*j-:32] = d1[127-32*j-:32];
+      end
+      if (q !== {expected1, expected0}) $fatal(1, "per-bit word enable/data mismatch");
+      clk = 0; #1;
+      if ((i % 17) == 16) begin
+        // Reset without a clock edge, including words whose enables are low.
+        rst_n = 0; #1;
+        expected0 = 0; expected1 = 0;
+        if (q !== 256'b0) $fatal(1, "per-bit asynchronous reset mismatch");
+        rst_n = 1; #1;
+      end
+    end
+    $finish;
+  end
+)";
+    }
+    bench << "endmodule\n";
+    bench.close();
+    const auto quote = [](const std::filesystem::path& path) {
+      return "'" + path.string() + "'";
+    };
+    const auto executable = dumped.parent_path() / "simulation.vvp";
+    const auto command = "iverilog -g2012 -s tb -o " + quote(executable) + " " +
+      quote(tb) + " " + quote(dumped) + " " +
+      quote(dumped.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(command.c_str()));
+    EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusUnrolledOwnership) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "unrolled_ownership";
+  std::filesystem::create_directories(directory);
+  for (bool overlap : {false, true}) {
+    const auto name = overlap ? "overlapping_loop_slices" : "disjoint_loop_slices";
+    const auto source = directory / (std::string(name) + ".sv");
+    std::ofstream sv(source);
+    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)"
+       << "module " << name << "(input logic clk, en0, en1, input logic [31:0] d0, d1, "
+       << "output logic [127:0] q);\n"
+       << "logic [127:0] r [2];\n"
+       << "always_ff @(posedge clk) if (en0) for (int j = 0; j < 2; j++) "
+       << "r[0][32*j+:32] <= d0;\n"
+       << "always_ff @(posedge clk) if (en1) for (int j = 0; j < 2; j++) "
+       << "r[0][" << (overlap ? "63" : "127") << "-32*j-:32] <= d1;\n"
+       << "assign q = r[0]; endmodule\n";
+    sv.close();
+    SNLSVConstructor constructor(library_);
+    if (overlap) {
+      expectUnsupportedConstruct(constructor, source,
+        {"multiple sequential writers require disjoint constant selections"});
+    } else {
+      constructor.construct(source);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_EQ(0u, countMemoryInstances(top));
+      for (auto* net : top->getBitNets()) {
+        EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+      }
+      EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusConstantSelectAndSingleLoopRegressions) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "constant_writer_census";
+  std::filesystem::create_directories(directory);
+  for (bool reset : {false, true}) {
+    for (bool singleWriter : {false, true}) {
+      const auto name = std::string(singleWriter ? "single_loop_writer" : "constant_slice_writers") +
+        (reset ? "_reset" : "_enabled");
+      const auto source = directory / (name + ".sv");
+      std::ofstream sv(source);
+      sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)"
+         << "module " << name << "(input logic clk, rst_n, en0, en1, "
+         << "input logic [63:0] d0, d1, output logic [63:0] q);\n"
+         << "logic [63:0] r [2];\n";
+      if (singleWriter) {
+        sv << "always_ff @(posedge clk" << (reset ? " or negedge rst_n" : "") << ") begin\n";
+        if (reset) sv << "if (!rst_n) begin r[0] <= '0; r[1] <= '0; end else begin\n";
+        sv << "if (en0) for (int j=0; j<2; j++) r[0][32*j+:32] <= d0[32*j+:32];\n"
+           << "if (en1) for (int j=0; j<2; j++) r[1][63-32*j-:32] <= d1[63-32*j-:32];\n";
+        if (reset) sv << "end\n";
+        sv << "end\n";
+      } else {
+        for (int share = 0; share < 2; ++share) {
+          sv << "always_ff @(posedge clk" << (reset ? " or negedge rst_n" : "") << ") "
+             << (reset ? "if (!rst_n) r[" + std::to_string(share) + "] <= '0; else " : "")
+             << "if (en" << share << ") r[" << share << "][63:0] <= d" << share << ";\n";
+        }
+      }
+      sv << "assign q = r[0] ^ r[1]; endmodule\n";
+      sv.close();
+      SNLSVConstructor constructor(library_);
+      constructor.construct(source);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (auto* net : top->getBitNets()) {
+        EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+      }
+      EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsOverlappingOwnership) {
   const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "writer_ownership";
   std::filesystem::create_directories(directory);

@@ -6577,15 +6577,61 @@ endmodule
         bool supported = true;
         for (const auto& [block, assignments] : blocks) {
           std::unordered_set<SNLBitNet*> blockBits;
-          for (const auto* lhs : assignments) {
-            std::vector<SNLBitNet*> bits;
-            if (hasDynamicSelectionInLHS(*lhs) ||
-                !resolveAssignmentLHSBits(design, *lhs, bits, nullptr, true)) {
-              supported = false;
-              break;
-            }
-            blockBits.insert(bits.begin(), bits.end());
-          }
+          // Revisit the statement tree with the same iteration constants used
+          // by lowering; raw census expressions have no loop bindings.
+          auto visitor = slang::ast::makeVisitor(
+            [&](auto& visitor, const slang::ast::ForLoopStatement& loop) {
+              std::string reason;
+              const Symbol* loopSymbol = nullptr;
+              int64_t loopValue = 0;
+              bool execute = false;
+              // The lowering helper can skip runtime-bounded loops. That is
+              // not evidence of disjoint ownership in this analysis.
+              if (!extractForLoopControl(loop, loopSymbol, loopValue, reason) ||
+                  !loop.stopExpr ||
+                  !evaluateForLoopStopCondition(
+                    *loop.stopExpr, *loopSymbol, loopValue, execute, reason)) {
+                supported = false;
+                return;
+              }
+              if (!unrollForLoopStatement(loop, [&]() {
+                    loop.body.visit(visitor);
+                    return supported;
+                  }, reason)) {
+                supported = false;
+              }
+            },
+            [&](auto& visitor, const slang::ast::AssignmentExpression& assignment) {
+              const slang::ast::ValueSymbol* root = nullptr;
+              if (tryGetRootValueSymbolReference(assignment.left(), root) && root == symbol) {
+                const Expression* lhs = &assignment.left();
+                // An unresolved packed slice can conservatively own its entire
+                // element. Distinct constant unpacked elements remain disjoint.
+                if (hasDynamicSelectionInLHS(*lhs)) {
+                  lhs = stripConversions(*lhs);
+                  while (lhs && !lhs->type->isUnpackedArray()) {
+                    if (lhs->kind == slang::ast::ExpressionKind::RangeSelect) {
+                      lhs = stripConversions(lhs->as<slang::ast::RangeSelectExpression>().value());
+                    } else if (lhs->kind == slang::ast::ExpressionKind::ElementSelect) {
+                      const auto& select = lhs->as<slang::ast::ElementSelectExpression>();
+                      if (select.value().type->isUnpackedArray()) break;
+                      lhs = stripConversions(select.value());
+                    } else {
+                      break;
+                    }
+                  }
+                }
+                std::vector<SNLBitNet*> bits;
+                if (!lhs || hasDynamicSelectionInLHS(*lhs) ||
+                    !resolveAssignmentLHSBits(design, *lhs, bits, nullptr, true)) {
+                  supported = false;
+                } else {
+                  blockBits.insert(bits.begin(), bits.end());
+                }
+              }
+              visitor.visitDefault(assignment);
+            });
+          block->getBody().visit(visitor);
           for (auto* bit : blockBits) {
             if (!ownedBits.insert(bit).second) {
               supported = false;
