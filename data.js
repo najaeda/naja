@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791274914157,
+  "lastUpdate": 1791454709662,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -15402,6 +15402,108 @@ window.BENCHMARK_DATA = {
             "value": 319344.2730177994,
             "unit": "ns/iter",
             "extra": "iterations: 2194\ncpu: 319260.50638101227 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oyvind.harboe@zylin.com",
+            "name": "Øyvind Harboe",
+            "username": "oharboe"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43bd82b315ae0c16b8d847f0c94290aa8e0550ef",
+          "message": "bazel: sv-lang 12.0.0, and slang at v12.0 to match (#464)\n\nslang v12.0 contains the commit naja was pinned to (b60d729d), and\nsv-lang 12.0.0 is its BCR release\n(bazelbuild/bazel-central-registry#10977), replacing the unreleased\n11.0.0-20260701-b60d729d.bcr.1, whose pull request is closed.\n\nThe thirdparty/slang submodule moves to v12.0 (545f88b2) with it, as\nci/check_submodule_bazel_sync.py requires. That script now also takes a\nrelease's tag archive URL (refs/tags/<tag>.tar.gz), resolving the tag\nto its commit.\n\n.bazelrc: bison 3.8.2.bcr.10 is on BCR now; sv-lang comes from #10977.",
+          "timestamp": "2026-10-08T12:15:46+02:00",
+          "tree_id": "9ef0770c9432133bb820dbe88a737e2b841cf7d6",
+          "url": "https://github.com/najaeda/naja/commit/43bd82b315ae0c16b8d847f0c94290aa8e0550ef"
+        },
+        "date": 1791454708185,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 217223.99541844107,
+            "unit": "ns/iter",
+            "extra": "iterations: 3274\ncpu: 217189.6145387905 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 310214.9381625477,
+            "unit": "ns/iter",
+            "extra": "iterations: 2264\ncpu: 310120.7009717315 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1696488.8599033013,
+            "unit": "ns/iter",
+            "extra": "iterations: 414\ncpu: 1696300.224637681 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 19578321.388888437,
+            "unit": "ns/iter",
+            "extra": "iterations: 36\ncpu: 19575890.16666667 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1210.5120756733922,
+            "unit": "ns/iter",
+            "extra": "iterations: 578063\ncpu: 1209.2765926897232 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 11897.434589838187,
+            "unit": "ns/iter",
+            "extra": "iterations: 58867\ncpu: 11895.222773370475 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 181998.56722892684,
+            "unit": "ns/iter",
+            "extra": "iterations: 4150\ncpu: 181975.7727710845 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 478272.5578370801,
+            "unit": "ns/iter",
+            "extra": "iterations: 1461\ncpu: 478181.4887063661 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 432236.49875002936,
+            "unit": "ns/iter",
+            "extra": "iterations: 1600\ncpu: 432208.6037500006 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 352707.6109437539,
+            "unit": "ns/iter",
+            "extra": "iterations: 1992\ncpu: 352649.42018072295 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 68022397.00000001,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 68017380.99999999 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 20555.9939263383,
+            "unit": "ns/iter",
+            "extra": "iterations: 33423\ncpu: 20552.777907429023 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 401311.8857777746,
+            "unit": "ns/iter",
+            "extra": "iterations: 1751\ncpu: 401178.4928612375 ns\nthreads: 1"
           }
         ]
       }
