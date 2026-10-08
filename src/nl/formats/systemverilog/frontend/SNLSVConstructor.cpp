@@ -12570,23 +12570,12 @@ endmodule
         }
         return nullptr;
       };
-      const auto isReturnValueLhs = [&](const Expression& expr) {
-        const auto* baseExpr = deriveTrackedLhsExpr(expr);
-        if (!baseExpr ||
-            !slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
-            !subroutine->returnValVar) {
-          return false; // LCOV_EXCL_LINE
-        }
-        const auto& symbol = baseExpr->as<slang::ast::ValueExpressionBase>().symbol;
-        return &symbol == subroutine->returnValVar ||
-               symbol.name == subroutine->returnValVar->name;
-      };
-
       const Expression* trackedLhsExpr = nullptr;
       const Expression* finalValueExpr = nullptr;
-      bool terminalIsNamedResultAssignment = false;
+      const bool terminalIsImplicitReturn =
+        terminalStmt->kind != slang::ast::StatementKind::Return;
       bool terminalIsDirectReturnExpression = false;
-      if (terminalStmt->kind == slang::ast::StatementKind::Return) {
+      if (!terminalIsImplicitReturn) {
         const auto& returnStatement = terminalStmt->as<slang::ast::ReturnStatement>();
         if (!returnStatement.expr) {
           return false; // LCOV_EXCL_LINE
@@ -12598,20 +12587,8 @@ endmodule
              trackedLhsExpr->kind != slang::ast::ExpressionKind::MemberAccess)) {
           terminalIsDirectReturnExpression = true;
         }
-      } else {
-        const Expression* terminalLhs = nullptr;
-        AssignAction terminalAction;
-        if (!extractAssignment(*terminalStmt, terminalLhs, terminalAction) ||
-            terminalAction.stepDelta != 0 || !terminalAction.rhs ||
-            !terminalLhs || !isReturnValueLhs(*terminalLhs)) {
-          return false;
-        }
-        terminalIsNamedResultAssignment = true;
-        trackedLhsExpr = deriveTrackedLhsExpr(*terminalLhs);
-        finalValueExpr = terminalLhs;
-        if (!trackedLhsExpr) {
-          return false; // LCOV_EXCL_LINE
-        }
+      } else if (!subroutine->returnValVar) {
+        return false;
       }
 
       auto formalArgs = subroutine->getArguments();
@@ -12685,9 +12662,10 @@ endmodule
             formalArg->direction != ArgumentDirection::In) {
           return false; // LCOV_EXCL_LINE
         }
-        auto* argumentNet = resolveExpressionNet(design, *callArg);
-        if (!argumentNet &&
-            !materializeArgumentExpressionNet(*formalArg, *callArg, argumentNet)) {
+        // Resolve values before creating formal nets: parameters have no
+        // physical driver, and caller locals can have pending blocking writes.
+        SNLNet* argumentNet = nullptr;
+        if (!materializeArgumentExpressionNet(*formalArg, *callArg, argumentNet)) {
           return false;
         }
         argumentNets.emplace(formalArg, argumentNet);
@@ -12726,6 +12704,52 @@ endmodule
         activeInlinedCallSubroutines_.pop_back();
         activeFunctionArgumentNets_.pop_back();
       });
+
+      if (terminalIsImplicitReturn) {
+        // The implicit result is a local variable, not the last assignment's
+        // LHS slice. Replay the entire body so loops and overlapping writes
+        // use the same blocking-assignment semantics as other local variables.
+        std::vector<const Expression*> assignedLhsExpressions;
+        std::string lowerFailureReason;
+        if (!collectAssignedLHSExpressions(
+              *bodyStmt, assignedLhsExpressions, &lowerFailureReason, true)) {
+          return false;
+        }
+        const Expression* resultLhs = nullptr;
+        for (const auto* lhs : assignedLhsExpressions) {
+          const auto* trackedLhs = getTrackedAlwaysCombLHS(lhs);
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (trackedLhs && tryGetRootValueSymbolReference(*trackedLhs, symbol) &&
+              symbol == subroutine->returnValVar) {
+            resultLhs = trackedLhs;
+            break;
+          }
+        }
+        if (!resultLhs) {
+          return false;
+        }
+        const auto assignedMask = makeProceduralAssignedBitMask(
+          design, *bodyStmt, *resultLhs, collectBits(functionResultNet), nullptr, true);
+        // An inlined result has no previous value to hold on an unwritten
+        // path. Reject incomplete results instead of synthesizing zeroes.
+        if (!std::all_of(assignedMask.begin(), assignedMask.end(),
+                         [](bool assigned) { return assigned; })) {
+          return false;
+        }
+        if (!lowerCombinationalProceduralBlock(
+              design, *bodyStmt, getSourceRange(callExpr), lowerFailureReason)) {
+          return false;
+        }
+        bits = collectBits(functionResultNet);
+        if (bits.empty()) {
+          return false;
+        }
+        auto* fillBit = subroutine->getReturnType().isSigned()
+          ? bits.back()
+          : static_cast<SNLBitNet*>(getConstNet(design, false));
+        resizeBitsToWidth(bits, targetWidth, fillBit);
+        return bits.size() == targetWidth;
+      }
 
       if (terminalIsDirectReturnExpression) {
         for (size_t i = 0; i + 1 < terminalStmtIndex; ++i) {
@@ -12811,7 +12835,7 @@ endmodule
       CombinationalSubtreeSummaryCache subtreeSummaryCache;
       std::string lowerFailureReason;
       const size_t statementsToApply =
-        terminalIsNamedResultAssignment ? stmts.size() : (terminalStmtIndex - 1);
+        terminalStmtIndex - 1;
       for (size_t i = 0; i < statementsToApply; ++i) {
         const auto* item = stmts[i];
         if (!item) {
@@ -21725,7 +21749,9 @@ endmodule
               autoSym &&
               autoSym->kind == slang::ast::SymbolKind::Variable &&
               autoSym->as<slang::ast::VariableSymbol>().lifetime ==
-                slang::ast::VariableLifetime::Automatic) {
+                slang::ast::VariableLifetime::Automatic &&
+              (activeInlinedCallSubroutines_.empty() ||
+               autoSym != activeInlinedCallSubroutines_.back()->returnValVar)) {
             continue;
           }
         }
@@ -24694,7 +24720,9 @@ endmodule
               autoSym &&
               autoSym->kind == slang::ast::SymbolKind::Variable &&
               autoSym->as<slang::ast::VariableSymbol>().lifetime ==
-                slang::ast::VariableLifetime::Automatic) {
+                slang::ast::VariableLifetime::Automatic &&
+              (activeInlinedCallSubroutines_.empty() ||
+               autoSym != activeInlinedCallSubroutines_.back()->returnValVar)) {
             return true;
           }
         }
@@ -29041,12 +29069,13 @@ endmodule
       const Statement& stmt,
       const Expression& lhsExpr,
       const std::vector<SNLBitNet*>& lhsBits,
-      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols) {
+      const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols,
+      bool requireDefiniteAssignment = false) {
       std::vector<bool> assignedMask(lhsBits.size(), false);
       const auto* current = unwrapStatement(stmt);
       auto mergeStatement = [&](const Statement& child) {
         const auto childMask = makeProceduralAssignedBitMask(
-          design, child, lhsExpr, lhsBits, ignoredSymbols);
+          design, child, lhsExpr, lhsBits, ignoredSymbols, requireDefiniteAssignment);
         for (size_t bit = 0; bit < assignedMask.size(); ++bit) {
           assignedMask[bit] = assignedMask[bit] || childMask[bit];
         }
@@ -29080,14 +29109,38 @@ endmodule
           else if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
         } else {
           mergeStatement(conditional.ifTrue);
-          if (conditional.ifFalse) mergeStatement(*conditional.ifFalse);
+          if (requireDefiniteAssignment) {
+            const auto falseMask = conditional.ifFalse
+              ? makeProceduralAssignedBitMask(
+                  design, *conditional.ifFalse, lhsExpr, lhsBits, ignoredSymbols, true)
+              : std::vector<bool>(lhsBits.size(), false);
+            for (size_t bit = 0; bit < assignedMask.size(); ++bit) {
+              assignedMask[bit] = assignedMask[bit] && falseMask[bit];
+            }
+          } else if (conditional.ifFalse) {
+            mergeStatement(*conditional.ifFalse);
+          }
         }
         return assignedMask;
       }
       if (current->kind == slang::ast::StatementKind::Case) {
         const auto& caseStmt = current->as<slang::ast::CaseStatement>();
-        for (const auto& item : caseStmt.items) mergeStatement(*item.stmt);
-        if (caseStmt.defaultCase) mergeStatement(*caseStmt.defaultCase);
+        if (requireDefiniteAssignment) {
+          if (!caseStmt.defaultCase) {
+            return assignedMask;
+          }
+          mergeStatement(*caseStmt.defaultCase);
+          for (const auto& item : caseStmt.items) {
+            const auto itemMask = makeProceduralAssignedBitMask(
+              design, *item.stmt, lhsExpr, lhsBits, ignoredSymbols, true);
+            for (size_t bit = 0; bit < assignedMask.size(); ++bit) {
+              assignedMask[bit] = assignedMask[bit] && itemMask[bit];
+            }
+          }
+        } else {
+          for (const auto& item : caseStmt.items) mergeStatement(*item.stmt);
+          if (caseStmt.defaultCase) mergeStatement(*caseStmt.defaultCase);
+        }
         return assignedMask;
       }
       std::unordered_map<SNLBitNet*, size_t> lhsBitOffsets;
@@ -29143,7 +29196,9 @@ endmodule
 
         if (hasDynamicSelectionInLHS(*assignedExpr)) {
           if (targetsTrackedLhs) {
-            std::fill(assignedMask.begin(), assignedMask.end(), true);
+            if (!requireDefiniteAssignment) {
+              std::fill(assignedMask.begin(), assignedMask.end(), true);
+            }
             return assignedMask;
           }
           continue; // LCOV_EXCL_LINE: Unrelated scalar targets are skipped above; dynamic concatenation targets are rejected before masking.
