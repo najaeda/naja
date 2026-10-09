@@ -207,13 +207,13 @@ static PyObject* PyNLDB_loadNajaIF(PyObject*, PyObject* args) {
 
 PyObject* PyNLDB_snapshotManifest(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:naja.snapshot_manifest", &arg)) {
-    setError("malformed naja snapshot_manifest");
+  if (not PyArg_ParseTuple(args, "O:naja.snapshotManifest", &arg)) {
+    setError("malformed naja snapshotManifest");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     std::ostringstream oss;
-    oss << "naja snapshot_manifest argument should be a file path, got: "
+    oss << "naja snapshotManifest argument should be a file path, got: "
       << getStringForPyObject(arg);
     setError(oss.str());
     return nullptr;
@@ -479,6 +479,20 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* libraryObject = nullptr;
   PyObject* diagnosticsReportPath = nullptr;
   static const char* const kwords[] = {"file", "top", "diagnostics_report_path", "library", nullptr};
+  // Keep the legacy file keyword and positional argument order.
+  if (kwargs && PyDict_GetItemString(kwargs, "files")) {
+    if (PyDict_GetItemString(kwargs, "file")) {
+      PyErr_SetString(PyExc_TypeError, "NLDB.loadVHDL: use either file or files");
+      return nullptr;
+    }
+    PyObject* normalized = PyDict_Copy(kwargs);
+    if (!normalized) return nullptr;
+    PyDict_SetItemString(normalized, "file", PyDict_GetItemString(kwargs, "files"));
+    PyDict_DelItemString(normalized, "files");
+    PyObject* result = PyNLDB_loadVHDL(self, args, normalized);
+    Py_DECREF(normalized);
+    return result;
+  }
   if (not PyArg_ParseTupleAndKeywords(
       args, kwargs, "O|OOO:NLDB.loadVHDL", const_cast<char**>(kwords),
       &file, &topObject, &diagnosticsReportPath, &libraryObject)) {
@@ -486,17 +500,32 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   }
   std::string libraryName;
   if (!parseHDLLibrary(libraryObject, libraryName)) return nullptr;
-  if (not PyUnicode_Check(file)) {
-    PyErr_Format(
-      PyExc_TypeError, "NLDB.loadVHDL: file must be a str path, got %s",
-      Py_TYPE(file)->tp_name);
-    return nullptr;
-  }
-  const std::string path = PyUnicode_AsUTF8(file);
-  if (path.empty()) {
-    PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
-    return nullptr;
-  }
+  std::vector<std::filesystem::path> paths;
+  const bool batch = PyList_Check(file);
+  const auto appendPath = [&](PyObject* item) {
+    if (!PyUnicode_Check(item)) {
+      PyErr_Format(PyExc_TypeError,
+          "NLDB.loadVHDL: file must be a str path or list[str], got %s",
+          Py_TYPE(item)->tp_name);
+      return false;
+    }
+    const auto* value = PyUnicode_AsUTF8(item);
+    if (!value) return false;
+    if (!*value) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: file must not be empty");
+      return false;
+    }
+    paths.emplace_back(value);
+    return true;
+  };
+  if (batch) {
+    if (!PyList_Size(file)) {
+      PyErr_SetString(PyExc_ValueError, "NLDB.loadVHDL: files must not be empty");
+      return nullptr;
+    }
+    for (Py_ssize_t i = 0; i < PyList_Size(file); ++i)
+      if (!appendPath(PyList_GetItem(file, i))) return nullptr;
+  } else if (!appendPath(file)) return nullptr;
   std::string top;
   if (topObject != nullptr && topObject != Py_None) {
     if (not PyUnicode_Check(topObject)) {
@@ -542,7 +571,9 @@ PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   SNLDesign* design = nullptr;
   TRY
   auto* designLibrary = hdlDestination(db, libraryName);
-  design = VHDLConstructor(designLibrary, options).constructFile(path, top);
+  const VHDLConstructor constructor(designLibrary, options);
+  design = batch ? constructor.constructFiles(paths, top) :
+      constructor.constructFile(paths.front(), top);
   if (design) NLUniverse::get()->setTopDesign(design);
   NLUniverse::get()->setTopDB(db);
   NLCATCH
@@ -563,22 +594,23 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   PyObject* suppress_warnings = nullptr;  // Optional: list of warning names
   int keep_ast_link = 0;  // Default: false
   int blackbox_unknown_modules = 0;  // Default: false
+  int blackbox_multi_writer_memories = 0;  // Default: false
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
     "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
-    "blackbox_unknown_modules", "library",
+    "blackbox_unknown_modules", "library", "blackbox_multi_writer_memories",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOOOppO:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOppOp:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules, &libraryObject)) {
+    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules, &libraryObject, &blackbox_multi_writer_memories)) {
     return nullptr;
   }
 
@@ -598,6 +630,7 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     include_source_info_in_elaborated_ast_json;
   options.keepASTLink = keep_ast_link;
   options.blackboxUnknownModules = blackbox_unknown_modules;
+  options.blackboxMultiWriterMemories = blackbox_multi_writer_memories;
 
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
@@ -914,13 +947,13 @@ PyMethodDef PyNLDB_Methods[] = {
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,
-    "load one VHDL source file; package-only files return None.\n"
-    "A single entity with required generics is retained and returns None when top is omitted.\n"
-    "An explicit top requires immediate elaboration.\n\n"
+    "load VHDL source files; package-only files return None.\n"
+    "A single-file entity with required generics is retained and returns None when top is omitted.\n"
+    "An explicit top selects the root; batches otherwise infer a unique uninstantiated entity.\n\n"
     "Warning:\n"
     "  VHDL support is experimental and uses a restricted two-state RTL subset.\n\n"
     "Args:\n"
-    "  file (str): input VHDL file\n"
+    "  file (str | list[str]): input files in any order; files is a keyword alias\n"
     "  library (str): destination root library (default DESIGN)\n"
     "  diagnostics_report_path (str | None): all warning occurrences; defaults to naja_vhdl_diagnostics.log.\n"
     "  top (str | None, optional): entity selected as the structural top"},
@@ -940,6 +973,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "(default naja_sv_diagnostics.log; None disables the report file)\n"
     "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
     "  suppress_warnings (list[str], optional): frontend warning names to suppress\n"
+    "  blackbox_multi_writer_memories (bool, optional): blackbox entire modules with unsupported multi-writer memories (default False)\n"
     "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "
     "(default False)."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,

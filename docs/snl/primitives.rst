@@ -26,7 +26,7 @@ New primitives library can be added. The primitives library is a python script.
     q = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Output, "Q")
     c = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "C")
     d = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "D")
-    snl.SNLParameter.create_binary(fd, "MASK", 1, 0b0)
+    snl.SNLParameter.createBinary(fd, "MASK", 1, 0b0)
     snl.SNLDesign.addInputsToClockArcs(d, c)
     snl.SNLDesign.addClockToOutputsArcs(c, q)
 

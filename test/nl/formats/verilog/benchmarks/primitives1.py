@@ -13,7 +13,7 @@ def constructCFG4(lib):
   c = naja.SNLScalarTerm.create(cfg4, naja.SNLTerm.Direction.Input, "C")
   d = naja.SNLScalarTerm.create(cfg4, naja.SNLTerm.Direction.Input, "D")
   y = naja.SNLScalarTerm.create(cfg4, naja.SNLTerm.Direction.Output, "Y")
-  naja.SNLParameter.create_binary(cfg4, "INIT", 16, 0x0000)
+  naja.SNLParameter.createBinary(cfg4, "INIT", 16, 0x0000)
 
 def constructGND(lib):
   gnd = naja.SNLDesign.createPrimitive(lib, "GND")

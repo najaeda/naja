@@ -20,6 +20,60 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         self.assertEqual([], utils._bit_terms(None))
         self.assertEqual([term], utils._bit_terms(term))
 
+    def test_parameterized_term_roles(self):
+        from itertools import product
+        top = netlist.create_top("Top")
+        db = naja.NLUniverse.get().getTopDB()
+        library = naja.NLLibrary.createPrimitives(db, "PRIMITIVES")
+        model = naja.SNLDesign.createPrimitive(library, "NX_DFF")
+        pins = {name: naja.SNLScalarTerm.create(
+            model, naja.SNLTerm.Direction.Output if name == "O" else
+            naja.SNLTerm.Direction.Input, name) for name in ("CK", "R", "L", "I", "O")}
+        roles, levels = naja.SNLTermRole, naja.SNLActiveLevel
+        names = ["dff_init", "dff_sync", "dff_type", "dff_load"]
+        parameters = [naja.SNLParameter.createBinary(model, name, 1, 0) for name in names]
+        pins["CK"].setRole(roles.Clock)
+        pins["R"].setRole(roles.AsyncReset, levels.Low)
+        pins["L"].setRole(roles.Enable)
+        pins["I"].setRole(roles.DataInput)
+        pins["O"].setRole(roles.DataOutput)
+        entries = []
+        for init, sync, typ, load in product((0, 1), repeat=4):
+            reset = ((roles.SyncSet if typ else roles.SyncReset) if sync else
+                     (roles.AsyncSet if typ else roles.AsyncReset)) if init else roles.Other
+            entries.append({"values": [init, sync, typ, load], "roles": {
+                pins["R"]: (reset, levels.High) if init else None,
+                pins["L"]: (roles.Enable, levels.NA) if load else None}})
+        model.setRolesFromParameters(names, entries)
+        for index, entry in enumerate(entries):
+            child = top.create_child_instance("NX_DFF", f"ff{index}")
+            instance = netlist.get_snl_instance_from_id_list(child.pathIDs)
+            for parameter, value in zip(parameters, entry["values"]):
+                naja.SNLInstParameter.create(instance, parameter, str(value))
+            reset, enable = child.get_term("R"), child.get_term("L")
+            expected = entry["roles"][pins["R"]]
+            expected_role = expected[0] if expected else roles.Other
+            self.assertEqual(expected_role, reset.get_role())
+            self.assertEqual(expected_role == roles.AsyncReset, reset.is_async_reset())
+            self.assertEqual(expected_role == roles.SyncReset, reset.is_sync_reset())
+            self.assertEqual(expected_role == roles.AsyncSet, reset.is_async_set())
+            self.assertEqual(expected_role == roles.SyncSet, reset.is_sync_set())
+            self.assertEqual(expected_role in (roles.AsyncReset, roles.SyncReset), reset.is_reset())
+            self.assertEqual(levels.High if expected else levels.NA, reset.get_reset_active_level())
+            self.assertEqual(bool(entry["values"][3]), enable.is_enable())
+            self.assertTrue(child.get_term("CK").is_clock())
+            self.assertTrue(child.get_term("I").is_data_input())
+            self.assertTrue(child.get_term("O").is_data_output())
+            self.assertTrue(child.get_term("O").is_data())
+        # Top-level terms query their static roles, while buses require a bit.
+        top_design = naja.NLUniverse.get().getTopDesign()
+        clock = naja.SNLScalarTerm.create(top_design, naja.SNLTerm.Direction.Input, "clock")
+        self.assertEqual(roles.Other, top.get_term("clock").get_role())
+        bus = naja.SNLBusTerm.create(top_design, naja.SNLTerm.Direction.Input, 1, 0, "bus")
+        with self.assertRaisesRegex(ValueError, "scalar term or a bus bit"):
+            top.get_term("bus").is_clock()
+        self.assertEqual(roles.Other, top.get_term("bus").get_bit(0).get_role())
+
     def test_yosys_primitives(self):
         netlist.load_primitives('yosys')
         top = netlist.create_top('Top')
@@ -31,25 +85,25 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
 
         library = naja.NLUniverse.get().getTopDB().getLibrary("yosys")
         dff = library.getSNLDesign("$_DFF_P_")
-        self.assertTrue(dff.getScalarTerm("C").is_clock())
-        self.assertTrue(dff.getScalarTerm("D").is_data_input())
-        self.assertTrue(dff.getScalarTerm("Q").is_data_output())
+        self.assertTrue(dff.getScalarTerm("C").isClock())
+        self.assertTrue(dff.getScalarTerm("D").isDataInput())
+        self.assertTrue(dff.getScalarTerm("Q").isDataOutput())
         self.assertEqual(
             [dff.getScalarTerm("D")],
             list(dff.getClockRelatedInputs(dff.getScalarTerm("C"))),
         )
 
         async_reset = library.getSNLDesign("$_DFFE_PN0N_")
-        self.assertTrue(async_reset.getScalarTerm("E").is_enable())
-        self.assertTrue(async_reset.getScalarTerm("R").is_async_reset())
+        self.assertTrue(async_reset.getScalarTerm("E").isEnable())
+        self.assertTrue(async_reset.getScalarTerm("R").isAsyncReset())
         self.assertEqual(
             naja.SNLActiveLevel.Low,
             async_reset.getScalarTerm("R").getResetActiveLevel(),
         )
 
         sync_set = library.getSNLDesign("$_SDFFCE_PP1P_")
-        self.assertTrue(sync_set.getScalarTerm("E").is_enable())
-        self.assertTrue(sync_set.getScalarTerm("R").is_sync_set())
+        self.assertTrue(sync_set.getScalarTerm("E").isEnable())
+        self.assertTrue(sync_set.getScalarTerm("R").isSyncSet())
         self.assertEqual(
             naja.SNLActiveLevel.High,
             sync_set.getScalarTerm("R").getResetActiveLevel(),
@@ -130,21 +184,21 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         library = naja.NLUniverse.get().getTopDB().getLibrary("xilinx")
 
         fdce = library.getSNLDesign("FDCE")
-        self.assertTrue(fdce.getScalarTerm("C").is_clock())
-        self.assertTrue(fdce.getScalarTerm("D").is_data_input())
-        self.assertTrue(fdce.getScalarTerm("Q").is_data_output())
-        self.assertTrue(fdce.getScalarTerm("CE").is_enable())
-        self.assertTrue(fdce.getScalarTerm("CLR").is_async_reset())
+        self.assertTrue(fdce.getScalarTerm("C").isClock())
+        self.assertTrue(fdce.getScalarTerm("D").isDataInput())
+        self.assertTrue(fdce.getScalarTerm("Q").isDataOutput())
+        self.assertTrue(fdce.getScalarTerm("CE").isEnable())
+        self.assertTrue(fdce.getScalarTerm("CLR").isAsyncReset())
         self.assertEqual(
             naja.SNLActiveLevel.High,
             fdce.getScalarTerm("CLR").getResetActiveLevel(),
         )
 
         fdse = library.getSNLDesign("FDSE")
-        self.assertTrue(fdse.getScalarTerm("S").is_sync_set())
+        self.assertTrue(fdse.getScalarTerm("S").isSyncSet())
 
         ram32m = library.getSNLDesign("RAM32M")
-        self.assertTrue(ram32m.getScalarTerm("WCLK").is_clock())
+        self.assertTrue(ram32m.getScalarTerm("WCLK").isClock())
         self.assertEqual(
             naja.SNLTermRole.MemoryWriteEnable,
             ram32m.getScalarTerm("WE").getRole(),

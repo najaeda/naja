@@ -109,7 +109,7 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
     i = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Input, "I")
     o0 = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O0")
     o1 = naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O1")
-    init = naja.SNLParameter.create_binary(prim, "INIT", 2, 2)
+    init = naja.SNLParameter.createBinary(prim, "INIT", 2, 2)
     prim.setTruthTableFromParameter(o0, [i], init)
     prim.setTruthTableFromParameter(o1, [i], init)
     with self.assertRaisesRegex(RuntimeError, "design has per-output truth tables"):
@@ -132,7 +132,7 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
         prim, naja.SNLTerm.Direction.Input, "I1")
     output = naja.SNLScalarTerm.create(
         prim, naja.SNLTerm.Direction.Output, "O")
-    init = naja.SNLParameter.create_binary(prim, "INIT", 4, 0)
+    init = naja.SNLParameter.createBinary(prim, "INIT", 4, 0)
 
     prim.setTruthTableFromParameter(output, [i0, i1], init)
 
@@ -144,7 +144,7 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
         prim, naja.SNLTerm.Direction.Input, "I0")
     output = naja.SNLScalarTerm.create(
         prim, naja.SNLTerm.Direction.Output, "O")
-    init = naja.SNLParameter.create_binary(prim, "INIT", 2, 0)
+    init = naja.SNLParameter.createBinary(prim, "INIT", 2, 0)
 
     with self.assertRaisesRegex(
         RuntimeError,

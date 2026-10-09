@@ -142,6 +142,24 @@ SNLDesign* VHDLConstructor::constructFile(
   }
 }
 
+SNLDesign* VHDLConstructor::constructFiles(
+    const std::vector<std::filesystem::path>& paths, std::string_view top) const {
+  if (paths.empty()) unsupported("no VHDL input files");
+  // Stable storage order also makes repeated loads reuse model signatures.
+  // Dependencies resolve from the complete unit index, not this path order.
+  auto ordered = paths;
+  std::sort(ordered.begin(), ordered.end());
+  ordered.erase(std::unique(ordered.begin(), ordered.end()), ordered.end());
+  std::vector<std::pair<std::string, std::string>> inputs;
+  for (const auto& path : ordered) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) unsupported("cannot open VHDL file '" + path.string() + "'");
+    inputs.emplace_back(path.string(), std::string(
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()));
+  }
+  return constructInputs(inputs, top, true);
+}
+
 SNLDesign* VHDLConstructor::construct(
     std::string_view source, std::string_view top) const {
   return constructSource(source, top, {});
@@ -149,6 +167,31 @@ SNLDesign* VHDLConstructor::construct(
 
 SNLDesign* VHDLConstructor::constructSource(
     std::string_view source, std::string_view top, const std::string& path) const {
+  return constructInputs({{path, std::string(source)}}, top, false);
+}
+
+SNLDesign* VHDLConstructor::constructInputs(
+    const std::vector<std::pair<std::string, std::string>>& inputs,
+    std::string_view top, bool batch) const {
+  std::string source;
+  std::vector<VHDLSources::Input> inputOrigins;
+  for (const auto& [path, text] : inputs) {
+    inputOrigins.push_back({source.size(), text.size(), path});
+    source += text + "\n";
+  }
+  const auto& path = inputs.front().first;
+  const auto locate = [](const std::string& text, const auto& origins, size_t offset) {
+    size_t start = 0;
+    std::string path;
+    for (const auto& input : origins) {
+      if (input.offset > offset) break;
+      start = input.offset;
+      path = input.path;
+    }
+    const auto line = 1 + std::count(text.begin() + std::min(start, offset),
+        text.begin() + std::min(offset, text.size()), '\n');
+    return std::make_pair(path.empty() ? "<source>" : path, line);
+  };
   if (!library_) {
     unsupported("null library");
   }
@@ -180,8 +223,8 @@ SNLDesign* VHDLConstructor::constructSource(
   }
   // Report only the new input, not the retained sources reparsed below.
   for (const auto& warning : parsed.warnings) {
-    const auto message = (path.empty() ? "<source>" : path) + ":" +
-      std::to_string(warning.span.start.line) + ":" +
+    const auto [origin, line] = locate(source, inputOrigins, warning.span.start.offset);
+    const auto message = origin + ":" + std::to_string(line) + ":" +
       std::to_string(warning.span.start.column) + ": warning [" + warning.code + "]: " + warning.message;
     if (report.is_open()) report << message << '\n';
     if (loggedCodes.insert(warning.code).second) NAJA_LOG_WARN("{}", message);
@@ -190,21 +233,46 @@ SNLDesign* VHDLConstructor::constructSource(
     report.flush();
     if (!report) unsupported("cannot write diagnostics report: " + options_.diagnosticsReportPath->string());
   }
+  // File boundaries are compilation-unit boundaries, even when a malformed
+  // file could otherwise be completed by the next file's text.
+  for (const auto& [inputPath, text] : inputs) {
+    const auto input = vhdl::Parser::parse(text, true);
+    if (input.hasErrors()) {
+      const auto& diagnostic = input.diagnostics.front();
+      if (inputPath.empty())
+        unsupported(diagnosticMessage("parse", diagnostic.message, diagnostic.span));
+      throw LocatedVHDLException("VHDL parse failed in '" +
+          (inputPath.empty() ? "<source>" : inputPath) + "' at line " +
+          std::to_string(diagnostic.span.start.line) + ", column " +
+          std::to_string(diagnostic.span.start.column) + ": " + diagnostic.message);
+    }
+  }
+  // Each input above parsed successfully as complete design units; joining them
+  // with newlines cannot introduce a parse error. Keep this defensive fallback.
+  // LCOV_EXCL_START
   if (parsed.hasErrors()) {
     const auto& diagnostic = parsed.diagnostics.front();
-    unsupported(diagnosticMessage(
-        "parse", diagnostic.message, diagnostic.span));
+    const auto [origin, line] = locate(source, inputOrigins, diagnostic.span.start.offset);
+    throw LocatedVHDLException("VHDL parse failed in '" + origin + "' at line " +
+        std::to_string(line) + ", column " + std::to_string(diagnostic.span.start.column) +
+        ": " + diagnostic.message);
   }
+  // LCOV_EXCL_STOP
   auto* sources = VHDLSources::get(library_);
   if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty() || !path.empty() ||
       !library_->getName().getString().empty()) {
-    const auto previous = std::find_if(sources->inputs.begin(), sources->inputs.end(),
-        [&](const auto& input) {
-          return input.path == path && input.size == source.size() &&
-              std::string_view(sources->source).substr(input.offset, input.size) == source;
-        });
-    const bool retained = previous != sources->inputs.end();
-    const auto combined = retained ? sources->source : sources->source + std::string(source);
+    auto combined = sources->source;
+    auto combinedInputs = sources->inputs;
+    for (const auto& [inputPath, text] : inputs) {
+      const auto previous = std::find_if(combinedInputs.begin(), combinedInputs.end(),
+          [&](const auto& input) {
+            return input.path == inputPath && input.size == text.size() &&
+                std::string_view(combined).substr(input.offset, input.size) == text;
+          });
+      if (previous != combinedInputs.end()) continue;
+      combinedInputs.push_back({combined.size(), text.size(), inputPath});
+      combined += text + "\n";
+    }
     std::string compilation;
     std::vector<VHDLLibrarySource> libraries;
     struct Origin {size_t offset; std::string path;};
@@ -215,29 +283,27 @@ SNLDesign* VHDLConstructor::constructSource(
       const auto& text = candidate == library_ ? combined : stored->source;
       const auto base = compilation.size();
       libraries.push_back({candidate, base, text.size()});
-      if (stored) for (const auto& input : stored->inputs)
+      const auto& candidateInputs = candidate == library_ ? combinedInputs : stored->inputs;
+      for (const auto& input : candidateInputs)
         origins.push_back({base + input.offset, input.path});
-      if (candidate == library_ && !retained)
-        origins.push_back({base + sources->source.size(), path});
       compilation += text + "\n";
     }
     auto all = vhdl::Parser::parse(compilation, true);
     if (all.hasErrors()) unsupported("stored VHDL source failed to parse");
     std::string selected(top);
-    if (selected.empty() && parsed.syntax.entities.size() == 1)
+    if (!batch && selected.empty() && parsed.syntax.entities.size() == 1)
       selected = parsed.syntax.entities.front().name.spelling;
     if (parsed.syntax.entities.empty() && parsed.syntax.architectures.empty()) {
       all.syntax.entities.clear();
       all.syntax.architectures.clear();
     }
     const auto retain = [&] {
-      if (retained) return;
-      sources->inputs.push_back({sources->source.size(), source.size(), path});
-      sources->source = combined + "\n";
+      sources->inputs = combinedInputs;
+      sources->source = combined;
     };
     // A generic-dependent unit is parsed now and elaborated when its parent
     // supplies actuals. An explicitly selected top must still be complete.
-    if (top.empty() && parsed.syntax.entities.size() == 1 &&
+    if (!batch && top.empty() && parsed.syntax.entities.size() == 1 &&
         std::any_of(parsed.syntax.entities.front().generics.begin(),
             parsed.syntax.entities.front().generics.end(),
             [](const auto& generic) { return !generic.defaultValue; })) {

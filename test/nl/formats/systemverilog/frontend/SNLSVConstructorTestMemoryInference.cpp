@@ -12025,6 +12025,7 @@ endmodule
 )";
   SNLSVConstructor::ConstructOptions options;
   options.diagnosticsReportPath = directory / "diagnostics.log";
+  options.blackboxMultiWriterMemories = true;
   testing::internal::CaptureStderr();
   testing::internal::CaptureStdout();
   try {
@@ -12042,6 +12043,7 @@ endmodule
   EXPECT_NE(std::string::npos, warnings.find("written from 4 sequential blocks"));
   auto* top = library_->getSNLDesign(NLName("writer_census"));
   ASSERT_NE(nullptr, top);
+  EXPECT_FALSE(top->isBlackBox());
   EXPECT_EQ(0u, countMemoryInstances(top));
   for (auto* net : top->getBitNets()) {
     EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
@@ -12084,6 +12086,216 @@ endmodule
     quote(dumped.parent_path() / "naja_primitives.v");
   ASSERT_EQ(0, std::system(command.c_str()));
   EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusLoopIndexedPartSelects) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "loop_writer_census";
+  std::filesystem::create_directories(directory);
+  for (bool reset : {false, true}) {
+    const auto name = reset ? "kmac_shares" : "m3";
+    const auto source = directory / (std::string(name) + ".sv");
+    std::ofstream sv(source);
+    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)";
+    if (!reset) {
+      sv << R"(module m3(input logic clk, en0, en1, input logic [63:0] d0, d1,
+          output logic [127:0] q);
+  logic [127:0] r [2];
+  always_ff @(posedge clk) if (en0) for (int j = 0; j < 2; j++) r[0][64*j+:64] <= d0;
+  always_ff @(posedge clk) if (en1) for (int j = 0; j < 2; j++) r[1][64*j+:64] <= d1;
+  assign q = r[0] ^ r[1];
+endmodule
+)";
+    } else {
+      sv << R"(module kmac_shares #(parameter SwKeyShare = 2)(
+  input logic clk, rst_n, input logic [3:0] qe0, qe1,
+  input logic [127:0] d0, d1, output logic [255:0] q);
+  logic [127:0] sw_key_data_reg [SwKeyShare];
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) sw_key_data_reg[0] <= '0;
+    else for (int j = 0; j < 4; j++)
+      if (qe0[j]) sw_key_data_reg[0][32*j+:32] <= d0[32*j+:32];
+  end
+  if (SwKeyShare > 1) begin : gen_share
+    always_ff @(posedge clk or negedge rst_n) begin
+      if (!rst_n) sw_key_data_reg[1] <= '0;
+      else for (int j = 0; j < 4; j++)
+        if (qe1[j]) sw_key_data_reg[1][127-32*j-:32] <= d1[127-32*j-:32];
+    end
+  end
+  assign q = {sw_key_data_reg[1], sw_key_data_reg[0]};
+endmodule
+)";
+    }
+    sv.close();
+    SNLSVConstructor constructor(library_);
+    constructor.construct(source);
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_EQ(0u, countMemoryInstances(top));
+    for (auto* net : top->getBitNets()) {
+      EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+    }
+    EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    const auto dumped = dumpTopAndGetVerilogPath(top, name);
+    if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+        std::system("command -v vvp >/dev/null 2>&1") != 0) {
+      GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
+    }
+    const auto tb = dumped.parent_path() / "tb.sv";
+    std::ofstream bench(tb);
+    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module tb;
+  reg clk = 0;
+  integer i, j;
+)";
+    if (!reset) {
+      bench << R"(  reg en0 = 1, en1 = 1;
+  reg [63:0] d0 = 0, d1 = 0;
+  reg [63:0] expected0 = 0, expected1 = 0;
+  wire [127:0] q;
+  m3 dut(.*);
+  initial begin
+    #1; clk = 1; #1; clk = 0;
+    for (i = 0; i < 32; i = i + 1) begin
+      en0 = i & 1; en1 = (i >> 1) & 1;
+      d0 = {$random, $random}; d1 = {$random, $random};
+      #1; clk = 1; #1;
+      if (en0) expected0 = d0;
+      if (en1) expected1 = d1;
+      if (q !== {2{expected0 ^ expected1}}) $fatal(1, "m3 enable/data mismatch");
+      clk = 0; #1;
+    end
+    $finish;
+  end
+)";
+    } else {
+      bench << R"(  reg rst_n = 1;
+  reg [3:0] qe0 = 0, qe1 = 0;
+  reg [127:0] d0 = 0, d1 = 0;
+  reg [127:0] expected0 = 0, expected1 = 0;
+  wire [255:0] q;
+  kmac_shares dut(.*);
+  initial begin
+    #1; rst_n = 0; #1;
+    if (q !== 256'b0) $fatal(1, "initial asynchronous reset mismatch");
+    rst_n = 1;
+    for (i = 0; i < 256; i = i + 1) begin
+      qe0 = i; qe1 = i >> 4;
+      d0 = {$random, $random, $random, $random};
+      d1 = {$random, $random, $random, $random};
+      #1; clk = 1; #1;
+      for (j = 0; j < 4; j = j + 1) begin
+        if (qe0[j]) expected0[32*j+:32] = d0[32*j+:32];
+        if (qe1[j]) expected1[127-32*j-:32] = d1[127-32*j-:32];
+      end
+      if (q !== {expected1, expected0}) $fatal(1, "per-bit word enable/data mismatch");
+      clk = 0; #1;
+      if ((i % 17) == 16) begin
+        // Reset without a clock edge, including words whose enables are low.
+        rst_n = 0; #1;
+        expected0 = 0; expected1 = 0;
+        if (q !== 256'b0) $fatal(1, "per-bit asynchronous reset mismatch");
+        rst_n = 1; #1;
+      end
+    end
+    $finish;
+  end
+)";
+    }
+    bench << "endmodule\n";
+    bench.close();
+    const auto quote = [](const std::filesystem::path& path) {
+      return "'" + path.string() + "'";
+    };
+    const auto executable = dumped.parent_path() / "simulation.vvp";
+    const auto command = "iverilog -g2012 -s tb -o " + quote(executable) + " " +
+      quote(tb) + " " + quote(dumped) + " " +
+      quote(dumped.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(command.c_str()));
+    EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusUnrolledOwnership) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "unrolled_ownership";
+  std::filesystem::create_directories(directory);
+  for (bool overlap : {false, true}) {
+    const auto name = overlap ? "overlapping_loop_slices" : "disjoint_loop_slices";
+    const auto source = directory / (std::string(name) + ".sv");
+    std::ofstream sv(source);
+    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)"
+       << "module " << name << "(input logic clk, en0, en1, input logic [31:0] d0, d1, "
+       << "output logic [127:0] q);\n"
+       << "logic [127:0] r [2];\n"
+       << "always_ff @(posedge clk) if (en0) for (int j = 0; j < 2; j++) "
+       << "r[0][32*j+:32] <= d0;\n"
+       << "always_ff @(posedge clk) if (en1) for (int j = 0; j < 2; j++) "
+       << "r[0][" << (overlap ? "63" : "127") << "-32*j-:32] <= d1;\n"
+       << "assign q = r[0]; endmodule\n";
+    sv.close();
+    SNLSVConstructor constructor(library_);
+    if (overlap) {
+      expectUnsupportedConstruct(constructor, source,
+        {"multiple sequential writers require disjoint constant selections"});
+    } else {
+      constructor.construct(source);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_EQ(0u, countMemoryInstances(top));
+      for (auto* net : top->getBitNets()) {
+        EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+      }
+      EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusConstantSelectAndSingleLoopRegressions) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "constant_writer_census";
+  std::filesystem::create_directories(directory);
+  for (bool reset : {false, true}) {
+    for (bool singleWriter : {false, true}) {
+      const auto name = std::string(singleWriter ? "single_loop_writer" : "constant_slice_writers") +
+        (reset ? "_reset" : "_enabled");
+      const auto source = directory / (name + ".sv");
+      std::ofstream sv(source);
+      sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+)"
+         << "module " << name << "(input logic clk, rst_n, en0, en1, "
+         << "input logic [63:0] d0, d1, output logic [63:0] q);\n"
+         << "logic [63:0] r [2];\n";
+      if (singleWriter) {
+        sv << "always_ff @(posedge clk" << (reset ? " or negedge rst_n" : "") << ") begin\n";
+        if (reset) sv << "if (!rst_n) begin r[0] <= '0; r[1] <= '0; end else begin\n";
+        sv << "if (en0) for (int j=0; j<2; j++) r[0][32*j+:32] <= d0[32*j+:32];\n"
+           << "if (en1) for (int j=0; j<2; j++) r[1][63-32*j-:32] <= d1[63-32*j-:32];\n";
+        if (reset) sv << "end\n";
+        sv << "end\n";
+      } else {
+        for (int share = 0; share < 2; ++share) {
+          sv << "always_ff @(posedge clk" << (reset ? " or negedge rst_n" : "") << ") "
+             << (reset ? "if (!rst_n) r[" + std::to_string(share) + "] <= '0; else " : "")
+             << "if (en" << share << ") r[" << share << "][63:0] <= d" << share << ";\n";
+        }
+      }
+      sv << "assign q = r[0] ^ r[1]; endmodule\n";
+      sv.close();
+      SNLSVConstructor constructor(library_);
+      constructor.construct(source);
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (auto* net : top->getBitNets()) {
+        EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+      }
+      EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    }
+  }
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsOverlappingOwnership) {
@@ -12152,4 +12364,259 @@ endmodule
   ASSERT_NE(nullptr, top);
   EXPECT_EQ(1u, countMemoryInstances(top));
   EXPECT_TRUE(collectUnsupportedMemoryBoundaryTerms(top).empty());
+}
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, independentWriteClockMemoryBehavior) {
+  for (const auto& variant : {"dual_clock", "shared_clock", "masked", "masked_shared", "ascending_mask", "priority", "negative_clock", "self_read", "wide_address", "signed_address", "three_writers", "request_gated"}) {
+    SCOPED_TRACE(variant);
+    const bool shared = std::string(variant) == "shared_clock" || std::string(variant) == "masked_shared";
+    const bool ascending = std::string(variant) == "ascending_mask";
+    const bool masked = std::string(variant) == "masked" ||
+      std::string(variant) == "masked_shared" || ascending;
+    const bool wide = std::string(variant) == "wide_address";
+    const bool signedAddress = std::string(variant) == "signed_address";
+    const bool threeWriters = std::string(variant) == "three_writers";
+    const bool requestGated = std::string(variant) == "request_gated";
+    const bool priority = std::string(variant) == "priority";
+    const bool negative = std::string(variant) == "negative_clock";
+    const bool selfRead = std::string(variant) == "self_read";
+    const auto name = std::string("dp_") + variant;
+    const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
+    std::filesystem::create_directories(directory);
+    const auto source = directory / "source.sv";
+    std::string rtl = R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module MODULE(input logic clk_a, clk_b, we_a, we_b, req_a, req_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b, input logic [1:0] mask_a, mask_b,
+              output logic [7:0] rd_a, rd_b);
+  logic [7:0] mem [8];
+  initial for (int i = 0; i < 8; i++) mem[i] = 8'h00;
+  always @(posedge clk_a) begin
+    WRITE_A
+    if (req_a) rd_a <= mem[addr_a];
+  end
+  always @(EDGE_B CLOCK_B) begin
+    WRITE_B
+    if (req_b) rd_b <= mem[addr_b];
+  end
+endmodule
+)";
+    auto replace = [](std::string& text, const std::string& token, const std::string& value) {
+      const auto pos = text.find(token);
+      ASSERT_NE(std::string::npos, pos);
+      text.replace(pos, token.size(), value);
+    };
+    replace(rtl, "MODULE", name);
+    replace(rtl, "CLOCK_B", shared ? "clk_a" : "clk_b");
+    replace(rtl, "EDGE_B", negative ? "negedge" : "posedge");
+    replace(rtl, "WRITE_A", masked
+      ? "if (we_a) for (int i = 0; i < 2; i = i + 1) if (mask_a[i]) mem[addr_a][i*4 +: 4] <= wd_a[i*4 +: 4];"
+      : priority
+        ? "if (we_a) begin mem[addr_a] <= wd_a; if (mask_a[0]) mem[addr_a][3:0] <= wd_a[3:0] ^ 4'hf; end"
+        : selfRead
+          ? "if (we_a) begin mem[addr_a] <= wd_a; mem[addr_a] <= mem[addr_a] + 8'd1; end"
+          : "if (we_a) mem[addr_a] <= wd_a;");
+    replace(rtl, "WRITE_B", masked
+      ? "if (we_b) for (int i = 0; i < 2; i++) if (mask_b[i]) mem[addr_b][i*4 +: 4] <= wd_b[i*4 +: 4];"
+      : "if (we_b) mem[addr_b] <= wd_b;");
+    if (wide || signedAddress)
+      replace(rtl, "input logic [2:0] addr_a, addr_b",
+        signedAddress ? "input logic signed [3:0] addr_a, addr_b" : "input logic [3:0] addr_a, addr_b");
+    if (ascending) {
+      replace(rtl, "logic [7:0] mem", "logic [0:7] mem");
+      replace(rtl, "rd_a <= mem[addr_a];", "rd_a <= {mem[addr_a][0 +: 4], mem[addr_a][4 +: 4]};");
+    }
+    if (requestGated) {
+      replace(rtl, "if (we_a) mem[addr_a] <= wd_a;\n    if (req_a) rd_a <= mem[addr_a];",
+        "if (req_a) begin if (we_a) mem[addr_a] <= wd_a; else rd_a <= mem[addr_a]; end");
+      replace(rtl, "if (we_b) mem[addr_b] <= wd_b;\n    if (req_b) rd_b <= mem[addr_b];",
+        "if (req_b) begin if (we_b) mem[addr_b] <= wd_b; else rd_b <= mem[addr_b]; end");
+    }
+    if (threeWriters) replace(rtl, "endmodule",
+      "always @(posedge clk_a) if (req_b) mem[addr_a + 1] <= wd_a ^ 8'h5a;\nendmodule");
+    std::ofstream(source) << rtl;
+    SNLSVConstructor constructor(library_);
+    SNLSVConstructor::ConstructOptions options;
+    options.diagnosticsReportPath = directory / "diagnostics.log";
+    constructor.construct(source, options);
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_FALSE(top->isBlackBox());
+    EXPECT_EQ(1u, countMemoryInstances(top));
+    auto* memory = top->getInstance(NLName("mem_mem"));
+    ASSERT_NE(nullptr, memory);
+    const auto signature = NLDB0::getMemorySignature(memory);
+    EXPECT_TRUE(signature.independentWriteClocks);
+    EXPECT_EQ(8u, signature.width);
+    EXPECT_EQ(8u, signature.depth);
+    EXPECT_EQ(masked ? 4u : (priority || selfRead || threeWriters ? 3u : 2u), signature.writePorts);
+    EXPECT_EQ(signature.writePorts, memory->getModel()->getBusTerm(NLName("WCLK"))->getWidth());
+    EXPECT_EQ(signature.width * signature.writePorts,
+      memory->getModel()->getBusTerm(NLName("WMASK"))->getWidth());
+    EXPECT_EQ(nullptr, top->getNet(NLName("mem")));
+    EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+    EXPECT_TRUE(collectUnsupportedMemoryBoundaryTerms(top).empty());
+    const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+    const auto warnings = readTextFile(*options.diagnosticsReportPath);
+    EXPECT_NE(std::string::npos, warnings.find("multi_clock_memory_collision"));
+    EXPECT_EQ(std::string::npos, warnings.find("using generic sequential lowering"));
+    if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+        std::system("command -v vvp >/dev/null 2>&1") != 0) {
+      GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
+    }
+    auto goldenRTL = rtl;
+    replace(goldenRTL, "module " + name + "(", "module golden(");
+    const auto golden = dumped.parent_path() / "golden.sv";
+    std::ofstream(golden) << goldenRTL;
+    const auto tb = dumped.parent_path() / "tb.sv";
+    std::ofstream bench(tb);
+    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module tb;
+  reg clk_a = 0, clk_b = 0, we_a = 0, we_b = 0, req_a = 1, req_b = 1;
+  reg [)" << (wide || signedAddress ? 3 : 2) << R"(:0] addr_a = 0, addr_b = 1;
+  reg [7:0] wd_a = 0, wd_b = 0;
+  reg [1:0] mask_a = 0, mask_b = 0;
+  wire [7:0] rd_a, rd_b, golden_a, golden_b;
+)" << name << R"( dut(.*);
+  golden reference(.rd_a(golden_a), .rd_b(golden_b), .*);
+  task check;
+    begin
+      if (rd_a !== golden_a || rd_b !== golden_b)
+        $fatal(1, "read mismatch: got %h %h expected %h %h", rd_a, rd_b, golden_a, golden_b);
+    end
+  endtask
+  integer i;
+  initial begin
+    for (i = 0; i < 80; i = i + 1) begin
+      addr_a = i % 8; addr_b = (i + 3) % 8;
+      wd_a = i * 17 + 3; wd_b = i * 11 + 7;
+      we_a = i % 3 != 0; we_b = i % 4 != 0;
+      req_a = i % 5 != 0; req_b = i % 7 != 0;
+      mask_a = i % 4; mask_b = (i + 1) % 4;
+      #2; clk_a = 1; #2; check(); clk_a = 0;
+      #2; clk_b = 1; #2; check(); clk_b = 0; #2; check();
+    end
+)";
+    if (masked) {
+      // Independent writes to disjoint bits of the same word must both survive.
+      bench << R"(
+    addr_a = 2; addr_b = 2; mask_a = 1; mask_b = 2;
+    we_a = 1; we_b = 1; req_a = 1; req_b = 1;
+    wd_a = 8'h0a; wd_b = 8'hb0;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+    we_a = 0; we_b = 0;
+    #2; clk_a = 1; clk_b = 1; #2; check();
+    if (rd_a !== golden_a || rd_b !== golden_b) $fatal(1, "disjoint masks lost data");
+)";
+    }
+    if (wide || signedAddress) {
+      // Invalid full-width addresses must not alias a valid truncated address.
+      bench << R"(
+    addr_a = 8; addr_b = 9; we_a = 1; we_b = 1; req_a = 0; req_b = 0;
+    wd_a = 8'hff; wd_b = 8'hee;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+    addr_a = 0; addr_b = 1; we_a = 0; we_b = 0; req_a = 1; req_b = 1;
+    #2; clk_a = 1; clk_b = 1; #2; check(); clk_a = 0; clk_b = 0;
+)";
+    }
+    bench << "    $finish;\n  end\nendmodule\n";
+    bench.close();
+    const auto executable = dumped.parent_path() / "sim.out";
+    const auto quote = [](const std::filesystem::path& path) {
+      return "'" + path.string() + "'";
+    };
+    const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+      " " + quote(dumped) + " " + quote(golden) + " " + quote(tb) +
+      " " + quote(dumped.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(compile.c_str()));
+    const auto run = "vvp " + quote(executable);
+    ASSERT_EQ(0, std::system(run.c_str()));
+  }
+}
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsDynamicPackedOverlapCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "dynamic_packed_ownership";
+  std::filesystem::create_directories(directory);
+  for (const auto& selection : {"[index +: 2]", "[index]", ".field[index]"}) {
+    SCOPED_TRACE(selection);
+    const auto source = directory / "source.sv";
+    const bool member = std::string(selection).front() == '.';
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk, input logic [1:0] index, input logic d, output logic [7:0] q);\n"
+      << (member ? "typedef struct packed { logic [3:0] field; } word_t; word_t mem[2];\n"
+                 : "logic [3:0] mem[2];\n")
+      << "always_ff @(posedge clk) mem[0]" << selection << " <= '0;\n"
+      << "always_ff @(posedge clk) mem[0]" << selection << " <= '1;\n"
+      << "assign q = {mem[1], mem[0]}; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, source,
+      {"multiple sequential writers require disjoint constant selections"});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    EXPECT_EQ(0u, countMemoryInstances(top));
+    top->destroy();
+  }
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsUnresolvedLoopsCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "unresolved_loop_ownership";
+  std::filesystem::create_directories(directory);
+  for (const auto& loop : {
+      "for (int i = 0; i < limit; i++) mem[0][i] <= d;",
+      "for (int i = 0; i < 4; i += limit) mem[0][i] <= d;"}) {
+    SCOPED_TRACE(loop);
+    const auto source = directory / "source.sv";
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk, input int limit, input logic d, output logic [7:0] q);\n"
+      << "logic [3:0] mem[2];\n"
+      << "always_ff @(posedge clk) " << loop << "\n"
+      << "always_ff @(posedge clk) mem[1] <= '0;\n"
+      << "assign q = {mem[1], mem[0]}; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, source,
+      {"multiple sequential writers require disjoint constant selections"});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    top->destroy();
+  }
+}
+
+
+TEST_F(SNLSVConstructorTestMemoryInference, independentMemoryResolutionFailuresCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "independent_memory_failures";
+  std::filesystem::create_directories(directory);
+  for (const auto& variant : {"address", "clock", "data"}) {
+    SCOPED_TRACE(variant);
+    const auto source = directory / "source.sv";
+    const auto address = std::string(variant) == "address" ? "$clog2(addr)" : "addr";
+    const auto clock = std::string(variant) == "clock" ? "$clog2(clk_b)" : "clk_b";
+    const auto data = std::string(variant) == "data" ? "$clog2(d)" : "d";
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic clk_a, clk_b, we, input logic [2:0] addr,\n"
+      << "input logic [7:0] d, output logic [7:0] q); logic [7:0] mem[8];\n"
+      << "always @(posedge clk_a) if (we) mem[" << address << "] <= " << data << ";\n"
+      << "always @(posedge " << clock << ") if (we) mem[addr] <= d;\n"
+      << "assign q = mem[addr]; endmodule\n";
+    SNLSVConstructor constructor(library_);
+    const auto reason = std::string(variant) == "address"
+      ? "unable to resolve full independent memory write address"
+      : std::string(variant) == "clock"
+        ? "unable to resolve independent memory write clock"
+        : "unable to resolve independent memory write data";
+    expectUnsupportedConstruct(constructor, source,
+      {"independent write ports could not be lowered", reason});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    top->destroy();
+  }
 }

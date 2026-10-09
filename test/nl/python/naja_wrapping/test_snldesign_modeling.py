@@ -62,13 +62,13 @@ class SNLDesignModelingTest(unittest.TestCase):
 
     top = naja.SNLDesign.create(self.designs, "TOP")
     instance = naja.SNLInstance.create(top, reg, "reg")
-    self.assertTrue(instance.getInstTerm(clock).is_clock())
-    self.assertTrue(instance.getInstTerm(data).is_data_input())
-    self.assertTrue(instance.getInstTerm(reset).is_async_reset())
+    self.assertTrue(instance.getInstTerm(clock).isClock())
+    self.assertTrue(instance.getInstTerm(data).isDataInput())
+    self.assertTrue(instance.getInstTerm(reset).isAsyncReset())
     self.assertEqual(
       naja.SNLActiveLevel.Low,
       instance.getInstTerm(reset).getResetActiveLevel())
-    self.assertTrue(instance.getInstTerm(output).is_data_output())
+    self.assertTrue(instance.getInstTerm(output).isDataOutput())
 
     with self.assertRaises(RuntimeError):
       clock.setRole()
@@ -80,6 +80,180 @@ class SNLDesignModelingTest(unittest.TestCase):
       clock.setRole(naja.SNLTermRole.Clock, "High")
     with self.assertRaises(RuntimeError):
       clock.setRole(naja.SNLTermRole.Clock, 1000)
+
+  def testRolesFromParameters(self):
+    from itertools import product
+    reg, pins, parameters, names, models = self.makeParameterizedDFF()
+    role, level = naja.SNLTermRole, naja.SNLActiveLevel
+    pins["R"].setRole(role.AsyncReset, level.Low)
+    pins["L"].setRole(role.Enable)
+    pins["I"].setRole(role.DataInput)
+    pins["O"].setRole(role.DataOutput)
+    self.assertFalse(reg.hasRolesFromParameters())
+    entries = []
+    for edge, init, load, sync, typ in product((0, 1), repeat=5):
+      reset = (role.SyncSet if typ else role.SyncReset) if sync else (
+        role.AsyncSet if typ else role.AsyncReset)
+      entries.append({"values": [edge, init, load, sync, typ], "roles": {
+        pins["CK"]: (role.Clock, level.NA),
+        pins["R"]: (reset, level.High) if init else None,
+        pins["L"]: (role.Enable, level.NA) if load else None}})
+    reg.setRolesFromParameters(parameters=names, roles=entries)
+    self.assertTrue(reg.hasRolesFromParameters())
+    top = naja.SNLDesign.create(self.designs, "top")
+    default = naja.SNLInstance.create(top, reg, "default")
+    self.assertEqual(role.Other, default.getInstTerm(pins["R"]).getRole())
+    self.assertEqual(role.Other, default.getInstTerm(pins["L"]).getRole())
+    for entry in entries:
+      with self.subTest(values=entry["values"]):
+        instance = naja.SNLInstance.create(top, reg)
+        overrides = [naja.SNLInstParameter.create(instance, parameter, f"1'b{value}")
+          for parameter, value in zip(parameters, entry["values"])]
+        for name in ("CK", "R", "L"):
+          term = instance.getInstTerm(pins[name])
+          occurrence = naja.SNLOccurrence(term)
+          expected = entry["roles"][pins[name]]
+          expected_role = expected[0] if expected else role.Other
+          self.assertEqual(expected_role, term.getRole())
+          self.assertEqual(expected_role, occurrence.getRole())
+          expected_level = level.High if name == "R" and expected else level.NA
+          self.assertEqual(expected_level, term.getResetActiveLevel())
+          self.assertEqual(expected_level, occurrence.getResetActiveLevel())
+          self.assertEqual(expected_role == role.Clock, term.isClock())
+          self.assertEqual(expected_role == role.AsyncReset, term.isAsyncReset())
+          self.assertEqual(expected_role == role.AsyncSet, term.isAsyncSet())
+          self.assertEqual(expected_role == role.SyncReset, term.isSyncReset())
+          self.assertEqual(expected_role == role.SyncSet, term.isSyncSet())
+          self.assertEqual(expected_role in (role.AsyncReset, role.SyncReset), term.isReset())
+          self.assertEqual(expected_role == role.Enable, term.isEnable())
+        self.assertTrue(instance.getInstTerm(pins["I"]).isDataInput())
+        self.assertTrue(instance.getInstTerm(pins["O"]).isDataOutput())
+        # A query must observe changes on the same instance immediately.
+        overrides[1].setValue("0")
+        self.assertEqual(role.Other, instance.getInstTerm(pins["R"]).getRole())
+        overrides[2].destroy()
+        self.assertFalse(instance.getInstTerm(pins["L"]).isEnable())
+    outer = naja.SNLDesign.create(self.designs, "outer")
+    wrapper = naja.SNLInstance.create(outer, top, "wrapper")
+    occurrence = naja.SNLOccurrence(naja.SNLPath(wrapper), default.getInstTerm(pins["R"]))
+    self.assertEqual(role.Other, occurrence.getRole())
+    self.assertEqual(role.AsyncReset, naja.SNLOccurrence(pins["R"]).getRole())
+    # Model terms and design iterators remain static.
+    self.assertEqual(role.AsyncReset, pins["R"].getRole())
+    self.assertEqual([pins["R"]], list(reg.getAsyncResetTerms()))
+    naja.SNLInstParameter.create(default, parameters[1], "1")
+    self.assertTrue(default.getInstTerm(pins["R"]).isAsyncReset())
+    self.assertEqual(role.AsyncReset, occurrence.getRole())
+    # Replacing the role table takes effect without changing sequential models.
+    reg.setRolesFromParameters(names, [{"values": [0, 1, 0, 0, 0], "roles": {
+      pins["R"]: (role.SyncSet, level.Low), pins["L"]: (role.DataInput, level.NA),
+      pins["O"]: None}}])
+    self.assertTrue(default.getInstTerm(pins["R"]).isSyncSet())
+    self.assertEqual(level.Low, default.getInstTerm(pins["R"]).getResetActiveLevel())
+    self.assertTrue(default.getInstTerm(pins["L"]).isData())
+    self.assertFalse(default.getInstTerm(pins["O"]).isDataOutput())
+    self.assertTrue(reg.hasSequentialModelFromParameters())
+
+  def testBusBitRolesFromParameters(self):
+    model = naja.SNLDesign.createPrimitive(self.primitives, "fifo")
+    bus = naja.SNLBusTerm.create(model, naja.SNLTerm.Direction.Input, 1, 0, "RSTI")
+    low, high = bus.getBusTermBit(0), bus.getBusTermBit(1)
+    mode = naja.SNLParameter.createBoolean(model, "use_arst", False)
+    role, level = naja.SNLTermRole, naja.SNLActiveLevel
+    model.setRolesFromParameters(["use_arst"], [
+      {"values": [0], "roles": {low: (role.SyncReset, level.Low), high: None}},
+      {"values": [1], "roles": {low: (role.AsyncReset, level.High), high: (role.Enable, level.NA)}}])
+    top = naja.SNLDesign.create(self.designs, "top")
+    instance = naja.SNLInstance.create(top, model)
+    self.assertTrue(instance.getInstTerm(low).isSyncReset())
+    self.assertFalse(instance.getInstTerm(high).isEnable())
+    self.assertEqual(level.Low, instance.getInstTerm(low).getResetActiveLevel())
+    naja.SNLInstParameter.create(instance, mode, "1'b1")
+    self.assertTrue(instance.getInstTerm(low).isAsyncReset())
+    self.assertTrue(instance.getInstTerm(high).isEnable())
+    self.assertEqual(level.High, instance.getInstTerm(low).getResetActiveLevel())
+
+  def testRolesFromParametersArgumentErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
+    cases = [
+      ((), {}),
+      (([],), {}),
+      (([], [], []), {}),
+      ((), {"parameters": []}),
+      ((), {"roles": []}),
+      (([], []), {"parameters": []}),
+      ((), {"parameters": [], "roles": [], "unknown": []}),
+    ]
+    for args, kwargs in cases:
+      with self.subTest(args=args, kwargs=kwargs):
+        with self.assertRaises(TypeError):
+          reg.setRolesFromParameters(*args, **kwargs)
+    self.assertFalse(reg.hasRolesFromParameters())
+
+  def testRolesFromParametersNonIntegerRoles(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
+    pin = naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Input, "R")
+    naja.SNLParameter.createDecimal(reg, "mode", 0)
+    for role in (("reset", naja.SNLActiveLevel.High),
+                 (naja.SNLTermRole.AsyncReset, "high")):
+      with self.subTest(role=role):
+        with self.assertRaisesRegex(
+            RuntimeError, r"roles\[0\]: expected integer SNLTermRole and SNLActiveLevel values"):
+          reg.setRolesFromParameters(
+            ["mode"], [{"values": [0], "roles": {pin: role}}])
+        self.assertFalse(reg.hasRolesFromParameters())
+
+  def testRolesFromParametersErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
+    pin = naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Input, "R")
+    parameter = naja.SNLParameter.createDecimal(reg, "mode", 0)
+    naja.SNLParameter.createString(reg, "text", "0")
+    entry = {"values": [0], "roles": {pin: None}}
+    reg.setRolesFromParameters(["mode"], [entry])
+    other = naja.SNLDesign.createPrimitive(self.primitives, "other")
+    other_pin = naja.SNLScalarTerm.create(other, naja.SNLTerm.Direction.Input, "R")
+    cases = [([], [entry]), (["mode"], []), (["missing"], [entry]),
+      (["text"], [entry]), (["mode", "mode"], [entry]),
+      (["mode"], [entry, entry]), (["mode"], [{"values": [], "roles": {}}]),
+      (["mode"], [{"values": [0], "roles": {other_pin: None}}]),
+      (["mode"], [{"values": [0], "roles": {pin: None, other_pin: None}}]),
+      (["mode"], [{"values": [0], "roles": {pin: (999, 0)}}]),
+      (["mode"], [{"values": [0], "roles": {pin: (0, 999)}}]),
+      (["mode"], [{"values": [0], "roles": {pin: "reset"}}]),
+      (["mode"], [{"values": [0], "roles": {"R": None}}]),
+      (["mode"], [{"values": [-1], "roles": {}}]),
+      (["mode"], [{"values": [2**64], "roles": {}}]),
+      (["mode"], [{"values": ["0"], "roles": {}}]),
+      ([1], [entry]), (["mode"], [None]), (["mode"], [{}]),
+      ("mode", [entry]), (["mode"], {})]
+    for names, entries in cases:
+      with self.subTest(names=names, entries=entries):
+        with self.assertRaises((RuntimeError, OverflowError)):
+          reg.setRolesFromParameters(names, entries)
+    top = naja.SNLDesign.create(self.designs, "top")
+    with self.assertRaisesRegex(RuntimeError, "primitive"):
+      top.setRolesFromParameters(["mode"], [entry])
+    instance = naja.SNLInstance.create(top, reg, "ff")
+    term = instance.getInstTerm(pin)
+    self.assertEqual(naja.SNLTermRole.Other, term.getRole())
+    override = naja.SNLInstParameter.create(instance, parameter, "1")
+    for query in (term.getRole, term.isReset, term.isData, term.getResetActiveLevel,
+                  naja.SNLOccurrence(term).getRole,
+                  naja.SNLOccurrence(term).getResetActiveLevel):
+      with self.assertRaisesRegex(RuntimeError, "mode=1"):
+        query()
+    override.setValue("1'bx")
+    with self.assertRaisesRegex(RuntimeError, "invalid role parameter.*mode"):
+      term.getRole()
+    override.destroy()
+    required = naja.SNLParameter.createDecimal(reg, "required")
+    reg.setRolesFromParameters(["required"], [entry])
+    with self.assertRaisesRegex(RuntimeError, "missing required role parameter.*required"):
+      term.getRole()
+    naja.SNLInstParameter.create(instance, required, "0")
+    self.assertEqual(naja.SNLTermRole.Other, term.getRole())
+    self.assertEqual(naja.SNLTermRole.Other, naja.SNLOccurrence().getRole())
+    self.assertEqual(naja.SNLActiveLevel.NA, naja.SNLOccurrence(instance).getResetActiveLevel())
 
   def testSequentialModel(self):
     reg = naja.SNLDesign.createPrimitive(self.primitives, "SCAN_REG")
@@ -111,7 +285,7 @@ class SNLDesignModelingTest(unittest.TestCase):
       reg, naja.SNLTerm.Direction.Output if name == "O" else
       naja.SNLTerm.Direction.Input, name) for name in ("I", "CK", "L", "R", "O")}
     names = ["FALLING_EDGE", "USE_RESET", "USE_ENABLE", "SYNC_RESET", "RESET_VALUE"]
-    parameters = [naja.SNLParameter.create_binary(reg, name, 1, 0) for name in names]
+    parameters = [naja.SNLParameter.createBinary(reg, name, 1, 0) for name in names]
     models = []
     for edge, init, load, sync, typ in product((0, 1), repeat=5):
       next_state = "(L & I) | (!L & IQ)" if load else "I"
@@ -186,7 +360,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     reg, pins, parameters, names, models = self.makeParameterizedDFF()
     top = naja.SNLDesign.create(self.designs, "top")
     instance = naja.SNLInstance.create(top, reg, "ff")
-    required = naja.SNLParameter.create_binary(reg, "required", 1)
+    required = naja.SNLParameter.createBinary(reg, "required", 1)
     entry = dict(models[0], values=[0])
     reg.setSequentialModelFromParameters(["required"], [entry])
     with self.assertRaisesRegex(RuntimeError, "Missing required.*required.*ff") as caught:
@@ -407,40 +581,40 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(8, len(data_inputs))
     self.assertEqual(8, len(outputs))
     self.assertEqual(naja.SNLTermRole.Clock, clocks[0].getRole())
-    self.assertTrue(clocks[0].is_clock())
+    self.assertTrue(clocks[0].isClock())
     self.assertEqual(naja.SNLTermRole.AsyncReset, resets[0].getRole())
     self.assertEqual(naja.SNLActiveLevel.Low, resets[0].getResetActiveLevel())
-    self.assertTrue(resets[0].is_async_reset())
-    self.assertTrue(resets[0].is_reset())
-    self.assertFalse(resets[0].is_data())
+    self.assertTrue(resets[0].isAsyncReset())
+    self.assertTrue(resets[0].isReset())
+    self.assertFalse(resets[0].isData())
     self.assertEqual(9, len(list(naja.SNLDesign.getClockRelatedInputs(clocks[0]))))
-    self.assertTrue(all(term.is_data_input() for term in data_inputs))
-    self.assertTrue(all(term.is_data_output() for term in outputs))
-    self.assertTrue(data_inputs[0].is_data())
-    self.assertTrue(outputs[0].is_data())
+    self.assertTrue(all(term.isDataInput() for term in data_inputs))
+    self.assertTrue(all(term.isDataOutput() for term in outputs))
+    self.assertTrue(data_inputs[0].isData())
+    self.assertTrue(outputs[0].isData())
 
     reset_inst_term = next(
-      term for term in dffrn_inst.getInstTerms() if term.is_async_reset())
+      term for term in dffrn_inst.getInstTerms() if term.isAsyncReset())
     self.assertEqual(naja.SNLTermRole.AsyncReset, reset_inst_term.getRole())
     self.assertEqual(
       naja.SNLActiveLevel.Low, reset_inst_term.getResetActiveLevel())
-    self.assertTrue(reset_inst_term.is_reset())
-    self.assertFalse(reset_inst_term.is_async_set())
-    self.assertFalse(reset_inst_term.is_data())
+    self.assertTrue(reset_inst_term.isReset())
+    self.assertFalse(reset_inst_term.isAsyncSet())
+    self.assertFalse(reset_inst_term.isData())
 
     clock_inst_term = next(
-      term for term in dffrn_inst.getInstTerms() if term.is_clock())
+      term for term in dffrn_inst.getInstTerms() if term.isClock())
     data_input_inst_term = next(
-      term for term in dffrn_inst.getInstTerms() if term.is_data_input())
+      term for term in dffrn_inst.getInstTerms() if term.isDataInput())
     data_output_inst_term = next(
-      term for term in dffrn_inst.getInstTerms() if term.is_data_output())
-    self.assertTrue(data_input_inst_term.is_data())
-    self.assertTrue(data_output_inst_term.is_data())
-    self.assertFalse(clock_inst_term.is_enable())
-    self.assertFalse(clock_inst_term.is_data())
-    self.assertFalse(data_input_inst_term.is_clock())
-    self.assertFalse(data_input_inst_term.is_data_output())
-    self.assertFalse(data_output_inst_term.is_data_input())
+      term for term in dffrn_inst.getInstTerms() if term.isDataOutput())
+    self.assertTrue(data_input_inst_term.isData())
+    self.assertTrue(data_output_inst_term.isData())
+    self.assertFalse(clock_inst_term.isEnable())
+    self.assertFalse(clock_inst_term.isData())
+    self.assertFalse(data_input_inst_term.isClock())
+    self.assertFalse(data_input_inst_term.isDataOutput())
+    self.assertFalse(data_output_inst_term.isDataInput())
 
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".sv", delete=False) as async_set_file:
@@ -469,13 +643,13 @@ endmodule
       self.assertEqual(1, len(sets))
       self.assertEqual(naja.SNLTermRole.AsyncSet, sets[0].getRole())
       set_inst_term = next(
-        term for term in dffs_inst.getInstTerms() if term.is_async_set())
+        term for term in dffs_inst.getInstTerms() if term.isAsyncSet())
       set_bit_term = set_inst_term.getBitTerm()
       self.assertEqual(naja.SNLTermRole.AsyncSet, set_inst_term.getRole())
       self.assertEqual(sets[0], set_bit_term)
-      self.assertFalse(set_inst_term.is_reset())
-      self.assertTrue(set_bit_term.is_async_set())
-      self.assertFalse(set_bit_term.is_reset())
+      self.assertFalse(set_inst_term.isReset())
+      self.assertTrue(set_bit_term.isAsyncSet())
+      self.assertFalse(set_bit_term.isReset())
     finally:
       os.remove(async_set_path)
 
@@ -503,10 +677,10 @@ endmodule
         if inst.getModel().getName().startswith("naja_dffe"))
       enable_bit_term = next(
         term for term in dffe_inst.getModel().getBitTerms()
-        if term.is_enable())
+        if term.isEnable())
       self.assertEqual(naja.SNLTermRole.Enable, enable_bit_term.getRole())
-      self.assertTrue(enable_bit_term.is_enable())
-      self.assertFalse(enable_bit_term.is_data())
+      self.assertTrue(enable_bit_term.isEnable())
+      self.assertFalse(enable_bit_term.isData())
     finally:
       os.remove(enable_path)
 
@@ -551,14 +725,14 @@ endmodule
       self.assertEqual(naja.SNLTermRole.SyncReset, sync_resets[0].getRole())
       self.assertEqual(
         naja.SNLActiveLevel.High, sync_resets[0].getResetActiveLevel())
-      self.assertTrue(sync_resets[0].is_sync_reset())
-      self.assertTrue(sync_resets[0].is_reset())
+      self.assertTrue(sync_resets[0].isSyncReset())
+      self.assertTrue(sync_resets[0].isReset())
       self.assertEqual([], list(dffsr.getAsyncResetTerms()))
       sync_reset_inst_term = next(
-        term for term in dffsr_inst.getInstTerms() if term.is_sync_reset())
+        term for term in dffsr_inst.getInstTerms() if term.isSyncReset())
       self.assertEqual(naja.SNLTermRole.SyncReset, sync_reset_inst_term.getRole())
-      self.assertTrue(sync_reset_inst_term.is_reset())
-      self.assertFalse(sync_reset_inst_term.is_async_reset())
+      self.assertTrue(sync_reset_inst_term.isReset())
+      self.assertFalse(sync_reset_inst_term.isAsyncReset())
     finally:
       os.remove(sync_reset_path)
 
@@ -591,15 +765,15 @@ endmodule
       self.assertEqual(naja.SNLTermRole.SyncSet, sync_sets[0].getRole())
       self.assertEqual(
         naja.SNLActiveLevel.High, sync_sets[0].getResetActiveLevel())
-      self.assertTrue(sync_sets[0].is_sync_set())
-      self.assertFalse(sync_sets[0].is_reset())
-      self.assertFalse(sync_sets[0].is_sync_reset())
+      self.assertTrue(sync_sets[0].isSyncSet())
+      self.assertFalse(sync_sets[0].isReset())
+      self.assertFalse(sync_sets[0].isSyncReset())
       sync_set_inst_term = next(
-        term for term in dffsse_inst.getInstTerms() if term.is_sync_set())
+        term for term in dffsse_inst.getInstTerms() if term.isSyncSet())
       self.assertEqual(naja.SNLTermRole.SyncSet, sync_set_inst_term.getRole())
-      self.assertTrue(sync_set_inst_term.is_sync_set())
-      self.assertFalse(sync_set_inst_term.is_reset())
-      self.assertFalse(sync_set_inst_term.is_sync_reset())
+      self.assertTrue(sync_set_inst_term.isSyncSet())
+      self.assertFalse(sync_set_inst_term.isReset())
+      self.assertFalse(sync_set_inst_term.isSyncReset())
     finally:
       os.remove(sync_set_path)
 
@@ -680,7 +854,7 @@ endmodule
 
   def testParameterizedCombinatorialArcs(self):
     gate = naja.SNLDesign.createPrimitive(self.primitives, "PARAM_GATE")
-    mode = naja.SNLParameter.create_string(gate, "MODE", "NORMAL")
+    mode = naja.SNLParameter.createString(gate, "MODE", "NORMAL")
     i0 = naja.SNLScalarTerm.create(
       gate, naja.SNLTerm.Direction.Input, "I0")
     i1 = naja.SNLScalarTerm.create(

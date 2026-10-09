@@ -12,7 +12,7 @@ class ParameterLifetimeTests(unittest.TestCase):
         self.universe = naja.NLUniverse.create()
         library = naja.NLLibrary.create(naja.NLDB.create(self.universe))
         self.model = naja.SNLDesign.create(library, "model")
-        self.parameter = naja.SNLParameter.create_string(self.model, "INIT", "x")
+        self.parameter = naja.SNLParameter.createString(self.model, "INIT", "x")
         self.top = naja.SNLDesign.create(library, "top")
         self.instance = naja.SNLInstance.create(self.top, self.model, "i")
         self.inst_parameter = naja.SNLInstParameter.create(
