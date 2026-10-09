@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791454709662,
+  "lastUpdate": 1791543899912,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -15504,6 +15504,108 @@ window.BENCHMARK_DATA = {
             "value": 401311.8857777746,
             "unit": "ns/iter",
             "extra": "iterations: 1751\ncpu: 401178.4928612375 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "545ebd99803d301bdb46b4f326998945df83aa28",
+          "message": "Fix/vhdl full adder (#463)\n\n* elaborate full adders\n\n* load several files in VHDL\n\n* truncate arithmetic\n\n* clean API\n\n* Fix test\n\n* implicit return variables now use procedural replay for whole, bit, and part-select writes, unrolled loops, and last-write-wins behavior in both contexts. Constant arguments are materialized correctly; incomplete results remain rejected.\n\n* Fixed the disjointness analysis to fold selections with active loop-unrolling constants. Constant unpacked elements also establish disjoint ownership.\n\n* extending naja_mem with per-write-port clocks and bit masks\n\n* # Share preprocessor macros across source files in input order.\n    single_unit: bool = False\n\n* reduce gate size\n\n* FIX API call\n\n* regold\n\n* coverage\n\n* coverage\n\n* coverage",
+          "timestamp": "2026-10-09T13:02:20+02:00",
+          "tree_id": "54d07e5bb9eab280c6ab5128de81b786c6a6e27d",
+          "url": "https://github.com/najaeda/naja/commit/545ebd99803d301bdb46b4f326998945df83aa28"
+        },
+        "date": 1791543898760,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 187797.9037947621,
+            "unit": "ns/iter",
+            "extra": "iterations: 3742\ncpu: 187773.14831640833 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 284718.4449877792,
+            "unit": "ns/iter",
+            "extra": "iterations: 2454\ncpu: 284662.3859005704 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1724689.3093525185,
+            "unit": "ns/iter",
+            "extra": "iterations: 417\ncpu: 1724286.757793765 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17895179.00000011,
+            "unit": "ns/iter",
+            "extra": "iterations: 39\ncpu: 17894534.897435904 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1091.569166174843,
+            "unit": "ns/iter",
+            "extra": "iterations: 642113\ncpu: 1091.4712535021097 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 11014.012518010164,
+            "unit": "ns/iter",
+            "extra": "iterations: 64547\ncpu: 11012.945915379489 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 107386.55470776727,
+            "unit": "ns/iter",
+            "extra": "iterations: 6553\ncpu: 107372.49381962462 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 412029.1228588207,
+            "unit": "ns/iter",
+            "extra": "iterations: 1693\ncpu: 411979.48848198476 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 366878.83089770307,
+            "unit": "ns/iter",
+            "extra": "iterations: 1916\ncpu: 366825.7964509394 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 293827.34372366325,
+            "unit": "ns/iter",
+            "extra": "iterations: 2374\ncpu: 293819.88205560215 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 66385232.99999911,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 66372356.44444455 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 23004.08717388437,
+            "unit": "ns/iter",
+            "extra": "iterations: 30204\ncpu: 23003.284266984534 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 301336.1409110011,
+            "unit": "ns/iter",
+            "extra": "iterations: 2349\ncpu: 301236.6377182 ns\nthreads: 1"
           }
         ]
       }
