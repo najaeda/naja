@@ -26,6 +26,34 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
     
+    def test_source_references(self):
+        top = netlist.get_top()
+        child = top.get_child_instance("and2_inst")
+        raw_top = naja.NLUniverse.get().getTopDesign()
+        raw_child = raw_top.getInstance("and2_inst")
+        definition = (("cells.v", 1, 1, 5, 9), "user", "verilog", "gate")
+        declaration = (("netlist.v", 20, 1, 20, 30), "user", "verilog", "gate")
+        origin = (("rtl.sv", 10, 2, 11, 8), "yosys", "", "")
+        raw_child.getModel().setSourceDeclaration(definition)
+        raw_child.setSourceDeclaration(declaration)
+        raw_child.addSourceOrigin(origin)
+        self.assertEqual("netlist.v", child.get_source_declaration().range.file)
+        self.assertEqual("cells.v", child.get_model_source_declaration().range.file)
+        self.assertIsNone(child.get_source_range())
+        self.assertIsNone(top.get_source_declaration())
+        self.assertEqual([], top.get_source_origins())
+        for obj, raw in ((top, raw_top), (top.get_term("a"), raw_top.getTerm("a")),
+                         (top.get_net("and_wire"), raw_top.getNet("and_wire"))):
+            raw.addSourceOrigin(origin)
+            raw.setSourceDeclaration(declaration)
+            self.assertEqual("gate", obj.get_source_declaration().representation)
+            self.assertEqual([netlist.SourceReference(
+                netlist.SourceRange("rtl.sv", 10, 11, 2, 8), "yosys")],
+                obj.get_source_origins())
+        concat = netlist.Net([], net_concat=[top.get_net("and_wire")])
+        self.assertIsNone(concat.get_source_declaration())
+        self.assertEqual([], concat.get_source_origins())
+
     def test(self):
         top = netlist.get_top()
         self.assertIsNotNone(top)

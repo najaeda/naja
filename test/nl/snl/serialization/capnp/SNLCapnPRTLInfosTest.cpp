@@ -20,6 +20,7 @@
 #include "SNLRTLInfos.h"
 
 #include "SNLCapnP.h"
+#include "SNLDumpException.h"
 
 using namespace naja::NL;
 
@@ -163,4 +164,12 @@ TEST_F(SNLCapnPRTLInfosTest, testRoundTrip) {
   ASSERT_TRUE(instance->hasRTLInfos());
   expectSourceLoc(instance->getRTLInfos(), "top.sv", 5);
   EXPECT_EQ("u_inst", instance->getRTLInfos()->getInfo(NLName("inst_attr")));
+}
+
+TEST_F(SNLCapnPRTLInfosTest, rejectsUnsupportedSourceReferences) {
+  auto* infos = NLUniverse::get()->getTopDesign()->getRTLInfos();
+  infos->addSourceOrigin({{NLName("rtl.v"), 1, 1, 1, 2}, NLName("yosys"), NLName(), NLName()});
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapnPRTLInfosTest_rejectsUnsupportedSourceReferences";
+  EXPECT_THROW(SNLCapnP::dump(db_, outPath), SNLDumpException);
 }

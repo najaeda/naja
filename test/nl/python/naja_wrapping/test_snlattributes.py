@@ -23,6 +23,35 @@ class SNLAttributesTest(unittest.TestCase):
     if naja.NLUniverse.get():
       naja.NLUniverse.get().destroy()
 
+  def testSourceReferences(self):
+    declaration = (("netlist.v", 3, 2, 3, 20), "user", "verilog", "gate")
+    origin = (("rtl.sv", 10, 1, 11, 8), "yosys", "", "")
+    for obj in (self.top, self.ins0, self.ins0.getModel().getTerm("I0")):
+      self.assertIsNone(obj.getSourceDeclaration())
+      self.assertEqual([], obj.getSourceOrigins())
+      obj.setSourceDeclaration(declaration)
+      obj.addSourceOrigin(origin)
+      obj.addSourceOrigin(origin)
+      self.assertEqual(declaration, obj.getSourceDeclaration())
+      self.assertEqual([origin], obj.getSourceOrigins())
+      self.assertIsNone(obj.getSourceLoc())
+      for invalid in (None, 3, ((), "", "", ""),
+                      (("x", -1, 0, 0, 0), "", "", ""),
+                      (("x", 1, 65536, 0, 0), "", "", ""),
+                      (("x", 2**32, 0, 0, 0), "", "", ""),
+                      (("x", 1.5, 0, 0, 0), "", "", "")):
+        with self.assertRaises((TypeError, OverflowError)):
+          obj.addSourceOrigin(invalid)
+        self.assertEqual([origin], obj.getSourceOrigins())
+      with self.assertRaises(OverflowError):
+        obj.setSourceDeclaration((("x", 1, 65536, 1, 1), "", "", ""))
+      self.assertEqual(declaration, obj.getSourceDeclaration())
+      obj.setSourceDeclaration(None)
+      self.assertIsNone(obj.getSourceDeclaration())
+      self.assertEqual([origin], obj.getSourceOrigins())
+      obj.clearSourceOrigins()
+      self.assertEqual([], obj.getSourceOrigins())
+
   def testAttributes(self):
     pragma0 = naja.SNLAttribute("pragma0", "value0")
     self.assertEqual("pragma0", pragma0.getName())

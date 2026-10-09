@@ -13,6 +13,12 @@
 #include "SNLDesign.h"
 #include "SNLRTLInfos.h"
 #include "SNLScalarTerm.h"
+#include "SNLScalarNet.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
+#include "SNLInstance.h"
 
 using namespace naja::NL;
 
@@ -249,4 +255,81 @@ TEST_F(SNLRTLInfosTest, cloneCopiesSourceLocAndDeepCopiesExtraInfos) {
 
   clonedInfos->destroy();
   infos->destroy();
+}
+
+TEST_F(SNLRTLInfosTest, sourceRolesAreIndependentAndOriginsAreOrderedUnique) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  auto* infos = SNLRTLInfos::create(design);
+  EXPECT_FALSE(infos->getSourceDeclaration());
+  EXPECT_TRUE(infos->getSourceOrigins().empty());
+  EXPECT_FALSE(infos->hasSourceReferences());
+  const SNLSourceReference declaration {
+    {NLName("netlist.v"), 10, 10, 2, 20}, NLName("user"), NLName("verilog"), NLName("gate")};
+  const SNLSourceReference origin {
+    {NLName("rtl.sv"), 4, 7, 1, 8}, NLName("yosys"), NLName(), NLName()};
+  auto second = origin;
+  second.range.line = 5;
+  auto otherProvider = origin;
+  otherProvider.provider = NLName("user");
+  infos->setSourceLoc({NLName("legacy"), 1, 1, 1, 1});
+  infos->setSourceDeclaration(declaration);
+  infos->addSourceOrigin(origin);
+  infos->addSourceOrigin(second);
+  infos->addSourceOrigin(origin);
+  infos->addSourceOrigin(otherProvider);
+  ASSERT_EQ(3, infos->getSourceOrigins().size());
+  EXPECT_EQ(origin, infos->getSourceOrigins()[0]);
+  EXPECT_EQ(second, infos->getSourceOrigins()[1]);
+  EXPECT_EQ(otherProvider, infos->getSourceOrigins()[2]);
+  EXPECT_EQ(declaration, *infos->getSourceDeclaration());
+  EXPECT_EQ(NLName("legacy"), infos->getSourceLoc()->file);
+  EXPECT_THROW(infos->getDumpAttributes(), NLException);
+  EXPECT_THROW(infos->getCompactSourceLocAttribute(), NLException);
+
+  auto* clone = design->clone(NLName("CLONE"));
+  auto* copied = clone->getRTLInfos();
+  ASSERT_NE(nullptr, copied);
+  EXPECT_EQ(declaration, *copied->getSourceDeclaration());
+  EXPECT_EQ(infos->getSourceOrigins(), copied->getSourceOrigins());
+  infos->clearSourceDeclaration();
+  EXPECT_TRUE(infos->hasSourceReferences());
+  infos->clearSourceOrigins();
+  EXPECT_FALSE(infos->hasSourceReferences());
+  EXPECT_EQ(3, copied->getSourceOrigins().size());
+  EXPECT_TRUE(copied->getSourceDeclaration());
+  copied->cloneInfos(*infos);
+  EXPECT_FALSE(copied->hasSourceReferences());
+  EXPECT_NO_THROW(infos->getDumpAttributes());
+}
+
+TEST_F(SNLRTLInfosTest, designClonePreservesObjectAndBitReferences) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  auto* model = SNLDesign::create(library_, NLName("MODEL"));
+  auto* scalarTerm = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("a"));
+  auto* busTerm = SNLBusTerm::create(design, SNLTerm::Direction::Output, 3, 0, NLName("b"));
+  auto* scalarNet = SNLScalarNet::create(design, NLName("n"));
+  auto* busNet = SNLBusNet::create(design, 3, 0, NLName("bn"));
+  auto* instance = SNLInstance::create(design, model, NLName("i"));
+  const std::vector<SNLDesignObject*> objects {
+    scalarTerm, busTerm, busTerm->getBit(2), scalarNet, busNet, busNet->getBit(1), instance};
+  const SNLSourceReference reference {
+    {NLName("input.v"), 1, 2, 3, 4}, NLName("user"), NLName(), NLName()};
+  for (auto* object : objects) {
+    auto* infos = SNLRTLInfos::create(object);
+    infos->setSourceDeclaration(reference);
+    infos->addSourceOrigin(reference);
+  }
+  auto* clone = design->clone(NLName("COPY"));
+  const std::vector<SNLDesignObject*> copies {
+    clone->getTerm(NLName("a")), clone->getTerm(NLName("b")),
+    clone->getBusTerm(NLName("b"))->getBit(2), clone->getNet(NLName("n")),
+    clone->getNet(NLName("bn")), clone->getBusNet(NLName("bn"))->getBit(1),
+    clone->getInstance(NLName("i"))};
+  for (size_t i = 0; i < copies.size(); ++i) {
+    ASSERT_NE(nullptr, copies[i]->getRTLInfos());
+    EXPECT_EQ(reference, *copies[i]->getRTLInfos()->getSourceDeclaration());
+    EXPECT_EQ(1, copies[i]->getRTLInfos()->getSourceOrigins().size());
+    objects[i]->getRTLInfos()->clearSourceOrigins();
+    EXPECT_EQ(1, copies[i]->getRTLInfos()->getSourceOrigins().size());
+  }
 }

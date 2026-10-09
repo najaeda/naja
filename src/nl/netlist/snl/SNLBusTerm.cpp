@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBusTerm.h"
+#include "SNLRTLInfos.h"
 
 #include <cstddef>
 #include <sstream>
@@ -255,6 +256,14 @@ SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
   newSNLBusTerm->setFlatID(getFlatID());
   newSNLBusTerm->createBits();
   SNLAttributes::cloneAttributes(this, newSNLBusTerm);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newSNLBusTerm)->cloneInfos(*infos);
+  }
+  for (auto* bit : getBits()) {
+    if (auto* infos = bit->getRTLInfos()) {
+      SNLRTLInfos::create(newSNLBusTerm->getBit(bit->getBit()))->cloneInfos(*infos);
+    }
+  }
   return newSNLBusTerm;
 }
 

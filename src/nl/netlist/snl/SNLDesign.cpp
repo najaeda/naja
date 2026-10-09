@@ -644,6 +644,9 @@ SNLDesign* SNLDesign::cloneInterfaceToLibrary(NLLibrary* library, const NLName& 
     [](SNLParameter*){} //LCOV_EXCL_LINE
   );
   SNLAttributes::cloneAttributes(this, newDesign);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newDesign)->cloneInfos(*infos);
+  }
   return newDesign;
 }
 

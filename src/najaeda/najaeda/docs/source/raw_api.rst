@@ -1057,3 +1057,50 @@ a full adder). ``getTruthTable()`` requires a single truth table; native
 errors raise ``RuntimeError`` with the native diagnostic preserved.
 Use ``getTruthTableByOutputID()`` to query an individual output. Its native
 errors also raise ``RuntimeError``.
+
+
+Language-neutral source references
+----------------------------------
+
+``SNLDesign`` and all ``SNLDesignObject`` subclasses (instances, nets, terms and
+bits) expose the following expert APIs. These require no retained source or AST.
+
+.. list-table:: Source reference methods
+   :header-rows: 1
+
+   * - Method
+     - Contract
+   * - ``getSourceDeclaration()``
+     - Reference for this object's declaration, or ``None``.
+   * - ``setSourceDeclaration(reference)``
+     - Replace the declaration; ``None`` clears it.
+   * - ``getSourceOrigins()``
+     - List of upstream references, in insertion order.
+   * - ``addSourceOrigin(reference)``
+     - Append unless an exactly equal reference already exists.
+   * - ``clearSourceOrigins()``
+     - Clear upstream references independently of the declaration.
+
+A reference is ``((file, line, column, end_line, end_column), provider, language,
+representation)``. All identifiers are strings; empty strings mean unknown.
+Lines fit unsigned 32-bit integers, columns unsigned 16-bit integers. Coordinates
+are one-based byte positions with inclusive ends; zero means unknown. Negative,
+non-integer and overflowing coordinates are rejected before mutation. Paths are
+kept verbatim, and language/representation are never inferred from a path or src
+attribute. For example::
+
+   gate.setSourceDeclaration((("netlist.v", 20, 1, 20, 30), "user", "verilog", "gate"))
+   gate.addSourceOrigin((("rtl.sv", 10, 2, 11, 8), "yosys", "", ""))
+
+The instance's declaration identifies its instantiation; query
+``instance.getModel().getSourceDeclaration()`` for its model definition.
+``hasSourceLoc()`` and ``getSourceLoc()`` retain their independent legacy meaning;
+new roles neither reclassify nor overwrite that slot. Existing loaders have not
+yet migrated to these roles. The high-level query wrappers are documented in
+:doc:`api`; experts currently use these raw setters for population.
+
+References are deep-copied by supported SNL clones. NajaIF and metadata-enabled
+Verilog export currently reject new references rather than lose them; discard
+failed output. Metadata-disabled Verilog export intentionally omits them.
+Persistence, frontend migration, transformation unions, and optional AST adapters
+remain separate stages described in ``docs/source_information_design.md``.

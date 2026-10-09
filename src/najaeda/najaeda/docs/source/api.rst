@@ -12,6 +12,35 @@ constants.  Query them with ``Net.is_constx()`` and ``Net.is_constz()``;
 For the lower-level compiled extension module, see :doc:`raw_api`.
 For the optional ``najaeda.schematic`` viewer API, see :doc:`schematic`.
 
+Source information
+------------------
+
+``Net``, ``Term`` and ``Instance`` provide ``get_source_declaration()`` and
+``get_source_origins()``. The first returns an immutable ``SourceReference``
+or ``None``; the second returns a list in insertion order with exact duplicates
+removed. ``SourceReference.range`` is a ``SourceRange`` (``file``, ``line``,
+``end_line``, ``column``, ``end_column``). Optional ``provider``, ``language`` and
+``representation`` strings are ``None`` when unknown. Paths are opaque; language
+and representation are never inferred from extensions. Coordinates are one-based
+byte positions with inclusive endpoints; zero means unknown.
+
+An instance declaration identifies its instantiation in the loaded input.
+``Instance.get_model_source_declaration()`` explicitly queries the model
+definition (for the top instance, its top design). Origins identify upstream
+inputs, potentially several RTL locations for a synthesized gate. No retained
+text or AST is needed. Concatenated nets have no declaration or origins.
+
+``get_source_range()`` is unchanged: it reads the independent legacy location
+slot. Existing loaders have not yet migrated to the new roles, so the new
+queries return missing values until populated explicitly through the raw API.
+Expert scripts can use the raw setters in :doc:`raw_api`; high-level editing
+wrappers are deferred until frontend workflows establish their need.
+
+New references currently support in-memory access and cloning. NajaIF export
+and Verilog export with metadata enabled reject them until typed persistence is
+implemented; discard output after a failed export. Verilog export with metadata
+disabled intentionally omits source metadata. Legacy-only export is unchanged.
+
 Term roles
 ----------
 

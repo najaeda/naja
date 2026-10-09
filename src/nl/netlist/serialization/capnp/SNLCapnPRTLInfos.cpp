@@ -5,10 +5,14 @@
 #include "SNLCapnPRTLInfos.h"
 
 #include "SNLRTLInfos.h"
+#include "SNLDumpException.h"
 
 namespace naja::NL {
 
 void dumpRTLInfos(::RTLInfos::Builder rtlInfosBuilder, const SNLRTLInfos* rtlInfos) {
+  if (rtlInfos->hasSourceReferences()) {
+    throw SNLDumpException("NajaIF export of source references is not supported yet");
+  }
   if (rtlInfos->hasSourceLoc()) {
     const auto& sourceLoc = rtlInfos->getSourceLoc();
     auto sourceLocBuilder = rtlInfosBuilder.initSourceLoc();

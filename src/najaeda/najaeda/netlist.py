@@ -111,6 +111,23 @@ def _source_range_from_snl_source_loc(source_loc):
     return SourceRange(file, line, end_line, column, end_column)
 
 
+@dataclass(frozen=True)
+class SourceReference:
+    """A source range and optional producer, language and representation identifiers."""
+    range: SourceRange
+    provider: Optional[str] = None
+    language: Optional[str] = None
+    representation: Optional[str] = None
+
+
+def _source_reference_from_snl(reference):
+    if reference is None:
+        return None
+    source_range, provider, language, representation = reference
+    return SourceReference(_source_range_from_snl_source_loc(source_range),
+                           provider or None, language or None, representation or None)
+
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -587,6 +604,16 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.net if hasattr(self, "net") else None
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.net if hasattr(self, "net") else None
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Net, if available."""
         if hasattr(self, "net"):
@@ -925,6 +952,16 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.get_snl_term()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.get_snl_term()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
 
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Term, if available."""
@@ -1682,6 +1719,20 @@ class Instance:
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.__get_leaf_snl_object()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.__get_leaf_snl_object()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
+    def get_model_source_declaration(self) -> Optional[SourceReference]:
+        """Return the model definition location, independently of this instantiation."""
+        return _source_reference_from_snl(self.__get_snl_model().getSourceDeclaration())
 
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Instance, if available."""
