@@ -38134,3 +38134,133 @@ endmodule
   EXPECT_EQ(2u, countDFFBits(top));
   EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
 }
+
+
+TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnBodyList) {
+  const auto path = writeSVTestFile("priority_loop_return_list", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module priority_loop_return_list(
+  input logic [3:0] a, output logic [1:0] y);
+  function automatic logic [1:0] first(input logic [3:0] v);
+    for (int i = 0; i < 4; i++) begin
+      ;
+      if (v[i]) return 2'(i);
+    end
+    return 2'd3;
+  endfunction
+  assign y = first(a);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("priority_loop_return_list"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 16; ++input) {
+    unsigned expected = 3;
+    for (unsigned i = 0; i < 4; ++i) {
+      if ((input >> i) & 1u) { expected = i; break; }
+    }
+    for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnUnsupportedArgumentsAndBounds) {
+  for (const auto& variant : {"const_ref", "unresolved_argument", "dynamic_bound", "unsupported_return"}) {
+    SCOPED_TRACE(variant);
+    const auto name = std::string("priority_loop_") + variant;
+    const auto path = writeSVTestFile(name,
+      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
+      "module " + name + "(input var logic [3:0] a, input int limit, output logic y);\n"
+      "function automatic logic f(" +
+      (std::string(variant) == "const_ref" ? "const ref" : "input") +
+      " logic [3:0] v" +
+      (std::string(variant) == "const_ref" ? ");\n" : ", input int n);\n") +
+      "for (int i = 0; i < " +
+      (std::string(variant) == "dynamic_bound" ? "n" : "4") +
+      "; i++) if (v[i]) return " +
+      (std::string(variant) == "unsupported_return" ? "$clog2(v)" : "1'b1") + ";\n"
+      "return 1'b0; endfunction\nassign y = f(" +
+      (std::string(variant) == "unresolved_argument" ? "a ** a" : "a") +
+      (std::string(variant) == "const_ref" ? "" :
+        std::string(", ") + (std::string(variant) == "dynamic_bound" ? "limit" : "4")) +
+      "); endmodule\n");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path, {});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, foreachDynamicBoundsUnsupported) {
+  const auto path = writeSVTestFile("foreach_dynamic_bounds", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module foreach_dynamic_bounds(
+  input logic a, output logic y);
+  logic items[];
+  always_comb begin
+    y = a;
+    foreach (items[i]) y ^= a;
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"unsupported foreach dimension without compile-time-known bounds"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, outputFunctionAutomaticLocalTargetsUnsupported) {
+  for (bool nested : {false, true}) {
+    SCOPED_TRACE(nested);
+    const auto name = std::string("output_function_automatic_local_") + (nested ? "nested" : "block");
+    const auto path = writeSVTestFile(name,
+      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
+      "module " + name + "(input logic [3:0] a, output logic [3:0] y);\n"
+      "function automatic void copy(input logic [3:0] value, output logic [3:0] result);\n"
+      "result = value; endfunction\n" +
+      (nested ? std::string(
+        "function automatic logic [3:0] outer(input logic [3:0] v);\n"
+        "logic [3:0] tmp; copy(v, tmp); outer = tmp; endfunction\n"
+        "always_comb y = outer(a);\n") : std::string(
+        "always_comb begin automatic logic [3:0] tmp; copy(a, tmp); y = tmp; end\n")) +
+      "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path,
+      {nested ? "unable to resolve always_comb RHS bits for Call" : "unsupported statement kind"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, binaryGateSimplifiedOutputConnections) {
+  const auto path = writeSVTestFile("binary_gate_simplified_outputs", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module binary_gate_simplified_outputs(
+  input logic [1:0] a, output logic pass, zero, z_and, z_or, inside_all);
+  assign pass = a[0] & 1'b1;
+  assign zero = a[0] & 1'b0;
+  assign inside_all = a inside {2'b??, 2'd0};
+  always_comb begin
+    z_and = 1'bz;
+    z_and &= 1'b1;
+    z_or = 1'bz;
+    z_or |= 1'b0;
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("binary_gate_simplified_outputs"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 4; ++input) {
+    EXPECT_EQ(bool(input & 1u), evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("pass"))->getNet(), input));
+    EXPECT_FALSE(evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("zero"))->getNet(), input));
+    EXPECT_TRUE(evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("inside_all"))->getNet(), input));
+  }
+  for (const char* name : {"z_and", "z_or"}) {
+    auto* input = getSingleAssignInputDriving(top->getScalarTerm(NLName(name))->getNet());
+    ASSERT_NE(nullptr, input);
+    EXPECT_TRUE(input->isConstantX());
+  }
+}
