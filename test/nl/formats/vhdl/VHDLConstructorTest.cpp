@@ -1531,6 +1531,92 @@ end;
   }
 }
 
+TEST_F(VHDLConstructorTest, MultiplicationSkipsZeroPartialProducts) {
+  for (const unsigned factor : {0u, 2u}) {
+    SCOPED_TRACE(factor);
+    const auto source = std::string(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity product is port(a : in unsigned(3 downto 0); y : out unsigned(3 downto 0)); end;
+architecture rtl of product is begin y <= resize(to_unsigned()") +
+        std::to_string(factor) + R"(, 4) * a, 4); end;
+)";
+    auto* design = VHDLConstructor(library_).construct(source);
+    ASSERT_NE(design, nullptr);
+    for (unsigned input = 0; input < 16; ++input) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (int bit = 0; bit < 4; ++bit)
+        values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (input >> bit) & 1;
+      for (int bit = 0; bit < 4; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+            bool(((factor * input) >> bit) & 1));
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticSelectorChoosesHardwareVector) {
+  for (const bool condition : {false, true}) {
+    SCOPED_TRACE(condition);
+    const auto source = std::string(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity selector is port(a, b : in unsigned(1 downto 0); y : out unsigned(1 downto 0)); end;
+architecture rtl of selector is begin y <= sel_suv_f()") +
+        (condition ? "true" : "false") + R"(, a, b); end;
+)";
+    auto* design = VHDLConstructor(library_).construct(source);
+    ASSERT_NE(design, nullptr);
+    for (unsigned pattern = 0; pattern < 16; ++pattern) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (int bit = 0; bit < 2; ++bit) {
+        values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (pattern >> bit) & 1;
+        values[design->getBusTerm(NLName("b"))->getBit(bit)->getNet()] = (pattern >> (bit + 2)) & 1;
+      }
+      for (int bit = 0; bit < 2; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+            bool((pattern >> (bit + (condition ? 0 : 2))) & 1));
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, InvalidRTLExpressionsAndPackagesDoNotPublishDesigns) {
+  const std::string selector = R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity selector is port(a, b : in unsigned(1 downto 0); y : out unsigned(1 downto 0)); end;
+architecture rtl of selector is begin y <= sel_suv_f(1, a, b); end;
+)";
+  const std::string top = "entity top is port(y : out bit); end; "
+      "architecture rtl of top is begin y <= '0'; end;";
+  std::vector<std::pair<std::string, std::string>> invalid = {
+      {selector, "sel_suv_f condition must be boolean"},
+      {"package p is end; package body p is end; package body p is end; " + top,
+          "duplicate package body or body without declaration"},
+      {"package body p is end; " + top, "package body without declaration"}};
+  for (const auto& [declarations, operands] : std::vector<std::pair<std::string, std::string>>{
+      {"signal a : integer range 0 to 3;", "a & a"},
+      {"type t is (idle, busy); signal a : t;", "a & a"},
+      {"type t is record field : bit; end record; signal a : t;", "a & a"},
+      {"type row is array (0 to 1) of bit; type t is array (0 to 1) of row; signal a : t;", "a & a"},
+      {"signal a : bit; signal b : std_logic;", "a & b"}}) {
+    invalid.emplace_back("library ieee; use ieee.std_logic_1164.all; "
+        "entity concat is port(y : out bit_vector(1 downto 0)); end; "
+        "architecture rtl of concat is " + declarations + " begin process(all) begin y <= " +
+        operands + "; end process; end;", "unsupported concatenation operands");
+  }
+  for (const auto& [source, diagnostic] : invalid) {
+    SCOPED_TRACE(source);
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "expected: " << diagnostic;
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
 TEST_F(VHDLConstructorTest, InvalidPackageRTLDoesNotPublishDesigns) {
   const std::string source = R"(
 library ieee; use ieee.std_logic_1164.all;

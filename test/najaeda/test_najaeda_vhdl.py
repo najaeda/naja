@@ -134,6 +134,16 @@ end;
             with self.assertRaisesRegex(ValueError, "VHDL input path is not a file"):
                 netlist.load_vhdl(directory)
 
+    def test_load_vhdl_rejects_bytes_source_pathlike(self):
+        class BytesPath:
+            def __fspath__(self):
+                return b"source.vhd"
+
+        for source in (BytesPath(), [BytesPath()]):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(TypeError, "^VHDL file must be a path string$"):
+                    netlist.load_vhdl(source)
+
     def test_load_vhdl_rejects_bytes_report_pathlike(self):
         class BytesPath:
             def __fspath__(self):

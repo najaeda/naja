@@ -247,6 +247,9 @@ SNLDesign* VHDLConstructor::constructInputs(
           std::to_string(diagnostic.span.start.column) + ": " + diagnostic.message);
     }
   }
+  // Each input above parsed successfully as complete design units; joining them
+  // with newlines cannot introduce a parse error. Keep this defensive fallback.
+  // LCOV_EXCL_START
   if (parsed.hasErrors()) {
     const auto& diagnostic = parsed.diagnostics.front();
     const auto [origin, line] = locate(source, inputOrigins, diagnostic.span.start.offset);
@@ -254,6 +257,7 @@ SNLDesign* VHDLConstructor::constructInputs(
         std::to_string(line) + ", column " + std::to_string(diagnostic.span.start.column) +
         ": " + diagnostic.message);
   }
+  // LCOV_EXCL_STOP
   auto* sources = VHDLSources::get(library_);
   if (requiresVHDLRTL(parsed.syntax) || !sources->source.empty() || !path.empty() ||
       !library_->getName().getString().empty()) {

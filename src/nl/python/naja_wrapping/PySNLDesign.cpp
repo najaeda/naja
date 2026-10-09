@@ -758,7 +758,7 @@ static PyObject* PySNLDesign_setRolesFromParameters(
   auto fail = [&context](const std::string& detail) {
     setError(context + ": " + detail);
     return static_cast<PyObject*>(nullptr);
-  };
+  }; // LCOV_EXCL_LINE: compiler-generated lambda epilogue; body covered above
   if (!PyList_Check(parametersObject) || !PyList_Check(rolesObject)) {
     return fail("parameters and roles must be lists");
   }

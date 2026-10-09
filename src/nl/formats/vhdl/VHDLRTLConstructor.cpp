@@ -2923,7 +2923,7 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
           key(use.selectedName[1]) == "std_logic_signed" ||
           key(use.selectedName[1]) == "std_logic_unsigned" ||
           key(use.selectedName[1]) == "std_logic_arith");
-    });
+    }); // LCOV_EXCL_LINE: compiler-generated exception cleanup for the context predicate.
   };
   for (const auto& entity : syntax.entities) {
     if (rtlContext(entity.context)) return true;

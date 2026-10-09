@@ -687,6 +687,11 @@ TEST_F(SNLDesignModelingTest0,
   EXPECT_EQ(nullptr, disconnectedInterface.reset);
   EXPECT_TRUE(disconnectedInterface.readPorts.empty());
   EXPECT_TRUE(disconnectedInterface.writePorts.empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(inst->getInstTerm(clk)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(inst->getInstTerm(clk)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(inst->getInstTerm(we0)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(
+      inst->getInstTerm(rdata->getBit(0))).empty());
 
   auto* clkNet = SNLScalarNet::create(top, NLName("clk"));
   inst->getInstTerm(clk)->setNet(clkNet);
@@ -782,6 +787,13 @@ TEST_F(SNLDesignModelingTest0, testMemoryInterfaceValidationErrors) {
   auto invalidClock = makeInterface();
   invalidClock.clock = otherTerm;
   EXPECT_THROW(SNLDesignModeling::setMemoryInterface(mem, invalidClock), NLException);
+
+  auto invalidWriteClock = makeInterface();
+  invalidWriteClock.writePorts.front().clock = otherTerm;
+  EXPECT_THROW(
+      SNLDesignModeling::setMemoryInterface(mem, invalidWriteClock),
+      NLException);
+  EXPECT_FALSE(SNLDesignModeling::hasMemoryInterface(mem));
 
   auto invalidReset = makeInterface();
   invalidReset.reset = otherTerm;

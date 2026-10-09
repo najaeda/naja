@@ -173,6 +173,36 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertTrue(instance.getInstTerm(high).isEnable())
     self.assertEqual(level.High, instance.getInstTerm(low).getResetActiveLevel())
 
+  def testRolesFromParametersArgumentErrors(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
+    cases = [
+      ((), {}),
+      (([],), {}),
+      (([], [], []), {}),
+      ((), {"parameters": []}),
+      ((), {"roles": []}),
+      (([], []), {"parameters": []}),
+      ((), {"parameters": [], "roles": [], "unknown": []}),
+    ]
+    for args, kwargs in cases:
+      with self.subTest(args=args, kwargs=kwargs):
+        with self.assertRaises(TypeError):
+          reg.setRolesFromParameters(*args, **kwargs)
+    self.assertFalse(reg.hasRolesFromParameters())
+
+  def testRolesFromParametersNonIntegerRoles(self):
+    reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
+    pin = naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Input, "R")
+    naja.SNLParameter.createDecimal(reg, "mode", 0)
+    for role in (("reset", naja.SNLActiveLevel.High),
+                 (naja.SNLTermRole.AsyncReset, "high")):
+      with self.subTest(role=role):
+        with self.assertRaisesRegex(
+            RuntimeError, r"roles\[0\]: expected integer SNLTermRole and SNLActiveLevel values"):
+          reg.setRolesFromParameters(
+            ["mode"], [{"values": [0], "roles": {pin: role}}])
+        self.assertFalse(reg.hasRolesFromParameters())
+
   def testRolesFromParametersErrors(self):
     reg = naja.SNLDesign.createPrimitive(self.primitives, "roles")
     pin = naja.SNLScalarTerm.create(reg, naja.SNLTerm.Direction.Input, "R")
@@ -208,7 +238,8 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(naja.SNLTermRole.Other, term.getRole())
     override = naja.SNLInstParameter.create(instance, parameter, "1")
     for query in (term.getRole, term.isReset, term.isData, term.getResetActiveLevel,
-                  naja.SNLOccurrence(term).getRole):
+                  naja.SNLOccurrence(term).getRole,
+                  naja.SNLOccurrence(term).getResetActiveLevel):
       with self.assertRaisesRegex(RuntimeError, "mode=1"):
         query()
     override.setValue("1'bx")
