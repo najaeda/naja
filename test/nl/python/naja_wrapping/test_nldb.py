@@ -4,6 +4,7 @@
 
 import os
 import gzip
+import re
 import shutil
 import tempfile
 import unittest
@@ -105,6 +106,137 @@ architecture rtl of inverter is begin y <= not a; end;
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
 
+  def testVHDLBatchFiles(self):
+    # Deliberately put package declarations and entities after their users in
+    # pathname order; the loader must resolve units, not merely sort files.
+    units = [
+      ("z_package.vhd", "package widths is constant width : integer := 3; end;\n"),
+      ("y_leaf.vhd", "use work.widths.all;\n"
+       "entity leaf is port(a : in bit_vector(width-1 downto 0); "
+       "y : out bit_vector(width-1 downto 0)); end;\n"
+       "architecture rtl of leaf is begin y <= not a; end;\n"),
+      ("x_middle.vhd", "use work.widths.all;\n"
+       "entity middle is port(a : in bit_vector(width-1 downto 0); "
+       "y : out bit_vector(width-1 downto 0)); end;\n"
+       "architecture rtl of middle is begin\n"
+       "u: entity work.leaf port map(a, y); end;\n"),
+      ("a_top.vhd", "use work.widths.all;\n"
+       "entity top is port(a : in bit_vector(width-1 downto 0); "
+       "y : out bit_vector(width-1 downto 0)); end;\n"
+       "architecture rtl of top is begin\n"
+       "u: entity work.middle port map(a, y); end;\n"),
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+      paths = []
+      for name, text in units:
+        path = os.path.join(directory, name)
+        with open(path, "w") as output: output.write(text)
+        paths.append(path)
+      single = os.path.join(directory, "single.vhd")
+      with open(single, "w") as output:
+        output.write("".join(text for _, text in reversed(units)))
+      reference = None
+      for files in (paths, list(reversed(paths)), single):
+        for explicit in (None, "top"):
+          with self.subTest(files=files, top=explicit):
+            db = naja.NLDB.create(naja.NLUniverse.get())
+            design = db.loadVHDL(files=files, top=explicit, diagnostics_report_path=None)
+            self.assertEqual(design.getName(), "top")
+            self.assertEqual(design.getBusTerm("a").getWidth(), 3)
+            middle = next(iter(design.getInstances())).getModel()
+            self.assertEqual(middle.getName(), "middle")
+            self.assertEqual(next(iter(middle.getInstances())).getModel().getName(), "leaf")
+            design.dumpVerilog(directory, "netlist.v")
+            with open(os.path.join(directory, "netlist.v")) as output:
+              # The banner date can change between otherwise identical dumps.
+              netlist = re.sub(
+                r"^// (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) .*\n", "", output.read(),
+                flags=re.MULTILINE)
+            if reference is None: reference = netlist
+            else: self.assertEqual(netlist, reference)
+            self.assertEqual(db.loadVHDL(files, top=explicit, diagnostics_report_path=None), design)
+            db.destroy()
+
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      with self.assertRaisesRegex(RuntimeError, r"missing entity: leaf.*x_middle.vhd.*line 4"):
+        db.loadVHDL([paths[3], paths[2], paths[0]], diagnostics_report_path=None)
+      self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("top"))
+      self.assertIsNotNone(db.loadVHDL(paths, diagnostics_report_path=None))
+
+  def testVHDLBatchDependenciesAndErrors(self):
+    with tempfile.TemporaryDirectory() as directory:
+      def write(name, source):
+        path = os.path.join(directory, name)
+        with open(path, "w") as output: output.write(source)
+        return path
+
+      # A package body may precede its declaration, including within a file.
+      package = write("package.vhd", "package body sizes is "
+                      "function size return integer is begin return 2; end; end;\n"
+                      "package sizes is function size return integer; end;\n")
+      entity = write("entity.vhd", "use work.sizes.all;\n"
+                     "entity e is port(a : in bit_vector(size-1 downto 0); "
+                     "y : out bit_vector(size-1 downto 0)); end;\n")
+      architecture = write("architecture.vhd", "architecture rtl of e is begin y <= a; end;\n")
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      top = db.loadVHDL([architecture, entity, package], diagnostics_report_path=None)
+      self.assertEqual(top.getBusTerm("a").getWidth(), 2)
+      db.destroy()
+
+      for name, sources, expected in (
+          ("packages", ["use work.b.all; package a is end;",
+                        "use work.a.all; package b is end;"], "package dependency cycle"),
+          ("entities", ["entity a is end; architecture rtl of a is begin\n"
+                        "u: entity work.b port map(); end;",
+                        "entity b is end; architecture rtl of b is begin\n"
+                        "u: entity work.a port map(); end;"], "entity dependency cycle"),
+          ("missing", ["use work.absent.all; package a is end;"], "missing package: absent"),
+          ("ambiguous", ["entity a is end; architecture rtl of a is begin end;",
+                         "entity b is end; architecture rtl of b is begin end;"], "unique RTL top")):
+        with self.subTest(name=name):
+          files = [write(f"{name}{i}.vhd", text) for i, text in enumerate(sources)]
+          db = naja.NLDB.create(naja.NLUniverse.get())
+          with self.assertRaisesRegex(RuntimeError, expected) as error:
+            db.loadVHDL(files, diagnostics_report_path=None)
+          self.assertIn(".vhd' at line", str(error.exception))
+          if name == "entities":
+            with self.assertRaisesRegex(RuntimeError, "entity dependency cycle"):
+              db.loadVHDL(files, top="a", diagnostics_report_path=None)
+          db.destroy()
+
+  def testVHDLBatchDiagnostics(self):
+    with tempfile.TemporaryDirectory() as directory:
+      paths = []
+      for name in ("first", "second"):
+        path = os.path.join(directory, name + ".vhd")
+        with open(path, "w") as output:
+          output.write(f"entity {name} is port(y : out bit); end;\n"
+                       f"architecture rtl of {name} is begin\n"
+                       "  assert false; y <= '1'; end;\n")
+        paths.append(path)
+      report = os.path.join(directory, "warnings.log")
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      db.loadVHDL(paths, top="second", diagnostics_report_path=report)
+      with open(report) as output: warnings_text = output.read()
+      self.assertEqual(warnings_text.count("[ignored-assertion]"), 2)
+      for path in paths: self.assertIn(path + ":3:3:", warnings_text)
+      db.destroy()
+
+      # A file's incomplete syntax must not consume text from the next file.
+      with open(paths[0], "w") as output: output.write("entity broken is\n")
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      with self.assertRaisesRegex(RuntimeError, r"first.vhd.*line"):
+        db.loadVHDL(paths, top="second", diagnostics_report_path=None)
+      self.assertIsNone(db.getLibrary("DESIGN").getSNLDesign("second"))
+
+  def testVHDLBatchArguments(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    for value, error in (([], ValueError), ([1], TypeError), ([""], ValueError)):
+      with self.subTest(value=value), self.assertRaises(error):
+        db.loadVHDL(value)
+    with self.assertRaisesRegex(TypeError, "either file or files"):
+      db.loadVHDL(file="a.vhd", files=["a.vhd"])
+
   def testVHDLBetaWarningAsError(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with warnings.catch_warnings():
@@ -112,6 +244,60 @@ architecture rtl of inverter is begin y <= not a; end;
       with self.assertRaisesRegex(RuntimeWarning, "VHDL parser is in Beta mode"):
         db.loadVHDL("input.vhd")
     self.assertEqual(len(list(db.getLibraries())), 0)
+
+  def testVHDLAndSystemVerilogFullAdders(self):
+    sources = {
+      ".vhd": """library ieee; use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+entity add4 is port(a, b : in unsigned(3 downto 0); s : out unsigned(3 downto 0)); end;
+architecture rtl of add4 is begin s <= a + b; end;
+""",
+      ".v": "module add4(input [3:0] a, b, output [3:0] s); assign s = a + b; endmodule"
+    }
+    for suffix, source in sources.items():
+      with self.subTest(frontend=suffix):
+        db = naja.NLDB.create(naja.NLUniverse.get())
+        with tempfile.NamedTemporaryFile(mode="w", suffix=suffix) as hdl:
+          hdl.write(source)
+          hdl.flush()
+          if suffix == ".vhd":
+            with warnings.catch_warnings():
+              warnings.simplefilter("ignore", RuntimeWarning)
+              top = db.loadVHDL(hdl.name, diagnostics_report_path=None)
+          else:
+            top = db.loadSystemVerilog([hdl.name], diagnostics_report_path=None)
+        arithmetic = [i for i in top.getInstances() if not i.getModel().isAssign()]
+        self.assertEqual([i.getModel().getName() for i in arithmetic], ["naja_fa"] * 4)
+        db.destroy()
+
+  def testVHDLTruncatedArithmetic(self):
+    for operation, adders in [("a + b", 4), ("resize(a * b, 4)", 12)]:
+      with self.subTest(operation=operation):
+        db = naja.NLDB.create(naja.NLUniverse.get())
+        source = ("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+                  "entity math4 is port(a, b : in unsigned(3 downto 0); "
+                  "s : out unsigned(3 downto 0)); end; "
+                  "architecture rtl of math4 is begin s <= " + operation + "; end;")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as hdl:
+          hdl.write(source)
+          hdl.flush()
+          with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            top = db.loadVHDL(hdl.name, diagnostics_report_path=None)
+        instances = list(top.getInstances())
+        self.assertEqual(sum(i.getModel().getName() == "naja_fa" for i in instances), adders)
+        for instance in instances:
+          if instance.getModel().getName() == "naja_fa":
+            continue
+          for term in instance.getInstTerms():
+            if term.getDirection() != naja.SNLTerm.Direction.Output:
+              continue
+            net = term.getNet()
+            self.assertIsNotNone(net)
+            self.assertTrue(
+                any(t.getDirection() != naja.SNLTerm.Direction.Output for t in net.getInstTerms()) or
+                any(t.getDirection() != naja.SNLTerm.Direction.Input for t in net.getBitTerms()))
+        db.destroy()
 
   def testVHDLWarningReport(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
@@ -409,14 +595,14 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertIsNotNone(naja_path)
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
-    manifest = naja.snapshot_manifest(naja_dir)
+    manifest = naja.snapshotManifest(naja_dir)
     self.assertEqual(manifest["schema_version"], (0, 1, 0))
     self.assertEqual(manifest["producer_version"], naja.getVersion())
     self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
 
-    manifest = naja.snapshot_manifest(naja_dir)
+    manifest = naja.snapshotManifest(naja_dir)
     self.assertEqual(manifest["schema_version"], (0, 1, 0))
     self.assertIsNone(naja.NLUniverse.get())
 
@@ -438,12 +624,12 @@ architecture rtl of unsupported is begin y <= a and missing; end;
 
   def testSnapshotManifestInvalidArguments(self):
     with self.assertRaisesRegex(
-        RuntimeError, "malformed naja snapshot_manifest"):
-      naja.snapshot_manifest()
+        RuntimeError, "malformed naja snapshotManifest"):
+      naja.snapshotManifest()
 
     with self.assertRaisesRegex(
-        RuntimeError, "snapshot_manifest argument should be a file path"):
-      naja.snapshot_manifest(42)
+        RuntimeError, "snapshotManifest argument should be a file path"):
+      naja.snapshotManifest(42)
 
   def testLoaderArgumentValidation(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
@@ -615,28 +801,28 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertTrue(net.getSourceLoc()[0].endswith("systemverilog/benchmarks/simple/simple.sv"))
     self.assertTrue(os.path.exists(json_path))
     self.assertTrue(os.path.exists(diagnostics_path))
-    self.assertIsNone(naja.live_compilation())
-    self.assertIsNone(naja.ast_symbol_of(top))
+    self.assertIsNone(naja.liveCompilation())
+    self.assertIsNone(naja.astSymbolOf(top))
     with self.assertRaises(RuntimeError):
-      naja.ast_symbol_of(db)
+      naja.astSymbolOf(db)
     with self.assertRaises(ValueError):
-      naja.snl_objects_of(object())
+      naja.snlObjectsOf(object())
 
     db.destroy()
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
-    self.assertIsNotNone(naja.live_compilation())
-    top_symbol = naja.ast_symbol_of(top)
+    self.assertIsNotNone(naja.liveCompilation())
+    top_symbol = naja.astSymbolOf(top)
     self.assertIsNotNone(top_symbol)
-    self.assertIn(top, naja.snl_objects_of(top_symbol))
-    net_symbol = naja.ast_symbol_of(top.getNet("y"))
+    self.assertIn(top, naja.snlObjectsOf(top_symbol))
+    net_symbol = naja.astSymbolOf(top.getNet("y"))
     self.assertIsNotNone(net_symbol)
-    self.assertIn(top.getNet("y"), naja.snl_objects_of(net_symbol))
-    term_symbol = naja.ast_symbol_of(top.getTerm("a"))
+    self.assertIn(top.getNet("y"), naja.snlObjectsOf(net_symbol))
+    term_symbol = naja.astSymbolOf(top.getTerm("a"))
     self.assertIsNotNone(term_symbol)
-    self.assertIn(top.getTerm("a"), naja.snl_objects_of(term_symbol))
+    self.assertIn(top.getTerm("a"), naja.snlObjectsOf(term_symbol))
 
     # A correctly named capsule whose pointer is unknown to the live registry
     # is valid input and produces an empty result.
@@ -646,10 +832,10 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     capsule_new.restype = ctypes.py_object
     capsule_name = b"naja.frontend.Symbol"
     unknown_symbol = capsule_new(ctypes.c_void_p(1), capsule_name, None)
-    self.assertEqual([], naja.snl_objects_of(unknown_symbol))
+    self.assertEqual([], naja.snlObjectsOf(unknown_symbol))
 
     db.destroy()
-    self.assertIsNone(naja.live_compilation())
+    self.assertIsNone(naja.liveCompilation())
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_assigns=False)
     self.assertIsNotNone(top)
@@ -789,13 +975,13 @@ endmodule
   def testSystemVerilogIntentAPI(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u)
-    self.assertFalse(naja.intent_available())
+    self.assertFalse(naja.intentAvailable())
     with self.assertRaises(RuntimeError):
-      naja.intent_type_of(db)
+      naja.intentTypeOf(db)
     with self.assertRaises(RuntimeError):
-      naja.intent_parameters_of(db)
+      naja.intentParametersOf(db)
     with self.assertRaises(RuntimeError):
-      naja.intent_package_member("mini_pkg")
+      naja.intentPackageMember("mini_pkg")
 
     with tempfile.TemporaryDirectory() as tempdir:
       sv_file = os.path.join(tempdir, "intent_mini.sv")
@@ -804,11 +990,11 @@ endmodule
 
       top = db.loadSystemVerilog([sv_file], keep_ast_link=True)
       self.assertIsNotNone(top)
-      self.assertTrue(naja.intent_available())
+      self.assertTrue(naja.intentAvailable())
 
       state_q = top.getNet("state_q")
       self.assertIsNotNone(state_q)
-      type_rec = naja.intent_type_of(state_q)
+      type_rec = naja.intentTypeOf(state_q)
       self.assertEqual("mini_pkg::state_e", type_rec["type"])
       self.assertEqual("enum", type_rec["canonical_kind"])
       self.assertTrue(type_rec["src"].endswith("intent_mini.sv:29"))
@@ -819,29 +1005,29 @@ endmodule
         {"ST_IDLE": "2'b00", "ST_RUN": "2'b01", "ST_DONE": "2'b11"},
         {m["name"]: m["encoding"] for m in enum["members"]})
 
-      clk_rec = naja.intent_type_of(top.getNet("clk"))
+      clk_rec = naja.intentTypeOf(top.getNet("clk"))
       self.assertEqual("logic", clk_rec["type"])
       self.assertEqual("scalar", clk_rec["canonical_kind"])
       self.assertTrue(clk_rec["src"].endswith("intent_mini.sv:23"))
       self.assertNotIn("enum", clk_rec)
       self.assertNotIn("struct", clk_rec)
-      self.assertEqual(clk_rec, naja.intent_type_of(top.getTerm("clk")))
+      self.assertEqual(clk_rec, naja.intentTypeOf(top.getTerm("clk")))
 
-      byte_rec = naja.intent_type_of(top.getNet("byte_q"))
+      byte_rec = naja.intentTypeOf(top.getNet("byte_q"))
       self.assertEqual("mini_pkg::byte_t", byte_rec["type"])
       self.assertEqual("packed_array", byte_rec["canonical_kind"])
       self.assertTrue(byte_rec["src"].endswith("intent_mini.sv:30"))
       self.assertNotIn("enum", byte_rec)
       self.assertNotIn("struct", byte_rec)
 
-      plain_rec = naja.intent_type_of(top.getNet("plain_q"))
+      plain_rec = naja.intentTypeOf(top.getNet("plain_q"))
       self.assertEqual("logic[3:0]", plain_rec["type"])
       self.assertEqual("packed_array", plain_rec["canonical_kind"])
       self.assertTrue(plain_rec["src"].endswith("intent_mini.sv:31"))
       self.assertNotIn("enum", plain_rec)
       self.assertNotIn("struct", plain_rec)
 
-      payload_rec = naja.intent_type_of(top.getNet("payload_q"))
+      payload_rec = naja.intentTypeOf(top.getNet("payload_q"))
       self.assertEqual("mini_pkg::payload_t", payload_rec["type"])
       self.assertEqual("packed_struct", payload_rec["canonical_kind"])
       self.assertTrue(payload_rec["src"].endswith("intent_mini.sv:32"))
@@ -855,7 +1041,7 @@ endmodule
         {"name": "state", "type": "mini_pkg::state_e", "msb": 1, "lsb": 0},
       ], payload["fields"])
 
-      overlay_rec = naja.intent_type_of(top.getNet("overlay_q"))
+      overlay_rec = naja.intentTypeOf(top.getNet("overlay_q"))
       self.assertEqual("mini_pkg::overlay_t", overlay_rec["type"])
       self.assertEqual("packed_union", overlay_rec["canonical_kind"])
       self.assertEqual(8, overlay_rec["struct"]["width"])
@@ -866,16 +1052,16 @@ endmodule
       ], overlay_rec["struct"]["fields"])
 
       synthetic = naja.SNLScalarNet.create(top, "synthetic")
-      self.assertIsNone(naja.intent_type_of(synthetic))
-      self.assertIsNone(naja.ast_symbol_of(synthetic))
-      self.assertIsNone(naja.intent_parameters_of(synthetic))
+      self.assertIsNone(naja.intentTypeOf(synthetic))
+      self.assertIsNone(naja.astSymbolOf(synthetic))
+      self.assertIsNone(naja.intentParametersOf(synthetic))
 
       ff = next(
         inst for inst in top.getInstances()
         if inst.getModel().getName() == "naja_dffrn__w2")
-      self.assertEqual(type_rec, naja.intent_type_of(ff))
+      self.assertEqual(type_rec, naja.intentTypeOf(ff))
 
-      params = naja.intent_parameters_of(top)
+      params = naja.intentParametersOf(top)
       self.assertEqual("intent_mini", params["module"])
       self.assertEqual(2, params["count"])
       by_name = {p["name"]: p for p in params["parameters"]}
@@ -886,25 +1072,25 @@ endmodule
       self.assertEqual("2", by_name["IDX_W"]["value"])
       self.assertEqual("$clog2(DEPTH)", by_name["IDX_W"]["expr"])
 
-      plen = naja.intent_package_member("mini_pkg", "PLEN")
+      plen = naja.intentPackageMember("mini_pkg", "PLEN")
       self.assertEqual("PLEN", plen["name"])
       self.assertEqual("34", plen["value"])
       self.assertEqual("(32 == 32) ? 34 : 56", plen["expr"])
       self.assertTrue(plen["localparam"])
 
-      package_type = naja.intent_package_member("mini_pkg", "state_e")
+      package_type = naja.intentPackageMember("mini_pkg", "state_e")
       self.assertEqual("mini_pkg::state_e", package_type["type"])
       self.assertEqual("enum", package_type["canonical_kind"])
       self.assertEqual(2, package_type["enum"]["width"])
-      self.assertIsNone(naja.intent_package_member("mini_pkg", "missing"))
+      self.assertIsNone(naja.intentPackageMember("mini_pkg", "missing"))
 
-      state_sym = naja.ast_symbol_of(state_q)
-      linked_objects = naja.snl_objects_of(state_sym)
+      state_sym = naja.astSymbolOf(state_q)
+      linked_objects = naja.snlObjectsOf(state_sym)
       self.assertIn(state_q, linked_objects)
       self.assertIn(ff, linked_objects)
 
     db.destroy()
-    self.assertFalse(naja.intent_available())
+    self.assertFalse(naja.intentAvailable())
 
   def testDesignDumpVerilogOptions(self):
     u = naja.NLUniverse.get()

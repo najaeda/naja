@@ -2063,3 +2063,57 @@ TEST_F(NLDB0Test, testGetOrCreatePrimitiveDispatch) {
           NLID::LibraryID(std::numeric_limits<NLID::LibraryID>::max()),
           NLID::DesignID(1)));
 }
+
+TEST_F(NLDB0Test, testIndependentWriteClockMemoryPrimitive) {
+  NLUniverse::create();
+  NLDB0::MemorySignature signature;
+  signature.width = 8;
+  signature.depth = 8;
+  signature.abits = 3;
+  signature.readPorts = 2;
+  signature.writePorts = 2;
+  signature.independentWriteClocks = true;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(nullptr, memory);
+  EXPECT_EQ(signature, NLDB0::getMemorySignature(memory));
+  EXPECT_EQ(memory, NLDB0::getOrCreateMemory(signature));
+  auto* clocks = memory->getBusTerm(NLName("WCLK"));
+  auto* masks = memory->getBusTerm(NLName("WMASK"));
+  ASSERT_NE(nullptr, clocks);
+  ASSERT_NE(nullptr, masks);
+  EXPECT_EQ(2, clocks->getWidth());
+  EXPECT_EQ(16, masks->getWidth());
+  auto interface = SNLDesignModeling::getMemoryInterface(memory);
+  EXPECT_TRUE(interface.isValid());
+  EXPECT_EQ(nullptr, interface.clock);
+  ASSERT_EQ(2u, interface.writePorts.size());
+  EXPECT_EQ(2u, SNLDesignModeling::getClockTerms(memory).size());
+  for (int port = 0; port < 2; ++port) {
+    EXPECT_EQ(clocks->getBit(port), interface.writePorts[port].clock);
+    EXPECT_EQ(8u, interface.writePorts[port].mask.size());
+    auto* clock = clocks->getBit(port);
+    EXPECT_TRUE(SNLDesignModeling::isClock(clock));
+    EXPECT_EQ(20u, SNLDesignModeling::getClockRelatedInputs(clock).size());
+    EXPECT_EQ(16u, SNLDesignModeling::getClockRelatedOutputs(clock).size());
+    for (int bit = 0; bit < 8; ++bit) {
+      auto* mask = masks->getBit(port * 8 + bit);
+      EXPECT_EQ(SNLDesignModeling::SNLTermRole::MemoryWriteEnable,
+        SNLDesignModeling::getTermRole(mask));
+      auto relatedClocks = SNLDesignModeling::getInputRelatedClocks(mask);
+      ASSERT_EQ(1u, relatedClocks.size());
+      EXPECT_EQ(clock, *relatedClocks.begin());
+    }
+  }
+  NLDB0::PrimitiveParameters parameters;
+  for (auto* parameter : memory->getParameters())
+    parameters[parameter->getName().getString()] = parameter->getValue();
+  EXPECT_EQ(memory, NLDB0::getOrCreatePrimitive(
+    memory->getLibrary()->getID(), memory->getID(), parameters));
+  signature.independentWriteClocks = false;
+  auto* legacy = NLDB0::getOrCreateMemory(signature);
+  EXPECT_NE(memory, legacy);
+  EXPECT_EQ(nullptr, legacy->getBusTerm(NLName("WCLK")));
+  signature.independentWriteClocks = true;
+  signature.resetMode = NLDB0::MemoryResetMode::SyncHigh;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(signature), NLException);
+}

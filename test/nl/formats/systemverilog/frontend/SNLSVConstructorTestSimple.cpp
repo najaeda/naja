@@ -3238,7 +3238,7 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseContinuousAssignFunctionCaseInsideAssignmentBodyUnsupported) {
+  parseContinuousAssignFunctionCaseInsideIncompleteAssignmentBodyUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath = outPath /
@@ -3260,7 +3260,6 @@ TEST_F(
   function automatic logic is_amo(input logic [5:0] op_i);
     case (op_i) inside
       [6'd4 : 6'd17]: is_amo = 1'b1;
-      default:        is_amo = 1'b0;
     endcase
   endfunction
   assign y = is_amo(op);
@@ -6777,6 +6776,791 @@ endmodule
     NLName("continuous_assign_function_case_inside_all_items_same_as_default_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+// Evaluate the primitive network and reject missing, cyclic, or multiple drivers.
+// The functions below use assigns, muxes, Boolean gates, and table selects.
+static bool evaluateFunctionResultBit(
+    SNLDesign* top, SNLBitNet* net, unsigned input, unsigned depth = 0,
+    std::unordered_map<SNLBitNet*, std::optional<bool>>* memo = nullptr) {
+  std::unordered_map<SNLBitNet*, std::optional<bool>> localMemo;
+  if (!memo) memo = &localMemo;
+  if (auto found = memo->find(net); found != memo->end()) {
+    if (!found->second) {
+      ADD_FAILURE() << "Cyclic function result: " << net->getString();
+      return false;
+    }
+    return *found->second;
+  }
+  (*memo)[net] = std::nullopt;
+  const bool result = [&]() -> bool {
+    if (!net || depth > 200) {
+      ADD_FAILURE() << "Missing net or cyclic function result: " << (net ? net->getString() : "null");
+      return false;
+    }
+    if (net->isConstant0() || net->isConstant1()) {
+      return net->isConstant1();
+    }
+    if (auto* inputTerm = top->getTerm(NLName("a"))) {
+      for (auto* bit : inputTerm->getBits()) {
+        if (bit->getNet() == net) {
+          return (input >> bit->getBit()) & 1u;
+        }
+      }
+    }
+    SNLInstTerm* driver = nullptr;
+    for (auto* term : net->getInstTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Output) {
+        if (driver) {
+          ADD_FAILURE() << "Multiple function result drivers: " << net->getString();
+          return false;
+        }
+        driver = term;
+      }
+    }
+    if (!driver) {
+      ADD_FAILURE() << "Undriven function result: " << net->getString();
+      return false;
+    }
+    auto* instance = driver->getInstance();
+    auto* model = instance->getModel();
+    const auto read = [&](SNLBitTerm* term) {
+      return evaluateFunctionResultBit(
+        top, instance->getInstTerm(term)->getNet(), input, depth + 1, memo);
+    };
+    if (NLDB0::isAssign(model)) {
+      return read(NLDB0::getAssignInput());
+    }
+    if (NLDB0::isMux2(model)) {
+      auto* term = read(NLDB0::getMux2Select(model))
+        ? NLDB0::getMux2InputB(model) : NLDB0::getMux2InputA(model);
+      return read(term->getBit(driver->getBitTerm()->getBit()));
+    }
+    if (NLDB0::isGate(model)) {
+      const auto name = NLDB0::getGateName(model);
+      bool result = name == "and" || name == "nand";
+      for (auto* term : model->getBitTerms()) {
+        if (term->getDirection() != SNLTerm::Direction::Input) {
+          continue;
+        }
+        const bool value = read(term);
+        if (name == "and" || name == "nand") result &= value;
+        else if (name == "or" || name == "nor") result |= value;
+        else if (name == "xor" || name == "xnor") result ^= value;
+        else if (name == "buf" || name == "not") result = value;
+        else {
+          ADD_FAILURE() << "Unexpected gate: " << name;
+          return false;
+        }
+      }
+      return name == "nand" || name == "nor" || name == "xnor" || name == "not"
+        ? !result : result;
+    }
+    if (NLDB0::isFA(model)) {
+      const unsigned sum = unsigned(read(NLDB0::getFAInputA())) +
+        unsigned(read(NLDB0::getFAInputB())) + unsigned(read(NLDB0::getFAInputCI()));
+      return driver->getBitTerm() == NLDB0::getFAOutputS() ? (sum & 1u) : (sum > 1);
+    }
+    if (NLDB0::isTableSelect(model)) {
+      unsigned address = 0;
+      for (auto* bit : NLDB0::getTableSelectAddress(model)->getBusBits()) {
+        address |= unsigned(read(bit)) << bit->getBit();
+      }
+      const auto signature = NLDB0::getTableSelectSignature(instance);
+      if (address >= signature.depth) {
+        ADD_FAILURE() << "Out of range table-select address";
+        return false;
+      }
+      auto* bit = NLDB0::getTableSelectData(model)->getBit(
+        address * signature.width + driver->getBitTerm()->getBit());
+      return read(bit);
+    }
+    ADD_FAILURE() << "Unexpected function primitive: " << model->getString();
+    return false;
+  }();
+  (*memo)[net] = result;
+  return result;
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionInputFormalWritesDoNotModifyActual) {
+  const auto path = writeSVTestFile("formal_copy_write", R"(module formal_copy_write(
+  input logic [3:0] a, output logic [3:0] y, z, direct, implicit_result);
+  function automatic logic [3:0] f(logic [3:0] d);
+    d = ~d;
+    d[0] = ~d[0];
+    return d;
+  endfunction
+  function automatic logic [3:0] g(logic [3:0] d);
+    d = ~d;
+    d[0] = ~d[0];
+    return d ^ 4'h3;
+  endfunction
+  function automatic logic [3:0] h(logic [3:0] d);
+    d = ~d;
+    d[0] = ~d[0];
+    h = d;
+  endfunction
+  assign direct = g(a);
+  assign implicit_result = h(a);
+  assign y = f(a);
+  assign z = a;
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("formal_copy_write"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 16; ++input) {
+    for (const auto& output : {std::pair{"y", input ^ 14u}, {"z", input},
+                              {"direct", input ^ 13u}, {"implicit_result", input ^ 14u}}) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+        EXPECT_EQ(bool((output.second >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << output.first << " input=" << input;
+      }
+    }
+    ASSERT_FALSE(HasFailure());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionLoopWrittenLocalsFeedLaterLoops) {
+  const auto path = writeSVTestFile("theta_replay", R"(module theta_replay(
+  input logic [4:0][4:0][3:0] a, output logic [4:0][4:0][3:0] y);
+  localparam int W = 4;
+  typedef logic [4:0][W-1:0] plane_t;
+  typedef logic [4:0][4:0][W-1:0] box_t;
+  localparam int ThetaIndexX1 [5] = '{4,0,1,2,3};
+  localparam int ThetaIndexX2 [5] = '{1,2,3,4,0};
+  function automatic box_t theta(box_t state);
+    plane_t c, d;
+    box_t result;
+    for (int x = 0; x < 5; x++)
+      c[x] = state[x][0] ^ state[x][1] ^ state[x][2] ^ state[x][3] ^ state[x][4];
+    for (int x = 0; x < 5; x++)
+      for (int z = 0; z < W; z++) begin
+        int index_z;
+        index_z = (z == 0) ? W-1 : z-1;
+        d[x][z] = c[ThetaIndexX1[x]][z] ^ c[ThetaIndexX2[x]][index_z];
+      end
+    for (int x = 0; x < 5; x++)
+      for (int y = 0; y < 5; y++) result[x][y] = state[x][y] ^ d[x];
+    return result;
+  endfunction
+  assign y = theta(a);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("theta_replay"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_LE(top->getInstances().size(), 240);
+  uint32_t random = 0x12345678u;
+  for (unsigned sample = 0; sample < 128; ++sample) {
+    std::array<bool, 100> input {};
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : top->getTerm(NLName("a"))->getBits()) {
+      random ^= random << 13;
+      random ^= random >> 17;
+      random ^= random << 5;
+      input[bit->getBit()] = random & 1u;
+      memo[bit->getNet()] = input[bit->getBit()];
+    }
+    const auto parity = [&](unsigned column, unsigned z) {
+      bool value = false;
+      for (unsigned row = 0; row < 5; ++row) value ^= input[(column*5+row)*4+z];
+      return value;
+    };
+    for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+      const unsigned offset = bit->getBit();
+      const unsigned x = offset / 20, z = offset % 4;
+      const bool expected = input[offset] ^ parity((x+4)%5, z) ^ parity((x+1)%5, (z+3)%4);
+      EXPECT_EQ(expected, evaluateFunctionResultBit(top, bit->getNet(), 0, 0, &memo))
+        << "sample=" << sample << " bit=" << offset;
+    }
+    ASSERT_FALSE(HasFailure());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, constantMatrixFunctionAndInlineSizeAndTruthTable) {
+  for (const bool function : {false, true}) {
+    const std::string name = function ? "mvm_function" : "mvm_inline";
+    const auto path = writeSVTestFile(name, "module " + name + R"((
+  input logic [7:0] a, output logic [7:0] y);
+  localparam logic [7:0] M [8] = '{8'h58,8'h2d,8'h9e,8'h0b,8'hdc,8'h04,8'h03,8'h24};
+)" + (function ? R"(  function automatic logic [7:0] mvm(logic [7:0] v, logic [7:0] m [8]);
+    logic [7:0] r;
+    r = '0;
+    for (int i = 0; i < 8; ++i)
+      for (int j = 0; j < 8; ++j) r[i] = r[i] ^ (m[j][i] & v[7-j]);
+    return r;
+  endfunction
+  assign y = mvm(a, M);
+)" : R"(  always_comb begin
+    y = '0;
+    for (int i = 0; i < 8; ++i)
+      for (int j = 0; j < 8; ++j) y[i] = y[i] ^ (M[j][i] & a[7-j]);
+  end
+)") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_LE(top->getInstances().size(), 17);
+    for (auto* instance : top->getInstances()) {
+      ASSERT_TRUE(NLDB0::isGate(instance->getModel()));
+      EXPECT_EQ("xor", NLDB0::getGateName(instance->getModel()));
+    }
+    constexpr std::array<unsigned, 8> matrix {0x58,0x2d,0x9e,0x0b,0xdc,0x04,0x03,0x24};
+    for (unsigned input = 0; input < 256; ++input) {
+      unsigned expected = 0;
+      for (unsigned row = 0; row < 8; ++row) {
+        if ((input >> (7-row)) & 1u) expected ^= matrix[row];
+      }
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << name << " input=" << input;
+      }
+      ASSERT_FALSE(HasFailure());
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, aesCanrightSizeAndExhaustiveTruthTable) {
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(
+    std::filesystem::path(SNL_SV_BENCHMARKS_PATH) / "aes_sbox_canright.sv"));
+  // Compute the reference from the AES field and affine transform, independently
+  // of Canright's normal-basis matrices and inversion functions.
+  const auto multiply = [](unsigned a, unsigned b) {
+    unsigned result = 0;
+    for (unsigned bit = 0; bit < 8; ++bit) {
+      if (b & 1u) result ^= a;
+      a = ((a << 1) ^ ((a & 0x80u) ? 0x11bu : 0)) & 255u;
+      b >>= 1;
+    }
+    return result;
+  };
+  std::array<unsigned, 256> forward {}, inverse {};
+  for (unsigned input = 0; input < 256; ++input) {
+    unsigned reciprocal = input ? 1 : 0;
+    for (unsigned power = 0; power < 254; ++power) {
+      reciprocal = multiply(reciprocal, input);
+    }
+    unsigned value = reciprocal ^ 0x63u;
+    for (unsigned rotate = 1; rotate <= 4; ++rotate) {
+      value ^= ((reciprocal << rotate) | (reciprocal >> (8-rotate))) & 255u;
+    }
+    forward[input] = value;
+    inverse[value] = input;
+  }
+  EXPECT_EQ(0x63u, forward[0]);
+  EXPECT_EQ(0xedu, forward[0x53]);
+  for (const auto& name : {"aes_sbox_canright", "aes_sbox_lut"}) {
+    SCOPED_TRACE(name);
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    EXPECT_LE(top->getInstances().size(), std::string(name) == "aes_sbox_lut" ? 9 : 400);
+    for (unsigned op : {1u, 2u}) {
+      for (unsigned input = 0; input < 256; ++input) {
+        std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+        for (auto* bit : top->getTerm(NLName("data_i"))->getBits()) {
+          memo[bit->getNet()] = bool((input >> bit->getBit()) & 1u);
+        }
+        for (auto* bit : top->getTerm(NLName("op_i"))->getBits()) {
+          memo[bit->getNet()] = bool((op >> bit->getBit()) & 1u);
+        }
+        const auto expected = op == 1 ? forward[input] : inverse[input];
+        for (auto* bit : top->getTerm(NLName("data_o"))->getBits()) {
+          EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), 0, 0, &memo))
+            << "input=" << input << " op=" << op;
+        }
+        ASSERT_FALSE(HasFailure());
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionUnpackedArrayArguments) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "array_function_comb" : "array_function_assign";
+    const auto path = writeSVTestFile(name, R"(package matrix_pkg;
+  localparam logic [7:0] X2S [8] = '{8'h98,8'hf3,8'hf2,8'h48,8'h09,8'h81,8'ha9,8'hff};
+  localparam logic [7:0] X2A [8] = '{8'h64,8'h78,8'h6e,8'h8c,8'h68,8'h29,8'hde,8'h60};
+  function automatic logic [7:0] aes_mvm(logic [7:0] vec_b, logic [7:0] mat_a [8]);
+    logic [7:0] vec_c;
+    vec_c = '0;
+    for (int i = 0; i < 8; i++)
+      for (int j = 0; j < 8; j++)
+        vec_c[i] = vec_c[i] ^ (mat_a[j][i] & vec_b[7-j]);
+    return vec_c;
+  endfunction
+endpackage
+)" + ("module " + name) + R"((input logic [9:0] a,
+  output logic [7:0] unused, bare, xored, selected, variable_result);
+  localparam logic [7:0] A [8] = '{8'h01,8'h02,8'h04,8'h08,8'h10,8'h20,8'h40,8'h80};
+  logic [7:0] matrix [8];
+  for (genvar k = 0; k < 8; k++) assign matrix[k] = matrix_pkg::X2A[k] ^ a[7:0];
+  function automatic logic [7:0] f(logic [7:0] v, logic [7:0] m [8]);
+    logic [7:0] r; r = v ^ 8'h11; return r;
+  endfunction
+)" + (comb ? R"(  always_comb begin
+    unused = f(a[7:0], A) ^ 8'h63;
+    bare = matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S);
+    xored = matrix_pkg::aes_mvm(a[7:0], A) ^ 8'h63;
+    selected = (a[9:8] == 0) ? matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S) ^ 8'h63 :
+               (a[9:8] == 1) ? matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2A) :
+                               matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S) ^ 8'h63;
+    variable_result = matrix_pkg::aes_mvm(a[7:0], matrix);
+  end
+)" : R"(  assign unused = f(a[7:0], A) ^ 8'h63;
+  assign bare = matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S);
+  assign xored = matrix_pkg::aes_mvm(a[7:0], A) ^ 8'h63;
+  assign selected = (a[9:8] == 0) ? matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S) ^ 8'h63 :
+                    (a[9:8] == 1) ? matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2A) :
+                                    matrix_pkg::aes_mvm(a[7:0], matrix_pkg::X2S) ^ 8'h63;
+  assign variable_result = matrix_pkg::aes_mvm(a[7:0], matrix);
+)") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    const std::vector<unsigned> x2s {0x98,0xf3,0xf2,0x48,0x09,0x81,0xa9,0xff};
+    const std::vector<unsigned> x2a {0x64,0x78,0x6e,0x8c,0x68,0x29,0xde,0x60};
+    const std::vector<unsigned> identity {1,2,4,8,16,32,64,128};
+    const auto mvm = [](unsigned input, const std::vector<unsigned>& matrix) {
+      unsigned result = 0;
+      for (unsigned j = 0; j < 8; ++j) {
+        if ((input >> (7-j)) & 1u) result ^= matrix[j];
+      }
+      return result;
+    };
+    for (unsigned input = 0; input < 1024; ++input) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      auto variableMatrix = x2a;
+      for (auto& row : variableMatrix) row ^= input & 255u;
+      const unsigned selected = (input >> 8) == 1 ? mvm(input, x2a) : mvm(input, x2s) ^ 0x63u;
+      for (const auto& output : {std::pair{"unused", (input & 255u) ^ 0x72u},
+                                {"bare", mvm(input, x2s)}, {"xored", mvm(input, identity) ^ 0x63u},
+                                {"selected", selected}, {"variable_result", mvm(input, variableMatrix)}}) {
+        for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+          SCOPED_TRACE(name + " output=" + output.first + " input=" + std::to_string(input));
+          EXPECT_EQ(bool((output.second >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+          ASSERT_FALSE(HasFailure());
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionUnpackedArrayArgumentShapesAndReplay) {
+  const auto path = writeSVTestFile("array_argument_replay", R"(module array_argument_replay(
+  input logic [3:0] a, output logic [3:0] y, output logic one);
+  logic tmp [2][2];
+  localparam logic ONE [1] = '{1'b1};
+  localparam logic MATRIX [2][2] = '{'{1'b1,1'b0},'{1'b0,1'b1}};
+  function automatic logic [3:0] reshape(logic m [2][2]);
+    logic [3:0] r;
+    foreach (m[i,j]) r[2*i+j] = m[i][j];
+    return r;
+  endfunction
+  function automatic logic scalar(logic m [1]);
+    return m[0];
+  endfunction
+  always_comb begin
+    tmp = MATRIX;
+    foreach (tmp[i,j]) if (i == 1) tmp[i][j] = a[2*i+j];
+    tmp[0][0] = ~a[0];
+    y = reshape(tmp);
+    one = scalar(ONE);
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("array_argument_replay"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 16; ++input) {
+    for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+      EXPECT_EQ(bool((((input & 12u) | ((~input) & 1u)) >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input));
+    }
+    EXPECT_TRUE(evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("one"))->getNet(), input));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, foreachUnrollLimitUnsupported) {
+  const auto path = writeSVTestFile("foreach_unroll_limit", R"(module foreach_unroll_limit(
+  input logic [4096:0] a, output logic y);
+  always_comb begin
+    y = 1'b1;
+    foreach (a[i]) y &= a[i];
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"foreach-loop unroll iteration limit exceeded"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, foreachStaticArrays) {
+  const auto path = writeSVTestFile("foreach_static_arrays", R"(module foreach_static_arrays(
+  input logic [3:0] a,
+  output logic all_e, any_e, parity, kmac_empty,
+  output logic [3:0] descending, ascending, unpacked_order, multidim_order, function_result,
+  output logic [2:0] sum,
+  output logic [3:0] packed_ascending, unpacked_multidim, explicit_result,
+  output logic [1:0] skipped_dims, first_set);
+  logic e [0:3];
+  logic msgfifo_empty [3:0];
+  logic [0:1][1:0] grid;
+  logic [0:3] packed_up;
+  logic grid_u [2:1][-1:0];
+  assign packed_up = a;
+  for (genvar i = 1; i <= 2; i++)
+    for (genvar j = -1; j <= 0; j++) assign grid_u[i][j] = a[2*i-2-j];
+  for (genvar k = 0; k < 4; k++) begin
+    assign e[k] = a[k];
+    assign msgfifo_empty[k] = a[k];
+  end
+  assign grid = a;
+  function automatic logic [3:0] reverse(logic [3:0] d);
+    foreach (d[k]) begin : g_function
+      reverse[3-k] = d[k];
+    end
+  endfunction
+  function automatic logic [3:0] reverse_temp(logic [3:0] d);
+    logic [3:0] t;
+    foreach (d[k]) t[3-k] = d[k];
+    return t;
+  endfunction
+  function automatic logic [1:0] find_first(logic [3:0] d);
+    foreach (d[k]) begin : g_priority
+      if (d[k]) return 2'(k);
+    end
+    return 0;
+  endfunction
+  assign function_result = reverse(a);
+  assign explicit_result = reverse_temp(a);
+  assign first_set = find_first(a);
+  always_comb begin
+    all_e = 1'b1;
+    foreach (a[i]) begin : g_loop
+      all_e &= a[i];
+    end
+    kmac_empty = 1'b1;
+    foreach (msgfifo_empty[i]) begin : g_msgfifo_empty_loop
+      kmac_empty &= msgfifo_empty[i];
+    end
+    any_e = 0; parity = 0; sum = 0;
+    foreach (e[i]) begin
+      any_e |= e[i];
+      parity ^= e[i];
+      sum += e[i];
+    end
+    packed_ascending = 0;
+    foreach (packed_up[i]) packed_ascending = (packed_ascending << 1) | packed_up[i];
+    unpacked_multidim = 0;
+    foreach (grid_u[i,j]) unpacked_multidim = (unpacked_multidim << 1) | grid_u[i][j];
+    skipped_dims = 0;
+    foreach (grid_u[,j]) skipped_dims = (skipped_dims << 1) | grid_u[2][j];
+    descending = 0;
+    foreach (a[i]) descending = (descending << 1) | a[i];
+    ascending = 0;
+    foreach (e[i]) ascending = (ascending << 1) | e[i];
+    unpacked_order = 0;
+    foreach (msgfifo_empty[i]) unpacked_order = (unpacked_order << 1) | msgfifo_empty[i];
+    multidim_order = 0;
+    foreach (grid[i,j]) begin : g_grid
+      multidim_order = (multidim_order << 1) | grid[i][j];
+    end
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("foreach_static_arrays"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 16; ++input) {
+    unsigned reversed = 0, count = 0;
+    for (unsigned k = 0; k < 4; ++k) {
+      reversed |= ((input >> k) & 1u) << (3-k);
+      count += (input >> k) & 1u;
+    }
+    unsigned first = 0;
+    for (unsigned k = 0; k < 4; ++k) if ((input >> k) & 1u) first = k;
+    for (const auto& output : {std::pair{"all_e", unsigned(input == 15)},
+                              {"kmac_empty", unsigned(input == 15)},
+                              {"any_e", unsigned(input != 0)}, {"parity", count & 1u},
+                              {"sum", count}, {"descending", input}, {"ascending", reversed},
+                              {"unpacked_order", input}, {"multidim_order", input},
+                              {"function_result", reversed}, {"explicit_result", reversed},
+                              {"packed_ascending", input}, {"unpacked_multidim", input},
+                              {"skipped_dims", input >> 2}, {"first_set", first}}) {
+      for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+        const unsigned index = dynamic_cast<SNLScalarTerm*>(bit) ? 0 : bit->getBit();
+        EXPECT_EQ(bool((output.second >> index) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input))
+          << " output=" << output.first << " input=" << input;
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, foreachSequentialArrays) {
+  const auto path = writeSVTestFile("foreach_sequential_arrays", R"(module foreach_sequential_arrays(
+  input logic clk, input logic [3:0] a, output logic [3:0] y);
+  always_ff @(posedge clk) begin
+    foreach (a[i]) begin : g_flops
+      y[3-i] <= a[i];
+    end
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("foreach_sequential_arrays"));
+  ASSERT_NE(nullptr, top);
+  EXPECT_EQ(4u, countDFFBits(top));
+  for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+    SNLInstTerm* driver = nullptr;
+    for (auto* term : bit->getNet()->getInstTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Output) {
+        ASSERT_EQ(nullptr, driver);
+        driver = term;
+      }
+    }
+    ASSERT_NE(nullptr, driver);
+    auto* instance = driver->getInstance();
+    ASSERT_TRUE(NLDB0::isDFF(instance->getModel()));
+    auto* data = instance->getInstTerm(NLDB0::getDFFData())->getNet();
+    for (unsigned input = 0; input < 16; ++input) {
+      EXPECT_EQ(bool((input >> (3-bit->getBit())) & 1u),
+        evaluateFunctionResultBit(top, data, input));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnPartialWrites) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "implicit_return_comb" : "implicit_return_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + R"((input logic [3:0] a,
+  output logic [3:0] y, temp_result, whole_result, slices, readback);
+  function automatic logic [3:0] rev(logic [3:0] d);
+    for (int k = 0; k < 4; k++) rev[k] = d[3-k];
+  endfunction
+  function automatic logic [3:0] rev_temp(logic [3:0] d);
+    logic [3:0] t;
+    for (int k = 0; k < 4; k++) t[k] = d[3-k];
+    return t;
+  endfunction
+  function automatic logic [3:0] inv(logic [3:0] d);
+    inv = ~d;
+  endfunction
+  function automatic logic [3:0] partial(logic [3:0] d);
+    partial = 4'b1111;
+    partial[3:1] = d[2:0];
+    partial[1 +: 2] = d[3:2];
+    partial[0] = d[0];
+  endfunction
+  function automatic logic [3:0] read_result(logic [3:0] d);
+    read_result = d;
+    read_result[3:2] = read_result[1:0];
+    read_result[0] = ~read_result[0];
+  endfunction
+)" + (comb ? R"(  always_comb begin
+    y = rev(a);
+    temp_result = rev_temp(a);
+    whole_result = inv(a);
+    slices = partial(a);
+    readback = read_result(a);
+  end
+)" : R"(  assign y = rev(a);
+  assign temp_result = rev_temp(a);
+  assign whole_result = inv(a);
+  assign slices = partial(a);
+  assign readback = read_result(a);
+)") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input = 0; input < 16; ++input) {
+      unsigned reversed = 0;
+      for (unsigned k = 0; k < 4; ++k) reversed |= ((input >> (3-k)) & 1u) << k;
+      const unsigned partial = ((input & 4u) << 1) | ((input >> 1) & 6u) | (input & 1u);
+      const unsigned readback = (((input & 3u) << 2) | (input & 3u)) ^ 1u;
+      for (const auto& output : {std::pair{"y", reversed}, {"temp_result", reversed},
+                                {"whole_result", (~input) & 15u}, {"slices", partial},
+                                {"readback", readback}}) {
+        for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+          EXPECT_EQ(bool((output.second >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), input))
+            << name << " output=" << output.first << " input=" << input;
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnPackagePermutation) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "perm_data_comb" : "perm_data_assign";
+    const auto path = writeSVTestFile(name, R"(package keymgr_pkg;
+  function automatic logic [31:0] perm_data(
+    logic [31:0] data, logic [31:0][4:0] perm_sel);
+    for (int k = 0; k < 32; k++) perm_data[k] = data[perm_sel[k]];
+  endfunction
+endpackage
+)" + ("module " + name) + R"((input logic [31:0] a, output logic [31:0] y);
+  localparam logic [31:0][4:0] RndCnstRandPerm = {
+    5'd28, 5'd23, 5'd18, 5'd13, 5'd8, 5'd3, 5'd30, 5'd25,
+    5'd20, 5'd15, 5'd10, 5'd5, 5'd0, 5'd27, 5'd22, 5'd17,
+    5'd12, 5'd7, 5'd2, 5'd29, 5'd24, 5'd19, 5'd14, 5'd9,
+    5'd4, 5'd31, 5'd26, 5'd21, 5'd16, 5'd11, 5'd6, 5'd1};
+)" + (comb ? "  always_comb y = keymgr_pkg::perm_data(a[31:0], RndCnstRandPerm);\n"
+           : "  assign y = keymgr_pkg::perm_data(a[31:0], RndCnstRandPerm);\n") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    // Walking ones cover every permutation entry; patterns cover bit independence.
+    std::vector<unsigned> inputs {0u, ~0u, 0x12345678u, 0xaaaaaaaau};
+    for (unsigned k = 0; k < 32; ++k) inputs.push_back(1u << k);
+    for (unsigned input : inputs) {
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        const unsigned selected = (5u * bit->getBit() + 1u) % 32u;
+        EXPECT_EQ(bool((input >> selected) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input)) << name << " input=" << input;
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnGrayWholeThenBitOverride) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "gray2dec_comb" : "gray2dec_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + R"( #(parameter PtrW = 4)(
+  input logic [PtrW-1:0] a, output logic [PtrW-1:0] y);
+  function automatic logic [PtrW-1:0] gray2dec(logic [PtrW-1:0] gray);
+    logic [PtrW-1:0] dec_tmp, dec_tmp_sub;
+    dec_tmp[PtrW-1] = gray[PtrW-1];
+    for (int k = PtrW-2; k >= 0; k--) dec_tmp[k] = dec_tmp[k+1] ^ gray[k];
+    dec_tmp_sub = dec_tmp ^ (1 << (PtrW-1));
+    if (gray[PtrW-1]) begin
+      gray2dec = dec_tmp_sub;
+      gray2dec[PtrW-1] = 1'b1;
+    end else begin
+      gray2dec = dec_tmp;
+      gray2dec[PtrW-1] = 1'b0;
+    end
+  endfunction
+)" + (comb ? "  always_comb y = gray2dec(a);\n" : "  assign y = gray2dec(a);\n") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input = 0; input < 16; ++input) {
+      unsigned expected = input;
+      for (unsigned shifted = input >> 1; shifted; shifted >>= 1) expected ^= shifted;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input)) << name << " input=" << input;
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnCaseAssignments) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "return_case_comb" : "return_case_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + R"((input logic [3:0] a, output logic y);
+  function automatic logic in_range(logic [3:0] d);
+    case (d) inside
+      [4'd4:4'd11]: in_range = 1'b1;
+      default: in_range = 1'b0;
+    endcase
+  endfunction
+)" + (comb ? "  always_comb y = in_range(a);\n" : "  assign y = in_range(a);\n") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input = 0; input < 16; ++input) {
+      EXPECT_EQ(input >= 4 && input <= 11,
+        evaluateFunctionResultBit(top, top->getScalarTerm(NLName("y"))->getNet(), input))
+        << name << " input=" << input;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnIncompleteBitsUnsupported) {
+  for (const bool comb : {false, true}) {
+    for (const unsigned shape : {0u, 1u, 2u}) {
+      const std::string name = "incomplete_return_" + std::to_string(comb) +
+        "_" + std::to_string(shape);
+      const auto path = writeSVTestFile(name,
+        "module " + name + R"((input logic [3:0] a, output logic [3:0] y);
+  function automatic logic [3:0] incomplete(logic [3:0] d);
+)" + (shape == 0 ? "    if (d[0]) incomplete = d;\n"
+          : shape == 1 ? "    for (int k = 0; k < 3; k++) incomplete[k] = d[k];\n"
+                       : "    incomplete[d[1:0]] = d[0];\n") +
+        "  endfunction\n" + (comb ? "  always_comb y = incomplete(a);\n"
+                                                : "  assign y = incomplete(a);\n") + "endmodule\n");
+      SNLSVConstructor constructor(library_);
+      expectUnsupportedConstruct(constructor, path,
+        {comb ? "Unsupported combinational block" : "Unsupported RHS in continuous assign"});
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionImplicitReturnRangesAndArgumentValues) {
+  for (const bool comb : {false, true}) {
+    const std::string name = comb ? "return_ranges_comb" : "return_ranges_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + R"((input logic [3:0] a,
+  output logic [3:0] signed_result, output logic [5:0] unsigned_result,
+  output logic [1:0] truncated);
+  function automatic logic signed [7:4] signed_copy(logic [3:0] d);
+    for (int k = 4; k < 8; k++) signed_copy[k] = d[k-4];
+  endfunction
+  function automatic logic [0:3] unsigned_copy(logic [3:0] d);
+    for (int k = 0; k < 4; k++) unsigned_copy[k] = d[3-k];
+  endfunction
+)" + (comb ? R"(  always_comb begin
+    logic [3:0] t;
+    t = ~a;
+    signed_result = signed_copy(t);
+    unsigned_result = unsigned_copy(t);
+    truncated = signed_copy(a);
+  end
+)" : R"(  assign signed_result = signed_copy(~a);
+  assign unsigned_result = unsigned_copy(~a);
+  assign truncated = signed_copy(a);
+)") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input = 0; input < 16; ++input) {
+      const unsigned inverted = (~input) & 15u;
+      for (const auto& output : {std::pair{"signed_result", inverted},
+                                {"unsigned_result", inverted}, {"truncated", input & 3u}}) {
+        for (auto* bit : top->getTerm(NLName(output.first))->getBits()) {
+          EXPECT_EQ(bool((output.second >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), input))
+            << name << " output=" << output.first << " input=" << input;
+        }
+      }
+    }
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignWildcardMuxFunctions) {
@@ -14566,7 +15350,6 @@ TEST_F(
   function automatic logic bad_fn(input logic [3:0] op_i);
     case (op_i) inside
       4'b1???: bad_fn = 1'b1;
-      default: bad_fn = 1'b0;
     endcase
   endfunction
 
@@ -15023,7 +15806,6 @@ TEST_F(
   function automatic logic bad_fn(input logic [3:0] op_i);
     case (op_i) inside
       4'b1???: bad_fn = 1'b1;
-      default: bad_fn = 1'b0;
     endcase
   endfunction
 
@@ -37351,4 +38133,134 @@ endmodule
   ASSERT_NE(nullptr, top);
   EXPECT_EQ(2u, countDFFBits(top));
   EXPECT_TRUE(top->getScalarNet(NLName("unused_q"))->getInstTerms().empty());
+}
+
+
+TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnBodyList) {
+  const auto path = writeSVTestFile("priority_loop_return_list", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module priority_loop_return_list(
+  input logic [3:0] a, output logic [1:0] y);
+  function automatic logic [1:0] first(input logic [3:0] v);
+    for (int i = 0; i < 4; i++) begin
+      ;
+      if (v[i]) return 2'(i);
+    end
+    return 2'd3;
+  endfunction
+  assign y = first(a);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("priority_loop_return_list"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 16; ++input) {
+    unsigned expected = 3;
+    for (unsigned i = 0; i < 4; ++i) {
+      if ((input >> i) & 1u) { expected = i; break; }
+    }
+    for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnUnsupportedArgumentsAndBounds) {
+  for (const auto& variant : {"const_ref", "unresolved_argument", "dynamic_bound", "unsupported_return"}) {
+    SCOPED_TRACE(variant);
+    const auto name = std::string("priority_loop_") + variant;
+    const auto path = writeSVTestFile(name,
+      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
+      "module " + name + "(input var logic [3:0] a, input int limit, output logic y);\n"
+      "function automatic logic f(" +
+      (std::string(variant) == "const_ref" ? "const ref" : "input") +
+      " logic [3:0] v" +
+      (std::string(variant) == "const_ref" ? ");\n" : ", input int n);\n") +
+      "for (int i = 0; i < " +
+      (std::string(variant) == "dynamic_bound" ? "n" : "4") +
+      "; i++) if (v[i]) return " +
+      (std::string(variant) == "unsupported_return" ? "$clog2(v)" : "1'b1") + ";\n"
+      "return 1'b0; endfunction\nassign y = f(" +
+      (std::string(variant) == "unresolved_argument" ? "a ** a" : "a") +
+      (std::string(variant) == "const_ref" ? "" :
+        std::string(", ") + (std::string(variant) == "dynamic_bound" ? "limit" : "4")) +
+      "); endmodule\n");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path, {});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, foreachDynamicBoundsUnsupported) {
+  const auto path = writeSVTestFile("foreach_dynamic_bounds", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module foreach_dynamic_bounds(
+  input logic a, output logic y);
+  logic items[];
+  always_comb begin
+    y = a;
+    foreach (items[i]) y ^= a;
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"unsupported foreach dimension without compile-time-known bounds"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, outputFunctionAutomaticLocalTargetsUnsupported) {
+  for (bool nested : {false, true}) {
+    SCOPED_TRACE(nested);
+    const auto name = std::string("output_function_automatic_local_") + (nested ? "nested" : "block");
+    const auto path = writeSVTestFile(name,
+      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
+      "module " + name + "(input logic [3:0] a, output logic [3:0] y);\n"
+      "function automatic void copy(input logic [3:0] value, output logic [3:0] result);\n"
+      "result = value; endfunction\n" +
+      (nested ? std::string(
+        "function automatic logic [3:0] outer(input logic [3:0] v);\n"
+        "logic [3:0] tmp; copy(v, tmp); outer = tmp; endfunction\n"
+        "always_comb y = outer(a);\n") : std::string(
+        "always_comb begin automatic logic [3:0] tmp; copy(a, tmp); y = tmp; end\n")) +
+      "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path,
+      {nested ? "unable to resolve always_comb RHS bits for Call" : "unsupported statement kind"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, binaryGateSimplifiedOutputConnections) {
+  const auto path = writeSVTestFile("binary_gate_simplified_outputs", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module binary_gate_simplified_outputs(
+  input logic [1:0] a, output logic pass, zero, z_and, z_or, inside_all);
+  assign pass = a[0] & 1'b1;
+  assign zero = a[0] & 1'b0;
+  assign inside_all = a inside {2'b??, 2'd0};
+  always_comb begin
+    z_and = 1'bz;
+    z_and &= 1'b1;
+    z_or = 1'bz;
+    z_or |= 1'b0;
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(path));
+  auto* top = library_->getSNLDesign(NLName("binary_gate_simplified_outputs"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 4; ++input) {
+    EXPECT_EQ(bool(input & 1u), evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("pass"))->getNet(), input));
+    EXPECT_FALSE(evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("zero"))->getNet(), input));
+    EXPECT_TRUE(evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("inside_all"))->getNet(), input));
+  }
+  for (const char* name : {"z_and", "z_or"}) {
+    auto* input = getSingleAssignInputDriving(top->getScalarTerm(NLName(name))->getNet());
+    ASSERT_NE(nullptr, input);
+    EXPECT_TRUE(input->isConstantX());
+  }
 }

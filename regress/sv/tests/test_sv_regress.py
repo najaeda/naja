@@ -561,14 +561,14 @@ cases:
         )
         self.assertEqual(
             {
-                "nodes": 13941,
-                "edges": 27142,
-                "leaves": 93,
+                "nodes": 1695,
+                "edges": 2398,
+                "leaves": 19,
                 "roots": 471,
-                "registers": 86,
+                "registers": 16,
                 "ports": 3,
-                "blackboxes": 4,
-                "internal": 13377,
+                "blackboxes": 0,
+                "internal": 1205,
             },
             cva6["logic_cones"][0]["expected"],
         )
@@ -589,7 +589,7 @@ cases:
 
     def test_logic_cone_signature_counts_and_validation(self):
         class FakeCone:
-            def get_nodes(self):
+            def getNodes(self):
                 return (
                     (0, None, "root", (1,), ()),
                     (1, None, "internal", (2, 3), (0,)),
@@ -597,8 +597,8 @@ cases:
                     (3, None, "ports", (), (1,)),
                 )
 
-            def get_leaves(self):
-                return self.get_nodes()[2:]
+            def getLeaves(self):
+                return self.getNodes()[2:]
 
         signature = logic_cone_signature.summarize_cone(FakeCone())
         self.assertEqual(
@@ -641,10 +641,10 @@ cases:
                 return self.term if name == "BUS" else None
 
         class FakeCone:
-            def get_nodes(self):
+            def getNodes(self):
                 return ((0, None, "root", (), ()),)
 
-            def get_leaves(self):
+            def getLeaves(self):
                 return ()
 
         class FakeNaja:

@@ -65,13 +65,13 @@ class LogicConeTest(unittest.TestCase):
     fanin = naja.LogicCone(
       start, direction=naja.LogicCone.FanIn)
     self.assertEqual(naja.LogicCone.FanIn,
-                     fanin.get_direction())
-    self.assertEqual(4, fanin.get_node_count())
-    self.assertEqual(2, len(fanin.get_leaves()))
+                     fanin.getDirection())
+    self.assertEqual(4, fanin.getNodeCount())
+    self.assertEqual(2, len(fanin.getLeaves()))
     self.assertEqual(
-      {"flop", "ports"}, {node[2] for node in fanin.get_leaves()})
+      {"flop", "ports"}, {node[2] for node in fanin.getLeaves()})
 
-    nodes = fanin.get_nodes()
+    nodes = fanin.getNodes()
     for _, occurrence, kind, _, _ in nodes:
       if kind in ("internal", "flop", "blackbox"):
         self.assertTrue(occurrence.isInstanceOccurrence())
@@ -81,7 +81,7 @@ class LogicConeTest(unittest.TestCase):
         self.assertFalse(occurrence.isInstanceOccurrence())
         self.assertIsNone(occurrence.getInstance())
         self.assertIsNotNone(occurrence.getNetComponent())
-    root = fanin.get_root()
+    root = fanin.getRoot()
     self.assertEqual("root", root[2])
     self.assertEqual(1, len(root[3]))
     gate = nodes[root[3][0]]
@@ -94,9 +94,9 @@ class LogicConeTest(unittest.TestCase):
       naja.SNLOccurrence(self.upstream.getInstTerm(self.q)),
       "fanout")
     self.assertEqual(naja.LogicCone.FanOut,
-                     fanout.get_direction())
+                     fanout.getDirection())
     self.assertEqual(
-      {"flop", "ports"}, {node[2] for node in fanout.get_leaves()})
+      {"flop", "ports"}, {node[2] for node in fanout.getLeaves()})
     self.assertEqual("LogicCone(nodes=4)", repr(fanin))
 
   def test_public_name(self):
@@ -116,8 +116,8 @@ class LogicConeTest(unittest.TestCase):
     output.setNet(net)
 
     cone = naja.LogicCone(naja.SNLOccurrence(output), "fanin")
-    self.assertEqual(("blackbox",), tuple(node[2] for node in cone.get_leaves()))
-    blackbox_node = cone.get_leaves()[0]
+    self.assertEqual(("blackbox",), tuple(node[2] for node in cone.getLeaves()))
+    blackbox_node = cone.getLeaves()[0]
     self.assertTrue(blackbox_node[1].isInstanceOccurrence())
     self.assertEqual(instance, blackbox_node[1].getInstance())
     self.assertEqual(blackbox, blackbox_node[1].getInstance().getModel())
@@ -126,11 +126,11 @@ class LogicConeTest(unittest.TestCase):
     cone = naja.LogicCone.__new__(naja.LogicCone)
     self.assertEqual("LogicCone(unbound)", repr(cone))
     for method in (
-        cone.get_nodes,
-        cone.get_root,
-        cone.get_leaves,
-        cone.get_direction,
-        cone.get_node_count):
+        cone.getNodes,
+        cone.getRoot,
+        cone.getLeaves,
+        cone.getDirection,
+        cone.getNodeCount):
       with self.assertRaises(RuntimeError):
         method()
 
@@ -149,11 +149,11 @@ class LogicConeTest(unittest.TestCase):
         naja.SNLOccurrence(self.gate), naja.LogicCone.FanIn)
     bus_cone = naja.LogicCone(
       naja.SNLOccurrence(bus), naja.LogicCone.FanIn)
-    self.assertEqual(naja.LogicCone.FanIn, bus_cone.get_direction())
-    self.assertEqual(1 + bus.getWidth(), bus_cone.get_node_count())
-    self.assertEqual(bus, bus_cone.get_root()[1].getNetComponent())
-    self.assertEqual("root", bus_cone.get_root()[2])
-    self.assertEqual(0, len(bus_cone.get_leaves()))
+    self.assertEqual(naja.LogicCone.FanIn, bus_cone.getDirection())
+    self.assertEqual(1 + bus.getWidth(), bus_cone.getNodeCount())
+    self.assertEqual(bus, bus_cone.getRoot()[1].getNetComponent())
+    self.assertEqual("root", bus_cone.getRoot()[2])
+    self.assertEqual(0, len(bus_cone.getLeaves()))
     with self.assertRaises(RuntimeError):
       naja.LogicCone(
         naja.SNLOccurrence(self.top_output), "sideways")

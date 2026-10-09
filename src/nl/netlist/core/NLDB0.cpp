@@ -402,6 +402,7 @@ namespace {
          << "_r" << signature.readPorts
          << "_w" << signature.writePorts
          << "_rst_" << getMemoryResetModeSuffix(signature.resetMode);
+    if (signature.independentWriteClocks) name << "_multi_clock";
     return name.str();
   }
 
@@ -455,6 +456,13 @@ namespace {
       memory, NLName("INIT_ENABLE"), SNLParameter::Type::Decimal, "0");
     SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "1'b0");
 
+    if (signature.independentWriteClocks) {
+      SNLParameter::create(memory, NLName("MULTI_CLOCK"), SNLParameter::Type::Decimal, "1");
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input,
+        static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WCLK"));
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input,
+        static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WMASK"));
+    }
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
     SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
     SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1), 0, NLName("RADDR"));
@@ -471,7 +479,9 @@ namespace {
     auto* wdata = memory->getBusTerm(NLName("WDATA"));
     auto* we = memory->getBusTerm(NLName("WE"));
     auto rdataBits = collectBitTerms(*rdata);
-    SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
+    if (!signature.independentWriteClocks) {
+      SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
+    }
 
     SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
     auto wdataBits = collectBitTerms(*wdata);
@@ -479,7 +489,29 @@ namespace {
     auto weBits = collectBitTerms(*we);
     writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
     writeInputs.push_back(rst);
-    SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+    if (signature.independentWriteClocks) {
+      auto* clocks = memory->getBusTerm(NLName("WCLK"));
+      auto* masks = memory->getBusTerm(NLName("WMASK"));
+      for (size_t port = 0; port < signature.writePorts; ++port) {
+        SNLDesignModeling::BitTerms inputs;
+        for (size_t bit = 0; bit < signature.abits; ++bit)
+          inputs.push_back(waddr->getBit(static_cast<NLID::Bit>(port * signature.abits + bit)));
+        for (size_t bit = 0; bit < signature.width; ++bit) {
+          inputs.push_back(wdata->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+          inputs.push_back(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+        }
+        inputs.push_back(we->getBitAtPosition(port));
+        auto* clock = clocks->getBit(static_cast<NLID::Bit>(port));
+        SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
+        for (size_t bit = 0; bit < signature.width; ++bit)
+          SNLDesignModeling::setTermRole(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)),
+            SNLDesignModeling::SNLTermRole::MemoryWriteEnable);
+        SNLDesignModeling::addInputsToClockArcs(inputs, clock);
+        SNLDesignModeling::addClockToOutputsArcs(clock, rdataBits);
+      }
+    } else {
+      SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+    }
 
     for (size_t readPort = 0; readPort < signature.readPorts; ++readPort) {
       naja::NL::SNLDesignModeling::BitTerms readAddrBits;
@@ -1156,6 +1188,8 @@ namespace {
     signature.abits = getDecimalParameter(parameters, "ABITS");
     signature.readPorts = getDecimalParameter(parameters, "RD_PORTS");
     signature.writePorts = getDecimalParameter(parameters, "WR_PORTS");
+    signature.independentWriteClocks = parameters.contains("MULTI_CLOCK") &&
+      getDecimalParameter(parameters, "MULTI_CLOCK") != 0;
     signature.resetMode = getMemoryResetMode(
         getDecimalParameter(parameters, "RST_ENABLE"),
         getDecimalParameter(parameters, "RST_ASYNC"),
@@ -1409,6 +1443,8 @@ NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLDesign* design) {
   signature.abits = getMemoryDecimalParameter(design, "ABITS");
   signature.readPorts = getMemoryDecimalParameter(design, "RD_PORTS");
   signature.writePorts = getMemoryDecimalParameter(design, "WR_PORTS");
+  signature.independentWriteClocks = design->getParameter(NLName("MULTI_CLOCK")) &&
+    getMemoryDecimalParameter(design, "MULTI_CLOCK") != 0;
   signature.resetMode = getMemoryResetMode(
       getMemoryDecimalParameter(design, "RST_ENABLE"),
       getMemoryDecimalParameter(design, "RST_ASYNC"),
@@ -1426,6 +1462,8 @@ NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLInstance* instance) {
   signature.abits = getMemoryDecimalParameter(instance, "ABITS");
   signature.readPorts = getMemoryDecimalParameter(instance, "RD_PORTS");
   signature.writePorts = getMemoryDecimalParameter(instance, "WR_PORTS");
+  signature.independentWriteClocks = instance->getModel()->getParameter(NLName("MULTI_CLOCK")) &&
+    getMemoryDecimalParameter(instance, "MULTI_CLOCK") != 0;
   signature.resetMode = getMemoryResetMode(
       getMemoryDecimalParameter(instance, "RST_ENABLE"),
       getMemoryDecimalParameter(instance, "RST_ASYNC"),
@@ -1816,7 +1854,8 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
     return nullptr;
   }
   if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
-      signature.readPorts == 0 || signature.writePorts == 0) {
+      signature.readPorts == 0 || signature.writePorts == 0 ||
+      (signature.independentWriteClocks && signature.resetMode != MemoryResetMode::None)) {
     throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
   }
   const auto name = NLName(getMemoryInternalName(signature));

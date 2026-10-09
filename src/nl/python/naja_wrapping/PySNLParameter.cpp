@@ -136,13 +136,13 @@ GetObjectMethod(SNLParameter, SNLDesign, getDesign)
 DBoDestroyAttribute(PySNLParameter_destroy, PySNLParameter)
 
 PyMethodDef PySNLParameter_Methods[] = {
-  { "create_string", (PyCFunction)PySNLParameter_createString, METH_VARARGS|METH_STATIC,
+  { "createString", (PyCFunction)PySNLParameter_createString, METH_VARARGS|METH_STATIC,
     "SNLParameter string value creator; omit the final value argument for no default"},
-  { "create_decimal", (PyCFunction)PySNLParameter_createDecimal, METH_VARARGS|METH_STATIC,
+  { "createDecimal", (PyCFunction)PySNLParameter_createDecimal, METH_VARARGS|METH_STATIC,
     "SNLParameter int value creator; omit the final value argument for no default"},
-  { "create_binary", (PyCFunction)PySNLParameter_createBinary, METH_VARARGS|METH_STATIC,
+  { "createBinary", (PyCFunction)PySNLParameter_createBinary, METH_VARARGS|METH_STATIC,
     "SNLParameter binary value creator; omit the final value argument for no default"},
-  { "create_boolean", (PyCFunction)PySNLParameter_createBoolean, METH_VARARGS|METH_STATIC,
+  { "createBoolean", (PyCFunction)PySNLParameter_createBoolean, METH_VARARGS|METH_STATIC,
     "SNLParameter boolean value creator; omit the final value argument for no default"},
   { "hasDefaultValue", (PyCFunction)PySNLParameter_hasDefaultValue, METH_NOARGS,
     "Return whether this parameter has a default value."},

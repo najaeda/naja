@@ -63,12 +63,93 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+Each source file is a separate compilation unit by default
+(``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
+in earlier files without including their definitions, set ``single_unit=True``.
+This enables slang's ``--single-unit`` mode: files share a compilation unit and
+preprocessor macros remain visible to later files in source order. Place macro
+definitions before their uses. The option also applies to sources supplied
+through ``flist`` and can be combined with ``top`` selection.
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(single_unit=True)
+   top = netlist.load_system_verilog(["defs.sv", "use.sv"], config)
+
+   config = netlist.SystemVerilogConfig(single_unit=True, flist="sources.f")
+   top = netlist.load_system_verilog([], config)
+
+Direct nonblocking indexed writes from multiple clocked processes now infer one
+shared ``naja_mem`` primitive, including different clocks and true dual-port RAMs
+with a shared clock. Each write action carries its own clock, enable, address,
+data, and bit mask. Constant packed bit/part selections and statically unrolled
+masked-write loops are supported. Positive and negative clock edges are
+supported; negative edges use an inverted write-clock signal. No raw storage
+array or flops with multiple clocks are created.
+
+Read ports are asynchronous; registered reads and read enables remain ordinary
+flops around the memory. Nonblocking reads on a write edge observe the old data.
+Multiple writes within one process preserve source-order priority per bit;
+untouched bits are masked, rather than written back from an earlier read.
+Simultaneous writes from different processes to the same address and overlapping
+bits are unspecified, as in the source RTL. No cross-process priority is added.
+The ``multi_clock_memory_collision`` diagnostic states this limitation.
+
+This inference supports fixed, one-dimensional unpacked memories whose lowest
+index is zero, with at least one runtime write address. Initialization supports
+the existing constant full-memory for-loop fill. Blocking updates within writer
+processes, whole-array updates, and memory resets shared between independent
+writers remain unsupported. Statically disjoint constant selections retain
+normal generic lowering. Unsupported overlapping or dynamic writers are rejected
+by default. To keep elaborating a larger design, explicitly opt into module
+blackboxing for those unsupported cases:
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(blackbox_multi_writer_memories=True)
+   top = netlist.load_system_verilog("rtl.sv", config)
+
+The entire elaborated module containing the unsupported memory becomes a
+``UserBlackBox`` with its port names, widths, directions, and parent connections
+preserved. All internal behavior is omitted, including logic unrelated to the
+memory. The ``multi_writer_memory_blackbox`` warning identifies the memory and
+module in the normal diagnostics report. Successfully inferred multi-port
+memories retain their behavior even when this fallback option is enabled.
+
+OpenTitan/Pavona's generic ``prim_ram_2p`` already guards its internal body with
+``SYNTHESIS_MEMORY_BLACK_BOXING``. The existing define support is a workaround
+that requires no fallback option:
+
+.. code-block:: python
+
+   config = netlist.SystemVerilogConfig(
+       defines=["SYNTHESIS_MEMORY_BLACK_BOXING"])
+   top = netlist.load_system_verilog(["prim_ram_2p_pkg.sv", "prim_ram_2p.sv"], config)
+
+Supply the normal include paths/file list and dependencies for the source tree.
+The macro removes the memory implementation before elaboration; the resulting
+port-only module is detected as a blackbox. It affects every module honoring
+that macro and leaves memory behavior unspecified.
+
 Continuous assignments can call combinational functions whose result is selected
 by ``case``, ``casez``, or ``casex``, including functions with escaped names
 and concatenated arguments. Wildcard patterns use
 the frontend's two-state matching behavior; overlapping items retain source-order
 priority. A result must be defined for every selector value; functions with an
 uncovered path are rejected.
+
+Combinational function input arguments can include fixed-size unpacked arrays
+of integral elements. Actuals may be local or package parameters, or unpacked
+variables; earlier blocking writes in a combinational block are visible to the
+call. Selected read/modify/write operations and implicit return-variable partial
+writes retain source-order semantics.
+
+Statically bounded ``foreach`` loops are unrolled in combinational and sequential
+blocks and function bodies. Packed and unpacked dimensions iterate in declared
+order (``[3:0]`` visits 3, 2, 1, 0; ``[0:3]`` visits 0, 1, 2, 3), with nested
+iteration for multiple indices and support for omitted indices. Named blocks
+and compound assignments use the same lowering as in ``for`` loops. Dynamically
+sized iterated dimensions are rejected; the unroll limit is 4096 body executions.
 
 Combinational procedural lowering supports compound shifts (``<<=``, ``>>=``,
 ``<<<=``, ``>>>=``), preserving the full shift-count width and signed arithmetic
@@ -97,6 +178,17 @@ This path supports blocking or nonblocking assignments, but rejects mixing them
 on one variable, reading a variable written in the same block, dynamic targets,
 function calls, expression side effects, and timed assignments. Existing simple
 latch patterns retain their separate support.
+
+Input-only function calls capture actual argument bit values, including constant
+packed values and fixed unpacked arrays. Constant bits remain visible inside the
+function body, so bitwise AND with zero or one and XOR with zero fold during
+elaboration, including accumulators initialized with ``'0``. Argument binding and
+returned replay values do not require assign primitives. ``keep_assigns=True``
+retains source-level connections; it does not require copies at function-call
+boundaries. Set ``keep_assigns=False`` to merge remaining assign connections after
+elaboration. Function-local variables written by earlier loops are replayed
+before later loops read them, including partial writes and locally computed
+indices. These dependencies must remain driven in the returned netlist.
 
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in
@@ -292,6 +384,26 @@ multiplication, equality/inequality and concatenation. Static
 and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
 ``std_logic_signed`` vector addition, subtraction, multiplication and
 equality/inequality are also supported.
+Addition and subtraction use canonical ``naja_fa`` full adders, as in the
+SystemVerilog frontend. Multiplication forms partial products and accumulates
+them with the same full adders; zero partial products and the first accumulation
+need no adder. Supported ``std_logic_unsigned`` addition and subtraction use
+full adders too, including sources that also import ``std_logic_arith``.
+Static ``resize(vector, size)`` calls support unsigned zero extension and
+truncation, and signed sign extension and sign-preserving truncation. Unsigned
+resize and static selections of expression results propagate the required width
+through arithmetic, conversions and nested expressions, so discarded high
+arithmetic bits are not elaborated. Signed resize retains the original sign bit,
+which may require the full arithmetic carry chain. Assignment alone does not
+implicitly truncate numeric vectors: use ``resize`` or an explicit slice to
+match the target length.
+Loading preserves unused RTL signals and registers, and slicing an intermediate
+signal does not propagate a smaller width back to its driver. Such designs may
+still contain dead logic. For a pruned netlist, set the loaded design as the top
+and run ``naja.NLUniverse.get().applyDLE()`` after loading; this also removes
+unused RTL registers. Loading does not run DLE automatically.
+VHDL signal wiring can retain explicit Assign
+primitives; traverse Assigns when comparing arithmetic connectivity.
 Explicit binary signal initializers on locally clocked registers are preserved
 as DFF ``INIT`` parameters.
 
@@ -346,8 +458,19 @@ use the same Python exception categories as the other high-level loaders.
 Frontend or lowering failures are reported as :class:`RuntimeError`.
 RTL lowering errors include the original file, line, and column.
 
-For separate RTL dependency files, use ``najaeda.naja.NLDB.loadVHDL`` on the
-same database, loading dependencies before the top. A file with one entity that
+Both ``netlist.load_vhdl`` and ``najaeda.naja.NLDB.loadVHDL`` accept a single
+path or a list of files in any order. All files are parsed before elaboration;
+package declarations and entity/architecture dependencies resolve internally.
+Omit ``top`` to infer the unique uninstantiated entity in the destination
+library, or specify it explicitly when there are several roots. Missing units
+and dependency cycles include the file, line, and column of the reference.
+
+.. code-block:: python
+
+   top = netlist.load_vhdl(
+       ["firdec.vhd", "fir16.vhd", "types.vhd"], top="firdec_DSP")
+
+Separate incremental calls on the same database remain supported. A single file with one entity that
 requires generic values returns ``None`` when no ``top`` is specified; its
 source is retained for later elaboration by its parent. An explicit ``top``
 requires immediate elaboration and reports missing generic values. The raw API

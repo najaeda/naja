@@ -2658,3 +2658,31 @@ TEST_F(SNLSVConstructorTestAlwaysComb, rejectSequentialStreamingSchedulingReplay
   SNLSVConstructor constructor(library_);
   expectUnsupportedConstruct(constructor, path, {"unsupported sequential streaming assignment"});
 }
+
+
+TEST_F(SNLSVConstructorTestAlwaysComb, parsePriorityReturnFunctionNestedStatementsCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "priority_return_shapes";
+  std::filesystem::create_directories(directory);
+  for (const auto& body : {
+      "logic t; ;",
+      "begin logic t; logic u; end for (int i = 0; i < 4; i++) if (a[i]) return 1'b1;",
+      "begin logic t; t = a[0]; for (int i = 0; i < 4; i++) if (a[i]) return 1'b1; end",
+      "begin for (int i = 0; i < 2; i++) if (a[i]) return 1'b1; for (int j = 2; j < 4; j++) if (a[j]) return 1'b1; end",
+      "begin logic t; for (int i = 0; i < 2; i++) if (a[i]) return 1'b1; end begin logic u; for (int j = 2; j < 4; j++) if (a[j]) return 1'b1; end"}) {
+    SCOPED_TRACE(body);
+    const auto source = directory / "source.sv";
+    std::ofstream(source)
+      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
+      << "// SPDX-License-Identifier: Apache-2.0\n"
+      << "module top(input logic [3:0] a, output logic y);\n"
+      << "function automatic logic f(input logic [3:0] a);\n"
+      << body << "\nreturn " << (std::string(body) == "logic t; ;" ? "$clog2(a)" : "1'b0")
+      << "; endfunction\n"
+      << "assign y = f(a); endmodule\n";
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, source, {});
+    auto* top = library_->getSNLDesign(NLName("top"));
+    ASSERT_NE(nullptr, top);
+    top->destroy();
+  }
+}

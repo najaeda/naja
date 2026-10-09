@@ -511,7 +511,7 @@ static PyObject* astSymbolOf(PyObject*, PyObject* arg) {
   } else if (IsPySNLDesignObject(arg)) {
     object = PYSNLDesignObject_O(arg);
   } else {
-    setError("ast_symbol_of expects an SNLDesign or SNLDesignObject");
+    setError("astSymbolOf expects an SNLDesign or SNLDesignObject");
     return nullptr;
   }
   auto* link = naja::NL::SNLSVLiveASTLinkRegistry::findForObject(object);
@@ -576,7 +576,7 @@ static PyObject* intentAvailable(PyObject*, PyObject*) {
 }
 
 static PyObject* intentTypeOf(PyObject*, PyObject* arg) {
-  auto* object = parseIntentObject(arg, "intent_type_of");
+  auto* object = parseIntentObject(arg, "intentTypeOf");
   if (!object) {
     return nullptr;
   }
@@ -590,7 +590,7 @@ static PyObject* intentTypeOf(PyObject*, PyObject* arg) {
 }
 
 static PyObject* intentParametersOf(PyObject*, PyObject* arg) {
-  auto* object = parseIntentObject(arg, "intent_parameters_of");
+  auto* object = parseIntentObject(arg, "intentParametersOf");
   if (!object) {
     return nullptr;
   }
@@ -655,7 +655,7 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
   const char* package = nullptr;
   const char* member = nullptr;
   if (!PyArg_ParseTuple(args, "ss", &package, &member)) {
-    setError("intent_package_member expects a package and member name");
+    setError("intentPackageMember expects a package and member name");
     return nullptr;
   }
   try {
@@ -675,7 +675,7 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
-  { "snapshot_manifest", PyNLDB_snapshotManifest, METH_VARARGS,
+  { "snapshotManifest", PyNLDB_snapshotManifest, METH_VARARGS,
     "read a NajaIF snapshot manifest without loading the snapshot" },
   { "log", logMessage, METH_VARARGS, "log a message at the requested level" },
   { "installLoggingHandler", installLoggingHandler, METH_NOARGS,
@@ -686,19 +686,19 @@ static PyMethodDef NajaMethods[] = {
   { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
   { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
   { "clearLogSinks", clearLogSinks, METH_NOARGS, "clear all log sinks" },
-  { "live_compilation", liveCompilation, METH_NOARGS,
+  { "liveCompilation", liveCompilation, METH_NOARGS,
     "Return the live frontend compilation capsule for the latest retained SystemVerilog load." },
-  { "ast_symbol_of", astSymbolOf, METH_O,
+  { "astSymbolOf", astSymbolOf, METH_O,
     "Return the live frontend AST symbol capsule associated with an SNL object, or None." },
-  { "snl_objects_of", snlObjectsOf, METH_O,
+  { "snlObjectsOf", snlObjectsOf, METH_O,
     "Return SNL objects associated with a live frontend AST symbol capsule." },
-  { "intent_available", intentAvailable, METH_NOARGS,
+  { "intentAvailable", intentAvailable, METH_NOARGS,
     "Return whether curated live SystemVerilog source intent data is available." },
-  { "intent_type_of", intentTypeOf, METH_O,
+  { "intentTypeOf", intentTypeOf, METH_O,
     "Return a plain Python dict describing live source type intent for an SNL object, or None." },
-  { "intent_parameters_of", intentParametersOf, METH_O,
+  { "intentParametersOf", intentParametersOf, METH_O,
     "Return a plain Python dict with live source parameter intent for an SNL object, or None." },
-  { "intent_package_member", intentPackageMember, METH_VARARGS,
+  { "intentPackageMember", intentPackageMember, METH_VARARGS,
     "Return a plain Python dict for a live source package member, or None." },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };

@@ -15,6 +15,7 @@
 #include "SNLInstance.h"
 #include "SNLPath.h"
 #include "SNLOccurrence.h"
+#include "SNLDesignModeling.h"
 
 namespace PYNAJA {
 
@@ -89,7 +90,31 @@ GetObjectMethod(SNLOccurrence, SNLDesign, getDesign) // LCOV_EXCL_LINE
 GetObjectMethod(SNLOccurrence, SNLPath, getPath)
 GetBoolAttribute(SNLOccurrence, isInstanceOccurrence)
 
+static PyObject* PySNLOccurrence_getRole(PySNLOccurrence* self) {
+  METHOD_HEAD("SNLOccurrence.getRole()")
+  TRY
+  const auto role = selfObject->getInstTerm()
+      ? SNLDesignModeling::getTermRole(selfObject->getInstTerm())
+      : SNLDesignModeling::getTermRole(selfObject->getBitTerm());
+  return PyLong_FromLong(static_cast<long>(role));
+  NLCATCH
+}
+
+static PyObject* PySNLOccurrence_getResetActiveLevel(PySNLOccurrence* self) {
+  METHOD_HEAD("SNLOccurrence.getResetActiveLevel()")
+  TRY
+  const auto level = selfObject->getInstTerm()
+      ? SNLDesignModeling::getResetActiveLevel(selfObject->getInstTerm())
+      : SNLDesignModeling::getResetActiveLevel(selfObject->getBitTerm());
+  return PyLong_FromLong(static_cast<long>(level));
+  NLCATCH
+}
+
 PyMethodDef PySNLOccurrence_Methods[] = {
+  {"getRole", (PyCFunction)PySNLOccurrence_getRole, METH_NOARGS,
+    "get the role of the referenced term in its instance context (Other for non-terms)."},
+  {"getResetActiveLevel", (PyCFunction)PySNLOccurrence_getResetActiveLevel, METH_NOARGS,
+    "get the reset/set active level in its instance context."},
   { "getNetComponent", (PyCFunction)PySNLOccurrence_getNetComponent, METH_NOARGS,
     "get the SNLNetComponent of the SNLOccurrence."},
   { "getInstTerm", (PyCFunction)PySNLOccurrence_getInstTerm, METH_NOARGS,

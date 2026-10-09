@@ -15,10 +15,10 @@ class SNLInstanceTest(unittest.TestCase):
     self.i0 = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "I0")
     self.i1 = naja.SNLBusTerm.create(self.model, naja.SNLTerm.Direction.Input, 4, 0, "I1")
     self.o = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Output, "O")
-    p0 = naja.SNLParameter.create_decimal(self.model, "REG", 34)
-    p1 = naja.SNLParameter.create_binary(self.model, "INIT", 16, 0x0000)
-    p2 = naja.SNLParameter.create_string(self.model, "MODE", "DEFAULT")
-    p3 = naja.SNLParameter.create_boolean(self.model, "INVERTED", True)
+    p0 = naja.SNLParameter.createDecimal(self.model, "REG", 34)
+    p1 = naja.SNLParameter.createBinary(self.model, "INIT", 16, 0x0000)
+    p2 = naja.SNLParameter.createString(self.model, "MODE", "DEFAULT")
+    p3 = naja.SNLParameter.createBoolean(self.model, "INVERTED", True)
 
   def tearDown(self):
     del self.top

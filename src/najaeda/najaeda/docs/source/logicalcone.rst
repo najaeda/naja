@@ -17,7 +17,7 @@ Construct a cone with ``LogicCone(start, direction)``.  ``start`` is one
 A bus-term start builds one shared cone for all of its bits.  Direction is
 ``LogicCone.FanIn`` or ``LogicCone.FanOut``.
 
-``get_nodes()``, ``get_root()``, and ``get_leaves()`` return node tuples:
+``getNodes()``, ``getRoot()``, and ``getLeaves()`` return node tuples:
 
 ``(node_id, occurrence, kind, next_ids, prev_ids)``
 
