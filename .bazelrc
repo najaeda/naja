@@ -5,12 +5,10 @@
 # Modules not yet on the Bazel Central Registry come from their open
 # bazel-central-registry pull requests, each pinned to a commit; drop a
 # line once its PR has merged. Everything else comes from BCR.
-#   bison 3.8.2.bcr.10                     bazelbuild/bazel-central-registry#10879
-#   sv-lang 11.0.0-20260701-b60d729d.bcr.1 bazelbuild/bazel-central-registry#10882
+#   sv-lang 12.0.0                         bazelbuild/bazel-central-registry#10977
 #   naja-if 0.0.0-20260723-099677d9        bazelbuild/bazel-central-registry#10881
 #   naja-verilog 0.0.0-20260909-be6544b1   bazelbuild/bazel-central-registry#10885
-common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/bb42d7dc14939aaf578926cf1c93bd987ca9fac7/
-common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/5888fdb942da7cf4a6eecd8d5bc07c777e82c4ee/
+common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/d5ac67298f4508dde3d9c860131c02821f187a0c/
 common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/377d10e631e9461794687b9ff1d4bbbde0c9ad1d/
 common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/649d563703219943c013c9e5af8884ea81b2ab19/
 common --registry=https://bcr.bazel.build/
