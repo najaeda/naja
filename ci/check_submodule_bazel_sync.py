@@ -48,8 +48,8 @@ BAZELRC = REPO_ROOT / ".bazelrc"
 # be an ancestor of, or equal to, the Bazel commit).
 SYNC_SPECS = {
     "thirdparty/slang": ("sv-lang", "https://github.com/MikePopoloski/slang", "exact"),
-    "thirdparty/naja-if": ("naja-if", "https://github.com/najaeda/naja-if", "ancestor"),
-    "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "exact"),
+    "thirdparty/naja-if": ("naja-if", "https://github.com/keplertech/naja-if", "ancestor"),
+    "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/keplertech/naja-verilog", "exact"),
 }
 
 

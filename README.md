@@ -36,7 +36,7 @@ integrate around Naja's C++ netlist engine:
   and primitive models.
 - **Core and interchange** — Naja represents hierarchy, buses, bit-level nets
   and terms, connectivity, and primitive functional models. The
-  [`naja-if`](https://github.com/najaeda/naja-if) Cap'n Proto format provides a
+  [`naja-if`](https://github.com/keplertech/naja-if) Cap'n Proto format provides a
   logical-view interchange path.
 - **APIs and tools** — [`najaeda`](https://pypi.org/project/najaeda/) exposes
   the engine through Python. Companion projects build on Naja directly or
@@ -100,9 +100,9 @@ flowchart LR
     classDef api fill:#f0fdfa,stroke:#14b8a6,color:#042f2e,stroke-width:2px
     classDef tool fill:#f5f3ff,stroke:#8b5cf6,color:#2e1065,stroke-width:2px
     click slang "https://github.com/MikePopoloski/slang"
-    click naja-verilog "https://github.com/najaeda/naja-verilog"
+    click naja-verilog "https://github.com/keplertech/naja-verilog"
     click naja "https://github.com/najaeda/naja"
-    click najaif "https://github.com/najaeda/naja-if"
+    click najaif "https://github.com/keplertech/naja-if"
     click najaeda "https://pypi.org/project/najaeda/"
     click kf "https://github.com/keplertech/kepler-formal"
     click kfm "https://github.com/keplertech/kepler-formal-mcp"
