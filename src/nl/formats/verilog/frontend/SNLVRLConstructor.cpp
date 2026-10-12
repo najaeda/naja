@@ -56,7 +56,7 @@ naja::NL::SNLRTLInfos* sourceInfos(naja::NL::NLObject* object) {
   if (auto designObject = dynamic_cast<naja::NL::SNLDesignObject*>(object)) {
     return designObject->getRTLInfos() ? designObject->getRTLInfos() : naja::NL::SNLRTLInfos::create(designObject);
   }
-  return nullptr;
+  return nullptr; // LCOV_EXCL_LINE: callers only pass designs or design objects.
 }
 
 std::optional<naja::NL::SNLSourceLoc> parseYosysSource(const std::string& entry) {

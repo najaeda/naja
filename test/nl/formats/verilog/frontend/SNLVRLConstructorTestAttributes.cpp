@@ -366,6 +366,35 @@ endmodule
   std::filesystem::remove(path);
 }
 
+TEST_F(SNLVRLConstructorTestAttributes, sourcePathOctalEscapes) {
+  auto path = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) / "source_octal.v";
+  {
+    std::ofstream out(path);
+    ASSERT_TRUE(out.good());
+    out << R"((* src = "one\7.sv:2|two\40.sv:3|three\141.sv:4|limit\377.sv:5" *)
+module cell();
+endmodule
+)";
+  }
+  SNLVRLConstructor constructor(library_);
+  constructor.config_.yosysSourceAttributes_ = true;
+  constructor.construct(path);
+  auto cell = library_->getSNLDesign(NLName("cell"));
+  ASSERT_NE(nullptr, cell);
+  ASSERT_NE(nullptr, cell->getRTLInfos());
+  const auto& origins = cell->getRTLInfos()->getSourceOrigins();
+  ASSERT_EQ(4, origins.size());
+  const std::vector<std::string> files = {
+    "one\a.sv", "two .sv", "threea.sv", std::string("limit") + static_cast<char>(255) + ".sv"
+  };
+  for (size_t i = 0; i < files.size(); ++i) {
+    EXPECT_EQ(files[i], origins[i].range.file.getString());
+    EXPECT_EQ(i + 2, origins[i].range.line);
+    EXPECT_EQ("yosys", origins[i].provider.getString());
+  }
+  std::filesystem::remove(path);
+}
+
 TEST_F(SNLVRLConstructorTestAttributes, genericSrcStaysOpaque) {
   SNLVRLConstructor constructor(library_);
   constructor.construct(std::filesystem::path(SNL_VRL_BENCHMARKS_PATH) / "test_attributes.v");

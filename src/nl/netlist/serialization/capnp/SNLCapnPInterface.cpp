@@ -355,7 +355,8 @@ void loadBusTerm(
   for (auto bitInfo: term.getBitInfos()) {
     auto bit = busTerm->getBit(bitInfo.getBit());
     if (not bit) {
-      throw NLException("cannot deserialize bus term metadata: bit not found");
+      // Malformed input only: the serializer emits metadata for existing bits.
+      throw NLException("cannot deserialize bus term metadata: bit not found"); // LCOV_EXCL_LINE
     }
     loadRTLInfos(SNLRTLInfos::create(bit), bitInfo.getRtlInfos());
   }

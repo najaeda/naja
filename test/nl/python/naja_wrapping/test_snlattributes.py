@@ -63,6 +63,20 @@ class SNLAttributesTest(unittest.TestCase):
       self.assertEqual(before, [(obj.getSourceDeclaration(), obj.getSourceOrigins())
                                 for obj in objects])
 
+  def testSourceOriginsInvalidUtf8(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "input.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write(r'(* src="valid.sv:1|invalid\377.sv:2" *) module cell(); endmodule')
+      db = self.top.getDB()
+      db.loadVerilog([path], yosys_source_attributes=True)
+      top = db.getTopDesign()
+      # The first origin converts successfully before the second fails.
+      for _ in range(2):
+        with self.assertRaises(UnicodeDecodeError):
+          top.getSourceOrigins()
+      self.assertEqual(path, top.getSourceDeclaration()[0][0])
+
   def testCustomSourceAttributesStayOpaque(self):
     with tempfile.TemporaryDirectory() as directory:
       path = os.path.join(directory, "opaque.v")

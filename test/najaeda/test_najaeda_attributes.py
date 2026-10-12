@@ -41,6 +41,17 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertEqual([], concat.get_source_origins())
         self.assertFalse(concat.has_source_references())
 
+    def test_missing_source_declarations(self):
+        netlist.reset()
+        top = netlist.create_top("top")
+        term = top.create_input_term("a")
+        net = top.create_net("n")
+        for obj in (top, term, net):
+            self.assertIsNone(obj.get_source_declaration())
+            self.assertEqual([], obj.get_source_origins())
+            self.assertFalse(obj.has_source_references())
+        self.assertIsNone(top.get_model_source_declaration())
+
     def test_yosys_cross_probing(self):
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
