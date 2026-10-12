@@ -5,6 +5,7 @@
 import os
 import tempfile
 import unittest
+import warnings
 import naja
 
 class SNLDesignModelingTest(unittest.TestCase):
@@ -19,6 +20,37 @@ class SNLDesignModelingTest(unittest.TestCase):
     del self.primitives
     if naja.NLUniverse.get():
       naja.NLUniverse.get().destroy()
+
+  def testDeprecatedRoleAliases(self):
+    model = naja.SNLDesign.createPrimitive(self.primitives, "alias_model")
+    term = naja.SNLScalarTerm.create(model, naja.SNLTerm.Direction.Input, "CLK")
+    bus = naja.SNLBusTerm.create(model, naja.SNLTerm.Direction.Input, 1, 0, "D")
+    term.setRole(naja.SNLTermRole.Clock)
+    top = naja.SNLDesign.create(self.designs, "alias_top")
+    instance = naja.SNLInstance.create(top, model)
+    aliases = (
+      ("is_clock", "isClock"), ("is_async_reset", "isAsyncReset"),
+      ("is_async_set", "isAsyncSet"), ("is_sync_reset", "isSyncReset"),
+      ("is_sync_set", "isSyncSet"), ("is_reset", "isReset"),
+      ("is_enable", "isEnable"), ("is_data", "isData"),
+      ("is_data_input", "isDataInput"), ("is_data_output", "isDataOutput"))
+    for obj in (term, bus.getBusTermBit(0), instance.getInstTerm(term)):
+      for alias, replacement in aliases:
+        with self.subTest(type=type(obj).__name__, alias=alias):
+          with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            expected = getattr(obj, replacement)()
+            self.assertEqual([], caught)
+            self.assertEqual(expected, getattr(obj, alias)())
+          self.assertEqual(1, len(caught))
+          self.assertIs(DeprecationWarning, caught[0].category)
+          self.assertIn(alias + "() is deprecated", str(caught[0].message))
+          self.assertIn("use " + replacement + "() instead", str(caught[0].message))
+          self.assertEqual(__file__, caught[0].filename)
+          with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            with self.assertRaises(DeprecationWarning):
+              getattr(obj, alias)()
 
   def testLibraries(self):
     self.assertTrue(self.designs.isStandard())
@@ -62,6 +94,17 @@ class SNLDesignModelingTest(unittest.TestCase):
 
     top = naja.SNLDesign.create(self.designs, "TOP")
     instance = naja.SNLInstance.create(top, reg, "reg")
+    aliases = {
+      "is_clock": "isClock", "is_async_reset": "isAsyncReset",
+      "is_async_set": "isAsyncSet", "is_sync_reset": "isSyncReset",
+      "is_sync_set": "isSyncSet", "is_reset": "isReset", "is_enable": "isEnable",
+      "is_data": "isData", "is_data_input": "isDataInput", "is_data_output": "isDataOutput",
+    }
+    for pin in (clock, data, reset, output):
+      for obj in (pin, instance.getInstTerm(pin)):
+        for old, new in aliases.items():
+          with self.assertWarns(DeprecationWarning):
+            self.assertEqual(getattr(obj, new)(), getattr(obj, old)())
     self.assertTrue(instance.getInstTerm(clock).isClock())
     self.assertTrue(instance.getInstTerm(data).isDataInput())
     self.assertTrue(instance.getInstTerm(reset).isAsyncReset())

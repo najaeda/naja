@@ -36,7 +36,7 @@ integrate around Naja's C++ netlist engine:
   and primitive models.
 - **Core and interchange** — Naja represents hierarchy, buses, bit-level nets
   and terms, connectivity, and primitive functional models. The
-  [`naja-if`](https://github.com/najaeda/naja-if) Cap'n Proto format provides a
+  [`naja-if`](https://github.com/keplertech/naja-if) Cap'n Proto format provides a
   logical-view interchange path.
 - **APIs and tools** — [`najaeda`](https://pypi.org/project/najaeda/) exposes
   the engine through Python. Companion projects build on Naja directly or
@@ -100,9 +100,9 @@ flowchart LR
     classDef api fill:#f0fdfa,stroke:#14b8a6,color:#042f2e,stroke-width:2px
     classDef tool fill:#f5f3ff,stroke:#8b5cf6,color:#2e1065,stroke-width:2px
     click slang "https://github.com/MikePopoloski/slang"
-    click naja-verilog "https://github.com/najaeda/naja-verilog"
+    click naja-verilog "https://github.com/keplertech/naja-verilog"
     click naja "https://github.com/najaeda/naja"
-    click najaif "https://github.com/najaeda/naja-if"
+    click najaif "https://github.com/keplertech/naja-if"
     click najaeda "https://pypi.org/project/najaeda/"
     click kf "https://github.com/keplertech/kepler-formal"
     click kfm "https://github.com/keplertech/kepler-formal-mcp"
@@ -174,9 +174,26 @@ Regression suite: [naja-regress](https://github.com/najaeda/naja-regress)
 
 ## Building from Source
 
-CMake is Naja's primary build, test, and install workflow. Bazel is maintained
-as a build-and-test smoke path; it does not replace the CMake install and
-packaging workflows.
+For the same Naja revision, platform and requested features, CMake and Bazel must
+deliver equivalent Naja and najaeda products: the same APIs, supported features,
+defaults, diagnostics, netlist behavior, serialization and package contents.
+Any difference caused by the build system is a bug. Matching dependency revisions
+alone does not establish this equivalence; common behavior and package checks
+must validate it. Independent BCR publication timing does not relax this rule
+for a published Naja release.
+
+Naja has three delivery paths: CMake builds from sources, Bazel builds from
+sources, and Bazel Central Registry (BCR) distribution. Both source build systems
+serve users and package builds, including najaeda; shared source dependencies
+must use the same revisions. BCR publication follows its own schedule and may
+lag source builds without blocking source changes or package builds.
+
+CMake currently provides the established install and packaging workflow.
+Bazel provides build/test targets. Its default configuration uses the same
+naja-if and naja-verilog checkouts as CMake; `--config=registered` selects the
+published dependencies instead. Slang temporarily remains registry-backed with exact
+source revision checks until its native upstream Bazel support permits direct
+checkout selection. See [the repository build policy](./CLAUDE.md#build-and-delivery-policy-cmake-bazel-and-bcr).
 
 ### CMake
 
@@ -220,16 +237,17 @@ cmake --install build
 export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}$NAJA_INSTALL/lib/python"
 ```
 
-### Bazel smoke build
+### Bazel source build
 
 The Bazel build covers the repository's build and test targets on Ubuntu and
 macOS. The version is pinned in [`.bazelversion`](./.bazelversion); using
 [Bazelisk](https://github.com/bazelbuild/bazelisk) as the `bazel` command
 automatically selects it.
 
-Bazel fetches its own pinned copies of the shared source dependencies, so a
-Bazel-only checkout does not need Git submodules. It still uses system
-toolchains and libraries for parts of the build.
+Initialize naja-if and naja-verilog before a default Bazel build. Schema and
+parser sources use the same checkouts as CMake, including unpublished changes.
+Other dependencies currently resolve through the configured registries; the
+source dependency check verifies shared source revisions.
 
 **Ubuntu:**
 
@@ -253,6 +271,7 @@ Build and test from the repository root:
 ```bash
 git clone https://github.com/najaeda/naja.git
 cd naja
+git submodule update --init thirdparty/naja-if thirdparty/naja-verilog
 bazel build //... --jobs=auto
 bazel test //... --test_output=errors --jobs=auto
 ```
@@ -263,12 +282,29 @@ These are the same smoke commands used by
 install target; use the CMake workflow above when you need an installed
 library, Python package, or packaged artifact.
 
-When changing a shared dependency pin, keep the Git submodule and
-[`MODULE.bazel`](./MODULE.bazel) entries synchronized, then run:
+Check source selection and the remaining registry-backed source revisions:
 
 ```bash
 python3 ci/check_submodule_bazel_sync.py
 ```
+
+### Registered Bazel distribution
+
+Validate the registry dependency set independently, without local dependency checkouts initialized:
+
+```bash
+bazel build --config=registered //...
+bazel test --config=registered //... --test_output=errors
+```
+
+This clears the local dependency overrides and uses the immutable versions in
+[`MODULE.bazel`](./MODULE.bazel). It does not switch Naja's own source revision.
+Registered dependencies may lag source builds; an older schema can therefore
+fail to compile newer Naja code. Update and validate registry versions when
+preparing BCR distribution, independently of source/package changes. The manual
+[`bazel-registered.yml`](./.github/workflows/bazel-registered.yml) workflow performs
+these checks separately from source CI. BCR's consumer presubmits also validate
+Naja as an external dependency, where this repository's .bazelrc is not inherited.
 
 ## C++ API
 

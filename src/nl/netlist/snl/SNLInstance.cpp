@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLInstance.h"
+#include "SNLRTLInfos.h"
 
 #include <sstream>
 
@@ -12,6 +13,7 @@
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
 #include "SNLInstance.h"
+#include "SNLRTLInfos.h"
 #include "SNLBusTerm.h"
 #include "SNLBundleTerm.h"
 #include "SNLBusTermBit.h"
@@ -232,6 +234,9 @@ SNLInstance* SNLInstance::clone(SNLDesign* design) const {
     [](SNLInstParameter*){} //LCOV_EXCL_LINE
   );
   SNLAttributes::cloneAttributes(this, newInstance);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newInstance)->cloneInfos(*infos);
+  }
   return newInstance;
 }
 

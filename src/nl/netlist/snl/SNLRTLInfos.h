@@ -17,6 +17,7 @@
 
 namespace naja::NL {
 
+class NLObject;
 class SNLDesign;
 class SNLDesignObject;
 
@@ -24,12 +25,24 @@ struct SNLSourceLoc {
   NLName file;
   std::uint32_t line {0};
   std::uint32_t endLine {0};
-  std::uint16_t column {0};
-  std::uint16_t endColumn {0};
+  std::uint32_t column {0};
+  std::uint32_t endColumn {0};
+};
+
+/** A source reference independent of retained text or AST ownership.
+ * Empty qualifiers mean unknown. Ranges use one-based, inclusive coordinates.
+ */
+struct SNLSourceReference {
+  SNLSourceLoc range;
+  NLName provider {};
+  NLName language {};
+  NLName representation {};
+
+  bool operator==(const SNLSourceReference& other) const;
 };
 
 /**
- * Per-object RTL metadata storage.
+ * Shared per-object RTL and language-neutral source metadata storage.
  *
  * This class stores common source metadata in typed slots and keeps rare
  * key/value string pairs keyed by NLName in an optional map.
@@ -49,8 +62,20 @@ class SNLRTLInfos {
     SNLDesign* getDesign() const { return design_; }
 
     void setSourceLoc(const SNLSourceLoc& sourceLoc);
+    void clearSourceLoc() { sourceLoc_.reset(); }
     bool hasSourceLoc() const { return sourceLoc_.has_value(); }
     const std::optional<SNLSourceLoc>& getSourceLoc() const { return sourceLoc_; }
+
+    // Explicit source roles are independent of the legacy sourceLoc slot.
+    // Returned references remain valid until the metadata is mutated/destroyed.
+    void setSourceDeclaration(const SNLSourceReference& reference);
+    const std::optional<SNLSourceReference>& getSourceDeclaration() const;
+    void clearSourceDeclaration();
+    void addSourceOrigin(const SNLSourceReference& reference);
+    const std::vector<SNLSourceReference>& getSourceOrigins() const;
+    void clearSourceOrigins();
+    // Check for an explicit declaration or origins without allocating.
+    bool hasSourceReferences() const;
 
     void setInfo(const InfoName& name, const InfoValue& value);
     bool hasInfo(const InfoName& name) const;
@@ -75,6 +100,11 @@ class SNLRTLInfos {
 
     SNLDesignObject* designObject_ {nullptr};
     SNLDesign* design_ {nullptr};
+    struct SourceReferences {
+      std::optional<SNLSourceReference> declaration;
+      std::vector<SNLSourceReference> origins;
+    };
+    std::unique_ptr<SourceReferences> sourceReferences_ {};
     std::optional<SNLSourceLoc> sourceLoc_ {};
     std::uint32_t symbolPathId_ {kInvalid};
     std::unique_ptr<Infos> extra_ {};

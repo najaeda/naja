@@ -26,6 +26,60 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
     
+    def test_source_references(self):
+        top = netlist.get_top()
+        child = top.get_child_instance("and2_inst")
+        self.assertIsNotNone(child.get_source_declaration())
+        self.assertIsNotNone(child.get_model_source_declaration())
+        self.assertIsNone(child.get_source_range())
+        for obj in (top, child, top.get_term("a"), top.get_net("and_wire")):
+            self.assertTrue(obj.has_source_references())
+            self.assertIsNotNone(obj.get_source_declaration())
+            self.assertEqual([], obj.get_source_origins())
+        concat = netlist.Net([], net_concat=[top.get_net("and_wire")])
+        self.assertIsNone(concat.get_source_declaration())
+        self.assertEqual([], concat.get_source_origins())
+        self.assertFalse(concat.has_source_references())
+
+    def test_missing_source_declarations(self):
+        netlist.reset()
+        top = netlist.create_top("top")
+        term = top.create_input_term("a")
+        net = top.create_net("n")
+        for obj in (top, term, net):
+            self.assertIsNone(obj.get_source_declaration())
+            self.assertEqual([], obj.get_source_origins())
+            self.assertFalse(obj.has_source_references())
+        self.assertIsNone(top.get_model_source_declaration())
+
+    def test_yosys_cross_probing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "yosys.v")
+            with open(path, "w", encoding="utf-8") as output:
+                output.write('(* src="definition.sv:1.1-2.1" *) module cell(input a, output y); endmodule\n'
+                             'module top(input a, output y);\n'
+                             '(* src="rtl.sv:8.70000-8.80000|rtl.sv:8.70000-8.80000" *) cell u(a,y);\n'
+                             'endmodule\n')
+            netlist.reset()
+            top = netlist.load_verilog(path, netlist.VerilogConfig(yosys_source_attributes=True))
+            child = top.get_child_instance("u")
+            self.assertEqual(path, child.get_source_declaration().range.file)
+            self.assertEqual(3, child.get_source_declaration().range.line)
+            self.assertEqual(1, child.get_model_source_declaration().range.line)
+            self.assertEqual(path, child.get_model_source_declaration().range.file)
+            origins = child.get_source_origins()
+            self.assertEqual(1, len(origins))
+            self.assertEqual("yosys", origins[0].provider)
+            self.assertIsNone(origins[0].language)
+            self.assertIsNone(origins[0].representation)
+            self.assertEqual(70000, origins[0].range.column)
+            self.assertIsNone(child.get_source_range())
+            os.unlink(path)
+            self.assertEqual("rtl.sv", child.get_source_origins()[0].range.file)
+        with self.assertRaises(TypeError):
+            netlist.VerilogConfig(yosys_source_attributes="yes")
+
     def test(self):
         top = netlist.get_top()
         self.assertIsNotNone(top)

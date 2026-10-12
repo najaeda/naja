@@ -90,6 +90,24 @@ void dumpInstance(
   if (snlInstance->hasRTLInfos()) {
     dumpRTLInfos(instance.initRtlInfos(), snlInstance->getRTLInfos());
   }
+  size_t count = 0;
+  for (auto term: snlInstance->getInstTerms()) {
+    if (term->hasRTLInfos()) ++count;
+  }
+  if (count) {
+    auto termInfos = instance.initTermInfos(count);
+    size_t id = 0;
+    for (auto term: snlInstance->getInstTerms()) {
+      if (term->hasRTLInfos()) {
+        auto builder = termInfos[id++];
+        builder.setTermID(term->getBitTerm()->getID());
+        if (auto bit = dynamic_cast<const SNLBusTermBit*>(term->getBitTerm())) {
+          builder.setBit(bit->getBit());
+        }
+        dumpRTLInfos(builder.initRtlInfos(), term->getRTLInfos());
+      }
+    }
+  }
 }
 
 void dumpBitTermReference(DBImplementation::NetComponentReference::Builder& componentReference,
@@ -332,6 +350,17 @@ void loadInstance(
   }
   if (instance.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(snlInstance), instance.getRtlInfos());
+  }
+  for (auto termInfo: instance.getTermInfos()) {
+    auto term = model->getTerm(termInfo.getTermID());
+    SNLBitTerm* bit = dynamic_cast<SNLScalarTerm*>(term);
+    if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
+      bit = bus->getBit(termInfo.getBit());
+    }
+    if (not bit) {
+      throw NLException("cannot deserialize instance term metadata: term not found");
+    }
+    loadRTLInfos(SNLRTLInfos::create(snlInstance->getInstTerm(bit)), termInfo.getRtlInfos());
   }
 }
 

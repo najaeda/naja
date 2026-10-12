@@ -20,6 +20,7 @@
 #include "NajaPerf.h"
 
 #include "NLDB0.h"
+#include "NLDB.h"
 #include "NLLibrary.h"
 
 #include "SNLDesign.h"
@@ -1289,8 +1290,8 @@ void SNLVRLDumper::dumpAttributes(
     if (perfActive) { // LCOV_EXCL_LINE
       rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
+    std::vector<std::pair<std::string, std::string>> attributes;
     if (rtlInfos) {
-      std::vector<std::pair<std::string, std::string>> attributes;
       switch (configuration_.getRTLInfoDumpMode()) {
         case RTLInfoDumpMode::None:
           break; // LCOV_EXCL_LINE
@@ -1306,6 +1307,8 @@ void SNLVRLDumper::dumpAttributes(
           }
           break;
       }
+    }
+    {
       for (const auto& info : attributes) {
         ++dumpedRTLInfos;
         o << "(* ";
@@ -1434,7 +1437,6 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
     if (not net->isUnnamed()) {
       auto name = net->getName();
       if (design->getTerm(name)) {
-        //already dumped
         continue;
       }
     }
@@ -1898,6 +1900,7 @@ bool SNLVRLDumper::dumpInstance(
     emitNajaPrimitiveModels_ = true;
   }
   if (NLDB0::isGate(instance->getModel())) {
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
     auto gateName = NLDB0::getGateName(instance->getModel());
     o << gateName << " ";
     if (not instance->isUnnamed()) {
@@ -2317,6 +2320,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
 
   o << "endmodule //" << design->getName().getString();
   o << '\n';
+
 }
 
 void SNLVRLDumper::dumpNajaFAModel(std::ostream& o) {

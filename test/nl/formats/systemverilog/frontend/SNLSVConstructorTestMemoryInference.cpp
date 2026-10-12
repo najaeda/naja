@@ -12005,9 +12005,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusGeneratedDisjointE
   const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "writer_census";
   std::filesystem::create_directories(directory);
   const auto source = directory / "writer_census.sv";
-  std::ofstream(source) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module writer_census(input logic clk, input logic [3:0] en, d, output logic [7:0] q);
+  std::ofstream(source) << R"(module writer_census(input logic clk, input logic [3:0] en, d, output logic [7:0] q);
   logic mem [0:3];
   logic other [0:3];
   for (genvar i = 0; i < 4; i++) begin
@@ -12055,9 +12053,7 @@ endmodule
     GTEST_SKIP() << "Icarus Verilog is required for behavioral verification";
   }
   const auto tb = dumped.parent_path() / "tb.sv";
-  std::ofstream(tb) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module tb;
+  std::ofstream(tb) << R"(module tb;
   reg clk = 0;
   reg [3:0] en = 15, d = 0;
   wire [7:0] q;
@@ -12095,9 +12091,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusLoopIndexedPartSel
     const auto name = reset ? "kmac_shares" : "m3";
     const auto source = directory / (std::string(name) + ".sv");
     std::ofstream sv(source);
-    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-)";
     if (!reset) {
       sv << R"(module m3(input logic clk, en0, en1, input logic [63:0] d0, d1,
           output logic [127:0] q);
@@ -12145,9 +12138,7 @@ endmodule
     }
     const auto tb = dumped.parent_path() / "tb.sv";
     std::ofstream bench(tb);
-    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module tb;
+    bench << R"(module tb;
   reg clk = 0;
   integer i, j;
 )";
@@ -12226,10 +12217,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusUnrolledOwnership)
     const auto name = overlap ? "overlapping_loop_slices" : "disjoint_loop_slices";
     const auto source = directory / (std::string(name) + ".sv");
     std::ofstream sv(source);
-    sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-)"
-       << "module " << name << "(input logic clk, en0, en1, input logic [31:0] d0, d1, "
+    sv << "module " << name << "(input logic clk, en0, en1, input logic [31:0] d0, d1, "
        << "output logic [127:0] q);\n"
        << "logic [127:0] r [2];\n"
        << "always_ff @(posedge clk) if (en0) for (int j = 0; j < 2; j++) "
@@ -12264,10 +12252,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusConstantSelectAndS
         (reset ? "_reset" : "_enabled");
       const auto source = directory / (name + ".sv");
       std::ofstream sv(source);
-      sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-)"
-         << "module " << name << "(input logic clk, rst_n, en0, en1, "
+      sv << "module " << name << "(input logic clk, rst_n, en0, en1, "
          << "input logic [63:0] d0, d1, output logic [63:0] q);\n"
          << "logic [63:0] r [2];\n";
       if (singleWriter) {
@@ -12307,10 +12292,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsOverlapping
         (dynamic ? "_dynamic" : "_constant");
       const auto source = directory / (std::string(name) + ".sv");
       std::ofstream sv(source);
-      sv << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-)"
-         << "module " << name << "(input logic clk, input logic [1:0] a, input logic d, output logic q);\n"
+      sv << "module " << name << "(input logic clk, input logic [1:0] a, input logic d, output logic q);\n"
          << "logic mem [0:3]; logic next_mem [0:3];\n";
       if (shadow) {
         sv << "always_comb begin next_mem = mem; next_mem[a] = d; end\n"
@@ -12347,9 +12329,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusSingleBlockMultipl
   const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "single_writer";
   std::filesystem::create_directories(directory);
   const auto source = directory / "single_writer.sv";
-  std::ofstream(source) << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module single_writer(input logic clk, input logic [1:0] a, input logic d, output logic q);
+  std::ofstream(source) << R"(module single_writer(input logic clk, input logic [1:0] a, input logic d, output logic q);
   logic mem [0:3];
   always_ff @(posedge clk) begin
     mem[a] <= ~d;
@@ -12385,9 +12365,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, independentWriteClockMemoryBehavior)
     const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
     std::filesystem::create_directories(directory);
     const auto source = directory / "source.sv";
-    std::string rtl = R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module MODULE(input logic clk_a, clk_b, we_a, we_b, req_a, req_b,
+    std::string rtl = R"(module MODULE(input logic clk_a, clk_b, we_a, we_b, req_a, req_b,
               input logic [2:0] addr_a, addr_b,
               input logic [7:0] wd_a, wd_b, input logic [1:0] mask_a, mask_b,
               output logic [7:0] rd_a, rd_b);
@@ -12472,9 +12450,7 @@ endmodule
     std::ofstream(golden) << goldenRTL;
     const auto tb = dumped.parent_path() / "tb.sv";
     std::ofstream bench(tb);
-    bench << R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module tb;
+    bench << R"(module tb;
   reg clk_a = 0, clk_b = 0, we_a = 0, we_b = 0, req_a = 1, req_b = 1;
   reg [)" << (wide || signedAddress ? 3 : 2) << R"(:0] addr_a = 0, addr_b = 1;
   reg [7:0] wd_a = 0, wd_b = 0;
@@ -12546,8 +12522,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsDynamicPack
     const auto source = directory / "source.sv";
     const bool member = std::string(selection).front() == '.';
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk, input logic [1:0] index, input logic d, output logic [7:0] q);\n"
       << (member ? "typedef struct packed { logic [3:0] field; } word_t; word_t mem[2];\n"
                  : "logic [3:0] mem[2];\n")
@@ -12573,8 +12547,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsUnresolvedL
     SCOPED_TRACE(loop);
     const auto source = directory / "source.sv";
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk, input int limit, input logic d, output logic [7:0] q);\n"
       << "logic [3:0] mem[2];\n"
       << "always_ff @(posedge clk) " << loop << "\n"
@@ -12600,8 +12572,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, independentMemoryResolutionFailuresC
     const auto clock = std::string(variant) == "clock" ? "$clog2(clk_b)" : "clk_b";
     const auto data = std::string(variant) == "data" ? "$clog2(d)" : "d";
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk_a, clk_b, we, input logic [2:0] addr,\n"
       << "input logic [7:0] d, output logic [7:0] q); logic [7:0] mem[8];\n"
       << "always @(posedge clk_a) if (we) mem[" << address << "] <= " << data << ";\n"

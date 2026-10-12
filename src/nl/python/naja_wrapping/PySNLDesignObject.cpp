@@ -6,6 +6,7 @@
 
 #include "SNLDesignObject.h"
 #include "SNLRTLInfos.h"
+#include "PySNLSourceReference.h"
 
 #include "PyInterface.h"
 
@@ -31,6 +32,24 @@ GetBoolAttribute(SNLDesignObject, isUnnamed)
 DirectGetNLIDMethod(PySNLDesignObject_getNLID, PySNLDesignObject, SNLDesignObject)
 
 GetContainerMethod(SNLDesignObject, SNLAttribute, SNLAttributes, Attributes)
+
+static PyObject* PySNLDesignObject_getSourceDeclaration(PySNLDesignObject* self) {
+  METHOD_HEAD("SNLDesignObject.getSourceDeclaration()")
+  return PYNAJA::getSourceDeclaration(selfObject->getRTLInfos());
+}
+
+static PyObject* PySNLDesignObject_getSourceOrigins(PySNLDesignObject* self) {
+  METHOD_HEAD("SNLDesignObject.getSourceOrigins()")
+  return PYNAJA::getSourceOrigins(selfObject->getRTLInfos());
+}
+
+static PyObject* PySNLDesignObject_hasSourceReferences(
+  PySNLDesignObject* self, PyObject*) {
+  METHOD_HEAD("SNLDesignObject.hasSourceReferences()")
+  auto* infos = selfObject->getRTLInfos();
+  if (infos && infos->hasSourceReferences()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
 
 static PyObject* PySNLDesignObject_hasSourceLoc(PySNLDesignObject* self) {
   METHOD_HEAD("SNLDesignObject.hasSourceLoc()")
@@ -69,6 +88,12 @@ static PyObject* PySNLDesignObject_addAttribute(PySNLDesignObject* self, PyObjec
 }
 
 PyMethodDef PySNLDesignObject_Methods[] = {
+  {"hasSourceReferences", (PyCFunction)PySNLDesignObject_hasSourceReferences, METH_NOARGS,
+    "Whether this object has a source declaration or any source origins."},
+  {"getSourceDeclaration", (PyCFunction)PySNLDesignObject_getSourceDeclaration, METH_NOARGS,
+    "getSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
+  {"getSourceOrigins", (PyCFunction)PySNLDesignObject_getSourceOrigins, METH_NOARGS,
+    "getSourceOrigins: language-neutral source metadata; independent of legacy source location."},
   {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
     "Returns the SNLDesignObject owner design."},
   {"getNLID", (PyCFunction)PySNLDesignObject_getNLID, METH_NOARGS,

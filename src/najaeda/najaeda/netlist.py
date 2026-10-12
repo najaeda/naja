@@ -111,6 +111,23 @@ def _source_range_from_snl_source_loc(source_loc):
     return SourceRange(file, line, end_line, column, end_column)
 
 
+@dataclass(frozen=True)
+class SourceReference:
+    """A source range and optional producer, language and representation identifiers."""
+    range: SourceRange
+    provider: Optional[str] = None
+    language: Optional[str] = None
+    representation: Optional[str] = None
+
+
+def _source_reference_from_snl(reference):
+    if reference is None:
+        return None
+    source_range, provider, language, representation = reference
+    return SourceReference(_source_range_from_snl_source_loc(source_range),
+                           provider or None, language or None, representation or None)
+
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -587,6 +604,21 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.net if hasattr(self, "net") else None
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.net if hasattr(self, "net") else None
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.net if hasattr(self, "net") else None
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Net, if available."""
         if hasattr(self, "net"):
@@ -925,6 +957,21 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.get_snl_term()
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.get_snl_term()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.get_snl_term()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
 
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Term, if available."""
@@ -1683,6 +1730,25 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.__get_leaf_snl_object()
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.__get_leaf_snl_object()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.__get_leaf_snl_object()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
+    def get_model_source_declaration(self) -> Optional[SourceReference]:
+        """Return the model definition location, independently of this instantiation."""
+        return _source_reference_from_snl(self.__get_snl_model().getSourceDeclaration())
+
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Instance, if available."""
         return _source_range_from_snl_source_loc(
@@ -2045,6 +2111,9 @@ class VerilogConfig:
     # compatibility. Use blackbox_unknown_modules instead.
     allow_unknown_designs: bool = None
 
+    # Explicitly identify src attributes as Yosys provenance.
+    yosys_source_attributes: bool = False
+
     def __post_init__(self):
         self.validate()
         if self.allow_unknown_designs is not None:
@@ -2059,7 +2128,8 @@ class VerilogConfig:
 
     def validate(self):
         for field_name in (
-                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled"):
+                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled",
+                "yosys_source_attributes"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2262,6 +2332,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         keep_assigns=config.keep_assigns,
         blackbox_unknown_modules=config.blackbox_unknown_modules,
         preprocess_enabled=config.preprocess_enabled,
+        yosys_source_attributes=config.yosys_source_attributes,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time

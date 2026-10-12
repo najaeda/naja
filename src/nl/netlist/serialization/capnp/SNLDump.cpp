@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLDump.h"
+#include "naja_common.capnp.h"
 
 namespace naja::NL {
 
-const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 0);
+const SNLDump::Version SNLDump::version_ = SNLDump::Version(SCHEMA_MAJOR, SCHEMA_MINOR, SCHEMA_REVISION);
 
 //LCOV_EXCL_START
 std::string SNLDump::Version::getString() {

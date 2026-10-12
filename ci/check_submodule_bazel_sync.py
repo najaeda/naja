@@ -3,34 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Checks that CMake's git submodule pins and Bazel's pins for the same
-upstream dependency haven't silently drifted apart.
+"""Validate shared source revisions and the source/registered configuration split.
 
-Naja is built by two independent build systems (CMake, the primary one,
-and Bazel, kept as a validated smoke test via ubuntu-bazel.yml/
-macos-bazel.yml). Each pins its own copy of shared dependencies --
-CMake via .gitmodules/git submodule commits under thirdparty/, Bazel via
-the commit archive that MODULE.bazel's bazel_dep version resolves to in
-the registries .bazelrc lists (modules/<name>/<version>/source.json). Nothing forces
-these to move together, so bumping one without the other is an easy,
-silent way for the two build systems to end up testing different
-upstream code without anyone noticing.
-
-naja-if is the project's own fork that still carries a separate
-`bazel-support` branch (native Bazel BUILD files added on top, not
-present on the branch CMake tracks) -- it can never be an exact commit
-match by design, so it's checked as "the bazel-support pin must still
-contain (be a descendant of, or equal to) the submodule pin" instead,
-i.e. bazel-support must never fall behind main. naja-verilog's own
-`bazel-support` branch was merged into `main` (2026), so it's now
-checked for an exact match like slang, both tracking one branch instead
-of two. cpptrace is not a Bazel dependency at all (naja's use of it is
-commented out), so there is nothing to compare. googletest is deliberately excluded: CMake
-pins an old submodule dev commit while Bazel takes a BCR release
-(1.17.0.bcr.2) -- a different dependency-sourcing mechanism entirely,
-not something meant to track in lockstep.
+naja-if and naja-verilog use CMake's checkouts in default Bazel builds. Their
+registered versions advance independently; --registered checks configuration only, while
+Bazel builds/tests establish registry compatibility. Slang
+still relies on registry build adaptations, so its source revision must match
+CMake until native upstream module support permits direct checkout selection.
+Googletest deliberately uses different sourcing mechanisms.
 """
 
+import argparse
 import json
 import re
 import subprocess
@@ -43,14 +26,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MODULE_BAZEL = REPO_ROOT / "MODULE.bazel"
 BAZELRC = REPO_ROOT / ".bazelrc"
 
-# path under thirdparty/ -> (bazel module name, upstream remote, mode)
-# mode is "exact" (commits must match) or "ancestor" (submodule commit must
-# be an ancestor of, or equal to, the Bazel commit).
+# Transitional registry-backed source dependencies; the others are checked locally.
 SYNC_SPECS = {
-    "thirdparty/slang": ("sv-lang", "https://github.com/MikePopoloski/slang", "exact"),
-    "thirdparty/naja-if": ("naja-if", "https://github.com/najaeda/naja-if", "ancestor"),
-    "thirdparty/naja-verilog": ("naja-verilog", "https://github.com/najaeda/naja-verilog", "exact"),
+    "thirdparty/slang": "sv-lang",
 }
+
+LOCAL_MODULES = {"naja-if": "thirdparty/naja-if", "naja-verilog": "thirdparty/naja-verilog"}
 
 
 def run(args, **kwargs):
@@ -101,6 +82,8 @@ def module_bazel_commits() -> dict[str, str]:
     for name, version in re.findall(
         r'bazel_dep\(name = "([^"]+)", version = "([^"]+)"', text
     ):
+        if name not in SYNC_SPECS.values():
+            continue
         source = registry_source_json(name, version)
         if source is None:
             continue
@@ -116,79 +99,65 @@ def module_bazel_commits() -> dict[str, str]:
     return commits
 
 
-def is_ancestor(remote: str, older: str, newer: str) -> bool:
-    if older == newer:
-        return True
-    scratch = REPO_ROOT / ".dependency-sync-scratch"
-    scratch.mkdir(exist_ok=True)
-    try:
-        run(["git", "init", "-q"], cwd=scratch)
-        run(["git", "remote", "add", "origin", remote], cwd=scratch)
-        # No --depth here: a shallow fetch makes each commit its own
-        # historyless root, so merge-base --is-ancestor can never see a
-        # real ancestor relationship between them.
-        run(["git", "fetch", "-q", "origin", older], cwd=scratch)
-        run(["git", "fetch", "-q", "origin", newer], cwd=scratch)
-        result = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", older, newer],
-            cwd=scratch,
-        )
-        return result.returncode == 0
-    finally:
-        subprocess.run(["rm", "-rf", str(scratch)])
-
-
-def main() -> int:
-    bazel_commits = module_bazel_commits()
+def check_configurations(root: Path = REPO_ROOT) -> list[str]:
     failures = []
+    rc = (root / ".bazelrc").read_text()
+    for name, path in LOCAL_MODULES.items():
+        overrides = re.findall(
+            rf"^common --override_module={re.escape(name)}=(.*)$", rc, re.M
+        )
+        if overrides != [f"%workspace%/{path}"]:
+            failures.append(f"{name}: default Bazel must select %workspace%/{path}")
+        registered = re.findall(
+            rf"^common:registered --override_module={re.escape(name)}=(.*)$", rc, re.M
+        )
+        if registered != [""]:
+            failures.append(f"{name}: registered configuration must clear its local override")
+        module = root / path / "MODULE.bazel"
+        if not module.is_file():
+            failures.append(f"{path}: initialize the submodule with git submodule update --init {path}")
+        elif not re.search(rf'\bname\s*=\s*"{re.escape(name)}"', module.read_text()):
+            failures.append(f"{path}: MODULE.bazel must declare module {name}")
+        if not (root / path / "BUILD.bazel").is_file():
+            failures.append(f"{path}: native BUILD.bazel is missing")
+    return failures
 
-    for path, (bazel_name, remote, mode) in SYNC_SPECS.items():
-        sub_commit = submodule_commit(path)
-        bazel_commit = bazel_commits.get(bazel_name)
-        if bazel_commit is None:
-            failures.append(
-                f"{path}: no commit archive found for '{bazel_name}' in "
-                "the .bazelrc registries for the version MODULE.bazel depends on"
-            )
-            continue
 
-        if mode == "exact":
-            if sub_commit == bazel_commit:
-                print(f"OK    {path}: submodule and MODULE.bazel both at {sub_commit}")
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--registered", action="store_true",
+                        help="check registered configuration without requiring local submodules")
+    args = parser.parse_args(argv)
+    if args.registered:
+        failures = []
+        rc = BAZELRC.read_text()
+        module_text = MODULE_BAZEL.read_text()
+        for name in LOCAL_MODULES:
+            clears = re.findall(rf"^common:registered --override_module={re.escape(name)}=(.*)$", rc, re.M)
+            if clears != [""]:
+                failures.append(f"{name}: registered configuration must clear its local override")
+            if not re.search(rf'bazel_dep\(name = "{re.escape(name)}", version = "[^"]+"', module_text):
+                failures.append(f"{name}: missing registered dependency version")
+        if not failures:
+            print("Registered configuration selects versioned dependencies; run Bazel build/test to validate compatibility.")
+    else:
+        failures = check_configurations()
+        for name, path in LOCAL_MODULES.items():
+            if not failures:
+                print(f"OK    {name}: CMake and default Bazel use {path}; registry publication is independent")
+        bazel_commits = module_bazel_commits()
+        for path, name in SYNC_SPECS.items():
+            source_commit = submodule_commit(path)
+            registered_commit = bazel_commits.get(name)
+            if source_commit != registered_commit:
+                failures.append(f"{path}: registry-backed source revision {registered_commit} != CMake {source_commit}; native upstream Bazel support is needed to use an unpublished checkout")
             else:
-                failures.append(
-                    f"{path}: submodule pin {sub_commit} != MODULE.bazel "
-                    f"'{bazel_name}' pin {bazel_commit} (expected an exact match)"
-                )
-        elif mode == "ancestor":
-            if is_ancestor(remote, sub_commit, bazel_commit):
-                print(
-                    f"OK    {path}: MODULE.bazel '{bazel_name}' pin {bazel_commit} "
-                    f"contains submodule pin {sub_commit}"
-                )
-            else:
-                failures.append(
-                    f"{path}: MODULE.bazel '{bazel_name}' pin {bazel_commit} does "
-                    f"NOT contain submodule pin {sub_commit} -- the bazel-support "
-                    "branch has fallen behind the commit CMake tracks. Rebase/"
-                    "update bazel-support and add a BCR version for it."
-                )
-        else:
-            raise AssertionError(f"unknown sync mode {mode!r}")
-
-    print(
-        "SKIP  thirdparty/googletest: CMake pins an old submodule dev commit, "
-        "Bazel takes a BCR release -- different sourcing mechanisms, not "
-        "checked for parity (see this script's module docstring)."
-    )
-
+                print(f"OK    {path}: source revisions match at {source_commit}")
     if failures:
-        print("\nDependency sync check FAILED:", file=sys.stderr)
-        for f in failures:
-            print(f"  - {f}", file=sys.stderr)
+        print("Dependency configuration check FAILED:", file=sys.stderr)
+        for failure in failures:
+            print(f"  - {failure}", file=sys.stderr)
         return 1
-
-    print("\nAll checked dependencies are in sync.")
     return 0
 
 

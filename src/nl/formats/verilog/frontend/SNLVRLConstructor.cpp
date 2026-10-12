@@ -6,6 +6,7 @@
 #include "SNLVRLConstructor.h"
 
 #include <iostream>
+#include <charconv>
 #include <sstream>
 #include <vector>
 
@@ -26,6 +27,7 @@
 #include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
 #include "SNLAttributes.h"
+#include "SNLRTLInfos.h"
 #include "SNLExceptions.h"
 
 #include "SNLVRLConstructorUtils.h"
@@ -45,6 +47,71 @@ std::vector<naja::NL::SNLTerm*> getConnectableTerms(naja::NL::SNLDesign* design)
     }
   }
   return terms;
+}
+
+naja::NL::SNLRTLInfos* sourceInfos(naja::NL::NLObject* object) {
+  if (auto design = dynamic_cast<naja::NL::SNLDesign*>(object)) {
+    return design->getRTLInfos() ? design->getRTLInfos() : naja::NL::SNLRTLInfos::create(design);
+  }
+  if (auto designObject = dynamic_cast<naja::NL::SNLDesignObject*>(object)) {
+    return designObject->getRTLInfos() ? designObject->getRTLInfos() : naja::NL::SNLRTLInfos::create(designObject);
+  }
+  return nullptr; // LCOV_EXCL_LINE: callers only pass designs or design objects.
+}
+
+std::optional<naja::NL::SNLSourceLoc> parseYosysSource(const std::string& entry) {
+  // The last colon separates the numeric suffix, leaving drive letters and
+  // any other colons in the opaque producer path untouched.
+  const auto colon = entry.rfind(':');
+  if (colon == std::string::npos || colon == 0) { return std::nullopt; }
+  const char* cursor = entry.data() + colon + 1;
+  const char* end = entry.data() + entry.size();
+  auto coordinate = [&](std::uint32_t& value) {
+    auto result = std::from_chars(cursor, end, value);
+    if (result.ec != std::errc() || result.ptr == cursor) { return false; }
+    cursor = result.ptr;
+    return true;
+  };
+  naja::NL::SNLSourceLoc loc;
+  if (not coordinate(loc.line)) { return std::nullopt; }
+  if (cursor != end && *cursor == '.') {
+    ++cursor;
+    if (not coordinate(loc.column)) { return std::nullopt; }
+  }
+  if (cursor != end && *cursor == '-') {
+    ++cursor;
+    if (not coordinate(loc.endLine)) { return std::nullopt; }
+    if (cursor != end && *cursor == '.') {
+      ++cursor;
+      if (not coordinate(loc.endColumn)) { return std::nullopt; }
+    }
+  }
+  if (cursor != end || (loc.line && loc.endLine &&
+      (loc.endLine < loc.line || (loc.endLine == loc.line && loc.column &&
+       loc.endColumn && loc.endColumn < loc.column)))) { return std::nullopt; }
+  // Attributes retain their raw Verilog spelling. Decode escapes only for
+  // the origin path, so a quoted Windows path denotes its actual bytes.
+  std::string path;
+  for (size_t i = 0; i < colon; ++i) {
+    char c = entry[i];
+    if (c == '\\') {
+      if (++i == colon) { return std::nullopt; }
+      c = entry[i];
+      if (c == 'n') { c = '\n'; }
+      else if (c == 't') { c = '\t'; }
+      else if (c >= '0' && c <= '7') {
+        unsigned value = c - '0';
+        for (unsigned n = 1; n < 3 && i + 1 < colon && entry[i + 1] >= '0' && entry[i + 1] <= '7'; ++n) {
+          value = value * 8 + entry[++i] - '0';
+        }
+        if (value > 255 || value == 0) { return std::nullopt; }
+        c = static_cast<char>(value);
+      } else if (c != '\\' && c != '"') { return std::nullopt; }
+    }
+    path.push_back(c);
+  }
+  loc.file = naja::NL::NLName(path);
+  return loc;
 }
 
 void collectAttributes(
@@ -137,6 +204,7 @@ void createPortNet(naja::NL::SNLDesign* design, const naja::verilog::Port& port)
     term->setNet(net);
   }
 }
+
 
 bool allNetsArePortNets(naja::NL::SNLDesign* design) {
   for (auto net: design->getBitNets()) {
@@ -392,6 +460,10 @@ bool SNLVRLConstructor::isCurrentModuleSelected(const NLName& moduleName) const 
 }
 
 void SNLVRLConstructor::resetPerModuleState() {
+  portSources_.clear();
+  declarationAttributes_.clear();
+  attributesRange_ = {};
+  instantiationAttributes_.clear();
   currentModule_ = nullptr;
   currentModuleInterfacePortsMap_.clear();
   currentModuleInterfacePorts_.clear();
@@ -435,6 +507,65 @@ void SNLVRLConstructor::construct(const Paths& paths) {
 
 void SNLVRLConstructor::construct(const std::filesystem::path& path) {
   construct(Paths{path});
+}
+
+void SNLVRLConstructor::restoreDeclarationAttributes() {
+  // Grouped declarations (e.g. (* src="..." *) wire a, b; or input a, b;)
+  // produce one callback per object with the same source range. Each callback
+  // consumes nextObjectAttributes_, so reuse the declaration's attributes for
+  // later objects instead of attaching them only to the first one.
+  const auto range = getCurrentSourceRange();
+  if (nextObjectAttributes_.empty() && range.line == attributesRange_.line &&
+      range.column == attributesRange_.column && range.endLine == attributesRange_.endLine &&
+      range.endColumn == attributesRange_.endColumn) {
+    nextObjectAttributes_ = declarationAttributes_;
+  } else {
+    attributesRange_ = range;
+    declarationAttributes_ = nextObjectAttributes_;
+  }
+}
+
+void SNLVRLConstructor::populateDeclaration(NLObject* object) {
+  // Expanded input has no original-file source map. Never fabricate a span.
+  if (isPreprocessEnabled()) { return; }
+  auto range = getCurrentSourceRange();
+  if (not range.line || not range.column || not range.endLine || not range.endColumn) { return; }
+  SNLSourceLoc loc;
+  loc.file = NLName(getCurrentPath());
+  loc.line = range.line;
+  loc.column = range.column;
+  loc.endLine = range.endLine;
+  loc.endColumn = range.endColumn > 1 ? range.endColumn - 1 : 0;
+  if (auto infos = sourceInfos(object)) {
+    infos->setSourceDeclaration({loc, NLName("naja-verilog"), NLName("verilog"), NLName()});
+  }
+}
+
+void SNLVRLConstructor::populateSource(NLObject* object, const Attributes& attributes) {
+  populateDeclaration(object);
+  if (not config_.yosysSourceAttributes_) { return; }
+  for (const auto& attribute: attributes) {
+    if (attribute.name_.getString() != "src") { continue; }
+    if (not attribute.expression_.valid_ || attribute.expression_.getType() != naja::verilog::ConstantExpression::Type::STRING) {
+      NAJA_LOG_WARN("{}: ignoring Yosys src without a string value", getLocationString());
+      continue;
+    }
+    std::istringstream input(attribute.expression_.getString());
+    std::string entry;
+    while (std::getline(input, entry, '|')) {
+      auto loc = parseYosysSource(entry);
+      if (not loc) {
+        NAJA_LOG_WARN("{}: ignoring malformed or overflowing Yosys src entry '{}'", getLocationString(), entry);
+        continue;
+      }
+      if (auto infos = sourceInfos(object)) {
+        infos->addSourceOrigin({*loc, NLName("yosys"), NLName(), NLName()});
+      }
+    }
+    if (attribute.expression_.getString().empty() || attribute.expression_.getString().back() == '|') {
+      NAJA_LOG_WARN("{}: ignoring empty Yosys src entry", getLocationString());
+    }
+  }
 }
 
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
@@ -503,7 +634,10 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
         }
       }
     }
-    collectAttributes(currentModule_, nextObjectAttributes_);
+    if (not skipCurrentModule_) {
+      populateSource(currentModule_, nextObjectAttributes_);
+      collectAttributes(currentModule_, nextObjectAttributes_);
+    }
     NAJA_LOG_TRACE("Construct Module: {}", module.getString());
   } else {
     // In second pass, only elaborate the module definition that was selected in first pass.
@@ -552,6 +686,7 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifie
 }
 
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
+  restoreDeclarationAttributes();
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
     NAJA_LOG_TRACE("Add implementation port: {}", port.getString());
@@ -565,8 +700,11 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     }
     auto index = it->second;
     currentModuleInterfacePorts_[index] = std::make_unique<naja::verilog::Port>(port);
+    portSources_[port.identifier_.name_] = {getCurrentSourceRange(), nextObjectAttributes_};
   } else {
     createPortNet(currentModule_, port);
+    auto net = currentModule_->getNet(NLName(port.identifier_.name_));
+    populateSource(net, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
 }
@@ -574,14 +712,20 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
-    createPort(currentModule_, port, nextObjectAttributes_);
+    createPort(currentModule_, port, {});
+    auto term = currentModule_->getTerm(NLName(port.identifier_.name_));
+    populateSource(term, nextObjectAttributes_);
+    collectAttributes(term, nextObjectAttributes_);
   } else {
     createPortNet(currentModule_, port);
+    auto net = currentModule_->getNet(NLName(port.identifier_.name_));
+    populateSource(net, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
+  restoreDeclarationAttributes();
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
     NAJA_LOG_TRACE("Add net: {}", net.getString());
@@ -591,6 +735,9 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
       //net might be existing because of a port declaration
       auto term = currentModule_->getTerm(netName);
       if (term) {
+        populateSource(existingNet, nextObjectAttributes_);
+        collectAttributes(existingNet, nextObjectAttributes_);
+        nextObjectAttributes_.clear();
         return;
       } else {
         std::ostringstream reason;
@@ -607,6 +754,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
         snlNet = SNLScalarNet::create(currentModule_, NLName(net.identifier_.name_));
       }
       snlNet->setType(VRLTypeToSNLType(net.type_));
+      populateSource(snlNet, nextObjectAttributes_);
       collectAttributes(snlNet, nextObjectAttributes_);
     //LCOV_EXCL_START
     } catch (const NLException& exception) {
@@ -625,6 +773,7 @@ void SNLVRLConstructor::addAssign(
   const naja::verilog::Expression& expression) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
+    nextObjectAttributes_.clear();
     return;
   }
   using BitNets = std::vector<SNLBitNet*>;
@@ -694,12 +843,16 @@ void SNLVRLConstructor::addAssign(
     auto assign = SNLInstance::create(currentModule_, NLDB0::getAssign());
     assign->setTermNet(NLDB0::getAssignOutput(), leftNet);
     assign->setTermNet(NLDB0::getAssignInput(), rightNet);
+    populateSource(assign, nextObjectAttributes_);
+    collectAttributes(assign, nextObjectAttributes_);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::startInstantiation(const naja::verilog::Identifier& model) {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
+    instantiationAttributes_ = nextObjectAttributes_;
     currentModelName_ = model.name_;
     NAJA_LOG_TRACE("Start Instantiation: {}", model.getString());
   }
@@ -736,7 +889,8 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, NLName(instance.name_));
     NAJA_LOG_TRACE("Current Instance: {}", currentInstance_->getDescription());
-    collectAttributes(currentInstance_, nextObjectAttributes_);
+    populateSource(currentInstance_, instantiationAttributes_);
+    collectAttributes(currentInstance_, instantiationAttributes_);
   }
   nextObjectAttributes_.clear();
 }
@@ -932,6 +1086,8 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
 void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& gateType) {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
+    instantiationAttributes_ = nextObjectAttributes_;
+    gateSourceRange_ = getCurrentSourceRange();
     currentGateInstance_.gateType_ = najaVerilogToNLDB0GateType(gateType);
     NAJA_LOG_TRACE("Start Instantiation: {}", gateType.getString());
   }
@@ -939,6 +1095,7 @@ void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& ga
 
 void SNLVRLConstructor::addGateInstance(const naja::verilog::Identifier& id) {
   if (skipCurrentModule_) { return; }
+  if (not id.empty()) { gateSourceRange_ = getCurrentSourceRange(); }
   if (not inFirstPass() and not id.empty()) {
     currentGateInstance_.instanceName_ = id.name_;
   }
@@ -1016,9 +1173,13 @@ void SNLVRLConstructor::endGateInstantiation() {
         terms[i],
         currentGateInstance_.connections_[i]);
     }
+    setCurrentSourceRange(gateSourceRange_.line, gateSourceRange_.column, gateSourceRange_.endLine, gateSourceRange_.endColumn);
+    populateSource(currentInstance_, instantiationAttributes_);
+    collectAttributes(currentInstance_, instantiationAttributes_);
     currentInstance_ = nullptr;
     currentGateInstance_.reset();
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addAttribute(
@@ -1057,7 +1218,12 @@ void SNLVRLConstructor::endModule() {
       throw SNLVRLConstructorException(reason.str());
     }
     for (const auto& port: currentModuleInterfacePorts_) {
-      createPort(currentModule_, *port, nextObjectAttributes_);
+      const auto& source = portSources_.at(port->identifier_.name_);
+      setCurrentSourceRange(source.first.line, source.first.column, source.first.endLine, source.first.endColumn);
+      createPort(currentModule_, *port, {});
+      auto term = currentModule_->getTerm(NLName(port->identifier_.name_));
+      populateSource(term, source.second);
+      collectAttributes(term, source.second);
     }
   } else {
     //Blackbox detection

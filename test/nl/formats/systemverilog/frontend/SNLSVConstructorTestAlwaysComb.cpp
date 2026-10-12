@@ -2672,8 +2672,6 @@ TEST_F(SNLSVConstructorTestAlwaysComb, parsePriorityReturnFunctionNestedStatemen
     SCOPED_TRACE(body);
     const auto source = directory / "source.sv";
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic [3:0] a, output logic y);\n"
       << "function automatic logic f(input logic [3:0] a);\n"
       << body << "\nreturn " << (std::string(body) == "logic t; ;" ? "$clog2(a)" : "1'b0")

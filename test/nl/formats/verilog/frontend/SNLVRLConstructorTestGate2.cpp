@@ -170,6 +170,7 @@ TEST_F(SNLVRLConstructorTestGate2, testLoadAndDump) {
   SNLVRLDumper dumper;
   dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
+  dumper.setDumpRTLInfosAsAttributes(false);
   dumper.dumpDesign(top, outPath);
 
   //reload the design

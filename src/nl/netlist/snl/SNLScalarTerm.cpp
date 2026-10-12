@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLScalarTerm.h"
+#include "SNLRTLInfos.h"
 
 #include <sstream>
 
@@ -171,6 +172,9 @@ SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
   auto newScalarTerm = new SNLScalarTerm(design, id_, direction_, name_);
   newScalarTerm->setFlatID(getFlatID());
   SNLAttributes::cloneAttributes(this, newScalarTerm);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newScalarTerm)->cloneInfos(*infos);
+  }
   return newScalarTerm;
 }
 

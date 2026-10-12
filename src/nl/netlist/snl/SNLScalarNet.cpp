@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLScalarNet.h"
+#include "SNLRTLInfos.h"
 
 #include <sstream>
 
@@ -100,6 +101,9 @@ SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
   auto newNet = new SNLScalarNet(design, id_, name_);
   newNet->setType(getType());
   SNLAttributes::cloneAttributes(this, newNet);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newNet)->cloneInfos(*infos);
+  }
   cloneComponents(newNet);
   return newNet;
 }

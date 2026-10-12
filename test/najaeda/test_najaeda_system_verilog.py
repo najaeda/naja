@@ -24,6 +24,81 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
 
+    def test_source_roles_and_model_definitions(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+            path = os.path.join(directory, "source.sv")
+            with open(path, "w", encoding="utf-8") as output:
+                output.write("module leaf(input logic a, b, output logic y);\n"
+                             "  assign y = a & b;\nendmodule\n"
+                             "module top(input logic a, b, output logic y);\n"
+                             "  leaf u(.a(a), .b(b), .y(y));\nendmodule\n")
+            for keep_ast_link in (False, True):
+                netlist.reset()
+                top = netlist.load_system_verilog(path, config=netlist.SystemVerilogConfig(
+                    keep_ast_link=keep_ast_link))
+                self.assertEqual(4, top.get_source_declaration().range.line)
+                instance = top.get_child_instance("u")
+                self.assertEqual(5, instance.get_source_declaration().range.line)
+                self.assertEqual(1, instance.get_model_source_declaration().range.line)
+                self.assertEqual([], instance.get_source_origins())
+                self.assertEqual("slang", instance.get_source_declaration().provider)
+                self.assertEqual("systemverilog", instance.get_source_declaration().language)
+                self.assertEqual("rtl", instance.get_source_declaration().representation)
+                self.assertEqual(1, instance.get_term("a").get_source_declaration().range.line)
+                model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                gates = list(model.getInstances())
+                self.assertTrue(gates)
+                for gate in gates:
+                    self.assertIsNone(gate.getSourceDeclaration())
+                    self.assertTrue(gate.getSourceOrigins())
+                    self.assertTrue(any(origin[0][1] == 2 for origin in gate.getSourceOrigins()))
+                net_declaration = top.get_net("a").get_source_declaration()
+                term_declaration = top.get_term("a").get_source_declaration()
+                model_declaration = instance.get_model_source_declaration()
+                gate_origins = {gate.getName(): gate.getSourceOrigins() for gate in gates}
+                snapshot = os.path.join(directory, "source.snl")
+                netlist.dump_naja_if(snapshot)
+                netlist.reset()
+                netlist.load_naja_if(snapshot)
+                loaded = netlist.get_top().get_child_instance("u")
+                self.assertEqual("leaf", loaded.get_model_name())
+                self.assertEqual(5, loaded.get_source_declaration().range.line)
+                self.assertEqual(1, loaded.get_model_source_declaration().range.line)
+
+                top = netlist.get_top()
+                self.assertEqual(net_declaration, top.get_net("a").get_source_declaration())
+                self.assertEqual(term_declaration, top.get_term("a").get_source_declaration())
+                self.assertEqual(model_declaration, loaded.get_model_source_declaration())
+                model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                for gate in model.getInstances():
+                    self.assertIsNone(gate.getSourceDeclaration())
+                    self.assertEqual(gate_origins[gate.getName()], gate.getSourceOrigins())
+
+                # Verilog exports legacy attributes, not the new source roles.
+                # Reloading records declarations in the exported structural input.
+                exported = os.path.join(directory, "source.v")
+                for dump_metadata in (False, True):
+                    top.dump_verilog(exported, config=netlist.VerilogDumpConfig(
+                        dumpRTLInfosAsAttributes=dump_metadata))
+                    netlist.reset()
+                    reloaded = netlist.load_verilog(exported)
+                    for declaration in (
+                            reloaded.get_source_declaration(),
+                            reloaded.get_net("a").get_source_declaration(),
+                            reloaded.get_term("a").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_model_source_declaration()):
+                        self.assertEqual(exported, declaration.range.file)
+                        self.assertEqual("naja-verilog", declaration.provider)
+                        self.assertEqual("verilog", declaration.language)
+                        self.assertIsNone(declaration.representation)
+                    model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                    for gate in model.getInstances():
+                        self.assertEqual([], gate.getSourceOrigins())
+                    netlist.reset()
+                    netlist.load_naja_if(snapshot)
+                    top = netlist.get_top()
+
     def test_unsupported_multi_writer_memory_blackboxing(self):
         # Exercise both Python API levels, independent clocks and a shared clock.
         for raw in (False, True):
@@ -35,9 +110,7 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                             source = os.path.join(directory, "dp_ram.sv")
                             report = os.path.join(directory, "diagnostics.log")
                             with open(source, "w") as stream:
-                                stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+                                stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
               input logic [2:0] addr_a, addr_b,
               input logic [7:0] wd_a, wd_b,
               output logic [7:0] rd_a, rd_b);
@@ -117,9 +190,7 @@ endmodule
                     with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
                         source = os.path.join(directory, "dp_ram.sv")
                         with open(source, "w") as stream:
-                            stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+                            stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
               input logic [2:0] addr_a, addr_b,
               input logic [7:0] wd_a, wd_b,
               output logic [7:0] rd_a, rd_b);
@@ -190,9 +261,7 @@ endmodule
                 with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
                     source = os.path.join(temp_dir, "memory.sv")
                     with open(source, "w") as stream:
-                        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module memory(input logic clk, rst,
+                        stream.write("""module memory(input logic clk, rst,
               input logic [1:0] addr, input logic [7:0] data,
               output logic [7:0] q);
   logic [7:0] mem_q [0:3];
@@ -298,6 +367,35 @@ endmodule
         self.assertIsInstance(net_range, netlist.SourceRange)
         self.assertTrue(net_range.file.endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
+
+    def test_source_columns_above_16_bits(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+            path = os.path.join(directory, "wide.sv")
+            source = " " * 70000 + "module top(input a, output y); assign y = a; endmodule"
+            with open(path, "w", encoding="utf-8") as output:
+                output.write(source + "\n")
+            for keep_ast_link in (False, True):
+                with self.subTest(keep_ast_link=keep_ast_link):
+                    netlist.reset()
+                    top = netlist.load_system_verilog(path, config=netlist.SystemVerilogConfig(
+                        keep_ast_link=keep_ast_link))
+                    source_range = top.get_source_range()
+                    self.assertEqual(70001, source_range.column)
+                    self.assertEqual(len(source), source_range.end_column)
+                    self.assertEqual(source_range.column,
+                                     naja.NLUniverse.get().getTopDesign().getSourceLoc()[2])
+                    self.assertGreater(top.get_term("a").get_source_range().column, 65535)
+                    self.assertGreater(top.get_net("y").get_source_range().column, 65535)
+                    dumped = os.path.join(directory, "wide_export.v")
+                    top.dump_verilog(dumped, config=netlist.VerilogDumpConfig(
+                        dumpRTLInfosAsAttributes=True))
+                    with open(dumped, encoding="utf-8") as exported:
+                        self.assertIn("70001", exported.read())
+                    snapshot = os.path.join(directory, "snapshot")
+                    netlist.dump_naja_if(snapshot)
+                    netlist.reset()
+                    netlist.load_naja_if(snapshot)
+                    self.assertEqual(source_range, netlist.get_top().get_source_range())
 
     def test_load_system_verilog_single_arg(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")

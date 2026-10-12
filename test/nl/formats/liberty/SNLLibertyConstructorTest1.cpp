@@ -254,7 +254,7 @@ TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120VerilogIntegration) {
   auto top = rtlLibrary->getSNLDesign(NLName("top"));
   ASSERT_NE(nullptr, top);
   ASSERT_EQ(1, top->getInstances().size());
-  auto instance = top->getInstance(NLName("_tray_size2_66"));
+  auto instance = top->getInstance(NLName("u_cell"));
   ASSERT_NE(nullptr, instance);
   EXPECT_EQ(cellDef, instance->getModel());
 
@@ -269,9 +269,9 @@ TEST_F(SNLLibertyConstructorTest1, testBundleTermsIssue120VerilogIntegration) {
   ASSERT_NE(nullptr, qn0);
   ASSERT_NE(nullptr, qn1);
 
-  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("clknet_1_0__leaf_clk"))), instance->getInstTerm(ck)->getNet());
-  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("_031_"))), instance->getInstTerm(d0)->getNet());
-  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("_015_"))), instance->getInstTerm(d1)->getNet());
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("clock_net"))), instance->getInstTerm(ck)->getNet());
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("data_in_1"))), instance->getInstTerm(d0)->getNet());
+  EXPECT_EQ(static_cast<SNLBitNet*>(top->getScalarNet(NLName("data_in_0"))), instance->getInstTerm(d1)->getNet());
   EXPECT_NE(nullptr, instance->getInstTerm(qn0)->getNet());
   EXPECT_NE(nullptr, instance->getInstTerm(qn1)->getNet());
   EXPECT_NE(instance->getInstTerm(qn0)->getNet(), instance->getInstTerm(qn1)->getNet());

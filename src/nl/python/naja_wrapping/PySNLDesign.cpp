@@ -36,6 +36,7 @@
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
 #include "SNLRTLInfos.h"
+#include "PySNLSourceReference.h"
 #include "NLBitDependencies.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
@@ -610,6 +611,24 @@ static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_getSourceDeclaration(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.getSourceDeclaration()")
+  return PYNAJA::getSourceDeclaration(selfObject->getRTLInfos());
+}
+
+static PyObject* PySNLDesign_getSourceOrigins(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.getSourceOrigins()")
+  return PYNAJA::getSourceOrigins(selfObject->getRTLInfos());
+}
+
+static PyObject* PySNLDesign_hasSourceReferences(
+  PySNLDesign* self, PyObject*) {
+  METHOD_HEAD("SNLDesign.hasSourceReferences()")
+  auto* infos = selfObject->getRTLInfos();
+  if (infos && infos->hasSourceReferences()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
+}
+
 static PyObject* PySNLDesign_hasSourceLoc(PySNLDesign* self) {
   METHOD_HEAD("SNLDesign.hasSourceLoc()")
   auto* rtlInfos = selfObject->getRTLInfos();
@@ -832,6 +851,12 @@ static PyObject* PySNLDesign_setRolesFromParameters(
 }
 
 PyMethodDef PySNLDesign_Methods[] = {
+  {"hasSourceReferences", (PyCFunction)PySNLDesign_hasSourceReferences, METH_NOARGS,
+    "Whether this object has a source declaration or any source origins."},
+  {"getSourceDeclaration", (PyCFunction)PySNLDesign_getSourceDeclaration, METH_NOARGS,
+    "getSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
+  {"getSourceOrigins", (PyCFunction)PySNLDesign_getSourceOrigins, METH_NOARGS,
+    "getSourceOrigins: language-neutral source metadata; independent of legacy source location."},
   {"setRolesFromParameters", (PyCFunction)PySNLDesign_setRolesFromParameters,
     METH_VARARGS | METH_KEYWORDS, "set parameter-dependent primitive term roles."},
   {"hasRolesFromParameters", (PyCFunction)PySNLDesign_hasRolesFromParameters,

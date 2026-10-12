@@ -68,6 +68,16 @@ Requires Python 3.10 or later. Pre-built wheels are published for:
 * macOS Apple Silicon (arm64), macOS 11 or later
 * Windows x86_64
 
+Building from a checkout
+------------------------
+
+Initialize the submodules, install the native build dependencies (including Flex
+and Bison), then run ``python -m pip wheel .``. Parser-source selection is automatic:
+a Git checkout generates the Verilog parser, while release source distributions
+with bundled generated parser files use those files. An explicit
+``-C cmake.define.PREGENERATED_PARSER_SOURCES=ON`` or ``OFF`` still overrides the
+selection; ``ON`` requires the bundled files to exist.
+
 Tutorials
 ---------
 

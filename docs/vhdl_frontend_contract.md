@@ -114,23 +114,23 @@ direct primitive tests and existing SV constructor regressions. Preserve source
 metadata and initialization via the existing intent/sequential tests. Run the
 reference bundle from a standalone copy to establish its extraction boundary.
 
-Phase 0 evidence now includes pinned UART, RPU and NEORV32 revisions and scopes in
-`src/vhdl/tests/corpus/manifest.json`, plus a 35-probe static-analysis comparison
-in `src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json`. GHDL imported and
+Historical Phase 0 feasibility checks used UART, RPU and NEORV32 source samples
+and a 35-probe static-analysis comparison with VHDL-LS 0.88.0. GHDL imported and
 resolved the UART core (VHDL-1993), RPU core (VHDL-2008), and all 61 NEORV32
 RTL VHDL files (VHDL-2008). Repository-level licenses for these references are
-MIT, Apache-2.0 and BSD-3-Clause; the review and notice conditions are recorded
-in the corpus manifest. No upstream RTL is vendored. Verify notices at the
-exact pinned revisions before copying source into distributions.
+MIT, Apache-2.0 and BSD-3-Clause. No upstream RTL is vendored. These checks are
+historical study results, not automated Naja regression coverage. Verify notices
+at the exact source revisions before copying source into distributions.
 
 The comparison frontend matched the expected analysis acceptance/rejection for
 all 35 cases. It correctly accepts three sources whose expected failures occur
 only during elaboration or simulation; this is not a runtime comparison. Its
 Rust API has no C ABI or hardware-lowering interface, so adoption would need an
 FFI or process boundary and more study of generic specialization. GHDL 6.0.0
-and NVC 1.23.0 have now both run the semantic corpus; reproducible runners,
-versioned reports and NVC-specific diagnostic/stage expectations are under
-`src/vhdl/tests/semantic/`. The GHDL archive, standard-package source hashes
+and NVC 1.23.0 have now both run the semantic corpus; reproducible runners and
+NVC-specific diagnostic/stage expectations are under
+`src/vhdl/tests/semantic/`; generate reports outside the repository. The GHDL
+archive, standard-package source hashes
 and Apache-2.0 package notices are recorded in
 `src/vhdl/tests/semantic/reference.json`.
 

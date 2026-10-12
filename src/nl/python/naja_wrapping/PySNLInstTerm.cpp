@@ -71,6 +71,27 @@ static PyObject* PySNLInstTerm_isData(PySNLInstTerm* self) {
 
 #undef INST_TERM_ROLE_PREDICATE
 
+#define DEPRECATED_ROLE_ALIAS(ALIAS, REPLACEMENT) \
+  static PyObject* PySNLInstTerm_##ALIAS(PySNLInstTerm* self) { \
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, \
+        "SNLInstTerm." #ALIAS "() is deprecated and will be removed in a future release; " \
+        "use " #REPLACEMENT "() instead.", 1) < 0) return nullptr; \
+    return PySNLInstTerm_##REPLACEMENT(self); \
+  }
+
+DEPRECATED_ROLE_ALIAS(is_clock, isClock)
+DEPRECATED_ROLE_ALIAS(is_async_reset, isAsyncReset)
+DEPRECATED_ROLE_ALIAS(is_async_set, isAsyncSet)
+DEPRECATED_ROLE_ALIAS(is_sync_reset, isSyncReset)
+DEPRECATED_ROLE_ALIAS(is_sync_set, isSyncSet)
+DEPRECATED_ROLE_ALIAS(is_reset, isReset)
+DEPRECATED_ROLE_ALIAS(is_enable, isEnable)
+DEPRECATED_ROLE_ALIAS(is_data, isData)
+DEPRECATED_ROLE_ALIAS(is_data_input, isDataInput)
+DEPRECATED_ROLE_ALIAS(is_data_output, isDataOutput)
+
+#undef DEPRECATED_ROLE_ALIAS
+
 PyMethodDef PySNLInstTerm_Methods[] = {
   { "getBitTerm", (PyCFunction)PySNLInstTerm_getBitTerm, METH_NOARGS,
     "get the SNLBitTerm represented by this SNLInstTerm."},
@@ -88,6 +109,17 @@ PyMethodDef PySNLInstTerm_Methods[] = {
   {"isData", (PyCFunction)PySNLInstTerm_isData, METH_NOARGS, "whether this term carries data."},
   {"isDataInput", (PyCFunction)PySNLInstTerm_isDataInput, METH_NOARGS, "whether this term is a data input."},
   {"isDataOutput", (PyCFunction)PySNLInstTerm_isDataOutput, METH_NOARGS, "whether this term is a data output."},
+  // Deprecated compatibility aliases; use the camelCase predicates.
+  {"is_clock", (PyCFunction)PySNLInstTerm_is_clock, METH_NOARGS, "Deprecated; use isClock()."},
+  {"is_async_reset", (PyCFunction)PySNLInstTerm_is_async_reset, METH_NOARGS, "Deprecated; use isAsyncReset()."},
+  {"is_async_set", (PyCFunction)PySNLInstTerm_is_async_set, METH_NOARGS, "Deprecated; use isAsyncSet()."},
+  {"is_sync_reset", (PyCFunction)PySNLInstTerm_is_sync_reset, METH_NOARGS, "Deprecated; use isSyncReset()."},
+  {"is_sync_set", (PyCFunction)PySNLInstTerm_is_sync_set, METH_NOARGS, "Deprecated; use isSyncSet()."},
+  {"is_reset", (PyCFunction)PySNLInstTerm_is_reset, METH_NOARGS, "Deprecated; use isReset()."},
+  {"is_enable", (PyCFunction)PySNLInstTerm_is_enable, METH_NOARGS, "Deprecated; use isEnable()."},
+  {"is_data", (PyCFunction)PySNLInstTerm_is_data, METH_NOARGS, "Deprecated; use isData()."},
+  {"is_data_input", (PyCFunction)PySNLInstTerm_is_data_input, METH_NOARGS, "Deprecated; use isDataInput()."},
+  {"is_data_output", (PyCFunction)PySNLInstTerm_is_data_output, METH_NOARGS, "Deprecated; use isDataOutput()."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
