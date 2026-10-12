@@ -38137,9 +38137,7 @@ endmodule
 
 
 TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnBodyList) {
-  const auto path = writeSVTestFile("priority_loop_return_list", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module priority_loop_return_list(
+  const auto path = writeSVTestFile("priority_loop_return_list", R"(module priority_loop_return_list(
   input logic [3:0] a, output logic [1:0] y);
   function automatic logic [1:0] first(input logic [3:0] v);
     for (int i = 0; i < 4; i++) begin
@@ -38172,7 +38170,6 @@ TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnUnsupportedArgumentsAndBoun
     SCOPED_TRACE(variant);
     const auto name = std::string("priority_loop_") + variant;
     const auto path = writeSVTestFile(name,
-      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
       "module " + name + "(input var logic [3:0] a, input int limit, output logic y);\n"
       "function automatic logic f(" +
       (std::string(variant) == "const_ref" ? "const ref" : "input") +
@@ -38193,9 +38190,7 @@ TEST_F(SNLSVConstructorTestSimple, priorityLoopReturnUnsupportedArgumentsAndBoun
 }
 
 TEST_F(SNLSVConstructorTestSimple, foreachDynamicBoundsUnsupported) {
-  const auto path = writeSVTestFile("foreach_dynamic_bounds", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module foreach_dynamic_bounds(
+  const auto path = writeSVTestFile("foreach_dynamic_bounds", R"(module foreach_dynamic_bounds(
   input logic a, output logic y);
   logic items[];
   always_comb begin
@@ -38214,7 +38209,6 @@ TEST_F(SNLSVConstructorTestSimple, outputFunctionAutomaticLocalTargetsUnsupporte
     SCOPED_TRACE(nested);
     const auto name = std::string("output_function_automatic_local_") + (nested ? "nested" : "block");
     const auto path = writeSVTestFile(name,
-      "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n// SPDX-License-Identifier: Apache-2.0\n"
       "module " + name + "(input logic [3:0] a, output logic [3:0] y);\n"
       "function automatic void copy(input logic [3:0] value, output logic [3:0] result);\n"
       "result = value; endfunction\n" +
@@ -38231,9 +38225,7 @@ TEST_F(SNLSVConstructorTestSimple, outputFunctionAutomaticLocalTargetsUnsupporte
 }
 
 TEST_F(SNLSVConstructorTestSimple, binaryGateSimplifiedOutputConnections) {
-  const auto path = writeSVTestFile("binary_gate_simplified_outputs", R"(// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module binary_gate_simplified_outputs(
+  const auto path = writeSVTestFile("binary_gate_simplified_outputs", R"(module binary_gate_simplified_outputs(
   input logic [1:0] a, output logic pass, zero, z_and, z_or, inside_all);
   assign pass = a[0] & 1'b1;
   assign zero = a[0] & 1'b0;

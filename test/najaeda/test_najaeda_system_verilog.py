@@ -52,6 +52,10 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                     self.assertIsNone(gate.getSourceDeclaration())
                     self.assertTrue(gate.getSourceOrigins())
                     self.assertTrue(any(origin[0][1] == 2 for origin in gate.getSourceOrigins()))
+                net_declaration = top.get_net("a").get_source_declaration()
+                term_declaration = top.get_term("a").get_source_declaration()
+                model_declaration = instance.get_model_source_declaration()
+                gate_origins = {gate.getName(): gate.getSourceOrigins() for gate in gates}
                 snapshot = os.path.join(directory, "source.snl")
                 netlist.dump_naja_if(snapshot)
                 netlist.reset()
@@ -62,18 +66,38 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 self.assertEqual(1, loaded.get_model_source_declaration().range.line)
 
                 top = netlist.get_top()
-                net_declaration = top.get_net("a").get_source_declaration()
-                term_declaration = top.get_term("a").get_source_declaration()
-                exported = os.path.join(directory, "source.v")
-                top.dump_verilog(exported, config=netlist.VerilogDumpConfig(dumpRTLInfosAsAttributes=True))
-                netlist.reset()
-                reloaded = netlist.load_verilog(exported)
-                self.assertEqual(net_declaration, reloaded.get_net("a").get_source_declaration())
-                self.assertEqual(term_declaration, reloaded.get_term("a").get_source_declaration())
-                self.assertEqual(1, reloaded.get_child_instance("u").get_model_source_declaration().range.line)
+                self.assertEqual(net_declaration, top.get_net("a").get_source_declaration())
+                self.assertEqual(term_declaration, top.get_term("a").get_source_declaration())
+                self.assertEqual(model_declaration, loaded.get_model_source_declaration())
                 model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
                 for gate in model.getInstances():
-                    self.assertTrue(gate.getSourceOrigins())
+                    self.assertIsNone(gate.getSourceDeclaration())
+                    self.assertEqual(gate_origins[gate.getName()], gate.getSourceOrigins())
+
+                # Verilog exports legacy attributes, not the new source roles.
+                # Reloading records declarations in the exported structural input.
+                exported = os.path.join(directory, "source.v")
+                for dump_metadata in (False, True):
+                    top.dump_verilog(exported, config=netlist.VerilogDumpConfig(
+                        dumpRTLInfosAsAttributes=dump_metadata))
+                    netlist.reset()
+                    reloaded = netlist.load_verilog(exported)
+                    for declaration in (
+                            reloaded.get_source_declaration(),
+                            reloaded.get_net("a").get_source_declaration(),
+                            reloaded.get_term("a").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_model_source_declaration()):
+                        self.assertEqual(exported, declaration.range.file)
+                        self.assertEqual("naja-verilog", declaration.provider)
+                        self.assertEqual("verilog", declaration.language)
+                        self.assertIsNone(declaration.representation)
+                    model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                    for gate in model.getInstances():
+                        self.assertEqual([], gate.getSourceOrigins())
+                    netlist.reset()
+                    netlist.load_naja_if(snapshot)
+                    top = netlist.get_top()
 
     def test_unsupported_multi_writer_memory_blackboxing(self):
         # Exercise both Python API levels, independent clocks and a shared clock.
@@ -86,9 +110,7 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                             source = os.path.join(directory, "dp_ram.sv")
                             report = os.path.join(directory, "diagnostics.log")
                             with open(source, "w") as stream:
-                                stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+                                stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
               input logic [2:0] addr_a, addr_b,
               input logic [7:0] wd_a, wd_b,
               output logic [7:0] rd_a, rd_b);
@@ -168,9 +190,7 @@ endmodule
                     with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
                         source = os.path.join(directory, "dp_ram.sv")
                         with open(source, "w") as stream:
-                            stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+                            stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
               input logic [2:0] addr_a, addr_b,
               input logic [7:0] wd_a, wd_b,
               output logic [7:0] rd_a, rd_b);
@@ -241,9 +261,7 @@ endmodule
                 with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
                     source = os.path.join(temp_dir, "memory.sv")
                     with open(source, "w") as stream:
-                        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module memory(input logic clk, rst,
+                        stream.write("""module memory(input logic clk, rst,
               input logic [1:0] addr, input logic [7:0] data,
               output logic [7:0] q);
   logic [7:0] mem_q [0:3];
