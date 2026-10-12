@@ -25,12 +25,12 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         top = netlist.create_top("Top")
         db = naja.NLUniverse.get().getTopDB()
         library = naja.NLLibrary.createPrimitives(db, "PRIMITIVES")
-        model = naja.SNLDesign.createPrimitive(library, "NX_DFF")
+        model = naja.SNLDesign.createPrimitive(library, "TEST_DFF")
         pins = {name: naja.SNLScalarTerm.create(
             model, naja.SNLTerm.Direction.Output if name == "O" else
             naja.SNLTerm.Direction.Input, name) for name in ("CK", "R", "L", "I", "O")}
         roles, levels = naja.SNLTermRole, naja.SNLActiveLevel
-        names = ["dff_init", "dff_sync", "dff_type", "dff_load"]
+        names = ["reset_present", "reset_synchronous", "reset_sets_value", "enable_present"]
         parameters = [naja.SNLParameter.createBinary(model, name, 1, 0) for name in names]
         pins["CK"].setRole(roles.Clock)
         pins["R"].setRole(roles.AsyncReset, levels.Low)
@@ -46,7 +46,7 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
                 pins["L"]: (roles.Enable, levels.NA) if load else None}})
         model.setRolesFromParameters(names, entries)
         for index, entry in enumerate(entries):
-            child = top.create_child_instance("NX_DFF", f"ff{index}")
+            child = top.create_child_instance("TEST_DFF", f"ff{index}")
             instance = netlist.get_snl_instance_from_id_list(child.pathIDs)
             for parameter, value in zip(parameters, entry["values"]):
                 naja.SNLInstParameter.create(instance, parameter, str(value))

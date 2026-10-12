@@ -214,10 +214,10 @@ TEST_F(SNLRTLInfosTest, legacySourceInfoNumericParsingHandlesInvalidAndOverflow)
   EXPECT_EQ("0", infos->getInfo(NLName("sv_src_line")));
 
   const auto tooLargeColumn =
-    std::to_string(static_cast<unsigned>(std::numeric_limits<std::uint16_t>::max()) + 1U);
+    std::to_string(static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) + 1U);
   infos->setInfo(NLName("sv_src_column"), tooLargeColumn);
   EXPECT_EQ(
-    std::to_string(std::numeric_limits<std::uint16_t>::max()),
+    std::to_string(std::numeric_limits<std::uint32_t>::max()),
     infos->getInfo(NLName("sv_src_column")));
 
   infos->destroy();
@@ -283,8 +283,7 @@ TEST_F(SNLRTLInfosTest, sourceRolesAreIndependentAndOriginsAreOrderedUnique) {
   EXPECT_EQ(otherProvider, infos->getSourceOrigins()[2]);
   EXPECT_EQ(declaration, *infos->getSourceDeclaration());
   EXPECT_EQ(NLName("legacy"), infos->getSourceLoc()->file);
-  EXPECT_THROW(infos->getDumpAttributes(), NLException);
-  EXPECT_THROW(infos->getCompactSourceLocAttribute(), NLException);
+  EXPECT_TRUE(infos->getCompactSourceLocAttribute());
 
   auto* clone = design->clone(NLName("CLONE"));
   auto* copied = clone->getRTLInfos();
@@ -332,4 +331,31 @@ TEST_F(SNLRTLInfosTest, designClonePreservesObjectAndBitReferences) {
     objects[i]->getRTLInfos()->clearSourceOrigins();
     EXPECT_EQ(1, copies[i]->getRTLInfos()->getSourceOrigins().size());
   }
+}
+
+TEST_F(SNLRTLInfosTest, wideColumnsSurviveSourceLocAccessExportAndClone) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  auto* infos = SNLRTLInfos::create(design);
+  infos->setSourceLoc({NLName("wide.sv"), 1, 1, 70000, 90000});
+  EXPECT_EQ(70000u, infos->getSourceLoc()->column);
+  EXPECT_EQ("90000", infos->getInfo(NLName("sv_src_end_column")));
+  EXPECT_EQ("wide.sv:1:70000-1:90000", infos->getCompactSourceLocAttribute()->second);
+  EXPECT_EQ("70000", infos->getDumpAttributes()[2].second);
+  infos->setInfo(NLName("sv_src_column"), "80000");
+  infos->setInfo(NLName("sv_src_end_column"), "4294967295");
+  auto* clone = design->clone(NLName("COPY"));
+  EXPECT_EQ(80000u, clone->getRTLInfos()->getSourceLoc()->column);
+  EXPECT_EQ(std::numeric_limits<std::uint32_t>::max(),
+    clone->getRTLInfos()->getSourceLoc()->endColumn);
+}
+
+TEST_F(SNLRTLInfosTest, presenceExcludesSourceLoc) {
+  auto* infos = SNLRTLInfos::create(SNLDesign::create(library_, NLName("TOP")));
+  EXPECT_FALSE(infos->hasSourceReferences());
+  infos->setSourceLoc({NLName("legacy.sv"), 1, 1, 2, 3});
+  EXPECT_FALSE(infos->hasSourceReferences());
+  EXPECT_FALSE(infos->getSourceDeclaration());
+  EXPECT_TRUE(infos->getSourceOrigins().empty());
+  infos->clearSourceLoc();
+  EXPECT_FALSE(infos->hasSourceReferences());
 }

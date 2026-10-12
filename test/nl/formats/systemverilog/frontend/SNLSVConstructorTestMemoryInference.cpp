@@ -12546,8 +12546,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsDynamicPack
     const auto source = directory / "source.sv";
     const bool member = std::string(selection).front() == '.';
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk, input logic [1:0] index, input logic d, output logic [7:0] q);\n"
       << (member ? "typedef struct packed { logic [3:0] field; } word_t; word_t mem[2];\n"
                  : "logic [3:0] mem[2];\n")
@@ -12573,8 +12571,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, memoryWriterCensusRejectsUnresolvedL
     SCOPED_TRACE(loop);
     const auto source = directory / "source.sv";
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk, input int limit, input logic d, output logic [7:0] q);\n"
       << "logic [3:0] mem[2];\n"
       << "always_ff @(posedge clk) " << loop << "\n"
@@ -12600,8 +12596,6 @@ TEST_F(SNLSVConstructorTestMemoryInference, independentMemoryResolutionFailuresC
     const auto clock = std::string(variant) == "clock" ? "$clog2(clk_b)" : "clk_b";
     const auto data = std::string(variant) == "data" ? "$clog2(d)" : "d";
     std::ofstream(source)
-      << "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-      << "// SPDX-License-Identifier: Apache-2.0\n"
       << "module top(input logic clk_a, clk_b, we, input logic [2:0] addr,\n"
       << "input logic [7:0] d, output logic [7:0] q); logic [7:0] mem[8];\n"
       << "always @(posedge clk_a) if (we) mem[" << address << "] <= " << data << ";\n"

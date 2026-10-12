@@ -132,12 +132,15 @@ area, not implemented frontend support.
 All cases are locally authored under Apache-2.0. Standard packages come from the
 selected reference installation; they are not copied into this tree. These tests
 establish a reference baseline, not standards conformance or Naja VHDL support.
-A second independent runtime comparison is recorded in
-`tests/semantic/reference_nvc_1.23.0.json`. It covers the same 35 probes; the
-report records three diagnostic or detection-stage differences from the GHDL
-baseline, so those should not be mistaken for frontend behavior. The NVC runner
+A second independent runtime comparison with NVC 1.23.0 covered the same 35
+probes, with three diagnostic or detection-stage differences from the GHDL
+baseline; those should not be mistaken for frontend behavior. The NVC runner
 pins version 1.23.0 and records its version-specific diagnostic and stage
 overrides in `tests/semantic/nvc_expectations.json`.
+Generate a fresh report outside the repository with
+`python3 src/vhdl/tests/semantic/run_nvc.py --report /tmp/naja-vhdl-nvc-report.json`
+from the repository root. Generated reports contain local paths and diagnostics
+and are not tracked.
 
 To check independence, copy this directory alone to a temporary location and run
 the same commands there. The standalone CMake library and exported target can also be built, installed

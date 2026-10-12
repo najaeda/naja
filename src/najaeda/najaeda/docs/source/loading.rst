@@ -49,6 +49,56 @@ between separate packed sections. Public top-module ports are excluded. The
 option defaults to ``False`` and adds no warning suppression or logic changes.
 Genuine bit-level combinational loops still produce lint diagnostics.
 
+Gate-netlist source references
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Structural Verilog loading records declarations for module headers, instance
+names, explicit net declarations and ANSI/non-ANSI ports. An instance declaration
+points at its instantiation; ``get_model_source_declaration()`` points at the
+model header. References use provider ``naja-verilog`` and language ``verilog``;
+representation stays unknown. Declaration spans describe the available grammar
+production, rather than a full module or instance body. Implicit port nets share
+the port declaration until an explicit net declaration is encountered. Generated
+constant nets and unresolved model definitions have no textual declaration.
+``get_source_range()`` continues to return the independent ``SourceLoc`` range.
+It does not fall back to declarations or origins.
+
+Select Yosys provenance explicitly when loading synthesized output::
+
+   top = netlist.load_verilog(
+       "synthesized.v",
+       netlist.VerilogConfig(yosys_source_attributes=True))
+   cell = top.get_child_instance("u")
+   gate_location = cell.get_source_declaration()
+   upstream_locations = cell.get_source_origins()
+
+The option defaults to ``False``. A filename, banner or generic ``src`` attribute
+never implicitly selects Yosys. With the option enabled, string ``src`` values
+are decoded as ordered ``|``-separated upstream references with provider
+``yosys``; language and representation remain unknown. Exact duplicates collapse
+in first-occurrence order. Raw attributes remain unchanged by normalization.
+The last colon starts the numeric suffix, preserving Windows drive letters and
+other colons in paths. Accepted suffixes are ``line[.column][-end_line[.end_column]]``.
+Missing coordinates and explicit zero remain unknown (zero). Coordinates above
+``4294967295``, malformed or empty entries, non-string values, and known reversed
+ranges produce warnings and are skipped; valid neighboring entries survive.
+Columns use one-based inclusive byte offsets in the shared source API.
+
+Yosys origin paths decode Verilog string escapes (backslash, quote, newline,
+tab and up to three octal digits); the raw attribute spelling stays unchanged.
+Unsupported escapes, NUL and out-of-byte-range octal escapes are diagnosed and
+skipped per entry. Windows paths should use doubled backslashes in the Verilog
+string literal. The parser scanner accepts escaped quotes in attribute strings.
+
+
+Neither retained source text nor an AST is required. NajaIF preserves typed
+references. Verilog export retains raw attributes but does not preserve the
+typed source references. NajaIF does not currently persist general raw Verilog
+attributes. Preprocessing lacks a
+source map: automatic declarations are omitted when ``preprocess_enabled=True``;
+explicit upstream Yosys references still work. Locating relocated
+source files and linking origins to separately loaded RTL/ASTs are future work.
+
 SystemVerilog
 -------------
 

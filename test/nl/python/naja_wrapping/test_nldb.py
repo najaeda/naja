@@ -596,14 +596,14 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
     manifest = naja.snapshotManifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertEqual(manifest["schema_version"], (0, 2, 0))
     self.assertEqual(manifest["producer_version"], naja.getVersion())
     self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
 
     manifest = naja.snapshotManifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 1, 0))
+    self.assertEqual(manifest["schema_version"], (0, 2, 0))
     self.assertIsNone(naja.NLUniverse.get())
 
     #load NajaIF
@@ -614,10 +614,18 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertIsNotNone(db)
     self.assertEqual(db.getID(), 1)
 
+    # The earlier revision must be rejected even when the producer matches.
     with open(os.path.join(naja_dir, "snl.mf"), "w", encoding="utf-8") as manifest_file:
       manifest_file.write("V 0 1 0\n")
-      manifest_file.write("P test-producer test-hash\n")
+      manifest_file.write(f"P {naja.getVersion()} {naja.getGitHash()}\n")
     naja.NLUniverse.get().destroy()
+    with self.assertRaisesRegex(RuntimeError, "Incompatible SNL snapshot schema version"):
+      naja.NLDB.loadNajaIF(naja_dir)
+    self.assertIsNone(naja.NLUniverse.get().getTopDesign())
+
+    with open(os.path.join(naja_dir, "snl.mf"), "w", encoding="utf-8") as manifest_file:
+      manifest_file.write("V " + " ".join(map(str, manifest["schema_version"])) + "\n")
+      manifest_file.write("P test-producer test-hash\n")
     with self.assertRaises(RuntimeError) as context:
       naja.NLDB.loadNajaIF(naja_dir)
     self.assertIn("Incompatible SNL snapshot producer", str(context.exception))

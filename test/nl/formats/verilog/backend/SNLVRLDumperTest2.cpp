@@ -19,6 +19,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLRTLInfos.h"
 
 using namespace naja::NL;
 
@@ -290,6 +291,18 @@ TEST_F(SNLVRLDumperTest2, test0) {
   ASSERT_TRUE(lib);
   auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
+
+  // Source metadata on assigns must not change the structural Verilog output.
+  for (auto instance: top->getInstances()) {
+    if (NLDB0::isAssign(instance->getModel())) {
+      auto* infos = SNLRTLInfos::create(instance);
+      SNLSourceReference reference;
+      reference.range.file = NLName("assign_source.v");
+      reference.range.line = 10;
+      infos->setSourceDeclaration(reference);
+      infos->addSourceOrigin(reference);
+    }
+  }
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test2Test0";

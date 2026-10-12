@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <string>
 #include <utility>
 
 #include "NLName.h"
+#include "NLException.h"
 #include "SNLDesignObject.h"
 #include "SNLSVConstructor.h"
 
@@ -72,9 +74,15 @@ SNLSourceLoc sourceLocOf(
   }
   result.file = NLName(file);
   result.line = sourceManager->getLineNumber(start);
-  result.column = sourceManager->getColumnNumber(start);
+  const auto column = sourceManager->getColumnNumber(start);
+  const auto endColumn = sourceManager->getColumnNumber(end);
+  if (column > std::numeric_limits<std::uint32_t>::max() ||
+      endColumn > std::numeric_limits<std::uint32_t>::max()) {
+    throw NLException("SystemVerilog source column exceeds the 32-bit coordinate limit");
+  }
+  result.column = static_cast<std::uint32_t>(column);
   result.endLine = sourceManager->getLineNumber(end);
-  result.endColumn = sourceManager->getColumnNumber(end);
+  result.endColumn = static_cast<std::uint32_t>(endColumn);
   return result;
 }
 

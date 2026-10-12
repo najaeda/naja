@@ -248,7 +248,7 @@ a control role. Omitted terms retain their static role.
 
    from itertools import product
 
-   names = ["dff_init", "dff_sync", "dff_type", "dff_load"]
+   names = ["reset_present", "reset_synchronous", "reset_sets_value", "enable_present"]
    for name in names:
        naja.SNLParameter.createBinary(cell, name, 1, 0)
    reset = cell.getScalarTerm("R")
@@ -1070,37 +1070,104 @@ bits) expose the following expert APIs. These require no retained source or AST.
 
    * - Method
      - Contract
+   * - ``hasSourceReferences()``
+     - Allocation-free presence check for a declaration or origins.
    * - ``getSourceDeclaration()``
      - Reference for this object's declaration, or ``None``.
-   * - ``setSourceDeclaration(reference)``
-     - Replace the declaration; ``None`` clears it.
    * - ``getSourceOrigins()``
      - List of upstream references, in insertion order.
-   * - ``addSourceOrigin(reference)``
-     - Append unless an exactly equal reference already exists.
-   * - ``clearSourceOrigins()``
-     - Clear upstream references independently of the declaration.
 
 A reference is ``((file, line, column, end_line, end_column), provider, language,
 representation)``. All identifiers are strings; empty strings mean unknown.
-Lines fit unsigned 32-bit integers, columns unsigned 16-bit integers. Coordinates
-are one-based byte positions with inclusive ends; zero means unknown. Negative,
-non-integer and overflowing coordinates are rejected before mutation. Paths are
+Lines and columns fit unsigned 32-bit integers (maximum 4,294,967,295). Coordinates
+are one-based byte positions with inclusive ends; zero means unknown. Paths are
 kept verbatim, and language/representation are never inferred from a path or src
-attribute. For example::
+attribute. References are populated by native loaders and are read-only in Python.
+For example::
 
-   gate.setSourceDeclaration((("netlist.v", 20, 1, 20, 30), "user", "verilog", "gate"))
-   gate.addSourceOrigin((("rtl.sv", 10, 2, 11, 8), "yosys", "", ""))
+   declaration = gate.getSourceDeclaration()
+   origins = gate.getSourceOrigins()
 
 The instance's declaration identifies its instantiation; query
 ``instance.getModel().getSourceDeclaration()`` for its model definition.
 ``hasSourceLoc()`` and ``getSourceLoc()`` retain their independent legacy meaning;
-new roles neither reclassify nor overwrite that slot. Existing loaders have not
-yet migrated to these roles. The high-level query wrappers are documented in
-:doc:`api`; experts currently use these raw setters for population.
+new roles neither reclassify nor overwrite that slot. SystemVerilog loading
+dual-writes the legacy slot and typed declarations for module definitions, ports,
+named signals and source instantiations; lowered logic gets origins labelled
+``slang`` / ``systemverilog`` / ``rtl``. Retaining an AST is optional.
+VHDL population remains pending. High-level query wrappers are documented in
+:doc:`api`. Python does not expose source metadata mutation APIs.
 
-References are deep-copied by supported SNL clones. NajaIF and metadata-enabled
-Verilog export currently reject new references rather than lose them; discard
-failed output. Metadata-disabled Verilog export intentionally omits them.
-Persistence, frontend migration, transformation unions, and optional AST adapters
-remain separate stages described in ``docs/source_information_design.md``.
+References are deep-copied by supported SNL clones and preserved by NajaIF,
+including bus-term bits and instance terminals. Legacy locations remain
+independent from declarations and origins after loading. Metadata-enabled
+Verilog export does not synthesize source-reference carriers from declarations,
+origins, bus-bit references, or instance-terminal references. Use NajaIF for source
+metadata persistence. Existing raw attributes are exported normally, and legacy
+source locations retain their established compact/verbose export behavior.
+
+Custom source-reference attributes have no special import or export handling.
+Native loaders populate the source queries used by viewers such as naja-schematic.
+
+
+Source coordinate width
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Both legacy ``getSourceLoc()`` and new source-reference ranges support 32-bit
+columns; their Python tuple shapes are unchanged. Native C++ consumers must
+rebuild for the widened ``SNLSourceLoc`` layout. SystemVerilog loading and
+legacy source-location Verilog export preserve columns above 65,535.
+
+NajaIF schema 0.2.0 preserves the full coordinate width using additive fields;
+the original 16-bit fields retain their wire types. The manifest revision is
+now sourced from naja-if. Snapshot loading still requires an exact schema and
+producer match, so snapshots from earlier revisions must be regenerated.
+
+
+Source presence and legacy population
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``object.hasSourceReferences()`` to compute viewer source-availability flags
+without constructing reference tuples or lists. It checks declarations and
+origins. The independent legacy location is excluded.
+This matches C++ ``SNLRTLInfos::hasSourceReferences()``.
+The check concerns the queried object; it does not traverse descendants or fall
+back from an instance to its model definition.
+
+Source locations and references are populated by native loaders and restored
+from NajaIF. Python exposes query methods only.
+
+
+Term-role compatibility
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Raw ``SNLBitTerm`` (scalar terms and bus bits) and ``SNLInstTerm`` expose canonical
+camelCase predicates such as ``isClock()`` and ``isAsyncReset()``. The pre-0.7.29
+snake_case spellings remain compatibility aliases: ``is_clock``, ``is_async_reset``,
+``is_async_set``, ``is_sync_reset``, ``is_sync_set``, ``is_reset``, ``is_enable``,
+``is_data``, ``is_data_input`` and ``is_data_output``. New raw callers should use
+camelCase. Each alias emits ``DeprecationWarning`` and will be removed in a
+future release; no removal version is scheduled. Python normally hides this
+warning in imported code; use ``-Wd`` to display it. The high-level ``Term`` API
+keeps its snake_case convention and is not deprecated.
+
+Structural Verilog provenance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``NLDB.loadVerilog(files, keep_assigns=True, blackbox_unknown_modules=False,
+preprocess_enabled=False, conflicting_design_name_policy=None,
+yosys_source_attributes=False)`` appends an explicit Yosys provenance option.
+Existing positional arguments keep their meanings. Use the high-level
+``VerilogConfig(yosys_source_attributes=True)`` for normal loading workflows.
+Experts can use the raw option with ``getSourceDeclaration()`` and
+``getSourceOrigins()`` directly; no extra high-level source wrapper is needed.
+
+Unpreprocessed structural inputs populate declarations (provider
+``naja-verilog``, language ``verilog``, unknown representation) without touching
+the legacy source slot. Instance declarations and model header declarations
+remain separate. With the option enabled, string ``src`` attributes add ordered,
+exactly deduplicated Yosys origins. Their language and representation remain
+empty strings; generic attributes are opaque by default. Numeric suffixes are
+parsed after the last colon; absent/zero coordinates remain unknown, invalid or
+overflowing entries warn and are skipped independently. Raw attribute values
+remain available unchanged. See :doc:`loading` for span and persistence limits.

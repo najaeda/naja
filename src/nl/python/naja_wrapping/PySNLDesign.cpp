@@ -621,20 +621,12 @@ static PyObject* PySNLDesign_getSourceOrigins(PySNLDesign* self) {
   return PYNAJA::getSourceOrigins(selfObject->getRTLInfos());
 }
 
-static PyObject* PySNLDesign_setSourceDeclaration(PySNLDesign* self, PyObject* value) {
-  METHOD_HEAD("SNLDesign.setSourceDeclaration()")
-  return PYNAJA::setSourceDeclaration(selfObject, value);
-}
-
-static PyObject* PySNLDesign_addSourceOrigin(PySNLDesign* self, PyObject* value) {
-  METHOD_HEAD("SNLDesign.addSourceOrigin()")
-  return PYNAJA::addSourceOrigin(selfObject, value);
-}
-
-static PyObject* PySNLDesign_clearSourceOrigins(PySNLDesign* self) {
-  METHOD_HEAD("SNLDesign.clearSourceOrigins()")
-  if (auto* infos = selfObject->getRTLInfos()) infos->clearSourceOrigins();
-  Py_RETURN_NONE;
+static PyObject* PySNLDesign_hasSourceReferences(
+  PySNLDesign* self, PyObject*) {
+  METHOD_HEAD("SNLDesign.hasSourceReferences()")
+  auto* infos = selfObject->getRTLInfos();
+  if (infos && infos->hasSourceReferences()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
 }
 
 static PyObject* PySNLDesign_hasSourceLoc(PySNLDesign* self) {
@@ -859,16 +851,12 @@ static PyObject* PySNLDesign_setRolesFromParameters(
 }
 
 PyMethodDef PySNLDesign_Methods[] = {
+  {"hasSourceReferences", (PyCFunction)PySNLDesign_hasSourceReferences, METH_NOARGS,
+    "Whether this object has a source declaration or any source origins."},
   {"getSourceDeclaration", (PyCFunction)PySNLDesign_getSourceDeclaration, METH_NOARGS,
     "getSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
   {"getSourceOrigins", (PyCFunction)PySNLDesign_getSourceOrigins, METH_NOARGS,
     "getSourceOrigins: language-neutral source metadata; independent of legacy source location."},
-  {"setSourceDeclaration", (PyCFunction)PySNLDesign_setSourceDeclaration, METH_O,
-    "setSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
-  {"addSourceOrigin", (PyCFunction)PySNLDesign_addSourceOrigin, METH_O,
-    "addSourceOrigin: language-neutral source metadata; independent of legacy source location."},
-  {"clearSourceOrigins", (PyCFunction)PySNLDesign_clearSourceOrigins, METH_NOARGS,
-    "clearSourceOrigins: language-neutral source metadata; independent of legacy source location."},
   {"setRolesFromParameters", (PyCFunction)PySNLDesign_setRolesFromParameters,
     METH_VARARGS | METH_KEYWORDS, "set parameter-dependent primitive term roles."},
   {"hasRolesFromParameters", (PyCFunction)PySNLDesign_hasRolesFromParameters,

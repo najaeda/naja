@@ -29,30 +29,45 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def test_source_references(self):
         top = netlist.get_top()
         child = top.get_child_instance("and2_inst")
-        raw_top = naja.NLUniverse.get().getTopDesign()
-        raw_child = raw_top.getInstance("and2_inst")
-        definition = (("cells.v", 1, 1, 5, 9), "user", "verilog", "gate")
-        declaration = (("netlist.v", 20, 1, 20, 30), "user", "verilog", "gate")
-        origin = (("rtl.sv", 10, 2, 11, 8), "yosys", "", "")
-        raw_child.getModel().setSourceDeclaration(definition)
-        raw_child.setSourceDeclaration(declaration)
-        raw_child.addSourceOrigin(origin)
-        self.assertEqual("netlist.v", child.get_source_declaration().range.file)
-        self.assertEqual("cells.v", child.get_model_source_declaration().range.file)
+        self.assertIsNotNone(child.get_source_declaration())
+        self.assertIsNotNone(child.get_model_source_declaration())
         self.assertIsNone(child.get_source_range())
-        self.assertIsNone(top.get_source_declaration())
-        self.assertEqual([], top.get_source_origins())
-        for obj, raw in ((top, raw_top), (top.get_term("a"), raw_top.getTerm("a")),
-                         (top.get_net("and_wire"), raw_top.getNet("and_wire"))):
-            raw.addSourceOrigin(origin)
-            raw.setSourceDeclaration(declaration)
-            self.assertEqual("gate", obj.get_source_declaration().representation)
-            self.assertEqual([netlist.SourceReference(
-                netlist.SourceRange("rtl.sv", 10, 11, 2, 8), "yosys")],
-                obj.get_source_origins())
+        for obj in (top, child, top.get_term("a"), top.get_net("and_wire")):
+            self.assertTrue(obj.has_source_references())
+            self.assertIsNotNone(obj.get_source_declaration())
+            self.assertEqual([], obj.get_source_origins())
         concat = netlist.Net([], net_concat=[top.get_net("and_wire")])
         self.assertIsNone(concat.get_source_declaration())
         self.assertEqual([], concat.get_source_origins())
+        self.assertFalse(concat.has_source_references())
+
+    def test_yosys_cross_probing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "yosys.v")
+            with open(path, "w", encoding="utf-8") as output:
+                output.write('(* src="definition.sv:1.1-2.1" *) module cell(input a, output y); endmodule\n'
+                             'module top(input a, output y);\n'
+                             '(* src="rtl.sv:8.70000-8.80000|rtl.sv:8.70000-8.80000" *) cell u(a,y);\n'
+                             'endmodule\n')
+            netlist.reset()
+            top = netlist.load_verilog(path, netlist.VerilogConfig(yosys_source_attributes=True))
+            child = top.get_child_instance("u")
+            self.assertEqual(path, child.get_source_declaration().range.file)
+            self.assertEqual(3, child.get_source_declaration().range.line)
+            self.assertEqual(1, child.get_model_source_declaration().range.line)
+            self.assertEqual(path, child.get_model_source_declaration().range.file)
+            origins = child.get_source_origins()
+            self.assertEqual(1, len(origins))
+            self.assertEqual("yosys", origins[0].provider)
+            self.assertIsNone(origins[0].language)
+            self.assertIsNone(origins[0].representation)
+            self.assertEqual(70000, origins[0].range.column)
+            self.assertIsNone(child.get_source_range())
+            os.unlink(path)
+            self.assertEqual("rtl.sv", child.get_source_origins()[0].range.file)
+        with self.assertRaises(TypeError):
+            netlist.VerilogConfig(yosys_source_attributes="yes")
 
     def test(self):
         top = netlist.get_top()

@@ -43,20 +43,12 @@ static PyObject* PySNLDesignObject_getSourceOrigins(PySNLDesignObject* self) {
   return PYNAJA::getSourceOrigins(selfObject->getRTLInfos());
 }
 
-static PyObject* PySNLDesignObject_setSourceDeclaration(PySNLDesignObject* self, PyObject* value) {
-  METHOD_HEAD("SNLDesignObject.setSourceDeclaration()")
-  return PYNAJA::setSourceDeclaration(selfObject, value);
-}
-
-static PyObject* PySNLDesignObject_addSourceOrigin(PySNLDesignObject* self, PyObject* value) {
-  METHOD_HEAD("SNLDesignObject.addSourceOrigin()")
-  return PYNAJA::addSourceOrigin(selfObject, value);
-}
-
-static PyObject* PySNLDesignObject_clearSourceOrigins(PySNLDesignObject* self) {
-  METHOD_HEAD("SNLDesignObject.clearSourceOrigins()")
-  if (auto* infos = selfObject->getRTLInfos()) infos->clearSourceOrigins();
-  Py_RETURN_NONE;
+static PyObject* PySNLDesignObject_hasSourceReferences(
+  PySNLDesignObject* self, PyObject*) {
+  METHOD_HEAD("SNLDesignObject.hasSourceReferences()")
+  auto* infos = selfObject->getRTLInfos();
+  if (infos && infos->hasSourceReferences()) Py_RETURN_TRUE;
+  Py_RETURN_FALSE;
 }
 
 static PyObject* PySNLDesignObject_hasSourceLoc(PySNLDesignObject* self) {
@@ -96,16 +88,12 @@ static PyObject* PySNLDesignObject_addAttribute(PySNLDesignObject* self, PyObjec
 }
 
 PyMethodDef PySNLDesignObject_Methods[] = {
+  {"hasSourceReferences", (PyCFunction)PySNLDesignObject_hasSourceReferences, METH_NOARGS,
+    "Whether this object has a source declaration or any source origins."},
   {"getSourceDeclaration", (PyCFunction)PySNLDesignObject_getSourceDeclaration, METH_NOARGS,
     "getSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
   {"getSourceOrigins", (PyCFunction)PySNLDesignObject_getSourceOrigins, METH_NOARGS,
     "getSourceOrigins: language-neutral source metadata; independent of legacy source location."},
-  {"setSourceDeclaration", (PyCFunction)PySNLDesignObject_setSourceDeclaration, METH_O,
-    "setSourceDeclaration: language-neutral source metadata; independent of legacy source location."},
-  {"addSourceOrigin", (PyCFunction)PySNLDesignObject_addSourceOrigin, METH_O,
-    "addSourceOrigin: language-neutral source metadata; independent of legacy source location."},
-  {"clearSourceOrigins", (PyCFunction)PySNLDesignObject_clearSourceOrigins, METH_NOARGS,
-    "clearSourceOrigins: language-neutral source metadata; independent of legacy source location."},
   {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
     "Returns the SNLDesignObject owner design."},
   {"getNLID", (PyCFunction)PySNLDesignObject_getNLID, METH_NOARGS,

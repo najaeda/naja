@@ -251,7 +251,9 @@ PyObject* PyNLDB_dumpNajaIF(PyNLDB* self, PyObject* args) {
     return nullptr;
   }
   METHOD_HEAD("NLDB.dumpNajaIF()")
-  SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
+  TRY
+  SNLCapnP::dump(selfObject, PyUnicode_AsUTF8(arg));
+  NLCATCH
   Py_RETURN_NONE;
 }
 
@@ -316,19 +318,20 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   int keep_assigns = 1;  // Default: true
   int blackbox_unknown_modules = 0; // Default: false
   int preprocess_enabled = 0; // Default: false
+  int yosys_source_attributes = 0;
   PyObject* conflicting_design_name_policy = nullptr; // Optional: string
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled",
-    "conflicting_design_name_policy",
+    "conflicting_design_name_policy", "yosys_source_attributes",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pppO:NLDB.loadVerilog",
+    args, kwargs, "O|pppOp:NLDB.loadVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &blackbox_unknown_modules, &preprocess_enabled,
-    &conflicting_design_name_policy)) {
+    &conflicting_design_name_policy, &yosys_source_attributes)) {
     return nullptr;
   }
 
@@ -411,6 +414,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   SNLVRLConstructor constructor(designLibrary);
   constructor.config_.blackboxUnknownModules_ = blackbox_unknown_modules;
   constructor.config_.preprocessEnabled_ = preprocess_enabled;
+  constructor.config_.yosysSourceAttributes_ = yosys_source_attributes;
   constructor.config_.conflictingDesignNamePolicy_ = policy;
   try {
     constructor.construct(inputPaths);
@@ -944,6 +948,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
     "  blackbox_unknown_modules (bool, optional): create unknown modules as blackboxes (default False)\n"
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
+    "  yosys_source_attributes (bool, optional): explicitly decode Yosys src origins (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadVHDL", (PyCFunction)PyNLDB_loadVHDL, METH_VARARGS|METH_KEYWORDS,

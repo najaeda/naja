@@ -2,6 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Source/package builds use the same naja-if and naja-verilog checkouts as CMake.
+# Initialize with: git submodule update --init thirdparty/naja-if thirdparty/naja-verilog
+# Registry distribution is validated independently: bazel test --config=registered //...
+common --override_module=naja-if=%workspace%/thirdparty/naja-if
+common:registered --override_module=naja-if=
+common --override_module=naja-verilog=%workspace%/thirdparty/naja-verilog
+common:registered --override_module=naja-verilog=
+
 # Modules not yet on the Bazel Central Registry come from their open
 # bazel-central-registry pull requests, each pinned to a commit; drop a
 # line once its PR has merged. Everything else comes from BCR.

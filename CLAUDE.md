@@ -78,45 +78,77 @@ make && make test && make install
 - Python usage after install needs `export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python`.
 - Build deps (macOS): `brew install cmake capnp tbb bison flex boost` and put flex/bison on `PATH`.
 
-## Build systems: CMake (primary) + Bazel (validated smoke test)
+## Build and delivery policy: CMake, Bazel, and BCR
 
-CMake is naja's primary build system — it's what CI, packaging (wheels,
-Docker images), and most workflows use, and it's the one to reach for by
-default. Bazel (`MODULE.bazel`, `BUILD.bazel` throughout the tree) is
-kept in parallel as a validated smoke test only, via `ubuntu-bazel.yml`/
-`macos-bazel.yml` (`bazel build //... && bazel test //...`, no
-submodules, no host packages — every dependency is a `bazel_dep`). It
-is **not** CI's primary gate and doesn't need to track every workflow's
-behavior (sanitizer suppressions, coverage flags, etc.) — just prove the
-Bazel side keeps compiling and passing tests.
+**Product equivalence is mandatory.** For the same Naja revision, platform and
+requested features, choosing CMake or Bazel must not change the delivered product.
+This applies to Naja, najaeda, command-line tools, libraries, wheels, containers
+and any other package or distribution. Public C++ and Python APIs, supported
+formats and language constructs, defaults, diagnostics, netlist semantics,
+serialization, primitive models and package contents must remain equivalent.
+Build-system differences must not introduce missing features, different results
+or incompatible snapshots. Such a difference is a bug to fix, not an accepted
+property of either build path.
 
-**Keep submodule pins and Bazel pins in sync.** CMake pins shared
-upstream dependencies via git submodules (`.gitmodules`, `thirdparty/*`);
-Bazel takes the *same* dependencies as `bazel_dep`s, and those not on
-BCR are pinned to commits by their registry entries
-(`modules/<name>/<version>/source.json` in the registries `.bazelrc`
-lists). Nothing forces these to move together —
-bumping one without the other silently makes the two build systems test
-different upstream code. When you bump a submodule commit (or vice
-versa), submit the matching BCR version and point `MODULE.bazel` at it
-in the same change:
+Matching dependency commit hashes is necessary but not sufficient: registry
+patches, generated parser/schema code, compile definitions, feature flags,
+version/producer identity and packaging rules must preserve the same behavior.
+When changing a build path or its dependencies, run the relevant common tests
+against both outputs and compare observable results, including package/API
+checks where applicable. Do not treat successful compilation alone as parity.
+Any validation blocked by the local environment must be reported explicitly.
 
-- `slang` (Bazel module `sv-lang`), `naja-verilog`: must be an
-  **exact** commit match.
-- `naja-if`: Bazel tracks a separate `bazel-support` branch (native
-  Bazel BUILD files added on top) rather than the branch CMake tracks —
-  so an exact match isn't meaningful. Instead, the submodule's pinned
-  commit must be an **ancestor of (or equal to)** the `bazel-support`
-  pin, i.e. `bazel-support` must never fall behind main.
-- `googletest`: deliberately excluded — CMake pins an old submodule dev
-  commit, Bazel takes a BCR release. Different dependency-sourcing
-  mechanisms entirely; not meant to track in lockstep.
+BCR publication may advance independently, but that is a scheduling distinction,
+not permission to ship a different product for the same Naja release. Each BCR
+release must satisfy the same product-equivalence requirement as its CMake and
+source-based Bazel counterparts before publication.
 
-This is enforced automatically: `ci/check_submodule_bazel_sync.py`
-(run by `.github/workflows/dependency-sync-check.yml` on every push/PR)
-checks exactly this and fails CI if a pin has drifted. Run it locally
-after bumping any of these dependencies: `python3
-ci/check_submodule_bazel_sync.py`.
+Naja has three delivery paths:
+
+- CMake builds from sources, for users and for packages such as najaeda wheels
+  and Docker images.
+- Bazel builds from sources, for users and for package builds. This is a normal
+  supported source build path, not a development-only mode.
+- Bazel Central Registry (BCR) distribution, published and validated on its own
+  schedule.
+
+**Align source builds, decouple registry publication.** CMake and source-based
+Bazel builds must use the same revisions of shared source dependencies. The
+intended default Bazel configuration uses the same dependency checkouts as
+CMake, including changes not yet published in a registry. Native Bazel build
+files belong in each dependency's main branch; fix dependencies there rather
+than adding Naja-owned patches or overlays.
+
+BCR versions may lag source builds. Registry publication must not block source
+changes or source/package builds. Keep registered dependency versions immutable;
+publish new versions when preparing BCR distribution. Validate that distribution
+with registry dependencies and no local overrides, including Naja as a dependency
+of another project. A successful source build does not establish BCR readiness.
+BCR publication requires a compatible, validated set of registered dependencies;
+it does not require registry pins to match the latest source checkout at all times.
+
+**Current configuration.** Default Bazel builds use
+`--override_module=naja-if=%workspace%/thirdparty/naja-if` from .bazelrc, so
+initialize that submodule before building. `--config=registered` clears the local
+override and resolves the version in MODULE.bazel. naja-if main now contains its
+native Bazel support; no separate bazel-support descendant is required for source
+builds. CMake remains the established install/packaging workflow; Bazel currently
+exposes build/test targets.
+
+The source CI workflows initialize naja-if and run default Bazel builds/tests.
+`ci/check_submodule_bazel_sync.py` verifies source checkout selection. Slang lacks
+a native module, and naja-verilog's registry build adaptations are still needed;
+these two dependencies temporarily remain registry-backed with exact source
+revision checks against CMake. Direct checkout selection for them requires native
+upstream Bazel support; do not add Naja-owned build patches to bypass that work.
+Googletest deliberately uses different sourcing mechanisms and remains excluded.
+
+`bazel-registered.yml` runs independently through workflow_dispatch when preparing
+BCR distribution. It uses `--config=registered` without initializing submodules.
+The checker's `--registered` option checks configuration, not API compatibility;
+actual registered builds/tests and downstream consumer validation establish BCR
+readiness. Registry lag is allowed to fail that independent validation without
+blocking source changes. Do not claim BCR readiness from default source tests.
 
 ## Bazel: a BCR-ready module
 
@@ -126,8 +158,9 @@ plain `bazel_dep`. Keep it that way. Invariants:
 
 - `MODULE.bazel` contains only `bazel_dep`s. No `http_archive`,
   `git_override`, `archive_override`, module extensions or repository
-  rules of our own; overrides are ignored for non-root modules, so they
-  would only hide breakage that consumers then hit.
+  rules of our own. Select source checkouts through the root build configuration,
+  keeping registered versions in MODULE.bazel for BCR consumers. Local overrides
+  do not propagate to consumers and must be disabled for BCR validation.
 - Nothing runs cmake/make inside Bazel (no `rules_foreign_cc`), and
   nothing is found on the host (`PATH`, pkg-config, `python3-config`,
   system headers). Tools and libraries come from Bazel modules: bison
@@ -138,8 +171,9 @@ plain `bazel_dep`. Keep it that way. Invariants:
   by patching its BUILD files from this repository, and never by asking
   consumers to patch naja.
 
-**Where dependencies come from.** Everything comes from BCR. A module
-version that is not on BCR yet comes from its open
+**Where registered dependencies come from.** BCR distribution resolves registry
+versions independently of the source build checkouts. A module version that is
+not on BCR yet can come from its open
 bazel-central-registry pull request: `.bazelrc` lists the PR's commit
 (`https://raw.githubusercontent.com/<fork>/bazel-central-registry/<sha>/`)
 ahead of BCR, and Bazel takes each `name@version` from the first
@@ -173,10 +207,12 @@ dependencies are on BCR. BCR rejects symlinks in entries, so
 - `NAJA_GIT_HASH` comes from the module version
   (`src/core/naja_version.bzl`): "unknown" when naja is the root module.
 
-**Before merging Bazel changes**, besides `bazel test //...` here, build
-naja as a dependency with a hermetic toolchain: kepler-formal's tests
-(`bazel test //... --override_module=naja=<path to this checkout>`) are
-the reference consumer.
+**Validation:** source-based Bazel changes need build/test checks against the
+same shared source revisions as CMake. Before publishing BCR updates, also build
+Naja as a dependency with a hermetic toolchain and registry dependencies:
+kepler-formal's tests (`bazel test //... --override_module=naja=<path to this
+checkout>`) are the reference consumer. Do not assume Naja's root .bazelrc
+configuration is inherited by that consumer.
 
 ## Conventions
 
@@ -249,6 +285,43 @@ If `sphinx_rtd_theme` is not installed locally, use the built-in theme override:
 ```bash
 sphinx-build -b html -D html_theme=alabaster src/najaeda/najaeda/docs/source /tmp/najaeda-docs-check
 ```
+
+## Confidential inputs and maximum anonymization
+
+Treat user-supplied designs, benchmarks, logs, screenshots, and reproductions as
+confidential unless their public provenance and redistribution permission are
+established. Permission to analyze an input is not permission to publish it.
+
+- Never copy confidential inputs or recognizable excerpts into tracked files,
+  tests, benchmarks, documentation, notebooks, generated outputs, commit messages,
+  PR descriptions, issues, or public CI artifacts. Keep originals and detailed
+  audit findings outside the repository; do not upload them to external services
+  or use their identifying strings in web searches.
+- Reproduce the underlying language or API behavior with a minimal, independently
+  written synthetic example. Anonymize maximally: use neutral filenames, test
+  names, modules, cells, libraries, instances, signals, parameters, and comments.
+  Remove company/product/project/person names, customer references, internal URLs,
+  email addresses, absolute paths, source attributes, timestamps, tool banners,
+  notebook outputs, metadata, and other provenance clues.
+- Renaming is not sufficient. Do not preserve distinctive hierarchy, circuitry,
+  algorithms, constants, lookup tables, dimensions, timing/power/process data, or
+  cell models from a confidential design. Use unrelated synthetic values and
+  structures while retaining only the semantics required to demonstrate the bug.
+  If a safe synthetic reproduction cannot be made, keep the regression private
+  and ask for explicit publication authorization before adding any derived input.
+- Apply the same review to compressed fixtures, snapshots, archives, images,
+  generated netlists, expected diagnostics, build/package contents, and reports.
+  Before delivery, inspect the entire proposed diff, filenames, and generated
+  artifacts for identifying strings and recognizable confidential content.
+  Describe fixes by generic behavior, without naming the source of a private bug.
+- Preserve required copyright/license notices and legitimate public dependency,
+  standard, and API names. Do not disguise third-party code as Naja-authored code.
+  If redistribution rights are unclear, replace the material with a synthetic
+  example or keep it private rather than deleting its attribution.
+- Report suspected existing leaks privately with locations and uncertainty.
+  Cleaning the current tree does not remove Git history or published artifacts;
+  flag those separately and do not rewrite history or remove releases without
+  explicit authorization.
 
 ## Git
 

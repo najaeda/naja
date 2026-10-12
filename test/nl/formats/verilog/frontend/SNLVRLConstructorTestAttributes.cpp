@@ -14,6 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLAttributes.h"
 #include "SNLDesignModeling.h"
+#include "SNLRTLInfos.h"
 
 #include "SNLVRLConstructor.h"
 
@@ -301,4 +302,76 @@ TEST_F(SNLVRLConstructorTestAttributes, testDisableAttributes) {
   EXPECT_TRUE(SNLAttributes::getAttributes(ins0).empty());
   auto ins1 = simple_netlist->getInstance(NLName("or2_inst"));
   EXPECT_TRUE(SNLAttributes::getAttributes(ins1).empty());
+}
+
+TEST_F(SNLVRLConstructorTestAttributes, sourcePopulation) {
+  auto path = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) / "source_population.v";
+  {
+    std::ofstream out(path);
+    out << R"((* src = "rtl.sv:2.70000-3.80000|C:\\rtl\\unit.sv:9.1-9.4|rtl.sv:2.70000-3.80000|bad|x:4294967296.1-2.1|partial:7|unknown:0.0-0.0" *)
+module cell(input a, output y);
+endmodule
+module top(a, y);
+(* src = "port.sv:1.2-1.3" *) input a;
+output y;
+(* src = "net.sv:4.5-4.6" *) wire n, m;
+(* src = "gate.sv:8.9-8.10" *) cell u(a, n), v(a, m);
+not g(y, n);
+endmodule
+)";
+  }
+  SNLVRLConstructor constructor(library_);
+  constructor.config_.yosysSourceAttributes_ = true;
+  constructor.construct(path);
+  auto cell = library_->getSNLDesign(NLName("cell"));
+  ASSERT_NE(nullptr, cell->getRTLInfos());
+  const auto& origins = cell->getRTLInfos()->getSourceOrigins();
+  ASSERT_EQ(4, origins.size());
+  EXPECT_EQ(70000, origins[0].range.column);
+  EXPECT_EQ(80000, origins[0].range.endColumn);
+  EXPECT_EQ("C:\\rtl\\unit.sv", origins[1].range.file.getString());
+  EXPECT_EQ("yosys", origins[0].provider.getString());
+  EXPECT_TRUE(origins[0].language.empty());
+  EXPECT_TRUE(origins[0].representation.empty());
+  EXPECT_EQ(0, origins[2].range.endLine);
+  EXPECT_EQ(0, origins[3].range.line);
+  auto declaration = cell->getRTLInfos()->getSourceDeclaration();
+  ASSERT_TRUE(declaration);
+  EXPECT_EQ(2, declaration->range.line);
+  EXPECT_EQ(1, declaration->range.column);
+  EXPECT_EQ(11, declaration->range.endColumn);
+  EXPECT_FALSE(cell->getRTLInfos()->getSourceLoc());
+  auto top = library_->getSNLDesign(NLName("top"));
+  for (auto name: {"u", "v"}) {
+    auto infos = top->getInstance(NLName(name))->getRTLInfos();
+    ASSERT_NE(nullptr, infos);
+    ASSERT_TRUE(infos->getSourceDeclaration());
+    EXPECT_EQ(8, infos->getSourceDeclaration()->range.line);
+    EXPECT_EQ(1, infos->getSourceOrigins().size());
+  }
+  for (auto name: {"n", "m"}) {
+    auto infos = top->getNet(NLName(name))->getRTLInfos();
+    ASSERT_NE(nullptr, infos);
+    EXPECT_EQ(7, infos->getSourceDeclaration()->range.line);
+    EXPECT_EQ(1, infos->getSourceOrigins().size());
+    EXPECT_EQ(1, SNLAttributes::getAttributes(top->getNet(NLName(name))).size());
+  }
+  auto port = top->getTerm(NLName("a"))->getRTLInfos();
+  ASSERT_NE(nullptr, port);
+  EXPECT_EQ(5, port->getSourceDeclaration()->range.line);
+  EXPECT_EQ(1, port->getSourceOrigins().size());
+  auto gate = top->getInstance(NLName("g"))->getRTLInfos();
+  ASSERT_NE(nullptr, gate);
+  EXPECT_EQ(9, gate->getSourceDeclaration()->range.line);
+  std::filesystem::remove(path);
+}
+
+TEST_F(SNLVRLConstructorTestAttributes, genericSrcStaysOpaque) {
+  SNLVRLConstructor constructor(library_);
+  constructor.construct(std::filesystem::path(SNL_VRL_BENCHMARKS_PATH) / "test_attributes.v");
+  for (auto design: library_->getSNLDesigns()) {
+    ASSERT_NE(nullptr, design->getRTLInfos());
+    EXPECT_TRUE(design->getRTLInfos()->getSourceOrigins().empty());
+    EXPECT_TRUE(design->getRTLInfos()->getSourceDeclaration());
+  }
 }

@@ -1,10 +1,7 @@
 name: macOS Bazel Build
 
-# CMake is naja's primary build system -- this workflow keeps the Bazel
-# side (MODULE.bazel, BUILD.bazel throughout the tree) validated. The
-# Bazel build needs no host packages: every library and code generator
-# comes from a Bazel module (BCR, or an open BCR pull request listed in
-# .bazelrc for the few that are not on BCR yet).
+# Source builds use the same naja-if checkout as CMake. BCR compatibility
+# is validated separately by bazel-registered.yml.
 
 on:
   push:
@@ -22,9 +19,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
-      # No `submodules: true` -- Bazel doesn't use the thirdparty/
-      # checkouts. dependency-sync-check.yml keeps the two build systems'
-      # pins from silently drifting apart.
+
+    - name: Initialize shared source dependency
+      run: git submodule update --init thirdparty/naja-if thirdparty/naja-verilog
 
     - uses: bazel-contrib/setup-bazel@0.19.0
       with:

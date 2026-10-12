@@ -17,6 +17,7 @@
 
 namespace naja::NL {
 
+class NLObject;
 class SNLDesign;
 class SNLDesignObject;
 
@@ -24,8 +25,8 @@ struct SNLSourceLoc {
   NLName file;
   std::uint32_t line {0};
   std::uint32_t endLine {0};
-  std::uint16_t column {0};
-  std::uint16_t endColumn {0};
+  std::uint32_t column {0};
+  std::uint32_t endColumn {0};
 };
 
 /** A source reference independent of retained text or AST ownership.
@@ -61,6 +62,7 @@ class SNLRTLInfos {
     SNLDesign* getDesign() const { return design_; }
 
     void setSourceLoc(const SNLSourceLoc& sourceLoc);
+    void clearSourceLoc() { sourceLoc_.reset(); }
     bool hasSourceLoc() const { return sourceLoc_.has_value(); }
     const std::optional<SNLSourceLoc>& getSourceLoc() const { return sourceLoc_; }
 
@@ -72,6 +74,7 @@ class SNLRTLInfos {
     void addSourceOrigin(const SNLSourceReference& reference);
     const std::vector<SNLSourceReference>& getSourceOrigins() const;
     void clearSourceOrigins();
+    // Check for an explicit declaration or origins without allocating.
     bool hasSourceReferences() const;
 
     void setInfo(const InfoName& name, const InfoValue& value);

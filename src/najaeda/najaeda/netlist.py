@@ -604,6 +604,11 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.net if hasattr(self, "net") else None
+        return bool(obj and obj.hasSourceReferences())
+
     def get_source_declaration(self) -> Optional[SourceReference]:
         """Return this object's declaration in the loaded input, if available."""
         obj = self.net if hasattr(self, "net") else None
@@ -952,6 +957,11 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.get_snl_term()
+        return bool(obj and obj.hasSourceReferences())
 
     def get_source_declaration(self) -> Optional[SourceReference]:
         """Return this object's declaration in the loaded input, if available."""
@@ -1720,6 +1730,11 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.__get_leaf_snl_object()
+        return bool(obj and obj.hasSourceReferences())
+
     def get_source_declaration(self) -> Optional[SourceReference]:
         """Return this object's declaration in the loaded input, if available."""
         obj = self.__get_leaf_snl_object()
@@ -2096,6 +2111,9 @@ class VerilogConfig:
     # compatibility. Use blackbox_unknown_modules instead.
     allow_unknown_designs: bool = None
 
+    # Explicitly identify src attributes as Yosys provenance.
+    yosys_source_attributes: bool = False
+
     def __post_init__(self):
         self.validate()
         if self.allow_unknown_designs is not None:
@@ -2110,7 +2128,8 @@ class VerilogConfig:
 
     def validate(self):
         for field_name in (
-                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled"):
+                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled",
+                "yosys_source_attributes"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2313,6 +2332,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         keep_assigns=config.keep_assigns,
         blackbox_unknown_modules=config.blackbox_unknown_modules,
         preprocess_enabled=config.preprocess_enabled,
+        yosys_source_attributes=config.yosys_source_attributes,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time

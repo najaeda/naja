@@ -17,6 +17,8 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstance.h"
+#include "SNLInstTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLRTLInfos.h"
 
 #include "SNLCapnP.h"
@@ -41,6 +43,7 @@ class SNLCapnPRTLInfosTest: public ::testing::Test {
       // A small model to instantiate.
       SNLDesign* model = SNLDesign::create(designs, NLName("model"));
       SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i"));
+      auto modelBus = SNLBusTerm::create(model, SNLTerm::Direction::Input, -1, -3, NLName("neg"));
 
       SNLDesign* top = SNLDesign::create(designs, NLName("top"));
       universe->setTopDesign(top);
@@ -73,11 +76,32 @@ class SNLCapnPRTLInfosTest: public ::testing::Test {
       auto instanceInfos = SNLRTLInfos::create(instance);
       instanceInfos->setSourceLoc(makeSourceLoc("top.sv", 5));
       instanceInfos->setInfo(NLName("inst_attr"), "u_inst");
+      SNLRTLInfos::create(busTerm->getBit(2));
+      SNLRTLInfos::create((*instance->getInstTerms().begin()));
+      auto negativeInstTerm = instance->getInstTerm(modelBus->getBit(-2));
+      SNLRTLInfos::create(negativeInstTerm);
+      // Every serializable object kind carries the same independent roles.
+      for (auto infos: {designInfos, scalarTermInfos, busTermInfos, scalarNetInfos,
+          busNetInfos, busNetBitInfos, instanceInfos, busTerm->getBit(2)->getRTLInfos(),
+          (*instance->getInstTerms().begin())->getRTLInfos(), negativeInstTerm->getRTLInfos()}) {
+        infos->setSourceDeclaration(declaration());
+        infos->addSourceOrigin(origin());
+        infos->addSourceOrigin({{NLName("C:/rtl/other.vhd"), 0, 0, 0, 0}, NLName(), NLName(), NLName()});
+        infos->addSourceOrigin(origin());
+      }
     }
     void TearDown() override {
       if (NLUniverse::get()) {
         NLUniverse::get()->destroy();
       }
+    }
+    static SNLSourceReference declaration() {
+      return {{NLName("loaded.v"), 3, 4, 70000, 90000},
+        NLName("verilog"), NLName("verilog"), NLName("gate")};
+    }
+    static SNLSourceReference origin() {
+      return {{NLName("rtl/top.sv"), 10, 12, 1, UINT32_MAX},
+        NLName("yosys"), NLName(), NLName()};
     }
     static SNLSourceLoc makeSourceLoc(const std::string& file, std::uint32_t line) {
       SNLSourceLoc sourceLoc;
@@ -164,12 +188,39 @@ TEST_F(SNLCapnPRTLInfosTest, testRoundTrip) {
   ASSERT_TRUE(instance->hasRTLInfos());
   expectSourceLoc(instance->getRTLInfos(), "top.sv", 5);
   EXPECT_EQ("u_inst", instance->getRTLInfos()->getInfo(NLName("inst_attr")));
+  for (auto infos: {top->getRTLInfos(), scalarTerm->getRTLInfos(), busTerm->getRTLInfos(),
+      scalarNet->getRTLInfos(), busNet->getRTLInfos(), busNetBit->getRTLInfos(),
+      instance->getRTLInfos(), busTerm->getBit(2)->getRTLInfos(),
+      (*instance->getInstTerms().begin())->getRTLInfos(),
+      instance->getInstTerm(instance->getModel()->getBusTerm(NLName("neg"))->getBit(-2))->getRTLInfos()}) {
+    ASSERT_NE(nullptr, infos);
+    ASSERT_TRUE(infos->getSourceDeclaration());
+    EXPECT_EQ(declaration(), *infos->getSourceDeclaration());
+    ASSERT_EQ(2u, infos->getSourceOrigins().size());
+    EXPECT_EQ(origin(), infos->getSourceOrigins()[0]);
+    const auto& unknown = infos->getSourceOrigins()[1];
+    EXPECT_EQ(NLName("C:/rtl/other.vhd"), unknown.range.file);
+    EXPECT_EQ(0u, unknown.range.column);
+    EXPECT_TRUE(unknown.provider.getString().empty());
+    EXPECT_TRUE(unknown.language.getString().empty());
+    EXPECT_TRUE(unknown.representation.getString().empty());
+  }
+  EXPECT_FALSE(busTerm->getBit(1)->hasRTLInfos());
 }
 
-TEST_F(SNLCapnPRTLInfosTest, rejectsUnsupportedSourceReferences) {
-  auto* infos = NLUniverse::get()->getTopDesign()->getRTLInfos();
-  infos->addSourceOrigin({{NLName("rtl.v"), 1, 1, 1, 2}, NLName("yosys"), NLName(), NLName()});
-  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
-  outPath /= "SNLCapnPRTLInfosTest_rejectsUnsupportedSourceReferences";
-  EXPECT_THROW(SNLCapnP::dump(db_, outPath), SNLDumpException);
+TEST_F(SNLCapnPRTLInfosTest, fullWidthLegacyColumnsRoundTrip) {
+  for (auto column : {0u, 65535u, 65536u, 70000u, UINT32_MAX}) {
+    auto* infos = db_->getTopDesign()->getRTLInfos();
+    infos->setSourceLoc({NLName("boundary.sv"), 1, 1, column, column});
+    auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH) /
+      ("SNLCapnPRTLInfosTest_columnBoundary_" + std::to_string(column));
+    SNLCapnP::dump(db_, outPath);
+    NLUniverse::get()->destroy();
+    db_ = nullptr;
+    db_ = SNLCapnP::load(outPath);
+    ASSERT_NE(nullptr, db_);
+    const auto& loaded = db_->getTopDesign()->getRTLInfos()->getSourceLoc();
+    EXPECT_EQ(column, loaded->column);
+    EXPECT_EQ(column, loaded->endColumn);
+  }
 }

@@ -3349,7 +3349,7 @@ endmodule
       auto design = SNLDesign::create(library_, NLName(allocateElaboratedDesignName(defName)));
       bodyToDesign_[&body] = design;
       representativeBodies.push_back(&body);
-      annotateSourceInfo(design, getSourceRange(definition));
+      annotateSourceInfo(design, getSourceRange(definition), true);
       bindLiveASTLink(design, body);
 
       {
@@ -4317,7 +4317,8 @@ endmodule
     template<typename TObject>
     void annotateSourceInfo(
       TObject* object,
-      const SourceInfo& sourceInfo) const {
+      const SourceInfo& sourceInfo,
+      bool declaration = false) const {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       ++svPerfReport_.annotateSourceInfoCalls;
       noteSVPerfProgress();
@@ -4327,12 +4328,21 @@ endmodule
       if (!rtlInfos) {
         return; // LCOV_EXCL_LINE
       }
-      rtlInfos->setSourceLoc({
+      if (sourceInfo.column > std::numeric_limits<std::uint32_t>::max() ||
+          sourceInfo.endColumn > std::numeric_limits<std::uint32_t>::max()) {
+        throw NLException("SystemVerilog source column exceeds the 32-bit coordinate limit");
+      }
+      const SNLSourceLoc location {
         NLName(sourceInfo.file),
         static_cast<std::uint32_t>(sourceInfo.line),
         static_cast<std::uint32_t>(sourceInfo.endLine),
-        static_cast<std::uint16_t>(sourceInfo.column),
-        static_cast<std::uint16_t>(sourceInfo.endColumn)});
+        static_cast<std::uint32_t>(sourceInfo.column),
+        static_cast<std::uint32_t>(sourceInfo.endColumn)};
+      rtlInfos->setSourceLoc(location);
+      const SNLSourceReference reference {location, NLName("slang"),
+        NLName("systemverilog"), NLName("rtl")};
+      if (declaration) rtlInfos->setSourceDeclaration(reference);
+      else rtlInfos->addSourceOrigin(reference);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
       svPerfReport_.rtlInfoSetCalls += 5;
       noteSVPerfProgress();
@@ -4341,17 +4351,18 @@ endmodule
 
     void annotateSourceInfo(
       NLObject* object,
-      const std::optional<slang::SourceRange>& maybeRange) const {
+      const std::optional<slang::SourceRange>& maybeRange,
+      bool declaration = false) const {
       auto sourceInfo = getSourceInfo(maybeRange);
       if (!sourceInfo) {
         return; // LCOV_EXCL_LINE
       }
       if (auto* design = dynamic_cast<SNLDesign*>(object)) {
-        annotateSourceInfo(design, *sourceInfo);
+        annotateSourceInfo(design, *sourceInfo, declaration);
         return;
       }
       if (auto* designObject = dynamic_cast<SNLDesignObject*>(object)) {
-        annotateSourceInfo(designObject, *sourceInfo);
+        annotateSourceInfo(designObject, *sourceInfo, declaration);
       }
     }
 
@@ -4472,6 +4483,7 @@ endmodule
         auto loweredName = getLoweredSymbolName(symbol);
         auto* net = getOrCreateNet(design, loweredName, symbol.getType());
         setLoweredValueSymbolNet(design, symbol, net);
+        annotateSourceInfo(net, getSourceRange(symbol), true);
         return net;
       }
       return nullptr;
@@ -7874,7 +7886,7 @@ endmodule
           const auto loweredName = getLoweredSymbolName(*symbol);
           auto* net = getOrCreateNet(design, loweredName, symbol->getType());
           setLoweredValueSymbolNet(design, *symbol, net);
-          annotateSourceInfo(net, getSourceRange(*symbol));
+          annotateSourceInfo(net, getSourceRange(*symbol), true);
           bindLiveASTLink(net, *symbol);
         }
         if (!failureReason.empty()) {
@@ -9494,7 +9506,7 @@ endmodule
         } else {
           term = SNLScalarTerm::create(design, *direction, NLName(portName));
         }
-        annotateSourceInfo(term, getSourceRange(port));
+        annotateSourceInfo(term, getSourceRange(port), true);
         bindLiveASTLink(term, port);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
         ++svPerfReport_.portsCreated;
@@ -9573,7 +9585,7 @@ endmodule
           }
           auto net = getOrCreateNet(design, loweredName, valueSym.getType());
           setLoweredValueSymbolNet(design, valueSym, net);
-          annotateSourceInfo(net, getSourceRange(valueSym));
+          annotateSourceInfo(net, getSourceRange(valueSym), true);
           bindLiveASTLink(net, valueSym);
           if (const auto* initializer = valueSym.getInitializer()) {
             recordEqualitySelectorNet(net, *initializer);
@@ -9664,7 +9676,7 @@ endmodule
         return true;
       }
       const auto* rtlInfos = object->getRTLInfos();
-      return rtlInfos && !rtlInfos->getInfos().empty();
+      return rtlInfos && (!rtlInfos->getInfos().empty() || rtlInfos->getSourceDeclaration());
     }
 
     void retainAliasSourceLocation(
@@ -9674,10 +9686,12 @@ endmodule
         return; // LCOV_EXCL_LINE
       }
       const auto* fromInfos = from->getRTLInfos();
-      if (!fromInfos || !fromInfos->hasSourceLoc()) {
-        return;
+      if (!fromInfos) return;
+      auto* producerInfos = getOrCreateRTLInfos(producer);
+      for (const auto& origin: fromInfos->getSourceOrigins()) {
+        producerInfos->addSourceOrigin(origin);
       }
-      auto* producerInfos = producer->getRTLInfos();
+      if (!fromInfos->hasSourceLoc()) return;
       if (producerInfos && producerInfos->hasSourceLoc()) {
         return;
       }
@@ -35263,7 +35277,7 @@ endmodule
         design,
         modelDesign,
         NLName(getLoweredSymbolName(instance)));
-      annotateSourceInfo(inst, getSourceRange(instance));
+      annotateSourceInfo(inst, getSourceRange(instance), true);
       bindLiveASTLink(inst, instance);
       connectInstance(inst, instance);
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -35404,7 +35418,7 @@ endmodule
 
       auto inst = SNLInstance::create(
         design, model, NLName(getLoweredSymbolName(uninst)));
-      annotateSourceInfo(inst, getSourceRange(uninst));
+      annotateSourceInfo(inst, getSourceRange(uninst), true);
 
       // Wire the connections we can resolve; unresolved actuals are left
       // dangling rather than failing the load.

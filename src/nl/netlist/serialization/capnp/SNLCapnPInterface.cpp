@@ -31,6 +31,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "NLLibraryTruthTables.h"
 
 //using boost::asio::ip::tcp;
@@ -126,6 +127,21 @@ void dumpBusTerm(
   busTermBuilder.setDirection(SNLtoCapnPDirection(busTerm->getDirection()));
   if (busTerm->hasRTLInfos()) {
     dumpRTLInfos(busTermBuilder.initRtlInfos(), busTerm->getRTLInfos());
+  }
+  size_t count = 0;
+  for (auto bit: busTerm->getBits()) {
+    if (bit->hasRTLInfos()) ++count;
+  }
+  if (count) {
+    auto bitInfos = busTermBuilder.initBitInfos(count);
+    size_t id = 0;
+    for (auto bit: busTerm->getBits()) {
+      if (bit->hasRTLInfos()) {
+        auto builder = bitInfos[id++];
+        builder.setBit(static_cast<const SNLBusTermBit*>(bit)->getBit());
+        dumpRTLInfos(builder.initRtlInfos(), bit->getRTLInfos());
+      }
+    }
   }
 }
 
@@ -335,6 +351,13 @@ void loadBusTerm(
   auto busTerm = SNLBusTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
   if (term.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(busTerm), term.getRtlInfos());
+  }
+  for (auto bitInfo: term.getBitInfos()) {
+    auto bit = busTerm->getBit(bitInfo.getBit());
+    if (not bit) {
+      throw NLException("cannot deserialize bus term metadata: bit not found");
+    }
+    loadRTLInfos(SNLRTLInfos::create(bit), bitInfo.getRtlInfos());
   }
 }
 

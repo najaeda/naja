@@ -1406,7 +1406,7 @@ TEST_F(SNLDesignModelingTest0, testParameterizedTermRoles) {
   auto* prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
   auto* designs = NLLibrary::create(db);
   auto* top = SNLDesign::create(designs, NLName("top"));
-  auto* model = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("NX_DFF"));
+  auto* model = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("TEST_DFF"));
   auto* reset = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("R"));
   auto* load = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("L"));
   auto* clock = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("CK"));

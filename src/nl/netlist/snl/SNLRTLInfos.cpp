@@ -213,7 +213,7 @@ void SNLRTLInfos::setInfo(const InfoName& name, const InfoValue& value) {
       if (!sourceLoc_) {
         sourceLoc_.emplace();
       }
-      sourceLoc_->column = parseUnsignedInfoValue<std::uint16_t>(value);
+      sourceLoc_->column = parseUnsignedInfoValue<std::uint32_t>(value);
       return;
     case SourceInfoField::EndLine:
       if (!sourceLoc_) {
@@ -225,7 +225,7 @@ void SNLRTLInfos::setInfo(const InfoName& name, const InfoValue& value) {
       if (!sourceLoc_) {
         sourceLoc_.emplace();
       }
-      sourceLoc_->endColumn = parseUnsignedInfoValue<std::uint16_t>(value);
+      sourceLoc_->endColumn = parseUnsignedInfoValue<std::uint32_t>(value);
       return;
   }
 }
@@ -266,9 +266,6 @@ const SNLRTLInfos::Infos& SNLRTLInfos::getInfos() const {
 }
 
 std::vector<std::pair<std::string, std::string>> SNLRTLInfos::getDumpAttributes() const {
-  if (hasSourceReferences()) {
-    throw NLException("Verilog export of source references is not supported yet");
-  }
   std::vector<std::pair<std::string, std::string>> attributes;
   attributes.reserve((sourceLoc_ ? 5 : 0) + (extra_ ? extra_->size() : 0));
 
@@ -289,9 +286,6 @@ std::vector<std::pair<std::string, std::string>> SNLRTLInfos::getDumpAttributes(
 
 std::optional<std::pair<std::string, std::string>>
 SNLRTLInfos::getCompactSourceLocAttribute() const {
-  if (hasSourceReferences()) {
-    throw NLException("Verilog export of source references is not supported yet");
-  }
   if (not sourceLoc_) {
     return std::nullopt;
   }

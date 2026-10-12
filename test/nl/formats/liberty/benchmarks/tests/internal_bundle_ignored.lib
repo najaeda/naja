@@ -1,0 +1,19 @@
+// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+library (example) {
+  cell (synthetic_bundle_cell) {
+    bundle (internal_data) {
+      members (temporary_0, temporary_1, temporary_2);
+      direction : internal;
+    }
+    pin (clock) {
+      clock : true;
+      direction : input;
+    }
+    pin (enable) {
+      direction : input;
+    }
+  }
+}

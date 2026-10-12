@@ -4,7 +4,9 @@
 
 """Bazel module for naja.
 
-Every dependency is a plain bazel_dep. Versions that are not on the
+Registered dependency versions remain here for BCR consumers. Root source
+builds select the shared naja-if checkout through .bazelrc; --config=registered
+clears that override. Versions that are not on the
 Bazel Central Registry yet come from their open BCR pull requests,
 which .bazelrc lists ahead of BCR.
 """
