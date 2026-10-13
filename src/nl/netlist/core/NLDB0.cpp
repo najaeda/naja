@@ -1273,24 +1273,31 @@ std::string NLDB0::GateType::getString() const {
   return "Bug"; //LCOV_EXCL_LINE
 }
 
-std::string NLDB0::formatDFFInitValue(
+std::string NLDB0::formatBitVectorValue(
   size_t width,
-  std::string_view msbToLsbDigits) {
+  std::string_view msbToLsbDigits,
+  bool isSigned) {
   if (width == 0 || msbToLsbDigits.size() != width) {
-    throw NLException("NLDB0::formatDFFInitValue: invalid DFF INIT width");
+    throw NLException("NLDB0::formatBitVectorValue: invalid width");
   }
   std::ostringstream literal;
-  literal << width << "'b";
+  literal << width << (isSigned ? "'sb" : "'b");
   for (char digit : msbToLsbDigits) {
     const char normalized = static_cast<char>(
       std::tolower(static_cast<unsigned char>(digit)));
     if (normalized != '0' && normalized != '1' &&
         normalized != 'x' && normalized != 'z') {
-      throw NLException("NLDB0::formatDFFInitValue: invalid DFF INIT digit");
+      throw NLException("NLDB0::formatBitVectorValue: invalid digit");
     }
     literal << normalized;
   }
   return literal.str();
+}
+
+std::string NLDB0::formatDFFInitValue(
+  size_t width,
+  std::string_view msbToLsbDigits) {
+  return formatBitVectorValue(width, msbToLsbDigits);
 }
 
 std::string NLDB0::getUndefinedDFFInitValue(size_t width) {

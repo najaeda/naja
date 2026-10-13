@@ -11,6 +11,9 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLException.h"
+#include "SNLBusTerm.h"
+#include "SNLDesign.h"
+#include "SNLParameter.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -20,6 +23,7 @@ using ::testing::ElementsAre;
 
 #include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
+#include "SNLVRLDumper.h"
 
 using namespace naja::NL;
 
@@ -72,7 +76,8 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   EXPECT_EQ(1, ins0->getInstParameters().size());
   auto param = *(ins0->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h5054", param->getValue());
+  // 16'h5054 is stored in the canonical sized-binary parameter form.
+  EXPECT_EQ("16'b0101000001010100", param->getValue());
 
   auto ins1 = ins_decode->getInstance(NLName("decodes_in_0_a2_i_o3[8]"));
   ASSERT_NE(ins1, nullptr);
@@ -83,7 +88,156 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   EXPECT_EQ(1, ins2->getInstParameters().size());
   param = *(ins2->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h0001", param->getValue());
+  // 16'h0001 in canonical form.
+  EXPECT_EQ("16'b0000000000000001", param->getValue());
+}
+
+TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalization) {
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
+  SNLPyLoader::loadPrimitives(prims, primitivesPath/"primitives0.py");
+  // A memory-like primitive with a decimal-typed WIDTH parameter next to a
+  // bit-typed INIT parameter and a string-typed MODE parameter.
+  auto* memModel =
+      SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("MEM8"));
+  SNLBusTerm::create(memModel, SNLTerm::Direction::Input, 7, 0, NLName("D"));
+  SNLBusTerm::create(memModel, SNLTerm::Direction::Output, 7, 0, NLName("Q"));
+  SNLParameter::create(
+      memModel, NLName("WIDTH"), SNLParameter::Type::Decimal, "8");
+  SNLParameter::create(
+      memModel, NLName("INIT"), SNLParameter::Type::Binary, "8'b0");
+  SNLParameter::create(
+      memModel, NLName("MODE"), SNLParameter::Type::String, "normal");
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath/"test_param_canonicalization.v");
+
+  auto top = library_->getSNLDesign(NLName("test_param_canonicalization"));
+  ASSERT_NE(top, nullptr);
+  auto expectParam = [&](const char* instanceName, const char* expected) {
+    auto instance = top->getInstance(NLName(instanceName));
+    ASSERT_NE(instance, nullptr);
+    ASSERT_EQ(1, instance->getInstParameters().size());
+    auto param = *(instance->getInstParameters().begin());
+    EXPECT_EQ("INIT", param->getName().getString());
+    EXPECT_EQ(expected, param->getValue());
+  };
+  expectParam("i_hex", "16'b0101000001010100");
+  expectParam("i_sep", "16'b0000000000000001");
+  expectParam("i_oct", "16'b0000000111111111");
+  expectParam("i_dec", "16'b0000000000000101");
+  // The signed marker is preserved: widening 16'sh000F sign-extends from
+  // bit 15, so dropping 's would change the value in a wider context.
+  expectParam("i_sig", "16'sb0000000000001111");
+  expectParam("i_x", "16'b00000000xxxx0001");
+  // A sized literal whose leftmost digit is z is z-extended to its width.
+  expectParam("i_zext", "16'bzzzzzzzzzzzz0001");
+  // Unsized literals have a context-dependent width (at least 32): no
+  // faithful literal-level canonical form, the source text is kept.
+  expectParam("i_unsized", "'hF");
+  // Negated literals evaluate at the context width (16'(-16'h0001) would be
+  // 16'hffff, not the 16-bit two's complement): source text is kept, with
+  // the sign that Number::getString() would otherwise drop.
+  expectParam("i_neg", "-16'h0001");
+  // Binary base with separators.
+  expectParam("i_bin", "16'b0101000001010100");
+  // Signed literal whose top bit is 1, through #(...).
+  expectParam("i_stop", "4'sb1111");
+  // Signed literal with an unknown digit, through #(...).
+  expectParam("i_sx", "4'sb1x01");
+  // Decimal base with a lone x digit: every bit unknown.
+  expectParam("i_decx", "16'bxxxxxxxxxxxxxxxx");
+  // More digit bits than the declared size: extra leftmost bits truncate.
+  expectParam("i_trunc", "4'b1111");
+  // Leftmost digit x: x-extends to the declared width.
+  expectParam("i_xpad", "16'bxxxxxxxxxxxx0001");
+  // Same shapes through defparam: signed, signed with unknown digit, and
+  // negative with unknown digit (kept in source form).
+  expectParam("i_sdef", "4'sb1111");
+  expectParam("i_sxdef", "4'sb1x01");
+  expectParam("i_negx", "-4'bx001");
+
+  // Decimal-typed and string-typed parameters keep their source form; only
+  // bit-typed parameters are canonicalized.
+  auto* memInst = top->getInstance(NLName("i_mem"));
+  ASSERT_NE(memInst, nullptr);
+  auto* widthParam = memInst->getInstParameter(NLName("WIDTH"));
+  ASSERT_NE(widthParam, nullptr);
+  EXPECT_EQ("8", widthParam->getValue());
+  auto* memInitParam = memInst->getInstParameter(NLName("INIT"));
+  ASSERT_NE(memInitParam, nullptr);
+  EXPECT_EQ("8'b10100101", memInitParam->getValue());
+  auto* memModeParam = memInst->getInstParameter(NLName("MODE"));
+  ASSERT_NE(memModeParam, nullptr);
+  EXPECT_EQ("fast", memModeParam->getValue());
+
+  // Same through defparam on an instance without #(...) overrides.
+  auto* memInst2 = top->getInstance(NLName("i_mem2"));
+  ASSERT_NE(memInst2, nullptr);
+  auto* widthParam2 = memInst2->getInstParameter(NLName("WIDTH"));
+  ASSERT_NE(widthParam2, nullptr);
+  EXPECT_EQ("16", widthParam2->getValue());
+  auto* modeParam2 = memInst2->getInstParameter(NLName("MODE"));
+  ASSERT_NE(modeParam2, nullptr);
+  EXPECT_EQ("slow", modeParam2->getValue());
+}
+
+// Canonical parameter values must survive a dump/reload round trip: the
+// dumper writes the stored string verbatim, and reloading it must re-canonicalize
+// to the identical form (in particular the 'sb signed form is emitted as valid
+// Verilog and parses back to itself).
+TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalizationRoundTrip) {
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
+  auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
+  SNLPyLoader::loadPrimitives(prims, primitivesPath/"primitives0.py");
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath/"test_param_canonicalization_rt.v");
+
+  auto top = library_->getSNLDesign(NLName("test_param_canonicalization_rt"));
+  ASSERT_NE(top, nullptr);
+  const std::pair<const char*, const char*> expected[] = {
+    {"i_hex", "16'b0101000001010100"},
+    {"i_stop", "4'sb1111"},
+    {"i_sx", "4'sb1x01"},
+    {"i_unsized", "'hF"},
+  };
+  auto expectParams = [&](SNLDesign* design) {
+    for (const auto& [instanceName, value] : expected) {
+      auto instance = design->getInstance(NLName(instanceName));
+      ASSERT_NE(instance, nullptr);
+      auto* param = instance->getInstParameter(NLName("INIT"));
+      ASSERT_NE(param, nullptr);
+      EXPECT_EQ(value, param->getValue()) << instanceName;
+    }
+  };
+  expectParams(top);
+
+  std::ostringstream dump;
+  SNLVRLDumper dumper;
+  dumper.dumpDesign(top, dump);
+  const std::string dumped = dump.str();
+  // The signed canonical form is emitted as a valid Verilog literal.
+  EXPECT_NE(std::string::npos, dumped.find(".INIT(4'sb1111)")) << dumped;
+  EXPECT_NE(std::string::npos, dumped.find(".INIT(16'b0101000001010100)")) << dumped;
+
+  const auto dumpPath =
+      std::filesystem::temp_directory_path() / "test_param_canonicalization_rt.v";
+  {
+    std::ofstream dumpFile(dumpPath);
+    dumpFile << dumped;
+  }
+  auto library2 = NLLibrary::create(db, NLName("MYLIB2"));
+  SNLVRLConstructor reloader(library2);
+  reloader.construct(dumpPath);
+  std::filesystem::remove(dumpPath);
+
+  auto reloaded = library2->getSNLDesign(NLName("test_param_canonicalization_rt"));
+  ASSERT_NE(reloaded, nullptr);
+  // Reloading the dumped form reproduces the identical stored values.
+  expectParams(reloaded);
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors0) {

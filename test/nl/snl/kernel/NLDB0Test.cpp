@@ -155,6 +155,20 @@ TEST_F(NLDB0Test, testDFFInitValueFormatting) {
   EXPECT_THROW(NLDB0::formatDFFInitValue(1, "2"), NLException);
 }
 
+TEST_F(NLDB0Test, testBitVectorValueFormatting) {
+  // Canonical form: "<width>['s]'b<msb...lsb>", lowercase digits, no separators.
+  EXPECT_EQ("4'b0101", NLDB0::formatBitVectorValue(4, "0101"));
+  EXPECT_EQ("4'sb1111", NLDB0::formatBitVectorValue(4, "1111", true));
+  EXPECT_EQ("8'bzzzz0011", NLDB0::formatBitVectorValue(8, "ZZZZ0011"));
+  EXPECT_EQ("16'b00000000xxxx0001", NLDB0::formatBitVectorValue(16, "00000000xxxx0001"));
+  EXPECT_EQ("1'sbx", NLDB0::formatBitVectorValue(1, "X", true));
+
+  EXPECT_THROW(NLDB0::formatBitVectorValue(0, ""), NLException);
+  EXPECT_THROW(NLDB0::formatBitVectorValue(2, "0"), NLException);
+  EXPECT_THROW(NLDB0::formatBitVectorValue(2, "000"), NLException);
+  EXPECT_THROW(NLDB0::formatBitVectorValue(1, "2"), NLException);
+}
+
 TEST_F(NLDB0Test, testPrimitiveTermRoles) {
   using Role = SNLDesignModeling::SNLTermRole;
   using Level = SNLDesignModeling::SNLActiveLevel;
