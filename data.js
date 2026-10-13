@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791841319279,
+  "lastUpdate": 1791888525954,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -15708,6 +15708,108 @@ window.BENCHMARK_DATA = {
             "value": 401773.43465813034,
             "unit": "ns/iter",
             "extra": "iterations: 1737\ncpu: 401665.63327579666 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1346550347@qq.com",
+            "name": "Qiming Chu",
+            "username": "Emin017"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7a72ce03b5b62195b43211f7f4d934101c1849a",
+          "message": "Canonicalize sized bit-literal parameter values in the structural Verilog frontend (#465)\n\n* Canonicalize sized bit-literal parameters in the Verilog frontend\n\n* Canonicalize only bit-typed parameters in the Verilog frontend\n\n* Add a shared canonical bit-vector value formatter to NLDB0\n\nNLDB0::formatBitVectorValue() generalizes formatDFFInitValue() to the\ncanonical storage form for resolved bit-vector parameter values,\n\"<width>['s]'b<msb...lsb>\", and documents the contract: the stored\nvalue is the literal itself, not a destination-type conversion, with\nexplicit sizing rules for consumers that apply it at a different width\nand an explicit list of the parameter values that remain\nnon-canonical. formatDFFInitValue() becomes a thin wrapper so the DB0\nsequential primitives keep their existing entry point.\n\n* Fix literal semantics in Verilog parameter canonicalization\n\nAddress review feedback on the sized bit-literal canonicalization:\n\n- Unsized literals ('hF) no longer get a width fabricated from their\n  digit count: their width is context-dependent (at least 32), so they\n  keep their source form.\n- The signed marker is preserved (16'sh000F becomes\n  16'sb0000000000001111) instead of being dropped: sign extension in a\n  wider context would otherwise change the value.\n- Negated literals keep their source form. Unary minus evaluates at the\n  context width (in 16 bits, -4'b0001 is 16'hffff), so the previous\n  literal-width two's complement was not functionally equivalent; its\n  carry-based algorithm also mishandled unknown bits (-4'bx001 is\n  4'bxxxx, not 4'bx111). Since Number::getString() drops the sign of a\n  negated number, the kept source text is rebuilt with its '-' rather\n  than silently losing it.\n\nFormatting now goes through the shared NLDB0::formatBitVectorValue(),\nwhich owns the canonical contract and its validation.\n\n* Extend parameter canonicalization regression coverage\n\nCover the literal shapes called out in review, through both parameter\noverride paths:\n\n- signed literals whose top bit is 1 (4'sb1111) via #(...) and defparam,\n  so the case that motivated preserving the signed marker is exercised;\n- signed literals with unknown digits (4'sb1x01) via both paths;\n- negated literals via defparam, including unknown digits (-4'bx001),\n  which keep their source form with the sign restored (the #(...)\n  expression grammar has no unary minus, so only defparam can carry a\n  negated literal; the sign-restoring branch on the expression path is\n  marked unreachable);\n- binary base with separators, decimal lone-x, x-extension to the\n  declared width, and truncation of extra leftmost digit bits;\n- plain-integer and string overrides on decimal- and string-typed\n  parameters, which keep their source form.\n\nAdd a dump/reload round trip test: the stored canonical values (including\nthe 4'sb1111 signed form) are emitted by SNLVRLDumper as valid Verilog\nand reparse to the identical stored form.",
+          "timestamp": "2026-10-13T12:46:12+02:00",
+          "tree_id": "074abf6e20f0a1c1e5b6bf4d0eea216baa1224d6",
+          "url": "https://github.com/najaeda/naja/commit/b7a72ce03b5b62195b43211f7f4d934101c1849a"
+        },
+        "date": 1791888524626,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 218107.35903226113,
+            "unit": "ns/iter",
+            "extra": "iterations: 3100\ncpu: 218057.85774193547 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 314117.0922939049,
+            "unit": "ns/iter",
+            "extra": "iterations: 2232\ncpu: 314027.15008960577 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1824279.6207792035,
+            "unit": "ns/iter",
+            "extra": "iterations: 385\ncpu: 1823863.7038961037 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17896006.89999986,
+            "unit": "ns/iter",
+            "extra": "iterations: 40\ncpu: 17893288.575 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1223.116113570116,
+            "unit": "ns/iter",
+            "extra": "iterations: 572052\ncpu: 1222.977143686238 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 12129.467193142675,
+            "unit": "ns/iter",
+            "extra": "iterations: 57869\ncpu: 12128.07990461213 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 183547.8077216159,
+            "unit": "ns/iter",
+            "extra": "iterations: 3937\ncpu: 183532.8841757683 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 501349.99429387023,
+            "unit": "ns/iter",
+            "extra": "iterations: 1402\ncpu: 501273.43009985733 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 452345.7280927889,
+            "unit": "ns/iter",
+            "extra": "iterations: 1552\ncpu: 452293.9168814435 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 366612.34309624135,
+            "unit": "ns/iter",
+            "extra": "iterations: 1912\ncpu: 366559.28504184127 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 66868833.22222078,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 66858852.888888866 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 19827.68454868517,
+            "unit": "ns/iter",
+            "extra": "iterations: 35175\ncpu: 19826.028201847937 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 406184.4843027257,
+            "unit": "ns/iter",
+            "extra": "iterations: 1720\ncpu: 406097.8052326016 ns\nthreads: 1"
           }
         ]
       }
