@@ -300,6 +300,9 @@ std::optional<std::string> canonicalizeParameterExpression(
 std::string parameterExpressionText(
     const naja::verilog::Expression& expression) {
   std::string text = expression.getString();
+  // The expression grammar has no unary minus, so a NUMBER here is always
+  // non-negative today; keep the sign restoration symmetric with the
+  // constant-expression path in case the grammar grows one.
   if (expression.valid_ &&
       expression.value_.index() == naja::verilog::Expression::Type::NUMBER &&
       not std::get<naja::verilog::Expression::Type::NUMBER>(
