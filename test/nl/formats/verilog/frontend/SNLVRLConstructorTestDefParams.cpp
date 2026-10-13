@@ -124,9 +124,19 @@ TEST_F(SNLVRLConstructorTestDefParams, testParameterCanonicalization) {
   expectParam("i_sep", "16'b0000000000000001");
   expectParam("i_oct", "16'b0000000111111111");
   expectParam("i_dec", "16'b0000000000000101");
-  expectParam("i_sig", "16'b0000000000001111");
+  // The signed marker is preserved: widening 16'sh000F sign-extends from
+  // bit 15, so dropping 's would change the value in a wider context.
+  expectParam("i_sig", "16'sb0000000000001111");
   expectParam("i_x", "16'b00000000xxxx0001");
-  expectParam("i_unsized", "4'b1111");
+  // A sized literal whose leftmost digit is z is z-extended to its width.
+  expectParam("i_zext", "16'bzzzzzzzzzzzz0001");
+  // Unsized literals have a context-dependent width (at least 32): no
+  // faithful literal-level canonical form, the source text is kept.
+  expectParam("i_unsized", "'hF");
+  // Negated literals evaluate at the context width (16'(-16'h0001) would be
+  // 16'hffff, not the 16-bit two's complement): source text is kept, with
+  // the sign that Number::getString() would otherwise drop.
+  expectParam("i_neg", "-16'h0001");
 
   // Decimal-typed parameters keep their source form; only bit-typed
   // parameters are canonicalized.

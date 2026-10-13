@@ -167,13 +167,19 @@ void collectAttributes(
   }
 }
 
-// Canonicalizes a based-number parameter value to the SNL storage form for
-// sized bit literals: "<width>'b<msb...lsb>" with lowercase digits in
-// {0,1,x,z}, no separators and no signed marker. Downstream consumers can
-// then read parameter bits without re-implementing Verilog literal parsing.
-// Returns nullopt for values that are not plain based numbers (plain
-// integers, strings, concatenations, identifiers); callers keep the source
-// text for those.
+// Canonicalizes a sized, non-negative based-number literal to the shared
+// canonical bit-vector parameter form defined by NLDB0::formatBitVectorValue:
+// "<width>['s]'b<msb...lsb>". Downstream consumers can then read parameter
+// bits without re-implementing Verilog literal parsing.
+//
+// Returns nullopt — the caller keeps the source text — for values that have
+// no faithful literal-level canonical form:
+//   - plain integers, strings, concatenations, identifiers,
+//   - unsized literals ('hF): their width is context-dependent (at least 32),
+//   - negated literals (-4'b1): unary minus is evaluated at the context
+//     width, which the frontend cannot see (in a 16-bit context -4'b0001 is
+//     16'hffff, not the 4-bit two's complement 4'b1101 zero-extended),
+//   - digits that do not match the declared base.
 std::optional<std::string> canonicalizeBasedNumber(
     const naja::verilog::Number& number) {
   if (number.value_.index() != naja::verilog::Number::Type::BASED) {
@@ -181,6 +187,13 @@ std::optional<std::string> canonicalizeBasedNumber(
   }
   const auto& based =
       std::get<naja::verilog::Number::Type::BASED>(number.value_);
+  if (not based.hasSize_ or not number.sign_) {
+    return std::nullopt;
+  }
+  const size_t width = based.size_;
+  if (width == 0) {
+    return std::nullopt;  // LCOV_EXCL_LINE
+  }
   std::string digits;
   for (char c : based.digits_) {
     if (c != '_') {
@@ -189,20 +202,6 @@ std::optional<std::string> canonicalizeBasedNumber(
     }
   }
   if (digits.empty()) {
-    return std::nullopt;  // LCOV_EXCL_LINE
-  }
-  size_t width = 0;
-  if (based.hasSize_) {
-    width = based.size_;
-  } else {
-    switch (based.base_) {
-      case naja::verilog::BasedNumber::BINARY:  width = digits.size(); break;
-      case naja::verilog::BasedNumber::OCTAL:   width = 3 * digits.size(); break;
-      case naja::verilog::BasedNumber::HEX:     width = 4 * digits.size(); break;
-      case naja::verilog::BasedNumber::DECIMAL: width = 32; break;
-    }
-  }
-  if (width == 0) {
     return std::nullopt;  // LCOV_EXCL_LINE
   }
   std::string bits;  // LSB first
@@ -241,9 +240,9 @@ std::optional<std::string> canonicalizeBasedNumber(
       break;
     }
     case naja::verilog::BasedNumber::DECIMAL: {
-      // A lone x/z digit marks every bit as unknown.
       if (digits == "x" || digits == "z") {
-        bits.assign(width, digits.front());
+        // A lone x/z digit marks every bit as unknown.
+        bits.push_back(digits.front());
         break;
       }
       for (char c : digits) {
@@ -251,7 +250,7 @@ std::optional<std::string> canonicalizeBasedNumber(
           return std::nullopt;  // LCOV_EXCL_LINE
         }
       }
-      bits.assign(width, '0');
+      // Only the least-significant width bits survive the sizing below.
       std::string remaining = digits;
       for (size_t i = 0; i < width && remaining != "0"; ++i) {
         int carry = 0;
@@ -263,57 +262,26 @@ std::optional<std::string> canonicalizeBasedNumber(
             quotient.push_back(static_cast<char>('0' + current / 2));
           }
         }
-        bits[i] = carry ? '1' : '0';
+        bits.push_back(carry ? '1' : '0');
         remaining = quotient.empty() ? "0" : quotient;
       }
       break;
     }
   }
-  if (based.base_ != naja::verilog::BasedNumber::DECIMAL) {
-    // Sized literals zero-extend to the declared width (x/z-extend when the
-    // leftmost digit is x/z); the signed marker only governs later expression
-    // context extension and does not change the literal's own bit pattern.
-    const char pad =
-        digits.front() == 'x' || digits.front() == 'z' ? digits.front() : '0';
-    if (bits.size() < width) {
-      bits.append(width - bits.size(), pad);
-    } else if (bits.size() > width) {
-      bits.resize(width);
-    }
+  // Sized literals are padded on the left to their declared width with '0',
+  // or with x/z when the leftmost digit is x/z, and extra leftmost bits are
+  // truncated (IEEE 1364 sized-number rules). The signed marker only governs
+  // later expression-context extension, so it does not change the literal's
+  // own bit pattern and is preserved in the canonical form instead.
+  const char pad =
+      digits.front() == 'x' || digits.front() == 'z' ? digits.front() : '0';
+  if (bits.size() < width) {
+    bits.append(width - bits.size(), pad);
+  } else if (bits.size() > width) {
+    bits.resize(width);
   }
-  if (!number.sign_) {
-    // Negative literal: two's complement, i.e. invert all bits and add one
-    // starting from the LSB. An unknown digit under an incoming carry makes
-    // the carry and every more-significant result bit unknown.
-    for (auto& c : bits) {
-      if (c == '0') {
-        c = '1';
-      } else if (c == '1') {
-        c = '0';
-      }
-    }
-    bool carry = true;
-    for (size_t i = 0; i < bits.size() && carry; ++i) {
-      if (bits[i] == '0') {
-        bits[i] = '1';
-        carry = false;
-      } else if (bits[i] == '1') {
-        bits[i] = '0';
-      } else {
-        bits[i] = 'x';
-        for (size_t j = i + 1; j < bits.size(); ++j) {
-          bits[j] = 'x';
-        }
-        break;
-      }
-    }
-  }
-  std::ostringstream stream;
-  stream << width << "'b";
-  for (auto it = bits.rbegin(); it != bits.rend(); ++it) {
-    stream << *it;
-  }
-  return stream.str();
+  return naja::NL::NLDB0::formatBitVectorValue(
+      width, std::string(bits.rbegin(), bits.rend()), based.signed_);
 }
 
 std::optional<std::string> canonicalizeParameterExpression(
@@ -324,6 +292,33 @@ std::optional<std::string> canonicalizeParameterExpression(
   }
   return canonicalizeBasedNumber(
       std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_));
+}
+
+// Number::getString() drops the sign of a negated number, so a negated value
+// kept in source form gets its '-' back here; storing "4'b1" for -4'b1 would
+// silently change the value.
+std::string parameterExpressionText(
+    const naja::verilog::Expression& expression) {
+  std::string text = expression.getString();
+  if (expression.valid_ &&
+      expression.value_.index() == naja::verilog::Expression::Type::NUMBER &&
+      not std::get<naja::verilog::Expression::Type::NUMBER>(
+          expression.value_).sign_) {
+    text.insert(text.begin(), '-');
+  }
+  return text;
+}
+
+std::string parameterConstantExpressionText(
+    const naja::verilog::ConstantExpression& expression) {
+  std::string text = expression.getString();
+  if (expression.valid_ &&
+      expression.getType() == naja::verilog::ConstantExpression::Type::NUMBER &&
+      not std::get<naja::verilog::ConstantExpression::Type::NUMBER>(
+          expression.value_).sign_) {
+    text.insert(text.begin(), '-');
+  }
+  return text;
 }
 
 void createPort(
@@ -1063,7 +1058,7 @@ void SNLVRLConstructor::addParameterAssignment(
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
     auto& stored = currentInstanceParameterValues_[parameter.name_];
-    stored.source = expression.getString();
+    stored.source = parameterExpressionText(expression);
     stored.canonical = canonicalizeParameterExpression(expression);
   }
 }
@@ -1555,7 +1550,7 @@ void SNLVRLConstructor::addDefParameterAssignment(
       reason << " cannot be found in " << instance->getModel()->getName().getString();
       throw SNLVRLConstructorException(reason.str());
     }
-    std::string parameterValue = expression.getString();
+    std::string parameterValue = parameterConstantExpressionText(expression);
     // Same rule as instance overrides: only bit-typed parameters get the
     // canonical sized-binary form.
     if (parameter->getType() == naja::NL::SNLParameter::Type::Binary &&
