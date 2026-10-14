@@ -4454,9 +4454,18 @@ endmodule
 
     SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
       const Expression* current = stripConnectionLValueArgConversions(expr);
+      // Constants must go through expression-bit lowering, like literals.
+      // Materializing a named constant as a signal creates an undriven net.
+      if (current && current->getConstant()) {
+        return nullptr;
+      }
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
+        slang::ast::EvalContext evalContext(symbol);
+        if (current->eval(evalContext)) {
+          return nullptr;
+        }
         for (auto it = activeFunctionArgumentNets_.rbegin();
              it != activeFunctionArgumentNets_.rend();
              ++it) {

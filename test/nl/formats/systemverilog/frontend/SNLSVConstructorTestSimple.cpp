@@ -23047,9 +23047,20 @@ endmodule
 
   auto* topPkgNet = top->getNet(NLName("fpnew_pkg_FP_ENCODINGS"));
   auto* leafPkgNet = leaf->getNet(NLName("fpnew_pkg_FP_ENCODINGS"));
-  ASSERT_NE(topPkgNet, nullptr);
-  ASSERT_NE(leafPkgNet, nullptr);
-  EXPECT_NE(topPkgNet, leafPkgNet);
+  EXPECT_EQ(nullptr, topPkgNet);
+  EXPECT_EQ(nullptr, leafPkgNet);
+  for (auto* design : {top, leaf}) {
+    for (unsigned input = 0; input < 4; ++input) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      memo[design->getScalarTerm(NLName("sel_i"))->getNet()] = bool(input & 1);
+      memo[design->getScalarTerm(NLName("idx_i"))->getNet()] = bool(input & 2);
+      const unsigned expected = (input & 1) ? ((input & 2) ? 11 : 8) : 0;
+      for (auto* bit : design->getBusTerm(NLName(design == top ? "a_o" : "y_o"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1),
+                  evaluateFunctionResultBit(design, bit->getNet(), 0, 0, &memo));
+      }
+    }
+  }
 }
 
 TEST_F(
@@ -23110,9 +23121,21 @@ endmodule
 
   auto* topPkgNet = top->getNet(NLName("range_pkg_TABLE"));
   auto* leafPkgNet = leaf->getNet(NLName("range_pkg_TABLE"));
-  ASSERT_NE(topPkgNet, nullptr);
-  ASSERT_NE(leafPkgNet, nullptr);
-  EXPECT_NE(topPkgNet, leafPkgNet);
+  EXPECT_EQ(nullptr, topPkgNet);
+  EXPECT_EQ(nullptr, leafPkgNet);
+  for (auto* design : {top, leaf}) {
+    for (unsigned input = 0; input < 4; ++input) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : design->getBusTerm(NLName("idx_i"))->getBits()) {
+        memo[bit->getNet()] = bool((input >> bit->getBit()) & 1);
+      }
+      const unsigned expected = (0x76543210 >> (8 * input)) & 0xff;
+      for (auto* bit : design->getBusTerm(NLName(design == top ? "a_o" : "y_o"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1),
+                  evaluateFunctionResultBit(design, bit->getNet(), 0, 0, &memo));
+      }
+    }
+  }
 }
 
 TEST_F(
@@ -35433,6 +35456,98 @@ endmodule
       getSingleAssignInputDriving(mixed->getBit(static_cast<NLID::Bit>(bit))));
     ASSERT_NE(nullptr, driver);
     EXPECT_EQ(expected[bit], driver->getType());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNamedConstantPortConnections) {
+  const std::string packageText = R"(package constants_pkg;
+  typedef enum logic [4:0] { Choice = 5'h16 } choice_t;
+  parameter logic [4:0] Mask = 5'h0b;
+  typedef struct packed { logic [4:0] value; logic flag; } config_t;
+  localparam config_t Config = '{value: 5'h13, flag: 1'b1};
+endpackage
+)";
+  const std::string moduleText = R"(module constant_sink(input logic [4:0] data);
+endmodule
+module constant_connections;
+  import constants_pkg::*;
+  parameter logic [4:0] LocalMask = 5'h0d;
+  typedef enum logic [4:0] { LocalChoice = 5'h07 } local_choice_t;
+  wire [4:0] assigned;
+  assign assigned = constants_pkg::Choice;
+  constant_sink enum_port(.data(constants_pkg::Choice));
+  constant_sink parameter_port(.data(constants_pkg::Mask));
+  constant_sink expression_port(.data(~constants_pkg::Mask));
+  constant_sink imported_port(.data(Choice));
+  constant_sink local_parameter_port(.data(LocalMask));
+  constant_sink local_enum_port(.data(LocalChoice));
+  constant_sink field_port(.data(constants_pkg::Config.value));
+  constant_sink literal_port(.data(5'h16));
+  constant_sink assigned_port(.data(assigned));
+endmodule
+)";
+  for (const std::string mode : {"combined", "per_file", "single_unit"}) {
+    SCOPED_TRACE(mode);
+    auto* library = NLLibrary::create(
+      library_->getDB(), NLName("constants_" + mode));
+    SNLSVConstructor constructor(library);
+    if (mode != "combined") {
+      const auto packagePath = writeSVTestFile("constant_package", packageText);
+      const auto modulePath = writeSVTestFile("constant_modules", moduleText);
+      SNLSVConstructor::Paths paths{packagePath, modulePath};
+      if (mode == "single_unit") {
+        paths.insert(paths.begin(), std::filesystem::path("--single-unit"));
+      }
+      ASSERT_NO_THROW(constructor.construct(paths));
+    } else {
+      ASSERT_NO_THROW(constructor.construct(
+        writeSVTestFile("constant_combined", packageText + moduleText)));
+    }
+    auto* top = library->getSNLDesign(NLName("constant_connections"));
+    auto* sink = library->getSNLDesign(NLName("constant_sink"));
+    ASSERT_NE(nullptr, top);
+    ASSERT_NE(nullptr, sink);
+    auto* data = sink->getBusTerm(NLName("data"));
+    ASSERT_NE(nullptr, data);
+    for (const auto& [name, value] : std::vector<std::pair<std::string, unsigned>>{
+           {"enum_port", 0x16}, {"parameter_port", 0x0b}, {"expression_port", 0x14},
+           {"imported_port", 0x16}, {"local_parameter_port", 0x0d},
+           {"local_enum_port", 0x07}, {"field_port", 0x13}, {"literal_port", 0x16},
+           {"assigned_port", 0x16}}) {
+      SCOPED_TRACE(name);
+      auto* instance = top->getInstance(NLName(name));
+      ASSERT_NE(nullptr, instance);
+      for (NLID::Bit bit = 0; bit < 5; ++bit) {
+        auto* net = instance->getInstTerm(data->getBit(bit))->getNet();
+        ASSERT_NE(nullptr, net);
+        if (name == "assigned_port") {
+          net = dynamic_cast<SNLBitNet*>(getSingleAssignInputDriving(net));
+          ASSERT_NE(nullptr, net);
+        }
+        EXPECT_EQ((value >> bit) & 1 ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0,
+                  net->getType()) << bit;
+      }
+    }
+    for (auto* design : library->getSNLDesigns()) {
+      for (auto* net : design->getBitNets()) {
+        bool hasReader = false;
+        bool hasDriver = net->isConstant();
+        for (auto* term : net->getBitTerms()) {
+          hasReader |= term->getDirection() != SNLTerm::Direction::Input;
+          hasDriver |= term->getDirection() != SNLTerm::Direction::Output;
+        }
+        for (auto* term : net->getInstTerms()) {
+          hasReader |= term->getDirection() != SNLTerm::Direction::Output;
+          hasDriver |= term->getDirection() != SNLTerm::Direction::Input;
+        }
+        EXPECT_FALSE(hasReader && !hasDriver) << net->getString();
+      }
+    }
+    const auto dumped = readTextFile(dumpTopAndGetVerilogPath(
+      top, "constant_" + mode + "_dump"));
+    EXPECT_EQ(std::string::npos, dumped.find("constants_pkg_"));
+    EXPECT_NE(std::string::npos, dumped.find("enum_port (\n  .data(5'h16)"));
+    EXPECT_NE(std::string::npos, dumped.find("parameter_port (\n  .data(5'h0B)"));
   }
 }
 
