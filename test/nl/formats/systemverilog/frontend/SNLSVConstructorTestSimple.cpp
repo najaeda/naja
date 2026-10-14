@@ -6882,6 +6882,251 @@ static bool evaluateFunctionResultBit(
   return result;
 }
 
+TEST_F(SNLSVConstructorTestSimple, dynamicProceduralWritesDriveStorage) {
+  struct WriteCase {
+    std::string name;
+    std::string declaration;
+    std::string body;
+    unsigned depth;
+    unsigned width;
+    bool combinational = false;
+    bool reset = false;
+    bool secondWrite = false;
+    bool asynchronous = false;
+  };
+  const std::vector<WriteCase> cases {
+    {"packed", "logic [3:0][7:0] storage;",
+      "if (we) storage[wptr] <= d;", 4, 8},
+    // A whole-array data default exercises flop lowering rather than naja_mem
+    // inference (the inference path has its own regression suite).
+    {"unpacked", "logic [7:0] storage [4:1];",
+      "if (we) begin storage <= '{default: e}; storage[wptr+1] <= d; end", 4, 8},
+    {"odd_depth", "logic [2:0][7:0] storage;",
+      "if (we) storage[wptr] <= d;", 3, 8},
+    {"unpacked_odd_depth", "logic [7:0] storage [3:1];",
+      "if (we) begin storage <= '{default: e}; storage[wptr+1] <= d; end", 3, 8},
+    {"two_writes", "logic [3:0][7:0] storage;",
+      "if (we) begin storage[wptr] <= d; storage[rptr] <= e; end", 4, 8,
+      false, false, true},
+    {"sync_reset", "logic [3:0][7:0] storage;",
+      "if (rst) storage <= '0; else if (we) storage[wptr] <= d;", 4, 8,
+      false, true},
+    {"async_reset", "logic [3:0][7:0] storage;",
+      "if (rst) storage <= '0; else if (we) storage[wptr] <= d;", 4, 8,
+      false, true, false, true},
+    {"bit", "logic [3:0] storage;",
+      "if (we) storage[wptr] <= d;", 4, 1},
+    {"part", "logic [31:0] storage;",
+      "if (we) storage[wptr*8 +: 8] <= d;", 4, 8},
+    {"comb", "logic [3:0][7:0] storage;",
+      "storage = '0; if (we) storage[wptr] = d;", 4, 8, true},
+    {"comb_unpacked", "logic [7:0] storage [2:0];",
+      "storage = '{default:'0}; if (we) storage[wptr] = d;", 3, 8, true},
+    {"unconditional", "logic [3:0][7:0] storage;",
+      "storage[wptr] <= d;", 4, 8}
+  };
+  for (const auto& c : cases) {
+    for (const bool singleUnit : {false, true}) {
+      SCOPED_TRACE(c.name + (singleUnit ? " single-unit" : " per-file"));
+      auto* library = NLLibrary::create(library_->getDB(),
+        NLName(c.name + (singleUnit ? "_single" : "_per_file")));
+      const auto typesPath = writeSVTestFile("dynamic_write_types",
+        "package write_types; typedef logic [7:0] byte_t; endpackage\n");
+      const auto path = writeSVTestFile("dynamic_write_" + c.name,
+        "module dynamic_write(input logic clk, we, rst, "
+        "input logic [1:0] wptr, rptr, input write_types::byte_t d, e, "
+        "output logic [" + std::to_string(c.width - 1) + ":0] q);\n" +
+        c.declaration + "\n" +
+        (c.combinational ? "always_comb" :
+          c.asynchronous ? "always_ff @(posedge clk or posedge rst)" :
+          "always_ff @(posedge clk)") + " begin " + c.body + " end\n" +
+        (c.name == "part" ? "assign q = storage[rptr*8 +: 8];" :
+          c.name == "unpacked" || c.name == "unpacked_odd_depth" ?
+            "assign q = storage[rptr+1];" : "assign q = storage[rptr];") +
+        "\nendmodule\n");
+      SNLSVConstructor constructor(library);
+      SNLSVConstructor::Paths paths{typesPath, path};
+      if (singleUnit) paths.insert(paths.begin(), "--single-unit");
+      ASSERT_NO_THROW(constructor.construct(paths));
+      auto* top = library->getSNLDesign(NLName("dynamic_write"));
+      ASSERT_NE(nullptr, top);
+      auto* storage = top->getBusNet(NLName("storage"));
+      ASSERT_NE(nullptr, storage);
+      EXPECT_EQ(c.depth * c.width, storage->getWidth());
+
+      size_t flopBits = 0;
+      for (auto* instance : top->getInstances()) {
+        if (isSequentialDFFPrimitive(instance->getModel()) ||
+            NLDB0::isDFFRE(instance->getModel())) {
+          flopBits += getPrimitiveWidth(instance);
+        }
+      }
+      EXPECT_EQ(c.combinational ? 0u : c.depth * c.width, flopBits);
+      // Check all nets, including temporary read-select outputs. Top-level
+      // input terms and constant nets are sources as well as cell outputs.
+      for (auto* net : top->getNets()) {
+        for (auto* bit : net->getBits()) {
+          size_t drivers = bit->isConstant() ? 1 : 0;
+          for (auto* term : bit->getBitTerms()) {
+            drivers += term->getDirection() == SNLTerm::Direction::Input;
+          }
+          for (auto* term : bit->getInstTerms()) {
+            drivers += term->getDirection() == SNLTerm::Direction::Output;
+          }
+          EXPECT_LE(drivers, 1u) << bit->getString();
+          if (!bit->getComponents().empty()) {
+            EXPECT_EQ(1u, drivers) << bit->getString();
+          }
+        }
+      }
+      for (auto* bit : storage->getBits()) {
+        size_t drivers = 0;
+        for (auto* term : bit->getInstTerms()) {
+          drivers += term->getDirection() == SNLTerm::Direction::Output;
+        }
+        EXPECT_EQ(1u, drivers) << bit->getString();
+      }
+
+      // Evaluate the synthesized D cones with Q seeded to an old state, then
+      // sample the read port with Q seeded to the computed next state.
+      for (unsigned wptr = 0; wptr < 4; ++wptr) {
+        for (unsigned rptr = 0; rptr < c.depth; ++rptr) {
+          for (unsigned control = 0; control < 4; ++control) {
+            const bool we = control & 1;
+            const bool rst = control & 2;
+            std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+            const auto seedInput = [&](const char* name, unsigned value) {
+              for (auto* bit : top->getTerm(NLName(name))->getBits()) {
+                memo[bit->getNet()] = bool((value >> bit->getBit()) & 1u);
+              }
+            };
+            seedInput("clk", 0);
+            seedInput("we", we);
+            seedInput("rst", rst);
+            seedInput("wptr", wptr);
+            seedInput("rptr", rptr);
+            seedInput("d", 0xa5);
+            seedInput("e", 0x3c);
+            std::vector<unsigned> expected(c.depth);
+            for (unsigned entry = 0; entry < c.depth; ++entry) {
+              const unsigned old = (entry * 53 + 17) & ((1u << c.width) - 1);
+              for (unsigned bit = 0; bit < c.width; ++bit) {
+                if (!c.combinational) {
+                  memo[storage->getBit(entry * c.width + bit)] = bool((old >> bit) & 1);
+                }
+              }
+              unsigned next = c.combinational ? 0 : old;
+              if (we && (c.name == "unpacked" || c.name == "unpacked_odd_depth")) next = 0x3c;
+              if ((we || c.name == "unconditional") && entry == wptr) next = 0xa5;
+              if (c.secondWrite && we && entry == rptr) next = 0x3c;
+              if (c.reset && rst) next = 0;
+              expected[entry] = next & ((1u << c.width) - 1);
+            }
+            for (unsigned entry = 0; entry < c.depth; ++entry) {
+              for (unsigned bit = 0; bit < c.width; ++bit) {
+                auto* q = storage->getBit(entry * c.width + bit);
+                auto* value = static_cast<SNLBitNet*>(q);
+                if (!c.combinational) {
+                  for (auto* term : q->getInstTerms()) {
+                    if (term->getDirection() == SNLTerm::Direction::Output) {
+                      value = term->getInstance()->getInstTerm(
+                        term->getInstance()->getModel()->getBitTerm(
+                          term->getInstance()->getModel()->getTerm(NLName("D"))->getID(),
+                          term->getBitTerm()->getBit()))->getNet();
+                    }
+                  }
+                }
+                // Asynchronous reset acts on Q independently of the D cone.
+                if (!(c.asynchronous && rst)) {
+                  EXPECT_EQ(bool((expected[entry] >> bit) & 1),
+                    evaluateFunctionResultBit(top, value, 0, 0, &memo));
+                }
+              }
+            }
+            if (!c.combinational) {
+              // Drop cached combinational values before observing the new Q.
+              memo.clear();
+              seedInput("rptr", rptr);
+              for (unsigned entry = 0; entry < c.depth; ++entry) {
+                for (unsigned bit = 0; bit < c.width; ++bit) {
+                  memo[storage->getBit(entry * c.width + bit)] =
+                    bool((expected[entry] >> bit) & 1);
+                }
+              }
+            }
+            for (auto* bit : top->getTerm(NLName("q"))->getBits()) {
+              EXPECT_EQ(bool((expected[rptr] >> bit->getBit()) & 1),
+                evaluateFunctionResultBit(top, bit->getNet(), 0, 0, &memo));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, synchronousFifoStorageHasOneDriverPerBit) {
+  for (const bool unpacked : {false, true}) {
+    for (const bool singleUnit : {false, true}) {
+      SCOPED_TRACE(std::string(unpacked ? "unpacked" : "packed") +
+        (singleUnit ? " single-unit" : " per-file"));
+      auto* library = NLLibrary::create(library_->getDB(),
+        NLName("fifo_" + std::to_string(unpacked) + std::to_string(singleUnit)));
+      const auto path = writeSVTestFile("dynamic_write_fifo",
+        std::string(R"(module fifo(input logic clk, rst, push, pop,
+  input logic [7:0] d, output logic [7:0] q, output logic empty, full);
+  logic [2:0] wptr, rptr;
+)") + (unpacked ? "logic [7:0] storage [3:0];\n" :
+                      "logic [3:0][7:0] storage;\n") + R"(
+  assign empty = wptr == rptr;
+  assign full = (wptr[1:0] == rptr[1:0]) && (wptr[2] != rptr[2]);
+  always_ff @(posedge clk) begin
+    if (rst) begin wptr <= '0; rptr <= '0; end
+    else begin
+      if (push && !full) wptr <= wptr + 1'b1;
+      if (pop && !empty) rptr <= rptr + 1'b1;
+    end
+  end
+  always_ff @(posedge clk)
+    if (push && !full) storage[wptr[1:0]] <= d;
+  assign q = storage[rptr[1:0]];
+endmodule
+)");
+      SNLSVConstructor constructor(library);
+      SNLSVConstructor::Paths paths{path};
+      if (singleUnit) paths.insert(paths.begin(), "--single-unit");
+      ASSERT_NO_THROW(constructor.construct(paths));
+      auto* top = library->getSNLDesign(NLName("fifo"));
+      ASSERT_NE(nullptr, top);
+      size_t storageBits = 0;
+      size_t flopBits = 0;
+      for (auto* instance : top->getInstances()) {
+        if (NLDB0::isMemory(instance->getModel())) {
+          const auto signature = NLDB0::getMemorySignature(instance);
+          storageBits += signature.depth * signature.width;
+        } else if (isSequentialDFFPrimitive(instance->getModel()) ||
+                   NLDB0::isDFFRE(instance->getModel())) {
+          flopBits += getPrimitiveWidth(instance);
+        }
+      }
+      if (unpacked) EXPECT_EQ(32u, storageBits);
+      else EXPECT_EQ(38u, flopBits); // 32 data bits and two three-bit pointers.
+      for (auto* net : top->getNets()) {
+        for (auto* bit : net->getBits()) {
+          size_t drivers = bit->isConstant() ? 1 : 0;
+          for (auto* term : bit->getBitTerms()) {
+            drivers += term->getDirection() == SNLTerm::Direction::Input;
+          }
+          for (auto* term : bit->getInstTerms()) {
+            drivers += term->getDirection() == SNLTerm::Direction::Output;
+          }
+          if (!bit->getComponents().empty()) EXPECT_EQ(1u, drivers) << bit->getString();
+        }
+      }
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, functionInputFormalWritesDoNotModifyActual) {
   const auto path = writeSVTestFile("formal_copy_write", R"(module formal_copy_write(
   input logic [3:0] a, output logic [3:0] y, z, direct, implicit_result);
