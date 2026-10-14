@@ -35386,6 +35386,61 @@ endmodule
   EXPECT_EQ(16u, dffrnCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDynamicRangeRHSFailureIsDiagnosed) {
+  SNLSVConstructor constructor(library_);
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "sequential_dynamic_range_rhs_failure";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "test.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module sequential_dynamic_range_rhs_failure(
+  input logic clk, rst_n,
+  input logic [1:0] idx,
+  input logic [3:0] data,
+  output logic [15:0] q
+);
+  function automatic logic [1:0] value(input logic [3:0] arg);
+    case (arg) inside
+      [4'bxxxx:4'd7]: value = 2'b11;
+      default: value = 2'b00;
+    endcase
+  endfunction
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) q <= '0;
+    else q[idx+:2] <= value(data);
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unable to resolve always_comb RHS bits", "target_width=2"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialNestedDynamicRangeFailureIsDiagnosed) {
+  SNLSVConstructor constructor(library_);
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "sequential_nested_dynamic_range_failure";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "test.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << R"(module sequential_nested_dynamic_range_failure(
+  input logic clk, rst_n,
+  input logic [1:0] idx, data,
+  output logic [1:0][7:0] q
+);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) q <= '0;
+    else q[0][idx+:2] <= data;
+  end
+endmodule
+)";
+  svFile.close();
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported dynamic sequential assignment LHS"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSRealConstantSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

@@ -25287,8 +25287,13 @@ endmodule
       bool allowConcatenation = false) {
       // Final storage destinations must be physical bits, never read muxes.
       if (hasDynamicLHSSelection(lhsExpr)) {
+        // LCOV_EXCL_START
+        // Parser-backed sequential paths route dynamic selections through
+        // storage-base replay before resolving destinations. Keep this guard
+        // defensively against a future caller passing a selected read here.
         failureReason = "dynamic assignment LHS requires storage-base replay";
         return false;
+        // LCOV_EXCL_STOP
       }
       if (!resolveAssignmentLHSBits(
             design,
