@@ -724,7 +724,8 @@ std::optional<slang::bitwidth_t> getRepresentableTypeBitWidth(const Type& curren
       }
       totalWidth += *fieldWidth;
       if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
-        return std::nullopt;
+        // Resource-limit safeguard: exercising this needs over UINT32_MAX bits.
+        return std::nullopt; // LCOV_EXCL_LINE
       }
     }
     return totalWidth ? std::optional<slang::bitwidth_t>(totalWidth) : std::nullopt;

@@ -38890,3 +38890,77 @@ endmodule
     EXPECT_TRUE(input->isConstantX());
   }
 }
+
+TEST_F(SNLSVConstructorTestSimple, parseUnpackedStructValuesCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "unpacked_struct_values_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+typedef struct { logic [1:0] a; logic [2:0] b; } inner_t;
+typedef struct { inner_t inner; logic flag; } record_t;
+module top(input logic [1:0] a, input logic [2:0] b, input logic flag,
+           output record_t constant_value, runtime_value);
+  localparam record_t VALUE = '{'{2'b10, 3'b101}, 1'b1};
+  assign constant_value = VALUE;
+  assign runtime_value = '{'{a, b}, flag};
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* constant = top->getBusNet(NLName("constant_value"));
+  auto* runtime = top->getBusNet(NLName("runtime_value"));
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getBusNet(NLName("b"));
+  auto* flag = top->getScalarNet(NLName("flag"));
+  ASSERT_NE(nullptr, constant);
+  ASSERT_NE(nullptr, runtime);
+  ASSERT_NE(nullptr, a);
+  ASSERT_NE(nullptr, b);
+  ASSERT_NE(nullptr, flag);
+  ASSERT_EQ(6, constant->getWidth());
+  ASSERT_EQ(6, runtime->getWidth());
+  const std::array<SNLBitNet*, 6> sources {
+    a->getBit(0), a->getBit(1), b->getBit(0), b->getBit(1), b->getBit(2), flag};
+  for (int bit = 0; bit < 6; ++bit) {
+    auto* driver = traceSingleAssignInputDriving(constant->getBit(bit));
+    ASSERT_NE(nullptr, driver);
+    EXPECT_EQ(bool((0b110110 >> bit) & 1), driver->isConstant1()) << bit;
+    EXPECT_EQ(sources[bit], traceSingleAssignInputDriving(runtime->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectReturnOnlyFunctionExpressionCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "return_only_function_expression_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+module top(input logic [3:0] a, output wire [3:0] y);
+  function automatic logic [3:0] f(input logic [3:0] v);
+    if (v[0]) return 4'b0011;
+    return $clog2(v);
+  endfunction
+  assign y = f(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"Unsupported RHS"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectContinuousStreamingRHSCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "continuous_streaming_rhs_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+module top(input logic [3:0] a, output wire [3:0] y);
+  assign {>>{y}} = $clog2(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"Unsupported RHS in continuous streaming assignment"});
+}
