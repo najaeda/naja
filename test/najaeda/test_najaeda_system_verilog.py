@@ -24,6 +24,235 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
 
+    def test_source_roles_and_model_definitions(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+            path = os.path.join(directory, "source.sv")
+            with open(path, "w", encoding="utf-8") as output:
+                output.write("module leaf(input logic a, b, output logic y);\n"
+                             "  assign y = a & b;\nendmodule\n"
+                             "module top(input logic a, b, output logic y);\n"
+                             "  leaf u(.a(a), .b(b), .y(y));\nendmodule\n")
+            for keep_ast_link in (False, True):
+                netlist.reset()
+                top = netlist.load_system_verilog(path, config=netlist.SystemVerilogConfig(
+                    keep_ast_link=keep_ast_link))
+                self.assertEqual(4, top.get_source_declaration().range.line)
+                instance = top.get_child_instance("u")
+                self.assertEqual(5, instance.get_source_declaration().range.line)
+                self.assertEqual(1, instance.get_model_source_declaration().range.line)
+                self.assertEqual([], instance.get_source_origins())
+                self.assertEqual("slang", instance.get_source_declaration().provider)
+                self.assertEqual("systemverilog", instance.get_source_declaration().language)
+                self.assertEqual("rtl", instance.get_source_declaration().representation)
+                self.assertEqual(1, instance.get_term("a").get_source_declaration().range.line)
+                model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                gates = list(model.getInstances())
+                self.assertTrue(gates)
+                for gate in gates:
+                    self.assertIsNone(gate.getSourceDeclaration())
+                    self.assertTrue(gate.getSourceOrigins())
+                    self.assertTrue(any(origin[0][1] == 2 for origin in gate.getSourceOrigins()))
+                net_declaration = top.get_net("a").get_source_declaration()
+                term_declaration = top.get_term("a").get_source_declaration()
+                model_declaration = instance.get_model_source_declaration()
+                gate_origins = {gate.getName(): gate.getSourceOrigins() for gate in gates}
+                snapshot = os.path.join(directory, "source.snl")
+                netlist.dump_naja_if(snapshot)
+                netlist.reset()
+                netlist.load_naja_if(snapshot)
+                loaded = netlist.get_top().get_child_instance("u")
+                self.assertEqual("leaf", loaded.get_model_name())
+                self.assertEqual(5, loaded.get_source_declaration().range.line)
+                self.assertEqual(1, loaded.get_model_source_declaration().range.line)
+
+                top = netlist.get_top()
+                self.assertEqual(net_declaration, top.get_net("a").get_source_declaration())
+                self.assertEqual(term_declaration, top.get_term("a").get_source_declaration())
+                self.assertEqual(model_declaration, loaded.get_model_source_declaration())
+                model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                for gate in model.getInstances():
+                    self.assertIsNone(gate.getSourceDeclaration())
+                    self.assertEqual(gate_origins[gate.getName()], gate.getSourceOrigins())
+
+                # Verilog exports legacy attributes, not the new source roles.
+                # Reloading records declarations in the exported structural input.
+                exported = os.path.join(directory, "source.v")
+                for dump_metadata in (False, True):
+                    top.dump_verilog(exported, config=netlist.VerilogDumpConfig(
+                        dumpRTLInfosAsAttributes=dump_metadata))
+                    netlist.reset()
+                    reloaded = netlist.load_verilog(exported)
+                    for declaration in (
+                            reloaded.get_source_declaration(),
+                            reloaded.get_net("a").get_source_declaration(),
+                            reloaded.get_term("a").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_source_declaration(),
+                            reloaded.get_child_instance("u").get_model_source_declaration()):
+                        self.assertEqual(exported, declaration.range.file)
+                        self.assertEqual("naja-verilog", declaration.provider)
+                        self.assertEqual("verilog", declaration.language)
+                        self.assertIsNone(declaration.representation)
+                    model = naja.NLUniverse.get().getTopDesign().getInstance("u").getModel()
+                    for gate in model.getInstances():
+                        self.assertEqual([], gate.getSourceOrigins())
+                    netlist.reset()
+                    netlist.load_naja_if(snapshot)
+                    top = netlist.get_top()
+
+    def test_unsupported_multi_writer_memory_blackboxing(self):
+        # Exercise both Python API levels, independent clocks and a shared clock.
+        for raw in (False, True):
+            for clock_b in ("clk_b", "clk_a"):
+                for mode in ("strict", "fallback", "define"):
+                    with self.subTest(raw=raw, clock_b=clock_b, mode=mode):
+                        netlist.reset()
+                        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+                            source = os.path.join(directory, "dp_ram.sv")
+                            report = os.path.join(directory, "diagnostics.log")
+                            with open(source, "w") as stream:
+                                stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b,
+              output logic [7:0] rd_a, rd_b);
+`ifndef SYNTHESIS_MEMORY_BLACK_BOXING
+  logic [7:0] mem [8];
+  always @(posedge clk_a) begin
+    if (we_a) mem[addr_a] = wd_a;
+    rd_a <= mem[addr_a];
+  end
+  always @(posedge CLOCK_B) begin
+    if (we_b) mem[addr_b] = wd_b;
+    rd_b <= mem[addr_b];
+  end
+`endif
+endmodule
+module top(input logic clk_a, clk_b, we_a, we_b,
+           input logic [2:0] addr_a, addr_b,
+           input logic [7:0] wd_a, wd_b,
+           output logic [7:0] rd_a, rd_b, output logic alive);
+  dp_ram ram(.*);
+  assign alive = we_a & we_b;
+endmodule
+""".replace("CLOCK_B", clock_b))
+                            options = dict(
+                                diagnostics_report_path=report,
+                                blackbox_multi_writer_memories=(mode == "fallback"),
+                                defines=(["SYNTHESIS_MEMORY_BLACK_BOXING"]
+                                         if mode == "define" else []))
+                            if raw:
+                                db = naja.NLDB.create(naja.NLUniverse.create())
+                                load = lambda: db.loadSystemVerilog([source], **options)
+                            else:
+                                load = lambda: netlist.load_system_verilog(
+                                    source, netlist.SystemVerilogConfig(**options))
+                            if mode == "strict":
+                                with self.assertRaisesRegex(
+                                        RuntimeError, "multiple sequential writers"):
+                                    load()
+                                continue
+                            load()
+                            top = naja.NLUniverse.get().getTopDesign()
+                            self.assertFalse(top.isBlackBox())
+                            ram = top.getInstance("ram")
+                            self.assertIsNotNone(ram)
+                            model = ram.getModel()
+                            self.assertTrue(model.isBlackBox())
+                            self.assertEqual(0, len(list(model.getInstances())))
+                            self.assertEqual(0 if mode == "fallback" else 10,
+                                             len(list(model.getNets())))
+                            self.assertEqual(10, len(list(model.getTerms())))
+                            for name, width in (("addr_a", 3), ("addr_b", 3),
+                                                ("wd_a", 8), ("wd_b", 8),
+                                                ("rd_a", 8), ("rd_b", 8)):
+                                term = model.getBusTerm(name)
+                                self.assertEqual(width, term.getWidth())
+                                self.assertEqual(naja.SNLTerm.Direction.Output
+                                                 if name.startswith("rd")
+                                                 else naja.SNLTerm.Direction.Input,
+                                                 term.getDirection())
+                            for term in ram.getInstTerms():
+                                self.assertIsNotNone(term.getNet())
+                            self.assertGreater(len(list(top.getInstances())), 1)
+                            with open(report) as stream:
+                                diagnostics = stream.read()
+                            if mode == "fallback":
+                                self.assertIn("multi_writer_memory_blackbox", diagnostics)
+                                self.assertIn("Memory 'mem'", diagnostics)
+                                self.assertIn("blackboxing entire module 'dp_ram'", diagnostics)
+                            else:
+                                self.assertNotIn("multi_writer_memory_blackbox", diagnostics)
+
+    def test_multi_clock_memory_inference_and_snapshot(self):
+        for raw in (False, True):
+            for clock_b in ("clk_b", "clk_a"):
+                with self.subTest(raw=raw, clock_b=clock_b):
+                    netlist.reset()
+                    with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+                        source = os.path.join(directory, "dp_ram.sv")
+                        with open(source, "w") as stream:
+                            stream.write("""module dp_ram(input logic clk_a, clk_b, we_a, we_b,
+              input logic [2:0] addr_a, addr_b,
+              input logic [7:0] wd_a, wd_b,
+              output logic [7:0] rd_a, rd_b);
+  logic [7:0] mem [8];
+  always @(posedge clk_a) begin
+    if (we_a) mem[addr_a] <= wd_a;
+    rd_a <= mem[addr_a];
+  end
+  always @(posedge CLOCK_B) begin
+    if (we_b) mem[addr_b] <= wd_b;
+    rd_b <= mem[addr_b];
+  end
+endmodule
+""".replace("CLOCK_B", clock_b))
+                        report = os.path.join(directory, "diagnostics.log")
+                        if raw:
+                            db = naja.NLDB.create(naja.NLUniverse.create())
+                            db.loadSystemVerilog([source], diagnostics_report_path=report)
+                        else:
+                            netlist.load_system_verilog(source, netlist.SystemVerilogConfig(
+                                diagnostics_report_path=report))
+                        top = naja.NLUniverse.get().getTopDesign()
+                        self.assertFalse(top.isBlackBox())
+                        snapshot = os.path.join(directory, "snapshot")
+                        for restored in (False, True):
+                            if restored:
+                                top.getLibrary().getDB().dumpNajaIF(snapshot)
+                                netlist.reset()
+                                naja.NLDB.loadNajaIF(snapshot)
+                                top = naja.NLUniverse.get().getTopDesign()
+                            memories = [inst for inst in top.getInstances()
+                                        if inst.getModel().getName().startswith("naja_mem__")]
+                            self.assertEqual(1, len(memories))
+                            memory = memories[0]
+                            model = memory.getModel()
+                            self.assertEqual("1", model.getParameter("MULTI_CLOCK").getValue())
+                            self.assertEqual(2, model.getBusTerm("WCLK").getWidth())
+                            self.assertEqual(16, model.getBusTerm("WMASK").getWidth())
+                            for port in range(2):
+                                clock = model.getBusTerm("WCLK").getBusTermBit(port)
+                                self.assertTrue(clock.isClock())
+                                self.assertEqual(20, len(list(
+                                    naja.SNLDesign.getClockRelatedInputs(clock))))
+                                self.assertEqual(16, len(list(
+                                    naja.SNLDesign.getClockRelatedOutputs(clock))))
+                                for bit in range(8):
+                                    mask = model.getBusTerm("WMASK").getBusTermBit(port * 8 + bit)
+                                    self.assertEqual(naja.SNLTermRole.MemoryWriteEnable,
+                                                     mask.getRole())
+                            for term in memory.getInstTerms():
+                                self.assertIsNotNone(term.getNet())
+                            self.assertIsNone(top.getNet("mem"))
+                        with open(report) as stream:
+                            diagnostics = stream.read()
+                        self.assertIn("multi_clock_memory_collision", diagnostics)
+                        self.assertNotIn("multi_writer_memory_blackbox", diagnostics)
+
+    def test_multi_writer_memory_option_validation(self):
+        self.assertFalse(netlist.SystemVerilogConfig().blackbox_multi_writer_memories)
+        with self.assertRaisesRegex(TypeError, "blackbox_multi_writer_memories"):
+            netlist.SystemVerilogConfig(blackbox_multi_writer_memories="true")
+
     def test_memory_sync_reset_role(self):
         for condition, level in (("rst", naja.SNLActiveLevel.High),
                                  ("~rst", naja.SNLActiveLevel.Low)):
@@ -32,9 +261,7 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
                     source = os.path.join(temp_dir, "memory.sv")
                     with open(source, "w") as stream:
-                        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
-// SPDX-License-Identifier: Apache-2.0
-module memory(input logic clk, rst,
+                        stream.write("""module memory(input logic clk, rst,
               input logic [1:0] addr, input logic [7:0] data,
               output logic [7:0] q);
   logic [7:0] mem_q [0:3];
@@ -58,15 +285,61 @@ endmodule
                     reset = memories[0].getScalarTerm("RST")
                     self.assertIsNotNone(reset)
                     self.assertEqual(naja.SNLTermRole.SyncReset, reset.getRole())
-                    self.assertTrue(reset.is_reset())
-                    self.assertTrue(reset.is_sync_reset())
-                    self.assertFalse(reset.is_async_reset())
+                    self.assertTrue(reset.isReset())
+                    self.assertTrue(reset.isSyncReset())
+                    self.assertFalse(reset.isAsyncReset())
                     self.assertEqual(level, reset.getResetActiveLevel())
 
     def test_system_verilog_config_diagnostics_default(self):
         config = netlist.SystemVerilogConfig()
         self.assertEqual(
             "naja_sv_diagnostics.log", config.diagnostics_report_path)
+
+    def test_system_verilog_config_single_unit_validation(self):
+        self.assertFalse(netlist.SystemVerilogConfig().single_unit)
+        for value in ("true", 1, None):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(
+                        TypeError, r"SystemVerilogConfig\.single_unit must be a bool"):
+                    netlist.SystemVerilogConfig(single_unit=value)
+        config = netlist.SystemVerilogConfig()
+        config.single_unit = "true"
+        with self.assertRaisesRegex(
+                TypeError, r"SystemVerilogConfig\.single_unit must be a bool"):
+            netlist.load_system_verilog([], config)
+
+    def test_load_system_verilog_cross_file_macros(self):
+        with tempfile.TemporaryDirectory() as directory:
+            defs = os.path.join(directory, "defs.sv")
+            use = os.path.join(directory, "use.sv")
+            flist_path = os.path.join(directory, "sources.f")
+            with open(defs, "w", encoding="utf-8") as source:
+                source.write("`define CHECK(x) assign x = 1'b1;\n")
+            with open(use, "w", encoding="utf-8") as source:
+                source.write("module macro_top(output logic o); `CHECK(o) endmodule\n")
+            with open(flist_path, "w", encoding="utf-8") as flist:
+                flist.write(f"{defs}\n{use}\n")
+            for use_flist in (False, True):
+                for single_unit in (False, True):
+                    for top_name in (None, "macro_top"):
+                        with self.subTest(flist=use_flist, single_unit=single_unit,
+                                          top=top_name):
+                            netlist.reset()
+                            config = netlist.SystemVerilogConfig(
+                                single_unit=single_unit, top=top_name,
+                                flist=flist_path if use_flist else None,
+                                diagnostics_report_path=None,
+                                keep_assigns=False)
+                            files = [] if use_flist else [defs, use]
+                            if single_unit:
+                                top = netlist.load_system_verilog(files, config)
+                                self.assertEqual("macro_top", top.get_model_name())
+                                self.assertTrue(top.get_term("o").get_lower_net().is_const1())
+                            else:
+                                with self.assertRaisesRegex(
+                                        naja.SystemVerilogSyntaxError,
+                                        "unknown macro or compiler directive '`CHECK'"):
+                                    netlist.load_system_verilog(files, config)
 
     def test_load_system_verilog(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
@@ -94,6 +367,35 @@ endmodule
         self.assertIsInstance(net_range, netlist.SourceRange)
         self.assertTrue(net_range.file.endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
+
+    def test_source_columns_above_16_bits(self):
+        with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
+            path = os.path.join(directory, "wide.sv")
+            source = " " * 70000 + "module top(input a, output y); assign y = a; endmodule"
+            with open(path, "w", encoding="utf-8") as output:
+                output.write(source + "\n")
+            for keep_ast_link in (False, True):
+                with self.subTest(keep_ast_link=keep_ast_link):
+                    netlist.reset()
+                    top = netlist.load_system_verilog(path, config=netlist.SystemVerilogConfig(
+                        keep_ast_link=keep_ast_link))
+                    source_range = top.get_source_range()
+                    self.assertEqual(70001, source_range.column)
+                    self.assertEqual(len(source), source_range.end_column)
+                    self.assertEqual(source_range.column,
+                                     naja.NLUniverse.get().getTopDesign().getSourceLoc()[2])
+                    self.assertGreater(top.get_term("a").get_source_range().column, 65535)
+                    self.assertGreater(top.get_net("y").get_source_range().column, 65535)
+                    dumped = os.path.join(directory, "wide_export.v")
+                    top.dump_verilog(dumped, config=netlist.VerilogDumpConfig(
+                        dumpRTLInfosAsAttributes=True))
+                    with open(dumped, encoding="utf-8") as exported:
+                        self.assertIn("70001", exported.read())
+                    snapshot = os.path.join(directory, "snapshot")
+                    netlist.dump_naja_if(snapshot)
+                    netlist.reset()
+                    netlist.load_naja_if(snapshot)
+                    self.assertEqual(source_range, netlist.get_top().get_source_range())
 
     def test_load_system_verilog_single_arg(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")

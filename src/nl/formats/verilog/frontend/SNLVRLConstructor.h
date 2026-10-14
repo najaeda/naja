@@ -7,6 +7,7 @@
 
 #include "VerilogConstructor.h"
 
+#include <optional>
 #include <unordered_map>
 
 #include "NLDB0.h"
@@ -34,6 +35,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       bool                        blackboxDetection_            {true};   ///< If true, detect blackbox designs.
       bool                        blackboxUnknownModules_       {false};  ///< If true, unknown module instantiations are created as AutoBlackBox designs.
       ConflictingDesignNamePolicy conflictingDesignNamePolicy_  {ConflictingDesignNamePolicy::Forbid};
+      bool                        yosysSourceAttributes_        {false};  ///< Decode src attributes with explicitly selected Yosys provenance.
     };
 
     Config  config_ {};
@@ -109,6 +111,15 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void endModule() override;
 
   private:
+    void restoreDeclarationAttributes();
+    SourceRange attributesRange_ {};
+    Attributes declarationAttributes_ {};
+    Attributes instantiationAttributes_ {};
+    void populateSource(NLObject* object, const Attributes& attributes);
+    void populateDeclaration(NLObject* object);
+    SourceRange gateSourceRange_ {};
+    using PortSources = std::map<std::string, std::pair<SourceRange, Attributes>>;
+    PortSources portSources_ {};
     SNLNet* getNetOrCreateImplicitNet(
       SNLDesign* design,
       const naja::verilog::RangeIdentifier& identifier);
@@ -154,7 +165,11 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     std::string         currentModelName_               {};
     GateInstance        currentGateInstance_            {};
     SNLInstance*        currentInstance_                {nullptr};
-    using ParameterValues = std::map<std::string, std::string>;
+    struct ParameterValue {
+      std::string                source;     // original source text
+      std::optional<std::string> canonical;  // canonical sized-binary form
+    };
+    using ParameterValues = std::map<std::string, ParameterValue>;
     ParameterValues     currentInstanceParameterValues_ {};
     SNLScalarNet*       currentModuleAssign0_           {nullptr};
     SNLScalarNet*       currentModuleAssign1_           {nullptr};

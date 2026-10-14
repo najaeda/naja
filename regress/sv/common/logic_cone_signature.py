@@ -25,12 +25,12 @@ SIGNATURE_FIELDS = (
 
 def summarize_cone(cone: Any) -> dict[str, int]:
     """Return stable structural counts from a ``naja.LogicCone``."""
-    nodes = cone.get_nodes()
+    nodes = cone.getNodes()
     kinds = Counter(node[2] for node in nodes)
     return {
         "nodes": len(nodes),
         "edges": sum(len(node[3]) for node in nodes),
-        "leaves": len(cone.get_leaves()),
+        "leaves": len(cone.getLeaves()),
         "roots": kinds["root"],
         "registers": kinds["flop"],
         "ports": kinds["ports"],

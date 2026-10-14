@@ -231,21 +231,16 @@ static PyObject* PyLogicCone_getNodeCount(PyLogicCone* self) {
 }
 
 PyMethodDef PyLogicCone_Methods[] = {
-  {"get_nodes", (PyCFunction)PyLogicCone_getNodes, METH_NOARGS,
+  {"getNodes", (PyCFunction)PyLogicCone_getNodes, METH_NOARGS,
     "Return all DAG nodes as (id, occurrence, kind, next_ids, prev_ids)."},
-  {"get_root", (PyCFunction)PyLogicCone_getRoot, METH_NOARGS,
+  {"getRoot", (PyCFunction)PyLogicCone_getRoot, METH_NOARGS,
     "Return the root node."},
-  {"get_leaves", (PyCFunction)PyLogicCone_getLeaves, METH_NOARGS,
+  {"getLeaves", (PyCFunction)PyLogicCone_getLeaves, METH_NOARGS,
     "Return frontier nodes."},
-  {"get_direction", (PyCFunction)PyLogicCone_getDirection, METH_NOARGS,
+  {"getDirection", (PyCFunction)PyLogicCone_getDirection, METH_NOARGS,
     "Return the cone direction."},
-  {"get_node_count", (PyCFunction)PyLogicCone_getNodeCount, METH_NOARGS,
+  {"getNodeCount", (PyCFunction)PyLogicCone_getNodeCount, METH_NOARGS,
     "Return the number of DAG nodes."},
-  {"getNodes", (PyCFunction)PyLogicCone_getNodes, METH_NOARGS, nullptr},
-  {"getRoot", (PyCFunction)PyLogicCone_getRoot, METH_NOARGS, nullptr},
-  {"getLeaves", (PyCFunction)PyLogicCone_getLeaves, METH_NOARGS, nullptr},
-  {"getDirection", (PyCFunction)PyLogicCone_getDirection, METH_NOARGS, nullptr},
-  {"getNodeCount", (PyCFunction)PyLogicCone_getNodeCount, METH_NOARGS, nullptr},
   {nullptr, nullptr, 0, nullptr}
 };
 

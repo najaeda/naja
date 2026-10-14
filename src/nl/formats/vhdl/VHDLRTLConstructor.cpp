@@ -174,6 +174,7 @@ class LibraryContext {
  public:
   NLLibrary* destination;
   const std::vector<VHDLLibrarySource>& sources;
+  const vhdl::DesignFile& syntax;
   NLLibrary* owner(size_t offset) const {
     for (const auto& source : sources)
       if (offset >= source.offset && offset < source.offset + source.size) return source.library;
@@ -181,7 +182,19 @@ class LibraryContext {
   }
   // Concatenation order between libraries is not VHDL declaration order.
   bool precedes(size_t use, size_t declaration) const {
-    return owner(use) == owner(declaration) && use < declaration;
+    // Declaration order applies within a unit, not between registered units.
+    const auto unitStart = [&](size_t offset) {
+      size_t start = 0;
+      const auto consider = [&](size_t candidate) {
+        if (candidate <= offset) start = std::max(start, candidate);
+      };
+      for (const auto& package : syntax.packages) consider(package.name.span.start.offset);
+      for (const auto& entity : syntax.entities) consider(entity.span.start.offset);
+      for (const auto& architecture : syntax.architectures) consider(architecture.span.start.offset);
+      return start;
+    };
+    return owner(use) == owner(declaration) && use < declaration &&
+        unitStart(use) == unitStart(declaration);
   }
   size_t start(NLLibrary* library) const {
     for (const auto& source : sources) if (source.library == library) return source.offset;
@@ -1889,15 +1902,25 @@ class RTLConstructor {
   }
 
   Bits add(const Bits& left, const Bits& right, bool subtract) {
+    const auto cacheKey = std::make_tuple(left, right, subtract);
+    if (const auto found = adders_.find(cacheKey); found != adders_.end()) return found->second;
     Bits result(left.size());
     auto* carry = constant(subtract);
     for (size_t i = left.size(); i; --i) {
       auto* a = left[i - 1];
       auto* b = subtract ? gate("not", right[i - 1]) : right[i - 1];
-      auto* ab = gate("xor", a, b);
-      result[i - 1] = gate("xor", ab, carry);
-      carry = gate("or", gate("and", a, b), gate("and", ab, carry));
+      auto* sum = SNLScalarNet::create(design_);
+      auto* carryOut = i > 1 ? SNLScalarNet::create(design_) : nullptr;
+      auto* instance = SNLInstance::create(design_, NLDB0::getFA());
+      instance->getInstTerm(NLDB0::getFAInputA())->setNet(a);
+      instance->getInstTerm(NLDB0::getFAInputB())->setNet(b);
+      instance->getInstTerm(NLDB0::getFAInputCI())->setNet(carry);
+      instance->getInstTerm(NLDB0::getFAOutputS())->setNet(sum);
+      instance->getInstTerm(NLDB0::getFAOutputCO())->setNet(carryOut);
+      result[i - 1] = sum;
+      carry = carryOut;
     }
+    adders_.emplace(cacheKey, result);
     return result;
   }
 
@@ -2079,16 +2102,26 @@ class RTLConstructor {
   Bits multiply(const Bits& left, const Bits& right) {
     const auto width = left.size();
     Bits result(width, constant(false));
+    bool accumulated = false;
     for (size_t shift = 0; shift < width; ++shift) {
+      if (constantValue(right[width - 1 - shift]) == false) continue;
       Bits row(width, constant(false));
       for (size_t i = shift; i < width; ++i)
         row[width - 1 - i] = gate("and", left[width - 1 - i + shift], right[width - 1 - shift]);
-      result = add(result, row, false);
+      if (std::all_of(row.begin(), row.end(), [&](auto* bit) {
+            return constantValue(bit) == false;
+          })) continue;
+      // Match SV: the first nonzero partial product needs no addition.
+      result = accumulated ? add(result, row, false) : std::move(row);
+      accumulated = true;
     }
     return result;
   }
 
-  Value expression(const Expr& expr, const State& state, const Shape* expected = nullptr) {
+  // usedWidth limits construction, not the VHDL result subtype. Unused high
+  // positions are placeholders and must never escape the consuming operation.
+  Value expression(const Expr& expr, const State& state, const Shape* expected = nullptr,
+      size_t usedWidth = 65536) {
     DiagnosticScope location(expr.span);
     Value value;
     Shape inferred;
@@ -2141,7 +2174,31 @@ class RTLConstructor {
           expr.elements.size() == 3) {
         const auto condition = scalar(*expr.elements[0]);
         if (!condition.boolean) fail("sel_suv_f condition must be boolean");
-        value = expression(*expr.elements[condition.value ? 1 : 2], state, expected);
+        value = expression(*expr.elements[condition.value ? 1 : 2], state, expected, usedWidth);
+      } else if (expr.left->kind == Expr::Kind::Name && key(*expr.left) == "resize" &&
+          numeric_ && expr.elements.size() == 2) {
+        if (objects_.contains("resize") || integers_.contains("resize") ||
+            functions_.contains("resize")) fail("shadowed resize function");
+        const auto width = integer(*expr.elements[1]);
+        if (width < 1 || width > 65536) fail("resize requires a supported positive size");
+        // Signed resize retains the original sign, including when narrowing.
+        // Determine the subtype without constructing arithmetic first.
+        auto operand = expression(*expr.elements[0], state, nullptr, 0);
+        const auto type = operand.shape.types.front();
+        if (operand.shape.ranges.size() != 1 || (type != "unsigned" && type != "signed"))
+          fail("resize requires a signed or unsigned vector");
+        const auto demand = !usedWidth ? size_t(0) : type == "signed" ? operand.bits.size() :
+            std::min<size_t>(width, usedWidth);
+        operand = expression(*expr.elements[0], state, nullptr, demand);
+        value.shape = vectorShape(width);
+        value.shape.types.front() = type;
+        if (type == "signed") {
+          auto* sign = operand.bits.front();
+          value.bits = resize(std::move(operand.bits), width);
+          if (size_t(width) > demand)
+            std::fill(value.bits.begin(), value.bits.begin() + width - demand, sign);
+          value.bits.front() = sign;
+        } else value.bits = resize(std::move(operand.bits), width);
       } else if (expr.left->kind != Expr::Kind::Name || key(*expr.left) != "to_unsigned" ||
           !numeric_ || expr.elements.size() != 2)
         fail("unsupported or invisible function call");
@@ -2163,7 +2220,7 @@ class RTLConstructor {
         const auto target = key(*expr.left);
         if (!numeric_ || (target == "std_logic_vector" && !stdLogic_))
           fail("vector conversion requires visible numeric_std and std_logic_1164 types");
-        value = expression(*expr.right, state);
+        value = expression(*expr.right, state, nullptr, usedWidth);
         const auto source = value.shape.types.front();
         if (value.shape.ranges.size() != 1 || (source != "unsigned" && source != "signed" && source != "std_logic_vector"))
           fail("unsupported vector conversion operand");
@@ -2179,16 +2236,28 @@ class RTLConstructor {
             value.shape.types.front() != (numeric ? "unsigned" : "std_logic_vector") || value.bits.size() > 31)
           fail(numeric ? "unsupported to_integer argument" : "unsupported conv_integer argument");
         value.shape = {{"integer"}, {}, value.bits.size()};
+      } else if (expr.left->kind != Expr::Kind::Name &&
+          (expr.right->kind == Expr::Kind::Range || isStaticIndex(*expr.right))) {
+        const auto prefix = expression(*expr.left, state, nullptr, 0);
+        if (prefix.shape.ranges.size() != 1) fail("expression selection requires a vector");
+        const auto bounds = prefix.shape.ranges.front();
+        const auto last = expr.right->kind == Expr::Kind::Range ?
+            arrayIndex(*expr.right->right, bounds) : arrayIndex(*expr.right, bounds);
+        const auto first = expr.right->kind == Expr::Kind::Range ?
+            arrayIndex(*expr.right->left, bounds) : last;
+        const auto demand = prefix.bits.size() - std::min(bounds.position(first), bounds.position(last));
+        value = readIndex(expression(*expr.left, state, nullptr, usedWidth ? demand : 0), *expr.right, state);
       } else value = readSelected(expr, state);
       for (auto* bit : value.bits) readBit(bit);
     } else if (expr.kind == Expr::Kind::Conditional) {
-      const auto condition = expression(*expr.condition, state);
+      const auto condition = expression(*expr.condition, state, nullptr, usedWidth ? 65536 : 0);
       if (condition.shape.types != std::vector<std::string>{"boolean"}) fail("condition must be boolean");
-      auto yes = expression(*expr.left, state, expected);
-      auto no = expression(*expr.right, state, &yes.shape);
+      auto yes = expression(*expr.left, state, expected, usedWidth);
+      auto no = expression(*expr.right, state, &yes.shape, usedWidth);
       if (!compatible(yes.shape, no.shape)) fail("conditional type mismatch");
       value.shape = yes.shape;
-      value.bits = mux(condition.bits.front(), yes.bits, no.bits);
+      const auto width = std::min(usedWidth, yes.bits.size());
+      value.bits = resize(mux(condition.bits.front(), resize(yes.bits, width), resize(no.bits, width)), yes.bits.size());
     } else if (expr.kind == Expr::Kind::Aggregate) {
       if (!expected || expected->ranges.empty() || expr.elements.size() != expected->ranges.front().size())
         fail("positional aggregate length mismatch");
@@ -2241,16 +2310,19 @@ class RTLConstructor {
         }
       }
     } else if (expr.kind == Expr::Kind::Unary) {
-      value = expression(*expr.left, state, expected);
+      value = expression(*expr.left, state, expected, usedWidth);
       if (expr.text != "not" || value.shape.integerWidth || value.shape.enumeration || !value.shape.fields.empty())
         fail("unsupported hardware unary operator");
-      for (auto*& bit : value.bits) bit = gate("not", bit);
+      for (size_t i = value.bits.size() - std::min(usedWidth, value.bits.size()); i < value.bits.size(); ++i)
+        value.bits[i] = gate("not", value.bits[i]);
     } else if (expr.kind == Expr::Kind::Binary) {
       const bool comparison = expr.text == "=" || expr.text == "/=";
       const bool arithmetic = expr.text == "+" || expr.text == "-";
       if (expr.text == "&") {
-        auto left = expression(*expr.left, state);
-        auto right = expression(*expr.right, state);
+        const auto rightShape = expression(*expr.right, state, nullptr, 0).shape;
+        auto left = expression(*expr.left, state, nullptr,
+            usedWidth > rightShape.size() ? usedWidth - rightShape.size() : 0);
+        auto right = expression(*expr.right, state, nullptr, usedWidth);
         if (left.shape.enumeration || right.shape.enumeration || !left.shape.fields.empty() || !right.shape.fields.empty() || left.shape.integerWidth || right.shape.integerWidth || left.shape.ranges.size() > 1 ||
             right.shape.ranges.size() > 1 || left.shape.types.back() != right.shape.types.back())
           fail("unsupported concatenation operands");
@@ -2267,7 +2339,8 @@ class RTLConstructor {
         }
       } else {
         const bool numericOperation = (numeric_ || signed_) && (arithmetic || expr.text == "*" || comparison);
-        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected);
+        const auto operandDemand = comparison && usedWidth ? size_t(65536) : usedWidth;
+        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
         const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
         const bool signedOperands = numericSigned || (signed_ && left.shape.types.front() == "std_logic_vector");
@@ -2276,7 +2349,7 @@ class RTLConstructor {
         const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
             expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
         auto right = expression(*expr.right, state,
-            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape);
+            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
         if (signedOperands && (arithmetic || comparison || expr.text == "*")) {
           if (right.shape.types.front() != left.shape.types.front()) fail("signed vector operand type mismatch");
           const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
@@ -2285,12 +2358,18 @@ class RTLConstructor {
           right.bits.insert(right.bits.begin(), width - right.bits.size(), right.bits.front());
           value.shape = vectorShape(width);
           value.shape.types.front() = left.shape.types.front();
+          const auto hardwareWidth = comparison ? width : std::min(width, usedWidth);
+          if (!comparison) {
+            left.bits = resize(std::move(left.bits), hardwareWidth);
+            right.bits = resize(std::move(right.bits), hardwareWidth);
+          }
           if (comparison) {
-            auto* result = equal(left.bits, right.bits);
+            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
             value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (!comparison) value.bits = resize(std::move(value.bits), width);
           if (expected && !compatible(value.shape, *expected)) fail("assignment or expression type/length mismatch");
           return value;
         }
@@ -2302,12 +2381,18 @@ class RTLConstructor {
           right.bits = resize(right.bits, width);
           value.shape = vectorShape(width);
           value.shape.types.front() = "unsigned";
+          const auto hardwareWidth = comparison ? width : std::min(width, usedWidth);
+          if (!comparison) {
+            left.bits = resize(std::move(left.bits), hardwareWidth);
+            right.bits = resize(std::move(right.bits), hardwareWidth);
+          }
           if (comparison) {
-            auto* result = equal(left.bits, right.bits);
+            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
             value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
+          if (!comparison) value.bits = resize(std::move(value.bits), width);
           if (expected && !compatible(value.shape, *expected))
             fail("assignment or expression type/length mismatch");
           return value;
@@ -2321,27 +2406,22 @@ class RTLConstructor {
         if ((left.shape.enumeration || right.shape.enumeration) && !comparison)
           fail("enumeration operators currently support only equality and inequality");
         if (comparison) {
-          auto* result = equal(left.bits, right.bits);
+          auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
           value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
         } else if (arithmetic) {
           if (!left.shape.integerWidth && !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
             fail("arithmetic requires integer or std_logic_unsigned operands");
-          auto* carry = constant(expr.text == "-");
           value.shape = left.shape;
-          value.bits.resize(left.bits.size());
-          for (size_t i = left.bits.size(); i; --i) {
-            auto* a = left.bits[i - 1];
-            auto* b = expr.text == "-" ? gate("not", right.bits[i - 1]) : right.bits[i - 1];
-            auto* ab = gate("xor", a, b);
-            value.bits[i - 1] = gate("xor", ab, carry);
-            carry = gate("or", gate("and", a, b), gate("and", ab, carry));
-          }
+          const auto width = std::min(usedWidth,
+              expected && expected->integerWidth ? expected->integerWidth : left.bits.size());
+          value.bits = resize(add(resize(left.bits, width), resize(right.bits, width), expr.text == "-"), left.bits.size());
         } else {
           if (left.shape.ranges.size() > 1 || left.shape.integerWidth || !left.shape.fields.empty())
             fail("bitwise operators require scalar logic, boolean or logic vectors");
           value.shape = left.shape;
-          for (size_t i = 0; i < left.bits.size(); ++i)
-            value.bits.push_back(gate(expr.text, left.bits[i], right.bits[i]));
+          value.bits = Bits(left.bits.size(), constant(false));
+          for (size_t i = left.bits.size() - std::min(usedWidth, left.bits.size()); i < left.bits.size(); ++i)
+            value.bits[i] = gate(expr.text, left.bits[i], right.bits[i]);
         }
       }
     } else fail("unsupported RTL expression");
@@ -2818,6 +2898,7 @@ class RTLConstructor {
   std::vector<std::pair<std::string, Object>> generatedObjects_;
   std::map<std::string, Memory> memories_;
   std::map<std::pair<std::string, Bits>, SNLBitNet*> gates_;
+  std::map<std::tuple<Bits, Bits, bool>, Bits> adders_;
   std::map<std::tuple<SNLBitNet*, Bits, Bits>, Bits> muxes_;
   std::map<std::pair<SNLDesign*, Bits>, Bits> tables_;
   std::set<SNLBitNet*> drivers_, reads_;
@@ -2839,8 +2920,10 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
   const auto rtlContext = [](const vhdl::ContextClause& context) {
     return std::any_of(context.uses.begin(), context.uses.end(), [](const auto& use) {
       return use.selectedName.size() == 3 && (key(use.selectedName[0]) != "ieee" ||
-          key(use.selectedName[1]) == "std_logic_signed");
-    });
+          key(use.selectedName[1]) == "std_logic_signed" ||
+          key(use.selectedName[1]) == "std_logic_unsigned" ||
+          key(use.selectedName[1]) == "std_logic_arith");
+    }); // LCOV_EXCL_LINE: compiler-generated exception cleanup for the context predicate.
   };
   for (const auto& entity : syntax.entities) {
     if (rtlContext(entity.context)) return true;
@@ -2888,19 +2971,52 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
 SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
                           std::string_view top, std::string_view source,
                           const std::vector<VHDLLibrarySource>& libraries) {
-  const LibraryContext context{library, libraries};
+  const LibraryContext context{library, libraries, syntax};
   std::set<std::pair<NLLibrary*, std::string>> packages, bodies;
   for (const auto& package : syntax.packages) {
     DiagnosticScope location(package.name.span);
     const auto name = std::make_pair(context.owner(package.name.span.start.offset), key(package.name));
     if (!package.body && !packages.insert(name).second) fail("duplicate package");
-    if (package.body && (!packages.contains(name) || !bodies.insert(name).second))
+    if (package.body && !bodies.insert(name).second)
       fail("duplicate package body or body without declaration");
   }
+  for (const auto& package : syntax.packages) {
+    DiagnosticScope location(package.name.span);
+    if (package.body && !packages.contains(
+        {context.owner(package.name.span.start.offset), key(package.name)}))
+      fail("package body without declaration");
+  }
+  // Resolve package dependencies from the complete index before importing them.
+  std::set<const vhdl::PackageDeclaration*> visiting, visited;
+  std::function<void(const vhdl::PackageDeclaration&)> visitPackage;
+  visitPackage = [&](const auto& package) {
+    if (visited.contains(&package)) return;
+    visiting.insert(&package);
+    auto* owner = context.owner(package.name.span.start.offset);
+    for (const auto& use : package.context.uses) {
+      DiagnosticScope location(use.span);
+      if (use.selectedName.size() != 3) continue;
+      const auto libraryName = key(use.selectedName[0]);
+      if (libraryName == "std" || libraryName == "ieee") continue;
+      auto* target = context.resolve(owner, libraryName);
+      const auto name = key(use.selectedName[1]);
+      const vhdl::PackageDeclaration* dependency = nullptr;
+      for (const auto& candidate : syntax.packages)
+        if (!candidate.body && key(candidate.name) == name &&
+            context.owner(candidate.name.span.start.offset) == target) dependency = &candidate;
+      if (!dependency) fail("missing package: " + name);
+      if (visiting.contains(dependency)) fail("package dependency cycle: " + name);
+      visitPackage(*dependency);
+    }
+    visiting.erase(&package);
+    visited.insert(&package);
+  };
+  for (const auto& package : syntax.packages) visitPackage(package);
   if (syntax.entities.empty() && syntax.architectures.empty()) {
     if (!top.empty()) fail("package source does not define a top entity");
     return nullptr;
   }
+  bool noRoot = false;
   std::string selected(top);
   for (char& c : selected) c = std::tolower(static_cast<unsigned char>(c));
   if (selected.empty()) {
@@ -2917,6 +3033,16 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
     };
     for (const auto& architecture : syntax.architectures)
       if (context.owner(architecture.span.start.offset) == library) removeChildren(removeChildren, architecture);
+    // With no root, follow a member of the cycle so elaboration reports the
+    // offending reference, including its source location.
+    if (candidates.empty()) {
+      noRoot = true;
+      for (const auto& entity : syntax.entities)
+        if (context.owner(entity.span.start.offset) == library) {
+          candidates.insert(key(entity.name));
+          break;
+        }
+    }
     if (candidates.size() != 1)
       fail("cannot infer a unique RTL top entity; specify an explicit top");
     selected = *candidates.begin();
@@ -2925,7 +3051,7 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
   std::set<std::pair<NLLibrary*, std::string>> active;
   std::function<SNLDesign*(NLLibrary*, const std::string&, const GenericValues&)> build;
   build = [&](NLLibrary* owner, const std::string& name, const GenericValues& overrides) -> SNLDesign* {
-    if (!active.insert({owner, name}).second) fail("recursive RTL hierarchy");
+    if (!active.insert({owner, name}).second) fail("entity dependency cycle (recursive RTL hierarchy): " + name);
     const vhdl::EntityDeclaration* entity = nullptr;
     const vhdl::ArchitectureBody* architecture = nullptr;
     for (const auto& candidate : syntax.entities) if (context.owner(candidate.span.start.offset) == owner && key(candidate.name) == name) {
@@ -2960,7 +3086,9 @@ SNLDesign* constructVHDLRTL(NLLibrary* library, const vhdl::DesignFile& syntax,
     return design;
   };
   try {
-    return build(library, selected, {});
+    auto* design = build(library, selected, {});
+    if (noRoot) fail("cannot infer a unique RTL top entity; specify an explicit top");
+    return design;
   } catch (...) {
     for (auto* design : created) design->destroy();
     throw;

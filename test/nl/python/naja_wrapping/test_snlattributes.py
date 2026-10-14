@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
+import tempfile
+import os
 import unittest
 import naja
 
@@ -22,6 +24,147 @@ class SNLAttributesTest(unittest.TestCase):
   def tearDown(self):
     if naja.NLUniverse.get():
       naja.NLUniverse.get().destroy()
+
+  def testSourceReferences(self):
+    model = self.ins0.getModel()
+    net = naja.SNLScalarNet.create(self.top, "source_net")
+    bus = naja.SNLBusNet.create(self.top, 3, 0, "source_bus")
+    term = model.getTerm("I0")
+    objects = (self.top, self.ins0, net, bus, bus.getBit(1), term,
+               model.getTerm("I1").getBusTermBit(2), self.ins0.getInstTerm(term))
+    for obj in objects:
+      self.assertIsNone(obj.getSourceDeclaration())
+      self.assertEqual([], obj.getSourceOrigins())
+      self.assertFalse(obj.hasSourceReferences())
+      with self.assertRaises(TypeError):
+        obj.hasSourceReferences(False)
+      for name in ("setSourceLoc", "setSourceDeclaration", "addSourceOrigin", "clearSourceOrigins"):
+        self.assertFalse(hasattr(obj, name))
+
+  def testSourceReferencesVerilog(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "input.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write('module cell(input a, output y); endmodule\n'
+                     '(* src="rtl.sv:1.70000-2.90000" *) module top(input a, output y);\n'
+                     '(* src="rtl.sv:3.1-3.9" *) cell u(a,y); endmodule\n')
+      db = self.top.getDB()
+      db.loadVerilog([path], yosys_source_attributes=True)
+      top = db.getTopDesign()
+      objects = (top, top.getTerm("a"), top.getNet("a"), top.getInstance("u"))
+      before = [(obj.getSourceDeclaration(), obj.getSourceOrigins()) for obj in objects]
+      for mode in ("CompactAttribute", "VerboseAttributes"):
+        top.dumpVerilog(directory, "source.v", dumpRTLInfosAsAttributes=True,
+                        rtlInfoDumpMode=mode)
+        with open(os.path.join(directory, "source.v"), encoding="utf-8") as output:
+          exported = output.read()
+        self.assertNotIn("naja_source_v1", exported)
+        self.assertNotIn("naja_port_net_source_v1", exported)
+      self.assertEqual(before, [(obj.getSourceDeclaration(), obj.getSourceOrigins())
+                                for obj in objects])
+
+  def testSourceOriginsInvalidUtf8(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "input.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write(r'(* src="valid.sv:1|invalid\377.sv:2" *) module cell(); endmodule')
+      db = self.top.getDB()
+      db.loadVerilog([path], yosys_source_attributes=True)
+      top = db.getTopDesign()
+      # The first origin converts successfully before the second fails.
+      for _ in range(2):
+        with self.assertRaises(UnicodeDecodeError):
+          top.getSourceOrigins()
+      self.assertEqual(path, top.getSourceDeclaration()[0][0])
+
+  def testCustomSourceAttributesStayOpaque(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "opaque.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write('(* naja_source_v1=42, src="rtl.sv:3.1-3.9" *) '
+                     'module opaque((* naja_port_net_source_v1="arbitrary" *) input a); endmodule')
+      db = self.top.getDB()
+      db.loadVerilog([path], yosys_source_attributes=True)
+      top = db.getTopDesign()
+      self.assertEqual(1, len(top.getSourceOrigins()))
+      self.assertEqual("rtl.sv", top.getSourceOrigins()[0][0][0])
+      self.assertEqual("42", next(a.getValue() for a in top.getAttributes()
+                                  if a.getName() == "naja_source_v1"))
+      self.assertEqual("arbitrary", next(a.getValue() for a in top.getTerm("a").getAttributes()
+                                         if a.getName() == "naja_port_net_source_v1"))
+      self.assertEqual([], top.getNet("a").getSourceOrigins())
+
+  def testYosysSourcePopulation(self):
+    text = r"""(* src = "definition.sv:1.2-9.4" *)
+module leaf(input a, output y); endmodule
+module synthesized(input a, output y);
+(* src = "C:\\rtl\\a.sv:12.70000-12.80000|other:with:colon.sv:4.1-5.2|C:\\rtl\\a.sv:12.70000-12.80000|partial:7|zero:0.0-0.0|quoted\"file.sv:3.1-3.2|bad|invalid\q:1.1|octal\777:1.1|nul\000:1.1|over:1.4294967296-2.1|reverse:9.1-8.2|" *)
+leaf u(a, y);
+(* src *) wire missing;
+(* src = 42 *) wire numeric;
+(* src = "" *) wire empty;
+endmodule
+"""
+    expected = [((r"C:\rtl\a.sv", 12, 70000, 12, 80000), "yosys", "", ""),
+                (("other:with:colon.sv", 4, 1, 5, 2), "yosys", "", ""),
+                (("partial", 7, 0, 0, 0), "yosys", "", ""),
+                (("zero", 0, 0, 0, 0), "yosys", "", ""),
+                (('quoted"file.sv', 3, 1, 3, 2), "yosys", "", "")]
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "gates.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write(text)
+      # Unselected generic src attributes stay opaque.
+      db = self.top.getDB()
+      db.loadVerilog([path])
+      top = db.getTopDesign()
+      self.assertEqual([], top.getInstance("u").getSourceOrigins())
+      naja.NLUniverse.get().destroy()
+      db = naja.NLDB.create(naja.NLUniverse.create())
+      db.loadVerilog([path], yosys_source_attributes=True)
+      top = db.getTopDesign()
+      instance = top.getInstance("u")
+      self.assertEqual(expected, instance.getSourceOrigins())
+      self.assertEqual((path, 5, 6, 5, 6), instance.getSourceDeclaration()[0])
+      self.assertEqual(2, instance.getModel().getSourceDeclaration()[0][1])
+      self.assertIsNone(instance.getSourceLoc())
+      for name in ("missing", "numeric", "empty"):
+        self.assertEqual([], top.getNet(name).getSourceOrigins())
+        self.assertTrue(top.getNet(name).getSourceDeclaration())
+      raw_src = next(a.getValue() for a in instance.getAttributes() if a.getName() == "src")
+      self.assertIn("|bad|", raw_src)
+      # NajaIF retains roles; Verilog retains raw src attributes for explicit decoding.
+      snapshot = os.path.join(directory, "snapshot")
+      db.dumpNajaIF(snapshot)
+      top.dumpVerilog(directory, "roundtrip.v", dumpRTLInfosAsAttributes=True)
+      os.unlink(path)
+      for kind in ("snapshot", "verilog"):
+        naja.NLUniverse.get().destroy()
+        if kind == "snapshot":
+          db = naja.NLDB.loadNajaIF(snapshot)
+        else:
+          db = naja.NLDB.create(naja.NLUniverse.create())
+          db.loadVerilog([os.path.join(directory, "roundtrip.v")], yosys_source_attributes=True)
+        instance = db.getTopDesign().getInstance("u")
+        self.assertEqual(expected, instance.getSourceOrigins())
+        if kind == "snapshot":
+          self.assertEqual((path, 5, 6, 5, 6), instance.getSourceDeclaration()[0])
+        else:
+          self.assertEqual(os.path.join(directory, "roundtrip.v"), instance.getSourceDeclaration()[0][0])
+        if kind == "verilog":
+          self.assertEqual(raw_src, next(a.getValue() for a in instance.getAttributes() if a.getName() == "src"))
+
+  def testPreprocessedSourceDoesNotFabricateDeclarations(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "preprocessed.v")
+      with open(path, "w", encoding="utf-8") as output:
+        output.write('(* src="rtl.sv:5.1-5.2" *) module expanded(input a); endmodule')
+      db = self.top.getDB()
+      db.loadVerilog([path], preprocess_enabled=True, yosys_source_attributes=True)
+      top = db.getTopDesign()
+      self.assertIsNone(top.getSourceDeclaration())
+      self.assertIsNone(top.getTerm("a").getSourceDeclaration())
+      self.assertEqual([(("rtl.sv", 5, 1, 5, 2), "yosys", "", "")], top.getSourceOrigins())
 
   def testAttributes(self):
     pragma0 = naja.SNLAttribute("pragma0", "value0")

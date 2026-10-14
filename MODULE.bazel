@@ -4,7 +4,9 @@
 
 """Bazel module for naja.
 
-Every dependency is a plain bazel_dep. Versions that are not on the
+Registered dependency versions remain here for BCR consumers. Root source
+builds select the shared naja-if checkout through .bazelrc; --config=registered
+clears that override. Versions that are not on the
 Bazel Central Registry yet come from their open BCR pull requests,
 which .bazelrc lists ahead of BCR.
 """
@@ -31,7 +33,7 @@ bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "spdlog", version = "1.17.0")
-bazel_dep(name = "sv-lang", version = "11.0.0-20260701-b60d729d.bcr.1")
+bazel_dep(name = "sv-lang", version = "12.0.0")
 bazel_dep(name = "zlib", version = "1.3.2.bcr.1")
 
 bazel_dep(name = "google_benchmark", version = "1.9.5", dev_dependency = True)

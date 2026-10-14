@@ -148,6 +148,6 @@ representation:
 .. code-block:: python
 
    same_id = naja.NLID(*nid.toTuple())
-   same_id = naja.NLID.from_string(str(nid))
+   same_id = naja.NLID.fromString(str(nid))
 
 Both forms reconstruct an equal id.

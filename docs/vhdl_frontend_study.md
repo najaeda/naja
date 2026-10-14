@@ -3,17 +3,17 @@
 Status: architecture proposal, not an implementation commitment. Repository
 baseline: `51461f00`. Research date: 2026-09-20.
 
-Feasibility status: the [boundary contract](vhdl_frontend_contract.md),
-[semantic probes](../src/vhdl/README.md), [corpus inventory](../src/vhdl/tests/corpus/manifest.json),
-and [reuse experiment](../src/vhdl/tests/semantic/reuse/vhdl_lang_0.88.0.json)
-record the first evidence. Shared mux/register construction is implemented.
+Feasibility status: the [boundary contract](vhdl_frontend_contract.md) and
+[semantic probes](../src/vhdl/README.md) record the first evidence. Historical
+corpus and reuse experiment conclusions are summarized below; their saved
+study records are not maintained as test inputs. Shared mux/register construction
+is implemented.
 Phase 0 is partially complete; native VHDL parsing and elaboration, a
 pinned-revision notice audit before source redistribution, and contributor/API
-decisions remain open. The corpus's repository-level licenses indicate no
-blocker for reference validation or ephemeral test use; see the inventory's
-rights review. The semantic probe
+decisions remain open. Exact source revisions and file-level notices must be
+reviewed before redistributing any external corpus. The semantic probe
 corpus has now been run with a second independent runtime simulator; see the
-versioned NVC report alongside the GHDL baseline. Phase 1 has started with a
+reference-runner instructions alongside the GHDL baseline. Phase 1 has started with a
 standalone C++20 lexer, bounded recursive-descent parser, and initial name
 binding pass under `src/vhdl/`; design elaboration is not implemented yet.
 
@@ -309,7 +309,7 @@ implementation was integrated or benchmarked for throughput.
 | Native C++ library | Fits the repository's C++20 build and the proposed public API | Recommended working hypothesis; largest semantic implementation effort, best control over common Naja elaboration |
 | GHDL integration | Its documented architecture includes reusable components through `libghdl`; its synthesis frontend can produce netlists | Evaluate as a differential reference and an optional import path. Importing a completed netlist does not provide the requested shared elaboration architecture. Direct reuse needs an API, dependency and license assessment. |
 | VHDL-LS analysis library | Rust frontend separates parsing and semantic analysis and supports tooling-oriented diagnostics | Version 0.88.0 accepted/rejected the 35 probe sources at the expected analysis stage. Its public crate is Rust and supplies no C ABI or hardware-lowering interface; an FFI or process boundary and further specialization/API study would be required. Static agreement does not establish runtime behavior or suitability as the standalone C++ library. |
-| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | Independent runtime comparison completed for all 35 semantic probes with NVC 1.23.0. See `src/vhdl/tests/semantic/reference_nvc_1.23.0.json`; 32 cases matched the GHDL harness stage and diagnostic rules exactly, and three showed diagnostic wording or detection-stage differences while still rejecting the intended invalid constructs. |
+| NVC | VHDL compiler/simulator with separate analysis/elaboration/execution; explicitly not a synthesizer | Independent runtime comparison completed for all 35 semantic probes with NVC 1.23.0; 32 cases matched the GHDL harness stage and diagnostic rules exactly, and three showed diagnostic wording or detection-stage differences while still rejecting the intended invalid constructs. Regenerate an untracked report with `python3 src/vhdl/tests/semantic/run_nvc.py --report /tmp/naja-vhdl-nvc-report.json`. |
 
 Primary sources: [GHDL architecture](https://ghdl.github.io/ghdl/internals/index.html),
 [GHDL synthesis](https://ghdl.github.io/ghdl/using/Synthesis.html),
@@ -366,8 +366,8 @@ Standard-package source hashes and notices are recorded in the reference
 manifest. The proposed
 initial hardware domain is binary: permit single-source `std_logic` signals as
 binary hardware values, but reject multiple drivers and behavior that depends
-on `U`, `X`, `Z`, weak values or resolution. The preliminary profile review is
-recorded in the corpus manifest. GHDL synthesis completed for the UART, RPU and
+on `U`, `X`, `Z`, weak values or resolution. In the historical preliminary
+profile review, GHDL synthesis completed for the UART, RPU and
 NEORV32 selected tops. The UART and RPU source scopes showed no explicit
 non-binary scalar logic literals in the reviewed scan. NEORV32 contains
 explicit undefined `X` results, don't-care `-` assignments, and weak `L`/`H`

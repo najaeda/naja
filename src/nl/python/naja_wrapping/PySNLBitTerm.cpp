@@ -107,18 +107,18 @@ static PyObject* PySNLBitTerm_setRole(PySNLBitTerm* self, PyObject* args) {
     Py_RETURN_FALSE;                                                 \
   }
 
-TERM_ROLE_PREDICATE(is_clock, isClock)
-TERM_ROLE_PREDICATE(is_async_reset, isAsyncReset)
-TERM_ROLE_PREDICATE(is_async_set, isAsyncSet)
-TERM_ROLE_PREDICATE(is_sync_reset, isSyncReset)
-TERM_ROLE_PREDICATE(is_sync_set, isSyncSet)
-TERM_ROLE_PREDICATE(is_reset, isReset)
-TERM_ROLE_PREDICATE(is_enable, isEnable)
-TERM_ROLE_PREDICATE(is_data_input, isDataInput)
-TERM_ROLE_PREDICATE(is_data_output, isDataOutput)
+TERM_ROLE_PREDICATE(isClock, isClock)
+TERM_ROLE_PREDICATE(isAsyncReset, isAsyncReset)
+TERM_ROLE_PREDICATE(isAsyncSet, isAsyncSet)
+TERM_ROLE_PREDICATE(isSyncReset, isSyncReset)
+TERM_ROLE_PREDICATE(isSyncSet, isSyncSet)
+TERM_ROLE_PREDICATE(isReset, isReset)
+TERM_ROLE_PREDICATE(isEnable, isEnable)
+TERM_ROLE_PREDICATE(isDataInput, isDataInput)
+TERM_ROLE_PREDICATE(isDataOutput, isDataOutput)
 
-static PyObject* PySNLBitTerm_is_data(PySNLBitTerm* self) {
-  METHOD_HEAD("SNLBitTerm.is_data()")
+static PyObject* PySNLBitTerm_isData(PySNLBitTerm* self) {
+  METHOD_HEAD("SNLBitTerm.isData()")
   if (SNLDesignModeling::isDataInput(selfObject) ||
       SNLDesignModeling::isDataOutput(selfObject)) Py_RETURN_TRUE;
   Py_RETURN_FALSE;
@@ -126,21 +126,53 @@ static PyObject* PySNLBitTerm_is_data(PySNLBitTerm* self) {
 
 #undef TERM_ROLE_PREDICATE
 
+#define DEPRECATED_ROLE_ALIAS(ALIAS, REPLACEMENT) \
+  static PyObject* PySNLBitTerm_##ALIAS(PySNLBitTerm* self) { \
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, \
+        "SNLBitTerm." #ALIAS "() is deprecated and will be removed in a future release; " \
+        "use " #REPLACEMENT "() instead.", 1) < 0) return nullptr; \
+    return PySNLBitTerm_##REPLACEMENT(self); \
+  }
+
+DEPRECATED_ROLE_ALIAS(is_clock, isClock)
+DEPRECATED_ROLE_ALIAS(is_async_reset, isAsyncReset)
+DEPRECATED_ROLE_ALIAS(is_async_set, isAsyncSet)
+DEPRECATED_ROLE_ALIAS(is_sync_reset, isSyncReset)
+DEPRECATED_ROLE_ALIAS(is_sync_set, isSyncSet)
+DEPRECATED_ROLE_ALIAS(is_reset, isReset)
+DEPRECATED_ROLE_ALIAS(is_enable, isEnable)
+DEPRECATED_ROLE_ALIAS(is_data, isData)
+DEPRECATED_ROLE_ALIAS(is_data_input, isDataInput)
+DEPRECATED_ROLE_ALIAS(is_data_output, isDataOutput)
+
+#undef DEPRECATED_ROLE_ALIAS
+
 PyMethodDef PySNLBitTerm_Methods[] = {
   {"getRole", (PyCFunction)PySNLBitTerm_getRole, METH_NOARGS, "get the primitive term role."},
   {"setRole", (PyCFunction)PySNLBitTerm_setRole, METH_VARARGS,
     "set the primitive term role and optional active level."},
   {"getResetActiveLevel", (PyCFunction)PySNLBitTerm_getResetActiveLevel, METH_NOARGS, "get reset/set active level."},
-  {"is_clock", (PyCFunction)PySNLBitTerm_is_clock, METH_NOARGS, "whether this term is a clock."},
-  {"is_async_reset", (PyCFunction)PySNLBitTerm_is_async_reset, METH_NOARGS, "whether this term is an asynchronous reset."},
-  {"is_async_set", (PyCFunction)PySNLBitTerm_is_async_set, METH_NOARGS, "whether this term is an asynchronous set."},
-  {"is_sync_reset", (PyCFunction)PySNLBitTerm_is_sync_reset, METH_NOARGS, "whether this term is a synchronous reset."},
-  {"is_sync_set", (PyCFunction)PySNLBitTerm_is_sync_set, METH_NOARGS, "whether this term is a synchronous set."},
-  {"is_reset", (PyCFunction)PySNLBitTerm_is_reset, METH_NOARGS, "whether this term is a reset."},
-  {"is_enable", (PyCFunction)PySNLBitTerm_is_enable, METH_NOARGS, "whether this term is an enable."},
-  {"is_data", (PyCFunction)PySNLBitTerm_is_data, METH_NOARGS, "whether this term carries data."},
-  {"is_data_input", (PyCFunction)PySNLBitTerm_is_data_input, METH_NOARGS, "whether this term is a data input."},
-  {"is_data_output", (PyCFunction)PySNLBitTerm_is_data_output, METH_NOARGS, "whether this term is a data output."},
+  {"isClock", (PyCFunction)PySNLBitTerm_isClock, METH_NOARGS, "whether this term is a clock."},
+  {"isAsyncReset", (PyCFunction)PySNLBitTerm_isAsyncReset, METH_NOARGS, "whether this term is an asynchronous reset."},
+  {"isAsyncSet", (PyCFunction)PySNLBitTerm_isAsyncSet, METH_NOARGS, "whether this term is an asynchronous set."},
+  {"isSyncReset", (PyCFunction)PySNLBitTerm_isSyncReset, METH_NOARGS, "whether this term is a synchronous reset."},
+  {"isSyncSet", (PyCFunction)PySNLBitTerm_isSyncSet, METH_NOARGS, "whether this term is a synchronous set."},
+  {"isReset", (PyCFunction)PySNLBitTerm_isReset, METH_NOARGS, "whether this term is a reset."},
+  {"isEnable", (PyCFunction)PySNLBitTerm_isEnable, METH_NOARGS, "whether this term is an enable."},
+  {"isData", (PyCFunction)PySNLBitTerm_isData, METH_NOARGS, "whether this term carries data."},
+  {"isDataInput", (PyCFunction)PySNLBitTerm_isDataInput, METH_NOARGS, "whether this term is a data input."},
+  {"isDataOutput", (PyCFunction)PySNLBitTerm_isDataOutput, METH_NOARGS, "whether this term is a data output."},
+  // Deprecated compatibility aliases; use the camelCase predicates.
+  {"is_clock", (PyCFunction)PySNLBitTerm_is_clock, METH_NOARGS, "Deprecated; use isClock()."},
+  {"is_async_reset", (PyCFunction)PySNLBitTerm_is_async_reset, METH_NOARGS, "Deprecated; use isAsyncReset()."},
+  {"is_async_set", (PyCFunction)PySNLBitTerm_is_async_set, METH_NOARGS, "Deprecated; use isAsyncSet()."},
+  {"is_sync_reset", (PyCFunction)PySNLBitTerm_is_sync_reset, METH_NOARGS, "Deprecated; use isSyncReset()."},
+  {"is_sync_set", (PyCFunction)PySNLBitTerm_is_sync_set, METH_NOARGS, "Deprecated; use isSyncSet()."},
+  {"is_reset", (PyCFunction)PySNLBitTerm_is_reset, METH_NOARGS, "Deprecated; use isReset()."},
+  {"is_enable", (PyCFunction)PySNLBitTerm_is_enable, METH_NOARGS, "Deprecated; use isEnable()."},
+  {"is_data", (PyCFunction)PySNLBitTerm_is_data, METH_NOARGS, "Deprecated; use isData()."},
+  {"is_data_input", (PyCFunction)PySNLBitTerm_is_data_input, METH_NOARGS, "Deprecated; use isDataInput()."},
+  {"is_data_output", (PyCFunction)PySNLBitTerm_is_data_output, METH_NOARGS, "Deprecated; use isDataOutput()."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

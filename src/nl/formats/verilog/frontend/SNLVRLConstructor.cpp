@@ -5,7 +5,10 @@
 
 #include "SNLVRLConstructor.h"
 
+#include <cctype>
 #include <iostream>
+#include <charconv>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -25,7 +28,9 @@
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
+#include "SNLParameter.h"
 #include "SNLAttributes.h"
+#include "SNLRTLInfos.h"
 #include "SNLExceptions.h"
 
 #include "SNLVRLConstructorUtils.h"
@@ -45,6 +50,71 @@ std::vector<naja::NL::SNLTerm*> getConnectableTerms(naja::NL::SNLDesign* design)
     }
   }
   return terms;
+}
+
+naja::NL::SNLRTLInfos* sourceInfos(naja::NL::NLObject* object) {
+  if (auto design = dynamic_cast<naja::NL::SNLDesign*>(object)) {
+    return design->getRTLInfos() ? design->getRTLInfos() : naja::NL::SNLRTLInfos::create(design);
+  }
+  if (auto designObject = dynamic_cast<naja::NL::SNLDesignObject*>(object)) {
+    return designObject->getRTLInfos() ? designObject->getRTLInfos() : naja::NL::SNLRTLInfos::create(designObject);
+  }
+  return nullptr; // LCOV_EXCL_LINE: callers only pass designs or design objects.
+}
+
+std::optional<naja::NL::SNLSourceLoc> parseYosysSource(const std::string& entry) {
+  // The last colon separates the numeric suffix, leaving drive letters and
+  // any other colons in the opaque producer path untouched.
+  const auto colon = entry.rfind(':');
+  if (colon == std::string::npos || colon == 0) { return std::nullopt; }
+  const char* cursor = entry.data() + colon + 1;
+  const char* end = entry.data() + entry.size();
+  auto coordinate = [&](std::uint32_t& value) {
+    auto result = std::from_chars(cursor, end, value);
+    if (result.ec != std::errc() || result.ptr == cursor) { return false; }
+    cursor = result.ptr;
+    return true;
+  };
+  naja::NL::SNLSourceLoc loc;
+  if (not coordinate(loc.line)) { return std::nullopt; }
+  if (cursor != end && *cursor == '.') {
+    ++cursor;
+    if (not coordinate(loc.column)) { return std::nullopt; }
+  }
+  if (cursor != end && *cursor == '-') {
+    ++cursor;
+    if (not coordinate(loc.endLine)) { return std::nullopt; }
+    if (cursor != end && *cursor == '.') {
+      ++cursor;
+      if (not coordinate(loc.endColumn)) { return std::nullopt; }
+    }
+  }
+  if (cursor != end || (loc.line && loc.endLine &&
+      (loc.endLine < loc.line || (loc.endLine == loc.line && loc.column &&
+       loc.endColumn && loc.endColumn < loc.column)))) { return std::nullopt; }
+  // Attributes retain their raw Verilog spelling. Decode escapes only for
+  // the origin path, so a quoted Windows path denotes its actual bytes.
+  std::string path;
+  for (size_t i = 0; i < colon; ++i) {
+    char c = entry[i];
+    if (c == '\\') {
+      if (++i == colon) { return std::nullopt; }
+      c = entry[i];
+      if (c == 'n') { c = '\n'; }
+      else if (c == 't') { c = '\t'; }
+      else if (c >= '0' && c <= '7') {
+        unsigned value = c - '0';
+        for (unsigned n = 1; n < 3 && i + 1 < colon && entry[i + 1] >= '0' && entry[i + 1] <= '7'; ++n) {
+          value = value * 8 + entry[++i] - '0';
+        }
+        if (value > 255 || value == 0) { return std::nullopt; }
+        c = static_cast<char>(value);
+      } else if (c != '\\' && c != '"') { return std::nullopt; }
+    }
+    path.push_back(c);
+  }
+  loc.file = naja::NL::NLName(path);
+  return loc;
 }
 
 void collectAttributes(
@@ -97,6 +167,163 @@ void collectAttributes(
   }
 }
 
+// Canonicalizes a sized, non-negative based-number literal to the shared
+// canonical bit-vector parameter form defined by NLDB0::formatBitVectorValue:
+// "<width>['s]'b<msb...lsb>". Downstream consumers can then read parameter
+// bits without re-implementing Verilog literal parsing.
+//
+// Returns nullopt — the caller keeps the source text — for values that have
+// no faithful literal-level canonical form:
+//   - plain integers, strings, concatenations, identifiers,
+//   - unsized literals ('hF): their width is context-dependent (at least 32),
+//   - negated literals (-4'b1): unary minus is evaluated at the context
+//     width, which the frontend cannot see (in a 16-bit context -4'b0001 is
+//     16'hffff, not the 4-bit two's complement 4'b1101 zero-extended),
+//   - digits that do not match the declared base.
+std::optional<std::string> canonicalizeBasedNumber(
+    const naja::verilog::Number& number) {
+  if (number.value_.index() != naja::verilog::Number::Type::BASED) {
+    return std::nullopt;
+  }
+  const auto& based =
+      std::get<naja::verilog::Number::Type::BASED>(number.value_);
+  if (not based.hasSize_ or not number.sign_) {
+    return std::nullopt;
+  }
+  const size_t width = based.size_;
+  if (width == 0) {
+    return std::nullopt;  // LCOV_EXCL_LINE
+  }
+  std::string digits;
+  for (char c : based.digits_) {
+    if (c != '_') {
+      digits.push_back(
+          static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+  }
+  if (digits.empty()) {
+    return std::nullopt;  // LCOV_EXCL_LINE
+  }
+  std::string bits;  // LSB first
+  switch (based.base_) {
+    case naja::verilog::BasedNumber::BINARY:
+      for (auto it = digits.rbegin(); it != digits.rend(); ++it) {
+        if (*it != '0' && *it != '1' && *it != 'x' && *it != 'z') {
+          return std::nullopt;  // LCOV_EXCL_LINE
+        }
+        bits.push_back(*it);
+      }
+      break;
+    case naja::verilog::BasedNumber::OCTAL:
+    case naja::verilog::BasedNumber::HEX: {
+      const size_t bitsPerDigit =
+          based.base_ == naja::verilog::BasedNumber::HEX ? 4 : 3;
+      for (auto it = digits.rbegin(); it != digits.rend(); ++it) {
+        const char digit = *it;
+        if (digit == 'x' || digit == 'z') {
+          bits.append(bitsPerDigit, digit);
+          continue;
+        }
+        int digitValue = -1;
+        if (digit >= '0' && digit <= '9') {
+          digitValue = digit - '0';
+        } else if (bitsPerDigit == 4 && digit >= 'a' && digit <= 'f') {
+          digitValue = 10 + digit - 'a';
+        }
+        if (digitValue < 0 || digitValue >= (1 << bitsPerDigit)) {
+          return std::nullopt;  // LCOV_EXCL_LINE
+        }
+        for (size_t i = 0; i < bitsPerDigit; ++i) {
+          bits.push_back((digitValue >> i) & 1 ? '1' : '0');
+        }
+      }
+      break;
+    }
+    case naja::verilog::BasedNumber::DECIMAL: {
+      if (digits == "x" || digits == "z") {
+        // A lone x/z digit marks every bit as unknown.
+        bits.push_back(digits.front());
+        break;
+      }
+      for (char c : digits) {
+        if (!std::isdigit(static_cast<unsigned char>(c))) {
+          return std::nullopt;  // LCOV_EXCL_LINE
+        }
+      }
+      // Only the least-significant width bits survive the sizing below.
+      std::string remaining = digits;
+      for (size_t i = 0; i < width && remaining != "0"; ++i) {
+        int carry = 0;
+        std::string quotient;
+        for (char c : remaining) {
+          const int current = carry * 10 + (c - '0');
+          carry = current % 2;
+          if (!quotient.empty() || current >= 2) {
+            quotient.push_back(static_cast<char>('0' + current / 2));
+          }
+        }
+        bits.push_back(carry ? '1' : '0');
+        remaining = quotient.empty() ? "0" : quotient;
+      }
+      break;
+    }
+  }
+  // Sized literals are padded on the left to their declared width with '0',
+  // or with x/z when the leftmost digit is x/z, and extra leftmost bits are
+  // truncated (IEEE 1364 sized-number rules). The signed marker only governs
+  // later expression-context extension, so it does not change the literal's
+  // own bit pattern and is preserved in the canonical form instead.
+  const char pad =
+      digits.front() == 'x' || digits.front() == 'z' ? digits.front() : '0';
+  if (bits.size() < width) {
+    bits.append(width - bits.size(), pad);
+  } else if (bits.size() > width) {
+    bits.resize(width);
+  }
+  return naja::NL::NLDB0::formatBitVectorValue(
+      width, std::string(bits.rbegin(), bits.rend()), based.signed_);
+}
+
+std::optional<std::string> canonicalizeParameterExpression(
+    const naja::verilog::Expression& expression) {
+  if (!expression.valid_ ||
+      expression.value_.index() != naja::verilog::Expression::Type::NUMBER) {
+    return std::nullopt;
+  }
+  return canonicalizeBasedNumber(
+      std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_));
+}
+
+// Number::getString() drops the sign of a negated number, so a negated value
+// kept in source form gets its '-' back here; storing "4'b1" for -4'b1 would
+// silently change the value.
+std::string parameterExpressionText(
+    const naja::verilog::Expression& expression) {
+  std::string text = expression.getString();
+  // The expression grammar has no unary minus, so a NUMBER here is always
+  // non-negative today; keep the sign restoration symmetric with the
+  // constant-expression path in case the grammar grows one.
+  if (expression.valid_ &&
+      expression.value_.index() == naja::verilog::Expression::Type::NUMBER &&
+      not std::get<naja::verilog::Expression::Type::NUMBER>(
+          expression.value_).sign_) {
+    text.insert(text.begin(), '-');
+  }
+  return text;
+}
+
+std::string parameterConstantExpressionText(
+    const naja::verilog::ConstantExpression& expression) {
+  std::string text = expression.getString();
+  if (expression.valid_ &&
+      expression.getType() == naja::verilog::ConstantExpression::Type::NUMBER &&
+      not std::get<naja::verilog::ConstantExpression::Type::NUMBER>(
+          expression.value_).sign_) {
+    text.insert(text.begin(), '-');
+  }
+  return text;
+}
+
 void createPort(
   naja::NL::SNLDesign* design,
   const naja::verilog::Port& port,
@@ -137,6 +364,7 @@ void createPortNet(naja::NL::SNLDesign* design, const naja::verilog::Port& port)
     term->setNet(net);
   }
 }
+
 
 bool allNetsArePortNets(naja::NL::SNLDesign* design) {
   for (auto net: design->getBitNets()) {
@@ -392,6 +620,10 @@ bool SNLVRLConstructor::isCurrentModuleSelected(const NLName& moduleName) const 
 }
 
 void SNLVRLConstructor::resetPerModuleState() {
+  portSources_.clear();
+  declarationAttributes_.clear();
+  attributesRange_ = {};
+  instantiationAttributes_.clear();
   currentModule_ = nullptr;
   currentModuleInterfacePortsMap_.clear();
   currentModuleInterfacePorts_.clear();
@@ -435,6 +667,65 @@ void SNLVRLConstructor::construct(const Paths& paths) {
 
 void SNLVRLConstructor::construct(const std::filesystem::path& path) {
   construct(Paths{path});
+}
+
+void SNLVRLConstructor::restoreDeclarationAttributes() {
+  // Grouped declarations (e.g. (* src="..." *) wire a, b; or input a, b;)
+  // produce one callback per object with the same source range. Each callback
+  // consumes nextObjectAttributes_, so reuse the declaration's attributes for
+  // later objects instead of attaching them only to the first one.
+  const auto range = getCurrentSourceRange();
+  if (nextObjectAttributes_.empty() && range.line == attributesRange_.line &&
+      range.column == attributesRange_.column && range.endLine == attributesRange_.endLine &&
+      range.endColumn == attributesRange_.endColumn) {
+    nextObjectAttributes_ = declarationAttributes_;
+  } else {
+    attributesRange_ = range;
+    declarationAttributes_ = nextObjectAttributes_;
+  }
+}
+
+void SNLVRLConstructor::populateDeclaration(NLObject* object) {
+  // Expanded input has no original-file source map. Never fabricate a span.
+  if (isPreprocessEnabled()) { return; }
+  auto range = getCurrentSourceRange();
+  if (not range.line || not range.column || not range.endLine || not range.endColumn) { return; }
+  SNLSourceLoc loc;
+  loc.file = NLName(getCurrentPath());
+  loc.line = range.line;
+  loc.column = range.column;
+  loc.endLine = range.endLine;
+  loc.endColumn = range.endColumn > 1 ? range.endColumn - 1 : 0;
+  if (auto infos = sourceInfos(object)) {
+    infos->setSourceDeclaration({loc, NLName("naja-verilog"), NLName("verilog"), NLName()});
+  }
+}
+
+void SNLVRLConstructor::populateSource(NLObject* object, const Attributes& attributes) {
+  populateDeclaration(object);
+  if (not config_.yosysSourceAttributes_) { return; }
+  for (const auto& attribute: attributes) {
+    if (attribute.name_.getString() != "src") { continue; }
+    if (not attribute.expression_.valid_ || attribute.expression_.getType() != naja::verilog::ConstantExpression::Type::STRING) {
+      NAJA_LOG_WARN("{}: ignoring Yosys src without a string value", getLocationString());
+      continue;
+    }
+    std::istringstream input(attribute.expression_.getString());
+    std::string entry;
+    while (std::getline(input, entry, '|')) {
+      auto loc = parseYosysSource(entry);
+      if (not loc) {
+        NAJA_LOG_WARN("{}: ignoring malformed or overflowing Yosys src entry '{}'", getLocationString(), entry);
+        continue;
+      }
+      if (auto infos = sourceInfos(object)) {
+        infos->addSourceOrigin({*loc, NLName("yosys"), NLName(), NLName()});
+      }
+    }
+    if (attribute.expression_.getString().empty() || attribute.expression_.getString().back() == '|') {
+      NAJA_LOG_WARN("{}: ignoring empty Yosys src entry", getLocationString());
+    }
+  }
 }
 
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
@@ -503,7 +794,10 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
         }
       }
     }
-    collectAttributes(currentModule_, nextObjectAttributes_);
+    if (not skipCurrentModule_) {
+      populateSource(currentModule_, nextObjectAttributes_);
+      collectAttributes(currentModule_, nextObjectAttributes_);
+    }
     NAJA_LOG_TRACE("Construct Module: {}", module.getString());
   } else {
     // In second pass, only elaborate the module definition that was selected in first pass.
@@ -552,6 +846,7 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifie
 }
 
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
+  restoreDeclarationAttributes();
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
     NAJA_LOG_TRACE("Add implementation port: {}", port.getString());
@@ -565,8 +860,11 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     }
     auto index = it->second;
     currentModuleInterfacePorts_[index] = std::make_unique<naja::verilog::Port>(port);
+    portSources_[port.identifier_.name_] = {getCurrentSourceRange(), nextObjectAttributes_};
   } else {
     createPortNet(currentModule_, port);
+    auto net = currentModule_->getNet(NLName(port.identifier_.name_));
+    populateSource(net, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
 }
@@ -574,14 +872,20 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
-    createPort(currentModule_, port, nextObjectAttributes_);
+    createPort(currentModule_, port, {});
+    auto term = currentModule_->getTerm(NLName(port.identifier_.name_));
+    populateSource(term, nextObjectAttributes_);
+    collectAttributes(term, nextObjectAttributes_);
   } else {
     createPortNet(currentModule_, port);
+    auto net = currentModule_->getNet(NLName(port.identifier_.name_));
+    populateSource(net, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
+  restoreDeclarationAttributes();
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
     NAJA_LOG_TRACE("Add net: {}", net.getString());
@@ -591,6 +895,9 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
       //net might be existing because of a port declaration
       auto term = currentModule_->getTerm(netName);
       if (term) {
+        populateSource(existingNet, nextObjectAttributes_);
+        collectAttributes(existingNet, nextObjectAttributes_);
+        nextObjectAttributes_.clear();
         return;
       } else {
         std::ostringstream reason;
@@ -607,6 +914,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
         snlNet = SNLScalarNet::create(currentModule_, NLName(net.identifier_.name_));
       }
       snlNet->setType(VRLTypeToSNLType(net.type_));
+      populateSource(snlNet, nextObjectAttributes_);
       collectAttributes(snlNet, nextObjectAttributes_);
     //LCOV_EXCL_START
     } catch (const NLException& exception) {
@@ -625,6 +933,7 @@ void SNLVRLConstructor::addAssign(
   const naja::verilog::Expression& expression) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
+    nextObjectAttributes_.clear();
     return;
   }
   using BitNets = std::vector<SNLBitNet*>;
@@ -694,12 +1003,16 @@ void SNLVRLConstructor::addAssign(
     auto assign = SNLInstance::create(currentModule_, NLDB0::getAssign());
     assign->setTermNet(NLDB0::getAssignOutput(), leftNet);
     assign->setTermNet(NLDB0::getAssignInput(), rightNet);
+    populateSource(assign, nextObjectAttributes_);
+    collectAttributes(assign, nextObjectAttributes_);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::startInstantiation(const naja::verilog::Identifier& model) {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
+    instantiationAttributes_ = nextObjectAttributes_;
     currentModelName_ = model.name_;
     NAJA_LOG_TRACE("Start Instantiation: {}", model.getString());
   }
@@ -736,7 +1049,8 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, NLName(instance.name_));
     NAJA_LOG_TRACE("Current Instance: {}", currentInstance_->getDescription());
-    collectAttributes(currentInstance_, nextObjectAttributes_);
+    populateSource(currentInstance_, instantiationAttributes_);
+    collectAttributes(currentInstance_, instantiationAttributes_);
   }
   nextObjectAttributes_.clear();
 }
@@ -746,7 +1060,9 @@ void SNLVRLConstructor::addParameterAssignment(
   const naja::verilog::Expression& expression) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
-    currentInstanceParameterValues_[parameter.name_] = expression.getString();
+    auto& stored = currentInstanceParameterValues_[parameter.name_];
+    stored.source = parameterExpressionText(expression);
+    stored.canonical = canonicalizeParameterExpression(expression);
   }
 }
 
@@ -766,7 +1082,15 @@ void SNLVRLConstructor::endInstantiation() {
           << " does not contain any Parameter named " << parameterValue.first;
         throw SNLVRLConstructorException(reason.str());
       }
-      SNLInstParameter::create(currentInstance_, parameter, parameterValue.second);
+      SNLInstParameter::create(
+          currentInstance_,
+          parameter,
+          // Canonicalize only bit-typed parameters; numeric parameters keep
+          // the source form for consumers that read them as numbers.
+          (parameter->getType() == naja::NL::SNLParameter::Type::Binary &&
+           parameterValue.second.canonical.has_value())
+              ? *parameterValue.second.canonical
+              : parameterValue.second.source);
     }
     currentInstanceParameterValues_.clear();
     currentInstance_ = nullptr;
@@ -932,6 +1256,8 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
 void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& gateType) {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
+    instantiationAttributes_ = nextObjectAttributes_;
+    gateSourceRange_ = getCurrentSourceRange();
     currentGateInstance_.gateType_ = najaVerilogToNLDB0GateType(gateType);
     NAJA_LOG_TRACE("Start Instantiation: {}", gateType.getString());
   }
@@ -939,6 +1265,7 @@ void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& ga
 
 void SNLVRLConstructor::addGateInstance(const naja::verilog::Identifier& id) {
   if (skipCurrentModule_) { return; }
+  if (not id.empty()) { gateSourceRange_ = getCurrentSourceRange(); }
   if (not inFirstPass() and not id.empty()) {
     currentGateInstance_.instanceName_ = id.name_;
   }
@@ -1016,9 +1343,13 @@ void SNLVRLConstructor::endGateInstantiation() {
         terms[i],
         currentGateInstance_.connections_[i]);
     }
+    setCurrentSourceRange(gateSourceRange_.line, gateSourceRange_.column, gateSourceRange_.endLine, gateSourceRange_.endColumn);
+    populateSource(currentInstance_, instantiationAttributes_);
+    collectAttributes(currentInstance_, instantiationAttributes_);
     currentInstance_ = nullptr;
     currentGateInstance_.reset();
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addAttribute(
@@ -1057,7 +1388,12 @@ void SNLVRLConstructor::endModule() {
       throw SNLVRLConstructorException(reason.str());
     }
     for (const auto& port: currentModuleInterfacePorts_) {
-      createPort(currentModule_, *port, nextObjectAttributes_);
+      const auto& source = portSources_.at(port->identifier_.name_);
+      setCurrentSourceRange(source.first.line, source.first.column, source.first.endLine, source.first.endColumn);
+      createPort(currentModule_, *port, {});
+      auto term = currentModule_->getTerm(NLName(port->identifier_.name_));
+      populateSource(term, source.second);
+      collectAttributes(term, source.second);
     }
   } else {
     //Blackbox detection
@@ -1217,7 +1553,18 @@ void SNLVRLConstructor::addDefParameterAssignment(
       reason << " cannot be found in " << instance->getModel()->getName().getString();
       throw SNLVRLConstructorException(reason.str());
     }
-    SNLInstParameter::create(instance, parameter, expression.getString());
+    std::string parameterValue = parameterConstantExpressionText(expression);
+    // Same rule as instance overrides: only bit-typed parameters get the
+    // canonical sized-binary form.
+    if (parameter->getType() == naja::NL::SNLParameter::Type::Binary &&
+        expression.getType() == naja::verilog::ConstantExpression::Type::NUMBER) {
+      if (auto canonical = canonicalizeBasedNumber(
+              std::get<naja::verilog::ConstantExpression::Type::NUMBER>(
+                  expression.value_))) {
+        parameterValue = std::move(*canonical);
+      }
+    }
+    SNLInstParameter::create(instance, parameter, parameterValue);
   }
 }
 

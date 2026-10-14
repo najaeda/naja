@@ -4,6 +4,7 @@
 
 #include "SNLRTLInfos.h"
 
+#include <algorithm>
 #include <charconv>
 #include <limits>
 #include <memory>
@@ -140,6 +141,54 @@ void SNLRTLInfos::setSourceLoc(const SNLSourceLoc& sourceLoc) {
   sourceLoc_ = sourceLoc;
 }
 
+bool SNLSourceReference::operator==(const SNLSourceReference& other) const {
+  return range.file == other.range.file && range.line == other.range.line &&
+    range.column == other.range.column && range.endLine == other.range.endLine &&
+    range.endColumn == other.range.endColumn && provider == other.provider &&
+    language == other.language && representation == other.representation;
+}
+
+void SNLRTLInfos::setSourceDeclaration(const SNLSourceReference& reference) {
+  if (!sourceReferences_) sourceReferences_ = std::make_unique<SourceReferences>();
+  sourceReferences_->declaration = reference;
+}
+
+const std::optional<SNLSourceReference>& SNLRTLInfos::getSourceDeclaration() const {
+  static const std::optional<SNLSourceReference> empty;
+  return sourceReferences_ ? sourceReferences_->declaration : empty;
+}
+
+void SNLRTLInfos::clearSourceDeclaration() {
+  if (sourceReferences_) {
+    sourceReferences_->declaration.reset();
+    if (sourceReferences_->origins.empty()) sourceReferences_.reset();
+  }
+}
+
+void SNLRTLInfos::addSourceOrigin(const SNLSourceReference& reference) {
+  if (!sourceReferences_) sourceReferences_ = std::make_unique<SourceReferences>();
+  auto& origins = sourceReferences_->origins;
+  if (std::find(origins.begin(), origins.end(), reference) == origins.end()) {
+    origins.push_back(reference);
+  }
+}
+
+const std::vector<SNLSourceReference>& SNLRTLInfos::getSourceOrigins() const {
+  static const std::vector<SNLSourceReference> empty;
+  return sourceReferences_ ? sourceReferences_->origins : empty;
+}
+
+void SNLRTLInfos::clearSourceOrigins() {
+  if (sourceReferences_) {
+    sourceReferences_->origins.clear();
+    if (!sourceReferences_->declaration) sourceReferences_.reset();
+  }
+}
+
+bool SNLRTLInfos::hasSourceReferences() const {
+  return sourceReferences_ != nullptr;
+}
+
 void SNLRTLInfos::setInfo(const InfoName& name, const InfoValue& value) {
   switch (getSourceInfoField(name)) {
     case SourceInfoField::None:
@@ -164,7 +213,7 @@ void SNLRTLInfos::setInfo(const InfoName& name, const InfoValue& value) {
       if (!sourceLoc_) {
         sourceLoc_.emplace();
       }
-      sourceLoc_->column = parseUnsignedInfoValue<std::uint16_t>(value);
+      sourceLoc_->column = parseUnsignedInfoValue<std::uint32_t>(value);
       return;
     case SourceInfoField::EndLine:
       if (!sourceLoc_) {
@@ -176,7 +225,7 @@ void SNLRTLInfos::setInfo(const InfoName& name, const InfoValue& value) {
       if (!sourceLoc_) {
         sourceLoc_.emplace();
       }
-      sourceLoc_->endColumn = parseUnsignedInfoValue<std::uint16_t>(value);
+      sourceLoc_->endColumn = parseUnsignedInfoValue<std::uint32_t>(value);
       return;
   }
 }
@@ -253,6 +302,8 @@ SNLRTLInfos::getCompactSourceLocAttribute() const {
 }
 
 void SNLRTLInfos::cloneInfos(const SNLRTLInfos& from) {
+  sourceReferences_ = from.sourceReferences_
+    ? std::make_unique<SourceReferences>(*from.sourceReferences_) : nullptr;
   sourceLoc_ = from.sourceLoc_;
   symbolPathId_ = from.symbolPathId_;
   if (from.extra_) {

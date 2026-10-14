@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBusNet.h"
+#include "SNLRTLInfos.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -199,8 +200,14 @@ void SNLBusNet::setLSB(NLID::Bit lsb) {
 SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   auto newBus = new SNLBusNet(design, id_, msb_, lsb_, name_);
   SNLAttributes::cloneAttributes(this, newBus);
+  if (auto* infos = getRTLInfos()) {
+    SNLRTLInfos::create(newBus)->cloneInfos(*infos);
+  }
   newBus->createBits();
   for (size_t i=0; i<bits_.size(); i++) {
+    if (auto* infos = bits_[i]->getRTLInfos()) {
+      SNLRTLInfos::create(newBus->bits_[i])->cloneInfos(*infos);
+    }
     newBus->bits_[i]->setType(bits_[i]->getType());
     bits_[i]->cloneComponents(newBus->bits_[i]);
   }

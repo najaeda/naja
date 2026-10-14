@@ -29,6 +29,26 @@ architecture rtl of inverter is begin y <= not a; end;
         self.assertEqual(1, top.count_input_terms())
         self.assertEqual(1, top.count_output_terms())
 
+    def test_load_vhdl_batch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            leaf = Path(directory) / "leaf.vhd"
+            top_file = Path(directory) / "top.vhd"
+            leaf.write_text("entity leaf is port(a : in bit; y : out bit); end; "
+                            "architecture rtl of leaf is begin y <= not a; end;")
+            top_file.write_text("entity top is port(a : in bit; y : out bit); end; "
+                                "architecture rtl of top is begin "
+                                "u: entity work.leaf port map(a, y); end;")
+            for files in ([leaf, top_file], [top_file, leaf]):
+                top = netlist.load_vhdl(files, diagnostics_report_path=None)
+                self.assertEqual(top.get_model_name(), "top")
+                self.assertEqual(top.count_child_instances(), 1)
+                self.assertEqual(next(top.get_child_instances()).get_model_name(), "leaf")
+                netlist.reset()
+        with self.assertRaises(ValueError):
+            netlist.load_vhdl([])
+        with self.assertRaises(TypeError):
+            netlist.load_vhdl([1])
+
     def test_hdl_destination_library(self):
         with tempfile.TemporaryDirectory() as directory:
             vhdl = Path(directory) / "leaf.vhd"
@@ -113,6 +133,16 @@ end;
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "VHDL input path is not a file"):
                 netlist.load_vhdl(directory)
+
+    def test_load_vhdl_rejects_bytes_source_pathlike(self):
+        class BytesPath:
+            def __fspath__(self):
+                return b"source.vhd"
+
+        for source in (BytesPath(), [BytesPath()]):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(TypeError, "^VHDL file must be a path string$"):
+                    netlist.load_vhdl(source)
 
     def test_load_vhdl_rejects_bytes_report_pathlike(self):
         class BytesPath:

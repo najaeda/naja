@@ -45,11 +45,46 @@ class NLDB0 {
     };
 
     /**
+     * \brief Canonical storage form for resolved bit-vector parameter values.
+     *
+     * A canonical bit-vector value is stored as a Verilog-style sized literal:
+     *   "<width>'b<msb...lsb>"           (unsigned)
+     *   "<width>'sb<msb...lsb>"          (signed)
+     * where the digits are exactly <width> lowercase characters in
+     * {0, 1, x, z}, ordered MSB to LSB, with no separators.
+     *
+     * The stored value represents the literal itself — its own bits, sized to
+     * <width> — and NOT the result of a destination-type conversion, which
+     * frontends generally cannot know. A consumer applying the value at a
+     * different width W must therefore size it the way a Verilog expression
+     * context would:
+     *   - W < width: keep the rightmost W digits (truncate on the left),
+     *   - W > width, unsigned: pad on the left with '0',
+     *   - W > width, signed: replicate the leftmost digit (which may be x/z).
+     *
+     * Not every SNLParameter::Type::Binary value is canonical: frontends only
+     * produce this form for values they can resolve faithfully (e.g. sized,
+     * non-negative Verilog based literals, or fully evaluated flop INIT
+     * bits). Parameter defaults, plain integers, unsized literals ('hF),
+     * negated literals (-4'b1, whose value depends on the evaluation context
+     * width), concatenations, identifiers, and values built through direct
+     * API calls keep their source or caller-provided form. Consumers must
+     * therefore treat canonical form as a convention to detect, not a
+     * guarantee.
+     *
+     * formatBitVectorValue validates its input and throws NLException if the
+     * digits do not form exactly <width> 0/1/x/z characters.
+     */
+    static std::string formatBitVectorValue(
+      size_t width,
+      std::string_view msbToLsbDigits,
+      bool isSigned=false);
+    /**
      * \brief Format a canonical DFF INIT literal.
      *
-     * The digit string is ordered MSB-to-LSB and may contain only 0, 1, x, X,
-     * z, or Z. Storage keeps this Verilog literal string because SNL nets are
-     * two-state while INIT is four-state metadata.
+     * Equivalent to formatBitVectorValue with isSigned=false; kept under this
+     * name for the DB0 sequential primitives whose INIT parameter follows the
+     * canonical bit-vector contract.
      */
     static std::string formatDFFInitValue(size_t width, std::string_view msbToLsbDigits);
     static std::string getUndefinedDFFInitValue(size_t width);
@@ -61,6 +96,8 @@ class NLDB0 {
       size_t          readPorts  {0};
       size_t          writePorts {0};
       MemoryResetMode resetMode  {MemoryResetMode::None};
+      /// Independent write clocks and per-bit masks; reads remain asynchronous.
+      bool independentWriteClocks {false};
 
       bool operator==(const MemorySignature& other) const {
         return width == other.width &&
@@ -68,7 +105,8 @@ class NLDB0 {
                abits == other.abits &&
                readPorts == other.readPorts &&
                writePorts == other.writePorts &&
-               resetMode == other.resetMode;
+               resetMode == other.resetMode &&
+               independentWriteClocks == other.independentWriteClocks;
       }
     };
 

@@ -126,6 +126,9 @@ class SNLSVConstructor {
       /// whose terms are inferred from the instantiation's port connections
       /// (direction defaults to InOut, width to the connected expression width).
       bool blackboxUnknownModules {false};
+      /// Preserve only the ports of modules with unsupported overlapping or
+      /// dynamic writes to a memory from multiple sequential processes.
+      bool blackboxMultiWriterMemories {false};
     };
 
     SNLSVConstructor() = delete;

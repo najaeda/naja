@@ -8,6 +8,9 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace naja::NL {
 
@@ -42,11 +45,14 @@ class VHDLConstructor {
     /// Subsequent dependent RTL loads share those declarations. A single RTL
     /// entity requiring generic values is retained without elaboration when no
     /// top is specified, so a later parent can supply its generic actuals.
-    /// Read, parse, and lower one VHDL source file. An explicit top is required
-    /// when the file contains a supported structural hierarchy.
-    /// The RTL path can infer a unique uninstantiated root entity.
+    /// Read, parse, and lower one VHDL source file, inferring a unique
+    /// uninstantiated root entity unless top is specified.
     SNLDesign* constructFile(
       const std::filesystem::path& path, std::string_view top = {}) const;
+
+    /// Register all files before elaboration; file order is immaterial.
+    SNLDesign* constructFiles(
+      const std::vector<std::filesystem::path>& paths, std::string_view top = {}) const;
 
     /// Parse a multi-unit source and lower the selected structural top plus its
     /// directly instantiated leaf entities. The hierarchy slice accepts
@@ -56,6 +62,9 @@ class VHDLConstructor {
   private:
     SNLDesign* constructSource(std::string_view source, std::string_view top,
                                const std::string& path) const;
+    SNLDesign* constructInputs(
+      const std::vector<std::pair<std::string, std::string>>& inputs,
+      std::string_view top, bool batch) const;
     NLLibrary* library_;
     ConstructOptions options_;
 };

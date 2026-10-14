@@ -12,6 +12,17 @@ entry point.  It exposes native SNL objects directly and assumes that callers
 understand database ownership, object lifetimes, uniquification, and the SNL
 hierarchy model.
 
+Raw methods and module functions use camelCase, for example ``isClock()``,
+``getNodes()``, ``createBinary()``, ``fromString()``, and
+``snapshotManifest()``. The source-intent helpers follow the same convention:
+``liveCompilation()``, ``astSymbolOf()``, ``snlObjectsOf()``,
+``intentAvailable()``, ``intentTypeOf()``, ``intentParametersOf()``, and
+``intentPackageMember()``. Callers of the former snake_case spellings must
+switch to these names; those spellings are no longer exported. High-level
+:mod:`najaeda.netlist` methods continue to use snake_case, such as
+``Term.is_clock()``. Dictionary keys returned by raw functions retain their
+existing spellings.
+
 When to use the raw API
 -----------------------
 
@@ -242,6 +253,72 @@ The role and active level are inherited by instance terms.  Use
 ``getClockTerms()``, the other role-based design iterators, and the
 ``is_*`` term predicates to inspect the resulting model.
 
+Parameter-dependent term roles
+------------------------------
+
+For vendor primitives whose pin meaning changes with instance parameters,
+use ``SNLDesign.setRolesFromParameters(parameters, roles)``. Each entry has
+an ordered unsigned integer ``values`` list and a ``roles`` dictionary
+mapping scalar terms or bus bits to ``(SNLTermRole, SNLActiveLevel)`` or
+``None``. ``None`` explicitly removes the role, resolving to
+``SNLTermRole.Other`` and ``SNLActiveLevel.NA`` even if the static term has
+a control role. Omitted terms retain their static role.
+
+.. code-block:: python
+
+   from itertools import product
+
+   names = ["reset_present", "reset_synchronous", "reset_sets_value", "enable_present"]
+   for name in names:
+       naja.SNLParameter.createBinary(cell, name, 1, 0)
+   reset = cell.getScalarTerm("R")
+   load = cell.getScalarTerm("L")
+   role, level = naja.SNLTermRole, naja.SNLActiveLevel
+   entries = []
+   for init, sync, typ, use_load in product((0, 1), repeat=4):
+       reset_role = ((role.SyncSet if typ else role.SyncReset) if sync
+                     else (role.AsyncSet if typ else role.AsyncReset))
+       entries.append({
+           "values": [init, sync, typ, use_load],
+           "roles": {
+               reset: (reset_role, level.High) if init else None,
+               load: (role.Enable, level.NA) if use_load else None,
+           },
+       })
+   cell.setRolesFromParameters(names, entries)
+
+Selectors must be distinct names of Binary, Boolean, or Decimal parameters
+on a primitive design. Instance overrides take precedence over defaults;
+numeric HDL literals are resolved using the same parser as parameterized
+sequential models. Missing required values, invalid literals, and unmatched
+configurations raise ``RuntimeError`` on instance queries. Duplicate keys,
+foreign terms, invalid enums, and malformed declarations are rejected without
+replacing the existing table. Calling the setter again replaces the table.
+``hasRolesFromParameters()`` reports whether a table is present.
+
+``SNLInstTerm.getRole()``, ``getResetActiveLevel()``, and all ``is_*`` role
+predicates resolve the current instance parameters on every query.
+``SNLOccurrence.getRole()`` and ``getResetActiveLevel()`` do the same when
+the occurrence references an instance term; bit-term occurrences report
+static roles, and non-term occurrences report ``Other`` / ``NA``.
+``SNLBitTerm.getRole()`` and design role iterators still report static roles.
+Without a table, existing static-role behavior is preserved.
+
+Declare tables through the raw API even when traversing with the high-level
+API: ``najaeda.netlist.Term.get_role()``, ``get_reset_active_level()``, and
+``isClock()``, ``isReset()``, ``isEnable()`` and the other role predicates
+use the resolved instance term. There is no high-level declaration wrapper.
+These tables are independent of sequential models; setting a sequential
+model does not infer or replace roles. Like existing primitive modeling
+metadata, custom role tables are runtime declarations; reattach them when
+reconstructing primitive models after loading a snapshot.
+
+The native equivalent is
+``SNLDesignModeling::setRolesFromParameters(design, names, table)`` using
+``TermRoleTable`` (numeric key vectors mapping to ``TermRoles``). An empty
+``TermRole{}`` expresses Python's ``None``. Query through the
+``SNLDesignModeling`` instance-term overloads.
+
 Parameterized combinational timing selects one design parameter and records
 an arc set for each value.  Two-argument ``addCombinatorialArcs`` calls record
 the default value's arcs; the three-argument form takes the parameter value
@@ -411,15 +488,15 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLLibrary`
      - :meth:`create <najaeda.naja.NLLibrary.create>`, :meth:`createPrimitives <najaeda.naja.NLLibrary.createPrimitives>`, :meth:`getDB <najaeda.naja.NLLibrary.getDB>`, :meth:`getID <najaeda.naja.NLLibrary.getID>`, :meth:`getNLID <najaeda.naja.NLLibrary.getNLID>`, :meth:`getName <najaeda.naja.NLLibrary.getName>`, :meth:`setName <najaeda.naja.NLLibrary.setName>`, :meth:`isStandard <najaeda.naja.NLLibrary.isStandard>`, :meth:`isPrimitives <najaeda.naja.NLLibrary.isPrimitives>`, :meth:`getSNLDesign <najaeda.naja.NLLibrary.getSNLDesign>`, :meth:`getSNLDesigns <najaeda.naja.NLLibrary.getSNLDesigns>`, :meth:`getLibrary <najaeda.naja.NLLibrary.getLibrary>`, :meth:`getLibraries <najaeda.naja.NLLibrary.getLibraries>`
    * - :class:`najaeda.naja.SNLDesign`
-     - :meth:`create <najaeda.naja.SNLDesign.create>`, :meth:`createPrimitive <najaeda.naja.SNLDesign.createPrimitive>`, :meth:`clone <najaeda.naja.SNLDesign.clone>`, :meth:`destroy <najaeda.naja.SNLDesign.destroy>`, :meth:`getName <najaeda.naja.SNLDesign.getName>`, :meth:`setName <najaeda.naja.SNLDesign.setName>`, :meth:`getDB <najaeda.naja.SNLDesign.getDB>`, :meth:`getLibrary <najaeda.naja.SNLDesign.getLibrary>`, :meth:`getID <najaeda.naja.SNLDesign.getID>`, :meth:`getNLID <najaeda.naja.SNLDesign.getNLID>`, :meth:`getRevisionCount <najaeda.naja.SNLDesign.getRevisionCount>`, :meth:`getTerms <najaeda.naja.SNLDesign.getTerms>`, :meth:`getTerm <najaeda.naja.SNLDesign.getTerm>`, :meth:`getTermByID <najaeda.naja.SNLDesign.getTermByID>`, :meth:`getScalarTerms <najaeda.naja.SNLDesign.getScalarTerms>`, :meth:`getBusTerms <najaeda.naja.SNLDesign.getBusTerms>`, :meth:`getBundleTerms <najaeda.naja.SNLDesign.getBundleTerms>`, :meth:`getNets <najaeda.naja.SNLDesign.getNets>`, :meth:`getNet <najaeda.naja.SNLDesign.getNet>`, :meth:`getScalarNets <najaeda.naja.SNLDesign.getScalarNets>`, :meth:`getBusNets <najaeda.naja.SNLDesign.getBusNets>`, :meth:`getInstances <najaeda.naja.SNLDesign.getInstances>`, :meth:`getInstance <najaeda.naja.SNLDesign.getInstance>`, :meth:`getInstanceByID <najaeda.naja.SNLDesign.getInstanceByID>`, :meth:`getInstanceByIDList <najaeda.naja.SNLDesign.getInstanceByIDList>`, :meth:`getParameters <najaeda.naja.SNLDesign.getParameters>`, :meth:`getParameter <najaeda.naja.SNLDesign.getParameter>`, :meth:`addCombinatorialArcs <najaeda.naja.SNLDesign.addCombinatorialArcs>`, :meth:`addInputsToClockArcs <najaeda.naja.SNLDesign.addInputsToClockArcs>`, :meth:`addClockToOutputsArcs <najaeda.naja.SNLDesign.addClockToOutputsArcs>`, :meth:`setTimingModelParameter <najaeda.naja.SNLDesign.setTimingModelParameter>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLDesign.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLDesign.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLDesign.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLDesign.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLDesign.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLDesign.getOutputRelatedClocks>`, :meth:`getClockTerms <najaeda.naja.SNLDesign.getClockTerms>`, :meth:`getAsyncResetTerms <najaeda.naja.SNLDesign.getAsyncResetTerms>`, :meth:`getAsyncSetTerms <najaeda.naja.SNLDesign.getAsyncSetTerms>`, :meth:`getSyncResetTerms <najaeda.naja.SNLDesign.getSyncResetTerms>`, :meth:`getSyncSetTerms <najaeda.naja.SNLDesign.getSyncSetTerms>`, :meth:`getDataInputTerms <najaeda.naja.SNLDesign.getDataInputTerms>`, :meth:`getOutputTerms <najaeda.naja.SNLDesign.getOutputTerms>`, :meth:`setTruthTable <najaeda.naja.SNLDesign.setTruthTable>`, :meth:`setSequentialModel <najaeda.naja.SNLDesign.setSequentialModel>`, :meth:`setSequentialModelFromParameters <najaeda.naja.SNLDesign.setSequentialModelFromParameters>`, :meth:`hasSequentialModel <najaeda.naja.SNLDesign.hasSequentialModel>`, :meth:`hasSequentialModelFromParameters <najaeda.naja.SNLDesign.hasSequentialModelFromParameters>`, :meth:`getSequentialModel <najaeda.naja.SNLDesign.getSequentialModel>`, :meth:`setTruthTableFromParameter <najaeda.naja.SNLDesign.setTruthTableFromParameter>`, :meth:`setTruthTables <najaeda.naja.SNLDesign.setTruthTables>`, :meth:`getTruthTable <najaeda.naja.SNLDesign.getTruthTable>`, :meth:`getTruthTableByOutputID <najaeda.naja.SNLDesign.getTruthTableByOutputID>`, :meth:`isConst0 <najaeda.naja.SNLDesign.isConst0>`, :meth:`isConst1 <najaeda.naja.SNLDesign.isConst1>`, :meth:`isConst <najaeda.naja.SNLDesign.isConst>`, :meth:`isBuf <najaeda.naja.SNLDesign.isBuf>`, :meth:`isInv <najaeda.naja.SNLDesign.isInv>`, :meth:`isAnd <najaeda.naja.SNLDesign.isAnd>`, :meth:`isNand <najaeda.naja.SNLDesign.isNand>`, :meth:`isOr <najaeda.naja.SNLDesign.isOr>`, :meth:`isNor <najaeda.naja.SNLDesign.isNor>`, :meth:`isXor <najaeda.naja.SNLDesign.isXor>`, :meth:`isXnor <najaeda.naja.SNLDesign.isXnor>`, :meth:`isMux <najaeda.naja.SNLDesign.isMux>`, :meth:`dumpVerilog <najaeda.naja.SNLDesign.dumpVerilog>`, :meth:`dumpFullDotFile <najaeda.naja.SNLDesign.dumpFullDotFile>`, :meth:`dumpContextDotFile <najaeda.naja.SNLDesign.dumpContextDotFile>`, :meth:`getClocks <najaeda.naja.SNLDesign.getClocks>`
+     - :meth:`create <najaeda.naja.SNLDesign.create>`, :meth:`createPrimitive <najaeda.naja.SNLDesign.createPrimitive>`, :meth:`clone <najaeda.naja.SNLDesign.clone>`, :meth:`destroy <najaeda.naja.SNLDesign.destroy>`, :meth:`getName <najaeda.naja.SNLDesign.getName>`, :meth:`setName <najaeda.naja.SNLDesign.setName>`, :meth:`getDB <najaeda.naja.SNLDesign.getDB>`, :meth:`getLibrary <najaeda.naja.SNLDesign.getLibrary>`, :meth:`getID <najaeda.naja.SNLDesign.getID>`, :meth:`getNLID <najaeda.naja.SNLDesign.getNLID>`, :meth:`getRevisionCount <najaeda.naja.SNLDesign.getRevisionCount>`, :meth:`getTerms <najaeda.naja.SNLDesign.getTerms>`, :meth:`getTerm <najaeda.naja.SNLDesign.getTerm>`, :meth:`getTermByID <najaeda.naja.SNLDesign.getTermByID>`, :meth:`getScalarTerms <najaeda.naja.SNLDesign.getScalarTerms>`, :meth:`getBusTerms <najaeda.naja.SNLDesign.getBusTerms>`, :meth:`getBundleTerms <najaeda.naja.SNLDesign.getBundleTerms>`, :meth:`getNets <najaeda.naja.SNLDesign.getNets>`, :meth:`getNet <najaeda.naja.SNLDesign.getNet>`, :meth:`getScalarNets <najaeda.naja.SNLDesign.getScalarNets>`, :meth:`getBusNets <najaeda.naja.SNLDesign.getBusNets>`, :meth:`getInstances <najaeda.naja.SNLDesign.getInstances>`, :meth:`getInstance <najaeda.naja.SNLDesign.getInstance>`, :meth:`getInstanceByID <najaeda.naja.SNLDesign.getInstanceByID>`, :meth:`getInstanceByIDList <najaeda.naja.SNLDesign.getInstanceByIDList>`, :meth:`getParameters <najaeda.naja.SNLDesign.getParameters>`, :meth:`getParameter <najaeda.naja.SNLDesign.getParameter>`, :meth:`addCombinatorialArcs <najaeda.naja.SNLDesign.addCombinatorialArcs>`, :meth:`addInputsToClockArcs <najaeda.naja.SNLDesign.addInputsToClockArcs>`, :meth:`addClockToOutputsArcs <najaeda.naja.SNLDesign.addClockToOutputsArcs>`, :meth:`setTimingModelParameter <najaeda.naja.SNLDesign.setTimingModelParameter>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLDesign.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLDesign.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLDesign.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLDesign.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLDesign.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLDesign.getOutputRelatedClocks>`, :meth:`getClockTerms <najaeda.naja.SNLDesign.getClockTerms>`, :meth:`getAsyncResetTerms <najaeda.naja.SNLDesign.getAsyncResetTerms>`, :meth:`getAsyncSetTerms <najaeda.naja.SNLDesign.getAsyncSetTerms>`, :meth:`getSyncResetTerms <najaeda.naja.SNLDesign.getSyncResetTerms>`, :meth:`getSyncSetTerms <najaeda.naja.SNLDesign.getSyncSetTerms>`, :meth:`getDataInputTerms <najaeda.naja.SNLDesign.getDataInputTerms>`, :meth:`getOutputTerms <najaeda.naja.SNLDesign.getOutputTerms>`, :meth:`setTruthTable <najaeda.naja.SNLDesign.setTruthTable>`, :meth:`setSequentialModel <najaeda.naja.SNLDesign.setSequentialModel>`, :meth:`setSequentialModelFromParameters <najaeda.naja.SNLDesign.setSequentialModelFromParameters>`, :meth:`setRolesFromParameters <najaeda.naja.SNLDesign.setRolesFromParameters>`, :meth:`hasRolesFromParameters <najaeda.naja.SNLDesign.hasRolesFromParameters>`, :meth:`hasSequentialModel <najaeda.naja.SNLDesign.hasSequentialModel>`, :meth:`hasSequentialModelFromParameters <najaeda.naja.SNLDesign.hasSequentialModelFromParameters>`, :meth:`getSequentialModel <najaeda.naja.SNLDesign.getSequentialModel>`, :meth:`setTruthTableFromParameter <najaeda.naja.SNLDesign.setTruthTableFromParameter>`, :meth:`setTruthTables <najaeda.naja.SNLDesign.setTruthTables>`, :meth:`getTruthTable <najaeda.naja.SNLDesign.getTruthTable>`, :meth:`getTruthTableByOutputID <najaeda.naja.SNLDesign.getTruthTableByOutputID>`, :meth:`isConst0 <najaeda.naja.SNLDesign.isConst0>`, :meth:`isConst1 <najaeda.naja.SNLDesign.isConst1>`, :meth:`isConst <najaeda.naja.SNLDesign.isConst>`, :meth:`isBuf <najaeda.naja.SNLDesign.isBuf>`, :meth:`isInv <najaeda.naja.SNLDesign.isInv>`, :meth:`isAnd <najaeda.naja.SNLDesign.isAnd>`, :meth:`isNand <najaeda.naja.SNLDesign.isNand>`, :meth:`isOr <najaeda.naja.SNLDesign.isOr>`, :meth:`isNor <najaeda.naja.SNLDesign.isNor>`, :meth:`isXor <najaeda.naja.SNLDesign.isXor>`, :meth:`isXnor <najaeda.naja.SNLDesign.isXnor>`, :meth:`isMux <najaeda.naja.SNLDesign.isMux>`, :meth:`dumpVerilog <najaeda.naja.SNLDesign.dumpVerilog>`, :meth:`dumpFullDotFile <najaeda.naja.SNLDesign.dumpFullDotFile>`, :meth:`dumpContextDotFile <najaeda.naja.SNLDesign.dumpContextDotFile>`, :meth:`getClocks <najaeda.naja.SNLDesign.getClocks>`
    * - :class:`najaeda.naja.SNLInstance`
      - :meth:`create <najaeda.naja.SNLInstance.create>`, :meth:`destroy <najaeda.naja.SNLInstance.destroy>`, :meth:`getName <najaeda.naja.SNLInstance.getName>`, :meth:`setName <najaeda.naja.SNLInstance.setName>`, :meth:`getID <najaeda.naja.SNLInstance.getID>`, :meth:`getNLID <najaeda.naja.SNLInstance.getNLID>`, :meth:`getDesign <najaeda.naja.SNLInstance.getDesign>`, :meth:`getModel <najaeda.naja.SNLInstance.getModel>`, :meth:`getSequentialModel <najaeda.naja.SNLInstance.getSequentialModel>`, :meth:`getInstTerm <najaeda.naja.SNLInstance.getInstTerm>`, :meth:`getInstTerms <najaeda.naja.SNLInstance.getInstTerms>`, :meth:`getInstParameter <najaeda.naja.SNLInstance.getInstParameter>`, :meth:`getInstParameters <najaeda.naja.SNLInstance.getInstParameters>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLInstance.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLInstance.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLInstance.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLInstance.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLInstance.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLInstance.getOutputRelatedClocks>`
    * - :class:`najaeda.naja.SNLTerm` and term subclasses
-     - :class:`Direction <najaeda.naja.SNLTerm.Direction>`, :meth:`getName <najaeda.naja.SNLTerm.getName>`, :meth:`setName <najaeda.naja.SNLTerm.setName>`, :meth:`getDirection <najaeda.naja.SNLTerm.getDirection>`, :meth:`getDesign <najaeda.naja.SNLTerm.getDesign>`, :meth:`getNet <najaeda.naja.SNLTerm.getNet>`, :meth:`setNet <najaeda.naja.SNLTerm.setNet>`, :meth:`getBits <najaeda.naja.SNLTerm.getBits>`, :meth:`getWidth <najaeda.naja.SNLTerm.getWidth>`, :meth:`getNLID <najaeda.naja.SNLTerm.getNLID>`, :meth:`getSourceLoc <najaeda.naja.SNLTerm.getSourceLoc>`, :meth:`hasSourceLoc <najaeda.naja.SNLTerm.hasSourceLoc>`; bit terms also expose :meth:`setRole <najaeda.naja.SNLBitTerm.setRole>`, :meth:`getRole <najaeda.naja.SNLBitTerm.getRole>`, :meth:`getResetActiveLevel <najaeda.naja.SNLBitTerm.getResetActiveLevel>`, :meth:`is_clock <najaeda.naja.SNLBitTerm.is_clock>`, :meth:`is_async_reset <najaeda.naja.SNLBitTerm.is_async_reset>`, :meth:`is_async_set <najaeda.naja.SNLBitTerm.is_async_set>`, :meth:`is_sync_reset <najaeda.naja.SNLBitTerm.is_sync_reset>`, :meth:`is_sync_set <najaeda.naja.SNLBitTerm.is_sync_set>`, :meth:`is_reset <najaeda.naja.SNLBitTerm.is_reset>`, :meth:`is_enable <najaeda.naja.SNLBitTerm.is_enable>`, :meth:`is_data <najaeda.naja.SNLBitTerm.is_data>`, :meth:`is_data_input <najaeda.naja.SNLBitTerm.is_data_input>`, :meth:`is_data_output <najaeda.naja.SNLBitTerm.is_data_output>`
+     - :class:`Direction <najaeda.naja.SNLTerm.Direction>`, :meth:`getName <najaeda.naja.SNLTerm.getName>`, :meth:`setName <najaeda.naja.SNLTerm.setName>`, :meth:`getDirection <najaeda.naja.SNLTerm.getDirection>`, :meth:`getDesign <najaeda.naja.SNLTerm.getDesign>`, :meth:`getNet <najaeda.naja.SNLTerm.getNet>`, :meth:`setNet <najaeda.naja.SNLTerm.setNet>`, :meth:`getBits <najaeda.naja.SNLTerm.getBits>`, :meth:`getWidth <najaeda.naja.SNLTerm.getWidth>`, :meth:`getNLID <najaeda.naja.SNLTerm.getNLID>`, :meth:`getSourceLoc <najaeda.naja.SNLTerm.getSourceLoc>`, :meth:`hasSourceLoc <najaeda.naja.SNLTerm.hasSourceLoc>`; bit terms also expose :meth:`setRole <najaeda.naja.SNLBitTerm.setRole>`, :meth:`getRole <najaeda.naja.SNLBitTerm.getRole>`, :meth:`getResetActiveLevel <najaeda.naja.SNLBitTerm.getResetActiveLevel>`, :meth:`isClock <najaeda.naja.SNLBitTerm.isClock>`, :meth:`isAsyncReset <najaeda.naja.SNLBitTerm.isAsyncReset>`, :meth:`isAsyncSet <najaeda.naja.SNLBitTerm.isAsyncSet>`, :meth:`isSyncReset <najaeda.naja.SNLBitTerm.isSyncReset>`, :meth:`isSyncSet <najaeda.naja.SNLBitTerm.isSyncSet>`, :meth:`isReset <najaeda.naja.SNLBitTerm.isReset>`, :meth:`isEnable <najaeda.naja.SNLBitTerm.isEnable>`, :meth:`isData <najaeda.naja.SNLBitTerm.isData>`, :meth:`isDataInput <najaeda.naja.SNLBitTerm.isDataInput>`, :meth:`isDataOutput <najaeda.naja.SNLBitTerm.isDataOutput>`
    * - :class:`najaeda.naja.SNLNet` and net subclasses
      - :class:`Type <najaeda.naja.SNLNet.Type>`, :meth:`getName <najaeda.naja.SNLNet.getName>`, :meth:`setName <najaeda.naja.SNLNet.setName>`, :meth:`getDesign <najaeda.naja.SNLNet.getDesign>`, :meth:`getBits <najaeda.naja.SNLNet.getBits>`, :meth:`getWidth <najaeda.naja.SNLNet.getWidth>`, :meth:`getType <najaeda.naja.SNLBitNet.getType>`, :meth:`setType <najaeda.naja.SNLNet.setType>`, :meth:`getTypeAsString <najaeda.naja.SNLBitNet.getTypeAsString>`, :meth:`isConstant <najaeda.naja.SNLNet.isConstant>`, :meth:`isConstant0 <najaeda.naja.SNLNet.isConstant0>`, :meth:`isConstant1 <najaeda.naja.SNLNet.isConstant1>`, :meth:`getComponents <najaeda.naja.SNLBitNet.getComponents>`, :meth:`getInstTerms <najaeda.naja.SNLBitNet.getInstTerms>`, :meth:`getBitTerms <najaeda.naja.SNLBitNet.getBitTerms>`
    * - :class:`najaeda.naja.SNLInstTerm`
-     - :meth:`getInstance <najaeda.naja.SNLInstTerm.getInstance>`, :meth:`getBitTerm <najaeda.naja.SNLInstTerm.getBitTerm>`, :meth:`getNet <najaeda.naja.SNLInstTerm.getNet>`, :meth:`setNet <najaeda.naja.SNLInstTerm.setNet>`, :meth:`getDirection <najaeda.naja.SNLInstTerm.getDirection>`, :meth:`getRole <najaeda.naja.SNLInstTerm.getRole>`, :meth:`getResetActiveLevel <najaeda.naja.SNLInstTerm.getResetActiveLevel>`, :meth:`is_clock <najaeda.naja.SNLInstTerm.is_clock>`, :meth:`is_async_reset <najaeda.naja.SNLInstTerm.is_async_reset>`, :meth:`is_async_set <najaeda.naja.SNLInstTerm.is_async_set>`, :meth:`is_sync_reset <najaeda.naja.SNLInstTerm.is_sync_reset>`, :meth:`is_sync_set <najaeda.naja.SNLInstTerm.is_sync_set>`, :meth:`is_reset <najaeda.naja.SNLInstTerm.is_reset>`, :meth:`is_enable <najaeda.naja.SNLInstTerm.is_enable>`, :meth:`is_data <najaeda.naja.SNLInstTerm.is_data>`, :meth:`is_data_input <najaeda.naja.SNLInstTerm.is_data_input>`, :meth:`is_data_output <najaeda.naja.SNLInstTerm.is_data_output>`
+     - :meth:`getInstance <najaeda.naja.SNLInstTerm.getInstance>`, :meth:`getBitTerm <najaeda.naja.SNLInstTerm.getBitTerm>`, :meth:`getNet <najaeda.naja.SNLInstTerm.getNet>`, :meth:`setNet <najaeda.naja.SNLInstTerm.setNet>`, :meth:`getDirection <najaeda.naja.SNLInstTerm.getDirection>`, :meth:`getRole <najaeda.naja.SNLInstTerm.getRole>`, :meth:`getResetActiveLevel <najaeda.naja.SNLInstTerm.getResetActiveLevel>`, :meth:`isClock <najaeda.naja.SNLInstTerm.isClock>`, :meth:`isAsyncReset <najaeda.naja.SNLInstTerm.isAsyncReset>`, :meth:`isAsyncSet <najaeda.naja.SNLInstTerm.isAsyncSet>`, :meth:`isSyncReset <najaeda.naja.SNLInstTerm.isSyncReset>`, :meth:`isSyncSet <najaeda.naja.SNLInstTerm.isSyncSet>`, :meth:`isReset <najaeda.naja.SNLInstTerm.isReset>`, :meth:`isEnable <najaeda.naja.SNLInstTerm.isEnable>`, :meth:`isData <najaeda.naja.SNLInstTerm.isData>`, :meth:`isDataInput <najaeda.naja.SNLInstTerm.isDataInput>`, :meth:`isDataOutput <najaeda.naja.SNLInstTerm.isDataOutput>`
    * - :class:`najaeda.naja.SNLTermRole`
      - :attr:`Clock <najaeda.naja.SNLTermRole.Clock>`, :attr:`DataInput <najaeda.naja.SNLTermRole.DataInput>`, :attr:`DataOutput <najaeda.naja.SNLTermRole.DataOutput>`, :attr:`AsyncReset <najaeda.naja.SNLTermRole.AsyncReset>`, :attr:`AsyncSet <najaeda.naja.SNLTermRole.AsyncSet>`, :attr:`SyncReset <najaeda.naja.SNLTermRole.SyncReset>`, :attr:`SyncSet <najaeda.naja.SNLTermRole.SyncSet>`, :attr:`Enable <najaeda.naja.SNLTermRole.Enable>`, :attr:`ScanInput <najaeda.naja.SNLTermRole.ScanInput>`, :attr:`ScanEnable <najaeda.naja.SNLTermRole.ScanEnable>`, :attr:`MemoryReadAddress <najaeda.naja.SNLTermRole.MemoryReadAddress>`, :attr:`MemoryReadData <najaeda.naja.SNLTermRole.MemoryReadData>`, :attr:`MemoryWriteAddress <najaeda.naja.SNLTermRole.MemoryWriteAddress>`, :attr:`MemoryWriteData <najaeda.naja.SNLTermRole.MemoryWriteData>`, :attr:`MemoryWriteEnable <najaeda.naja.SNLTermRole.MemoryWriteEnable>`, :attr:`Other <najaeda.naja.SNLTermRole.Other>`
    * - :class:`najaeda.naja.SNLActiveLevel`
@@ -427,13 +504,13 @@ semantic source of truth.
    * - :class:`najaeda.naja.SNLPath`
      - :meth:`empty <najaeda.naja.SNLPath.empty>`, :meth:`size <najaeda.naja.SNLPath.size>`, :meth:`getInstances <najaeda.naja.SNLPath.getInstances>`, :meth:`getInstanceIDs <najaeda.naja.SNLPath.getInstanceIDs>`, :meth:`getHeadInstance <najaeda.naja.SNLPath.getHeadInstance>`, :meth:`getTailInstance <najaeda.naja.SNLPath.getTailInstance>`, :meth:`getHeadPath <najaeda.naja.SNLPath.getHeadPath>`, :meth:`getTailPath <najaeda.naja.SNLPath.getTailPath>`, :meth:`getDesign <najaeda.naja.SNLPath.getDesign>`, :meth:`getModel <najaeda.naja.SNLPath.getModel>`
    * - :class:`najaeda.naja.SNLOccurrence`
-     - :meth:`isInstanceOccurrence <najaeda.naja.SNLOccurrence.isInstanceOccurrence>`, :meth:`getPath <najaeda.naja.SNLOccurrence.getPath>`, :meth:`getInstance <najaeda.naja.SNLOccurrence.getInstance>`, :meth:`getInstTerm <najaeda.naja.SNLOccurrence.getInstTerm>`, :meth:`getNetComponent <najaeda.naja.SNLOccurrence.getNetComponent>`, :meth:`getDesign <najaeda.naja.SNLOccurrence.getDesign>`
+     - :meth:`getRole <najaeda.naja.SNLOccurrence.getRole>`, :meth:`getResetActiveLevel <najaeda.naja.SNLOccurrence.getResetActiveLevel>`, :meth:`isInstanceOccurrence <najaeda.naja.SNLOccurrence.isInstanceOccurrence>`, :meth:`getPath <najaeda.naja.SNLOccurrence.getPath>`, :meth:`getInstance <najaeda.naja.SNLOccurrence.getInstance>`, :meth:`getInstTerm <najaeda.naja.SNLOccurrence.getInstTerm>`, :meth:`getNetComponent <najaeda.naja.SNLOccurrence.getNetComponent>`, :meth:`getDesign <najaeda.naja.SNLOccurrence.getDesign>`
    * - :class:`najaeda.naja.SNLEquipotential`
      - :class:`Mode <najaeda.naja.SNLEquipotential.Mode>`, :meth:`getTerms <najaeda.naja.SNLEquipotential.getTerms>`, :meth:`getInstTermOccurrences <najaeda.naja.SNLEquipotential.getInstTermOccurrences>`, :meth:`isConst0 <najaeda.naja.SNLEquipotential.isConst0>`, :meth:`isConst1 <najaeda.naja.SNLEquipotential.isConst1>`, :meth:`dumpDotFile <najaeda.naja.SNLEquipotential.dumpDotFile>`
    * - :class:`najaeda.naja.NLID`
      - :meth:`fromString <najaeda.naja.NLID.fromString>`, :meth:`toTuple <najaeda.naja.NLID.toTuple>`, :meth:`getType <najaeda.naja.NLID.getType>`, :meth:`getDBID <najaeda.naja.NLID.getDBID>`, :meth:`getLibraryID <najaeda.naja.NLID.getLibraryID>`, :meth:`getDesignID <najaeda.naja.NLID.getDesignID>`, :meth:`getDesignObjectID <najaeda.naja.NLID.getDesignObjectID>`, :meth:`getInstanceID <najaeda.naja.NLID.getInstanceID>`, :meth:`getBit <najaeda.naja.NLID.getBit>`, :meth:`isDesign <najaeda.naja.NLID.isDesign>`, :meth:`isInstance <najaeda.naja.NLID.isInstance>`, :meth:`isNet <najaeda.naja.NLID.isNet>`, :meth:`isTerm <najaeda.naja.NLID.isTerm>`
    * - :class:`najaeda.naja.LogicCone`
-     - :attr:`FanIn <najaeda.naja.LogicCone.FanIn>`, :attr:`FanOut <najaeda.naja.LogicCone.FanOut>`, :meth:`getDirection <najaeda.naja.LogicCone.getDirection>`, :meth:`getRoot <najaeda.naja.LogicCone.getRoot>`, :meth:`getNodes <najaeda.naja.LogicCone.getNodes>`, :meth:`getLeaves <najaeda.naja.LogicCone.getLeaves>`, :meth:`getNodeCount <najaeda.naja.LogicCone.getNodeCount>` and snake_case aliases
+     - :attr:`FanIn <najaeda.naja.LogicCone.FanIn>`, :attr:`FanOut <najaeda.naja.LogicCone.FanOut>`, :meth:`getDirection <najaeda.naja.LogicCone.getDirection>`, :meth:`getRoot <najaeda.naja.LogicCone.getRoot>`, :meth:`getNodes <najaeda.naja.LogicCone.getNodes>`, :meth:`getLeaves <najaeda.naja.LogicCone.getLeaves>`, :meth:`getNodeCount <najaeda.naja.LogicCone.getNodeCount>`
    * - Module functions
      - :func:`najaeda.naja.getVersion`, :func:`najaeda.naja.getGitHash`,
        :func:`najaeda.naja.snapshotManifest`,
@@ -478,6 +555,36 @@ Core database objects
 ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
 to disable the report file and keep diagnostics console-only.
 
+``NLDB.loadSystemVerilog`` infers shared memories for direct nonblocking indexed
+writes from multiple clocked processes, with the same supported forms and
+collision restrictions as :doc:`loading`. No opt-in flag is required. Experts
+can inspect the inferred primitive through ``SNLInstance.getModel()``:
+``MULTI_CLOCK=1`` selects independent write clocks and masks, with ``WCLK``
+(one bit per write action) and ``WMASK`` (``WR_PORTS * WIDTH`` bits).
+``WADDR``/``WDATA``/``WMASK`` use port 0 in the least-significant slice;
+``WE`` uses port 0 in its most-significant bit, matching the existing memory
+interface. ``CLK`` and ``RST`` are tied off for this variant.
+In C++, ``SNLDesignModeling::MemoryInterface.clock`` is null for this variant;
+clients must use each ``MemoryWritePort.clock`` instead of assuming one clock.
+A write port with a null clock inherits the common interface clock. ``RADDR``/``RDATA``
+remain asynchronous read ports; registered reads are separate flops.
+Existing generic parameter, bus-term, and modeling queries expose this model;
+no new Python construction API is required. ``WCLK`` bits have the ``Clock``
+role and ``WMASK`` bits the ``MemoryWriteEnable`` role. Timing queries relate
+each write port's address, data, enable and mask only to its own clock, while
+all read outputs depend on every write clock. The model and connections survive
+NajaIF snapshot round trips. Existing shared-clock memory signatures keep their
+interface and identity.
+
+``NLDB.loadSystemVerilog(..., blackbox_multi_writer_memories=True)`` preserves
+unsupported multi-writer memory modules as port-only ``UserBlackBox`` models
+and emits ``multi_writer_memory_blackbox`` diagnostics. The default is ``False``
+(strict rejection). This omits the entire containing module's behavior for both
+shared-clock and independent-clock writers. Experts can use the raw keyword
+directly; the high-level ``SystemVerilogConfig`` exposes the same option.
+``defines=["SYNTHESIS_MEMORY_BLACK_BOXING"]`` also works with OpenTitan/Pavona
+memory models that honor this macro. See :doc:`loading` for examples and limits.
+
 The same loader supports combinational ``casez``/``casex`` result-selection
 functions in continuous assignments, including escaped function names and
 concatenated arguments. Combinational compound shifts and fixed-size streaming
@@ -499,13 +606,24 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    the library owning the source unit, including imported packages. SV uses
    this option for destination storage, without cross-library source binding.
 
-   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` loads one VHDL source file and returns its
-   ``SNLDesign``. Load package files before their users in the same database:
-   a package-only file returns ``None`` and preserves the current top design.
+   ``NLDB.loadVHDL(file, top=None, diagnostics_report_path="naja_vhdl_diagnostics.log", library="DESIGN")`` accepts a single path or a ``list[str]`` and returns the selected top's
+   ``SNLDesign``. ``files=`` is an alias for the legacy ``file=`` keyword; the
+   legacy positional argument order is unchanged. All files are parsed before
+   elaboration, and packages, entities, and architectures resolve independently
+   of file order. With ``top=None``, a batch must have one uninstantiated entity
+   in the destination library; multiple roots require an explicit ``top``.
+   Missing dependencies and dependency cycles report the referencing file, line,
+   and column after all inputs have been considered.
+   A package-only load returns ``None`` and preserves the current top design.
    A file containing one entity with required generic values also returns
    ``None`` when ``top`` is omitted: its source is retained until a parent
    supplies those values through a generic map. Pass ``top`` explicitly to
    require immediate elaboration and diagnose any missing generic values.
+   Arithmetic feeding unsigned ``resize`` or a static expression slice is
+   elaborated at the required width. Loading preserves dead RTL objects and
+   can retain unused logic across intermediate signals; call
+   ``NLUniverse.get().applyDLE()`` after selecting the top for a pruned netlist.
+   See :doc:`loading` for resize semantics and the remaining limits.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design
@@ -970,7 +1088,7 @@ Memory reset roles
 For DB0 ``naja_mem__*`` primitives and other designs with a memory interface,
 ``SNLBitTerm.getRole()`` reports ``SNLTermRole.SyncReset`` for synchronous
 resets and ``SNLTermRole.AsyncReset`` for asynchronous resets. Both satisfy
-``is_reset()``; synchronous resets also satisfy ``is_sync_reset()``.
+``isReset()``; synchronous resets also satisfy ``isSyncReset()``.
 ``getResetActiveLevel()`` returns ``SNLActiveLevel.Low`` for either active-low
 reset mode and ``SNLActiveLevel.High`` for either active-high mode. With no
 reset enabled, the reset pin has role ``Other`` and active level ``NA``.
@@ -986,3 +1104,117 @@ a full adder). ``getTruthTable()`` requires a single truth table; native
 errors raise ``RuntimeError`` with the native diagnostic preserved.
 Use ``getTruthTableByOutputID()`` to query an individual output. Its native
 errors also raise ``RuntimeError``.
+
+
+Language-neutral source references
+----------------------------------
+
+``SNLDesign`` and all ``SNLDesignObject`` subclasses (instances, nets, terms and
+bits) expose the following expert APIs. These require no retained source or AST.
+
+.. list-table:: Source reference methods
+   :header-rows: 1
+
+   * - Method
+     - Contract
+   * - ``hasSourceReferences()``
+     - Allocation-free presence check for a declaration or origins.
+   * - ``getSourceDeclaration()``
+     - Reference for this object's declaration, or ``None``.
+   * - ``getSourceOrigins()``
+     - List of upstream references, in insertion order.
+
+A reference is ``((file, line, column, end_line, end_column), provider, language,
+representation)``. All identifiers are strings; empty strings mean unknown.
+Lines and columns fit unsigned 32-bit integers (maximum 4,294,967,295). Coordinates
+are one-based byte positions with inclusive ends; zero means unknown. Paths are
+kept verbatim, and language/representation are never inferred from a path or src
+attribute. References are populated by native loaders and are read-only in Python.
+For example::
+
+   declaration = gate.getSourceDeclaration()
+   origins = gate.getSourceOrigins()
+
+The instance's declaration identifies its instantiation; query
+``instance.getModel().getSourceDeclaration()`` for its model definition.
+``hasSourceLoc()`` and ``getSourceLoc()`` retain their independent legacy meaning;
+new roles neither reclassify nor overwrite that slot. SystemVerilog loading
+dual-writes the legacy slot and typed declarations for module definitions, ports,
+named signals and source instantiations; lowered logic gets origins labelled
+``slang`` / ``systemverilog`` / ``rtl``. Retaining an AST is optional.
+VHDL population remains pending. High-level query wrappers are documented in
+:doc:`api`. Python does not expose source metadata mutation APIs.
+
+References are deep-copied by supported SNL clones and preserved by NajaIF,
+including bus-term bits and instance terminals. Legacy locations remain
+independent from declarations and origins after loading. Metadata-enabled
+Verilog export does not synthesize source-reference carriers from declarations,
+origins, bus-bit references, or instance-terminal references. Use NajaIF for source
+metadata persistence. Existing raw attributes are exported normally, and legacy
+source locations retain their established compact/verbose export behavior.
+
+Custom source-reference attributes have no special import or export handling.
+Native loaders populate the source queries used by viewers such as naja-schematic.
+
+
+Source coordinate width
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Both legacy ``getSourceLoc()`` and new source-reference ranges support 32-bit
+columns; their Python tuple shapes are unchanged. Native C++ consumers must
+rebuild for the widened ``SNLSourceLoc`` layout. SystemVerilog loading and
+legacy source-location Verilog export preserve columns above 65,535.
+
+NajaIF schema 0.2.0 preserves the full coordinate width using additive fields;
+the original 16-bit fields retain their wire types. The manifest revision is
+now sourced from naja-if. Snapshot loading still requires an exact schema and
+producer match, so snapshots from earlier revisions must be regenerated.
+
+
+Source presence and legacy population
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``object.hasSourceReferences()`` to compute viewer source-availability flags
+without constructing reference tuples or lists. It checks declarations and
+origins. The independent legacy location is excluded.
+This matches C++ ``SNLRTLInfos::hasSourceReferences()``.
+The check concerns the queried object; it does not traverse descendants or fall
+back from an instance to its model definition.
+
+Source locations and references are populated by native loaders and restored
+from NajaIF. Python exposes query methods only.
+
+
+Term-role compatibility
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Raw ``SNLBitTerm`` (scalar terms and bus bits) and ``SNLInstTerm`` expose canonical
+camelCase predicates such as ``isClock()`` and ``isAsyncReset()``. The pre-0.7.29
+snake_case spellings remain compatibility aliases: ``is_clock``, ``is_async_reset``,
+``is_async_set``, ``is_sync_reset``, ``is_sync_set``, ``is_reset``, ``is_enable``,
+``is_data``, ``is_data_input`` and ``is_data_output``. New raw callers should use
+camelCase. Each alias emits ``DeprecationWarning`` and will be removed in a
+future release; no removal version is scheduled. Python normally hides this
+warning in imported code; use ``-Wd`` to display it. The high-level ``Term`` API
+keeps its snake_case convention and is not deprecated.
+
+Structural Verilog provenance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``NLDB.loadVerilog(files, keep_assigns=True, blackbox_unknown_modules=False,
+preprocess_enabled=False, conflicting_design_name_policy=None,
+yosys_source_attributes=False)`` appends an explicit Yosys provenance option.
+Existing positional arguments keep their meanings. Use the high-level
+``VerilogConfig(yosys_source_attributes=True)`` for normal loading workflows.
+Experts can use the raw option with ``getSourceDeclaration()`` and
+``getSourceOrigins()`` directly; no extra high-level source wrapper is needed.
+
+Unpreprocessed structural inputs populate declarations (provider
+``naja-verilog``, language ``verilog``, unknown representation) without touching
+the legacy source slot. Instance declarations and model header declarations
+remain separate. With the option enabled, string ``src`` attributes add ordered,
+exactly deduplicated Yosys origins. Their language and representation remain
+empty strings; generic attributes are opaque by default. Numeric suffixes are
+parsed after the last colon; absent/zero coordinates remain unknown, invalid or
+overflowing entries warn and are skipped independently. Raw attribute values
+remain available unchanged. See :doc:`loading` for span and persistence limits.

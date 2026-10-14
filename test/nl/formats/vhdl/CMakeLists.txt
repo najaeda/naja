@@ -3,6 +3,7 @@
 
 add_executable(snlVHDLConstructorTests VHDLConstructorTest.cpp)
 target_compile_definitions(snlVHDLConstructorTests PRIVATE
+  SNL_VHDL_EQUIVALENT_ARITHMETIC_SV="${CMAKE_CURRENT_SOURCE_DIR}/arithmetic_equivalent.sv"
   SNL_VHDL_INDEXED_TABLES="${CMAKE_CURRENT_SOURCE_DIR}/indexed_tables.vhd"
   SNL_VHDL_ASYNCHRONOUS_RESET="${CMAKE_CURRENT_SOURCE_DIR}/asynchronous_reset.vhd"
   SNL_VHDL_MEMORY="${CMAKE_CURRENT_SOURCE_DIR}/memory.vhd"

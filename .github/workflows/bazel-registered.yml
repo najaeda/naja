@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Bazel registered distribution
+
+# Run independently when preparing registry distribution. Registry lag must
+# not block source or package changes. This workflow never publishes anything.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Naja branch, tag, or commit to validate
+        required: true
+        default: main
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+      - name: Check registered configuration
+        run: python3 ci/check_submodule_bazel_sync.py --registered
+      - name: Build registered dependencies
+        run: bazel build --config=registered //... --jobs=auto
+      - name: Test registered dependencies
+        run: bazel test --config=registered //... --test_output=errors --jobs=auto

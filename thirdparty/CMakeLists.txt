@@ -3,6 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(yosys-liberty)
+# Wheels built from sdists use bundled parser sources. Git checkouts generate them.
+set(naja_pregenerated_parser_default ON)
+foreach(parser_file VerilogParser.cpp VerilogParser.hpp VerilogScanner.cpp FlexLexer.h)
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/naja-verilog/src/generated/${parser_file}")
+    set(naja_pregenerated_parser_default OFF)
+  endif()
+endforeach()
+option(PREGENERATED_PARSER_SOURCES
+  "Use bundled Verilog Flex/Bison output instead of regenerating it"
+  ${naja_pregenerated_parser_default})
 add_subdirectory(naja-verilog)
 # libnaja_python is dlopened by Python, so embedded static libraries must use
 # position-independent code. On musl (Alpine), slang+mimalloc can also trigger

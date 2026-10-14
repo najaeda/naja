@@ -77,6 +77,12 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
   bool value;
   if (NLDB0::isAssign(model)) {
     value = read(NLDB0::getAssignInput());
+  } else if (NLDB0::isFA(model)) {
+    const auto a = read(NLDB0::getFAInputA());
+    const auto b = read(NLDB0::getFAInputB());
+    const auto carry = read(NLDB0::getFAInputCI());
+    value = output == NLDB0::getFAOutputS() ? (a ^ b ^ carry)
+        : ((a && b) || (a && carry) || (b && carry));
   } else if (NLDB0::isTableSelect(model)) {
     const auto signature = NLDB0::getTableSelectSignature(driver);
     size_t address = 0;
@@ -165,7 +171,8 @@ inline std::vector<unsigned> simulateFIR(SNLDesign* top, const std::vector<unsig
   if (!input || !output) throw std::runtime_error("missing FIR ports");
   for (auto* instance : top->getInstances()) {
     if (NLDB0::isAssign(instance->getModel()) ||
-        NLDB0::isGate(instance->getModel()) || NLDB0::isMux2(instance->getModel())) continue;
+        NLDB0::isGate(instance->getModel()) || NLDB0::isFA(instance->getModel()) ||
+        NLDB0::isMux2(instance->getModel())) continue;
     auto& state = states[instance];
     for (auto* flop : instance->getModel()->getInstances()) if (NLDB0::isDFF(flop->getModel()))
       state[flop->getInstTerm(NLDB0::getDFFOutput())->getNet()] = false;

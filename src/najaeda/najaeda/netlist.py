@@ -111,6 +111,23 @@ def _source_range_from_snl_source_loc(source_loc):
     return SourceRange(file, line, end_line, column, end_column)
 
 
+@dataclass(frozen=True)
+class SourceReference:
+    """A source range and optional producer, language and representation identifiers."""
+    range: SourceRange
+    provider: Optional[str] = None
+    language: Optional[str] = None
+    representation: Optional[str] = None
+
+
+def _source_reference_from_snl(reference):
+    if reference is None:
+        return None
+    source_range, provider, language, representation = reference
+    return SourceReference(_source_range_from_snl_source_loc(source_range),
+                           provider or None, language or None, representation or None)
+
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -587,6 +604,21 @@ class Net:
             for attribute in snlnet.getAttributes():
                 yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.net if hasattr(self, "net") else None
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.net if hasattr(self, "net") else None
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.net if hasattr(self, "net") else None
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Net, if available."""
         if hasattr(self, "net"):
@@ -729,6 +761,61 @@ class Term:
         else:
             return snlterm.getBusTermBit(self.bit)
 
+    def __get_role_term(self):
+        term = self.get_snl_term()
+        if not isinstance(term, naja.SNLBitTerm):
+            raise ValueError("Term roles require a scalar term or a bus bit")
+        path = get_snl_path_from_id_list(self.pathIDs)
+        return path.getTailInstance().getInstTerm(term) if path.size() else term
+
+    def get_role(self):
+        """Return the term role, resolved using this instance's parameters."""
+        return self.__get_role_term().getRole()
+
+    def get_reset_active_level(self):
+        """Return the resolved reset/set active level, or SNLActiveLevel.NA."""
+        return self.__get_role_term().getResetActiveLevel()
+
+    def is_clock(self) -> bool:
+        """Return whether this bit term is a clock in its instance context."""
+        return self.__get_role_term().isClock()
+
+    def is_async_reset(self) -> bool:
+        """Return whether this bit term is an asynchronous reset."""
+        return self.__get_role_term().isAsyncReset()
+
+    def is_async_set(self) -> bool:
+        """Return whether this bit term is an asynchronous set."""
+        return self.__get_role_term().isAsyncSet()
+
+    def is_sync_reset(self) -> bool:
+        """Return whether this bit term is a synchronous reset."""
+        return self.__get_role_term().isSyncReset()
+
+    def is_sync_set(self) -> bool:
+        """Return whether this bit term is a synchronous set."""
+        return self.__get_role_term().isSyncSet()
+
+    def is_reset(self) -> bool:
+        """Return whether this bit term is an asynchronous or synchronous reset."""
+        return self.__get_role_term().isReset()
+
+    def is_enable(self) -> bool:
+        """Return whether this bit term is an enable."""
+        return self.__get_role_term().isEnable()
+
+    def is_data_input(self) -> bool:
+        """Return whether this bit term carries input data."""
+        return self.__get_role_term().isDataInput()
+
+    def is_data_output(self) -> bool:
+        """Return whether this bit term carries output data."""
+        return self.__get_role_term().isDataOutput()
+
+    def is_data(self) -> bool:
+        """Return whether this bit term carries input or output data."""
+        return self.__get_role_term().isData()
+
     def is_bus(self) -> bool:
         """
         :return: True if the term is a bus.
@@ -870,6 +957,21 @@ class Term:
         snlterm = self.get_snl_term()
         for attribute in snlterm.getAttributes():
             yield Attribute(attribute)
+
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.get_snl_term()
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.get_snl_term()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.get_snl_term()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
 
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Term, if available."""
@@ -1628,6 +1730,25 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
+    def has_source_references(self) -> bool:
+        """Return whether this object has a source declaration or any source origins."""
+        obj = self.__get_leaf_snl_object()
+        return bool(obj and obj.hasSourceReferences())
+
+    def get_source_declaration(self) -> Optional[SourceReference]:
+        """Return this object's declaration in the loaded input, if available."""
+        obj = self.__get_leaf_snl_object()
+        return _source_reference_from_snl(obj.getSourceDeclaration()) if obj else None
+
+    def get_source_origins(self) -> list[SourceReference]:
+        """Return upstream source references in first-insertion order."""
+        obj = self.__get_leaf_snl_object()
+        return [_source_reference_from_snl(ref) for ref in obj.getSourceOrigins()] if obj else []
+
+    def get_model_source_declaration(self) -> Optional[SourceReference]:
+        """Return the model definition location, independently of this instantiation."""
+        return _source_reference_from_snl(self.__get_snl_model().getSourceDeclaration())
+
     def get_source_range(self) -> Optional[SourceRange]:
         """Return the source range of this Instance, if available."""
         return _source_range_from_snl_source_loc(
@@ -1990,6 +2111,9 @@ class VerilogConfig:
     # compatibility. Use blackbox_unknown_modules instead.
     allow_unknown_designs: bool = None
 
+    # Explicitly identify src attributes as Yosys provenance.
+    yosys_source_attributes: bool = False
+
     def __post_init__(self):
         self.validate()
         if self.allow_unknown_designs is not None:
@@ -2004,7 +2128,8 @@ class VerilogConfig:
 
     def validate(self):
         for field_name in (
-                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled"):
+                "keep_assigns", "blackbox_unknown_modules", "preprocess_enabled",
+                "yosys_source_attributes"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2062,6 +2187,10 @@ class SystemVerilogConfig:
     # instead of failing the load. Ports are inferred from the instantiation's
     # connections (direction InOut, width from the connected expression).
     blackbox_unknown_modules: bool = False
+    # Omit the entire module body if a memory has unsupported multiple writers.
+    blackbox_multi_writer_memories: bool = False
+    # Share preprocessor macros across source files in input order.
+    single_unit: bool = False
 
     def __post_init__(self):
         self.validate()
@@ -2072,7 +2201,9 @@ class SystemVerilogConfig:
                 "pretty_print_elaborated_ast_json",
                 "include_source_info_in_elaborated_ast_json",
                 "keep_ast_link",
-                "blackbox_unknown_modules"):
+                "blackbox_unknown_modules",
+                "blackbox_multi_writer_memories",
+                "single_unit"):
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
@@ -2201,6 +2332,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         keep_assigns=config.keep_assigns,
         blackbox_unknown_modules=config.blackbox_unknown_modules,
         preprocess_enabled=config.preprocess_enabled,
+        yosys_source_attributes=config.yosys_source_attributes,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time
@@ -2224,7 +2356,9 @@ def load_system_verilog(
     """Load SystemVerilog files into the top design.
 
     :param files: a list of SystemVerilog files to load or a single file.
-    :param config: the configuration to use when loading the files.
+    :param config: the configuration to use when loading the files. Set
+        single_unit=True to share macros across files in source order,
+        including files supplied through flist (default: False).
     :param library: destination root library name (default "DESIGN").
     :return: the top Instance.
     :rtype: Instance
@@ -2267,17 +2401,19 @@ def load_system_verilog(
 
     effective_flist = config.flist
     temp_flist_path = None
-    if config.top is not None:
-        # Expose top selection at najaeda layer without changing the C++ API:
-        # build a temporary slang command file.
+    if config.top is not None or config.single_unit:
+        # Forward frontend options through a temporary slang command file.
         with tempfile.NamedTemporaryFile(
-                "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
-            temp_flist_path = top_flist.name
-            top_flist.write(f"--top {config.top}\n")
+                "w", suffix=".f", delete=False, encoding="utf-8") as options_flist:
+            temp_flist_path = options_flist.name
+            if config.top is not None:
+                options_flist.write(f"--top {config.top}\n")
+            if config.single_unit:
+                options_flist.write("--single-unit\n")
             if config.flist:
                 quoted_flist = os.fspath(config.flist).replace(
                     "\\", "\\\\").replace("\"", "\\\"")
-                top_flist.write(f"-f \"{quoted_flist}\"\n")
+                options_flist.write(f"-f \"{quoted_flist}\"\n")
         effective_flist = temp_flist_path
 
     try:
@@ -2298,6 +2434,7 @@ def load_system_verilog(
                 else os.fspath(effective_flist)),
             defines=config.defines,
             blackbox_unknown_modules=config.blackbox_unknown_modules,
+            blackbox_multi_writer_memories=config.blackbox_multi_writer_memories,
             library=library,
             suppress_warnings=config.suppress_warnings,
             keep_ast_link=config.keep_ast_link,
@@ -2313,18 +2450,20 @@ def load_system_verilog(
     return top
 
 
-def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
+def load_vhdl(file: Union[str, os.PathLike, List[Union[str, os.PathLike]]],
+              top: Optional[str] = None, *,
               diagnostics_report_path: Optional[Union[str, os.PathLike]] =
               "naja_vhdl_diagnostics.log", library: str = "DESIGN") -> Instance:
-    """Load one VHDL source file into the top design.
+    """Load VHDL source files into the top design, in any order.
 
     VHDL loading is experimental and currently supports the bounded ``bit`` and
     ``bit_vector`` subset implemented by the native frontend. Integer and boolean
     generic defaults and generic-map actuals specialize the supported RTL;
-    integer values can also specialize vector bounds. Pass ``top`` for a
-    supported structural source containing more than one design unit.
+    integer values can also specialize vector bounds. Files resolve independently
+    of their order. Omit ``top`` for a unique uninstantiated entity, or pass it
+    explicitly to select a root.
 
-    :param file: the VHDL source file to load.
+    :param file: one VHDL source path or a list of paths, in any order.
     :param top: optional top entity name for structural hierarchy.
     :param diagnostics_report_path: report for all warning occurrences, overwritten
         per load; None selects console-only. Console warnings appear once per code.
@@ -2346,13 +2485,22 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
             raise ValueError(
                 "load_vhdl diagnostics_report_path must not be empty; "
                 "use None for console-only")
-    if not isinstance(file, (str, os.PathLike)):
-        raise TypeError(
-            "VHDL file must be a path string "
-            f"(got {type(file).__name__})")
-    path = os.fspath(file)
-    if not path.strip():
-        raise ValueError("VHDL file must not be empty")
+    batch = isinstance(file, list)
+    files = file if batch else [file]
+    if not files:
+        raise ValueError("VHDL files must not be empty")
+    paths = []
+    for item in files:
+        if not isinstance(item, (str, os.PathLike)):
+            raise TypeError(
+                "VHDL file must be a path string or list of paths "
+                f"(got {type(item).__name__})")
+        path = os.fspath(item)
+        if not isinstance(path, str):
+            raise TypeError("VHDL file must be a path string")
+        if not path.strip():
+            raise ValueError("VHDL file must not be empty")
+        paths.append(path)
     if top is not None:
         if not isinstance(top, str):
             raise TypeError(
@@ -2360,22 +2508,23 @@ def load_vhdl(file: Union[str, os.PathLike], top: Optional[str] = None, *,
                 f"(got {type(top).__name__})")
         if not top.strip():
             raise ValueError("load_vhdl top must not be empty")
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"VHDL input file does not exist: {path!r} "
-            f"(resolved to {os.path.abspath(path)!r})")
-    if not os.path.isfile(path):
-        raise ValueError(
-            f"VHDL input path is not a file: {path!r} "
-            f"(resolved to {os.path.abspath(path)!r})")
+    for path in paths:
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"VHDL input file does not exist: {path!r} "
+                f"(resolved to {os.path.abspath(path)!r})")
+        if not os.path.isfile(path):
+            raise ValueError(
+                f"VHDL input path is not a file: {path!r} "
+                f"(resolved to {os.path.abspath(path)!r})")
 
     start_time = time.time()
-    logger.info(f"Starting VHDL loading for file: {path}")
+    logger.info(f"Starting VHDL loading for files: {paths}")
     if top is not None:
         logger.info(f"VHDL loading top override requested: {top}")
     __get_top_db().loadVHDL(
-        path, top=top, diagnostics_report_path=diagnostics_report_path,
-        library=library)
+        paths if batch else paths[0], top=top,
+        diagnostics_report_path=diagnostics_report_path, library=library)
     execution_time = time.time() - start_time
     loaded_top = get_top()
     logger.info(
