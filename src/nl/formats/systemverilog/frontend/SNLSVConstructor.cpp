@@ -4454,9 +4454,18 @@ endmodule
 
     SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
       const Expression* current = stripConnectionLValueArgConversions(expr);
+      // Constants must go through expression-bit lowering, like literals.
+      // Materializing a named constant as a signal creates an undriven net.
+      if (current && current->getConstant()) {
+        return nullptr;
+      }
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
+        slang::ast::EvalContext evalContext(symbol);
+        if (current->eval(evalContext)) {
+          return nullptr;
+        }
         for (auto it = activeFunctionArgumentNets_.rbegin();
              it != activeFunctionArgumentNets_.rend();
              ++it) {
@@ -22575,6 +22584,34 @@ endmodule
       return true;
     }
 
+    bool hasDynamicLHSSelection(const Expression& expr) const {
+      const auto* current = stripConversions(expr);
+      while (current) {
+        if (current->kind == slang::ast::ExpressionKind::ElementSelect) {
+          const auto& select = current->as<slang::ast::ElementSelectExpression>();
+          int32_t index = 0;
+          if (!getConstantInt32(select.selector(), index)) {
+            return true;
+          }
+          current = stripConversions(select.value());
+        } else if (current->kind == slang::ast::ExpressionKind::RangeSelect) {
+          const auto& select = current->as<slang::ast::RangeSelectExpression>();
+          int32_t left = 0;
+          int32_t right = 0;
+          if (!getConstantInt32(select.left(), left) ||
+              !getConstantInt32(select.right(), right)) {
+            return true;
+          }
+          current = stripConversions(select.value());
+        } else if (current->kind == slang::ast::ExpressionKind::MemberAccess) {
+          current = stripConversions(current->as<slang::ast::MemberAccessExpression>().value());
+        } else {
+          break;
+        }
+      }
+      return false;
+    }
+
     bool extractAlwaysFFChain(const Statement& stmt, AlwaysFFChain& chain) const {
       auto current = unwrapStatement(stmt);
       if (!current) {
@@ -22608,7 +22645,10 @@ endmodule
       if (!extractSameLHSFinalAssignment(condStmt.ifTrue, lhs, resetAction)) {
         return false;
       }
-      if (isConcatenationExpression(lhs)) {
+      // A dynamic select is an update of the underlying storage, not a
+      // register whose Q can drive the selected read expression. Replay the
+      // block against its storage base to decode and merge partial writes.
+      if (isConcatenationExpression(lhs) || (lhs && hasDynamicLHSSelection(*lhs))) {
         return false;
       }
       chain.lhs = lhs;
@@ -24319,6 +24359,25 @@ endmodule
         }
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
+          if (hasDynamicLHSSelection(*assignedLHS) &&
+              strippedAssignedLHS->kind != slang::ast::ExpressionKind::ElementSelect &&
+              isTrackedSelectionSubLhsOf(assignedLHS, &lhsExpr)) {
+            bool handled = false;
+            if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+                  design, *assignedLHS, lhsExpr, action, lhsBits, dataBits,
+                  failureReason, handled) ||
+                (!handled && !tryApplyCombinationalRangeSelectAssignmentForLhs(
+                  design, *assignedLHS, lhsExpr, action, lhsBits, dataBits,
+                  failureReason, handled))) {
+              return false;
+            }
+            if (!handled) {
+              failureReason = "unsupported dynamic sequential assignment LHS: " +
+                describeExpression(*assignedLHS);
+              return false;
+            }
+            return true;
+          }
           if (strippedAssignedLHS &&
               strippedAssignedLHS->kind == slang::ast::ExpressionKind::Concatenation) {
             std::vector<const Expression*> concatLeafExpressions;
@@ -24417,7 +24476,8 @@ endmodule
           if (!action.compoundOp && action.stepDelta == 0 && action.rhs) {
             std::vector<SNLBitNet*> assignedLHSBits;
             std::string assignedLHSFailureReason;
-            if (resolveAssignmentLHSBits(
+            if (!hasDynamicLHSSelection(*assignedLHS) &&
+                resolveAssignmentLHSBits(
                   design,
                   *assignedLHS,
                   assignedLHSBits,
@@ -25225,6 +25285,16 @@ endmodule
       std::vector<SNLBitNet*>& lhsBits,
       std::string& failureReason,
       bool allowConcatenation = false) {
+      // Final storage destinations must be physical bits, never read muxes.
+      if (hasDynamicLHSSelection(lhsExpr)) {
+        // LCOV_EXCL_START
+        // Parser-backed sequential paths route dynamic selections through
+        // storage-base replay before resolving destinations. Keep this guard
+        // defensively against a future caller passing a selected read here.
+        failureReason = "dynamic assignment LHS requires storage-base replay";
+        return false;
+        // LCOV_EXCL_STOP
+      }
       if (!resolveAssignmentLHSBits(
             design,
             lhsExpr,
