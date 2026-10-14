@@ -1820,17 +1820,17 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
-  parseAlwaysCombUnpackedStructLocalInitializerReplayUnsupported) {
+  parseAlwaysCombUnpackedStructLocalInitializerReplaySupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
-    "always_comb_unpacked_struct_local_initializer_replay_unsupported");
+    "always_comb_unpacked_struct_local_initializer_replay_supported");
 
   const auto svPath =
-    outPath / "always_comb_unpacked_struct_local_initializer_replay_unsupported.sv";
+    outPath / "always_comb_unpacked_struct_local_initializer_replay_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_unpacked_struct_local_initializer_replay_unsupported(
+    << R"(module always_comb_unpacked_struct_local_initializer_replay_supported(
   input  logic       sel_i,
   input  logic [3:0] data_i,
   output logic [3:0] data_o
@@ -1855,13 +1855,16 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {
-      "Unsupported combinational block",
-      "unable to resolve procedural initializer bits for local 'tmp'"
-    });
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_struct_local_initializer_replay_supported"));
+  ASSERT_NE(nullptr, top);
+  auto* output = top->getBusNet(NLName("data_o"));
+  ASSERT_NE(nullptr, output);
+  for (auto* bit : output->getBits()) {
+    EXPECT_EQ(1u, countOutputInstTermDrivers(bit));
+  }
+  EXPECT_EQ(nullptr, top->getNet(NLName("tmp")));
 }
 
 TEST_F(SNLSVConstructorTestAlwaysComb, parseAlwaysCombDpiOutputIsAbstracted) {
@@ -2064,17 +2067,17 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
-  parseAlwaysCombUnpackedStructMemberLHSBitsUnsupported) {
+  parseAlwaysCombUnpackedStructMemberLHSBitsSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
-    "always_comb_unpacked_struct_member_lhs_bits_unsupported");
+    "always_comb_unpacked_struct_member_lhs_bits_supported");
 
   const auto svPath =
-    outPath / "always_comb_unpacked_struct_member_lhs_bits_unsupported.sv";
+    outPath / "always_comb_unpacked_struct_member_lhs_bits_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_unpacked_struct_member_lhs_bits_unsupported(
+    << R"(module always_comb_unpacked_struct_member_lhs_bits_supported(
   input  logic [1:0] d_i,
   output logic [7:0] q_o
 );
@@ -2091,25 +2094,39 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported always_comb assignment LHS: NamedValue base=s"});
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_unpacked_struct_member_lhs_bits_supported"));
+  ASSERT_NE(nullptr, top);
+  auto* input = top->getBusNet(NLName("d_i"));
+  auto* output = top->getBusNet(NLName("q_o"));
+  ASSERT_NE(nullptr, input);
+  ASSERT_NE(nullptr, output);
+  for (int bit = 0; bit < 8; ++bit) {
+    auto* driver = getSingleAssignInputDriving(output->getBit(bit));
+    ASSERT_NE(nullptr, driver);
+    if (bit < 2) {
+      EXPECT_EQ(input->getBit(bit), driver);
+    } else {
+      EXPECT_TRUE(driver->isAssign0());
+    }
+  }
+
 }
 
 TEST_F(
   SNLSVConstructorTestAlwaysComb,
-  parseAlwaysCombMemberAccessNonIntegralLHSWidthUnsupported) {
+  parseAlwaysCombMemberAccessNonIntegralLHSWidthSupported) {
   SNLSVConstructor constructor(library_);
   auto outPath = createTestDirectory(
-    "always_comb_member_access_non_integral_lhs_width_unsupported");
+    "always_comb_member_access_non_integral_lhs_width_supported");
 
   const auto svPath =
-    outPath / "always_comb_member_access_non_integral_lhs_width_unsupported.sv";
+    outPath / "always_comb_member_access_non_integral_lhs_width_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_member_access_non_integral_lhs_width_unsupported;
+    << R"(module always_comb_member_access_non_integral_lhs_width_supported;
   typedef struct {
     logic [1:0] a [0:1];
   } unpacked_s_t;
@@ -2124,10 +2141,19 @@ endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported always_comb assignment LHS: NamedValue base=s_n"});
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(
+    NLName("always_comb_member_access_non_integral_lhs_width_supported"));
+  ASSERT_NE(nullptr, top);
+  auto* source = top->getBusNet(NLName("s_q"));
+  auto* destination = top->getBusNet(NLName("s_n"));
+  ASSERT_NE(nullptr, source);
+  ASSERT_NE(nullptr, destination);
+  EXPECT_EQ(4, source->getWidth());
+  EXPECT_EQ(4, destination->getWidth());
+  for (int bit = 0; bit < 4; ++bit) {
+    EXPECT_EQ(source->getBit(bit), getSingleAssignInputDriving(destination->getBit(bit)));
+  }
 }
 
 TEST_F(SNLSVConstructorTestAlwaysComb, parseCompoundShifts) {

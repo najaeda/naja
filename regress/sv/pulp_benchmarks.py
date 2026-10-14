@@ -183,7 +183,7 @@ def main():
     parser.add_argument("--najaeda-path", type=Path, default=ROOT / "build/test/najaeda")
     parser.add_argument("--case", action="append", help="Release target, repeatable; defaults to smoke selection")
     parser.add_argument("--all", action="store_true", help="Survey every release target; failures remain failures")
-    parser.add_argument("--timeout", type=int, default=120, help="Per-target wall-clock limit in seconds")
+    parser.add_argument("--timeout", type=int, default=600, help="Wall-clock limit per load/dump or lint stage in seconds (default: 600)")
     parser.add_argument("--lint-runner", choices=("local", "docker"),
                         help="Also lint each complete dump with Naja primitive models")
     parser.add_argument("--elaboration-only", action="store_true",
