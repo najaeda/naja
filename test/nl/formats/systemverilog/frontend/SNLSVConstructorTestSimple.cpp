@@ -9664,6 +9664,225 @@ TEST_F(SNLSVConstructorTestSimple, parsePackedStructAndEnumPortsInferRangeFromWi
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+
+TEST_F(SNLSVConstructorTestSimple, parseNestedEarlyReturnFunctionPriority) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "nested_early_return_function_priority";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+module top(input logic [7:0] a, output wire [2:0] y);
+  function automatic bit predicate(input logic [2:0] value);
+    return value[0] ^ value[1];
+  endfunction
+  function automatic logic [2:0] choose(input logic [7:0] value);
+    if (value[0]) return value[3:1];
+    else begin
+      if (value[1]) return 3'd6;
+      if (predicate(value[4:2])) return 3'd3;
+      return value[7:5];
+    end
+  endfunction
+  assign y = 1'b0 ? 3'b000 : ~choose(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* output = top->getBusNet(NLName("y"));
+  ASSERT_NE(nullptr, output);
+  for (unsigned input = 0; input < 256; ++input) {
+    const unsigned chosen = (input & 1) ? ((input >> 1) & 7) :
+      (input & 2) ? 6 : (((input >> 2) ^ (input >> 3)) & 1) ? 3 : (input >> 5);
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (unsigned bit = 0; bit < 3; ++bit) {
+      EXPECT_EQ(bool(((~chosen) >> bit) & 1),
+        evaluateFunctionResultBit(top, output->getBit(bit), input, 0, &memo))
+        << "input=" << input << " bit=" << bit;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousStreamingDestinations) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "continuous_streaming_destinations";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+module top(input logic [10:0] data,
+           output wire [10:0] forward, reverse, sliced, wider);
+  assign {>>{forward[10:7], forward[6:0]}} = data;
+  assign {<<{reverse[10:7], reverse[6:0]}} = data;
+  assign {<<3{sliced[10:7], sliced[6:0]}} = data;
+  assign {>>{wider}} = {data, 3'b010};
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto* data = top->getBusNet(NLName("data"));
+  ASSERT_NE(data, nullptr);
+  const std::array<int, 11> slicedSources {8, 9, 10, 5, 6, 7, 2, 3, 4, 0, 1};
+  for (int bit = 0; bit < 11; ++bit) {
+    for (const auto& name : {"forward", "reverse", "sliced", "wider"}) {
+      auto* output = top->getBusNet(NLName(name));
+      ASSERT_NE(output, nullptr);
+      const int source = (std::string(name) == "forward" || std::string(name) == "wider") ? bit :
+        std::string(name) == "reverse" ? 10 - bit : slicedSources[bit];
+      EXPECT_EQ(data->getBit(source), traceSingleAssignInputDriving(output->getBit(bit)))
+        << name << " bit " << bit;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectContinuousStreamingOverlappingTargets) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "continuous_streaming_overlapping_targets";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+module top(input logic [5:0] a, output wire [2:0] y);
+  assign {>>{y,y}} = a;
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, svPath,
+    {"overlapping continuous streaming targets"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectUnpackedStructStreamingOrder) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "unpacked_struct_streaming_order";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+typedef struct { logic [1:0] a; logic [3:0] b; } record_t;
+module top(input record_t a, output wire [5:0] y);
+  assign y = {>>{a}};
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, svPath, {"Unsupported RHS"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectUnpackedStructBitstreamCast) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "unpacked_struct_bitstream_cast";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+typedef struct { logic [1:0] a; logic [3:0] b; } record_t;
+typedef logic [5:0] bits_t;
+module top(input record_t a, output wire [5:0] y);
+  assign y = bits_t'(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, svPath, {"Unsupported RHS"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNestedUnpackedStructStorage) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "nested_unpacked_struct_storage";
+  std::filesystem::create_directories(outPath);
+  const auto svPath = outPath / "top.sv";
+  std::ofstream(svPath) << R"sv(
+typedef struct { logic flag; logic [4:0] data; } item_t;
+typedef struct { item_t entry; logic [2:0] tail; } record_t;
+module top(input logic clk, enable, input logic [4:0] data,
+           output logic [4:0] direct, copied, comb, saved,
+           output logic [2:0] constant_tail);
+  record_t source, copy, next_value;
+  assign source.entry.flag = enable;
+  assign source.entry.data = data;
+  assign source.tail = 3'b101;
+  assign copy = source;
+  assign direct = source.entry.data;
+  assign copied = copy.entry.data;
+  always_comb begin
+    next_value = source;
+    next_value.entry.data = ~data;
+  end
+  assign comb = next_value.entry.data;
+  always_ff @(posedge clk)
+    if (source.entry.flag) saved <= source.entry.data;
+  localparam record_t fixed_value = '{'{1'b1, 5'b01011}, 3'b110};
+  assign constant_tail = fixed_value.tail;
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(svPath);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto* source = top->getBusNet(NLName("source"));
+  ASSERT_NE(source, nullptr);
+  EXPECT_EQ(9, source->getWidth());
+  auto* data = top->getBusNet(NLName("data"));
+  ASSERT_NE(data, nullptr);
+  const auto traceAssignments = [](SNLNet* net) {
+    std::unordered_set<SNLNet*> visited;
+    while (net && visited.insert(net).second) {
+      auto* input = traceSingleAssignInputDriving(net);
+      if (input == net) break;
+      net = input;
+    }
+    return net;
+  };
+  for (const auto& name : {"direct", "copied"}) {
+    auto* output = top->getBusNet(NLName(name));
+    ASSERT_NE(output, nullptr);
+    for (int bit = 0; bit < 5; ++bit) {
+      EXPECT_EQ(data->getBit(bit), traceAssignments(output->getBit(bit)));
+    }
+  }
+  auto* comb = top->getBusNet(NLName("comb"));
+  ASSERT_NE(comb, nullptr);
+  for (int bit = 0; bit < 5; ++bit) {
+    auto* result = dynamic_cast<SNLBitNet*>(traceAssignments(comb->getBit(bit)));
+    ASSERT_NE(result, nullptr);
+    bool foundInverter = false;
+    for (auto* term : result->getInstTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Output &&
+          NLDB0::isGate(term->getInstance()->getModel()) &&
+          NLDB0::getGateName(term->getInstance()->getModel()) == "not") {
+        auto* input = term->getInstance()->getInstTerm(
+          NLDB0::getGateSingleTerm(term->getInstance()->getModel()));
+        ASSERT_NE(input, nullptr);
+        EXPECT_EQ(data->getBit(bit), traceAssignments(input->getNet()));
+        foundInverter = true;
+      }
+    }
+    EXPECT_TRUE(foundInverter);
+  }
+  auto* tail = top->getBusNet(NLName("constant_tail"));
+  ASSERT_NE(tail, nullptr);
+  for (int bit = 0; bit < 3; ++bit) {
+    auto* driver = traceSingleAssignInputDriving(tail->getBit(bit));
+    ASSERT_NE(driver, nullptr);
+    EXPECT_EQ(bit != 0, driver->isConstant1());
+  }
+  EXPECT_EQ(5u, countDFFBits(top));
+  auto* saved = top->getBusNet(NLName("saved"));
+  ASSERT_NE(saved, nullptr);
+  for (int bit = 0; bit < 5; ++bit) {
+    auto* d = dynamic_cast<SNLBitNet*>(getDFFDataForOutputBit(top, saved->getBit(bit)));
+    ASSERT_NE(d, nullptr);
+    bool foundMux = false;
+    for (auto* term : d->getInstTerms()) {
+      auto* instance = term->getInstance();
+      if (term->getDirection() != SNLTerm::Direction::Output ||
+          !NLDB0::isMux2(instance->getModel())) continue;
+      auto* select = instance->getInstTerm(instance->getModel()->getScalarTerm(NLName("S")));
+      ASSERT_NE(select, nullptr);
+      EXPECT_EQ(top->getNet(NLName("enable")), traceAssignments(select->getNet()));
+      foundMux = true;
+    }
+    EXPECT_TRUE(foundMux);
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedNestedFixedDynamicPortTypeReportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -38670,4 +38889,78 @@ endmodule
     ASSERT_NE(nullptr, input);
     EXPECT_TRUE(input->isConstantX());
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnpackedStructValuesCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "unpacked_struct_values_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+typedef struct { logic [1:0] a; logic [2:0] b; } inner_t;
+typedef struct { inner_t inner; logic flag; } record_t;
+module top(input logic [1:0] a, input logic [2:0] b, input logic flag,
+           output record_t constant_value, runtime_value);
+  localparam record_t VALUE = '{'{2'b10, 3'b101}, 1'b1};
+  assign constant_value = VALUE;
+  assign runtime_value = '{'{a, b}, flag};
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(path);
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(nullptr, top);
+  auto* constant = top->getBusNet(NLName("constant_value"));
+  auto* runtime = top->getBusNet(NLName("runtime_value"));
+  auto* a = top->getBusNet(NLName("a"));
+  auto* b = top->getBusNet(NLName("b"));
+  auto* flag = top->getScalarNet(NLName("flag"));
+  ASSERT_NE(nullptr, constant);
+  ASSERT_NE(nullptr, runtime);
+  ASSERT_NE(nullptr, a);
+  ASSERT_NE(nullptr, b);
+  ASSERT_NE(nullptr, flag);
+  ASSERT_EQ(6, constant->getWidth());
+  ASSERT_EQ(6, runtime->getWidth());
+  const std::array<SNLBitNet*, 6> sources {
+    a->getBit(0), a->getBit(1), b->getBit(0), b->getBit(1), b->getBit(2), flag};
+  for (int bit = 0; bit < 6; ++bit) {
+    auto* driver = traceSingleAssignInputDriving(constant->getBit(bit));
+    ASSERT_NE(nullptr, driver);
+    EXPECT_EQ(bool((0b110110 >> bit) & 1), driver->isConstant1()) << bit;
+    EXPECT_EQ(sources[bit], traceSingleAssignInputDriving(runtime->getBit(bit))) << bit;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectReturnOnlyFunctionExpressionCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "return_only_function_expression_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+module top(input logic [3:0] a, output wire [3:0] y);
+  function automatic logic [3:0] f(input logic [3:0] v);
+    if (v[0]) return 4'b0011;
+    return $clog2(v);
+  endfunction
+  assign y = f(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path, {"Unsupported RHS"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, rejectContinuousStreamingRHSCoverage) {
+  const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+    "continuous_streaming_rhs_coverage";
+  std::filesystem::create_directories(directory);
+  const auto path = directory / "top.sv";
+  std::ofstream(path) << R"sv(
+module top(input logic [3:0] a, output wire [3:0] y);
+  assign {>>{y}} = $clog2(a);
+endmodule
+)sv";
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"Unsupported RHS in continuous streaming assignment"});
 }
