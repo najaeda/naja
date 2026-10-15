@@ -38964,3 +38964,210 @@ endmodule
   expectUnsupportedConstruct(constructor, path,
     {"Unsupported RHS in continuous streaming assignment"});
 }
+
+class SNLSVProceduralConcatTest: public SNLSVConstructorTestSimple,
+  public ::testing::WithParamInterface<std::tuple<unsigned, bool>> {};
+
+TEST_P(SNLSVProceduralConcatTest, matchesPerElementRewrite) {
+  struct Case {
+    std::string name;
+    std::string block;
+    std::string declarations;
+    std::string body;
+    std::string rewrite;
+    std::string result = "{hi,lo}";
+  };
+  const std::vector<Case> cases {
+    {"conditional", "always_comb", "",
+      "lo=a[3:0]; hi=0; if(a[7]) {hi[0],lo}={1'b0,a[3:0]}+5'h1;",
+      "lo=a[3:0]; hi=0; if(a[7]) begin tmp={1'b0,a[3:0]}+5'h1; hi[0]=tmp[4]; lo=tmp[3:0]; end"},
+    {"and", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo} &= 8'h3f;",
+      "lo=a[3:0]; hi=a[7:4]; tmp={hi,lo}&8'h3f; hi=tmp[7:4]; lo=tmp[3:0];"},
+    {"or", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo} |= 8'h52;",
+      "lo=a[3:0]; hi=a[7:4]; tmp={hi,lo}|8'h52; hi=tmp[7:4]; lo=tmp[3:0];"},
+    {"xor", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo} ^= 8'h69;",
+      "lo=a[3:0]; hi=a[7:4]; tmp={hi,lo}^8'h69; hi=tmp[7:4]; lo=tmp[3:0];"},
+    {"add", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo} += 8'h17;",
+      "lo=a[3:0]; hi=a[7:4]; tmp={hi,lo}+8'h17; hi=tmp[7:4]; lo=tmp[3:0];"},
+    {"shift", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo} <<= a[1:0];",
+      "lo=a[3:0]; hi=a[7:4]; tmp={hi,lo}<<a[1:0]; hi=tmp[7:4]; lo=tmp[3:0];"},
+    {"case", "always_comb", "", "lo=0; hi=0; case(a[1:0]) 0:{hi,lo}=a; 1:{hi,lo}=~a; default:lo=a[3:0]; endcase",
+      "lo=0; hi=0; case(a[1:0]) 0:begin hi=a[7:4]; lo=a[3:0]; end 1:begin tmp=~a; hi=tmp[7:4]; lo=tmp[3:0]; end default:lo=a[3:0]; endcase"},
+    {"partial", "always_comb", "", "{lo,hi}=8'h96; {lo[2],hi[2]}=a[1:0]; if(a[7])lo[3]=a[6];",
+      "lo=4'h9; hi=4'h6; lo[2]=a[1]; hi[2]=a[0]; if(a[7])lo[3]=a[6];"},
+    {"nested", "always_comb", "", "{{hi[3:2],hi[1:0]},lo}={2{a[3:0]}};",
+      "hi[3:2]=a[3:2]; hi[1:0]=a[1:0]; lo=a[3:0];"},
+    {"narrow", "always_comb", "", "{hi,lo}=a[2:0];", "hi=0; lo={1'b0,a[2:0]};"},
+    {"wide", "always_comb", "", "{hi,lo}={a,4'hb};", "hi=a[3:0]; lo=4'hb;"},
+    {"star", "always @*", "", "lo=0; hi=0; if(a[7]){hi,lo}=a;",
+      "lo=0; hi=0; if(a[7])begin hi=a[7:4]; lo=a[3:0]; end"},
+    {"nonblocking_comb", "always @*", "", "lo<=0; hi<=0; if(a[7]){hi,lo}<=a;",
+      "lo<=0; hi<=0; if(a[7])begin hi<=a[7:4]; lo<=a[3:0]; end"},
+    {"latch", "always_latch", "", "if(a[7]){hi,lo}=a;",
+      "if(a[7])begin hi=a[7:4]; lo=a[3:0]; end"},
+    {"latch_nba", "always_latch", "", "if(a[7]){hi,lo}<=a;",
+      "if(a[7])begin hi<=a[7:4]; lo<=a[3:0]; end"},
+    {"flop", "always_ff @(posedge clk)", "", "if(a[7]){hi,lo}<=0; else {hi,lo}<=a;",
+      "if(a[7])begin hi<=0; lo<=0; end else begin hi<=a[7:4]; lo<=a[3:0]; end"},
+    {"flop_blocking", "always_ff @(posedge clk)", "", "if(a[7]){hi,lo}=0; else begin lo=0; hi=0; {hi,lo}=a; lo[0]=a[6]; end",
+      "if(a[7])begin hi=0; lo=0; end else begin lo=0; hi=0; hi=a[7:4]; lo=a[3:0]; lo[0]=a[6]; end"},
+    {"fields", "always_comb", "typedef struct packed {logic [3:0] f1,f2;} pair_t; pair_t s;",
+      "s=0; if(a[7]) {s.f1,s.f2}=a;", "s=0; if(a[7])begin s.f1=a[7:4]; s.f2=a[3:0]; end", "s"},
+    {"selects", "always_comb", "logic [7:0] v; logic w;",
+      "v=a; w=0; {v[7:4],w}=a[4:0];", "v=a; w=0; v[7:4]=a[4:1]; w=a[0];", "{v[7:1],w}"},
+    {"array", "always_comb", "logic [1:0][3:0] arr;",
+      "arr=a; {arr[a[0]],arr[!a[0]]}=8'h27;",
+      "arr=a; arr[a[0]]=4'h2; arr[!a[0]]=4'h7;", "arr"},
+    {"array_unpacked", "always_comb", "logic [3:0] arr [0:1];",
+      "arr[0]=a[3:0]; arr[1]=a[7:4]; {arr[a[0]],arr[!a[0]]}=8'h27;",
+      "arr[0]=a[3:0]; arr[1]=a[7:4]; arr[a[0]]=4'h2; arr[!a[0]]=4'h7;", "{arr[1],arr[0]}"},
+    {"flop_add", "always_ff @(posedge clk)", "",
+      "if(a[7]){hi,lo}=0; else begin {hi,lo}=a; {hi,lo}+=8'h17; end",
+      "if(a[7])begin hi=0; lo=0; end else begin hi=a[7:4]; lo=a[3:0]; tmp={hi,lo}+8'h17; hi=tmp[7:4]; lo=tmp[3:0]; end"},
+    {"async_reset", "always_ff @(posedge clk or posedge rst)", "",
+      "if(rst){hi,lo}<=0; else {hi,lo}<=a;",
+      "if(rst)begin hi<=0; lo<=0; end else begin hi<=a[7:4]; lo<=a[3:0]; end"},
+    {"nba_partial", "always_ff @(posedge clk)", "",
+      "if(a[7]){hi,lo}<=0; else begin {hi,lo}<=a; {hi[2],lo[2]}<=a[1:0]; if(a[6])lo[3]<=a[5]; end",
+      "if(a[7])begin hi<=0; lo<=0; end else begin hi<=a[7:4]; lo<=a[3:0]; hi[2]<=a[1]; lo[2]<=a[0]; if(a[6])lo[3]<=a[5]; end"},
+    {"comb_nba", "always_comb", "", "lo<=0; hi<=0; if(a[7]){hi,lo}<=a;",
+      "lo<=0; hi<=0; if(a[7])begin hi<=a[7:4]; lo<=a[3:0]; end"},
+    {"conditional_add", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; if(a[7]){hi,lo}+=8'h17;",
+      "lo=a[3:0]; hi=a[7:4]; if(a[7])begin tmp={hi,lo}+8'h17; hi=tmp[7:4]; lo=tmp[3:0]; end"},
+    {"latch_partial", "always_latch", "", "if(clk)begin {hi,lo}=a; {hi[2],lo[2]}=a[1:0]; end",
+      "if(clk)begin hi=a[7:4]; lo=a[3:0]; hi[2]=a[1]; lo[2]=a[0]; end"},
+    {"signed_narrow", "always_comb", "", "{hi,lo}=$signed(a[2:0]);",
+      "hi={4{a[2]}}; lo={a[2],a[2:0]};"},
+    {"nba_reads_old", "always_ff @(posedge clk)", "",
+      "if(a[7]){hi,lo}<=0; else begin hi<=a[7:4]; lo<=a[3:0]; {hi,lo}<={lo,hi}; end",
+      "if(a[7])begin hi<=0; lo<=0; end else begin hi<=a[7:4]; lo<=a[3:0]; hi<=lo; lo<=hi; end"},
+    {"snapshot", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo}={lo,hi}; lo[0]=hi[0];",
+      "lo=a[3:0]; hi=a[7:4]; tmp={lo,hi}; hi=tmp[7:4]; lo=tmp[3:0]; lo[0]=hi[0];"},
+    {"nba_replay", "always_ff @(posedge clk)", "",
+      "tmp=a; if(rst){hi,lo}<=0; else begin {hi,lo}<=tmp; {hi,lo}<={lo,hi}; end",
+      "tmp=a; if(rst)begin hi<=0; lo<=0; end else begin hi<=tmp[7:4]; lo<=tmp[3:0]; hi<=lo; lo<=hi; end"}
+  };
+  const auto [index, singleUnit] = GetParam();
+  ASSERT_LT(index, cases.size());
+  const auto& c = cases[index];
+  SCOPED_TRACE(c.name);
+  const auto name = "procedural_concat_" + c.name + (singleUnit ? "_single" : "_files");
+  auto* library = NLLibrary::create(library_->getDB(), NLName(name));
+  const auto module = [&](const std::string& moduleName, const std::string& body) {
+    return "module " + moduleName + "(input logic clk, input logic [7:0] a, input logic rst, output wire [7:0] y);\n"
+      "logic [3:0] hi,lo; logic [7:0] tmp;\n" + c.declarations + "\n" +
+      c.block + " begin " + body + " end\nassign y=" + c.result + ";\nendmodule\n";
+  };
+  const auto path = writeSVTestFile(name, module(name, c.body));
+  const auto helper = writeSVTestFile(name + "_helper", "module unused_helper; endmodule\n");
+  SNLSVConstructor constructor(library);
+  SNLSVConstructor::Paths paths {helper, path};
+  if (singleUnit) paths.insert(paths.begin(), "--single-unit");
+  ASSERT_NO_THROW(constructor.construct(paths));
+  auto* top = library->getSNLDesign(NLName(name));
+  ASSERT_NE(nullptr, top);
+  // Check every consumed net, including intermediate logic and storage inputs.
+  for (auto* net : top->getBitNets()) {
+    if (net->isConstant()) continue;
+    unsigned drivers = 0;
+    bool consumed = false;
+    for (auto* term : net->getInstTerms()) {
+      drivers += term->getDirection() == SNLTerm::Direction::Output;
+      consumed |= term->getDirection() == SNLTerm::Direction::Input;
+    }
+    for (auto* term : net->getBitTerms()) {
+      drivers += term->getDirection() == SNLTerm::Direction::Input;
+      consumed |= term->getDirection() == SNLTerm::Direction::Output;
+    }
+    if (consumed) EXPECT_EQ(1u, drivers) << net->getString();
+  }
+  const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog required for per-element behavioral comparison";
+  }
+  const auto tbPath = path.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << module("reference", c.rewrite)
+    << "module tb; reg clk=0; reg [7:0] a=0; wire [7:0] actual,expected;\n"
+    << name << " dut(clk,a,a[7],actual); reference ref_dut(clk,a,a[7],expected);\n"
+    << R"(integer i,j;
+initial begin
+  // Start with reset / latch-enable asserted, then exercise both storage and
+  // combinational behavior with every input in several traversal orders.
+  a=8'hff; #2; clk=1; #2; clk=0;
+  for(j=0;j<3;j=j+1) for(i=0;i<256;i=i+1) begin
+    a=(j==0)?i:(j==1)?255-i:((i*73+19)&255);
+    // Settle data while the clock-controlled latches are closed, then open
+    // them. Separate enable/data transitions avoid zero-delay gate races.
+    #2;
+    if(actual !== expected) $fatal(1,"before clock input=%h actual=%h expected=%h",a,actual,expected);
+    clk=1; #2;
+    if(actual !== expected) $fatal(1,"input=%h actual=%h expected=%h",a,actual,expected);
+    clk=0; #2;
+  end
+  $finish;
+end
+endmodule
+)";
+  tb.close();
+  const auto quote = [](const std::filesystem::path& p) {
+    std::string result = "'";
+    for (char ch : p.string()) result += ch == '\'' ? "'\\''" : std::string(1, ch);
+    return result + "'";
+  };
+  const auto executable = path.parent_path() / "simulation.vvp";
+  const auto primitives = dumped.parent_path() / "naja_primitives.v";
+  const auto command = "iverilog -g2012 -s tb -o " + quote(executable) + " " + quote(tbPath) +
+    " " + quote(dumped) + (std::filesystem::exists(primitives) ? " " + quote(primitives) : "");
+  ASSERT_EQ(0, std::system(command.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  ProceduralAssignments, SNLSVProceduralConcatTest,
+  ::testing::Combine(::testing::Range(0u, 31u), ::testing::Bool()));
+
+TEST_F(SNLSVConstructorTestSimple, proceduralConcatResolutionFailuresCoverage) {
+  const std::vector<std::pair<std::string, std::string>> cases {
+    {"rhs", "hi=0; lo=0; {hi,lo}=$clog2(a);"},
+    {"selector", "hi=0; lo=0; {hi[$clog2(a)],lo[0]}=a[1:0];"},
+    // Track lo first, then reach the failing hi selector while replaying lo's
+    // dependency, before lowering hi as its own tracked target.
+    {"replay_selector", "lo=0; hi=0; {hi[$clog2(a)],lo[0]}=a[1:0]; lo=hi;"}
+  };
+  for (const auto& [name, body] : cases) {
+    SCOPED_TRACE(name);
+    const auto path = writeSVTestFile("concat_failure_" + name,
+      "module top(input logic [7:0] a, output logic [3:0] hi,lo);\n"
+      "always_comb begin " + body + " end\nendmodule\n");
+    auto* library = NLLibrary::create(library_->getDB(), NLName(name));
+    SNLSVConstructor constructor(library);
+    expectUnsupportedConstruct(constructor, path,
+      {name == "rhs" ? "unable to resolve always_comb RHS bits" :
+        "unable to resolve dynamic index bits in always_comb assignment LHS"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, proceduralConcatPreservesSchedulingDiagnostics) {
+  const std::vector<std::pair<std::string, std::string>> cases {
+    {"mixed", "always_ff @(posedge clk) begin {hi,lo}=a; lo<=a[3:0]; end"},
+    {"pending_rhs", "always @* begin {hi,lo}<=a; hi<=lo; end"},
+    {"pending_index", "always @* begin {hi,lo}<=a; arr[lo[0]]<=a[3:0]; end"},
+    {"duplicate", "always_comb begin {hi,hi}=a; lo=0; end"}
+  };
+  for (const auto& [name, body] : cases) {
+    for (bool singleUnit : {false, true}) {
+      SCOPED_TRACE(name);
+      auto* library = NLLibrary::create(library_->getDB(),
+        NLName(name + (singleUnit ? "_single" : "_files")));
+      const auto path = writeSVTestFile("concat_scheduling_" + name,
+        "module concat_scheduling(input logic clk, input logic [7:0] a, "
+        "output logic [3:0] hi,lo); logic [1:0][3:0] arr;\n" + body + "\nendmodule\n");
+      SNLSVConstructor constructor(library);
+      SNLSVConstructor::Paths paths {path};
+      if (singleUnit) paths.insert(paths.begin(), "--single-unit");
+      EXPECT_THROW(constructor.construct(paths), SNLSVUnsupportedConstructError);
+    }
+  }
+}

@@ -137,6 +137,15 @@ masked-write loops are supported. Positive and negative clock edges are
 supported; negative edges use an inverted write-clock signal. No raw storage
 array or flops with multiple clocks are created.
 
+Memory inference also applies to constant-index writes and statically unrolled
+loops. Reading an inferred array as a whole, including through an output port,
+continuous assignment, aggregate expression, or submodule input, materializes
+constant-address asynchronous read ports for its elements. These ports share
+existing constant-index read ports. Element-only consumers keep the compact
+memory representation; whole-array consumers require a flattened view of all
+stored bits. Whole-array writes without indexed writes and fully packed arrays
+continue to use ordinary registers.
+
 Read ports are asynchronous; registered reads and read enables remain ordinary
 flops around the memory. Nonblocking reads on a write edge observe the old data.
 Multiple writes within one process preserve source-order priority per bit;
