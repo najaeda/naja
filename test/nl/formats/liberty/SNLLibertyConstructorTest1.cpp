@@ -1034,6 +1034,24 @@ TEST_F(SNLLibertyConstructorTest1, testFFBank) {
       }));
 }
 
+TEST_F(SNLLibertyConstructorTest1, testFFBankMalformedStaysLoadable) {
+  // A bank with too few arguments, a non-numeric or zero width, or an
+  // expression that does not resolve gets no sequential model but keeps the
+  // cell loadable; none of these is a library error.
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "ff_bank_malformed.lib";
+
+  EXPECT_NO_THROW(constructor.construct(testPath));
+  for (const char* cellName : {"BANK_TOO_FEW_ARGS", "BANK_BAD_WIDTH",
+                               "BANK_ZERO_WIDTH", "BANK_BAD_EXPRESSION"}) {
+    auto* cell = library_->getSNLDesign(NLName(cellName));
+    ASSERT_NE(nullptr, cell) << cellName;
+    EXPECT_FALSE(SNLDesignModeling::hasSequentialModel(cell)) << cellName;
+    EXPECT_NE(nullptr, cell->getScalarTerm(NLName("Q1"))) << cellName;
+  }
+}
+
 TEST_F(SNLLibertyConstructorTest1, testSequentialModelErrorHasCellContext) {
   SNLLibertyConstructor constructor(library_);
   const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
