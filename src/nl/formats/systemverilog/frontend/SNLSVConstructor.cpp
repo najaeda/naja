@@ -25053,7 +25053,7 @@ endmodule
             isConcatenationExpression(lhsExpr)) {
           std::vector<const Expression*> leaves;
           if (!appendFlattenedConcatenationLHSExpressions(*lhsExpr, leaves)) {
-            return false;
+            return false; // LCOV_EXCL_LINE: Slang concatenation operands are non-null.
           }
           for (const auto* leaf : leaves) {
             const auto* root = trackAlwaysCombDynamicLHS
@@ -28004,7 +28004,7 @@ endmodule
       std::string& failureReason) {
       std::vector<const Expression*> leaves;
       if (!appendFlattenedConcatenationLHSExpressions(*action.lhs, leaves)) {
-        return false;
+        return false; // LCOV_EXCL_LINE: Slang concatenation operands are non-null.
       }
       const auto* savedLhs = activeProceduralReplayLHS_;
       const auto* savedBits = activeProceduralReplayBits_;
@@ -28032,8 +28032,11 @@ endmodule
       for (const auto* leaf : leaves) {
         const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
         if (!leafWidth) {
+          // LCOV_EXCL_START
+          // Slang requires integral, fixed-width procedural concatenation leaves.
           failureReason = "unable to determine procedural concatenation leaf width";
           return false;
+          // LCOV_EXCL_STOP
         }
         leafBitCount += *leafWidth;
       }
@@ -28057,8 +28060,12 @@ endmodule
       for (const auto* leaf : leaves) {
         const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
         if (!leafWidth || offset + *leafWidth > assignedBits.size()) {
+          // LCOV_EXCL_START
+          // Leaf widths were validated above; successful RHS lowering supplies
+          // their total width, so each slice fits within assignedBits.
           failureReason = "unable to determine procedural concatenation leaf width";
           return false;
+          // LCOV_EXCL_STOP
         }
         AssignAction leafAction = action;
         leafAction.lhs = leaf;
@@ -28094,8 +28101,12 @@ endmodule
             return false;
           }
           if (!handled) {
+            // LCOV_EXCL_START
+            // targetsTracked requires a selection rooted at trackedLhs; the
+            // element, range and fixed-subassignment handlers cover those forms.
             failureReason = "unsupported procedural concatenation leaf: " + describeExpression(*leaf);
             return false;
+            // LCOV_EXCL_STOP
           }
         }
         const slang::ast::ValueSymbol* symbol = nullptr;

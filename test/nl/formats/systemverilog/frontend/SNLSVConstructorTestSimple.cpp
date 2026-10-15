@@ -39042,7 +39042,10 @@ TEST_P(SNLSVProceduralConcatTest, matchesPerElementRewrite) {
       "if(a[7]){hi,lo}<=0; else begin hi<=a[7:4]; lo<=a[3:0]; {hi,lo}<={lo,hi}; end",
       "if(a[7])begin hi<=0; lo<=0; end else begin hi<=a[7:4]; lo<=a[3:0]; hi<=lo; lo<=hi; end"},
     {"snapshot", "always_comb", "", "lo=a[3:0]; hi=a[7:4]; {hi,lo}={lo,hi}; lo[0]=hi[0];",
-      "lo=a[3:0]; hi=a[7:4]; tmp={lo,hi}; hi=tmp[7:4]; lo=tmp[3:0]; lo[0]=hi[0];"}
+      "lo=a[3:0]; hi=a[7:4]; tmp={lo,hi}; hi=tmp[7:4]; lo=tmp[3:0]; lo[0]=hi[0];"},
+    {"nba_replay", "always_ff @(posedge clk)", "",
+      "tmp=a; if(rst){hi,lo}<=0; else begin {hi,lo}<=tmp; {hi,lo}<={lo,hi}; end",
+      "tmp=a; if(rst)begin hi<=0; lo<=0; end else begin hi<=tmp[7:4]; lo<=tmp[3:0]; hi<=lo; lo<=hi; end"}
   };
   const auto [index, singleUnit] = GetParam();
   ASSERT_LT(index, cases.size());
@@ -39123,7 +39126,28 @@ endmodule
 
 INSTANTIATE_TEST_SUITE_P(
   ProceduralAssignments, SNLSVProceduralConcatTest,
-  ::testing::Combine(::testing::Range(0u, 30u), ::testing::Bool()));
+  ::testing::Combine(::testing::Range(0u, 31u), ::testing::Bool()));
+
+TEST_F(SNLSVConstructorTestSimple, proceduralConcatResolutionFailuresCoverage) {
+  const std::vector<std::pair<std::string, std::string>> cases {
+    {"rhs", "hi=0; lo=0; {hi,lo}=$clog2(a);"},
+    {"selector", "hi=0; lo=0; {hi[$clog2(a)],lo[0]}=a[1:0];"},
+    // Track lo first, then reach the failing hi selector while replaying lo's
+    // dependency, before lowering hi as its own tracked target.
+    {"replay_selector", "lo=0; hi=0; {hi[$clog2(a)],lo[0]}=a[1:0]; lo=hi;"}
+  };
+  for (const auto& [name, body] : cases) {
+    SCOPED_TRACE(name);
+    const auto path = writeSVTestFile("concat_failure_" + name,
+      "module top(input logic [7:0] a, output logic [3:0] hi,lo);\n"
+      "always_comb begin " + body + " end\nendmodule\n");
+    auto* library = NLLibrary::create(library_->getDB(), NLName(name));
+    SNLSVConstructor constructor(library);
+    expectUnsupportedConstruct(constructor, path,
+      {name == "rhs" ? "unable to resolve always_comb RHS bits" :
+        "unable to resolve dynamic index bits in always_comb assignment LHS"});
+  }
+}
 
 TEST_F(SNLSVConstructorTestSimple, proceduralConcatPreservesSchedulingDiagnostics) {
   const std::vector<std::pair<std::string, std::string>> cases {
