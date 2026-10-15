@@ -1123,6 +1123,8 @@ class RTLConstructor {
   struct FunctionEnvironment {
     std::map<std::string, StaticScalar> values;
     std::map<std::string, FunctionBinding> functions;
+    std::map<std::string, Object> constants;
+    bool logic = false, numeric = false, arith = false, unsignedLogic = false, signedLogic = false;
   };
   struct StaticScope {
     const FunctionEnvironment* environment = nullptr;
@@ -1189,6 +1191,12 @@ class RTLConstructor {
     for (const auto& [id, value] : integers_) environment.values.emplace(id, StaticScalar{value, false});
     for (const auto& [id, value] : booleans_) environment.values.emplace(id, StaticScalar{value, true});
     environment.functions = functions_;
+    for (const auto& [id, object] : objects_) if (object.constant) environment.constants.emplace(id, object);
+    environment.logic = stdLogic_;
+    environment.numeric = numeric_;
+    environment.arith = arith_;
+    environment.unsignedLogic = unsigned_;
+    environment.signedLogic = signed_;
   }
 
   const vhdl::PackageDeclaration* packageBody(const vhdl::PackageDeclaration& declaration) const {
@@ -1454,6 +1462,246 @@ class RTLConstructor {
     if (!result.returned) fail("function completed without returning a value: " + key(prefix));
     checkStaticType(*result.returned, declaration.returnType, &local);
     return *result.returned;
+  }
+
+  static bool scalarFunctionType(const vhdl::TypeMark& type) {
+    const auto name = key(type.name);
+    return name == "integer" || name == "natural" || name == "positive" || name == "boolean";
+  }
+
+  static bool scalarFunction(const vhdl::FunctionDeclaration& function) {
+    return scalarFunctionType(function.returnType) &&
+        std::all_of(function.parameters.begin(), function.parameters.end(), [](const auto& parameter) {
+          return scalarFunctionType(parameter.type);
+        });
+  }
+
+  Shape functionShape(const vhdl::TypeMark& type, const Shape* actual = nullptr) {
+    const auto name = key(type.name);
+    if (name == "boolean") return {{"boolean"}, {}};
+    const bool vector = name == "bit_vector" || name == "std_logic_vector" ||
+        name == "std_ulogic_vector" || name == "unsigned" || name == "signed";
+    if (!vector && name != "bit" && name != "std_logic" && name != "std_ulogic")
+      fail("runtime functions require binary scalar/vector or boolean values");
+    if (vector && !type.constraint) {
+      if (!actual || actual->ranges.size() != 1 || actual->integerWidth || !actual->fields.empty())
+        fail("unconstrained function vector requires a vector actual");
+      auto result = *actual;
+      // Resolve the nominal vector type and visibility using a bounded type.
+      vhdl::TypeMark bounded{type.name, vhdl::DiscreteRange{0, 0, true}};
+      const auto target = shape(bounded);
+      if (result.types != target.types || !result.declarations.empty()) fail("function argument type mismatch");
+      return result;
+    }
+    return shape(type);
+  }
+
+  std::optional<Value> runtimeStatements(const std::vector<Statement>& statements, State& state) {
+    for (const auto& statement : statements) {
+      DiagnosticScope location(statement.span);
+      if (++*runtimeSteps_ > 100000) fail("runtime function elaboration limit exceeded");
+      if (statement.kind == Statement::Kind::Null) continue;
+      if (statement.kind == Statement::Kind::Return) {
+        if (!statement.returnValue) fail("function return requires a value");
+        return expression(*statement.returnValue, state, runtimeReturnShape_ ? &*runtimeReturnShape_ : nullptr);
+      }
+      if (statement.kind == Statement::Kind::Assignment) {
+        const auto& assignment = statement.assignment;
+        const auto found = objects_.find(key(assignment.target));
+        if (assignment.kind != vhdl::AssignmentKind::Variable || found == objects_.end() || !found->second.variable)
+          fail("runtime function assignments require local variables");
+        assign(assignment, state);
+      } else if (statement.kind == Statement::Kind::For) {
+        const auto bounds = range(statement.range);
+        const auto name = key(statement.iterator);
+        if (integers_.contains(name) || booleans_.contains(name) || objects_.contains(name))
+          fail("shadowed runtime function loop parameters are unsupported");
+        for (size_t i = 0; i < bounds.size(); ++i) {
+          integers_[name] = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
+          auto result = runtimeStatements(statement.statements, state);
+          if (result) { integers_.erase(name); return result; }
+        }
+        integers_.erase(name);
+      } else if (statement.kind == Statement::Kind::If) {
+        const auto condition = expression(*statement.condition, state);
+        if (condition.shape.types != std::vector<std::string>{"boolean"}) fail("function if condition must be boolean");
+        if (const auto selected = constantValue(condition.bits.front())) {
+          auto result = runtimeStatements(*selected ? statement.statements : statement.alternative, state);
+          if (result) return result;
+          continue;
+        }
+        auto yes = state, no = state;
+        auto yesResult = runtimeStatements(statement.statements, yes);
+        auto noResult = runtimeStatements(statement.alternative, no);
+        if (bool(yesResult) != bool(noResult)) fail("partially returning runtime function branches are unsupported");
+        if (yesResult) {
+          if (!compatible(yesResult->shape, noResult->shape)) fail("function return branch type mismatch");
+          for (size_t i = 0; i < yesResult->shape.ranges.size(); ++i) {
+            const auto& a = yesResult->shape.ranges[i];
+            const auto& b = noResult->shape.ranges[i];
+            if (a.left != b.left || a.right != b.right || a.ascending != b.ascending)
+              fail("runtime-dependent function return bounds are unsupported");
+          }
+          return Value{yesResult->shape, mux(condition.bits.front(), yesResult->bits, noResult->bits)};
+        }
+        merge(state, yes, no, condition.bits.front());
+      } else fail("unsupported runtime function statement");
+    }
+    return std::nullopt;
+  }
+
+  Value callRuntime(const Expr& call, const State& callerState) {
+    const auto& prefix = call.kind == Expr::Kind::Name ? call : *call.left;
+    const auto binding = staticFunction(key(prefix), nullptr);
+    if (!binding.second) fail("no visible function: " + key(prefix));
+    const auto& declaration = *binding.second;
+    if (!declaration.pure) fail("impure functions are unsupported");
+    if (libraryContext_.precedes(call.span.start.offset, declaration.span.start.offset))
+      fail("function is used before its declaration: " + key(prefix));
+    if (runtimeDepth_ >= 64) fail("runtime function recursion limit exceeded");
+    if (++*runtimeSteps_ > 100000) fail("runtime function elaboration limit exceeded");
+    const auto& body = functionBody(binding);
+    RTLConstructor frame(design_, entity_, architecture_, syntax_, libraryContext_, {}, build_);
+    frame.runtimeDepth_ = runtimeDepth_ + 1;
+    frame.runtimeSteps_ = runtimeSteps_;
+    frame.zero_ = zero_;
+    frame.one_ = one_;
+    if (binding.first) {
+      frame.work_ = libraryContext_.owner(binding.first->name.span.start.offset);
+      frame.context(binding.first->context);
+      for (const auto& function : binding.first->functions)
+        if (!frame.functions_.emplace(key(function.name), FunctionBinding{binding.first, &function}).second)
+          fail("ambiguous package function: " + key(function.name));
+      if (const auto* package = packageBody(*binding.first)) {
+        frame.context(package->context);
+        std::set<std::string> defined;
+        for (const auto& function : package->functions) {
+          if (!defined.insert(key(function.name)).second) fail("overloaded runtime package functions are unsupported");
+          if (!frame.functions_.contains(key(function.name)))
+            frame.functions_.emplace(key(function.name), FunctionBinding{binding.first, &function});
+        }
+      }
+      frame.declarations(binding.first->arrayTypes, binding.first->constants, binding.first->recordTypes,
+          {}, binding.first->enumerationTypes);
+    } else {
+      const auto& environment = localFunctionEnvironments_.at(&declaration);
+      frame.functions_ = environment.functions;
+      frame.localFunctionEnvironments_ = localFunctionEnvironments_;
+      frame.objects_ = environment.constants;
+      for (const auto& [name, value] : environment.values) {
+        if (value.boolean) frame.booleans_[name] = value.value;
+        else frame.integers_[name] = value.value;
+      }
+      frame.stdLogic_ = environment.logic;
+      frame.numeric_ = environment.numeric;
+      frame.arith_ = environment.arith;
+      frame.unsigned_ = environment.unsignedLogic;
+      frame.signed_ = environment.signedLogic;
+    }
+    std::vector<std::pair<std::string, const vhdl::GenericDeclaration*>> formals;
+    for (const auto& parameter : declaration.parameters) for (const auto& name : parameter.names) {
+      if (std::any_of(formals.begin(), formals.end(), [&](const auto& formal) { return formal.first == key(name); }))
+        fail("duplicate function parameter");
+      formals.emplace_back(key(name), &parameter);
+    }
+    std::vector<const Expr*> definedDefaults;
+    for (const auto& parameter : body.parameters) for (const auto& name : parameter.names)
+      definedDefaults.push_back(parameter.defaultValue.get());
+    for (size_t i = 0; i < formals.size(); ++i)
+      if (staticSignature(formals[i].second->defaultValue.get()) != staticSignature(definedDefaults[i]))
+        fail("runtime function declaration/body default mismatch");
+    std::vector<const Expr*> actuals(formals.size(), nullptr), arguments;
+    if (call.kind == Expr::Kind::Indexed) arguments.push_back(call.right.get());
+    else if (call.kind == Expr::Kind::Call) for (const auto& argument : call.elements) arguments.push_back(argument.get());
+    bool named = false;
+    size_t position = 0;
+    for (const auto* argument : arguments) {
+      size_t destination = position++;
+      if (argument->kind == Expr::Kind::Association) {
+        named = true;
+        if (argument->left->kind != Expr::Kind::Name) fail("function formal must be a name");
+        destination = 0;
+        while (destination < formals.size() && formals[destination].first != key(*argument->left)) ++destination;
+        argument = argument->right.get();
+      } else if (named) fail("positional function actual follows named association");
+      if (destination >= formals.size() || actuals[destination]) fail("invalid or duplicate function actual");
+      actuals[destination] = argument;
+    }
+    // Evaluate every actual in the caller before introducing formal names.
+    std::vector<std::optional<Value>> values(formals.size());
+    std::vector<std::optional<StaticScalar>> scalars(formals.size());
+    const State empty;
+    for (size_t i = 0; i < formals.size(); ++i) {
+      const auto& formal = *formals[i].second;
+      const auto* argument = actuals[i] ? actuals[i] : formal.defaultValue.get();
+      if (!argument) fail("missing function argument: " + formals[i].first);
+      auto& evaluator = actuals[i] ? *this : frame;
+      const auto& argumentState = actuals[i] ? callerState : empty;
+      if (scalarFunctionType(formal.type)) scalars[i] = evaluator.scalar(*argument);
+      else {
+        const auto name = key(formal.type.name);
+        const bool vector = name == "bit_vector" || name == "std_logic_vector" ||
+            name == "std_ulogic_vector" || name == "unsigned" || name == "signed";
+        auto type = formal.type.constraint || !vector ?
+            std::optional<Shape>{frame.functionShape(formal.type)} : std::nullopt;
+        values[i] = evaluator.expression(*argument, argumentState, type ? &*type : nullptr);
+      }
+    }
+    State state;
+    for (size_t i = 0; i < formals.size(); ++i) {
+      const auto& [name, formal] = formals[i];
+      frame.functions_.erase(name);
+      if (!actuals[i] && !formal->defaultValue) fail("missing function argument: " + name);
+      if (scalarFunctionType(formal->type)) {
+        const auto value = *scalars[i];
+        frame.checkStaticType(value, formal->type, nullptr);
+        frame.objects_.erase(name);
+        frame.integers_.erase(name);
+        frame.booleans_.erase(name);
+        if (value.boolean) frame.booleans_[name] = value.value;
+        else frame.integers_[name] = value.value;
+      } else {
+        auto value = *values[i];
+        const auto type = frame.functionShape(formal->type, &value.shape);
+        if (!compatible(type, value.shape)) fail("function argument type or length mismatch");
+        value.shape = type;
+        frame.integers_.erase(name);
+        frame.booleans_.erase(name);
+        frame.objects_.insert_or_assign(name, Object{std::move(value), true});
+      }
+    }
+    const auto resultName = key(declaration.returnType.name);
+    const bool vectorResult = resultName == "bit_vector" || resultName == "std_logic_vector" ||
+        resultName == "std_ulogic_vector" || resultName == "unsigned" || resultName == "signed";
+    if (!vectorResult || declaration.returnType.constraint)
+      frame.runtimeReturnShape_ = frame.functionShape(declaration.returnType);
+    std::map<size_t, std::pair<const vhdl::ObjectDeclaration*, const Expr*>> locals;
+    for (const auto& variable : body.variables)
+      locals.emplace(variable.span.start.offset, std::make_pair(&variable, variable.initializer.get()));
+    for (const auto& constant : body.constants)
+      locals.emplace(constant.object.span.start.offset, std::make_pair(&constant.object, constant.value.get()));
+    for (const auto& [offset, entry] : locals) {
+      const auto& object = *entry.first;
+      const bool variable = std::any_of(body.variables.begin(), body.variables.end(),
+          [&](const auto& candidate) { return &candidate == &object; });
+      if (!variable) {
+        frame.addConstant(*std::find_if(body.constants.begin(), body.constants.end(),
+            [&](const auto& constant) { return &constant.object == &object; }));
+        continue;
+      }
+      const auto type = frame.functionShape(object.type);
+      for (const auto& name : object.names) {
+        if (frame.objects_.contains(key(name)) || frame.integers_.contains(key(name)) || frame.booleans_.contains(key(name)))
+          fail("shadowed runtime function locals are unsupported");
+        frame.objects_.emplace(key(name), Object{{type, {}}, false, false, true});
+        state.variables[key(name)] = entry.second ? frame.expression(*entry.second, state, &type).bits : Bits(type.size(), nullptr);
+      }
+    }
+    const auto result = frame.runtimeStatements(body.statements, state);
+    if (!result) fail("function completed without returning a value: " + key(prefix));
+    const auto type = frame.functionShape(declaration.returnType, &result->shape);
+    if (!compatible(type, result->shape)) fail("function return type or length mismatch");
+    return {type, result->bits};
   }
 
   bool staticBooleanType(const Expr& expression, const StaticScope* scope) {
@@ -2001,11 +2249,13 @@ class RTLConstructor {
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
     if (arrayAttribute(expr)) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr)) || booleans_.contains(key(expr)) ||
-        functions_.contains(key(expr)) || key(expr) == "true" || key(expr) == "false";
+        (functions_.contains(key(expr)) && scalarFunction(*functions_.at(key(expr)).second)) ||
+        key(expr) == "true" || key(expr) == "false";
     if (expr.kind == Expr::Kind::Indexed && expr.left->kind == Expr::Kind::Name &&
         key(*expr.left) == "boolean") return isStatic(*expr.right);
     if ((expr.kind == Expr::Kind::Indexed || expr.kind == Expr::Kind::Call) &&
-        expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left))) {
+        expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left)) &&
+        scalarFunction(*functions_.at(key(*expr.left)).second)) {
       if (expr.kind == Expr::Kind::Indexed) return isStatic(*expr.right);
       return std::all_of(expr.elements.begin(), expr.elements.end(), [&](const auto& argument) {
         return isStatic(argument->kind == Expr::Kind::Association ? *argument->right : *argument);
@@ -2204,6 +2454,12 @@ class RTLConstructor {
       if (!result.boolean && !type.integerWidth && !(unsigned_ && type.types.front() == "std_logic_vector"))
         fail("integer literal is incompatible with target");
       value = number(result.value, type);
+    } else if ((expr.kind == Expr::Kind::Name && functions_.contains(key(expr)) && !objects_.contains(key(expr))) ||
+               ((expr.kind == Expr::Kind::Indexed || expr.kind == Expr::Kind::Call) &&
+                expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left)) &&
+                !objects_.contains(key(*expr.left)) && !integers_.contains(key(*expr.left)) &&
+                !booleans_.contains(key(*expr.left)))) {
+      value = callRuntime(expr, state);
     } else if (expr.kind == Expr::Kind::Name) {
       const auto name = key(expr);
       if (!objects_.contains(name)) fail("no declaration for object: " + name);
@@ -2962,6 +3218,9 @@ class RTLConstructor {
   std::map<std::string, bool> booleans_;
   std::set<const vhdl::ConstantDeclaration*> activeStaticConstants_;
   size_t staticDepth_ = 0;
+  size_t runtimeDepth_ = 0;
+  std::shared_ptr<size_t> runtimeSteps_ = std::make_shared<size_t>(0);
+  std::optional<Shape> runtimeReturnShape_;
   std::map<std::string, Shape> arrays_, records_;
   std::map<std::string, const vhdl::EnumerationTypeDeclaration*> enumerations_;
   std::map<std::string, size_t> recordOffsets_;

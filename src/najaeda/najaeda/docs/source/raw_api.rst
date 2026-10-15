@@ -610,6 +610,11 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    declared subtype metadata without reading signal values. These attributes
    also support bounds derived from vector generics in direct-entity and component
    interfaces. See :doc:`loading` for supported prefixes and index-type limits.
+   Pure binary scalar/vector functions lower to combinational hardware, including
+   local variables, bounded loops, nested calls, and named/default arguments.
+   Package and architecture declaration scopes are preserved. Integer/boolean
+   actuals must be static; unsupported return paths and dynamic result bounds
+   are diagnosed. See :doc:`loading` for the runtime function subset.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design

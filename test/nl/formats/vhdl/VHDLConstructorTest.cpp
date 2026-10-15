@@ -2761,6 +2761,193 @@ end;
   }
 }
 
+TEST_F(VHDLConstructorTest, RuntimePackageReductionsPreserveArgumentBoundsAndDefaults) {
+  for (const auto* operation : {"or", "and", "xor"}) for (const bool ascending : {false, true}) {
+    SCOPED_TRACE(std::string(operation) + (ascending ? " ascending" : " descending"));
+    auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    const auto source = std::string(R"(
+library ieee; use ieee.std_logic_1164.all;
+package helpers is
+  function fold_bits(data : std_ulogic_vector; invert : boolean := false) return std_ulogic;
+end;
+package body helpers is
+  function fold_bits(data : std_ulogic_vector; invert : boolean := false) return std_ulogic is
+    variable result : std_ulogic := ')") + (std::string(operation) == "and" ? "1" : "0") + R"(';
+  begin
+    for idx in data'range loop result := result )" + operation + R"( data(idx); end loop;
+    if invert then result := not result; end if;
+    return result;
+  end;
+end;
+library ieee; use ieee.std_logic_1164.all; use work.helpers.all;
+entity reduction is port(a : in std_ulogic_vector()" + (ascending ? "8 to 10" : "10 downto 8") + R"();
+  y, inverted : out std_ulogic); end;
+architecture rtl of reduction is
+  constant invert : boolean := true;
+begin
+  y <= fold_bits(a);
+  inverted <= fold_bits(invert => true, data => a);
+end;
+)";
+    auto* design = VHDLConstructor(library).construct(source);
+    for (unsigned pattern = 0; pattern < 8; ++pattern) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (int bit = 0; bit < 3; ++bit)
+        values[design->getBusTerm(NLName("a"))->getBit(8 + bit)->getNet()] = (pattern >> bit) & 1;
+      const bool expected = std::string(operation) == "or" ? pattern != 0 :
+          std::string(operation) == "and" ? pattern == 7 : bool((pattern ^ (pattern >> 1) ^ (pattern >> 2)) & 1);
+      EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting), expected);
+      EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("inverted"))->getNet(), values, visiting), !expected);
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RuntimeLocalVectorFunctionsLowerLoopsNestedCallsAndBranches) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity functions is port(a : in bit_vector(6 downto 4); select_i : in bit;
+  y, repeated : out bit_vector(2 downto 0); chosen : out bit); end;
+architecture rtl of functions is
+  constant copies : natural := 3;
+  function replicate(value : bit; count : natural := copies) return bit_vector is
+    variable result : bit_vector(count-1 downto 0);
+  begin
+    for idx in result'range loop result(idx) := value; end loop;
+    return result;
+  end;
+  function reverse_bits(data : bit_vector) return bit_vector is
+    variable result : bit_vector(data'range);
+  begin
+    for idx in data'range loop result(idx) := data(data'left + data'right - idx); end loop;
+    return result;
+  end;
+  function transform(data : bit_vector; choice : bit) return bit_vector is
+    variable result : bit_vector(data'range);
+  begin
+    if choice = '1' then result := reverse_bits(data); else result := not data; end if;
+    return result;
+  end;
+  function pick(data : bit_vector; choice : bit) return bit is
+  begin
+    if choice = '1' then return data(data'left); else return data(data'right); end if;
+  end;
+begin
+  y <= transform(a, select_i);
+  repeated <= replicate(a(4));
+  chosen <= pick(choice => select_i, data => a);
+end;
+)");
+  for (unsigned pattern = 0; pattern < 8; ++pattern) for (const bool select : {false, true}) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int bit = 0; bit < 3; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(4 + bit)->getNet()] = (pattern >> bit) & 1;
+    values[design->getScalarTerm(NLName("select_i"))->getNet()] = select;
+    for (int bit = 0; bit < 3; ++bit) {
+      const bool expected = select ? bool((pattern >> (2-bit)) & 1) : !bool((pattern >> bit) & 1);
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting), expected);
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("repeated"))->getBit(bit)->getNet(), values, visiting), bool(pattern & 1));
+    }
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("chosen"))->getNet(), values, visiting),
+        bool((pattern >> (select ? 2 : 0)) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsIncompleteOrUnsafeRuntimeFunctions) {
+  for (const auto* body : {
+      "variable result : bit; begin return result; end;",
+      "variable result : bit; begin if data(0) = '1' then result := '1'; end if; return result; end;",
+      "begin null; end;",
+      "begin if data(0) = '1' then return '1'; end if; return '0'; end;",
+      "begin return missing; end;",
+      "begin return f(data); end;",
+      "begin return data; end;"}) {
+    SCOPED_TRACE(body);
+    const auto source = std::string("entity invalid is port(a : in bit_vector(2 downto 0); y : out bit); end; ") +
+        "architecture rtl of invalid is function f(data : bit_vector) return bit is " + body +
+        " begin y <= f(a); end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, RuntimeFunctionScopesAndConstrainedFormals) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package helpers is
+  constant bias : bit := '1';
+  function adjust(data : bit_vector(2 to 4); enabled : bit := bias) return bit_vector;
+end;
+package body helpers is
+  function hidden(value : bit) return bit is begin return value xor bias; end;
+  function adjust(data : bit_vector(2 to 4); enabled : bit := bias) return bit_vector is
+    variable result : bit_vector(data'range);
+  begin
+    for idx in data'range loop result(idx) := hidden(data(idx)) and enabled; end loop;
+    return result;
+  end;
+end;
+use work.helpers.all;
+entity scopes is port(a : in bit_vector(9 downto 5); y : out bit_vector(2 downto 0)); end;
+architecture rtl of scopes is constant enabled : bit := '0'; begin
+  y <= adjust(a(7 downto 5));
+end;
+)");
+  for (unsigned pattern = 0; pattern < 32; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int bit = 0; bit < 5; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(5 + bit)->getNet()] = (pattern >> bit) & 1;
+    for (int bit = 0; bit < 3; ++bit)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+          !bool((pattern >> bit) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsRuntimeDependentFunctionReturnBounds) {
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity invalid is port(a : in bit_vector(2 downto 0); b : in bit_vector(4 to 6);
+  choice : in bit; y : out bit_vector(2 downto 0)); end;
+architecture rtl of invalid is
+  function pick(left, right : bit_vector; choice : bit) return bit_vector is
+  begin
+    if choice = '1' then return left; else return right; end if;
+  end;
+begin y <= pick(a, b, choice); end;
+)"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
+TEST_F(VHDLConstructorTest, BinaryFunctionsInitializeArchitectureConstants) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+package helpers is
+  function invert(value : bit) return bit;
+end;
+package body helpers is
+  function invert(value : bit) return bit is begin return not value; end;
+end;
+use work.helpers.all;
+entity initialized is port(a : in bit; y : out bit); end;
+architecture rtl of initialized is constant preset : bit := invert('0');
+begin y <= preset and invert(a); end;
+)");
+  for (const bool input : {false, true}) {
+    std::unordered_map<SNLBitNet*, bool> values{{design->getScalarTerm(NLName("a"))->getNet(), input}};
+    std::unordered_set<SNLBitNet*> visiting;
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting), !input);
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsRuntimeFunctionDefaultProfileMismatch) {
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+package helpers is function f(value : bit := '0') return bit; end;
+package body helpers is function f(value : bit := '1') return bit is begin return value; end; end;
+use work.helpers.all;
+entity invalid is port(a : in bit; y : out bit); end;
+architecture rtl of invalid is begin y <= f(a); end;
+)"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
 TEST_F(VHDLConstructorTest, StaticFunctionArithmeticAndEarlyReturns) {
   const auto source = R"(
 package math is

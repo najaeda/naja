@@ -376,13 +376,26 @@ Static ``boolean(...)`` conversions accept boolean operands, including compariso
 and nested conversions, in constants, generic defaults, and function bodies.
 Short-circuited operands are type-checked without evaluating their values;
 integer-to-boolean conversions are rejected.
-Function calls with runtime arguments, vector/string function evaluation, and
-impure functions remain unsupported.
+Pure package and architecture-local functions can also lower binary scalar and
+vector arguments and results to combinational hardware. Unconstrained vector
+formals retain actual bounds; constrained formals bind by position. Calls support
+positional/named arguments and declaration-scope defaults, nested pure calls,
+local binary variables/constants, variable initializers, bounded ``for`` loops,
+array attributes, and ``if`` statements. Both branches of a runtime condition may
+return, or both may continue after updating local variables. Function scopes
+resolve package or captured declaration constants rather than caller-local names.
+Integer and boolean function arguments must currently be static. Runtime integer
+results, string evaluation, impure functions, partially returning runtime
+branches, runtime-dependent return bounds, ``case``/``exit`` statements, and
+shadowed local declarations/loop parameters remain unsupported and are diagnosed.
+Missing returns, incompatible types/widths, reads before definite assignment,
+excessive recursion, and excessive elaboration work are errors.
 
 Architecture-local pure functions also support static integer/boolean evaluation.
 Bodies and default arguments use declarations visible at the function declaration,
-including enclosing generics and scalar constants. Runtime/vector evaluation,
-overloading, and architecture function forward declarations remain unsupported.
+including enclosing generics and scalar constants. Binary runtime functions also
+capture visible binary constants. Overloading and architecture function forward
+declarations remain unsupported.
 
 Input port maps accept binary character, string, and binary/octal/hex bit-string
 literals in positional or named associations, for direct entities and components.
@@ -451,11 +464,10 @@ constructs still fail loading. Choose a report path or select console-only outpu
 
 The NEORV32 default ``neorv32_top`` configuration remains a development target.
 The complete core file list parses and resolves its named-library imports when
-loaded into ``library="neorv32"``. Boolean generics now elaborate; the next
-unsupported generic is ``BOOT_ADDR_CUSTOM : std_ulogic_vector(31 downto 0)``
-at ``neorv32_top.vhd:30`` in the development checkout. Vector generics, runtime
-vector helpers, and further elaboration constructs remain unsupported; the
-complete top has not been validated.
+loaded into ``library="neorv32"``. Boolean/vector generics, array attributes,
+and pure binary vector helpers now elaborate within the supported subset.
+Additional ``numeric_std`` overloads and further constructs are still needed;
+the complete top has not been validated.
 
 Dynamic array reads lower to ``naja_table_select`` for constant arrays,
 constant-driven ROM signals, and general signal or variable arrays. Identical
