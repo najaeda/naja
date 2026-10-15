@@ -1430,6 +1430,10 @@ class RTLConstructor {
         return scalarType(key(function.second->returnType.name));
     } else if ((expression.kind == Expr::Kind::Call || expression.kind == Expr::Kind::Indexed) &&
                expression.left->kind == Expr::Kind::Name) {
+      if (expression.kind == Expr::Kind::Indexed && key(*expression.left) == "boolean") {
+        if (!staticBooleanType(*expression.right, scope)) fail("boolean conversion requires a boolean operand");
+        return true;
+      }
       if (!scope && integerTables_.contains(key(*expression.left))) return false;
       if (const auto function = staticFunction(key(*expression.left), scope); function.second)
         return scalarType(key(function.second->returnType.name));
@@ -1512,11 +1516,8 @@ class RTLConstructor {
         return selected;
       }
       if (expression.kind == Expr::Kind::Indexed && key(*expression.left) == "boolean") {
-        if (expression.elements.size() != 1 && !expression.right) fail("boolean conversion requires one argument");
-        const auto& argument = expression.right ? *expression.right : *expression.elements.front();
-        const auto value = scalar(argument, scope);
-        if (value.boolean) return value;
-        return {value.value != 0, true};
+        if (!staticBooleanType(*expression.right, scope)) fail("boolean conversion requires a boolean operand");
+        return scalar(*expression.right, scope);
       }
       if (!scope && expression.kind == Expr::Kind::Indexed && integerTables_.contains(key(*expression.left))) {
         const auto& table = integerTables_.at(key(*expression.left));
@@ -1932,6 +1933,8 @@ class RTLConstructor {
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr)) || booleans_.contains(key(expr)) ||
         functions_.contains(key(expr)) || key(expr) == "true" || key(expr) == "false";
+    if (expr.kind == Expr::Kind::Indexed && expr.left->kind == Expr::Kind::Name &&
+        key(*expr.left) == "boolean") return isStatic(*expr.right);
     if ((expr.kind == Expr::Kind::Indexed || expr.kind == Expr::Kind::Call) &&
         expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left))) {
       if (expr.kind == Expr::Kind::Indexed) return isStatic(*expr.right);
@@ -2216,8 +2219,9 @@ class RTLConstructor {
       }
     } else if (expr.kind == Expr::Kind::Indexed) {
       if (expr.left->kind == Expr::Kind::Name &&
-          (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
-        const auto target = key(*expr.left);
+          (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "std_ulogic_vector" ||
+           key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
+        const auto target = key(*expr.left) == "std_ulogic_vector" ? "std_logic_vector" : key(*expr.left);
         if (!numeric_ || (target == "std_logic_vector" && !stdLogic_))
           fail("vector conversion requires visible numeric_std and std_logic_1164 types");
         value = expression(*expr.right, state, nullptr, usedWidth);

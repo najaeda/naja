@@ -332,6 +332,11 @@ names remain distinct for assignment checking. ``std_ulogic`` and
 ``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
 multiple drivers and nonbinary literals remain unsupported.
 
+Vector conversions between ``std_logic_vector``, ``std_ulogic_vector``,
+``unsigned``, and ``signed`` preserve bit order and width, including ascending
+source ranges. These conversions require visible ``std_logic_1164`` and
+``numeric_std`` packages; they do not resize or sign-extend their operands.
+
 Identifier-based enumerated types declared in packages, architectures, and
 generate bodies support internal signals, variables, constants, record fields,
 and arrays. Literals are encoded by declaration position using at least one bit;
@@ -353,6 +358,10 @@ than caller-local names. Integer arithmetic includes division, ``mod``, ``rem``,
 exponentiation, and ``abs``; boolean comparisons and logical operators preserve
 short-circuit evaluation. Subtype violations, overflow, missing returns,
 ambiguous overloads, and excessive recursion or evaluation work are diagnosed.
+Static ``boolean(...)`` conversions accept boolean operands, including comparisons
+and nested conversions, in constants, generic defaults, and function bodies.
+Short-circuited operands are type-checked without evaluating their values;
+integer-to-boolean conversions are rejected.
 Function calls with runtime arguments, vector/string function evaluation, and
 impure functions remain unsupported. Array attributes and interface defaults
 are retained by the parser, but their elaboration is not yet supported.

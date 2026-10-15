@@ -1655,6 +1655,8 @@ TEST_F(VHDLConstructorTest, UnsupportedConversionOperandsDoNotPublishDesigns) {
           {"signed", "bit_vector(3 downto 0)", "signed(3 downto 0)", "unsupported vector conversion operand"},
           {"std_logic_vector", "bit_vector(3 downto 0)", "std_logic_vector(3 downto 0)",
               "unsupported vector conversion operand"},
+          {"std_ulogic_vector", "bit_vector(3 downto 0)", "std_ulogic_vector(3 downto 0)",
+              "unsupported vector conversion operand"},
           {"to_integer", "std_logic", "integer range 0 to 3", "unsupported to_integer argument"},
           {"to_integer", "std_logic_vector(1 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
           {"to_integer", "unsigned(31 downto 0)", "integer range 0 to 3", "unsupported to_integer argument"},
@@ -1676,6 +1678,34 @@ TEST_F(VHDLConstructorTest, UnsupportedConversionOperandsDoNotPublishDesigns) {
       EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
     }
     EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, ResolvedAndUnresolvedVectorConversionsPreserveBitOrder) {
+  for (const auto* inputType : {"std_logic_vector", "std_ulogic_vector", "unsigned", "signed"}) {
+    for (const auto* outputType : {"std_logic_vector", "std_ulogic_vector", "unsigned", "signed"}) {
+      for (const bool ascending : {false, true}) {
+        SCOPED_TRACE(std::string(inputType) + " -> " + outputType + (ascending ? " ascending" : " descending"));
+        const auto source = std::string(
+            "library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; "
+            "entity conversion is port(a : in ") + inputType +
+            (ascending ? "(4 to 6); y : out " : "(6 downto 4); y : out ") + outputType +
+            "(2 downto 0)); end; architecture rtl of conversion is begin y <= " +
+            outputType + "(a); end;";
+        auto* design = VHDLConstructor(library_).construct(source);
+        for (unsigned pattern = 0; pattern < 8; ++pattern) {
+          std::unordered_map<SNLBitNet*, bool> values;
+          std::unordered_set<SNLBitNet*> visiting;
+          for (int bit = 0; bit < 3; ++bit)
+            values[design->getBusTerm(NLName("a"))->getBit(ascending ? 6 - bit : 4 + bit)->getNet()] =
+                (pattern >> bit) & 1;
+          for (int bit = 0; bit < 3; ++bit)
+            EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+                bool((pattern >> bit) & 1));
+        }
+        design->destroy();
+      }
+    }
   }
 }
 
@@ -2762,6 +2792,48 @@ end;
 )";
   auto* design = VHDLConstructor(library_).construct(source);
   for (auto* bit : design->getBusTerm(NLName("y"))->getBits()) EXPECT_TRUE(bit->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, StaticBooleanConversionsPreserveShortCircuitEvaluation) {
+  for (const auto& [expression, expected] : std::vector<std::pair<std::string, bool>>{
+      {"false and boolean((1 / 0) = 0)", false},
+      {"true or boolean((1 / 0) = 0)", true},
+      {"false nand boolean((1 / 0) = 0)", true},
+      {"true nor boolean((1 / 0) = 0)", false},
+      {"true and boolean(3 > 1)", true},
+      {"false or boolean(3 < 1)", false},
+      {"boolean(not boolean(false))", true}}) {
+    SCOPED_TRACE(expression);
+    auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    const auto source =
+        "package flags is function selected return boolean; end; "
+        "package body flags is function selected return boolean is begin return " + expression +
+        "; end; end; use work.flags.all; "
+        "entity conversion is generic(enabled : boolean := " + expression + "); port(y : out bit); end; "
+        "architecture rtl of conversion is constant chosen : boolean := " + expression +
+        "; begin y <= '1' when boolean(chosen) and boolean(enabled) and boolean(selected) else '0'; end;";
+    auto* design = VHDLConstructor(library).construct(source);
+    auto* net = design->getScalarTerm(NLName("y"))->getNet();
+    EXPECT_EQ(net->isConstant1(), expected);
+    EXPECT_EQ(net->isConstant0(), !expected);
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsNonBooleanConversionOperandsEvenWhenShortCircuited) {
+  for (const auto* expression : {"boolean(1)", "false and boolean(1)", "true or boolean(1)"}) {
+    SCOPED_TRACE(expression);
+    const auto source = std::string("entity conversion is port(y : out bit); end; ") +
+        "architecture rtl of conversion is constant chosen : boolean := " + expression +
+        "; begin y <= '0'; end;";
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "integer-to-boolean conversion accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find("boolean conversion requires a boolean operand"), std::string::npos);
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
 }
 
 TEST_F(VHDLConstructorTest, RejectsInvalidStaticPackageFunctionCalls) {

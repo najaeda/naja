@@ -601,7 +601,11 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    elaborated at the required width. Loading preserves dead RTL objects and
    can retain unused logic across intermediate signals; call
    ``NLUniverse.get().applyDLE()`` after selecting the top for a pruned netlist.
-   See :doc:`loading` for resize semantics and the remaining limits.
+   Vector casts also accept ``std_ulogic_vector`` and preserve operand width and
+   bit order. Static ``boolean(...)`` conversions require boolean operands and
+   retain short-circuit evaluation, including in generic defaults and package
+   functions. See :doc:`loading` for conversion visibility, resize semantics,
+   and the remaining limits.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design
