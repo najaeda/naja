@@ -60,6 +60,150 @@ TEST_F(TGraphTests, testNodesAndEdges) {
   EXPECT_EQ(n1, edge->getTarget());
 }
 
+TEST_F(TGraphTests, testNodeClassification) {
+  using CellKind = TNode::CellKind;
+  using PinRole = TNode::PinRole;
+  TGraph graph;
+  auto id = graph.createNode(nullptr);
+  auto node = graph.getNode(id);
+  EXPECT_EQ(CellKind::Unknown, node->getCellKind());
+  EXPECT_EQ(PinRole::Unknown, node->getPinRole());
+
+  struct Query {
+    CellKind kind;
+    PinRole role;
+    bool (TNode::*matches)() const;
+  };
+  const Query queries[] = {
+    {CellKind::FlipFlop, PinRole::DataInput, &TNode::isFlopDataInput},
+    {CellKind::FlipFlop, PinRole::DataOutput, &TNode::isFlopDataOutput},
+    {CellKind::FlipFlop, PinRole::Clock, &TNode::isFlopClock},
+    {CellKind::Latch, PinRole::DataInput, &TNode::isLatchDataInput},
+    {CellKind::Latch, PinRole::DataOutput, &TNode::isLatchDataOutput},
+    {CellKind::Latch, PinRole::Gate, &TNode::isLatchGate},
+    {CellKind::Combinational, PinRole::DataInput, &TNode::isCombinationalReceiver},
+    {CellKind::Combinational, PinRole::DataOutput, &TNode::isCombinationalDriver},
+  };
+  for (auto kind : {CellKind::Unknown, CellKind::Combinational, CellKind::FlipFlop, CellKind::Latch}) {
+    node->setCellKind(kind);
+    EXPECT_EQ(kind, node->getCellKind());
+    EXPECT_EQ(kind == CellKind::Combinational, node->isCombinational());
+    EXPECT_EQ(kind == CellKind::FlipFlop, node->isFlipFlop());
+    EXPECT_EQ(kind == CellKind::Latch, node->isLatch());
+    for (auto role : {PinRole::Unknown, PinRole::DataInput, PinRole::DataOutput,
+                     PinRole::Clock, PinRole::Gate, PinRole::Enable,
+                     PinRole::SyncReset, PinRole::SyncSet, PinRole::AsyncReset, PinRole::AsyncSet}) {
+      node->setPinRole(role);
+      EXPECT_EQ(role, node->getPinRole());
+      //Controls must never be mistaken for data, and latch roles must not
+      //match flop traversal boundaries (or vice versa).
+      for (const auto& query : queries) {
+        EXPECT_EQ(kind == query.kind && role == query.role, (node->*query.matches)())
+          << "kind=" << static_cast<int>(kind) << " role=" << static_cast<int>(role);
+      }
+    }
+  }
+}
+
+TEST_F(TGraphTests, testNodeClassificationSurvivesGrowthAndClearsOnReuse) {
+  TGraph graph;
+  auto id = graph.createNode(nullptr);
+  graph.getNode(id)->setCellKind(TNode::CellKind::FlipFlop);
+  graph.getNode(id)->setPinRole(TNode::PinRole::DataOutput);
+  //Force vector growth without retaining a transient node pointer.
+  for (size_t i = 0; i < 256; ++i) {
+    graph.createNode(nullptr);
+  }
+  EXPECT_TRUE(graph.getNode(id)->isFlopDataOutput());
+  ASSERT_TRUE(graph.removeNode(id));
+  EXPECT_EQ(TNode::CellKind::Unknown, graph.getNodesStorage()[id].getCellKind());
+  EXPECT_EQ(TNode::PinRole::Unknown, graph.getNodesStorage()[id].getPinRole());
+  ASSERT_EQ(id, graph.createNode(nullptr));
+  EXPECT_EQ(TNode::CellKind::Unknown, graph.getNode(id)->getCellKind());
+  EXPECT_EQ(TNode::PinRole::Unknown, graph.getNode(id)->getPinRole());
+  EXPECT_FALSE(graph.getNode(id)->isFlopDataOutput());
+}
+
+TEST_F(TGraphTests, testCaptureEdgesAreSeparateFromSignalTraversal) {
+  TGraph graph;
+  auto clock = graph.createNode(nullptr);
+  auto data = graph.createNode(nullptr);
+  graph.getNode(clock)->setCellKind(TNode::CellKind::FlipFlop);
+  graph.getNode(clock)->setPinRole(TNode::PinRole::Clock);
+  graph.getNode(data)->setCellKind(TNode::CellKind::FlipFlop);
+  graph.getNode(data)->setPinRole(TNode::PinRole::DataInput);
+  auto capture = graph.createCaptureEdge(clock, data);
+  const TGraph& view = graph;
+  ASSERT_NE(nullptr, view.getCaptureEdge(capture));
+  EXPECT_EQ(capture, view.getCaptureEdge(capture)->getIndex());
+  EXPECT_EQ(clock, view.getCaptureEdge(capture)->getSource());
+  EXPECT_EQ(data, view.getCaptureEdge(capture)->getTarget());
+  EXPECT_TRUE(view.getCaptureEdge(capture)->isAlive());
+  EXPECT_EQ((std::vector<TGraph::CaptureEdgeId>{capture}), graph.getNode(clock)->getCaptureOutEdges());
+  EXPECT_EQ((std::vector<TGraph::CaptureEdgeId>{capture}), graph.getNode(data)->getCaptureInEdges());
+  EXPECT_TRUE(graph.getNode(clock)->getCaptureInEdges().empty());
+  EXPECT_TRUE(graph.getNode(data)->getCaptureOutEdges().empty());
+  EXPECT_EQ(1u, graph.getCaptureEdgesCount());
+  EXPECT_EQ(0u, graph.getEdgesCount());
+  EXPECT_TRUE(graph.getEdgesStorage().empty());
+  EXPECT_EQ(0u, graph.getNode(clock)->getOutDegree());
+  EXPECT_EQ(0u, graph.getNode(data)->getInDegree());
+
+  auto seed = graph.createClock("clk", topClockTerm_, clock);
+  EXPECT_EQ(0u, TLoopBreaker::run(graph));
+  EXPECT_NO_THROW(TClockPropagator::run(graph));
+  //A signal edge opposite to capture creates a cycle only if capture
+  //relationships accidentally participate in ordinary traversal.
+  auto signal = graph.createEdge(data, clock, nullptr);
+  EXPECT_EQ(0u, TLoopBreaker::run(graph));
+  EXPECT_NO_THROW(TClockPropagator::run(graph));
+  EXPECT_FALSE(graph.getEdge(signal)->isDisabled());
+  EXPECT_FALSE(graph.getEdge(signal)->hasFromClock(seed));
+  EXPECT_TRUE(graph.getEdge(signal)->hasToClock(seed));
+  EXPECT_EQ(1u, graph.getEdgesCount());
+  EXPECT_EQ(1u, graph.getCaptureEdgesCount());
+}
+
+TEST_F(TGraphTests, testCaptureEdgeRemovalAndSlotReuse) {
+  TGraph graph;
+  auto a = graph.createNode(nullptr);
+  auto b = graph.createNode(nullptr);
+  EXPECT_EQ(TGraph::kInvalidCaptureEdge, graph.createCaptureEdge(a, TGraph::kInvalidNode));
+  EXPECT_EQ(TGraph::kInvalidCaptureEdge, graph.createCaptureEdge(TGraph::kInvalidNode, b));
+  EXPECT_FALSE(graph.removeCaptureEdge(TGraph::kInvalidCaptureEdge));
+  EXPECT_EQ(nullptr, graph.getCaptureEdge(0));
+  EXPECT_EQ(0u, graph.getCaptureEdgesCount());
+  auto first = graph.createCaptureEdge(a, b);
+  auto parallel = graph.createCaptureEdge(a, b);
+  ASSERT_TRUE(graph.removeCaptureEdge(first));
+  EXPECT_FALSE(graph.removeCaptureEdge(first));
+  EXPECT_FALSE(graph.isCaptureEdgeValid(first));
+  EXPECT_EQ(nullptr, graph.getCaptureEdge(first));
+  EXPECT_FALSE(graph.getCaptureEdgesStorage()[first].isAlive());
+  EXPECT_EQ((std::vector<TGraph::CaptureEdgeId>{parallel}), graph.getNode(a)->getCaptureOutEdges());
+  EXPECT_EQ((std::vector<TGraph::CaptureEdgeId>{parallel}), graph.getNode(b)->getCaptureInEdges());
+  ASSERT_EQ(first, graph.createCaptureEdge(b, a));
+  EXPECT_EQ(b, graph.getCaptureEdge(first)->getSource());
+  EXPECT_EQ(a, graph.getCaptureEdge(first)->getTarget());
+  EXPECT_TRUE(graph.isCaptureEdgeValid(first));
+  EXPECT_EQ(2u, graph.getCaptureEdgesCount());
+  //Both incoming and outgoing capture relationships are removed with a node.
+  graph.createCaptureEdge(a, a);
+  auto signal = graph.createEdge(a, b, nullptr);
+  ASSERT_TRUE(graph.removeNode(a));
+  EXPECT_EQ(0u, graph.getCaptureEdgesCount());
+  EXPECT_FALSE(graph.isEdgeValid(signal));
+  EXPECT_TRUE(graph.getNode(b)->getCaptureInEdges().empty());
+  EXPECT_TRUE(graph.getNode(b)->getCaptureOutEdges().empty());
+  EXPECT_EQ(TGraph::kInvalidCaptureEdge, graph.createCaptureEdge(a, b));
+  ASSERT_EQ(a, graph.createNode(nullptr));
+  EXPECT_TRUE(graph.getNode(a)->getCaptureInEdges().empty());
+  EXPECT_TRUE(graph.getNode(a)->getCaptureOutEdges().empty());
+  auto reused = graph.createCaptureEdge(a, b);
+  EXPECT_TRUE(graph.isCaptureEdgeValid(reused));
+  EXPECT_EQ(1u, graph.getCaptureEdgesCount());
+}
+
 TEST_F(TGraphTests, testClockOnTopAndInstanceTerminal) {
   TGraph graph;
   auto topNode = graph.createNode(nullptr);

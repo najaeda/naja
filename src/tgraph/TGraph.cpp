@@ -50,6 +50,50 @@ TGraph::EdgeId TGraph::createEdge(NodeId source, NodeId target, TEdgeProxy* prox
   return id;
 }
 
+TGraph::CaptureEdgeId TGraph::createCaptureEdge(NodeId source, NodeId target) {
+  if (!isNodeValid(source) || !isNodeValid(target)) {
+    return kInvalidCaptureEdge;
+  }
+  CaptureEdgeId id = kInvalidCaptureEdge;
+  if (!freeCaptureEdges_.empty()) {
+    id = freeCaptureEdges_.back();
+    freeCaptureEdges_.pop_back();
+    captureEdges_[id].reset(id, source, target);
+  } else {
+    id = captureEdges_.size();
+    captureEdges_.push_back(TCaptureEdge(id, source, target));
+  }
+  nodes_[source].addCaptureOutEdge(id);
+  nodes_[target].addCaptureInEdge(id);
+  ++liveCaptureEdges_;
+  return id;
+}
+
+bool TGraph::removeCaptureEdge(CaptureEdgeId edge) {
+  if (!isCaptureEdgeValid(edge)) {
+    return false;
+  }
+  auto& edgeRef = captureEdges_[edge];
+  nodes_[edgeRef.getSource()].removeCaptureOutEdge(edge);
+  nodes_[edgeRef.getTarget()].removeCaptureInEdge(edge);
+  edgeRef.deactivate();
+  freeCaptureEdges_.push_back(edge);
+  --liveCaptureEdges_;
+  return true;
+}
+
+TCaptureEdge* TGraph::getCaptureEdge(CaptureEdgeId edge) {
+  return isCaptureEdgeValid(edge) ? &captureEdges_[edge] : nullptr;
+}
+
+const TCaptureEdge* TGraph::getCaptureEdge(CaptureEdgeId edge) const {
+  return isCaptureEdgeValid(edge) ? &captureEdges_[edge] : nullptr;
+}
+
+bool TGraph::isCaptureEdgeValid(CaptureEdgeId edge) const {
+  return edge < captureEdges_.size() && captureEdges_[edge].isAlive();
+}
+
 bool TGraph::removeEdge(EdgeId edge) {
   if (!isEdgeValid(edge)) {
     return false;
@@ -79,6 +123,14 @@ bool TGraph::removeNode(NodeId node) {
   TNode& nodeRef = nodes_[node];
   const std::vector<EdgeId> outEdges = nodeRef.getOutEdges();
   const std::vector<EdgeId> inEdges = nodeRef.getInEdges();
+  const auto captureOutEdges = nodeRef.getCaptureOutEdges();
+  const auto captureInEdges = nodeRef.getCaptureInEdges();
+  for (CaptureEdgeId edge : captureOutEdges) {
+    removeCaptureEdge(edge);
+  }
+  for (CaptureEdgeId edge : captureInEdges) {
+    removeCaptureEdge(edge);
+  }
   for (EdgeId edge : outEdges) {
     removeEdge(edge);
   }

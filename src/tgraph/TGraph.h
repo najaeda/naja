@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "TClock.h"
+#include "TCaptureEdge.h"
 #include "TEdge.h"
 #include "TNode.h"
 
@@ -29,9 +30,11 @@ class TGraph {
     using NodeId = std::size_t;
     using EdgeId = std::size_t;
     using ClockId = TClock::ClockId;
+    using CaptureEdgeId = TCaptureEdge::CaptureEdgeId;
 
     static constexpr NodeId kInvalidNode = static_cast<NodeId>(-1);
     static constexpr EdgeId kInvalidEdge = static_cast<EdgeId>(-1);
+    static constexpr CaptureEdgeId kInvalidCaptureEdge = static_cast<CaptureEdgeId>(-1);
 
     TGraph() = default;
     ~TGraph() = default;
@@ -43,6 +46,18 @@ class TGraph {
 
     NodeId createNode(TNodeProxy* proxy);
     EdgeId createEdge(NodeId source, NodeId target, TEdgeProxy* proxy);
+
+    /// Creates a separate clock-to-capture relationship; returns
+    /// kInvalidCaptureEdge for invalid nodes. Endpoint roles are assigned by the builder.
+    CaptureEdgeId createCaptureEdge(NodeId source, NodeId target);
+    bool removeCaptureEdge(CaptureEdgeId edge);
+    /// \warning transient view, invalidated by capture storage reallocation.
+    /// CaptureEdgeId belongs to a separate ID space from ordinary EdgeId.
+    TCaptureEdge* getCaptureEdge(CaptureEdgeId edge);
+    const TCaptureEdge* getCaptureEdge(CaptureEdgeId edge) const;
+    bool isCaptureEdgeValid(CaptureEdgeId edge) const;
+    std::size_t getCaptureEdgesCount() const { return liveCaptureEdges_; }
+    const std::vector<TCaptureEdge>& getCaptureEdgesStorage() const { return captureEdges_; }
 
     bool removeNode(NodeId node);
     bool removeEdge(EdgeId edge);
@@ -85,11 +100,14 @@ class TGraph {
   private:
     std::vector<TNode> nodes_;
     std::vector<TEdge> edges_;
+    std::vector<TCaptureEdge> captureEdges_;
     std::vector<NodeId> freeNodes_;
     std::vector<EdgeId> freeEdges_;
+    std::vector<CaptureEdgeId> freeCaptureEdges_;
     std::vector<TClock> clocks_;
     std::size_t liveNodes_ {0};
     std::size_t liveEdges_ {0};
+    std::size_t liveCaptureEdges_ {0};
 };
 
 }  // namespace naja::TG
