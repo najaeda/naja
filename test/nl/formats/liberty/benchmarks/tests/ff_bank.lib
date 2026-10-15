@@ -1,0 +1,33 @@
+library(testlib) {
+  cell ("DFF2_BANK") {
+    ff_bank (IQ, IQN, 2) {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin (CK) {
+      clock : true;
+      direction : input;
+    }
+    bundle (D) {
+      members (D0, D1);
+      direction : input;
+      pin (D0) {
+        capacitance : 0.001;
+      }
+      pin (D1) {
+        capacitance : 0.001;
+      }
+    }
+    bundle (QN) {
+      members (QN0, QN1);
+      direction : output;
+      function : "IQN";
+      pin (QN0) {
+        max_capacitance : 0.1;
+      }
+      pin (QN1) {
+        max_capacitance : 0.1;
+      }
+    }
+  }
+}

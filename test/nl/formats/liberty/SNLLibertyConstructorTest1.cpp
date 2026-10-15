@@ -992,6 +992,48 @@ TEST_F(SNLLibertyConstructorTest1, testMultipleFFGroups) {
       }));
 }
 
+TEST_F(SNLLibertyConstructorTest1, testFFBank) {
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "ff_bank.lib";
+
+  EXPECT_NO_THROW(constructor.construct(testPath));
+  auto* bank = library_->getSNLDesign(NLName("DFF2_BANK"));
+  ASSERT_NE(nullptr, bank);
+  ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(bank));
+  const auto& model = SNLDesignModeling::getSequentialModel(bank);
+  ASSERT_EQ(2u, model.states.size());
+  ASSERT_EQ(2u, model.outputs.size());
+
+  // Bank bit 1 samples bundle member D1.
+  auto* d1 = bank->getScalarTerm(NLName("D1"));
+  ASSERT_NE(nullptr, d1);
+  EXPECT_TRUE(std::any_of(
+      model.states[1].nextState.nodes.begin(),
+      model.states[1].nextState.nodes.end(),
+      [d1](const auto& node) {
+        return node.operation ==
+                   SNLDesignModeling::BooleanExpression::Operator::Term &&
+               node.term == d1;
+      }));
+
+  // Bundle member QN1 carries `function : "IQN"` from the bundle: state 1.
+  auto* qn1 = bank->getScalarTerm(NLName("QN1"));
+  ASSERT_NE(nullptr, qn1);
+  const auto outputIt = std::find_if(
+      model.outputs.begin(), model.outputs.end(),
+      [qn1](const auto& output) { return output.term == qn1; });
+  ASSERT_NE(model.outputs.end(), outputIt);
+  EXPECT_TRUE(std::any_of(
+      outputIt->function.nodes.begin(),
+      outputIt->function.nodes.end(),
+      [](const auto& node) {
+        return node.operation ==
+                   SNLDesignModeling::BooleanExpression::Operator::State &&
+               node.state == 1;
+      }));
+}
+
 TEST_F(SNLLibertyConstructorTest1, testSequentialModelErrorHasCellContext) {
   SNLLibertyConstructor constructor(library_);
   const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /

@@ -252,6 +252,11 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
       return getOrCreateStateInputNode(
           stateIt->second.first, stateIt->second.second);
     }
+    if (auto aliasIt = termAliases_.find(inputName);
+        aliasIt != termAliases_.end()) {
+      pos += idLen;
+      return getOrCreateInputNode(aliasIt->second);
+    }
     SNLBitTerm* input = nullptr;
 
     //is it a bus ?
@@ -296,8 +301,17 @@ void SNLBooleanTree::parse(
     const SNLDesign* primitive,
     const std::string& function,
     const StateIdentifiers& stateIdentifiers) {
+  parse(primitive, function, stateIdentifiers, {});
+}
+
+void SNLBooleanTree::parse(
+    const SNLDesign* primitive,
+    const std::string& function,
+    const StateIdentifiers& stateIdentifiers,
+    const TermAliases& termAliases) {
   function_ = function;
   stateIdentifiers_ = stateIdentifiers;
+  termAliases_ = termAliases;
   size_t pos = 0;
   Stack stack;
   try {
