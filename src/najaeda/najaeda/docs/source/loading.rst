@@ -332,6 +332,20 @@ names remain distinct for assignment checking. ``std_ulogic`` and
 ``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
 multiple drivers and nonbinary literals remain unsupported.
 
+Array objects and constrained user-defined array types support ``'left``,
+``'right``, ``'low``, ``'high``, ``'length``, and ``'ascending``. Bounds and
+direction come from the declared subtype, including ascending and nonzero-based
+ranges. Record fields, slices, and statically indexed nested arrays retain their
+own bounds. Attribute queries do not read signal or variable values, so output
+ports and uninitialized process variables can supply bounds without introducing
+hardware reads or sensitivity-list dependencies.
+``'range`` and ``'reverse_range`` may supply port, signal, and variable bounds,
+process-loop ranges, and generate ranges. The optional dimension argument must
+be the static integer ``1``. Enumeration-indexed arrays support ``'length`` and
+``'ascending``; enumeration-valued bounds and ranges remain unsupported.
+Unconstrained type prefixes, runtime-indexed prefixes, and array attributes
+inside static function bodies remain unsupported and are diagnosed.
+
 Vector conversions between ``std_logic_vector``, ``std_ulogic_vector``,
 ``unsigned``, and ``signed`` preserve bit order and width, including ascending
 source ranges. These conversions require visible ``std_logic_1164`` and
@@ -363,8 +377,7 @@ and nested conversions, in constants, generic defaults, and function bodies.
 Short-circuited operands are type-checked without evaluating their values;
 integer-to-boolean conversions are rejected.
 Function calls with runtime arguments, vector/string function evaluation, and
-impure functions remain unsupported. Array attributes and interface defaults
-are retained by the parser, but their elaboration is not yet supported.
+impure functions remain unsupported.
 
 Architecture-local pure functions also support static integer/boolean evaluation.
 Bodies and default arguments use declarations visible at the function declaration,

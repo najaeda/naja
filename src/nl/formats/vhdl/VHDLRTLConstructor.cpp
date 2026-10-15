@@ -296,14 +296,20 @@ class RTLConstructor {
   void run() {
     DiagnosticScope location(entity_.span);
     prepareEntity();
+    std::vector<Shape> portShapes;
     for (const auto& port : entity_.ports) {
       if (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out)
         fail("RTL ports must be in or out");
       if (port.defaultValue && port.mode != vhdl::PortMode::In)
         fail("port defaults are supported only for input ports");
-      const auto type = shape(port.type);
+      portShapes.push_back(shape(port.type));
+    }
+    // Ports become visible after the interface clause; generic objects are
+    // already visible while resolving its bounds.
+    for (size_t i = 0; i < entity_.ports.size(); ++i) {
+      const auto& port = entity_.ports[i];
       for (const auto& name : port.names)
-        addObject(name, type, port.mode == vhdl::PortMode::In,
+        addObject(name, portShapes[i], port.mode == vhdl::PortMode::In,
                   port.mode == vhdl::PortMode::Out, false, true);
     }
     context(architecture_.context);
@@ -580,6 +586,7 @@ class RTLConstructor {
         fail("unsupported unconstrained array index subtype: " + subtype);
     }
     arrayDeclarations_.emplace(name, &declaration);
+    if (!declaration.indexSubtype) arrayTypeRanges_.emplace(name, arrayBounds(declaration));
     const auto elementName = key(declaration.elementType.name);
     // Integer tables are evaluated as static values, without synthesizing an
     // integer memory or losing signed values through a bit-vector conversion.
@@ -813,6 +820,7 @@ class RTLConstructor {
         arrays_.erase(key(array.name));
         arrayDeclarations_.erase(key(array.name));
         arrayTypeOffsets_.erase(key(array.name));
+        arrayTypeRanges_.erase(key(array.name));
       }
       for (const auto& record : branch.recordTypes) {
         records_.erase(key(record.name));
@@ -1122,6 +1130,53 @@ class RTLConstructor {
     std::map<std::string, StaticScalar> values;
     std::map<std::string, const vhdl::TypeMark*> variables;
   };
+
+  static const Expr* arrayAttribute(const Expr& expression) {
+    if (expression.kind == Expr::Kind::Attribute) return &expression;
+    if (expression.kind == Expr::Kind::Indexed && expression.left->kind == Expr::Kind::Attribute)
+      return expression.left.get();
+    return nullptr;
+  }
+
+  Range attributeRange(const Expr& expression, const StaticScope* scope = nullptr) {
+    DiagnosticScope location(expression.span);
+    const auto* attribute = arrayAttribute(expression);
+    if (!attribute) fail("expected an array attribute");
+    if (scope) fail("array attributes inside static functions require vector function evaluation");
+    if (expression.kind == Expr::Kind::Indexed && integer(*expression.right) != 1)
+      fail("array attribute dimension must be 1");
+    const auto& prefix = *attribute->left;
+    if (prefix.kind == Expr::Kind::Name) {
+      const auto name = key(prefix);
+      if (const auto found = integerTables_.find(name); found != integerTables_.end())
+        return found->second.bounds;
+      if (const auto found = arrayDeclarations_.find(name); found != arrayDeclarations_.end()) {
+        if (found->second->indexSubtype)
+          fail("array attribute requires a constrained type or object");
+        if (libraryContext_.precedes(prefix.span.start.offset, found->second->span.start.offset))
+          fail("array type is used before its declaration: " + name);
+        return arrayTypeRanges_.at(name);
+      }
+    }
+    const auto selected = selection(prefix);
+    if (selected.shape.ranges.empty()) fail("array attribute prefix must denote an array");
+    return selected.shape.ranges.front();
+  }
+
+  StaticScalar attributeScalar(const Expr& expression, const StaticScope* scope = nullptr) {
+    const auto* attribute = arrayAttribute(expression);
+    const auto name = key(*attribute);
+    if (name != "left" && name != "right" && name != "low" && name != "high" &&
+        name != "length" && name != "ascending") fail("unsupported scalar array attribute: " + name);
+    const auto bounds = attributeRange(expression, scope);
+    if (name == "length") return {int64_t(bounds.size()), false};
+    if (name == "ascending") return {bounds.ascending, true};
+    if (bounds.indexEnumeration) fail("enumeration-valued array attributes are not supported");
+    if (name == "left") return {bounds.left, false};
+    if (name == "right") return {bounds.right, false};
+    if (name == "low") return {bounds.ascending ? bounds.left : bounds.right, false};
+    return {bounds.ascending ? bounds.right : bounds.left, false};
+  }
   void addLocalFunction(const vhdl::FunctionDeclaration& function) {
     const auto name = key(function.name);
     if (!function.body) fail("architecture function forward declarations are unsupported: " + name);
@@ -1401,13 +1456,14 @@ class RTLConstructor {
     return *result.returned;
   }
 
-  bool staticBooleanType(const Expr& expression, const StaticScope* scope) const {
+  bool staticBooleanType(const Expr& expression, const StaticScope* scope) {
     const auto scalarType = [](const std::string& name) {
       if (name == "boolean") return true;
       if (name == "integer" || name == "natural" || name == "positive") return false;
       fail("unsupported static scalar type: " + name);
     };
     if (expression.kind == Expr::Kind::IntegerLiteral) return false;
+    if (arrayAttribute(expression)) return attributeScalar(expression, scope).boolean;
     if (expression.kind == Expr::Kind::Name) {
       const auto name = key(expression);
       if (scope) {
@@ -1461,6 +1517,7 @@ class RTLConstructor {
   StaticScalar scalar(const Expr& expression, StaticScope* scope = nullptr) {
     DiagnosticScope location(expression.span);
     if (++steps_ > 100000) fail("static expression evaluation limit exceeded");
+    if (arrayAttribute(expression)) return attributeScalar(expression, scope);
     if (expression.kind == Expr::Kind::Name) {
       const auto name = key(expression);
       if (scope) {
@@ -1647,7 +1704,18 @@ class RTLConstructor {
 
   Range range(const vhdl::DiscreteRange& range) {
     DiagnosticScope location(range.span);
-    if (range.attribute) fail("array range attributes are not supported in this elaboration context");
+    if (range.attribute) {
+      const auto* attribute = arrayAttribute(*range.attribute);
+      if (!attribute || (key(*attribute) != "range" && key(*attribute) != "reverse_range"))
+        fail("expected range or reverse_range array attribute");
+      auto bounds = attributeRange(*range.attribute);
+      if (bounds.indexEnumeration) fail("enumeration-valued array range attributes are not supported");
+      if (key(*attribute) == "reverse_range") {
+        std::swap(bounds.left, bounds.right);
+        bounds.ascending = !bounds.ascending;
+      }
+      return bounds;
+    }
     return {range.leftExpression ? integer(*range.leftExpression) : range.left,
             range.rightExpression ? integer(*range.rightExpression) : range.right,
             range.ascending};
@@ -1931,6 +1999,7 @@ class RTLConstructor {
 
   bool isStatic(const Expr& expr) const {
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
+    if (arrayAttribute(expr)) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr)) || booleans_.contains(key(expr)) ||
         functions_.contains(key(expr)) || key(expr) == "true" || key(expr) == "false";
     if (expr.kind == Expr::Kind::Indexed && expr.left->kind == Expr::Kind::Name &&
@@ -2897,6 +2966,7 @@ class RTLConstructor {
   std::map<std::string, const vhdl::EnumerationTypeDeclaration*> enumerations_;
   std::map<std::string, size_t> recordOffsets_;
   std::map<std::string, size_t> arrayTypeOffsets_;
+  std::map<std::string, Range> arrayTypeRanges_;
   std::map<std::string, Object> objects_;
   std::string objectPrefix_;
   std::vector<std::pair<std::string, Object>> generatedObjects_;
@@ -2929,6 +2999,13 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
           key(use.selectedName[1]) == "std_logic_arith");
     }); // LCOV_EXCL_LINE: compiler-generated exception cleanup for the context predicate.
   };
+  const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
+    return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
+        expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
+        expression->kind == Expr::Kind::BitStringLiteral || expression->kind == Expr::Kind::Attribute ||
+        self(self, expression->left.get()) ||
+        self(self, expression->right.get()) || self(self, expression->condition.get()));
+  };
   for (const auto& entity : syntax.entities) {
     if (rtlContext(entity.context)) return true;
     for (const auto& generic : entity.generics)
@@ -2936,14 +3013,11 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
           key(generic.type.name) == "bit_vector" || key(generic.type.name) == "std_logic_vector" ||
           key(generic.type.name) == "std_ulogic_vector" || key(generic.type.name) == "unsigned" ||
           key(generic.type.name) == "signed") return true;
-    for (const auto& port : entity.ports) if (port.defaultValue || key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
+    for (const auto& port : entity.ports) if ((port.type.constraint &&
+        (port.type.constraint->attribute ||
+         extendedExpression(extendedExpression, port.type.constraint->leftExpression.get()) ||
+         extendedExpression(extendedExpression, port.type.constraint->rightExpression.get()))) || port.defaultValue || key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
   }
-  const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
-    return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
-        expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
-        expression->kind == Expr::Kind::BitStringLiteral || self(self, expression->left.get()) ||
-        self(self, expression->right.get()) || self(self, expression->condition.get()));
-  };
   const auto extendedAssignment = [&](const vhdl::Assignment& assignment) {
     return assignment.selector || !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };

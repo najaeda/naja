@@ -358,8 +358,11 @@ private:
     std::optional<DiscreteRange> parseDiscreteRange() {
         const auto start = current().span;
         auto leftExpression = parseExpression(0);
-        if (leftExpression && leftExpression->kind == Expression::Kind::Attribute &&
-            (leftExpression->canonical == "range" || leftExpression->canonical == "reverse_range")) {
+        const auto* attribute = leftExpression.get();
+        if (attribute && attribute->kind == Expression::Kind::Indexed)
+            attribute = attribute->left.get();
+        if (attribute && attribute->kind == Expression::Kind::Attribute &&
+            (attribute->canonical == "range" || attribute->canonical == "reverse_range")) {
             DiscreteRange range;
             range.span = leftExpression->span;
             range.attribute = std::shared_ptr<Expression>(std::move(leftExpression));

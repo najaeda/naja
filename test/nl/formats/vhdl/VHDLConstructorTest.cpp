@@ -2918,7 +2918,7 @@ architecture rtl of recursive is begin y <= (others => '1'); end;
   for (auto* bit : design->getBusTerm(NLName("y"))->getBits()) EXPECT_TRUE(bit->getNet()->isConstant1());
 }
 
-TEST_F(VHDLConstructorTest, RetainedInterfaceDefaultsAndAttributesRequireElaborationSupport) {
+TEST_F(VHDLConstructorTest, InterfaceDefaultsAndInvalidPortAttributeScope) {
   auto* defaultPort = VHDLConstructor(library_).construct(R"(
 entity default_port is port(a : in bit := '1'; y : out bit); end;
 architecture rtl of default_port is begin y <= a; end;
@@ -2929,6 +2929,177 @@ architecture rtl of default_port is begin y <= a; end;
 entity attribute_bounds is port(a : in bit_vector(3 downto 0); y : out bit_vector(a'range)); end;
 architecture rtl of attribute_bounds is begin y <= a; end;
 )"), NLException);
+}
+
+TEST_F(VHDLConstructorTest, ArrayAttributesPreserveBoundsAndLoopDirectionsWithoutReadingValues) {
+  for (const bool ascending : {false, true}) {
+    SCOPED_TRACE(ascending);
+    const std::string bounds = ascending ? "4 to 6" : "6 downto 4";
+    const auto source = std::string("entity attributes is port(a : in bit_vector(") +
+        bounds + "); y : out bit_vector(" + bounds + R"(); valid : out bit); end;
+architecture rtl of attributes is begin
+  process(a)
+    variable temporary : bit_vector(a'reverse_range(1));
+  begin
+    for i in temporary'range loop
+      temporary(i) := a(a'left + a'right - i);
+    end loop;
+    y <= temporary;
+  end process;
+  valid <= '1' when a'length(1) = 3 and y'length = 3 and
+    a'low = 4 and a'high = 6 and a'left = )" + (ascending ? "4" : "6") +
+        " and a'right = " + (ascending ? "6" : "4") +
+        " and a'ascending = " + (ascending ? "true" : "false") + " else '0'; end;";
+    auto* design = VHDLConstructor(library_).construct(source);
+    EXPECT_TRUE(design->getScalarTerm(NLName("valid"))->getNet()->isConstant1());
+    for (unsigned pattern = 0; pattern < 8; ++pattern) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (int bit = 0; bit < 3; ++bit)
+        values[design->getBusTerm(NLName("a"))->getBit(4 + bit)->getNet()] = (pattern >> bit) & 1;
+      for (int bit = 0; bit < 3; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(4 + bit)->getNet(), values, visiting),
+            bool((pattern >> bit) & 1));
+    }
+    design->destroy();
+  }
+}
+
+TEST_F(VHDLConstructorTest, ArrayAttributesSelectRecordFieldsAndConstantTableBounds) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity attributes is port(a : in bit_vector(2 downto 0); y : out bit_vector(2 downto 0); valid : out bit); end;
+architecture rtl of attributes is
+  type entry_t is record data : bit_vector(7 to 9); end record;
+  type rows_t is array(3 downto 2) of entry_t;
+  type table_t is array(5 to 7) of integer;
+  constant counts : table_t := (2, 4, 6);
+  signal rows : rows_t;
+begin
+  rows(2).data <= a;
+  rows(3).data <= a;
+  y <= rows(rows'low).data(rows(3).data'left to rows(3).data'right);
+  valid <= '1' when rows_t'length = 2 and rows(2).data'length = 3 and
+    rows(2).data'ascending and counts'left = 5 and counts'right = 7 and counts'length = 3 else '0';
+end;
+)");
+  EXPECT_TRUE(design->getScalarTerm(NLName("valid"))->getNet()->isConstant1());
+  for (unsigned pattern = 0; pattern < 8; ++pattern) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int bit = 0; bit < 3; ++bit)
+      values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (pattern >> bit) & 1;
+    for (int bit = 0; bit < 3; ++bit)
+      EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+          bool((pattern >> bit) & 1));
+  }
+}
+
+TEST_F(VHDLConstructorTest, ArrayRangeAttributesInGenerateBodies) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity attributes is generic(template : bit_vector(2 to 4) := "101");
+  port(a : in bit_vector(template'range); y : out bit_vector(template'range)); end;
+architecture rtl of attributes is begin
+  lanes: for i in a'reverse_range generate
+    signal temporary : bit_vector(a'length-1 downto 0);
+  begin
+    temporary <= (others => a(i));
+    y(i) <= temporary(temporary'low);
+  end generate;
+end;
+)");
+  for (int bit = 2; bit <= 4; ++bit) {
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int input = 2; input <= 4; ++input)
+      values[design->getBusTerm(NLName("a"))->getBit(input)->getNet()] = input == bit;
+    EXPECT_TRUE(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting));
+  }
+}
+
+TEST_F(VHDLConstructorTest, ArrayAttributesRetainIndexTypesAndNullRangeDirection) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity attributes is port(y : out bit); end;
+architecture rtl of attributes is
+  type empty_t is array(2 to 1) of integer;
+  type index_t is (first, second, last);
+  type entries_t is array(last downto first) of bit;
+begin
+  y <= '1' when empty_t'length = 0 and empty_t'low = 2 and empty_t'high = 1 and
+    empty_t'ascending and entries_t'length = 3 and not entries_t'ascending else '0';
+end;
+)");
+  EXPECT_TRUE(design->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+  design->destroy();
+  for (const auto* value : {"entries'low", "entries'high", "entries'left", "entries'right"}) {
+    const auto source = std::string(R"(
+entity unsupported is port(y : out bit); end;
+architecture rtl of unsupported is
+  type index_t is (first, second);
+  type entries_t is array(index_t) of bit;
+  signal entries : entries_t;
+  constant bound : integer := )") + value + "; begin entries <= (others => '0'); y <= '0'; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, HierarchicalInterfacesResolveVectorGenericAttributes) {
+  for (const bool component : {false, true}) {
+    auto* library = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
+    const auto source = std::string(R"(
+entity leaf is generic(template : bit_vector(5 downto 3) := "101");
+  port(a : in bit_vector(template'range); y : out bit_vector(template'range)); end;
+architecture rtl of leaf is begin y <= a; end;
+entity parent is port(a : in bit_vector(2 downto 0); y : out bit_vector(2 downto 0)); end;
+architecture rtl of parent is
+)") + (component ? "component leaf is generic(template : bit_vector(5 downto 3) := \"101\"); port(a : in bit_vector(template'range); y : out bit_vector(template'range)); end component;" : "") +
+        " begin u: " + (component ? "leaf" : "entity work.leaf") + " port map(a,y); end;";
+    auto* design = VHDLConstructor(library).construct(source, "parent");
+    auto* child = design->getInstance(NLName("u"));
+    ASSERT_NE(child, nullptr);
+    EXPECT_EQ(child->getModel()->getBusTerm(NLName("y"))->getWidth(), 3u);
+    for (int bit = 0; bit < 3; ++bit) {
+      auto* input = child->getModel()->getBusTerm(NLName("a"))->getBit(bit + 3);
+      auto* output = child->getModel()->getBusTerm(NLName("y"))->getBit(bit + 3);
+      EXPECT_EQ(child->getInstTerm(input)->getNet(), design->getBusTerm(NLName("a"))->getBit(bit)->getNet());
+      EXPECT_EQ(child->getInstTerm(output)->getNet(), design->getBusTerm(NLName("y"))->getBit(bit)->getNet());
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsUnsupportedArrayAttributesWithoutPublishingDesigns) {
+  for (const auto* value : {"a'length(0)", "a'length(2)", "y'length", "a'unknown", "a'range"}) {
+    SCOPED_TRACE(value);
+    const auto source = std::string("entity attributes is port(a : in bit_vector(2 downto 0); y : out bit); end; ") +
+        "architecture rtl of attributes is constant count : integer := " + value + "; begin y <= '0'; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity attributes is port(a : in bit_vector(2 downto 0); y : out bit); end;
+architecture rtl of attributes is
+  function count return natural is begin return a'length; end;
+  constant size : natural := count;
+begin y <= '0'; end;
+)"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
+}
+
+TEST_F(VHDLConstructorTest, ComponentArrayTypeAttributesUseDeclarationBounds) {
+  EXPECT_THROW(VHDLConstructor(library_).construct(R"(
+entity leaf is generic(count : positive := 5);
+  port(a : in bit_vector(4 downto 0); y : out bit_vector(4 downto 0)); end;
+architecture rtl of leaf is begin y <= a; end;
+entity parent is generic(count : positive := 3);
+  port(a : in bit_vector(4 downto 0); y : out bit_vector(4 downto 0)); end;
+architecture rtl of parent is
+  type indices_t is array(0 to count-1) of integer;
+  component leaf is generic(count : positive);
+    port(a : in bit_vector(indices_t'length-1 downto 0); y : out bit_vector(indices_t'length-1 downto 0));
+  end component;
+begin u: leaf generic map(count => 5) port map(a,y); end;
+)", "parent"), NLException);
+  EXPECT_TRUE(library_->getSNLDesigns().empty());
 }
 
 TEST_F(VHDLConstructorTest, AsynchronousResetPolarityValuesAndHoldCycles) {

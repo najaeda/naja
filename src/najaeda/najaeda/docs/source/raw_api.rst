@@ -606,6 +606,10 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    retain short-circuit evaluation, including in generic defaults and package
    functions. See :doc:`loading` for conversion visibility, resize semantics,
    and the remaining limits.
+   Array bounds, length, direction, range, and reverse-range attributes use
+   declared subtype metadata without reading signal values. These attributes
+   also support bounds derived from vector generics in direct-entity and component
+   interfaces. See :doc:`loading` for supported prefixes and index-type limits.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design
