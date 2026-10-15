@@ -744,9 +744,14 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    and nine-valued initialization are not implemented. Nonbinary literals,
    conflicting drivers, unsupported package bodies, and unsupported operations
    are rejected. ``numeric_std.unsigned`` and ``numeric_std.signed`` vector addition, subtraction,
-   multiplication, equality/inequality and concatenation are supported, including
+   multiplication, equality/inequality, ordering comparisons and concatenation are supported, including
    mixed operand widths for arithmetic and comparisons. Multiplication produces
    the sum of operand widths; addition/subtraction produce their maximum width.
+   Arithmetic and comparisons also accept integer operands on either side:
+   static signed 32-bit integers or supported nonnegative hardware integers.
+   Unsigned operations require natural operands. Scalar arithmetic converts the
+   integer to the vector width, giving that width for addition/subtraction and
+   twice that width for multiplication. Comparisons retain the full integer value.
    Explicit binary signal initializers on locally clocked registers become DFF
    ``INIT`` parameters. Initialization on other drivers is rejected.
    Static ``numeric_std.to_unsigned(value, size)`` accepts natural values through

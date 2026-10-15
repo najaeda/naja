@@ -2296,6 +2296,54 @@ class RTLConstructor {
     if (matches.size() == 1) return matches.front();
     return cachedGate("and", std::move(matches));
   }
+  SNLBitNet* compareBits(const Bits& left, const Bits& right, const std::string& op, bool signedOperands = false) {
+    if (left.size() != right.size() || left.empty()) fail("internal comparison width mismatch");
+    if (op == "=" || op == "/=") {
+      auto* result = equal(left, right);
+      return op == "=" ? result : gate("not", result);
+    }
+    const bool reverse = op == ">" || op == "<=";
+    const auto& a = reverse ? right : left;
+    const auto& b = reverse ? left : right;
+    auto* less = constant(false);
+    for (size_t i = a.size(); i; --i) {
+      auto* x = a[i-1];
+      auto* y = b[i-1];
+      if (signedOperands && i == 1) {
+        x = gate("not", x);
+        y = gate("not", y);
+      }
+      less = gate("or", gate("and", gate("not", x), y), gate("and", gate("xnor", x, y), less));
+    }
+    return op == "<=" || op == ">=" ? gate("not", less) : less;
+  }
+
+  Value numericIntegerOperand(Value operand, const std::optional<int64_t>& literal,
+      const Value& vector, bool comparison) {
+    const bool signedOperand = vector.shape.types.front() == "signed";
+    size_t width = vector.bits.size();
+    if (literal) {
+      if (*literal < INT32_MIN || *literal > INT32_MAX) fail("numeric operand exceeds the supported integer range");
+      if (!signedOperand && *literal < 0) fail("unsigned numeric operators require a natural operand");
+      if (comparison) {
+        uint64_t magnitude = signedOperand && *literal < 0 ? uint64_t(-(*literal + 1)) : uint64_t(*literal);
+        size_t needed = signedOperand ? 1 : 0;
+        while (magnitude) { ++needed; magnitude >>= 1; }
+        width = std::max(width, std::max<size_t>(1, needed));
+      }
+      operand.bits.clear();
+      for (size_t i = width; i; --i)
+        operand.bits.push_back(constant(i > 64 ? *literal < 0 : ((uint64_t(*literal) >> (i-1)) & 1)));
+    } else {
+      // The current hardware-integer profile admits only nonnegative ranges.
+      if (!operand.shape.integerWidth) fail("numeric scalar operand must have integer type");
+      if (comparison) width = std::max(width, operand.bits.size() + size_t(signedOperand));
+      operand.bits = resize(std::move(operand.bits), width);
+    }
+    operand.shape = vectorShape(width);
+    operand.shape.types.front() = vector.shape.types.front();
+    return operand;
+  }
   Shape vectorShape(size_t width, const std::string& scalar = "std_logic") {
     if (!width) fail("empty vector");
     return {{scalar == "bit" ? "bit_vector" : "std_logic_vector", scalar},
@@ -2645,7 +2693,8 @@ class RTLConstructor {
       for (size_t i = value.bits.size() - std::min(usedWidth, value.bits.size()); i < value.bits.size(); ++i)
         value.bits[i] = gate("not", value.bits[i]);
     } else if (expr.kind == Expr::Kind::Binary) {
-      const bool comparison = expr.text == "=" || expr.text == "/=";
+      const bool ordering = expr.text == "<" || expr.text == "<=" || expr.text == ">" || expr.text == ">=";
+      const bool comparison = expr.text == "=" || expr.text == "/=" || ordering;
       const bool arithmetic = expr.text == "+" || expr.text == "-";
       if (expr.text == "&") {
         const auto rightShape = expression(*expr.right, state, nullptr, 0).shape;
@@ -2669,16 +2718,42 @@ class RTLConstructor {
       } else {
         const bool numericOperation = (numeric_ || signed_) && (arithmetic || expr.text == "*" || comparison);
         const auto operandDemand = comparison && usedWidth ? size_t(65536) : usedWidth;
-        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+        const auto staticIntegerOperand = [&](const Expr& operand) -> std::optional<int64_t> {
+          if (!numeric_ || !numericOperation || !isStatic(operand)) return std::nullopt;
+          const auto value = scalar(operand);
+          return value.boolean ? std::nullopt : std::optional<int64_t>{value.value};
+        };
+        const auto leftInteger = staticIntegerOperand(*expr.left);
+        const auto rightInteger = staticIntegerOperand(*expr.right);
+        // Defer static scalar bits until the numeric vector's width/sign is known.
+        // In particular, negative integers are valid signed overload operands.
+        auto left = leftInteger ? Value{Shape{{"integer"}, {}, 32}, {}} :
+            expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+        const bool leftNumeric = numeric_ &&
+            (left.shape.types.front() == "unsigned" || left.shape.types.front() == "signed");
+        const bool leftSigned = left.shape.types.front() == "signed" ||
+            (signed_ && left.shape.types.front() == "std_logic_vector");
+        const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
+            expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
+        auto right = rightInteger ? Value{Shape{{"integer"}, {}, 32}, {}} : expression(*expr.right, state,
+            ((leftNumeric || leftSigned) && !rightLiteral) ||
+            ((numericOperation || comparison) && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+        const bool rightNumeric = numeric_ &&
+            (right.shape.types.front() == "unsigned" || right.shape.types.front() == "signed");
+        if (leftNumeric && right.shape.integerWidth)
+          right = numericIntegerOperand(std::move(right), rightInteger, left, comparison);
+        else if (rightNumeric && left.shape.integerWidth)
+          left = numericIntegerOperand(std::move(left), leftInteger, right, comparison);
+        else {
+          if (leftInteger) left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+          if (rightInteger) right = expression(*expr.right, state,
+              ((leftNumeric || leftSigned) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+        }
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
         const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
         const bool signedOperands = numericSigned || (signed_ && left.shape.types.front() == "std_logic_vector");
         if (signedOperands && !numericSigned && unsigned_ && (arithmetic || comparison || expr.text == "*"))
           fail("ambiguous signed/unsigned vector operators");
-        const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
-            expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
-        auto right = expression(*expr.right, state,
-            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
         if (signedOperands && (arithmetic || comparison || expr.text == "*")) {
           if (right.shape.types.front() != left.shape.types.front()) fail("signed vector operand type mismatch");
           const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
@@ -2693,8 +2768,8 @@ class RTLConstructor {
             right.bits = resize(std::move(right.bits), hardwareWidth);
           }
           if (comparison) {
-            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+            auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text, true) : constant(false);
+            value = {{{"boolean"}, {}}, {result}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
@@ -2716,8 +2791,8 @@ class RTLConstructor {
             right.bits = resize(std::move(right.bits), hardwareWidth);
           }
           if (comparison) {
-            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+            auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text) : constant(false);
+            value = {{{"boolean"}, {}}, {result}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
@@ -2735,8 +2810,11 @@ class RTLConstructor {
         if ((left.shape.enumeration || right.shape.enumeration) && !comparison)
           fail("enumeration operators currently support only equality and inequality");
         if (comparison) {
-          auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-          value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+          if (ordering && !left.shape.integerWidth &&
+              !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
+            fail("ordering requires numeric vectors or hardware integers");
+          auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text) : constant(false);
+          value = {{{"boolean"}, {}}, {result}};
         } else if (arithmetic) {
           if (!left.shape.integerWidth && !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
             fail("arithmetic requires integer or std_logic_unsigned operands");

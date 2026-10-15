@@ -1935,6 +1935,132 @@ end;
   }
 }
 
+TEST_F(VHDLConstructorTest, NumericVectorIntegerArithmeticOverloads) {
+  for (const bool signedType : {false, true}) for (const unsigned width : {1u, 3u, 4u}) {
+    const auto type = signedType ? "signed" : "unsigned";
+    const std::vector<int> amounts = signedType ? std::vector<int>{-9, -1, 1, 9} : std::vector<int>{0, 1, 3, 10};
+    for (const auto amount : amounts) for (const auto* operation : {"+", "-", "*"}) for (const bool reverse : {false, true}) {
+      SCOPED_TRACE(std::string(type) + ':' + std::to_string(width) + ':' + std::to_string(amount) + operation + (reverse ? " left" : " right"));
+      const auto resultWidth = std::string(operation) == "*" ? 2*width : width;
+      const auto expr = reverse ? "(amount + 0) " + std::string(operation) + " a" : "a " + std::string(operation) + " (amount + 0)";
+      const auto source = std::string("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; ") +
+          "entity arithmetic is generic(amount : integer := " + std::to_string(amount) + "); port(a : in " + type +
+          "(7 to " + std::to_string(6+width) + "); y : out " + type + "(" + std::to_string(resultWidth-1) +
+          " downto 0)); end; architecture rtl of arithmetic is begin y <= " + expr + "; end;";
+      auto* design = VHDLConstructor(library_).construct(source);
+      const unsigned mask = (1u << width)-1;
+      const unsigned encoded = unsigned(amount) & mask;
+      const int scalar = signedType && (encoded & (1u << (width-1))) ? int(encoded)-(1<<width) : int(encoded);
+      for (unsigned input = 0; input <= mask; ++input) {
+        const int vector = signedType && (input & (1u << (width-1))) ? int(input)-(1<<width) : int(input);
+        const int left = reverse ? scalar : vector, right = reverse ? vector : scalar;
+        const int expected = std::string(operation) == "+" ? left+right : std::string(operation) == "-" ? left-right : left*right;
+        std::unordered_map<SNLBitNet*, bool> values;
+        std::unordered_set<SNLBitNet*> visiting;
+        for (unsigned bit = 0; bit < width; ++bit)
+          values[design->getBusTerm(NLName("a"))->getBit(6+width-bit)->getNet()] = (input >> bit) & 1;
+        for (unsigned bit = 0; bit < resultWidth; ++bit)
+          EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+              bool((unsigned(expected) >> bit) & 1));
+      }
+      design->destroy();
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, NumericOrderingAndScalarComparisonsPreserveFullValues) {
+  const std::vector<std::string> operations = {"=", "/=", "<", "<=", ">", ">="};
+  const auto compare = [](int left, int right, size_t op) {
+    switch (op) {
+      case 0: return left == right;
+      case 1: return left != right;
+      case 2: return left < right;
+      case 3: return left <= right;
+      case 4: return left > right;
+      default: return left >= right;
+    }
+  };
+  for (const bool signedType : {false, true}) {
+    const auto type = signedType ? "signed" : "unsigned";
+    for (const int amount : (signedType ? std::vector<int>{-9, -1, 0, 9} : std::vector<int>{0, 1, 7, 8})) {
+      for (const bool scalarLeft : {false, true}) {
+        std::string body;
+        for (size_t op = 0; op < operations.size(); ++op) {
+          const auto left = scalarLeft ? std::to_string(amount) : "a";
+          const auto right = scalarLeft ? "a" : std::to_string(amount);
+          body += "y(" + std::to_string(op) + ") <= '1' when " + left + " " + operations[op] + " " + right + " else '0';";
+          body += "z(" + std::to_string(op) + ") <= '1' when a " + operations[op] + " b else '0';";
+        }
+        const auto source = std::string("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; ") +
+            "entity comparisons is port(a : in " + type + "(2 to 4); b : in " + type +
+            "(1 downto 0); y,z : out bit_vector(5 downto 0)); end; architecture rtl of comparisons is begin " + body + " end;";
+        auto* design = VHDLConstructor(library_).construct(source);
+        for (unsigned a = 0; a < 8; ++a) for (unsigned b = 0; b < 4; ++b) {
+          const int av = signedType && a >= 4 ? int(a)-8 : int(a);
+          const int bv = signedType && b >= 2 ? int(b)-4 : int(b);
+          std::unordered_map<SNLBitNet*, bool> values;
+          std::unordered_set<SNLBitNet*> visiting;
+          for (int bit = 0; bit < 3; ++bit)
+            values[design->getBusTerm(NLName("a"))->getBit(4-bit)->getNet()] = (a >> bit) & 1;
+          for (int bit = 0; bit < 2; ++bit)
+            values[design->getBusTerm(NLName("b"))->getBit(bit)->getNet()] = (b >> bit) & 1;
+          for (size_t op = 0; op < operations.size(); ++op) {
+            EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(op)->getNet(), values, visiting),
+                compare(scalarLeft ? amount : av, scalarLeft ? av : amount, op));
+            EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("z"))->getBit(op)->getNet(), values, visiting), compare(av,bv,op));
+          }
+        }
+        design->destroy();
+      }
+    }
+  }
+}
+
+TEST_F(VHDLConstructorTest, RejectsInvalidNumericScalarOverloads) {
+  for (const auto* expression : {"a + (-1)", "(-1) * a", "a = (-1)", "a + true", "false < a", "a + 2147483648"}) {
+    SCOPED_TRACE(expression);
+    const bool comparison = std::string(expression).find('=') != std::string::npos || std::string(expression).find('<') != std::string::npos;
+    const auto assignment = comparison ? std::string("'1' when ") + expression + " else '0'" : expression;
+    const auto source = std::string("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; ") +
+        "entity invalid is port(a : in unsigned(2 downto 0); y : out " +
+        (comparison ? "bit" : "unsigned(2 downto 0)") + "); end; "
+        "architecture rtl of invalid is begin y <= " + assignment + "; end;";
+    EXPECT_THROW(VHDLConstructor(library_).construct(source), NLException);
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, NumericDynamicIntegerOperands) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity arithmetic is port(a : in signed(2 downto 0); b : in unsigned(3 downto 0);
+  p,d : out signed(2 downto 0); m : out signed(5 downto 0); c : out bit_vector(1 downto 0)); end;
+architecture rtl of arithmetic is
+  signal amount : integer range 0 to 15;
+begin
+  amount <= to_integer(b);
+  p <= a + amount;
+  d <= amount - a;
+  m <= a * amount;
+  c(0) <= '1' when a < amount else '0';
+  c(1) <= '1' when amount <= a else '0';
+end;
+)");
+  for (unsigned a = 0; a < 8; ++a) for (unsigned b = 0; b < 16; ++b) {
+    const int av = a >= 4 ? int(a)-8 : int(a);
+    const int bv = (b & 7) >= 4 ? int(b & 7)-8 : int(b & 7);
+    std::unordered_map<SNLBitNet*, bool> values;
+    std::unordered_set<SNLBitNet*> visiting;
+    for (int bit = 0; bit < 3; ++bit) values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (a >> bit) & 1;
+    for (int bit = 0; bit < 4; ++bit) values[design->getBusTerm(NLName("b"))->getBit(bit)->getNet()] = (b >> bit) & 1;
+    for (const auto& [name, expected] : std::vector<std::pair<std::string, int>>{{"p", av+bv}, {"d", bv-av}, {"m", av*bv}})
+      for (int bit = 0; bit < (name == "m" ? 6 : 3); ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName(name))->getBit(bit)->getNet(), values, visiting), bool((unsigned(expected) >> bit) & 1));
+    EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("c"))->getBit(0)->getNet(), values, visiting), av < int(b));
+    EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("c"))->getBit(1)->getNet(), values, visiting), int(b) <= av);
+  }
+}
+
 TEST_F(VHDLConstructorTest, SignalInitializersPreserveRegisterBitOrder) {
   auto* design = VHDLConstructor(library_).construct(R"(
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;

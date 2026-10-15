@@ -481,7 +481,13 @@ remain unsupported. Inferred writable memories retain their existing memory
 primitive lowering.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
-multiplication, equality/inequality and concatenation. Static
+multiplication, equality/inequality, ordering comparisons and concatenation. Arithmetic
+and comparisons accept integer operands on either side: static signed 32-bit
+integers, or hardware integers with supported nonnegative ranges. Unsigned
+operations require natural operands. Scalar arithmetic converts the integer to
+the vector's width; addition/subtraction retain that width, while multiplication
+produces twice that width. Comparisons preserve the integer's full value, even
+when it lies outside the vector's representable range. Static
 ``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,
 and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
 ``std_logic_signed`` vector addition, subtraction, multiplication and
