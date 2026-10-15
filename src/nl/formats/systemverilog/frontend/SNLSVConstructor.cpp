@@ -7952,16 +7952,18 @@ endmodule
     InferredMemoryReadPort* getOrCreateInferredMemoryReadPort(
       SNLDesign* design,
       InferredMemory& memory,
-      const Expression& selectorExpr,
-      const std::optional<slang::SourceRange>& sourceRange) {
-      int32_t constantSelectorIndex = 0;
-      const bool hasConstantSelector = getConstantInt32(selectorExpr, constantSelectorIndex);
+      const Expression* selectorExpr,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::optional<int32_t> constantIndex = std::nullopt) {
+      int32_t constantSelectorIndex = constantIndex.value_or(0);
+      const bool hasConstantSelector = constantIndex.has_value() ||
+        (selectorExpr && getConstantInt32(*selectorExpr, constantSelectorIndex));
       if (hasConstantSelector) {
         if (auto it = memory.readPortByConstantSelectorIndex.find(constantSelectorIndex);
             it != memory.readPortByConstantSelectorIndex.end()) {
           return &memory.readPorts[it->second];
         }
-      } else if (auto it = memory.readPortBySelectorExpr.find(&selectorExpr);
+      } else if (auto it = memory.readPortBySelectorExpr.find(selectorExpr);
                  it != memory.readPortBySelectorExpr.end()) {
         return &memory.readPorts[it->second]; // LCOV_EXCL_LINE
       }
@@ -7992,7 +7994,7 @@ endmodule
         }
       } else if (!resolveExpressionBits(
                    design,
-                   selectorExpr,
+                   *selectorExpr,
                    memory.signature.abits,
                    selectorBits) ||
                  selectorBits.size() != memory.signature.abits) { // LCOV_EXCL_LINE
@@ -8001,7 +8003,7 @@ endmodule
       connectBusNetBits(design, addrNet, selectorBits, sourceRange);
 
       InferredMemoryReadPort port;
-      port.selectorExpr = &selectorExpr;
+      port.selectorExpr = selectorExpr;
       port.selectorConstantIndex =
         hasConstantSelector ? std::optional<int32_t>(constantSelectorIndex) : std::nullopt;
       port.addrNet = addrNet;
@@ -8010,7 +8012,7 @@ endmodule
       if (hasConstantSelector) {
         memory.readPortByConstantSelectorIndex[constantSelectorIndex] = portIndex;
       } else {
-        memory.readPortBySelectorExpr[&selectorExpr] = portIndex;
+        memory.readPortBySelectorExpr[selectorExpr] = portIndex;
       }
       return &memory.readPorts.back();
     }
@@ -8066,7 +8068,7 @@ endmodule
       auto* port = getOrCreateInferredMemoryReadPort(
         design,
         memory,
-        elementExpr.selector(),
+        &elementExpr.selector(),
         getSourceRange(expr));
       if (!port) {
         return false; // LCOV_EXCL_LINE
@@ -8184,7 +8186,7 @@ endmodule
       auto* readPort = getOrCreateInferredMemoryReadPort(
         design,
         memory,
-        *writeAction.selectorExpr,
+        writeAction.selectorExpr,
         writeAction.sourceRange);
       if (!readPort) {
         // LCOV_EXCL_START
@@ -9333,6 +9335,28 @@ endmodule
       for (auto& memory : inferredMemories_) {
         if (!memory.stateSymbol || !memory.lowered) {
           continue; // LCOV_EXCL_LINE
+        }
+
+        // Whole-array consumers (including output ports) use the flattened
+        // variable net rather than element-select expression lowering. Only
+        // materialized variables need these taps; ordinary RAMs stay compact.
+        auto* stateNet = getLoweredValueSymbolNet(design, *memory.stateSymbol);
+        if (!stateNet) {
+          stateNet = design->getNet(NLName(getLoweredSymbolName(*memory.stateSymbol)));
+        }
+        if (stateNet) {
+          const auto stateBits = collectBits(stateNet);
+          const auto range = memory.stateSymbol->getType().getCanonicalType().getFixedRange();
+          for (size_t index = 0; index < memory.signature.depth; ++index) {
+            const auto offset = static_cast<size_t>(range.translateIndex(
+              static_cast<int32_t>(index))) * memory.signature.width;
+            auto* port = getOrCreateInferredMemoryReadPort(
+              design, memory, nullptr, memory.sourceRange, static_cast<int32_t>(index));
+            const auto readBits = collectBits(port->dataNet);
+            for (size_t bit = 0; bit < memory.signature.width; ++bit) {
+              createAssignInstance(design, readBits[bit], stateBits.at(offset + bit));
+            }
+          }
         }
 
         NLDB0::MemorySignature signature = memory.signature;

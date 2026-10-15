@@ -12590,3 +12590,184 @@ TEST_F(SNLSVConstructorTestMemoryInference, independentMemoryResolutionFailuresC
     top->destroy();
   }
 }
+
+TEST_F(SNLSVConstructorTestMemoryInference, wholeArrayMemoryReadsBehavior) {
+  struct Case {
+    std::string name;
+    bool lanes = false;
+    bool dynamic = false;
+    int reset = 0; // 0: none, 1: synchronous, 2: asynchronous
+    bool elementReset = false;
+    std::string binding = "assign";
+    bool mixed = false;
+    bool descending = false;
+    bool structure = false;
+    bool multidimensional = false;
+    bool wholeWrite = false;
+    bool packed = false;
+  };
+  const std::vector<Case> cases {
+    {"constant_output", false, false, 0, false, "port"},
+    {"loop_output", true, false, 0, false, "port"},
+    {"loop_async_assign", true, false, 2},
+    {"constant_element_reads", false, false, 0, false, "elements"},
+    {"whole_write_async", false, false, 2, false, "port", false, false, false, false, true},
+    {"packed_loop", true, false, 0, false, "port", false, false, false, false, false, true},
+    {"dynamic_assign", false, true},
+    {"dynamic_sync_port", false, true, 1, false, "port"},
+    {"dynamic_async_submodule", false, true, 2, false, "submodule"},
+    {"constant_sync_element_reset", false, false, 1, true},
+    {"loop_async_element_reset", true, false, 2, true},
+    {"mixed_reads", false, true, 0, false, "assign", true},
+    {"descending_output", false, true, 0, false, "port", false, true},
+    {"struct_array", false, true, 2, false, "submodule", true, false, true},
+    {"multidimensional_array", false, false, 0, false, "assign", false, false, false, true},
+    {"aggregate_operand", false, true, 0, false, "aggregate"}
+  };
+  const bool simulatorAvailable = std::system("command -v iverilog >/dev/null 2>&1") == 0 &&
+    std::system("command -v vvp >/dev/null 2>&1") == 0;
+  for (const auto& c : cases) {
+    for (bool singleUnit : {false, true}) {
+      const auto name = c.name + (singleUnit ? "_single" : "_files");
+      SCOPED_TRACE(name);
+      auto* library = NLLibrary::create(library_->getDB(), NLName(name));
+      const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
+      std::filesystem::create_directories(directory);
+      const size_t width = c.lanes ? 32 : 8;
+      const size_t depth = c.multidimensional ? 6 : 2;
+      const size_t total = width * depth;
+      const auto range = "[" + std::to_string(total - 1) + ":0]";
+      const auto elementType = c.structure ? "word_t" : c.lanes ? "logic [3:0][7:0]" : "logic [7:0]";
+      const std::string shape = c.packed ? "" : c.multidimensional ? " [2][3]" :
+        c.descending ? " [1:0]" : " [2]";
+      const std::string type = c.packed ? "logic [1:0][3:0][7:0]" : elementType;
+      const auto helper = directory / "types.sv";
+      std::ofstream(helper) << "package array_types; typedef struct packed { logic [2:0] a; logic [4:0] b; } word_t; endpackage\n";
+      auto element = [&](size_t k) {
+        return c.multidimensional ? "[" + std::to_string(k / 3) + "][" + std::to_string(k % 3) + "]" :
+          "[" + std::to_string(k) + "]";
+      };
+      auto offset = [&](size_t k) { return (c.descending || c.packed ? k : depth - 1 - k) * width; };
+      std::ostringstream rtl;
+      if (c.binding == "submodule") {
+        // Keep hierarchy and flattened connectivity observable.
+        rtl << "module sink import array_types::*; (input " << type << " a" << shape
+            << ", output " << type << " o" << shape << "); assign o = a; endmodule\n";
+      }
+      rtl << "module array_reads import array_types::*; (input logic clk, rst_n, input logic [7:0] we, "
+          << "input logic addr, input logic " << range << " d, output "
+          << type << " o" << shape << ", output logic [7:0] selected);\n";
+      if (c.binding != "port") rtl << type << " q" << shape << ";\n";
+      const std::string q = c.binding == "port" ? "o" : "q";
+      rtl << type << " data" << shape << ";\n";
+      for (size_t k = 0; k < depth; ++k)
+        rtl << "assign data" << element(k) << " = d[" << offset(k) << " +: " << width << "];\n";
+      rtl << "always_ff @(posedge clk" << (c.reset == 2 ? " or negedge rst_n" : "") << ") begin\n";
+      if (c.reset) {
+        rtl << "if (!rst_n) begin\n";
+        if (c.elementReset) {
+          for (size_t k = 0; k < depth; ++k) rtl << q << element(k) << " <= '0;\n";
+        } else rtl << q << " <= '{default:'0};\n";
+        rtl << "end else begin\n";
+      }
+      if (c.wholeWrite) rtl << "if (we[0]) " << q << " <= data;\n";
+      else if (c.dynamic) rtl << "if (we[0]) " << q << "[addr] <= data[addr];\n";
+      else if (c.lanes) rtl << "for (int s=0; s<2; s++) for (int i=0; i<4; i++) "
+        << "if (we[s*4+i]) " << q << "[s][i] <= data[s][i];\n";
+      else {
+        for (size_t k = 0; k < depth; ++k)
+          rtl << "if (we[0]) " << q << element(k) << " <= "
+              << (k == 1 && !c.multidimensional ? "~" : "") << "data" << element(k) << ";\n";
+      }
+      if (c.reset) rtl << "end\n";
+      rtl << "end\n";
+      if (c.binding == "submodule") rtl << "sink u(.a(q), .o(o));\n";
+      else if (c.binding == "aggregate") rtl << "logic [7:0] view [2][2]; assign view = '{q, data}; assign o = view[0];\n";
+      else if (c.binding == "elements") {
+        for (size_t k = 0; k < depth; ++k) rtl << "assign o" << element(k) << " = q" << element(k) << ";\n";
+      } else if (c.binding != "port") rtl << "assign o = q;\n";
+      rtl << "assign selected = " << (c.mixed ? q + "[addr]" : "8'b0") << ";\nendmodule\n";
+      const auto source = directory / "array_reads.sv";
+      std::ofstream(source) << rtl.str();
+      SNLSVConstructor constructor(library);
+      SNLSVConstructor::Paths paths {helper, source};
+      if (singleUnit) paths.insert(paths.begin(), "--single-unit");
+      ASSERT_NO_THROW(constructor.construct(paths));
+      auto* top = library->getSNLDesign(NLName("array_reads"));
+      ASSERT_NE(nullptr, top);
+      EXPECT_FALSE(top->isBlackBox());
+      EXPECT_EQ(c.wholeWrite || c.packed ? 0u : 1u, countMemoryInstances(top));
+      for (auto* inst : top->getInstances()) {
+        if (!NLDB0::isMemory(inst->getModel())) continue;
+        // Constant taps share the existing element/RMW read ports. Only a
+        // mixed dynamic read needs a third port for this two-word memory.
+        EXPECT_EQ(c.mixed ? 3u : 2u, NLDB0::getMemorySignature(inst).readPorts);
+      }
+      EXPECT_TRUE(collectDanglingInternalInputTerms(top).empty());
+      for (auto* net : top->getBitNets()) EXPECT_LE(countInstanceDrivers(net), 1u) << net->getString();
+      // Include top outputs and submodule boundaries in the connectivity check.
+      NLUniverse::get()->setTopDesign(top);
+      naja::DNL::destroy();
+      auto* dnl = naja::DNL::get();
+      for (const auto& term : dnl->getDNLTerms()) {
+        if (term.isNull() || term.getIsoID() == naja::DNL::DNLID_MAX) continue;
+        const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(term.getIsoID());
+        if (!iso.getReaders().empty() && !iso.isConstant()) EXPECT_EQ(1u, iso.getDrivers().size());
+      }
+      for (auto* inst : top->getInstances()) {
+        if (!NLDB0::isMemory(inst->getModel())) continue;
+        for (auto* bit : NLDB0::getMemoryReadData(inst->getModel())->getBits()) {
+          const auto& term = dnl->getTop().getChildInstance(inst).getTerminalFromBitTerm(bit);
+          const auto& iso = dnl->getDNLIsoDB().getIsoFromIsoIDconst(term.getIsoID());
+          EXPECT_FALSE(iso.getReaders().empty()) << inst->getString() << " " << bit->getString();
+        }
+      }
+      naja::DNL::destroy();
+      const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+      if (!simulatorAvailable) continue;
+      const auto golden = dumped.parent_path() / "golden.sv";
+      std::ofstream reference(golden);
+      reference << "module golden(input clk, rst_n, input [7:0] we, input addr, input " << range
+        << " d, output reg " << range << " o, output [7:0] selected);\n";
+      // Independent per-bit flops provide a reference without memory inference,
+      // aggregate assignments, or unpacked-array simulation support.
+      for (size_t k = 0; k < depth; ++k) {
+        for (size_t bit = 0; bit < width; ++bit) {
+          const auto b = offset(k) + bit;
+          reference << "always @(posedge clk" << (c.reset == 2 ? " or negedge rst_n" : "") << ") ";
+          if (c.reset) reference << "if (!rst_n) o[" << b << "] <= 0; else ";
+          reference << "if (we[" << (c.lanes ? k * 4 + bit / 8 : 0) << "]"
+            << (c.dynamic ? " && addr == " + std::to_string(k) : "") << ") o[" << b << "] <= "
+            << (!c.dynamic && !c.lanes && !c.wholeWrite && !c.multidimensional && k == 1 ? "~" : "")
+            << "d[" << b << "];\n";
+        }
+      }
+      reference << "assign selected = " << (c.mixed ? "addr ? o[7:0] : o[15:8]" : "8'b0") << "; endmodule\n";
+      reference.close();
+      const auto tb = dumped.parent_path() / "tb.sv";
+      std::ofstream bench(tb);
+      bench << "module tb; reg clk=0, rst_n=1, addr=0; reg [7:0] we=255; reg " << range
+        << " d=0; wire " << range << " o, expected; wire [7:0] selected, expected_selected;\n"
+        << "array_reads dut(.*); golden ref_dut(.o(expected), .selected(expected_selected), .*);\n"
+        << "task check; begin if (o !== expected || selected !== expected_selected) "
+        << "$fatal(1, \"array read mismatch got %h expected %h\", o, expected); end endtask\n"
+        << "integer i; initial begin\n"
+        // Initialize every word before comparing uninitialized storage; vary
+        // enables afterwards to exercise hold and partial-write behavior.
+        << "for (i=0; i<48; i=i+1) begin addr=i%2; we=i<2 ? 255 : ((i*37) ^ (i/2)); "
+        << "d={32'h13579bdf ^ (i*32'd12345),32'h2468ace0 ^ (i*32'd54321)}; "
+        << "#2; clk=1; #2; if (i>=1) check(); clk=0; #2; end\n";
+      if (c.reset) bench << "we=0; rst_n=0; #2; " << (c.reset == 2 ? "check(); " : "")
+        << "clk=1; #2; check(); clk=0; rst_n=1; #2; check();\n";
+      bench << "$finish; end endmodule\n";
+      bench.close();
+      const auto quote = [](const std::filesystem::path& path) { return "'" + path.string() + "'"; };
+      const auto executable = dumped.parent_path() / "simulation.vvp";
+      const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) + " " + quote(tb) +
+        " " + quote(golden) + " " + quote(dumped) + " " + quote(dumped.parent_path() / "naja_primitives.v");
+      ASSERT_EQ(0, std::system(compile.c_str()));
+      ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+    }
+  }
+  if (!simulatorAvailable) GTEST_SKIP() << "Connectivity checked; Icarus Verilog is required for simulation";
+}
