@@ -14151,7 +14151,8 @@ endmodule
       }
       // LCOV_EXCL_STOP
 
-      if (resolveActiveProceduralReplayBits(expr, targetWidth, bits)) {
+      if (expr.kind != slang::ast::ExpressionKind::Conversion &&
+          resolveActiveProceduralReplayBits(expr, targetWidth, bits)) {
         return true;
       }
 
@@ -14190,9 +14191,14 @@ endmodule
               return false;
             }
             auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
-            if (targetType.isSigned() && !operandBits.empty()) {
+            if (conversionExpr.operand().type->isSigned() && !operandBits.empty()) {
               fillBit = operandBits.back();
             }
+            // Size conversion extends according to the source signedness;
+            // a subsequent context resize uses the converted type's signedness.
+            resizeBitsToWidth(operandBits, targetType.getBitWidth(), fillBit);
+            fillBit = targetType.isSigned() && !operandBits.empty()
+              ? operandBits.back() : static_cast<SNLBitNet*>(getConstNet(design, false));
             bits = std::move(operandBits);
             resizeBitsToWidth(bits, targetWidth, fillBit);
             return true;
@@ -19360,6 +19366,7 @@ endmodule
     enum class ProceduralAssignmentScheduling { Blocking, NonBlocking, Unknown };
 
     struct AssignAction {
+      std::optional<std::vector<SNLBitNet*>> evaluatedBits {};
       const Expression* lhs {nullptr};
       const Expression* rhs {nullptr};
       std::vector<std::pair<const Symbol*, int64_t>> loopConstants {};
@@ -20185,6 +20192,22 @@ endmodule
               deps.insert(conditionSymbols.begin(), conditionSymbols.end());
               collectExpressionRootValueSymbols(*action.rhs, deps);
             }
+          }
+        }
+        return;
+      }
+      if (isConcatenationExpression(lhsExpr)) {
+        std::vector<const Expression*> leaves;
+        appendFlattenedConcatenationLHSExpressions(*lhsExpr, leaves);
+        for (const auto* leaf : leaves) {
+          const auto* root = getTrackedAlwaysCombLHS(leaf);
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (!shouldIgnoreTrackedLHS(root, ignoredSymbols) &&
+              tryGetRootValueSymbolReference(*root, symbol)) {
+            auto& deps = dependencyMap[symbol];
+            deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+            if (action.rhs) collectExpressionRootValueSymbols(*action.rhs, deps);
+            collectExpressionRootValueSymbols(*lhsExpr, deps);
           }
         }
         return;
@@ -22919,17 +22942,21 @@ endmodule
           failureReason = "timed independent latch writes are unsupported";
           return false;
         }
-        const slang::ast::ValueSymbol* root = nullptr;
-        if (!tryGetRootValueSymbolReference(*lhs, root) || hasDynamicSelectionInLHS(*lhs)) {
-          failureReason = "independent latch writes require statically selected targets";
-          return false;
+        std::vector<const Expression*> leaves;
+        appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+        for (const auto* leaf : leaves) {
+          const slang::ast::ValueSymbol* root = nullptr;
+          if (!tryGetRootValueSymbolReference(*leaf, root) || hasDynamicSelectionInLHS(*leaf)) {
+            failureReason = "independent latch writes require statically selected targets";
+            return false;
+          }
+          if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
+            failureReason = "mixed blocking and nonblocking independent latch writes";
+            return false;
+          }
+          scheduling[root] = action.scheduling;
+          writtenSymbols.insert(root);
         }
-        if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
-          failureReason = "mixed blocking and nonblocking independent latch writes";
-          return false;
-        }
-        scheduling[root] = action.scheduling;
-        writtenSymbols.insert(root);
         if (!collectReads(*action.rhs)) {
           return false;
         }
@@ -23311,29 +23338,34 @@ endmodule
         action.scheduling == ProceduralAssignmentScheduling::Blocking ? 1u : 2u;
       summary.hasBlocking |= schedulingBit == 1u;
       summary.hasNonBlocking |= schedulingBit == 2u;
-      const slang::ast::ValueSymbol* symbol = nullptr;
-      if (!lhs || !tryGetRootValueSymbolReference(*lhs, symbol) || !symbol) {
-        return true;
-      }
-      summary.schedulingBySymbol[symbol] |= schedulingBit;
-      const uint8_t currentMasks = pathState.contains(symbol) ? pathState[symbol] : 1u;
-      uint8_t nextMasks = 0u;
-      for (uint8_t mask = 0; mask < 4; ++mask) {
-        if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+      std::vector<const Expression*> leaves;
+      if (lhs) appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+      for (const auto* leaf : leaves) {
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetRootValueSymbolReference(*leaf, symbol) || !symbol ||
+            shouldIgnoreTrackedLHS(leaf, ignoredSymbols)) {
           continue;
         }
-        const auto nextMask = static_cast<uint8_t>(mask | schedulingBit);
-        if (nextMask == 3u) {
-          failureReason =
-            "mixed blocking and non-blocking assignments to procedural target '" +
-            std::string(symbol->name) +
-            "' can execute on the same control-flow path and cannot be represented "
-            "by the current netlist scheduling model";
-          return false;
+        summary.schedulingBySymbol[symbol] |= schedulingBit;
+        const uint8_t currentMasks = pathState.contains(symbol) ? pathState[symbol] : 1u;
+        uint8_t nextMasks = 0u;
+        for (uint8_t mask = 0; mask < 4; ++mask) {
+          if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+            continue;
+          }
+          const auto nextMask = static_cast<uint8_t>(mask | schedulingBit);
+          if (nextMask == 3u) {
+            failureReason =
+              "mixed blocking and non-blocking assignments to procedural target '" +
+              std::string(symbol->name) +
+              "' can execute on the same control-flow path and cannot be represented "
+              "by the current netlist scheduling model";
+            return false;
+          }
+          nextMasks |= static_cast<uint8_t>(1u << nextMask);
         }
-        nextMasks |= static_cast<uint8_t>(1u << nextMask);
+        pathState[symbol] = nextMasks;
       }
-      pathState[symbol] = nextMasks;
       return true;
     }
 
@@ -23445,12 +23477,16 @@ endmodule
       const Expression* lhs = nullptr;
       AssignAction action;
       if (!extractAssignment(*current, lhs, action)) return true;
-      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
-      if (lhs) tryGetRootValueSymbolReference(*lhs, lhsSymbol);
       if (action.rhs && !rejectPendingRead(*action.rhs)) return false;
-      if (lhs) {
+      std::vector<const Expression*> leaves;
+      if (lhs) appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+      std::unordered_set<const slang::ast::ValueSymbol*> targets;
+      for (const auto* leaf : leaves) {
+        const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+        tryGetRootValueSymbolReference(*leaf, lhsSymbol);
+        if (lhsSymbol) targets.insert(lhsSymbol);
         std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
-        collectExpressionRootValueSymbols(*lhs, lhsReads);
+        collectExpressionRootValueSymbols(*leaf, lhsReads);
         if (lhsSymbol) lhsReads.erase(lhsSymbol);
         for (const auto* pending : pendingNonBlocking) {
           if (pending && lhsReads.contains(pending)) {
@@ -23463,12 +23499,12 @@ endmodule
         }
       }
       if (action.scheduling == ProceduralAssignmentScheduling::NonBlocking) {
-        if (!lhsSymbol) {
+        if (targets.empty()) {
           failureReason =
             "scheduling-sensitive combinational non-blocking assignment has an ambiguous target";
           return false;
         }
-        pendingNonBlocking.insert(lhsSymbol);
+        pendingNonBlocking.insert(targets.begin(), targets.end());
       }
       return true;
     }
@@ -24458,100 +24494,9 @@ endmodule
             }
             return true;
           }
-          if (strippedAssignedLHS &&
-              strippedAssignedLHS->kind == slang::ast::ExpressionKind::Concatenation) {
-            std::vector<const Expression*> concatLeafExpressions;
-            if (!appendFlattenedConcatenationLHSExpressions(
-                  *assignedLHS,
-                  concatLeafExpressions)) {
-              failureReason =
-                "failed to flatten sequential concatenation assignment LHS";
-              return false; // LCOV_EXCL_LINE
-            }
-
-            std::optional<size_t> trackedOffset;
-            size_t concatWidth = 0;
-            for (const auto* leafExpr : concatLeafExpressions) {
-              std::vector<SNLBitNet*> leafBits;
-              std::string leafFailureReason;
-              if (!resolveAssignmentLHSBits(
-                    design,
-                    *leafExpr,
-                    leafBits,
-                    &leafFailureReason) ||
-                  leafBits.empty()) {
-                // Parser-backed sequential concatenation forms that survive to
-                // this replay path already have resolvable leaf LHS bits; keep
-                // this branch as defensive reporting for alternate lowering
-                // orders.
-                // LCOV_EXCL_START
-                failureReason = formatSequentialConcatLeafFailureReason(
-                  describeLHSForDiagnostics(*leafExpr),
-                  leafFailureReason);
-                return false;
-                // LCOV_EXCL_STOP
-              }
-
-              if (sameLhs(leafExpr, &lhsExpr)) {
-                if (trackedOffset.has_value()) {
-                  // LCOV_EXCL_START
-                  // Defensive duplicate-leaf check in the concat replay path.
-                  // Parser-backed sequential concatenation forms currently
-                  // bypass this fallback and are handled earlier by direct
-                  // lowering / flattened assignment collection.
-                  failureReason = formatQuotedDescriptionFailure(
-                    "duplicate sequential concatenation assignment leaf for ",
-                    describeLHSForDiagnostics(lhsExpr));
-                  return false;
-                  // LCOV_EXCL_STOP
-                }
-                trackedOffset = concatWidth;
-                if (leafBits.size() != lhsBits.size()) {
-                  // LCOV_EXCL_START
-                  // Defensive consistency guard: once a concatenation leaf is
-                  // identified as the tracked LHS, the resolved leaf width is
-                  // expected to match the tracked target width. Parser-backed
-                  // unsupported cases fail earlier during LHS resolution.
-                  failureReason = formatQuotedDescriptionFailure(
-                    "sequential concatenation assignment width mismatch for tracked LHS ",
-                    describeLHSForDiagnostics(lhsExpr));
-                  return false;
-                  // LCOV_EXCL_STOP
-                }
-              }
-              concatWidth += leafBits.size();
-            }
-
-            if (trackedOffset.has_value()) {
-              auto actionSourceRange = action.rhs
-                ? getSourceRange(*action.rhs)
-                : getSourceRange(*current); // LCOV_EXCL_LINE
-              std::vector<SNLBitNet*> concatTargetBits(
-                concatWidth,
-                static_cast<SNLBitNet*>(getConstNet(design, false)));
-              auto assignedBits = buildAssignBits(
-                design,
-                action,
-                nullptr,
-                concatTargetBits,
-                nullptr,
-                actionSourceRange);
-              if (assignedBits.size() != concatWidth) {
-                // buildAssignBits() is width-stable for the parser-backed
-                // sequential concatenation forms that reach this fallback.
-                // LCOV_EXCL_START
-                failureReason = formatQuotedDescriptionFailure(
-                  "failed to lower sequential concatenation assignment for ",
-                  describeExpression(*assignedLHS));
-                return false;
-                // LCOV_EXCL_STOP
-              }
-              std::copy(
-                assignedBits.begin() + static_cast<std::ptrdiff_t>(*trackedOffset),
-                assignedBits.begin() + static_cast<std::ptrdiff_t>(*trackedOffset + lhsBits.size()),
-                dataBits.begin());
-              return true;
-            }
+          if (isConcatenationExpression(assignedLHS)) {
+            return applyCombinationalConcatenationAssignment(
+              design, action, lhsExpr, lhsBits, dataBits, nullptr, true, failureReason);
           }
           if (!action.compoundOp && action.stepDelta == 0 && action.rhs) {
             std::vector<SNLBitNet*> assignedLHSBits;
@@ -25080,6 +25025,21 @@ endmodule
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
+        if ((trackAlwaysCombDynamicLHS || trackSequentialFallbackLHS) &&
+            isConcatenationExpression(lhsExpr)) {
+          std::vector<const Expression*> leaves;
+          if (!appendFlattenedConcatenationLHSExpressions(*lhsExpr, leaves)) {
+            return false;
+          }
+          for (const auto* leaf : leaves) {
+            const auto* root = trackAlwaysCombDynamicLHS
+              ? getTrackedAlwaysCombLHS(leaf) : getTrackedSequentialFallbackLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols)) {
+              appendTrackedSelectionLHS(root, lhsExpressions);
+            }
+          }
+          return true;
+        }
         if (trackAlwaysCombDynamicLHS && lhsExpr &&
             stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
           std::vector<const Expression*> leaves;
@@ -26401,6 +26361,10 @@ endmodule
       std::vector<SNLBitNet*>& assignedBits,
       const std::vector<SNLBitNet*>* currentBits,
       std::string& failureReason) {
+      if (action.evaluatedBits) {
+        assignedBits = *action.evaluatedBits;
+        return assignedBits.size() == targetWidth;
+      }
       const auto activeLoopConstantsSize = activeForLoopConstants_.size();
       const auto activeLoopNameConstantsSize = activeForLoopNameConstants_.size();
       activeForLoopConstants_.insert(
@@ -26736,11 +26700,13 @@ endmodule
 
       bool usedUnknownLiteralFallback = false;
       UnknownLiteralKinds unknownKinds;
-      if (resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
+      if (action.rhs->kind != slang::ast::ExpressionKind::Conversion &&
+          resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
           assignedBits.size() == targetWidth) {
         return true;
       }
-      if (resolveStaticSelectableExpressionBits(design, *action.rhs, assignedBits) &&
+      if (action.rhs->kind != slang::ast::ExpressionKind::Conversion &&
+          resolveStaticSelectableExpressionBits(design, *action.rhs, assignedBits) &&
           assignedBits.size() == targetWidth) {
         substituteFunctionArgumentBits(assignedBits);
         return true;
@@ -27999,6 +27965,121 @@ endmodule
 
       for (size_t bit = 0; bit < selectedOffsets.size(); ++bit) {
         dataBits[selectedOffsets[bit]] = assignedBits[bit];
+      }
+      return true;
+    }
+
+    bool applyCombinationalConcatenationAssignment(
+      SNLDesign* design,
+      const AssignAction& action,
+      const Expression& trackedLhs,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols,
+      bool preserveAssignmentScheduling,
+      std::string& failureReason) {
+      std::vector<const Expression*> leaves;
+      if (!appendFlattenedConcatenationLHSExpressions(*action.lhs, leaves)) {
+        return false;
+      }
+      const auto* savedLhs = activeProceduralReplayLHS_;
+      const auto* savedBits = activeProceduralReplayBits_;
+      activeProceduralReplayLHS_ = &trackedLhs;
+      activeProceduralReplayBits_ = &dataBits;
+      // Non-blocking RHS reads observe the active value, not earlier scheduled
+      // writes accumulated in dataBits. The replay environment retains that
+      // active value when the block also contains blocking assignments.
+      if (preserveAssignmentScheduling && !assignmentUpdatesActiveProceduralValue(action)) {
+        activeProceduralReplayBits_ = &lhsBits;
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (activeProceduralReplayEnv_ && tryGetRootValueSymbolReference(trackedLhs, symbol)) {
+          auto found = activeProceduralReplayEnv_->find(symbol);
+          if (found != activeProceduralReplayEnv_->end()) {
+            activeProceduralReplayBits_ = &found->second;
+          }
+        }
+      }
+      const auto guard = slang::ScopeGuard([&]() {
+        activeProceduralReplayLHS_ = savedLhs;
+        activeProceduralReplayBits_ = savedBits;
+      });
+      const auto width = getRepresentableExpressionBitWidth(*action.lhs);
+      size_t leafBitCount = 0;
+      for (const auto* leaf : leaves) {
+        const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
+        if (!leafWidth) {
+          failureReason = "unable to determine procedural concatenation leaf width";
+          return false;
+        }
+        leafBitCount += *leafWidth;
+      }
+      if (!width || leafBitCount != *width) {
+        failureReason = "unsupported duplicate procedural concatenation assignment leaf";
+        return false;
+      }
+      std::vector<SNLBitNet*> currentBits;
+      std::vector<SNLBitNet*> assignedBits;
+      if (!width ||
+          (assignmentActionRequiresCurrentBits(action) &&
+           !resolveExpressionBits(design, *action.lhs, *width, currentBits)) ||
+          !buildCombinationalAssignBits(design, action, *width, assignedBits,
+            assignmentActionRequiresCurrentBits(action) ? &currentBits : nullptr,
+            failureReason)) {
+        return false;
+      }
+      // Evaluate the complete RHS before updating any leaf. Compound operators
+      // likewise operate on the complete concatenated current value.
+      size_t offset = 0;
+      for (const auto* leaf : leaves) {
+        const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
+        if (!leafWidth || offset + *leafWidth > assignedBits.size()) {
+          failureReason = "unable to determine procedural concatenation leaf width";
+          return false;
+        }
+        AssignAction leafAction = action;
+        leafAction.lhs = leaf;
+        leafAction.compoundOp.reset();
+        leafAction.evaluatedBits = std::vector<SNLBitNet*>(
+          assignedBits.begin() + offset, assignedBits.begin() + offset + *leafWidth);
+        offset += *leafWidth;
+        const bool targetsTracked = sameLhs(leaf, &trackedLhs) ||
+          isTrackedSelectionSubLhsOf(leaf, &trackedLhs);
+        if (!targetsTracked) {
+          if (replaySymbols &&
+              (!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action))) {
+            bool handled = false;
+            if (!applyCombinationalAssignmentToReplaySymbol(
+                  design, *leaf, leafAction, *replaySymbols, failureReason, handled)) {
+              return false;
+            }
+          }
+          continue;
+        }
+        if (sameLhs(leaf, &trackedLhs)) {
+          dataBits = *leafAction.evaluatedBits;
+        } else {
+          bool handled = false;
+          if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled) ||
+              (!handled && !tryApplyCombinationalElementSelectAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled)) ||
+              (!handled && !tryApplyCombinationalRangeSelectAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled)) ||
+              (!handled && !tryApplyCombinationalFixedSubAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled))) {
+            return false;
+          }
+          if (!handled) {
+            failureReason = "unsupported procedural concatenation leaf: " + describeExpression(*leaf);
+            return false;
+          }
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (activeProceduralReplayEnv_ &&
+            (!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+            tryGetRootValueSymbolReference(trackedLhs, symbol)) {
+          (*activeProceduralReplayEnv_)[symbol] = dataBits;
+        }
       }
       return true;
     }
@@ -29262,6 +29343,11 @@ endmodule
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        if (isConcatenationExpression(assignedLHS)) {
+          return applyCombinationalConcatenationAssignment(
+            design, action, lhsExpr, lhsBits, dataBits, replaySymbols,
+            preserveAssignmentScheduling, failureReason);
+        }
         if (stripConversions(*assignedLHS)->kind == slang::ast::ExpressionKind::Streaming) {
           if (preserveAssignmentScheduling || !assignmentUpdatesActiveProceduralValue(action)) {
             failureReason = "unsupported sequential streaming assignment";
@@ -29573,7 +29659,13 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
+      std::vector<const Expression*> assignedLeaves;
       for (const auto* assignedExpr : assignedExpressions) {
+        if (assignedExpr) {
+          appendFlattenedConcatenationLHSExpressions(*assignedExpr, assignedLeaves);
+        }
+      }
+      for (const auto* assignedExpr : assignedLeaves) {
         if (!assignedExpr) {
           continue; // LCOV_EXCL_LINE
         }
