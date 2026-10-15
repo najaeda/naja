@@ -695,13 +695,63 @@ class RTLConstructor {
     const int64_t lower = subtype == "natural" ? 0 : subtype == "positive" ? 1 : INT32_MIN;
     if (type.constraint) bounds = range(*type.constraint);
     else {
-      if (value.kind != Expr::Kind::Aggregate || value.elements.empty())
+      if (value.kind != Expr::Kind::Aggregate || value.elements.empty() ||
+          std::any_of(value.elements.begin(), value.elements.end(),
+              [](const auto& item) { return item->kind == Expr::Kind::Association; }))
         fail("unconstrained array constant requires a positional aggregate or explicit bounds");
       bounds = {lower, lower + int64_t(value.elements.size()) - 1, true};
     }
     if (bounds.left < lower || bounds.right < lower || bounds.left > INT32_MAX || bounds.right > INT32_MAX)
       fail("array bounds violate the index subtype");
     return bounds;
+  }
+
+  std::vector<const Expr*> arrayAggregateElements(const Expr& aggregate, const Range& bounds) {
+    std::vector<const Expr*> actuals(bounds.size(), nullptr);
+    if (aggregate.kind == Expr::Kind::Others) {
+      std::fill(actuals.begin(), actuals.end(), aggregate.left.get());
+      return actuals;
+    }
+    if (aggregate.kind != Expr::Kind::Aggregate) fail("array initializer requires an aggregate");
+    size_t position = 0;
+    bool named = false, others = false;
+    const auto place = [&](size_t destination, const Expr* value) {
+      if (destination >= actuals.size()) fail("array aggregate has too many positional elements");
+      if (actuals[destination]) fail("overlapping array aggregate choices");
+      actuals[destination] = value;
+    };
+    for (const auto& item : aggregate.elements) {
+      DiagnosticScope location(item->span);
+      if (others) fail("others must be the final array aggregate association");
+      if (item->kind != Expr::Kind::Association) {
+        if (named) fail("positional array element follows named association");
+        place(position++, item.get());
+        continue;
+      }
+      named = true;
+      const auto& choice = *item->left;
+      if (choice.kind == Expr::Kind::Name && key(choice) == "others") {
+        others = true;
+        for (auto& actual : actuals) if (!actual) actual = item->right.get();
+        continue;
+      }
+      if (position) fail("named and positional associations cannot be mixed in array aggregates");
+      const auto apply = [&](const Expr& index) {
+        if (index.kind == Expr::Kind::Range) {
+          Range selected{arrayIndex(*index.left, bounds), arrayIndex(*index.right, bounds), index.text == "to"};
+          bounds.position(selected.left);
+          bounds.position(selected.right);
+          for (size_t i = 0; i < selected.size(); ++i)
+            place(bounds.position(selected.ascending ? selected.left + i : selected.left - i), item->right.get());
+        } else place(bounds.position(arrayIndex(index, bounds)), item->right.get());
+      };
+      if (choice.kind == Expr::Kind::Aggregate)
+        for (const auto& index : choice.elements) apply(*index);
+      else apply(choice);
+    }
+    if (std::find(actuals.begin(), actuals.end(), nullptr) != actuals.end())
+      fail("array aggregate does not cover every element");
+    return actuals;
   }
 
   bool locallyStaticPortIndex(const Expr& expr) const {
@@ -756,10 +806,8 @@ class RTLConstructor {
       if (!bounds.size()) fail("null array constant is unsupported");
       const auto element = key(array.elementType.name);
       if (element == "integer" || element == "natural" || element == "positive") {
-        if (declaration.value->kind != Expr::Kind::Aggregate ||
-            declaration.value->elements.size() != bounds.size()) fail("integer table aggregate length mismatch");
         IntegerTable table{bounds, {}};
-        for (const auto& item : declaration.value->elements) {
+        for (const auto* item : arrayAggregateElements(*declaration.value, bounds)) {
           const auto value = integer(*item);
           checkInteger(value, array.elementType);
           table.values.push_back(value);
@@ -772,7 +820,7 @@ class RTLConstructor {
     }
     const auto target = shape(constantType);
     const auto value = expression(*declaration.value, State{}, &target);
-    for (auto* bit : value.bits) if (!constantValue(bit)) fail("constant initializer must be static and binary");
+    for (auto* bit : value.bits) if (!bit->isConstant()) fail("constant initializer must be static");
     for (const auto& id : declaration.object.names)
       objects_.emplace(key(id), Object{value, false, false, false, true});
   }
@@ -2138,6 +2186,17 @@ class RTLConstructor {
     }
     return net;
   }
+  SNLBitNet* logicLiteral(char value, const Shape& type) {
+    if (value == '0' || value == '1') return constant(value == '1');
+    if (type.types.back() != "std_logic" || (value != 'X' && value != 'Z'))
+      fail("RTL literals require '0' or '1', or 'X'/'Z' for std_logic elements");
+    auto*& net = value == 'X' ? unknown_ : highImpedance_;
+    if (!net) {
+      net = SNLScalarNet::create(design_);
+      net->setType(value == 'X' ? SNLNet::Type::AssignX : SNLNet::Type::AssignZ);
+    }
+    return net;
+  }
   std::optional<bool> constantValue(SNLBitNet* net) {
     if (net && net->isConstant0()) return false;
     if (net && net->isConstant1()) return true;
@@ -2410,7 +2469,6 @@ class RTLConstructor {
     width = std::max(width, address.bits.size());
     address.bits = resize(address.bits, width);
     if (low) address.bits = add(address.bits, number(low, {{"integer"}, {}, width}).bits, true);
-    auto* model = NLDB0::getOrCreateTableSelect({stride, bounds.size(), width});
     Bits data;
     for (size_t entry = 0; entry < bounds.size(); ++entry) {
       const auto position = bounds.ascending ? entry : bounds.size() - 1 - entry;
@@ -2420,11 +2478,24 @@ class RTLConstructor {
         data.push_back(net);
       }
     }
+    const bool rom = std::all_of(data.begin(), data.end(), [](auto* bit) { return bit->isConstant(); });
+    auto* model = rom ? NLDB0::getOrCreateMemory({stride, bounds.size(), width, 1, 0})
+        : NLDB0::getOrCreateTableSelect({stride, bounds.size(), width});
     Bits inputs = data;
     inputs.insert(inputs.end(), address.bits.begin(), address.bits.end());
     const auto cacheKey = std::make_pair(model, inputs);
     if (const auto found = tables_.find(cacheKey); found != tables_.end()) {
       value.bits = found->second;
+      return value;
+    }
+    if (rom) {
+      auto* output = SNLBusNet::create(design_, stride - 1, 0);
+      auto addressBits = address.bits;
+      std::reverse(addressBits.begin(), addressBits.end());
+      SNLRTLPrimitives::createROM(design_, data, addressBits, output);
+      value.bits.clear();
+      for (size_t bit = stride; bit; --bit) value.bits.push_back(output->getBit(bit - 1));
+      tables_.emplace(cacheKey, value.bits);
       return value;
     }
     auto* instance = SNLInstance::create(design_, model);
@@ -2636,15 +2707,16 @@ class RTLConstructor {
       const auto width = std::min(usedWidth, yes.bits.size());
       value.bits = resize(mux(condition.bits.front(), resize(yes.bits, width), resize(no.bits, width)), yes.bits.size());
     } else if (expr.kind == Expr::Kind::Aggregate) {
-      if (!expected || expected->ranges.empty() || expr.elements.size() != expected->ranges.front().size())
-        fail("positional aggregate length mismatch");
+      if (!expected || expected->ranges.empty()) fail("array aggregate requires a constrained target");
       value.shape = *expected;
       auto element = *expected;
       element.removeOuterType();
       element.ranges.erase(element.ranges.begin());
-      for (const auto& item : expr.elements) {
-        const auto part = expression(*item, state, &element);
-        value.bits.insert(value.bits.end(), part.bits.begin(), part.bits.end());
+      std::map<const Expr*, Bits> parts;
+      for (const auto* item : arrayAggregateElements(expr, expected->ranges.front())) {
+        auto [part, inserted] = parts.try_emplace(item);
+        if (inserted) part->second = expression(*item, state, &element).bits;
+        value.bits.insert(value.bits.end(), part->second.begin(), part->second.end());
       }
     } else if (expr.kind == Expr::Kind::CharacterLiteral || expr.kind == Expr::Kind::StringLiteral ||
                expr.kind == Expr::Kind::Others || expr.kind == Expr::Kind::BitStringLiteral) {
@@ -2675,14 +2747,17 @@ class RTLConstructor {
           const auto c = expr.text[i];
           if (expr.kind == Expr::Kind::BitStringLiteral) {
             if (c == '_') continue;
+            const int width = expr.canonical == "x" ? 4 : expr.canonical == "o" ? 3 : 1;
+            if (c == 'X' || c == 'Z') {
+              value.bits.insert(value.bits.end(), width, logicLiteral(c, *expected));
+              continue;
+            }
             const int digit = c >= '0' && c <= '9' ? c - '0' :
                 std::tolower(static_cast<unsigned char>(c)) - 'a' + 10;
-            const int width = expr.canonical == "x" ? 4 : expr.canonical == "o" ? 3 : 1;
             if (digit < 0 || digit >= (1 << width)) fail("invalid bit string digit");
             for (int bit = width - 1; bit >= 0; --bit) value.bits.push_back(constant((digit >> bit) & 1));
           } else {
-            if (c != '0' && c != '1') fail("RTL literals must contain only '0' and '1'");
-            value.bits.push_back(constant(c == '1'));
+            value.bits.push_back(logicLiteral(c, *expected));
           }
         }
       }
@@ -2748,6 +2823,12 @@ class RTLConstructor {
           if (leftInteger) left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
           if (rightInteger) right = expression(*expr.right, state,
               ((leftNumeric || leftSigned) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+        }
+        if (arithmetic || comparison || expr.text == "*") {
+          const auto nonbinary = [](SNLBitNet* bit) { return bit->isConstantX() || bit->isConstantZ(); };
+          if (std::any_of(left.bits.begin(), left.bits.end(), nonbinary) ||
+              std::any_of(right.bits.begin(), right.bits.end(), nonbinary))
+            fail("explicit X/Z operands in arithmetic and comparisons are unsupported");
         }
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
         const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
@@ -2843,8 +2924,8 @@ class RTLConstructor {
 
   void drive(SNLBitNet* target, SNLBitNet* source) {
     if (!drivers_.insert(target).second) fail("multiple drivers for one signal bit");
-    if (auto value = constantValue(source))
-      target->setType(*value ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+    if (source->isConstant())
+      target->setType(source->getType());
     else SNLRTLPrimitives::createAssign(design_, source, target);
   }
   void concurrent(const vhdl::Assignment& assignment, const State& state) {
@@ -3323,6 +3404,8 @@ class RTLConstructor {
   size_t steps_ = 0;
   SNLBitNet* zero_ = nullptr;
   SNLBitNet* one_ = nullptr;
+  SNLBitNet* unknown_ = nullptr;
+  SNLBitNet* highImpedance_ = nullptr;
 };
 }
 
@@ -3340,6 +3423,8 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
         expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
         expression->kind == Expr::Kind::BitStringLiteral || expression->kind == Expr::Kind::Attribute ||
+        ((expression->kind == Expr::Kind::CharacterLiteral || expression->kind == Expr::Kind::StringLiteral) &&
+         expression->text.find_first_of("XZ") != std::string::npos) ||
         self(self, expression->left.get()) ||
         self(self, expression->right.get()) || self(self, expression->condition.get()));
   };

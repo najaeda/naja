@@ -97,7 +97,7 @@ class SNLDesignModeling {
 
       bool isValid() const {
         if (width == 0 || depth == 0 || abits == 0 ||
-            readPorts.empty() || writePorts.empty()) return false;
+            readPorts.empty()) return false;
         for (const auto& port : writePorts)
           if (!port.clock && !clock) return false;
         return true;

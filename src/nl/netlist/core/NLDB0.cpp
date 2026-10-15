@@ -463,13 +463,17 @@ namespace {
       SNLBusTerm::create(memory, SNLTerm::Direction::Input,
         static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WMASK"));
     }
-    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
-    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+    if (signature.writePorts) {
+      SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
+      SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+    }
     SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1), 0, NLName("RADDR"));
     SNLBusTerm::create(memory, SNLTerm::Direction::Output, static_cast<NLID::Bit>(signature.readPorts * signature.width - 1), 0, NLName("RDATA"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1), 0, NLName("WADDR"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WDATA"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WE"));
+    if (signature.writePorts) {
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1), 0, NLName("WADDR"));
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WDATA"));
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WE"));
+    }
 
     auto* clk = memory->getScalarTerm(NLName("CLK"));
     auto* rst = memory->getScalarTerm(NLName("RST"));
@@ -479,38 +483,40 @@ namespace {
     auto* wdata = memory->getBusTerm(NLName("WDATA"));
     auto* we = memory->getBusTerm(NLName("WE"));
     auto rdataBits = collectBitTerms(*rdata);
-    if (!signature.independentWriteClocks) {
-      SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
-    }
-
-    SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
-    auto wdataBits = collectBitTerms(*wdata);
-    writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
-    auto weBits = collectBitTerms(*we);
-    writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
-    writeInputs.push_back(rst);
-    if (signature.independentWriteClocks) {
-      auto* clocks = memory->getBusTerm(NLName("WCLK"));
-      auto* masks = memory->getBusTerm(NLName("WMASK"));
-      for (size_t port = 0; port < signature.writePorts; ++port) {
-        SNLDesignModeling::BitTerms inputs;
-        for (size_t bit = 0; bit < signature.abits; ++bit)
-          inputs.push_back(waddr->getBit(static_cast<NLID::Bit>(port * signature.abits + bit)));
-        for (size_t bit = 0; bit < signature.width; ++bit) {
-          inputs.push_back(wdata->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
-          inputs.push_back(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
-        }
-        inputs.push_back(we->getBitAtPosition(port));
-        auto* clock = clocks->getBit(static_cast<NLID::Bit>(port));
-        SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
-        for (size_t bit = 0; bit < signature.width; ++bit)
-          SNLDesignModeling::setTermRole(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)),
-            SNLDesignModeling::SNLTermRole::MemoryWriteEnable);
-        SNLDesignModeling::addInputsToClockArcs(inputs, clock);
-        SNLDesignModeling::addClockToOutputsArcs(clock, rdataBits);
+    if (signature.writePorts) {
+      if (!signature.independentWriteClocks) {
+        SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
       }
-    } else {
-      SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+
+      SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
+      auto wdataBits = collectBitTerms(*wdata);
+      writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
+      auto weBits = collectBitTerms(*we);
+      writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
+      writeInputs.push_back(rst);
+      if (signature.independentWriteClocks) {
+        auto* clocks = memory->getBusTerm(NLName("WCLK"));
+        auto* masks = memory->getBusTerm(NLName("WMASK"));
+        for (size_t port = 0; port < signature.writePorts; ++port) {
+          SNLDesignModeling::BitTerms inputs;
+          for (size_t bit = 0; bit < signature.abits; ++bit)
+            inputs.push_back(waddr->getBit(static_cast<NLID::Bit>(port * signature.abits + bit)));
+          for (size_t bit = 0; bit < signature.width; ++bit) {
+            inputs.push_back(wdata->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+            inputs.push_back(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+          }
+          inputs.push_back(we->getBitAtPosition(port));
+          auto* clock = clocks->getBit(static_cast<NLID::Bit>(port));
+          SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
+          for (size_t bit = 0; bit < signature.width; ++bit)
+            SNLDesignModeling::setTermRole(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)),
+              SNLDesignModeling::SNLTermRole::MemoryWriteEnable);
+          SNLDesignModeling::addInputsToClockArcs(inputs, clock);
+          SNLDesignModeling::addClockToOutputsArcs(clock, rdataBits);
+        }
+      } else {
+        SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+      }
     }
 
     for (size_t readPort = 0; readPort < signature.readPorts; ++readPort) {
@@ -1861,7 +1867,9 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
     return nullptr;
   }
   if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
-      signature.readPorts == 0 || signature.writePorts == 0 ||
+      signature.readPorts == 0 ||
+      (signature.writePorts == 0 &&
+       (signature.resetMode != MemoryResetMode::None || signature.independentWriteClocks)) ||
       (signature.independentWriteClocks && signature.resetMode != MemoryResetMode::None)) {
     throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
   }

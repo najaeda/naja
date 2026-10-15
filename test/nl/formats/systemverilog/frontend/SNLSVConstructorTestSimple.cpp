@@ -3829,7 +3829,7 @@ endmodule
   constructor.construct(svPath);
   auto* top = library_->getSNLDesign(NLName("table_select_direct_bits"));
   ASSERT_NE(nullptr, top);
-  auto* table = findOnlyPrimitiveInstance(top, NLDB0::isTableSelect);
+  auto* table = findOnlyPrimitiveInstance(top, NLDB0::isMemory);
   ASSERT_NE(nullptr, table);
   EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
   auto* model = table->getModel();
@@ -3837,22 +3837,19 @@ endmodule
   auto* y = top->getBusNet(NLName("y"));
   ASSERT_NE(nullptr, sel);
   ASSERT_NE(nullptr, y);
-  for (NLID::Bit bit = 0; bit < 16; ++bit) {
-    auto* net = table->getInstTerm(NLDB0::getTableSelectData(model)->getBit(bit))->getNet();
-    ASSERT_NE(nullptr, net);
-    EXPECT_TRUE((0xC5A3 >> bit) & 1 ? net->isAssign1() : net->isAssign0());
-  }
+  EXPECT_EQ(0u, NLDB0::getMemorySignature(table).writePorts);
+  EXPECT_EQ("16'hc5a3", table->getInstParameter(NLName("INIT"))->getValue());
   for (NLID::Bit bit = 0; bit < 2; ++bit) {
     EXPECT_EQ(sel->getBit(1 - bit),
-      table->getInstTerm(NLDB0::getTableSelectAddress(model)->getBit(bit))->getNet());
+      table->getInstTerm(NLDB0::getMemoryReadAddress(model)->getBit(bit))->getNet());
   }
   for (NLID::Bit bit = 0; bit < 4; ++bit) {
     EXPECT_EQ(y->getBit(bit),
-      table->getInstTerm(NLDB0::getTableSelectOutput(model)->getBit(bit))->getNet());
+      table->getInstTerm(NLDB0::getMemoryReadData(model)->getBit(bit))->getNet());
   }
   const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "table_select_direct_bits_dump"));
   EXPECT_EQ(std::string::npos, text.find("net_"));
-  EXPECT_NE(std::string::npos, text.find(".Y(y)"));
+  EXPECT_NE(std::string::npos, text.find(".RDATA(y)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseVectorFlopDirectMixedDataBits) {
@@ -6860,6 +6857,23 @@ static bool evaluateFunctionResultBit(
       const unsigned sum = unsigned(read(NLDB0::getFAInputA())) +
         unsigned(read(NLDB0::getFAInputB())) + unsigned(read(NLDB0::getFAInputCI()));
       return driver->getBitTerm() == NLDB0::getFAOutputS() ? (sum & 1u) : (sum > 1);
+    }
+    if (NLDB0::isMemory(model) && !NLDB0::getMemorySignature(instance).writePorts) {
+      size_t address = 0;
+      for (auto* bit : NLDB0::getMemoryReadAddress(model)->getBusBits())
+        address |= size_t(read(bit)) << bit->getBit();
+      const auto signature = NLDB0::getMemorySignature(instance);
+      if (address >= signature.depth) { ADD_FAILURE() << "Out of range ROM address"; return false; }
+      const auto init = instance->getInstParameter(NLName("INIT"))->getValue();
+      const auto offset = address * signature.width + driver->getBitTerm()->getBit();
+      const auto base = init.find('\'') + 1;
+      if (init[base] == 'h') {
+        const auto digit = init.at(init.size() - 1 - offset/4);
+        return bool(((digit <= '9' ? digit-'0' : digit-'a'+10) >> (offset%4)) & 1);
+      }
+      const auto digit = init.at(init.size() - 1 - offset);
+      EXPECT_TRUE(digit == '0' || digit == '1');
+      return digit == '1';
     }
     if (NLDB0::isTableSelect(model)) {
       unsigned address = 0;
@@ -35006,6 +35020,55 @@ endmodule
     " " + quotePath(tbPath) + " " + quotePath(dumpedPath) + " " + quotePath(primitivesPath);
   ASSERT_EQ(0, std::system(compile.c_str()));
   ASSERT_EQ(0, std::system(("vvp " + quotePath(executablePath)).c_str()));
+}
+
+TEST_P(SNLSVTableSelectTest, constantPackedIndexFourStateSimulation) {
+  const auto [width, depth, ascending] = GetParam();
+  const size_t abits = depth <= 4 ? 2 : 3;
+  const auto name = "constant_lookup_w" + std::to_string(width) + "_d" + std::to_string(depth) + (ascending ? "_asc" : "_desc");
+  std::string image;
+  for (size_t bit = 0; bit < width*depth; ++bit) image += "10xz"[bit%4];
+  std::ostringstream source;
+  source << "module " << name << "(input logic [" << abits-1 << ":0] A, output logic [" << width-1 << ":0] Y);\n"
+    << "localparam logic [" << (ascending ? 0 : depth-1) << ":" << (ascending ? depth-1 : 0) << "]";
+  if (width > 1) source << "[" << width-1 << ":0]";
+  source << " DATA = " << width*depth << "'b" << image << ";\nassign Y = DATA[A]; endmodule\n";
+  const auto path = writeSVTestFile(name, source.str());
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName(name));
+  ASSERT_NE(top, nullptr);
+  auto* rom = findOnlyPrimitiveInstance(top, NLDB0::isMemory);
+  ASSERT_NE(rom, nullptr);
+  EXPECT_EQ(0u, NLDB0::getMemorySignature(rom).writePorts);
+  EXPECT_EQ(2u, rom->getModel()->getTerms().size());
+  const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") || std::system("command -v vvp >/dev/null 2>&1"))
+    GTEST_SKIP() << "Icarus Verilog is required for the ROM comparison";
+  auto reference = source.str();
+  reference.replace(reference.find(name), name.size(), "reference_lookup");
+  // Icarus does not accept multidimensional packed localparams; a constant
+  // wire preserves the reference array's layout and indexing semantics.
+  reference.replace(reference.find("localparam logic"), 16, "wire");
+  const auto tbPath = path.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << reference << "module tb; reg [" << abits-1 << ":0] a; wire [" << width-1 << ":0] actual, expected;\n"
+    << name << " dut(a,actual); reference_lookup ref_index(a,expected); integer code, bit_index; initial begin\n"
+    << "for(code=0;code<" << (1u << (2*abits)) << ";code=code+1) begin\n"
+    << "for(bit_index=0;bit_index<" << abits << ";bit_index=bit_index+1)\n"
+    << "case((code >> (2*bit_index)) & 3) 0:a[bit_index]=0; 1:a[bit_index]=1; 2:a[bit_index]=1'bx; 3:a[bit_index]=1'bz; endcase\n"
+    << "#1; if(actual !== expected) $fatal(1,\"ROM mismatch: address=%b actual=%b expected=%b\",a,actual,expected);\n"
+    << "end $finish; end endmodule\n";
+  tb.close();
+  const auto quote = [](const std::filesystem::path& value) {
+    std::string result = "'";
+    for (char c : value.string()) result += c == '\'' ? "'\\''" : std::string(1,c);
+    return result + "'";
+  };
+  const auto executable = path.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) + " " + quote(tbPath) + " " +
+      quote(dumped) + " " + quote(dumped.parent_path() / "naja_primitives.v");
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -1604,7 +1604,23 @@ private:
                 return aggregate;
             }
             auto parseElement = [&]() -> std::unique_ptr<Expression> {
-                auto element = parseExpression(0);
+                auto element = parseIndex();
+                if (element && symbol("|")) {
+                    auto choices = std::make_unique<Expression>();
+                    choices->kind = Expression::Kind::Aggregate;
+                    choices->span = element->span;
+                    choices->elements.push_back(std::move(element));
+                    while (acceptSymbol("|")) {
+                        auto choice = parseIndex();
+                        if (!choice) return nullptr;
+                        choices->elements.push_back(std::move(choice));
+                    }
+                    if (!symbol("=>")) {
+                        error("aggregate choices require an association", current().span);
+                        return nullptr;
+                    }
+                    element = std::move(choices);
+                }
                 if (element && acceptSymbol("=>")) {
                     auto association = std::make_unique<Expression>();
                     association->kind = Expression::Kind::Association;

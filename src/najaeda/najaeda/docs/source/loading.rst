@@ -302,6 +302,12 @@ and immediate process variables. Generated instances can bind indexed or sliced
 ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
+Constrained arrays also support static index choices, ranges, grouped choices
+(``|``), and a final ``others`` association, including nested arrays and integer
+constant tables. Positional elements follow declaration order and may precede
+``others``, but cannot be mixed with named index choices. Overlapping or out-of-range choices, missing elements, and
+associations after ``others`` are rejected. Named array aggregates require
+explicit bounds; unconstrained bound inference remains positional-only.
 
 Simple signal wiring assignments such as ``y <= a;`` use canonical DB0 Assign
 instances, one per bit. ``Equipotential.Mode.TRAVERSE_ASSIGNS`` crosses these
@@ -329,8 +335,14 @@ matches every field type. Record ports are flattened to one SNL bus in declarati
 order, recursively, with the first field at the most significant end. Original
 vector directions determine the order of bits within each field. Record type
 names remain distinct for assignment checking. ``std_ulogic`` and
-``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
-multiple drivers and nonbinary literals remain unsupported.
+``std_ulogic_vector`` use the same lowering as their resolved counterparts;
+multiple drivers remain unsupported. ``std_logic`` and ``std_ulogic`` literals
+preserve ``X`` and ``Z`` as SNL constant nets, including vector strings,
+binary/octal/hex bit strings, aggregates, constants, mux inputs, and register
+data. Other nonbinary enumeration values and lowercase ``x``/``z`` are rejected.
+``bit`` and ``bit_vector`` remain binary. Explicit ``X``/``Z`` operands in
+arithmetic and comparisons are rejected; nine-valued simulation is unsupported.
+Register initialization and asynchronous reset values must remain binary.
 
 Array objects and constrained user-defined array types support ``'left``,
 ``'right``, ``'low``, ``'high``, ``'length``, and ``'ascending``. Bounds and
@@ -397,10 +409,10 @@ including enclosing generics and scalar constants. Binary runtime functions also
 capture visible binary constants. Overloading and architecture function forward
 declarations remain unsupported.
 
-Input port maps accept binary character, string, and binary/octal/hex bit-string
+Input port maps accept character, string, and binary/octal/hex bit-string
 literals in positional or named associations, for direct entities and components.
-The formal port supplies the type and bit order. Width/type mismatches, non-binary
-values, and literals bound to output ports are rejected. General expression and
+The formal port supplies the type and bit order, including ``X``/``Z`` for logic
+types. Width/type mismatches, unsupported literal values, and literals bound to output ports are rejected. General expression and
 aggregate port actuals remain unsupported.
 
 Named port associations may select vector elements, slices, and record fields
@@ -469,8 +481,15 @@ and pure binary vector helpers now elaborate within the supported subset.
 Additional ``numeric_std`` overloads and further constructs are still needed;
 the complete top has not been validated.
 
-Dynamic array reads lower to ``naja_table_select`` for constant arrays,
-constant-driven ROM signals, and general signal or variable arrays. Identical
+Dynamic reads of constant arrays lower to read-only ``naja_mem`` instances
+with ``WR_PORTS=0`` and ``INIT_ENABLE=1``. The instance ``INIT`` parameter
+stores the contents, with address zero in the least-significant word. Binary
+images use sized hexadecimal literals; images containing X/Z use sized binary
+literals. These memories have only read address/data terminals and combinational
+timing arcs; clocked read registers and enable muxes remain separate. Both HDL
+frontends use the same representation. General signal or variable arrays use
+``naja_table_select``, including signals whose constant drivers are encountered
+after the read is lowered. Identical
 lookups within a design share the primitive. Nonnegative ascending and descending
 bounds are supported, including nonzero lower bounds. Indices can use
 ``conv_integer`` with the Synopsys packages or ``to_integer(unsigned(...))``
@@ -560,7 +579,7 @@ are supported. Bits omitted from the reset branch hold their state while reset
 is active, including at clock edges. Enables and explicit register initializers
 are preserved. Dynamic asynchronous loads, multiple reset sources, and assignments
 outside the clock/reset guard are rejected. General event-driven processes,
-nonbinary literals, multiple drivers, dynamic ``to_unsigned`` conversions and
+unsupported nonbinary values, multiple drivers, dynamic ``to_unsigned`` conversions and
 general VHDL remain unsupported and are diagnosed. Argument and path errors
 use the same Python exception categories as the other high-level loaders.
 Frontend or lowering failures are reported as :class:`RuntimeError`.

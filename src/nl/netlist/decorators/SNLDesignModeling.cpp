@@ -2846,7 +2846,8 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
     return true;
   }
   if (hasMemoryInterface(design)) {
-    return true;
+    const auto memory = getMemoryInterface(design);
+    if (!memory.writePorts.empty() || memory.clock || memory.reset) return true;
   }
   auto property = getProperty(design);
   if (property) {

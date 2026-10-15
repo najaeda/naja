@@ -19223,15 +19223,6 @@ endmodule
           dataBits.size() != elementWidth * elementCount) {
         return false; // LCOV_EXCL_LINE
       }
-      auto* model = NLDB0::getOrCreateTableSelect(
-        NLDB0::TableSelectSignature {
-          elementWidth,
-          elementCount,
-          selectorBits.size()
-        });
-      if (!model) {
-        return false; // LCOV_EXCL_LINE
-      }
 
       SNLNet* outNet = nullptr;
       if (elementWidth == 1) {
@@ -19243,6 +19234,22 @@ endmodule
           0);
       }
       annotateSourceInfo(outNet, sourceRange);
+
+      if (std::all_of(dataBits.begin(), dataBits.end(), [](auto* bit) { return bit && bit->isConstant(); })) {
+        auto* inst = SNLRTLPrimitives::createROM(design, dataBits, selectorBits, outNet);
+        annotateSourceInfo(inst, sourceRange);
+        outBits = collectBits(outNet);
+        return outBits.size() == elementWidth;
+      }
+      auto* model = NLDB0::getOrCreateTableSelect(
+        NLDB0::TableSelectSignature {
+          elementWidth,
+          elementCount,
+          selectorBits.size()
+        });
+      if (!model) {
+        return false; // LCOV_EXCL_LINE
+      }
 
       auto* inst = SNLInstance::create(design, model);
       annotateSourceInfo(inst, sourceRange);
