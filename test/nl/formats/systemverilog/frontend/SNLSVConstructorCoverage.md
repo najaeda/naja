@@ -202,3 +202,25 @@ The line numbers below refer to the source before this coverage change.
 | 12893 | Excluded: Slang creates an implicit return variable for every non-void function; a void call cannot supply an integral RHS. |
 | 13079 | Excluded: the preceding successful `resolveExpressionNet` requires a value-symbol reference, which necessarily has a root symbol. |
 | 13602, 13604, 13609, 13621 | `parsePriorityReturnFunctionNestedStatementsCoverage`: nested assignments, duplicate loops, declaration-only blocks, and a loopless unsupported return expression. |
+
+Additional requested lines refer to the source before the following change:
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 727 | Excluded: the unpacked-struct width overflow safeguard requires over `UINT32_MAX` bits, beyond practical test resources. |
+| 4729–4734, 11121–11123 | `parseUnpackedStructValuesCoverage`: nested unpacked struct constants and runtime positional assignment patterns, with every flattened bit checked for its value or source connection. |
+| 13430 | `rejectReturnOnlyFunctionExpressionCoverage`: a return-only statement list containing an unsupported runtime system call. |
+| 34789–34791 | `rejectContinuousStreamingRHSCoverage`: an unsupported runtime system call on the RHS must emit the streaming-assignment diagnostic and throw. |
+
+Procedural concatenation requests refer to the source before this change
+(`280820 to 28022` is interpreted as `28020–28022`):
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 25056, 28007 | Excluded: concatenation flattening can fail only for a null Slang operand, which a parser-backed concatenation cannot contain. |
+| 28020–28022 | `SNLSVProceduralConcatTest.matchesPerElementRewrite`, `nba_replay` variant: a blocking temporary activates replay while nonblocking concatenation reads must retain the pre-clock target values; both compilation-unit modes are checked against simulation. |
+| 28035–28036 | Excluded: Slang requires integral, fixed-width leaves in a procedural concatenation LHS. |
+| 28052 | `proceduralConcatResolutionFailuresCoverage`, `rhs` variant: an unsupported runtime system call must report the RHS resolution failure and throw. |
+| 28060–28061 | Excluded: leaf widths were validated before RHS lowering, which returns their total width; subsequent slices must fit. |
+| 28077, 28094 | `proceduralConcatResolutionFailuresCoverage`: unsupported dynamic selectors fail both dependency replay and tracked-target application, with the selector diagnostic checked. |
+| 28097–28098 | Excluded: a leaf accepted by `isTrackedSelectionSubLhsOf` is handled by the element/range handlers or by the fixed-subassignment handler, which sets `handled` for every remaining selection rooted at the tracked LHS. |

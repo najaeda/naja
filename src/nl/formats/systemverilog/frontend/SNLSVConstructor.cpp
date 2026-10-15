@@ -508,9 +508,26 @@ bool allNetsArePortNets(SNLDesign* design) {
   return true;
 }
 
+bool containsUnpackedStruct(const Type& type) {
+  const auto& canonical = type.getCanonicalType();
+  if (canonical.kind == SymbolKind::UnpackedStructType) {
+    return true;
+  }
+  const auto* elementType = canonical.getArrayElementType();
+  return elementType && containsUnpackedStruct(*elementType);
+}
+
+bool isUnpackedStructBitstreamConversion(const Expression& expr) {
+  if (expr.kind != slang::ast::ExpressionKind::Conversion) return false;
+  const auto& operand = expr.as<slang::ast::ConversionExpression>().operand();
+  return (expr.type->isIntegral() && containsUnpackedStruct(*operand.type)) ||
+    (operand.type->isIntegral() && containsUnpackedStruct(*expr.type));
+}
+
 const Expression* stripConversions(const Expression& expr) {
   const Expression* current = &expr;
   while (current && current->kind == slang::ast::ExpressionKind::Conversion) {
+    if (isUnpackedStructBitstreamConversion(*current)) break;
     current = &current->as<slang::ast::ConversionExpression>().operand();
   }
   return current;
@@ -691,6 +708,47 @@ std::string formatUnknownLiteralWarning(
   return {};
 }
 
+// Fixed aggregates use a flat bus; unpacked struct fields follow Slang's
+// selectable offsets (first declared field at the least significant end).
+std::optional<slang::bitwidth_t> getRepresentableTypeBitWidth(const Type& currentType) {
+  const auto& current = currentType.getCanonicalType();
+  if (current.isIntegral()) {
+    return current.getBitWidth();
+  }
+  if (current.kind == SymbolKind::UnpackedStructType) {
+    uint64_t totalWidth = 0;
+    for (const auto* field : current.as<slang::ast::UnpackedStructType>().fields) {
+      auto fieldWidth = getRepresentableTypeBitWidth(field->getType());
+      if (!fieldWidth) {
+        return std::nullopt;
+      }
+      totalWidth += *fieldWidth;
+      if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
+        // Resource-limit safeguard: exercising this needs over UINT32_MAX bits.
+        return std::nullopt; // LCOV_EXCL_LINE
+      }
+    }
+    return totalWidth ? std::optional<slang::bitwidth_t>(totalWidth) : std::nullopt;
+  }
+  if (!current.isUnpackedArray() || !current.hasFixedRange()) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  const auto* elementType = current.getArrayElementType();
+  if (!elementType) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  auto elementWidth = getRepresentableTypeBitWidth(*elementType);
+  if (!elementWidth) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  const auto dimensionWidth = static_cast<uint64_t>(current.getFixedRange().width());
+  const auto totalWidth = static_cast<uint64_t>(*elementWidth) * dimensionWidth;
+  if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  return static_cast<slang::bitwidth_t>(totalWidth);
+}
+
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
   const auto& canonical = type.getCanonicalType();
   if (canonical.isString()) {
@@ -699,34 +757,7 @@ std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
   if (canonical.isFloating()) {
     return "Unsupported SystemVerilog floating-point type";
   }
-  // Keep support conservative but include fixed-size unpacked arrays of representable
-  // element types by flattening them to a single SNL bus.
-  std::function<std::optional<slang::bitwidth_t>(const Type&)> getRepresentableBitWidth =
-    [&](const Type& currentType) -> std::optional<slang::bitwidth_t> {
-    const auto& current = currentType.getCanonicalType();
-    if (current.isIntegral()) {
-      return current.getBitWidth();
-    }
-    if (!current.isUnpackedArray() || !current.hasFixedRange()) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    const auto* elementType = current.getArrayElementType();
-    if (!elementType) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    auto elementWidth = getRepresentableBitWidth(*elementType);
-    if (!elementWidth) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    const auto dimensionWidth = static_cast<uint64_t>(current.getFixedRange().width());
-    const auto totalWidth = static_cast<uint64_t>(*elementWidth) * dimensionWidth;
-    if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    return static_cast<slang::bitwidth_t>(totalWidth);
-  };
-
-  if (!getRepresentableBitWidth(canonical)) {
+  if (!getRepresentableTypeBitWidth(canonical)) {
     return "Unsupported SystemVerilog type not representable in SNL";
   }
   return std::nullopt;
@@ -735,41 +766,16 @@ std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
 std::optional<slang::ConstantRange> getRangeFromType(const Type& type) {
   const auto& canonical = type.getCanonicalType();
 
-  std::function<std::optional<slang::bitwidth_t>(const Type&)> getRepresentableBitWidth =
-    [&](const Type& currentType) -> std::optional<slang::bitwidth_t> {
-    const auto& current = currentType.getCanonicalType();
-    if (current.isIntegral()) {
-      return current.getBitWidth();
-    }
-    if (!current.isUnpackedArray() || !current.hasFixedRange()) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    const auto* elementType = current.getArrayElementType();
-    if (!elementType) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    auto elementWidth = getRepresentableBitWidth(*elementType);
-    if (!elementWidth) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    const auto dimensionWidth = static_cast<uint64_t>(current.getFixedRange().width());
-    const auto totalWidth = static_cast<uint64_t>(*elementWidth) * dimensionWidth;
-    if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
-      return std::nullopt; // LCOV_EXCL_LINE
-    }
-    return static_cast<slang::bitwidth_t>(totalWidth);
-  };
-
   // Preserve declared packed ranges whenever available.
   if (!canonical.isUnpackedArray() && canonical.hasFixedRange()) {
     const auto fixedRange = canonical.getFixedRange();
-    auto totalWidth = getRepresentableBitWidth(canonical);
+    auto totalWidth = getRepresentableTypeBitWidth(canonical);
     if (totalWidth && static_cast<uint64_t>(*totalWidth) == fixedRange.fullWidth()) {
       return fixedRange;
     }
   }
 
-  auto width = getRepresentableBitWidth(canonical);
+  auto width = getRepresentableTypeBitWidth(canonical);
   if (!width || *width <= 1) {
     return std::nullopt; // LCOV_EXCL_LINE
   }
@@ -4372,6 +4378,7 @@ endmodule
       const Expression* current = &expr;
       while (current) {
         if (current->kind == slang::ast::ExpressionKind::Conversion) {
+          if (isUnpackedStructBitstreamConversion(*current)) break;
           current = &current->as<slang::ast::ConversionExpression>().operand();
           continue;
         }
@@ -4710,29 +4717,39 @@ endmodule
     bool resolveUnpackedConstantBits(
       SNLDesign* design,
       const slang::ConstantValue& constant,
+      const Type& type,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits) {
       bits.clear();
-      // Constant arrays are stored in declared order. SNL flattened buses
-      // store the rightmost element first, with each element also LSB first.
-      std::function<bool(const slang::ConstantValue&)> appendValue =
-        [&](const slang::ConstantValue& value) {
+      std::function<bool(const slang::ConstantValue&, const Type&)> appendValue =
+        [&](const slang::ConstantValue& value, const Type& valueType) {
+        const auto& canonical = valueType.getCanonicalType();
         if (value.isUnpacked()) {
           auto elements = value.elements();
+          if (canonical.kind == SymbolKind::UnpackedStructType) {
+            const auto& fields = canonical.as<slang::ast::UnpackedStructType>().fields;
+            if (elements.size() != fields.size()) return false;
+            for (size_t i = 0; i < fields.size(); ++i) {
+              if (!appendValue(elements[i], fields[i]->getType())) return false;
+            }
+            return true;
+          }
+          const auto* elementType = canonical.getArrayElementType();
+          if (!elementType) return false;
           for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
-            if (!appendValue(*it)) return false;
+            if (!appendValue(*it, *elementType)) return false;
           }
           return true;
         }
-        if (!value.isInteger()) return false;
+        if (!value.isInteger() || !canonical.isIntegral()) return false;
         const auto& integer = value.integer();
         for (slang::bitwidth_t bit = 0; bit < integer.getBitWidth(); ++bit) {
           bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, integer[bit])));
         }
         return true;
       };
-      if (appendValue(constant) && bits.size() == targetWidth) return true;
-      // Callers validate the fixed bitstream width of this integral-leaf array.
+      if (appendValue(constant, type) && bits.size() == targetWidth) return true;
+      // Callers validate the fixed width of this integral-leaf aggregate.
       // A mismatch requires an inconsistent constant/type pair from the AST.
       // LCOV_EXCL_START
       bits.clear();
@@ -4753,6 +4770,11 @@ endmodule
         return std::nullopt;
       }
       const auto& canonical = stripped->type->getCanonicalType();
+      // Storage offsets for unpacked structs are not bitstream-cast order.
+      // Keep streams of these aggregates rejected until that permutation is lowered.
+      if (containsUnpackedStruct(canonical) && getRepresentableTypeBitWidth(canonical)) {
+        return std::nullopt;
+      }
       const auto bitWidth = canonical.getBitstreamWidth();
       if (bitWidth <= 0) {
         // Non-bitstream / zero-width expression types are filtered by callers
@@ -7930,16 +7952,18 @@ endmodule
     InferredMemoryReadPort* getOrCreateInferredMemoryReadPort(
       SNLDesign* design,
       InferredMemory& memory,
-      const Expression& selectorExpr,
-      const std::optional<slang::SourceRange>& sourceRange) {
-      int32_t constantSelectorIndex = 0;
-      const bool hasConstantSelector = getConstantInt32(selectorExpr, constantSelectorIndex);
+      const Expression* selectorExpr,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::optional<int32_t> constantIndex = std::nullopt) {
+      int32_t constantSelectorIndex = constantIndex.value_or(0);
+      const bool hasConstantSelector = constantIndex.has_value() ||
+        (selectorExpr && getConstantInt32(*selectorExpr, constantSelectorIndex));
       if (hasConstantSelector) {
         if (auto it = memory.readPortByConstantSelectorIndex.find(constantSelectorIndex);
             it != memory.readPortByConstantSelectorIndex.end()) {
           return &memory.readPorts[it->second];
         }
-      } else if (auto it = memory.readPortBySelectorExpr.find(&selectorExpr);
+      } else if (auto it = memory.readPortBySelectorExpr.find(selectorExpr);
                  it != memory.readPortBySelectorExpr.end()) {
         return &memory.readPorts[it->second]; // LCOV_EXCL_LINE
       }
@@ -7970,7 +7994,7 @@ endmodule
         }
       } else if (!resolveExpressionBits(
                    design,
-                   selectorExpr,
+                   *selectorExpr,
                    memory.signature.abits,
                    selectorBits) ||
                  selectorBits.size() != memory.signature.abits) { // LCOV_EXCL_LINE
@@ -7979,7 +8003,7 @@ endmodule
       connectBusNetBits(design, addrNet, selectorBits, sourceRange);
 
       InferredMemoryReadPort port;
-      port.selectorExpr = &selectorExpr;
+      port.selectorExpr = selectorExpr;
       port.selectorConstantIndex =
         hasConstantSelector ? std::optional<int32_t>(constantSelectorIndex) : std::nullopt;
       port.addrNet = addrNet;
@@ -7988,7 +8012,7 @@ endmodule
       if (hasConstantSelector) {
         memory.readPortByConstantSelectorIndex[constantSelectorIndex] = portIndex;
       } else {
-        memory.readPortBySelectorExpr[&selectorExpr] = portIndex;
+        memory.readPortBySelectorExpr[selectorExpr] = portIndex;
       }
       return &memory.readPorts.back();
     }
@@ -8044,7 +8068,7 @@ endmodule
       auto* port = getOrCreateInferredMemoryReadPort(
         design,
         memory,
-        elementExpr.selector(),
+        &elementExpr.selector(),
         getSourceRange(expr));
       if (!port) {
         return false; // LCOV_EXCL_LINE
@@ -8162,7 +8186,7 @@ endmodule
       auto* readPort = getOrCreateInferredMemoryReadPort(
         design,
         memory,
-        *writeAction.selectorExpr,
+        writeAction.selectorExpr,
         writeAction.sourceRange);
       if (!readPort) {
         // LCOV_EXCL_START
@@ -9311,6 +9335,28 @@ endmodule
       for (auto& memory : inferredMemories_) {
         if (!memory.stateSymbol || !memory.lowered) {
           continue; // LCOV_EXCL_LINE
+        }
+
+        // Whole-array consumers (including output ports) use the flattened
+        // variable net rather than element-select expression lowering. Only
+        // materialized variables need these taps; ordinary RAMs stay compact.
+        auto* stateNet = getLoweredValueSymbolNet(design, *memory.stateSymbol);
+        if (!stateNet) {
+          stateNet = design->getNet(NLName(getLoweredSymbolName(*memory.stateSymbol)));
+        }
+        if (stateNet) {
+          const auto stateBits = collectBits(stateNet);
+          const auto range = memory.stateSymbol->getType().getCanonicalType().getFixedRange();
+          for (size_t index = 0; index < memory.signature.depth; ++index) {
+            const auto offset = static_cast<size_t>(range.translateIndex(
+              static_cast<int32_t>(index))) * memory.signature.width;
+            auto* port = getOrCreateInferredMemoryReadPort(
+              design, memory, nullptr, memory.sourceRange, static_cast<int32_t>(index));
+            const auto readBits = collectBits(port->dataNet);
+            for (size_t bit = 0; bit < memory.signature.width; ++bit) {
+              createAssignInstance(design, readBits[bit], stateBits.at(offset + bit));
+            }
+          }
         }
 
         NLDB0::MemorySignature signature = memory.signature;
@@ -11093,11 +11139,17 @@ endmodule
           }
           return true;
         }
-        if (canonical.kind == SymbolKind::PackedStructType) {
+        if (canonical.kind == SymbolKind::PackedStructType ||
+            canonical.kind == SymbolKind::UnpackedStructType) {
           std::vector<const slang::ast::FieldSymbol*> fields;
-          for (const auto& sym : canonical.as<slang::ast::PackedStructType>().members()) {
-            if (sym.kind == SymbolKind::Field) {
-              fields.push_back(&sym.as<slang::ast::FieldSymbol>());
+          if (canonical.kind == SymbolKind::UnpackedStructType) {
+            const auto& structure = canonical.as<slang::ast::UnpackedStructType>();
+            fields.assign(structure.fields.begin(), structure.fields.end());
+          } else {
+            for (const auto& sym : canonical.as<slang::ast::PackedStructType>().members()) {
+              if (sym.kind == SymbolKind::Field) {
+                fields.push_back(&sym.as<slang::ast::FieldSymbol>());
+              }
             }
           }
           std::sort(
@@ -11111,8 +11163,8 @@ endmodule
             return std::nullopt; // LCOV_EXCL_LINE
           }
 
-          const auto bitWidth = canonical.getBitWidth();
-          if (bitWidth <= 0 || static_cast<size_t>(bitWidth) != targetWidth) {
+          const auto bitWidth = getRepresentableTypeBitWidth(canonical);
+          if (!bitWidth || *bitWidth != targetWidth) {
             return std::nullopt; // LCOV_EXCL_LINE
           }
 
@@ -11120,14 +11172,11 @@ endmodule
           for (size_t i = 0; i < fields.size(); ++i) {
             const auto* field = fields[i];
             const auto& fieldType = field->getType().getCanonicalType();
-            if (!fieldType.isIntegral()) {
+            const auto memberWidthBits = getRepresentableTypeBitWidth(fieldType);
+            if (!memberWidthBits || !*memberWidthBits) {
               return std::nullopt; // LCOV_EXCL_LINE
             }
-            const auto memberWidthBits = fieldType.getBitWidth();
-            if (memberWidthBits <= 0) {
-              return std::nullopt; // LCOV_EXCL_LINE
-            }
-            const auto memberWidth = static_cast<size_t>(memberWidthBits);
+            const auto memberWidth = static_cast<size_t>(*memberWidthBits);
 
             std::vector<SNLBitNet*> memberBits;
             if (!resolveExpressionBits(
@@ -11207,14 +11256,11 @@ endmodule
             }
             const auto& field = setter.member->as<slang::ast::FieldSymbol>();
             const auto& fieldType = field.getType().getCanonicalType();
-            if (!fieldType.isIntegral()) {
+            const auto memberWidthBits = getRepresentableTypeBitWidth(fieldType);
+            if (!memberWidthBits || !*memberWidthBits) {
               return std::nullopt; // LCOV_EXCL_LINE
             }
-            const auto memberWidthBits = fieldType.getBitWidth();
-            if (memberWidthBits <= 0) {
-              return std::nullopt; // LCOV_EXCL_LINE
-            }
-            const auto memberWidth = static_cast<size_t>(memberWidthBits);
+            const auto memberWidth = static_cast<size_t>(*memberWidthBits);
 
             std::vector<SNLBitNet*> memberBits;
             if (!resolveExpressionBits(design, *setter.expr, memberWidth, memberBits) ||
@@ -13203,6 +13249,40 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      // Return-only control flow can be composed backwards: each statement
+      // selects its returned value or the continuation after it. This also
+      // preserves first-return priority inside nested conditional branches.
+      std::function<bool(const Statement&)> isReturnOnly;
+      isReturnOnly = [&](const Statement& statement) {
+        const auto* current = unwrapStatement(statement);
+        if (!current) return false;
+        switch (current->kind) {
+          case slang::ast::StatementKind::Empty:
+          case slang::ast::StatementKind::Return:
+            return true;
+          case slang::ast::StatementKind::List:
+            for (const auto* item : current->as<slang::ast::StatementList>().list) {
+              if (item && !isReturnOnly(*item)) return false;
+            }
+            return true;
+          case slang::ast::StatementKind::Conditional: {
+            const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+            return isReturnOnly(conditional.ifTrue) &&
+              (!conditional.ifFalse || isReturnOnly(*conditional.ifFalse));
+          }
+          case slang::ast::StatementKind::Case: {
+            const auto& cases = current->as<slang::ast::CaseStatement>();
+            for (const auto& item : cases.items) {
+              if (!item.stmt || !isReturnOnly(*item.stmt)) return false;
+            }
+            return !cases.defaultCase || isReturnOnly(*cases.defaultCase);
+          }
+          default:
+            return false;
+        }
+      };
+      const bool returnOnly = isReturnOnly(*bodyStmt);
+
       std::unordered_map<const Symbol*, SNLNet*> argumentNets;
       argumentNets.reserve(formalArgs.size());
       for (size_t i = 0; i < formalArgs.size(); ++i) {
@@ -13369,6 +13449,14 @@ endmodule
 
         if (unwrapped->kind == slang::ast::StatementKind::List) {
           const auto& stmtList = unwrapped->as<slang::ast::StatementList>().list;
+          if (returnOnly) {
+            for (auto item = stmtList.rbegin(); item != stmtList.rend(); ++item) {
+              if (*item && !resolveReturnStatementBits(**item, stmtBits, haveStmtBits)) {
+                return false;
+              }
+            }
+            return true;
+          }
           for (const auto* item : stmtList) {
             if (!item) {
               continue; // LCOV_EXCL_LINE
@@ -13489,6 +13577,12 @@ endmodule
         haveStmtBits = mergedHasBits;
         return stmtBits.size() == targetWidth;
       };
+
+      if (returnOnly) {
+        bool haveBits = false;
+        return resolveReturnStatementBits(*bodyStmt, bits, haveBits) &&
+          haveBits && bits.size() == targetWidth;
+      }
 
       std::vector<const Statement*> stmts;
       if (bodyStmt->kind == slang::ast::StatementKind::List) {
@@ -14065,6 +14159,10 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
 
+      if (isUnpackedStructBitstreamConversion(expr)) {
+        return false;
+      }
+
       if (expr.kind == slang::ast::ExpressionKind::Assignment) {
         // LCOV_EXCL_START
         // Connection LValueArg assignments are normalized before the covered
@@ -14077,7 +14175,8 @@ endmodule
       }
       // LCOV_EXCL_STOP
 
-      if (resolveActiveProceduralReplayBits(expr, targetWidth, bits)) {
+      if (expr.kind != slang::ast::ExpressionKind::Conversion &&
+          resolveActiveProceduralReplayBits(expr, targetWidth, bits)) {
         return true;
       }
 
@@ -14116,9 +14215,14 @@ endmodule
               return false;
             }
             auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
-            if (targetType.isSigned() && !operandBits.empty()) {
+            if (conversionExpr.operand().type->isSigned() && !operandBits.empty()) {
               fillBit = operandBits.back();
             }
+            // Size conversion extends according to the source signedness;
+            // a subsequent context resize uses the converted type's signedness.
+            resizeBitsToWidth(operandBits, targetType.getBitWidth(), fillBit);
+            fillBit = targetType.isSigned() && !operandBits.empty()
+              ? operandBits.back() : static_cast<SNLBitNet*>(getConstNet(design, false));
             bits = std::move(operandBits);
             resizeBitsToWidth(bits, targetWidth, fillBit);
             return true;
@@ -14204,9 +14308,10 @@ endmodule
         }
       }
       if (constant && constant->isUnpacked() &&
-          stripped->type->getCanonicalType().isUnpackedArray() &&
+          (stripped->type->getCanonicalType().isUnpackedArray() ||
+           stripped->type->getCanonicalType().kind == SymbolKind::UnpackedStructType) &&
           getRepresentableExpressionBitWidth(*stripped) == targetWidth) {
-        return resolveUnpackedConstantBits(design, *constant, targetWidth, bits);
+        return resolveUnpackedConstantBits(design, *constant, *stripped->type, targetWidth, bits);
       }
 
       slang::ConstantValue convertedConstant;
@@ -15427,6 +15532,10 @@ endmodule
             operandExpr = stream.withExpr;
           }
 
+          if (containsUnpackedStruct(*operandExpr->type)) {
+            return false;
+          }
+
           size_t operandWidthBits = 0;
           if (stream.constantWithWidth && stream.withExpr) {
             if (*stream.constantWithWidth <= 0) {
@@ -16121,8 +16230,8 @@ endmodule
 
       if (stripped->kind == slang::ast::ExpressionKind::MemberAccess) {
         const auto& memberExpr = stripped->as<slang::ast::MemberAccessExpression>();
-        auto memberWidth = getIntegralExpressionBitWidth(*stripped);
-        auto valueWidth = getIntegralExpressionBitWidth(memberExpr.value());
+        auto memberWidth = getRepresentableExpressionBitWidth(*stripped);
+        auto valueWidth = getRepresentableExpressionBitWidth(memberExpr.value());
         const slang::ast::FieldSymbol* field = nullptr;
         if (memberExpr.member.kind == SymbolKind::Field) {
           field = &memberExpr.member.as<slang::ast::FieldSymbol>();
@@ -19281,6 +19390,7 @@ endmodule
     enum class ProceduralAssignmentScheduling { Blocking, NonBlocking, Unknown };
 
     struct AssignAction {
+      std::optional<std::vector<SNLBitNet*>> evaluatedBits {};
       const Expression* lhs {nullptr};
       const Expression* rhs {nullptr};
       std::vector<std::pair<const Symbol*, int64_t>> loopConstants {};
@@ -20110,6 +20220,22 @@ endmodule
         }
         return;
       }
+      if (isConcatenationExpression(lhsExpr)) {
+        std::vector<const Expression*> leaves;
+        appendFlattenedConcatenationLHSExpressions(*lhsExpr, leaves);
+        for (const auto* leaf : leaves) {
+          const auto* root = getTrackedAlwaysCombLHS(leaf);
+          const slang::ast::ValueSymbol* symbol = nullptr;
+          if (!shouldIgnoreTrackedLHS(root, ignoredSymbols) &&
+              tryGetRootValueSymbolReference(*root, symbol)) {
+            auto& deps = dependencyMap[symbol];
+            deps.insert(conditionSymbols.begin(), conditionSymbols.end());
+            if (action.rhs) collectExpressionRootValueSymbols(*action.rhs, deps);
+            collectExpressionRootValueSymbols(*lhsExpr, deps);
+          }
+        }
+        return;
+      }
       lhsExpr = getTrackedAlwaysCombLHS(lhsExpr);
       if (shouldIgnoreTrackedLHS(lhsExpr, ignoredSymbols)) {
         return;
@@ -20905,7 +21031,8 @@ endmodule
         }
         return !bits.empty();
       }
-      return !hasDynamicSelectionInLHS(*stripped) &&
+      return !containsUnpackedStruct(*stripped->type) &&
+             !hasDynamicSelectionInLHS(*stripped) &&
              resolveAssignmentLHSBits(design, *stripped, bits);
     }
 
@@ -22839,17 +22966,21 @@ endmodule
           failureReason = "timed independent latch writes are unsupported";
           return false;
         }
-        const slang::ast::ValueSymbol* root = nullptr;
-        if (!tryGetRootValueSymbolReference(*lhs, root) || hasDynamicSelectionInLHS(*lhs)) {
-          failureReason = "independent latch writes require statically selected targets";
-          return false;
+        std::vector<const Expression*> leaves;
+        appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+        for (const auto* leaf : leaves) {
+          const slang::ast::ValueSymbol* root = nullptr;
+          if (!tryGetRootValueSymbolReference(*leaf, root) || hasDynamicSelectionInLHS(*leaf)) {
+            failureReason = "independent latch writes require statically selected targets";
+            return false;
+          }
+          if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
+            failureReason = "mixed blocking and nonblocking independent latch writes";
+            return false;
+          }
+          scheduling[root] = action.scheduling;
+          writtenSymbols.insert(root);
         }
-        if (scheduling.contains(root) && scheduling.at(root) != action.scheduling) {
-          failureReason = "mixed blocking and nonblocking independent latch writes";
-          return false;
-        }
-        scheduling[root] = action.scheduling;
-        writtenSymbols.insert(root);
         if (!collectReads(*action.rhs)) {
           return false;
         }
@@ -23231,29 +23362,34 @@ endmodule
         action.scheduling == ProceduralAssignmentScheduling::Blocking ? 1u : 2u;
       summary.hasBlocking |= schedulingBit == 1u;
       summary.hasNonBlocking |= schedulingBit == 2u;
-      const slang::ast::ValueSymbol* symbol = nullptr;
-      if (!lhs || !tryGetRootValueSymbolReference(*lhs, symbol) || !symbol) {
-        return true;
-      }
-      summary.schedulingBySymbol[symbol] |= schedulingBit;
-      const uint8_t currentMasks = pathState.contains(symbol) ? pathState[symbol] : 1u;
-      uint8_t nextMasks = 0u;
-      for (uint8_t mask = 0; mask < 4; ++mask) {
-        if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+      std::vector<const Expression*> leaves;
+      if (lhs) appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+      for (const auto* leaf : leaves) {
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (!tryGetRootValueSymbolReference(*leaf, symbol) || !symbol ||
+            shouldIgnoreTrackedLHS(leaf, ignoredSymbols)) {
           continue;
         }
-        const auto nextMask = static_cast<uint8_t>(mask | schedulingBit);
-        if (nextMask == 3u) {
-          failureReason =
-            "mixed blocking and non-blocking assignments to procedural target '" +
-            std::string(symbol->name) +
-            "' can execute on the same control-flow path and cannot be represented "
-            "by the current netlist scheduling model";
-          return false;
+        summary.schedulingBySymbol[symbol] |= schedulingBit;
+        const uint8_t currentMasks = pathState.contains(symbol) ? pathState[symbol] : 1u;
+        uint8_t nextMasks = 0u;
+        for (uint8_t mask = 0; mask < 4; ++mask) {
+          if ((currentMasks & static_cast<uint8_t>(1u << mask)) == 0u) {
+            continue;
+          }
+          const auto nextMask = static_cast<uint8_t>(mask | schedulingBit);
+          if (nextMask == 3u) {
+            failureReason =
+              "mixed blocking and non-blocking assignments to procedural target '" +
+              std::string(symbol->name) +
+              "' can execute on the same control-flow path and cannot be represented "
+              "by the current netlist scheduling model";
+            return false;
+          }
+          nextMasks |= static_cast<uint8_t>(1u << nextMask);
         }
-        nextMasks |= static_cast<uint8_t>(1u << nextMask);
+        pathState[symbol] = nextMasks;
       }
-      pathState[symbol] = nextMasks;
       return true;
     }
 
@@ -23365,12 +23501,16 @@ endmodule
       const Expression* lhs = nullptr;
       AssignAction action;
       if (!extractAssignment(*current, lhs, action)) return true;
-      const slang::ast::ValueSymbol* lhsSymbol = nullptr;
-      if (lhs) tryGetRootValueSymbolReference(*lhs, lhsSymbol);
       if (action.rhs && !rejectPendingRead(*action.rhs)) return false;
-      if (lhs) {
+      std::vector<const Expression*> leaves;
+      if (lhs) appendFlattenedConcatenationLHSExpressions(*lhs, leaves);
+      std::unordered_set<const slang::ast::ValueSymbol*> targets;
+      for (const auto* leaf : leaves) {
+        const slang::ast::ValueSymbol* lhsSymbol = nullptr;
+        tryGetRootValueSymbolReference(*leaf, lhsSymbol);
+        if (lhsSymbol) targets.insert(lhsSymbol);
         std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
-        collectExpressionRootValueSymbols(*lhs, lhsReads);
+        collectExpressionRootValueSymbols(*leaf, lhsReads);
         if (lhsSymbol) lhsReads.erase(lhsSymbol);
         for (const auto* pending : pendingNonBlocking) {
           if (pending && lhsReads.contains(pending)) {
@@ -23383,12 +23523,12 @@ endmodule
         }
       }
       if (action.scheduling == ProceduralAssignmentScheduling::NonBlocking) {
-        if (!lhsSymbol) {
+        if (targets.empty()) {
           failureReason =
             "scheduling-sensitive combinational non-blocking assignment has an ambiguous target";
           return false;
         }
-        pendingNonBlocking.insert(lhsSymbol);
+        pendingNonBlocking.insert(targets.begin(), targets.end());
       }
       return true;
     }
@@ -24378,100 +24518,9 @@ endmodule
             }
             return true;
           }
-          if (strippedAssignedLHS &&
-              strippedAssignedLHS->kind == slang::ast::ExpressionKind::Concatenation) {
-            std::vector<const Expression*> concatLeafExpressions;
-            if (!appendFlattenedConcatenationLHSExpressions(
-                  *assignedLHS,
-                  concatLeafExpressions)) {
-              failureReason =
-                "failed to flatten sequential concatenation assignment LHS";
-              return false; // LCOV_EXCL_LINE
-            }
-
-            std::optional<size_t> trackedOffset;
-            size_t concatWidth = 0;
-            for (const auto* leafExpr : concatLeafExpressions) {
-              std::vector<SNLBitNet*> leafBits;
-              std::string leafFailureReason;
-              if (!resolveAssignmentLHSBits(
-                    design,
-                    *leafExpr,
-                    leafBits,
-                    &leafFailureReason) ||
-                  leafBits.empty()) {
-                // Parser-backed sequential concatenation forms that survive to
-                // this replay path already have resolvable leaf LHS bits; keep
-                // this branch as defensive reporting for alternate lowering
-                // orders.
-                // LCOV_EXCL_START
-                failureReason = formatSequentialConcatLeafFailureReason(
-                  describeLHSForDiagnostics(*leafExpr),
-                  leafFailureReason);
-                return false;
-                // LCOV_EXCL_STOP
-              }
-
-              if (sameLhs(leafExpr, &lhsExpr)) {
-                if (trackedOffset.has_value()) {
-                  // LCOV_EXCL_START
-                  // Defensive duplicate-leaf check in the concat replay path.
-                  // Parser-backed sequential concatenation forms currently
-                  // bypass this fallback and are handled earlier by direct
-                  // lowering / flattened assignment collection.
-                  failureReason = formatQuotedDescriptionFailure(
-                    "duplicate sequential concatenation assignment leaf for ",
-                    describeLHSForDiagnostics(lhsExpr));
-                  return false;
-                  // LCOV_EXCL_STOP
-                }
-                trackedOffset = concatWidth;
-                if (leafBits.size() != lhsBits.size()) {
-                  // LCOV_EXCL_START
-                  // Defensive consistency guard: once a concatenation leaf is
-                  // identified as the tracked LHS, the resolved leaf width is
-                  // expected to match the tracked target width. Parser-backed
-                  // unsupported cases fail earlier during LHS resolution.
-                  failureReason = formatQuotedDescriptionFailure(
-                    "sequential concatenation assignment width mismatch for tracked LHS ",
-                    describeLHSForDiagnostics(lhsExpr));
-                  return false;
-                  // LCOV_EXCL_STOP
-                }
-              }
-              concatWidth += leafBits.size();
-            }
-
-            if (trackedOffset.has_value()) {
-              auto actionSourceRange = action.rhs
-                ? getSourceRange(*action.rhs)
-                : getSourceRange(*current); // LCOV_EXCL_LINE
-              std::vector<SNLBitNet*> concatTargetBits(
-                concatWidth,
-                static_cast<SNLBitNet*>(getConstNet(design, false)));
-              auto assignedBits = buildAssignBits(
-                design,
-                action,
-                nullptr,
-                concatTargetBits,
-                nullptr,
-                actionSourceRange);
-              if (assignedBits.size() != concatWidth) {
-                // buildAssignBits() is width-stable for the parser-backed
-                // sequential concatenation forms that reach this fallback.
-                // LCOV_EXCL_START
-                failureReason = formatQuotedDescriptionFailure(
-                  "failed to lower sequential concatenation assignment for ",
-                  describeExpression(*assignedLHS));
-                return false;
-                // LCOV_EXCL_STOP
-              }
-              std::copy(
-                assignedBits.begin() + static_cast<std::ptrdiff_t>(*trackedOffset),
-                assignedBits.begin() + static_cast<std::ptrdiff_t>(*trackedOffset + lhsBits.size()),
-                dataBits.begin());
-              return true;
-            }
+          if (isConcatenationExpression(assignedLHS)) {
+            return applyCombinationalConcatenationAssignment(
+              design, action, lhsExpr, lhsBits, dataBits, nullptr, true, failureReason);
           }
           if (!action.compoundOp && action.stepDelta == 0 && action.rhs) {
             std::vector<SNLBitNet*> assignedLHSBits;
@@ -25000,6 +25049,21 @@ endmodule
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
+        if ((trackAlwaysCombDynamicLHS || trackSequentialFallbackLHS) &&
+            isConcatenationExpression(lhsExpr)) {
+          std::vector<const Expression*> leaves;
+          if (!appendFlattenedConcatenationLHSExpressions(*lhsExpr, leaves)) {
+            return false; // LCOV_EXCL_LINE: Slang concatenation operands are non-null.
+          }
+          for (const auto* leaf : leaves) {
+            const auto* root = trackAlwaysCombDynamicLHS
+              ? getTrackedAlwaysCombLHS(leaf) : getTrackedSequentialFallbackLHS(leaf);
+            if (!shouldIgnoreTrackedLHS(root, ignoredSymbols)) {
+              appendTrackedSelectionLHS(root, lhsExpressions);
+            }
+          }
+          return true;
+        }
         if (trackAlwaysCombDynamicLHS && lhsExpr &&
             stripConversions(*lhsExpr)->kind == slang::ast::ExpressionKind::Streaming) {
           std::vector<const Expression*> leaves;
@@ -26321,6 +26385,10 @@ endmodule
       std::vector<SNLBitNet*>& assignedBits,
       const std::vector<SNLBitNet*>* currentBits,
       std::string& failureReason) {
+      if (action.evaluatedBits) {
+        assignedBits = *action.evaluatedBits;
+        return assignedBits.size() == targetWidth;
+      }
       const auto activeLoopConstantsSize = activeForLoopConstants_.size();
       const auto activeLoopNameConstantsSize = activeForLoopNameConstants_.size();
       activeForLoopConstants_.insert(
@@ -26656,11 +26724,13 @@ endmodule
 
       bool usedUnknownLiteralFallback = false;
       UnknownLiteralKinds unknownKinds;
-      if (resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
+      if (action.rhs->kind != slang::ast::ExpressionKind::Conversion &&
+          resolveActiveProceduralReplayBits(*action.rhs, targetWidth, assignedBits) &&
           assignedBits.size() == targetWidth) {
         return true;
       }
-      if (resolveStaticSelectableExpressionBits(design, *action.rhs, assignedBits) &&
+      if (action.rhs->kind != slang::ast::ExpressionKind::Conversion &&
+          resolveStaticSelectableExpressionBits(design, *action.rhs, assignedBits) &&
           assignedBits.size() == targetWidth) {
         substituteFunctionArgumentBits(assignedBits);
         return true;
@@ -27919,6 +27989,132 @@ endmodule
 
       for (size_t bit = 0; bit < selectedOffsets.size(); ++bit) {
         dataBits[selectedOffsets[bit]] = assignedBits[bit];
+      }
+      return true;
+    }
+
+    bool applyCombinationalConcatenationAssignment(
+      SNLDesign* design,
+      const AssignAction& action,
+      const Expression& trackedLhs,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      const std::unordered_set<const slang::ast::ValueSymbol*>* replaySymbols,
+      bool preserveAssignmentScheduling,
+      std::string& failureReason) {
+      std::vector<const Expression*> leaves;
+      if (!appendFlattenedConcatenationLHSExpressions(*action.lhs, leaves)) {
+        return false; // LCOV_EXCL_LINE: Slang concatenation operands are non-null.
+      }
+      const auto* savedLhs = activeProceduralReplayLHS_;
+      const auto* savedBits = activeProceduralReplayBits_;
+      activeProceduralReplayLHS_ = &trackedLhs;
+      activeProceduralReplayBits_ = &dataBits;
+      // Non-blocking RHS reads observe the active value, not earlier scheduled
+      // writes accumulated in dataBits. The replay environment retains that
+      // active value when the block also contains blocking assignments.
+      if (preserveAssignmentScheduling && !assignmentUpdatesActiveProceduralValue(action)) {
+        activeProceduralReplayBits_ = &lhsBits;
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (activeProceduralReplayEnv_ && tryGetRootValueSymbolReference(trackedLhs, symbol)) {
+          auto found = activeProceduralReplayEnv_->find(symbol);
+          if (found != activeProceduralReplayEnv_->end()) {
+            activeProceduralReplayBits_ = &found->second;
+          }
+        }
+      }
+      const auto guard = slang::ScopeGuard([&]() {
+        activeProceduralReplayLHS_ = savedLhs;
+        activeProceduralReplayBits_ = savedBits;
+      });
+      const auto width = getRepresentableExpressionBitWidth(*action.lhs);
+      size_t leafBitCount = 0;
+      for (const auto* leaf : leaves) {
+        const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
+        if (!leafWidth) {
+          // LCOV_EXCL_START
+          // Slang requires integral, fixed-width procedural concatenation leaves.
+          failureReason = "unable to determine procedural concatenation leaf width";
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        leafBitCount += *leafWidth;
+      }
+      if (!width || leafBitCount != *width) {
+        failureReason = "unsupported duplicate procedural concatenation assignment leaf";
+        return false;
+      }
+      std::vector<SNLBitNet*> currentBits;
+      std::vector<SNLBitNet*> assignedBits;
+      if (!width ||
+          (assignmentActionRequiresCurrentBits(action) &&
+           !resolveExpressionBits(design, *action.lhs, *width, currentBits)) ||
+          !buildCombinationalAssignBits(design, action, *width, assignedBits,
+            assignmentActionRequiresCurrentBits(action) ? &currentBits : nullptr,
+            failureReason)) {
+        return false;
+      }
+      // Evaluate the complete RHS before updating any leaf. Compound operators
+      // likewise operate on the complete concatenated current value.
+      size_t offset = 0;
+      for (const auto* leaf : leaves) {
+        const auto leafWidth = getRepresentableExpressionBitWidth(*leaf);
+        if (!leafWidth || offset + *leafWidth > assignedBits.size()) {
+          // LCOV_EXCL_START
+          // Leaf widths were validated above; successful RHS lowering supplies
+          // their total width, so each slice fits within assignedBits.
+          failureReason = "unable to determine procedural concatenation leaf width";
+          return false;
+          // LCOV_EXCL_STOP
+        }
+        AssignAction leafAction = action;
+        leafAction.lhs = leaf;
+        leafAction.compoundOp.reset();
+        leafAction.evaluatedBits = std::vector<SNLBitNet*>(
+          assignedBits.begin() + offset, assignedBits.begin() + offset + *leafWidth);
+        offset += *leafWidth;
+        const bool targetsTracked = sameLhs(leaf, &trackedLhs) ||
+          isTrackedSelectionSubLhsOf(leaf, &trackedLhs);
+        if (!targetsTracked) {
+          if (replaySymbols &&
+              (!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action))) {
+            bool handled = false;
+            if (!applyCombinationalAssignmentToReplaySymbol(
+                  design, *leaf, leafAction, *replaySymbols, failureReason, handled)) {
+              return false;
+            }
+          }
+          continue;
+        }
+        if (sameLhs(leaf, &trackedLhs)) {
+          dataBits = *leafAction.evaluatedBits;
+        } else {
+          bool handled = false;
+          if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled) ||
+              (!handled && !tryApplyCombinationalElementSelectAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled)) ||
+              (!handled && !tryApplyCombinationalRangeSelectAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled)) ||
+              (!handled && !tryApplyCombinationalFixedSubAssignmentForLhs(
+                design, *leaf, trackedLhs, leafAction, lhsBits, dataBits, failureReason, handled))) {
+            return false;
+          }
+          if (!handled) {
+            // LCOV_EXCL_START
+            // targetsTracked requires a selection rooted at trackedLhs; the
+            // element, range and fixed-subassignment handlers cover those forms.
+            failureReason = "unsupported procedural concatenation leaf: " + describeExpression(*leaf);
+            return false;
+            // LCOV_EXCL_STOP
+          }
+        }
+        const slang::ast::ValueSymbol* symbol = nullptr;
+        if (activeProceduralReplayEnv_ &&
+            (!preserveAssignmentScheduling || assignmentUpdatesActiveProceduralValue(action)) &&
+            tryGetRootValueSymbolReference(trackedLhs, symbol)) {
+          (*activeProceduralReplayEnv_)[symbol] = dataBits;
+        }
       }
       return true;
     }
@@ -29182,6 +29378,11 @@ endmodule
       const Expression* assignedLHS = nullptr;
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
+        if (isConcatenationExpression(assignedLHS)) {
+          return applyCombinationalConcatenationAssignment(
+            design, action, lhsExpr, lhsBits, dataBits, replaySymbols,
+            preserveAssignmentScheduling, failureReason);
+        }
         if (stripConversions(*assignedLHS)->kind == slang::ast::ExpressionKind::Streaming) {
           if (preserveAssignmentScheduling || !assignmentUpdatesActiveProceduralValue(action)) {
             failureReason = "unsupported sequential streaming assignment";
@@ -29493,7 +29694,13 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
+      std::vector<const Expression*> assignedLeaves;
       for (const auto* assignedExpr : assignedExpressions) {
+        if (assignedExpr) {
+          appendFlattenedConcatenationLHSExpressions(*assignedExpr, assignedLeaves);
+        }
+      }
+      for (const auto* assignedExpr : assignedLeaves) {
         if (!assignedExpr) {
           continue; // LCOV_EXCL_LINE
         }
@@ -32043,9 +32250,10 @@ endmodule
         }
       }
       if (constant && constant->isUnpacked() &&
-          stripped->type->getCanonicalType().isUnpackedArray() &&
+          (stripped->type->getCanonicalType().isUnpackedArray() ||
+           stripped->type->getCanonicalType().kind == SymbolKind::UnpackedStructType) &&
           getRepresentableExpressionBitWidth(*stripped) == targetWidth) {
-        return resolveUnpackedConstantBits(design, *constant, targetWidth, bits);
+        return resolveUnpackedConstantBits(design, *constant, *stripped->type, targetWidth, bits);
       }
       slang::ConstantValue convertedConstant;
       convertConstantToIntegerIfNeeded(constant, convertedConstant);
@@ -34648,8 +34856,13 @@ endmodule
              lhsExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
              lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess ||
              lhsExpr->kind == slang::ast::ExpressionKind::Concatenation);
+          if (lhsExpr && lhsExpr->kind == slang::ast::ExpressionKind::Streaming) {
+            std::vector<const Expression*> leaves;
+            lhsResolvedAsBitSlice = collectStreamingLHSLeaves(*lhsExpr, leaves) &&
+              resolveStreamingLHSBits(design, *lhsExpr, lhsBits);
+          }
           if (lhsIsSupportedSlice) {
-            auto lhsWidth = getIntegralExpressionBitWidth(*lhsExpression);
+            auto lhsWidth = getRepresentableExpressionBitWidth(*lhsExpression);
             if (lhsWidth && *lhsWidth) {
               const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
               if (resolveExpressionBits(design, *lhsExpression, lhsWidthBits, lhsBits) &&
@@ -34694,6 +34907,29 @@ endmodule
         }
 
         const auto* rhs = stripConversions(*rhsExpression);
+        const auto* strippedLhs = stripConversions(*lhsExpression);
+        if (strippedLhs && strippedLhs->kind == slang::ast::ExpressionKind::Streaming) {
+          auto width = getExpressionBitstreamWidth(*rhsExpression);
+          std::vector<SNLBitNet*> source;
+          if (!width || *width < lhsBits.size() ||
+              !resolveExpressionBits(design, *rhsExpression, *width, source) ||
+              source.size() != *width) {
+            reportUnsupportedError("Unsupported RHS in continuous streaming assignment",
+              assignSourceRange);
+            continue;
+          }
+          std::unordered_set<SNLBitNet*> destinations(lhsBits.begin(), lhsBits.end());
+          if (destinations.size() != lhsBits.size()) {
+            reportUnsupportedError("Unsupported overlapping continuous streaming targets",
+              assignSourceRange);
+            continue;
+          }
+          const auto offset = source.size() - lhsBits.size();
+          for (size_t bit = 0; bit < lhsBits.size(); ++bit) {
+            createAssignInstance(design, source[offset + bit], lhsBits[bit], assignSourceRange);
+          }
+          continue;
+        }
 
         auto unwrapSignedUnsignedCastCall = [&](const Expression* exprPtr) -> const Expression* {
           const Expression* current = exprPtr;

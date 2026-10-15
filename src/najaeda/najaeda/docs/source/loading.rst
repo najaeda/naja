@@ -137,6 +137,15 @@ masked-write loops are supported. Positive and negative clock edges are
 supported; negative edges use an inverted write-clock signal. No raw storage
 array or flops with multiple clocks are created.
 
+Memory inference also applies to constant-index writes and statically unrolled
+loops. Reading an inferred array as a whole, including through an output port,
+continuous assignment, aggregate expression, or submodule input, materializes
+constant-address asynchronous read ports for its elements. These ports share
+existing constant-index read ports. Element-only consumers keep the compact
+memory representation; whole-array consumers require a flattened view of all
+stored bits. Whole-array writes without indexed writes and fully packed arrays
+continue to use ordinary registers.
+
 Read ports are asynchronous; registered reads and read enables remain ordinary
 flops around the memory. Nonblocking reads on a write edge observe the old data.
 Multiple writes within one process preserve source-order priority per bit;
@@ -212,6 +221,24 @@ flops for untouched bits. Nested writes to the same target retain source-order
 priority and share one driver per bit. In the conditional multi-assignment path,
 mixed binary asynchronous reset values use separate reset/set cells, including
 active-low controls and negative-edge clocks, rather than a clocked data mux.
+
+Functions whose bodies consist of returns, conditionals, and case statements
+support nested early returns. The first executed return takes priority over
+later statements, including inside an ``else`` branch.
+
+Fixed unpacked structs with integral fields, including nested structs and fixed
+arrays, are represented as flat SNL buses. Member reads, continuous member
+assignments, whole-struct copies, and member conditions use the same storage.
+Unpacked struct fields occupy successive slices starting with the first declared
+field at the least significant end; packed structs retain SystemVerilog packed
+bit ordering. Structs containing strings, real values, or dynamic arrays remain
+unsupported. Streaming and bitstream casts of unpacked structs are also
+rejected.
+
+Fixed-size streaming targets in continuous assignments support both directions,
+explicit slice sizes (including partial slices), and nested streams. A wider
+source is consumed from its most significant end. Dynamic selections, target
+``with`` clauses, and overlapping destination bits are rejected.
 
 Fixed-size streaming assignment targets in ``always_comb`` support both stream
 directions, explicit slice sizes (including partial slices), nested streams,
