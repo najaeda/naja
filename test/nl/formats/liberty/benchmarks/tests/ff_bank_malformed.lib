@@ -1,0 +1,38 @@
+library(testlib) {
+  cell ("BANK_TOO_FEW_ARGS") {
+    ff_bank (IQ, IQN) {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin (CK) { direction : input; }
+    bundle (D) { members (D0, D1); direction : input; pin (D0) { } pin (D1) { } }
+    bundle (Q) { members (Q0, Q1); direction : output; function : "IQ"; pin (Q0) { } pin (Q1) { } }
+  }
+  cell ("BANK_BAD_WIDTH") {
+    ff_bank (IQ, IQN, two) {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin (CK) { direction : input; }
+    bundle (D) { members (D0, D1); direction : input; pin (D0) { } pin (D1) { } }
+    bundle (Q) { members (Q0, Q1); direction : output; function : "IQ"; pin (Q0) { } pin (Q1) { } }
+  }
+  cell ("BANK_ZERO_WIDTH") {
+    ff_bank (IQ, IQN, 0) {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin (CK) { direction : input; }
+    bundle (D) { members (D0, D1); direction : input; pin (D0) { } pin (D1) { } }
+    bundle (Q) { members (Q0, Q1); direction : output; function : "IQ"; pin (Q0) { } pin (Q1) { } }
+  }
+  cell ("BANK_BAD_EXPRESSION") {
+    ff_bank (IQ, IQN, 2) {
+      clocked_on : "CK";
+      next_state : "MISSING";
+    }
+    pin (CK) { direction : input; }
+    bundle (D) { members (D0, D1); direction : input; pin (D0) { } pin (D1) { } }
+    bundle (Q) { members (Q0, Q1); direction : output; function : "IQ"; pin (Q0) { } pin (Q1) { } }
+  }
+}

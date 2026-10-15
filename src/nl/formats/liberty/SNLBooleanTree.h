@@ -104,6 +104,7 @@ class SNLBooleanTree {
     using Inputs = std::map<const SNLBitTerm*, SNLBooleanTreeInputNode*, SNLBitTerm::PointerLess>;
     using StateIdentifier = std::pair<size_t, bool>;
     using StateIdentifiers = std::map<std::string, StateIdentifier>;
+    using TermAliases = std::map<std::string, SNLBitTerm*>;
 
     SNLBooleanTree() = default;
     ~SNLBooleanTree();
@@ -117,6 +118,11 @@ class SNLBooleanTree {
       const SNLDesign* primitive,
       const std::string& function,
       const StateIdentifiers& stateIdentifiers);
+    void parse(
+      const SNLDesign* primitive,
+      const std::string& function,
+      const StateIdentifiers& stateIdentifiers,
+      const TermAliases& termAliases);
     SNLBooleanTreeFunctionNode* getRoot() const { return root_; }
     const Inputs& getInputs() const { return inputs_; }
     SNLBooleanTreeInputNode* getInput(const SNLBitTerm* inputTerm) const;
@@ -132,6 +138,7 @@ class SNLBooleanTree {
     std::string                 function_   {};
     Inputs                      inputs_     {};
     StateIdentifiers            stateIdentifiers_ {};
+    TermAliases                 termAliases_ {};
     std::map<StateIdentifier, SNLBooleanTreeInputNode*> stateInputs_ {};
     SNLBooleanTreeInputNode*    constant0_  {nullptr};
     SNLBooleanTreeInputNode*    constant1_  {nullptr};

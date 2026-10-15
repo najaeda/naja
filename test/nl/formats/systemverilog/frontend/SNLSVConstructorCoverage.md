@@ -202,3 +202,12 @@ The line numbers below refer to the source before this coverage change.
 | 12893 | Excluded: Slang creates an implicit return variable for every non-void function; a void call cannot supply an integral RHS. |
 | 13079 | Excluded: the preceding successful `resolveExpressionNet` requires a value-symbol reference, which necessarily has a root symbol. |
 | 13602, 13604, 13609, 13621 | `parsePriorityReturnFunctionNestedStatementsCoverage`: nested assignments, duplicate loops, declaration-only blocks, and a loopless unsupported return expression. |
+
+Additional requested lines refer to the source before the following change:
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 727 | Excluded: the unpacked-struct width overflow safeguard requires over `UINT32_MAX` bits, beyond practical test resources. |
+| 4729–4734, 11121–11123 | `parseUnpackedStructValuesCoverage`: nested unpacked struct constants and runtime positional assignment patterns, with every flattened bit checked for its value or source connection. |
+| 13430 | `rejectReturnOnlyFunctionExpressionCoverage`: a return-only statement list containing an unsupported runtime system call. |
+| 34789–34791 | `rejectContinuousStreamingRHSCoverage`: an unsupported runtime system call on the RHS must emit the streaming-assignment diagnostic and throw. |

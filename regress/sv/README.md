@@ -565,7 +565,7 @@ python3 regress/sv/pulp_benchmarks.py --all --timeout 90
 
 # Individual cases and custom build/package locations are supported.
 python3 regress/sv/pulp_benchmarks.py \
-  --case ibex.full --timeout 120 \
+  --case ibex.full --timeout 600 \
   --archive /tmp/pulp-benchmarks-v0.1.0.tar.gz \
   --najaeda-path build/test/najaeda --output build/pulp-full-ibex
 ```
@@ -575,7 +575,8 @@ for archive extraction). The runner itself needs only the standard library;
 the built `najaeda` package must also have its normal runtime dependencies.
 `--lint-runner docker` uses the same Verilator v5.046 image as the external SV
 runner; `local` requires Verilator on PATH. Omitting the option runs load/dump
-only. Each load/dump and lint subprocess has a separate wall-clock limit.
+only. Each load/dump and lint subprocess has a separate wall-clock limit,
+defaulting to 600 seconds (10 minutes).
 Lint uses `--verilate-jobs 0` to use the CPUs available to Verilator for internal
 compilation. Missing lint tools fail; they do not silently skip.
 
@@ -587,7 +588,7 @@ division/remainder primitives; Docker mounts the artifact directory once for
 both inputs. Dumps containing no Naja primitives need only the netlist file.
 Worker and lint timeouts terminate the full process group, so local Verilator
 launcher children do not survive a timed-out case. A second tier elaborates
-`mempool.minpool`, `ita.default`, `cvfpu.full`, and `cva6.default`, with a 240-second limit per
+`mempool.minpool`, `ita.default`, `cvfpu.full`, and `cva6.default`, with a 600-second limit per
 case and the same strict diagnostic checks. This tier does not dump or lint
 netlists; its artifacts and aggregate summary live in
 `build/pulp-benchmarks/elaboration/`, preserving the complete-dump summary.
@@ -596,7 +597,7 @@ To reproduce it locally:
 ```sh
 python3 regress/sv/pulp_benchmarks.py \
   --case mempool.minpool --case ita.default --case cvfpu.full --case cva6.default \
-  --elaboration-only --timeout 240 --output build/pulp-benchmarks/elaboration
+  --elaboration-only --timeout 600 --output build/pulp-benchmarks/elaboration
 ```
 
 C910 also runs on every PR, push, and dispatch in an independent `pulp-c910`
@@ -619,8 +620,9 @@ functional validation. A nightly run at 02:23 UTC or manual `survey=true` adds
 18 further complete-check jobs, covering **all 23 release variants** together
 with the five regular full checks. That produces **28 independent verification
 jobs**, including the four elaboration checks and ITA. Each additional survey
-variant has its own 120-second limit per load/dump and per lint; C910 retains
-its separate 600-second limit. Known failures fail only their own jobs.
+variant has its own 600-second limit per load/dump and per lint, matching C910.
+Frontend matrix jobs have a 30-minute overall limit to allow both stages,
+setup, container cleanup, and artifact publication. Known failures fail only their own jobs.
 Matrix fail-fast is disabled, so other variants finish and retain reports.
 No complete-check case is duplicated between regular and survey jobs.
 

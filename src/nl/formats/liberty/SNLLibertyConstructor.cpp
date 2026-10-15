@@ -455,7 +455,8 @@ void registerConstructedTermModeling(
   TermSourceLines& termFunctionLines,
   SequentialTermClocks& seqTermClocks,
   TimingOnlyOutputInputs& timingOnlyOutputInputs,
-  LibertyMemoryInterface& memoryInterface) {
+  LibertyMemoryInterface& memoryInterface,
+  const Yosys::LibertyAst* functionFallback = nullptr) {
   auto registerNextStateRole = [&](SNLBitTerm* term) {
     auto nextStateType = findDirectChild(child, "nextstate_type");
     if (term == nullptr || nextStateType == nullptr) {
@@ -513,6 +514,13 @@ void registerConstructedTermModeling(
     and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
     termFunctionPins[constructedScalarTerm] = pinName;
     auto functionNode = const_cast<Yosys::LibertyAst*>(child)->find("function");
+    if (functionNode == nullptr && functionFallback != nullptr
+        && functionParsingType == FunctionParsingType::Sequential) {
+      // Liberty allows `function` on a bundle group; it applies to every
+      // member. Only the sequential path resolves bundle-name identifiers
+      // (per-bit aliases), so combinational bundles keep their old behavior.
+      functionNode = const_cast<Yosys::LibertyAst*>(functionFallback)->find("function");
+    }
     if (functionNode) {
       termFunctions[constructedScalarTerm] = functionNode->value;
       termFunctionLines[constructedScalarTerm] = functionNode->line;
@@ -679,11 +687,12 @@ SNLDesignModeling::BooleanExpression parseSequentialExpression(
     const SNLDesign* primitive,
     const std::string& expression,
     const SNLBooleanTree::StateIdentifiers& stateIdentifiers,
+    const SNLBooleanTree::TermAliases& termAliases,
     const std::string& context,
     int sourceLine) {
   try {
     SNLBooleanTree tree;
-    tree.parse(primitive, expression, stateIdentifiers);
+    tree.parse(primitive, expression, stateIdentifiers, termAliases);
     return tree.getBooleanExpression();
   } catch (const SNLLibertyConstructorException& e) {
     std::ostringstream reason;
@@ -794,39 +803,60 @@ void populateSequentialModel(
     const TermFunctions& termFunctions,
     const TermPins& termFunctionPins,
     const TermSourceLines& termFunctionLines) {
-  std::vector<const Yosys::LibertyAst*> ffs;
+  // Each `ff` group contributes one state and each `ff_bank (IQ, IQN, N)`
+  // group contributes N states. Bank bits are addressed through bundle
+  // members: bit i reads a bundle `D` as member `D<i>`, and an output bundle
+  // declared `function : "IQ"` maps member i to state i.
+  struct StateGroup {
+    const Yosys::LibertyAst* node;
+    size_t base;
+    size_t width;
+  };
+  std::vector<StateGroup> groups;
+  size_t stateCount = 0;
+  bool hasBank = false;
   for (auto* child : cell->children) {
+    size_t width = 0;
     if (child->id == "ff") {
-      ffs.push_back(child);
+      width = 1;
+    } else if (child->id == "ff_bank") {
+      if (child->args.size() < 3) {
+        return;
+      }
+      try {
+        width = std::stoul(child->args[2]);
+      } catch (const std::exception&) {
+        return;
+      }
+      if (width == 0) {
+        return;
+      }
+      hasBank = true;
+    } else {
+      continue;
     }
+    groups.push_back({child, stateCount, width});
+    stateCount += width;
   }
-  if (ffs.empty() || termFunctions.empty()) {
+  if (groups.empty() || termFunctions.empty()) {
     return;
   }
 
-  if (findDirectChild(cell, "latch") != nullptr) {
+  if (findDirectChild(cell, "latch") != nullptr ||
+      findDirectChild(cell, "latch_bank") != nullptr) {
     // SequentialModel has one shared control and cannot faithfully represent
     // mixed flip-flop and latch state. Keep the cell loadable instead of
     // attaching a partial model that omits the latch state.
     return;
   }
 
-  SNLBooleanTree::StateIdentifiers stateIdentifiers;
   const Yosys::LibertyAst* firstClockedOn = nullptr;
-  for (size_t stateIndex = 0; stateIndex < ffs.size(); ++stateIndex) {
-    const auto* ff = ffs[stateIndex];
-    if (ff->args.empty()) {
+  for (const auto& group : groups) {
+    if (group.node->args.empty()) {
       return;
     }
-    stateIdentifiers.emplace(
-        ff->args[0], SNLBooleanTree::StateIdentifier{stateIndex, false});
-    if (ff->args.size() > 1) {
-      stateIdentifiers.emplace(
-          ff->args[1], SNLBooleanTree::StateIdentifier{stateIndex, true});
-    }
-
-    auto* clockedOn = findDirectChild(ff, "clocked_on");
-    auto* nextState = findDirectChild(ff, "next_state");
+    auto* clockedOn = findDirectChild(group.node, "clocked_on");
+    auto* nextState = findDirectChild(group.node, "next_state");
     if (clockedOn == nullptr || nextState == nullptr) {
       return;
     }
@@ -840,52 +870,122 @@ void populateSequentialModel(
     }
   }
 
-  SNLDesignModeling::SequentialModel model;
-  model.clockedOn = parseSequentialExpression(
-      primitive,
-      firstClockedOn->value,
-      stateIdentifiers,
-      "`clocked_on` expression for " + getGroupDescription(ffs.front()),
-      firstClockedOn->line);
-  for (const auto* ff : ffs) {
-    SNLDesignModeling::SequentialState state;
-    auto* nextState = findDirectChild(ff, "next_state");
-    state.nextState = parseSequentialExpression(
-        primitive,
-        nextState->value,
-        stateIdentifiers,
-        "`next_state` expression for " + getGroupDescription(ff),
-        nextState->line);
-    if (auto* clear = findDirectChild(ff, "clear")) {
-      state.clear = parseSequentialExpression(
-          primitive,
-          clear->value,
-          stateIdentifiers,
-          "`clear` expression for " + getGroupDescription(ff),
-          clear->line);
+  // State identifiers as seen from bank bit `bit`: `ff` groups keep their
+  // single state, `ff_bank` groups expose their bit-th state.
+  auto stateIdentifiersForBit = [&groups](size_t bit) {
+    SNLBooleanTree::StateIdentifiers identifiers;
+    for (const auto& group : groups) {
+      const size_t index =
+          group.base + (group.width > 1 ? std::min(bit, group.width - 1) : 0);
+      identifiers.emplace(
+          group.node->args[0], SNLBooleanTree::StateIdentifier{index, false});
+      if (group.node->args.size() > 1) {
+        identifiers.emplace(
+            group.node->args[1], SNLBooleanTree::StateIdentifier{index, true});
+      }
     }
-    if (auto* preset = findDirectChild(ff, "preset")) {
-      state.preset = parseSequentialExpression(
-          primitive,
-          preset->value,
-          stateIdentifiers,
-          "`preset` expression for " + getGroupDescription(ff),
-          preset->line);
+    return identifiers;
+  };
+  // Bundle names used in expressions resolve to the bundle member for `bit`.
+  auto termAliasesForBit = [primitive](size_t bit) {
+    SNLBooleanTree::TermAliases aliases;
+    for (auto* bundle : primitive->getBundleTerms()) {
+      if (bit >= bundle->getNumMembers()) {
+        continue;
+      }
+      if (auto* member = dynamic_cast<SNLBitTerm*>(bundle->getMember(bit))) {
+        aliases.emplace(bundle->getName().getString(), member);
+      }
     }
-    state.clearPresetValue = getClearPresetValue(ff);
-    model.states.push_back(std::move(state));
-  }
+    return aliases;
+  };
+  auto bitOfTerm = [](const SNLScalarTerm* term) -> size_t {
+    if (auto* bundle = term->getBundleOwner()) {
+      for (size_t i = 0; i < bundle->getNumMembers(); ++i) {
+        if (bundle->getMember(i) == term) {
+          return i;
+        }
+      }
+    }
+    return 0;
+  };
 
-  for (const auto& [term, function] : termFunctions) {
-    model.outputs.push_back({
-        term,
-        parseSequentialExpression(
+  auto buildModel = [&]() {
+    SNLDesignModeling::SequentialModel model;
+    model.clockedOn = parseSequentialExpression(
+        primitive,
+        firstClockedOn->value,
+        stateIdentifiersForBit(0),
+        termAliasesForBit(0),
+        "`clocked_on` expression for " + getGroupDescription(groups.front().node),
+        firstClockedOn->line);
+    for (const auto& group : groups) {
+      auto* nextState = findDirectChild(group.node, "next_state");
+      auto* clear = findDirectChild(group.node, "clear");
+      auto* preset = findDirectChild(group.node, "preset");
+      for (size_t bit = 0; bit < group.width; ++bit) {
+        const auto identifiers = stateIdentifiersForBit(bit);
+        const auto aliases = termAliasesForBit(bit);
+        SNLDesignModeling::SequentialState state;
+        state.nextState = parseSequentialExpression(
             primitive,
-            function,
-            stateIdentifiers,
-            "`function` expression for pin `" +
-                termFunctionPins.at(term) + "`",
-            termFunctionLines.at(term))});
+            nextState->value,
+            identifiers,
+            aliases,
+            "`next_state` expression for " + getGroupDescription(group.node),
+            nextState->line);
+        if (clear != nullptr) {
+          state.clear = parseSequentialExpression(
+              primitive,
+              clear->value,
+              identifiers,
+              aliases,
+              "`clear` expression for " + getGroupDescription(group.node),
+              clear->line);
+        }
+        if (preset != nullptr) {
+          state.preset = parseSequentialExpression(
+              primitive,
+              preset->value,
+              identifiers,
+              aliases,
+              "`preset` expression for " + getGroupDescription(group.node),
+              preset->line);
+        }
+        state.clearPresetValue = getClearPresetValue(group.node);
+        model.states.push_back(std::move(state));
+      }
+    }
+    for (const auto& [term, function] : termFunctions) {
+      const size_t bit = bitOfTerm(term);
+      model.outputs.push_back({
+          term,
+          parseSequentialExpression(
+              primitive,
+              function,
+              stateIdentifiersForBit(bit),
+              termAliasesForBit(bit),
+              "`function` expression for pin `" +
+                  termFunctionPins.at(term) + "`",
+              termFunctionLines.at(term))});
+    }
+    return model;
+  };
+
+  SNLDesignModeling::SequentialModel model;
+  if (hasBank) {
+    try {
+      model = buildModel();
+    } catch (const SNLLibertyConstructorException& e) {
+      NAJA_LOG_WARN(
+        "In SNLLibertyConstructor, cell {} uses `ff_bank` modeling that could "
+        "not be attached ({}); leaving its sequential model unset.",
+        primitive->getName().getString(),
+        e.getReason());
+      return;
+    }
+  } else {
+    model = buildModel();
   }
   SNLDesignModeling::setSequentialModel(primitive, model);
   addSequentialModelArcs(model);
@@ -956,7 +1056,8 @@ void parseTerms(
             termFunctionLines,
             seqTermClocks,
             timingOnlyOutputInputs,
-            memoryInterface);
+            memoryInterface,
+            child);
         }
       }
     } catch (const SNLLibertyConstructorException& e) {
@@ -1236,9 +1337,9 @@ void parseCell(
         sourcePath.string());
     }
     FunctionParsingType type = FunctionParsingType::Combinational;
-    if (cell->find("ff") || cell->find("memory")) {
+    if (cell->find("ff") || cell->find("ff_bank") || cell->find("memory")) {
       type = FunctionParsingType::Sequential;
-    } else if (cell->find("latch")) {
+    } else if (cell->find("latch") || cell->find("latch_bank")) {
       type = FunctionParsingType::Ignore;
     } else if (hasUnsupportedStateModel) {
       type = FunctionParsingType::TimingOnly;
