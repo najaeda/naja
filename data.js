@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792033636205,
+  "lastUpdate": 1792078226945,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -16014,6 +16014,108 @@ window.BENCHMARK_DATA = {
             "value": 319625.1733830223,
             "unit": "ns/iter",
             "extra": "iterations: 2134\ncpu: 319498.8181818378 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "noam.chn1@gmail.com",
+            "name": "Noam Cohen",
+            "username": "nanocoh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41eec8385a8377dafc395f6be080d0d6831e8496",
+          "message": "Liberty: model ff_bank multibit registers (#470)\n\n* Liberty: model ff_bank multibit registers\n\nThe structural Liberty parse kept only `ff` and `latch` groups, so an\n`ff_bank (IQ, IQN, N)` cell loaded with no sequential model and its bundle\noutputs had no truth table. Formal checks then treated every multibit flop\n(for example the asap7 DFFHQNV2X/DFFHQNH2V2X trays created by multibit\nclustering) as opaque.\n\n- YosysLibertyParser: keep `ff_bank` and `latch_bank` groups, their\n  clocked_on/next_state/clear/preset children, and `function` under\n  `bundle` in structural mode.\n- SNLLibertyConstructor: classify `ff_bank` cells as sequential, apply a\n  bundle-level `function` to each member, and expand a bank into N states\n  where bit i reads bundle member i (`D` -> `D<i>`) and output member i maps\n  to state i. Banks that cannot be modeled log a warning and stay loadable.\n- SNLBooleanTree: optional name-to-term aliases so bundle names resolve per\n  bit inside expressions.\n- Test: ff_bank.lib fixture and SNLLibertyConstructorTest1.testFFBank.\n\n* Liberty: cover malformed ff_bank groups\n\nAdd a fixture with a bank that has too few arguments, a non-numeric width,\na zero width, and a next_state that does not resolve. Each cell must stay\nloadable with no sequential model attached.",
+          "timestamp": "2026-10-15T17:27:47+02:00",
+          "tree_id": "2e346dc26ecdb945a18ff5096949c33e2d44f54b",
+          "url": "https://github.com/najaeda/naja/commit/41eec8385a8377dafc395f6be080d0d6831e8496"
+        },
+        "date": 1792078226075,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 221547.88314961968,
+            "unit": "ns/iter",
+            "extra": "iterations: 3175\ncpu: 221544.21511811027 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 318726.62699498306,
+            "unit": "ns/iter",
+            "extra": "iterations: 2193\ncpu: 318675.3556771546 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1810366.0048426471,
+            "unit": "ns/iter",
+            "extra": "iterations: 413\ncpu: 1810192.7772397096 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 18947396.054053064,
+            "unit": "ns/iter",
+            "extra": "iterations: 37\ncpu: 18943319.189189192 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1230.1175888221587,
+            "unit": "ns/iter",
+            "extra": "iterations: 571704\ncpu: 1230.0168321369097 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 12136.842791037203,
+            "unit": "ns/iter",
+            "extra": "iterations: 57484\ncpu: 12135.230968617354 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 179266.79091621342,
+            "unit": "ns/iter",
+            "extra": "iterations: 3831\ncpu: 179251.63456016712 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 501501.5509999898,
+            "unit": "ns/iter",
+            "extra": "iterations: 1000\ncpu: 501470.8300000006 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 454530.61533460487,
+            "unit": "ns/iter",
+            "extra": "iterations: 1539\ncpu: 454453.1578947371 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 367691.1222455558,
+            "unit": "ns/iter",
+            "extra": "iterations: 1906\ncpu: 367669.44753410306 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 67731813.62499514,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 67724914.00000003 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 20014.593436435796,
+            "unit": "ns/iter",
+            "extra": "iterations: 34981\ncpu: 20013.528458305915 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 407779.47267427243,
+            "unit": "ns/iter",
+            "extra": "iterations: 1720\ncpu: 407592.3837209341 ns\nthreads: 1"
           }
         ]
       }
