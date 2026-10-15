@@ -688,8 +688,11 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
    vector, and record ports in positional or named maps. Their instance terminals
    remain unconnected, matching SV empty output connections, without a warning.
-   Input defaults are not yet supported, so open inputs remain rejected. Individual
-   formal elements or slices cannot be associated with ``open``.
+   Whole output ports may also be omitted from named maps or left off the end
+   of positional maps. Inputs without defaults must be associated; explicit
+   ``open`` inputs remain unsupported. Individual formal elements or slices
+   cannot be associated with ``open``, and partial associations must cover every
+   element of the port.
    As with connected record ports, their type package currently needs to be visible
    in the instantiating scope as well as the child entity.
 
@@ -759,6 +762,22 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    Index choices follow the declared bounds and direction; overlapping choices,
    missing coverage, and invalid association ordering are rejected. Named
    aggregates require explicit bounds rather than inferred unconstrained bounds.
+   Boolean scalar/array objects retain their language type and use one hardware
+   bit per element. Boolean array constant selections can drive scalar constant
+   expressions and generate conditions; dynamic selections use read-only memory
+   primitives. Nested and enumeration-indexed constants are supported.
+   Architecture-local scalar functions can capture integer-indexed boolean
+   arrays; static package-function array lookups remain unsupported. Intermediate
+   integer addition/subtraction retains 32-bit width before assignment to a
+   constrained hardware integer.
+   Scalar-returning pure functions also accept named one-dimensional integer-array
+   constants and forwarded array parameters. Array type identity, element subtypes,
+   and constrained-formal lengths are checked; constrained formals map by position,
+   while unconstrained formals retain actual bounds. Parameter indexing, bounds
+   attributes, and ``'range`` loops are evaluated statically. Architecture-local
+   functions capture preceding integer-array constants, including in defaults.
+   Array-valued returns, local array variables, aggregate/slice actuals, and
+   enumeration-indexed integer-array parameters remain unsupported.
    Hardware operates on legal subtype/index values; simulation bounds checks
    and nine-valued initialization are not implemented. Unsupported nonbinary literals,
    conflicting drivers, unsupported package bodies, and unsupported operations

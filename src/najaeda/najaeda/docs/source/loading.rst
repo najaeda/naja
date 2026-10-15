@@ -309,6 +309,26 @@ constant tables. Positional elements follow declaration order and may precede
 associations after ``others`` are rejected. Named array aggregates require
 explicit bounds; unconstrained bound inference remains positional-only.
 
+Boolean signals, ports, and arrays use one bit per element while retaining
+boolean type checking. Boolean array constants support static indexing in
+constants and generate conditions, and dynamic indexing through the existing
+read-only memory representation. Nested and enumeration-indexed constants are
+supported. Architecture-local scalar functions can capture integer-indexed
+boolean arrays; static package-function array lookups remain unsupported.
+Intermediate integer addition/subtraction retains the supported 32-bit width;
+assignments to constrained hardware integers use their declared width.
+
+Pure functions returning a scalar integer or boolean may also accept
+one-dimensional integer-array constants or forward integer-array parameters.
+Array type identity and element subtypes are checked. Unconstrained formals
+retain the actual bounds; constrained formals map elements by position into
+their declared bounds and direction. Indexing, scalar bounds attributes, and
+``for`` loops over the parameter's ``'range`` are evaluated statically.
+Architecture-local functions capture preceding integer-array constants, including
+for default arguments. Array actuals currently must be names; array-valued
+returns, local array variables, aggregate/slice actuals, and enumeration-indexed
+integer-array parameters remain unsupported.
+
 Simple signal wiring assignments such as ``y <= a;`` use canonical DB0 Assign
 instances, one per bit. ``Equipotential.Mode.TRAVERSE_ASSIGNS`` crosses these
 connections, including slices and positional vector mappings. Constants remain
@@ -426,8 +446,11 @@ elaboration-time generic or generate values. Component selections use the
 component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
 vector, and record ports in positional or named maps. Their instance terminals
 remain unconnected, matching SV empty output connections, without a warning.
-Input defaults are not yet supported, so open inputs remain rejected. Individual
-formal elements or slices cannot be associated with ``open``.
+Whole output ports may also be omitted from named maps or left off the end of
+positional maps, with the same unconnected result. Inputs without defaults must
+be associated; explicit ``open`` inputs remain unsupported. Individual formal
+elements or slices cannot be associated with ``open``, and partially associated
+ports must still cover every element.
 As with connected record ports, their type package currently needs to be visible
 in the instantiating scope as well as the child entity.
 
