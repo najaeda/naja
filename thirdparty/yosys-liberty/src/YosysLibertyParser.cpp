@@ -181,7 +181,9 @@ bool LibertyParser::shouldSkipStructuralChildren(const LibertyAst *ast) const
 		"bus",
 		"bundle",
 		"ff",
+		"ff_bank",
 		"latch",
+		"latch_bank",
 		"memory",
 		"memory_read",
 		"memory_write",
@@ -220,8 +222,9 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "cell")
 		return childId == "pin" || childId == "bus" || childId == "bundle" ||
-				childId == "ff" || childId == "latch" || childId == "memory" ||
-				childId == "statetable";
+				childId == "ff" || childId == "ff_bank" ||
+				childId == "latch" || childId == "latch_bank" ||
+				childId == "memory" || childId == "statetable";
 
 	if (parentId == "pin")
 		return childId == "direction" || childId == "function" ||
@@ -238,6 +241,7 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 
 	if (parentId == "bundle")
 		return childId == "direction" || childId == "members" ||
+				childId == "function" ||
 				childId == "pin" || childId == "bus" || childId == "bundle";
 
 	if (parentId == "timing")
@@ -252,12 +256,12 @@ bool LibertyParser::shouldKeepStructuralChild(const LibertyAst *parent, const Li
 	if (parentId == "memory_write")
 		return childId == "address" || childId == "clocked_on";
 
-	if (parentId == "ff")
+	if (parentId == "ff" || parentId == "ff_bank")
 		return childId == "clocked_on" || childId == "next_state" ||
 				childId == "clear" || childId == "preset" ||
 				childId == "clear_preset_var1";
 
-	if (parentId == "latch")
+	if (parentId == "latch" || parentId == "latch_bank")
 		return childId == "enable" || childId == "data_in" ||
 				childId == "clear" || childId == "preset";
 
