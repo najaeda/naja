@@ -1713,10 +1713,15 @@ void SNLVRLDumper::dumpInstanceInterface(
     o << '\n';
     dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
   }
-  if (NLDB0::isMemory(instance->getModel()) &&
-      NLDB0::getMemorySignature(instance->getModel()).writePorts == 0) {
-    // The shared Verilog module retains inactive RAM controls in ROM mode.
-    o << ",\n  .CLK(1'b0), .RST(1'b0), .WADDR('0), .WDATA('0), .WE('0), .WCLK('0), .WMASK('0)";
+  if (NLDB0::isMemory(instance->getModel())) {
+    const auto signature = NLDB0::getMemorySignature(instance->getModel());
+    // The shared Verilog module retains controls absent from specialized models.
+    if (signature.writePorts == 0) {
+      o << ",\n  .CLK(1'b0), .RST(1'b0), .WADDR('0), .WDATA('0), .WE('0)";
+    }
+    if (!signature.independentWriteClocks) {
+      o << ",\n  .WCLK('0), .WMASK('0)";
+    }
   }
   o << '\n' << ")";
 }
