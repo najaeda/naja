@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792086792388,
+  "lastUpdate": 1792156472759,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -16218,6 +16218,108 @@ window.BENCHMARK_DATA = {
             "value": 404910.42940176703,
             "unit": "ns/iter",
             "extra": "iterations: 1721\ncpu: 404754.773387535 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a5c2eba33f287c694b66e483e68ba63925cee315",
+          "message": "Fix/vhdl conversions (#469)\n\n* improve VHDL loading\n\n* added support\n\n* new VHDL support\n\n* add ROM support\n\n* add ROM support\n\n* more support\n\n* coverage\n\n* fix RAM generation linting issue",
+          "timestamp": "2026-10-16T15:11:57+02:00",
+          "tree_id": "c94faed871a05dce6a9ef359178ef33b5a5b815c",
+          "url": "https://github.com/najaeda/naja/commit/a5c2eba33f287c694b66e483e68ba63925cee315"
+        },
+        "date": 1792156471301,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 193501.04778760773,
+            "unit": "ns/iter",
+            "extra": "iterations: 3390\ncpu: 193475.96607669618 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 290669.2380556718,
+            "unit": "ns/iter",
+            "extra": "iterations: 2407\ncpu: 290639.7852098048 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1685722.858796255,
+            "unit": "ns/iter",
+            "extra": "iterations: 432\ncpu: 1685468.45138889 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 18660553.48648695,
+            "unit": "ns/iter",
+            "extra": "iterations: 37\ncpu: 18658478 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 995.2221740988982,
+            "unit": "ns/iter",
+            "extra": "iterations: 699591\ncpu: 995.1530708656909 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 10365.337499636273,
+            "unit": "ns/iter",
+            "extra": "iterations: 68726\ncpu: 10364.473634432385 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 110928.0119124271,
+            "unit": "ns/iter",
+            "extra": "iterations: 6212\ncpu: 110926.8147134578 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 443757.4034307538,
+            "unit": "ns/iter",
+            "extra": "iterations: 1574\ncpu: 443735.0749682334 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 401705.1682996964,
+            "unit": "ns/iter",
+            "extra": "iterations: 1735\ncpu: 401694.50144092215 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 321337.7172413852,
+            "unit": "ns/iter",
+            "extra": "iterations: 2175\ncpu: 321327.95908045943 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 68945342.66666597,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 68941132.33333322 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 20550.034821296595,
+            "unit": "ns/iter",
+            "extra": "iterations: 33715\ncpu: 20549.311434079802 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 321512.3703197186,
+            "unit": "ns/iter",
+            "extra": "iterations: 2190\ncpu: 321384.60136989626 ns\nthreads: 1"
           }
         ]
       }
