@@ -9,6 +9,20 @@ set(GRAPH_SOURCES
   TGraph.cpp
   TLoopBreaker.cpp
   TNode.cpp
+  TSNLGraphConstructor.cpp
+)
+
+set(GRAPH_HEADERS
+  TClock.h
+  TClockPropagator.h
+  TCaptureEdge.h
+  TEdge.h
+  TEdgeProxy.h
+  TGraph.h
+  TLoopBreaker.h
+  TNode.h
+  TNodeProxy.h
+  TSNLGraphConstructor.h
 )
 
 add_library(naja_tgraph SHARED ${GRAPH_SOURCES})

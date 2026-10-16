@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(sources
   TGraphTests.cpp
+  TSNLGraphConstructorTests.cpp
 )
 
 ADD_EXECUTABLE(tgraphTests ${sources})
