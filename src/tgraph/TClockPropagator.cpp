@@ -11,11 +11,12 @@
 #include "TClock.h"
 #include "TEdge.h"
 #include "TGraph.h"
+#include "TLoopBreaker.h"
 #include "TNode.h"
 
 namespace naja::TG {
 
-void TClockPropagator::propagateForward(TGraph& graph) {
+std::vector<std::size_t> TClockPropagator::propagateForward(TGraph& graph) {
   const std::size_t nodesCount = graph.getNodesStorage().size();
   const std::size_t clocksCount = graph.getClocksCount();
 
@@ -83,47 +84,73 @@ void TClockPropagator::propagateForward(TGraph& graph) {
       edge->setFromClocks(resolved[n]);
     }
   }
+  return queue;
 }
 
-void TClockPropagator::propagateBackward(TGraph& graph) {
+void TClockPropagator::propagateBackward(TGraph& graph, const std::vector<std::size_t>& order) {
   const std::size_t nodesCount = graph.getNodesStorage().size();
   const std::size_t clocksCount = graph.getClocksCount();
 
-  //A node's own seed bits are part of its resolved mask too - propagateForward
-  //folds them in via `resolved`, but that array is local to that function, so
-  //recompute it here rather than assuming a node's in-edges alone account for
-  //it (a node can be a TClock seed AND have in-edges from other clocks).
+  //Direct clock seeds must be included even when C has no incoming edges.
   std::vector<TEdge::ClockMask> seedMask(nodesCount, TEdge::ClockMask(clocksCount));
   for (std::size_t c = 0; c < clocksCount; ++c) {
     const TClock* clock = graph.getClock(c);
     seedMask[clock->getNode()].set(c);
   }
 
-  for (TGraph::NodeId n = 0; n < nodesCount; ++n) {
-    if (!graph.isNodeValid(n)) {
+  std::vector<TEdge::ClockMask> capture(nodesCount, TEdge::ClockMask(clocksCount));
+  for (const auto& edge : graph.getCaptureEdgesStorage()) {
+    if (!edge.isAlive()) {
       continue;
     }
-    //Aggregate what forward propagation resolved for n across every path
-    //that reaches it, not just one edge's own contribution.
-    TEdge::ClockMask atNode = seedMask[n];
-    for (TGraph::EdgeId eid : graph.getNode(n)->getInEdges()) {
-      const TEdge* edge = graph.getEdge(eid);
-      if (edge != nullptr && !edge->isDisabled()) {
-        atNode |= edge->getFromClocks();
+    const auto source = edge.getSource();
+    TEdge::ClockMask atClock = seedMask[source];
+    for (auto eid : graph.getNode(source)->getInEdges()) {
+      const auto* incoming = graph.getEdge(eid);
+      if (incoming != nullptr && !incoming->isDisabled()) {
+        atClock |= incoming->getFromClocks();
       }
+    }
+    capture[edge.getTarget()] |= atClock;
+  }
+
+  //Reverse topological order visits every capture consumer before its drivers.
+  for (auto it = order.rbegin(); it != order.rend(); ++it) {
+    const auto n = *it;
+    if (graph.getNode(n)->isFlopDataOutput()) {
+      continue;
     }
     for (TGraph::EdgeId eid : graph.getNode(n)->getInEdges()) {
       TEdge* edge = graph.getEdge(eid);
       if (edge != nullptr && !edge->isDisabled()) {
-        edge->setToClocks(atNode);
+        edge->setToClocks(capture[n]);
+        capture[edge->getSource()] |= capture[n];
       }
     }
   }
 }
 
 void TClockPropagator::run(TGraph& graph) {
-  propagateForward(graph);
-  propagateBackward(graph);
+  const TEdge::ClockMask empty(graph.getClocksCount());
+  for (const auto& edge : graph.getEdgesStorage()) {
+    if (edge.isAlive()) {
+      graph.getEdge(edge.getIndex())->setFromClocks(empty);
+      graph.getEdge(edge.getIndex())->setToClocks(empty);
+    }
+  }
+  for (const auto& node : graph.getNodesStorage()) {
+    if (node.isAlive() && node.isLatch()) {
+      throw std::logic_error("TClockPropagator::run: latch analysis is unsupported");
+    }
+  }
+  for (const auto& clock : graph.getClocksStorage()) {
+    if (!graph.isNodeValid(clock.getNode())) {
+      throw std::logic_error("TClockPropagator::run: clock seed node was removed");
+    }
+  }
+  TLoopBreaker::run(graph);
+  const auto order = propagateForward(graph);
+  propagateBackward(graph, order);
 }
 
 }  // namespace naja::TG

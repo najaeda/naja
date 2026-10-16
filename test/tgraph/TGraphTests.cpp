@@ -159,7 +159,7 @@ TEST_F(TGraphTests, testCaptureEdgesAreSeparateFromSignalTraversal) {
   EXPECT_NO_THROW(TClockPropagator::run(graph));
   EXPECT_FALSE(graph.getEdge(signal)->isDisabled());
   EXPECT_FALSE(graph.getEdge(signal)->hasFromClock(seed));
-  EXPECT_TRUE(graph.getEdge(signal)->hasToClock(seed));
+  EXPECT_FALSE(graph.getEdge(signal)->hasToClock(seed));
   EXPECT_EQ(1u, graph.getEdgesCount());
   EXPECT_EQ(1u, graph.getCaptureEdgesCount());
 }
@@ -381,6 +381,8 @@ TEST_F(TGraphTests, testClockPropagatorLinearChainHasNoCrossing) {
   auto e1 = graph.createEdge(n1, n2, nullptr);
   auto clk = graph.createClock("clk", nullptr, n0);
 
+  graph.createCaptureEdge(n0, n2);
+
   TLoopBreaker::run(graph);
   TClockPropagator::run(graph);
 
@@ -406,6 +408,8 @@ TEST_F(TGraphTests, testClockPropagatorFlagsMergeOfTwoClockDomains) {
   auto clkA = graph.createClock("clkA", nullptr, a);
   auto clkB = graph.createClock("clkB", nullptr, b);
 
+  graph.createCaptureEdge(merge, downstream);
+
   TLoopBreaker::run(graph);
   TClockPropagator::run(graph);
 
@@ -415,7 +419,7 @@ TEST_F(TGraphTests, testClockPropagatorFlagsMergeOfTwoClockDomains) {
   EXPECT_TRUE(graph.getEdge(eB)->hasFromClock(clkB));
   EXPECT_FALSE(graph.getEdge(eB)->hasFromClock(clkA));
 
-  //But the merge node sees both, so both incoming edges' ToClocks carry both.
+  //The capture source sees both clocks, so both propagate back from downstream.
   EXPECT_TRUE(graph.getEdge(eA)->hasToClock(clkA));
   EXPECT_TRUE(graph.getEdge(eA)->hasToClock(clkB));
   EXPECT_TRUE(graph.getEdge(eB)->hasToClock(clkA));
@@ -433,16 +437,112 @@ TEST_F(TGraphTests, testClockPropagatorFlagsMergeOfTwoClockDomains) {
   EXPECT_FALSE(graph.getEdge(eOut)->hasClockCrossing());
 }
 
-TEST_F(TGraphTests, testClockPropagatorThrowsOnResidualCycle) {
+TEST_F(TGraphTests, testClockPropagatorBreaksCyclesAutomatically) {
   TGraph graph;
   auto n0 = graph.createNode(nullptr);
   auto n1 = graph.createNode(nullptr);
   graph.createEdge(n0, n1, nullptr);
   graph.createEdge(n1, n0, nullptr);
-  //No TLoopBreaker::run() call: the graph still has a cycle among enabled
-  //edges, which propagateForward() must reject rather than silently
-  //produce incomplete masks.
-  EXPECT_THROW(TClockPropagator::propagateForward(graph), std::logic_error);
+  EXPECT_NO_THROW(TClockPropagator::run(graph));
+  EXPECT_EQ(0u, TLoopBreaker::run(graph));
+}
+
+TEST_F(TGraphTests, testClockPropagatorRegisterTransfer) {
+  for (bool sameClock : {true, false}) {
+    TGraph graph;
+    auto launch = graph.createNode(nullptr);
+    auto q = graph.createNode(nullptr);
+    auto logic = graph.createNode(nullptr);
+    auto d = graph.createNode(nullptr);
+    auto capture = sameClock ? launch : graph.createNode(nullptr);
+    graph.getNode(q)->setCellKind(TNode::CellKind::FlipFlop);
+    graph.getNode(q)->setPinRole(TNode::PinRole::DataOutput);
+    auto cq = graph.createEdge(launch, q, nullptr);
+    auto data0 = graph.createEdge(q, logic, nullptr);
+    auto data1 = graph.createEdge(logic, d, nullptr);
+    auto a = graph.createClock("a", nullptr, launch);
+    auto b = sameClock ? a : graph.createClock("b", nullptr, capture);
+    graph.createCaptureEdge(capture, d);
+    TClockPropagator::run(graph);
+    for (auto eid : {data0, data1}) {
+      EXPECT_TRUE(graph.getEdge(eid)->hasFromClock(a));
+      EXPECT_TRUE(graph.getEdge(eid)->hasToClock(b));
+      EXPECT_EQ(!sameClock, graph.getEdge(eid)->hasClockCrossing());
+    }
+    //Backward propagation stops at Q and cannot enter its clock network.
+    EXPECT_TRUE(graph.getEdge(cq)->getToClocks().none());
+  }
+}
+
+TEST_F(TGraphTests, testCaptureSourceIncludesIncomingClocksAndOwnSeed) {
+  TGraph graph;
+  auto root = graph.createNode(nullptr);
+  auto clock = graph.createNode(nullptr);
+  auto driver = graph.createNode(nullptr);
+  auto data = graph.createNode(nullptr);
+  graph.createEdge(root, clock, nullptr);
+  auto signal = graph.createEdge(driver, data, nullptr);
+  auto a = graph.createClock("a", nullptr, root);
+  auto b = graph.createClock("b", nullptr, clock);
+  graph.createCaptureEdge(clock, data);
+  //C has no ordinary outgoing edges, so its domain must include both
+  //incoming FromClocks and its own direct seed.
+  TClockPropagator::run(graph);
+  EXPECT_TRUE(graph.getEdge(signal)->hasToClock(a));
+  EXPECT_TRUE(graph.getEdge(signal)->hasToClock(b));
+  EXPECT_EQ(2u, graph.getEdge(signal)->getToClocks().count());
+}
+
+TEST_F(TGraphTests, testCaptureFanoutAndRecomputation) {
+  TGraph graph;
+  auto q = graph.createNode(nullptr);
+  auto logic = graph.createNode(nullptr);
+  auto d0 = graph.createNode(nullptr);
+  auto d1 = graph.createNode(nullptr);
+  auto c0 = graph.createNode(nullptr);
+  auto c1 = graph.createNode(nullptr);
+  graph.getNode(q)->setCellKind(TNode::CellKind::FlipFlop);
+  graph.getNode(q)->setPinRole(TNode::PinRole::DataOutput);
+  auto shared = graph.createEdge(q, logic, nullptr);
+  auto branch0 = graph.createEdge(logic, d0, nullptr);
+  auto branch1 = graph.createEdge(logic, d1, nullptr);
+  auto a = graph.createClock("a", nullptr, c0);
+  auto b = graph.createClock("b", nullptr, c1);
+  auto capture0 = graph.createCaptureEdge(c0, d0);
+  graph.createCaptureEdge(c1, d1);
+  TClockPropagator::run(graph);
+  EXPECT_TRUE(graph.getEdge(shared)->hasToClock(a));
+  EXPECT_TRUE(graph.getEdge(shared)->hasToClock(b));
+  EXPECT_TRUE(graph.getEdge(branch0)->hasToClock(a));
+  EXPECT_FALSE(graph.getEdge(branch0)->hasToClock(b));
+  EXPECT_TRUE(graph.getEdge(branch1)->hasToClock(b));
+  EXPECT_FALSE(graph.getEdge(branch1)->hasToClock(a));
+
+  graph.removeCaptureEdge(capture0);
+  graph.getEdge(branch1)->setDisabled(true);
+  TClockPropagator::run(graph);
+  EXPECT_TRUE(graph.getEdge(shared)->getToClocks().none());
+  EXPECT_TRUE(graph.getEdge(branch0)->getToClocks().none());
+  EXPECT_TRUE(graph.getEdge(branch1)->getToClocks().none());
+  EXPECT_TRUE(graph.getEdge(branch1)->getFromClocks().none());
+  //New clocks resize masks and subsequent runs use the new seed set.
+  auto c = graph.createClock("c", nullptr, c1);
+  graph.getEdge(branch1)->setDisabled(false);
+  TClockPropagator::run(graph);
+  EXPECT_FALSE(graph.getEdge(shared)->hasToClock(a));
+  EXPECT_TRUE(graph.getEdge(shared)->hasToClock(b));
+  EXPECT_TRUE(graph.getEdge(shared)->hasToClock(c));
+}
+
+TEST_F(TGraphTests, testClockPropagatorRejectsUnsupportedLatchAndRemovedSeed) {
+  TGraph graph;
+  auto node = graph.createNode(nullptr);
+  graph.getNode(node)->setCellKind(TNode::CellKind::Latch);
+  EXPECT_THROW(TClockPropagator::run(graph), std::logic_error);
+  graph.getNode(node)->setCellKind(TNode::CellKind::Unknown);
+  graph.createClock("clk", nullptr, node);
+  graph.removeNode(node);
+  EXPECT_THROW(TClockPropagator::run(graph), std::logic_error);
 }
 
 TEST_F(TGraphTests, testClockPropagatorSucceedsAfterLoopBreaking) {

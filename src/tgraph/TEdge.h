@@ -36,7 +36,7 @@ class TEdge {
 
     /// \return the mask of clocks reaching this edge from its source side.
     const ClockMask& getFromClocks() const { return fromClocks_; }
-    /// \return the mask of clocks reaching this edge from its target side.
+    /// \return capture clocks propagated backward from downstream endpoints.
     const ClockMask& getToClocks() const { return toClocks_; }
     void setFromClocks(const ClockMask& mask) { fromClocks_ = mask; }
     void setToClocks(const ClockMask& mask) { toClocks_ = mask; }
@@ -49,8 +49,8 @@ class TEdge {
     /// already registered on the owning TGraph.
     void addToClock(std::size_t clock) { toClocks_.set(clock); }
 
-    /// \return true if the set of clocks reaching this edge's source differs
-    /// from the set reaching its target - a potential clock domain crossing.
+    /// \return true if launch and capture masks differ. Empty masks indicate
+    /// missing launch/capture information and require separate reporting.
     bool hasClockCrossing() const { return fromClocks_ != toClocks_; }
 
     /// \return true if this edge was cut by a loop-breaking pass (e.g.
