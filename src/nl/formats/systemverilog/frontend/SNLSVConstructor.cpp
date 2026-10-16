@@ -1402,6 +1402,7 @@ class SNLSVConstructorImpl {
       handledInitialBlocks_.clear();
       loweredNetInitializers_.clear();
       loweredVariableInitializers_.clear();
+      inlinedCallNets_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       anonymousAssignAliasCandidates_.clear();
@@ -3507,6 +3508,7 @@ endmodule
 #endif
       validateLoweringCoverage(
         design, body, defName, LoweringCoverageScope::ModuleBody);
+      warnUndrivenInlinedCallNets(design);
 
       if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -4450,9 +4452,39 @@ endmodule
         auto* net = getOrCreateNet(design, loweredName, symbol.getType());
         annotateSourceInfo(net, getSourceRange(symbol));
         activeFunctionLocalNets_[frameIndex].emplace(&symbol, net);
+        inlinedCallNets_[design].emplace(net, &symbol);
         return net;
       }
       return nullptr;
+    }
+
+    void warnUndrivenInlinedCallNets(SNLDesign* design) {
+      auto found = inlinedCallNets_.find(design);
+      if (found == inlinedCallNets_.end()) return;
+      for (auto* net : design->getNets()) {
+        auto symbol = found->second.find(net);
+        if (symbol == found->second.end()) continue;
+        for (auto* bit : collectBits(net)) {
+          // Replay creates storage placeholders which can remain unused. Only
+          // connected bits represent an observable missing value.
+          if (bit->isConstant() || bit->getComponents().empty()) continue;
+          bool driven = false;
+          for (auto* term : bit->getInstTerms()) {
+            driven |= term->getDirection() != SNLTerm::Direction::Input;
+          }
+          for (auto* term : bit->getBitTerms()) {
+            driven |= term->getDirection() != SNLTerm::Direction::Output;
+          }
+          if (!driven) {
+            reportWarning(
+              "undriven_inlined_local",
+              "Undriven net '" + bit->getString() + "' after subroutine inlining for '" +
+                std::string(symbol->second->name) + "'",
+              getSourceRange(*symbol->second));
+          }
+        }
+      }
+      inlinedCallNets_.erase(found);
     }
 
     std::string makeActiveFunctionLocalSuffix() {
@@ -12850,6 +12882,9 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto& [symbol, net] : argumentNets) {
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -12927,23 +12962,8 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
       const auto deriveTrackedLhsExpr = [&](const Expression& expr) -> const Expression* {
-        const auto* strippedExpr = stripConversions(expr);
-        if (!strippedExpr) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        if (slang::ast::ValueExpressionBase::isKind(strippedExpr->kind) ||
-            strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess) {
-          return strippedExpr;
-        }
-        if (strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect) {
-          return stripConversions(
-            strippedExpr->as<slang::ast::RangeSelectExpression>().value());
-        }
-        if (strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect) {
-          return stripConversions(
-            strippedExpr->as<slang::ast::ElementSelectExpression>().value());
-        }
-        return nullptr;
+        const auto* root = getTrackedAlwaysCombLHS(&expr);
+        return root && slang::ast::ValueExpressionBase::isKind(root->kind) ? root : nullptr;
       };
       const Expression* trackedLhsExpr = nullptr;
       const Expression* finalValueExpr = nullptr;
@@ -13013,6 +13033,9 @@ endmodule
         argumentNets.emplace(subroutine->returnValVar, functionResultNet);
       }
 
+      for (const auto& [symbol, net] : argumentNets) {
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -13059,78 +13082,37 @@ endmodule
         finalValueExpr = resultLhs;
       }
 
+      // Replay compound returns through the same local environment as a
+      // named return value. Declarations and later writes must execute in order,
+      // without connecting multiple procedural values to the same physical net.
+      std::optional<slang::ast::NamedValueExpression> resultLhs;
       if (terminalIsDirectReturnExpression) {
+        // Validate every preceding statement before dependency pruning. In
+        // particular, early returns and unsupported loops must not disappear
+        // merely because they do not assign a symbol in the final expression.
+        std::vector<const Expression*> assignedLhsExpressions;
+        std::string failureReason;
+        std::function<bool(const Statement&)> validateStatement = [&](const Statement& stmt) {
+          const auto* current = unwrapStatement(stmt);
+          if (!current) return true;
+          // Loop-return patterns have separate lowering helpers. Preserve
+          // their validation rather than accepting them through this path.
+          if (current->kind == slang::ast::StatementKind::ForLoop ||
+              current->kind == slang::ast::StatementKind::ForeachLoop) return false;
+          if (current->kind == slang::ast::StatementKind::List) {
+            for (const auto* item : current->as<slang::ast::StatementList>().list) {
+              if (item && !validateStatement(*item)) return false;
+            }
+            return true;
+          }
+          return collectAssignedLHSExpressions(
+            *current, assignedLhsExpressions, &failureReason, true);
+        };
         for (size_t i = 0; i + 1 < terminalStmtIndex; ++i) {
-          const auto* item = stmts[i];
-          if (!item) {
-            continue; // LCOV_EXCL_LINE
-          }
-          const auto* directStmt = unwrapStatement(*item);
-          if (!directStmt) {
-            continue; // LCOV_EXCL_LINE
-          }
-          if (directStmt->kind == slang::ast::StatementKind::Empty ||
-              directStmt->kind == slang::ast::StatementKind::VariableDeclaration) {
-            continue;
-          }
-          const Expression* directLHS = nullptr;
-          AssignAction directAction;
-          if (!extractAssignment(*directStmt, directLHS, directAction) ||
-              !directLHS || directAction.compoundOp ||
-              directAction.stepDelta != 0 || !directAction.rhs) {
-            if (directStmt->kind != slang::ast::StatementKind::Case &&
-                directStmt->kind != slang::ast::StatementKind::Conditional) {
-              return false;
-            }
-            std::string localFailureReason;
-            if (!lowerCombinationalProceduralBlock(
-                  design,
-                  *directStmt,
-                  getSourceRange(*directStmt),
-                  localFailureReason)) {
-              return false;
-            }
-            continue;
-          }
-          std::vector<SNLBitNet*> directLHSBits;
-          std::string directLHSFailureReason;
-          if (!resolveAssignmentLHSBits(
-                design,
-                *directLHS,
-              directLHSBits,
-              &directLHSFailureReason) ||
-              directLHSBits.empty()) {
-            return false; // LCOV_EXCL_LINE: direct assignment LHS was already accepted by slang.
-          }
-          auto* directLHSNet = resolveAssignmentBaseNet(design, *directLHS);
-          auto directSourceRange = getSourceRange(*directAction.rhs);
-          auto directBits = buildAssignBits(
-            design,
-            directAction,
-            directLHSNet,
-            directLHSBits,
-            nullptr,
-            directSourceRange);
-          if (directBits.size() != directLHSBits.size()) {
-            return false; // LCOV_EXCL_LINE: buildAssignBits is requested at directLHSBits width.
-          }
-          for (size_t bitIndex = 0; bitIndex < directLHSBits.size(); ++bitIndex) {
-            if (directBits[bitIndex] == directLHSBits[bitIndex]) {
-              continue; // LCOV_EXCL_LINE: self-assigning direct statements are skipped.
-            }
-            if (functionArgumentValues_.contains(directLHSBits[bitIndex])) {
-              functionArgumentValues_[directLHSBits[bitIndex]] = directBits[bitIndex];
-            } else {
-              createAssignInstance(
-                design,
-                directBits[bitIndex],
-                directLHSBits[bitIndex],
-                directSourceRange);
-            }
-          }
+          if (stmts[i] && !validateStatement(*stmts[i])) return false;
         }
-        return resolveExpressionBits(design, *finalValueExpr, targetWidth, bits) &&
-               bits.size() == targetWidth;
+        resultLhs.emplace(*subroutine->returnValVar, callExpr.sourceRange);
+        trackedLhsExpr = &*resultLhs;
       }
 
       auto* lhsNet = resolveExpressionNet(design, *trackedLhsExpr);
@@ -13150,6 +13132,9 @@ endmodule
       const slang::ast::ValueSymbol* resultSymbol = nullptr;
       if (!tryGetRootValueSymbolReference(*trackedLhsExpr, resultSymbol)) {
         return false; // LCOV_EXCL_LINE: resolveExpressionNet above only succeeds for value-symbol references.
+      }
+      if (terminalIsDirectReturnExpression) {
+        collectExpressionRootValueSymbols(*finalValueExpr, dependencies[resultSymbol]);
       }
       auto replaySymbols = getProceduralReplayRelevantSymbols(*resultSymbol, dependencies);
       ProceduralReplayEnv replayEnv;
@@ -13299,6 +13284,9 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto& [symbol, net] : argumentNets) {
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -13764,6 +13752,9 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto& [symbol, net] : argumentNets) {
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -22081,7 +22072,9 @@ endmodule
       }
       const auto* callSubroutine = std::get<0>(callExpr.subroutine);
       if (!callSubroutine ||
-          callSubroutine->subroutineKind != slang::ast::SubroutineKind::Function) {
+          (callSubroutine->subroutineKind != slang::ast::SubroutineKind::Function &&
+           (callSubroutine->subroutineKind != slang::ast::SubroutineKind::Task ||
+            callSubroutine->defaultLifetime != slang::ast::VariableLifetime::Automatic))) {
         return nullptr;
       }
       bool hasOutputArg = false;
@@ -28739,6 +28732,9 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto& [symbol, net] : argumentNets) {
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -29328,6 +29324,11 @@ endmodule
                    << std::string(declStmt.symbol.name) << "'";
             failureReason = reason.str();
             return false;
+          }
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (tryGetRootValueSymbolReference(lhsExpr, trackedSymbol) &&
+              trackedSymbol == &declStmt.symbol) {
+            dataBits = initBits;
           }
           (*activeProceduralReplayEnv_)[&declStmt.symbol] = std::move(initBits);
           return true;
@@ -36280,6 +36281,7 @@ endmodule
       activeFunctionLocalNets_ {};
     std::vector<std::string> activeFunctionLocalSuffixes_ {};
     size_t activeFunctionCallSerial_ {0};
+    std::unordered_map<SNLDesign*, std::unordered_map<SNLNet*, const Symbol*>> inlinedCallNets_ {};
     std::unordered_map<
       const slang::ast::ValueSymbol*,
       std::unordered_map<SNLDesign*, SNLNet*>>
