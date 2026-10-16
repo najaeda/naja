@@ -266,6 +266,16 @@ boundaries. Set ``keep_assigns=False`` to merge remaining assign connections aft
 elaboration. Function-local variables written by earlier loops are replayed
 before later loops read them, including partial writes and locally computed
 indices. These dependencies must remain driven in the returned netlist.
+Declaration initializers of automatic function locals execute on every call as
+blocking assignments, including expressions using arguments or earlier locals,
+packed vectors and structs, and declarations in named blocks. Later assignments
+see and can overwrite the initialized value. Combinational automatic tasks with
+output arguments use the same local replay behavior.
+
+Connected bits of inlined locals and formal arguments which have no driver emit
+an ``undriven_inlined_local`` elaboration warning with the declaration location.
+Unused replay storage does not trigger this warning. The normal warning
+suppression and diagnostics-report settings apply.
 
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in

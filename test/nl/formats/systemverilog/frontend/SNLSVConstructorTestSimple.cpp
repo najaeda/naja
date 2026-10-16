@@ -6219,50 +6219,6 @@ endmodule
   EXPECT_NE(top->getNet(NLName("sum_o")), nullptr);
 }
 
-TEST_F(
-  SNLSVConstructorTestSimple,
-  parseContinuousAssignProceduralReturnFunctionElementSelectMemberBaseUnsupported) {
-  SNLSVConstructor constructor(library_);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath =
-    outPath /
-    "continuous_assign_procedural_return_function_element_select_member_base_unsupported";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
-
-  const auto svPath =
-    outPath /
-    "continuous_assign_procedural_return_function_element_select_member_base_unsupported.sv";
-  std::ofstream svFile(svPath);
-  ASSERT_TRUE(svFile.good());
-  svFile
-    << R"(module continuous_assign_procedural_return_function_element_select_member_base_unsupported(
-  input  logic [1:0] p_bits,
-  output logic y
-);
-  typedef struct packed {
-    logic [1:0] bits;
-  } pair_t;
-
-  function automatic logic pick(input pair_t p);
-    logic tmp;
-    tmp = p.bits[1];
-    return p.bits[0];
-  endfunction
-
-  assign y = pick(pair_t'(p_bits));
-endmodule
-)";
-  svFile.close();
-
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_procedural_return_function_element_select_member_base_unsupported'"});
-}
 
 TEST_F(
   SNLSVConstructorTestSimple,
@@ -7139,6 +7095,211 @@ endmodule
       }
     }
   }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignProceduralReturnFunctionElementSelectMemberBaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "continuous_assign_procedural_return_function_element_select_member_base_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_assign_procedural_return_function_element_select_member_base_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_procedural_return_function_element_select_member_base_supported(
+  input  logic [1:0] p_bits,
+  output logic y
+);
+  typedef struct packed {
+    logic [1:0] bits;
+  } pair_t;
+
+  function automatic logic pick(input pair_t p);
+    logic tmp;
+    tmp = p.bits[1];
+    return p.bits[0];
+  endfunction
+
+  assign y = pick(pair_t'(p_bits));
+endmodule
+)";
+  svFile.close();
+
+  ASSERT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_procedural_return_function_element_select_member_base_supported"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 4; ++input) {
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : top->getTerm(NLName("p_bits"))->getBits()) {
+      memo[bit->getNet()] = bool((input >> bit->getBit()) & 1u);
+    }
+    EXPECT_EQ(bool(input & 1u), evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("y"))->getNet(), input, 0, &memo));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, automaticLocalInitializersExecutePerCall) {
+  const auto path = writeSVTestFile("local_initializers", R"(module local_initializers(
+  input logic [2:0] a,
+  output logic scalar_result, constant_result, member_result, task_scalar,
+  output logic [2:0] dependent, reassigned, direct, second, nested, packed_result, task_result, task_second, task_packed);
+  typedef struct packed { logic flag; logic [1:0] value; } record_t;
+  function automatic logic scalar_f(logic [2:0] p);
+    logic v = ^p;
+    return v;
+  endfunction
+  function automatic logic constant_f(logic [2:0] p);
+    logic v = 1'b0;
+    if (p[0]) v = 1'b1;
+    return v;
+  endfunction
+  function automatic logic [2:0] dependent_f(logic [2:0] p);
+    logic [2:0] first = ~p;
+    logic [2:0] next_value = first ^ 3'b010;
+    return next_value;
+  endfunction
+  function automatic logic [2:0] reassigned_f(logic [2:0] p);
+    logic [2:0] v = ~p;
+    v[0] = p[0];
+    return v;
+  endfunction
+  function automatic logic [2:0] direct_f(logic [2:0] p);
+    logic [2:0] v = ~p;
+    v[0] = p[0];
+    return {v[0], v[2:1]};
+  endfunction
+  function automatic logic [2:0] nested_f(logic [2:0] p);
+    logic [2:0] result;
+    begin : inner
+      logic [2:0] v = ~p;
+      result = v;
+    end
+    return result;
+  endfunction
+  function automatic record_t packed_f(logic [2:0] p);
+    record_t v = {p[0], ~p[2:1]};
+    return v;
+  endfunction
+  function automatic logic member_f(logic [2:0] p);
+    record_t v = {p[0], ~p[2:1]};
+    return v.flag;
+  endfunction
+  task automatic task_f(input logic [2:0] p, output logic [2:0] result);
+    logic [2:0] v = ~p;
+    logic [2:0] next_value = v ^ 3'b010;
+    result = next_value;
+  endtask
+  task automatic scalar_task(input logic [2:0] p, output logic result);
+    logic v = ^p;
+    result = v;
+  endtask
+  task automatic packed_task(input logic [2:0] p, output record_t result);
+    begin : inner
+      record_t v = {p[0], ~p[2:1]};
+      result = v;
+    end
+  endtask
+  assign member_result = member_f(a);
+  assign scalar_result = scalar_f(a);
+  assign constant_result = constant_f(a);
+  assign dependent = dependent_f(a);
+  assign reassigned = reassigned_f(a);
+  assign direct = direct_f(a);
+  assign second = dependent_f(~a);
+  assign nested = nested_f(a);
+  assign packed_result = packed_f(a);
+  always_comb begin
+    task_f(a, task_result);
+    task_f(~a, task_second);
+    scalar_task(a, task_scalar);
+    packed_task(a, task_packed);
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  const auto reportPath = path.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  ASSERT_NO_THROW(constructor.construct(path, options));
+  EXPECT_EQ(std::string::npos, readTextFile(reportPath).find("undriven_inlined_local"));
+  auto* top = library_->getSNLDesign(NLName("local_initializers"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 8; ++input) {
+    const unsigned updated = input ^ 6u;
+    for (const auto& [name, expected] : {
+           std::pair{"scalar_result", ((input >> 2) ^ (input >> 1) ^ input) & 1u},
+           {"constant_result", input & 1u}, {"member_result", input & 1u},
+           {"dependent", input ^ 5u},
+           {"reassigned", updated}, {"direct", ((updated & 1u) << 2) | (updated >> 1)},
+           {"second", input ^ 2u}, {"nested", input ^ 7u},
+           {"packed_result", ((input & 1u) << 2) | ((input >> 1) ^ 3u)},
+           {"task_result", input ^ 5u}, {"task_second", input ^ 2u},
+           {"task_scalar", ((input >> 2) ^ (input >> 1) ^ input) & 1u},
+           {"task_packed", ((input & 1u) << 2) | ((input >> 1) ^ 3u)}}) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName(name))->getBits()) {
+        const auto index = top->getTerm(NLName(name))->getWidth() == 1 ? 0 : bit->getBit();
+        EXPECT_EQ(bool((expected >> index) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << name << " input=" << input;
+      }
+    }
+    ASSERT_FALSE(HasFailure());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, taskInliningRejectsStaticStorageAndTiming) {
+  for (const bool timed : {false, true}) {
+    const std::string name = timed ? "timed_task" : "static_task";
+    const auto path = writeSVTestFile(name, "module " + name + R"((
+  input logic a, output logic y);
+  task )" + (timed ? "automatic" : "static") + R"( f(input logic p, output logic result);
+    logic v = p;
+    )" + (timed ? "#1;" : "") + R"(
+    result = v;
+  endtask
+  always_comb f(a, y);
+endmodule
+)");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path, {"Unsupported combinational block"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, undrivenInlinedLocalsWarnWithSourceLocations) {
+  const auto path = writeSVTestFile("undriven_local", R"(module undriven_local(
+  input logic [2:0] a, output logic [2:0] y, z);
+  function automatic logic [2:0] f(logic [2:0] p);
+    logic [2:0] v;
+    return v ^ p;
+  endfunction
+  assign y = f(a);
+  assign z = f(~a);
+endmodule
+)");
+  const auto reportPath = path.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  SNLSVConstructor constructor(library_);
+  testing::internal::CaptureStdout();
+  EXPECT_NO_THROW(constructor.construct(path, options));
+  const auto console = testing::internal::GetCapturedStdout();
+  EXPECT_EQ(1u, countSubstring(console, "Undriven net '"));
+  const auto report = readTextFile(reportPath);
+  EXPECT_EQ(6u, countSubstring(report, "code=\"undriven_inlined_local\""));
+  EXPECT_NE(std::string::npos, report.find("undriven_local.sv\" line=4 column=17"));
+  EXPECT_NE(std::string::npos, report.find("count.naja_unsupported_error.occurrences=0"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, functionInputFormalWritesDoNotModifyActual) {
@@ -21966,7 +22127,8 @@ endmodule
     assignedLocalTempLHS.insert(line.substr(assignPos + 7, equalsPos - assignPos - 7));
     ++localTempAssigns;
   }
-  EXPECT_GT(localTempAssigns, 0u);
+  // Local replay values need no physical assign; any emitted ones must still
+  // have distinct destinations across nested and repeated calls.
   EXPECT_EQ(localTempAssigns, assignedLocalTempLHS.size());
 }
 
