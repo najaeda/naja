@@ -3798,19 +3798,10 @@ endmodule
   for (NLID::Bit bit = 0; bit < 4; ++bit) {
     EXPECT_TRUE(haveEquivalentFanIn(wide->getBit(bit), sliced->getBit(bit + 2)));
   }
-  EXPECT_EQ(1u, countMux2Instances(top, 2));
-  for (const auto* mux : top->getInstances()) {
-    if (!NLDB0::isMux2(mux->getModel()) || getPrimitiveWidth(mux) != 2) {
-      continue;
-    }
-    for (NLID::Bit bit = 0; bit < 2; ++bit) {
-      EXPECT_EQ(top->getBusNet(NLName("b"))->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet());
-      EXPECT_EQ(top->getBusNet(NLName("a"))->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
-      EXPECT_EQ(narrow->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2Output(mux->getModel())->getBit(bit))->getNet());
-    }
+  // The cast now truncates the evaluated mux result. Check the retained
+  // bits rather than requiring a mux constructed at the destination width.
+  for (NLID::Bit bit = 0; bit < 2; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(narrow->getBit(bit), sliced->getBit(bit + 2)));
   }
 }
 
@@ -6809,6 +6800,21 @@ static bool evaluateFunctionResultBit(
       return name == "nand" || name == "nor" || name == "xnor" || name == "not"
         ? !result : result;
     }
+    if (NLDB0::isDivMod(model)) {
+      const auto readBus = [&](SNLBusTerm* bus) {
+        uint64_t value = 0;
+        for (auto* bit : bus->getBusBits())
+          value |= uint64_t(read(bit)) << bit->getBit();
+        return value;
+      };
+      const auto dividend = readBus(NLDB0::getDivModDividend(model));
+      const auto divisor = readBus(NLDB0::getDivModDivisor(model));
+      if (!divisor) { ADD_FAILURE() << "Zero divisor in test"; return false; }
+      const auto* output = driver->getBitTerm();
+      const bool quotient = output->getID() == NLDB0::getDivModQuotient(model)->getID();
+      const uint64_t value = quotient ? dividend / divisor : dividend % divisor;
+      return (value >> output->getBit()) & 1u;
+    }
     if (NLDB0::isFA(model)) {
       const unsigned sum = unsigned(read(NLDB0::getFAInputA())) +
         unsigned(read(NLDB0::getFAInputB())) + unsigned(read(NLDB0::getFAInputCI()));
@@ -6850,6 +6856,143 @@ static bool evaluateFunctionResultBit(
   }();
   (*memo)[net] = result;
   return result;
+}
+
+// Each expression is evaluated independently of destination truncation. The
+// packed input keeps the existing primitive evaluator usable for all contexts.
+TEST_F(SNLSVConstructorTestSimple, narrowedExpressionsPreserveEvaluationWidth) {
+  const std::vector<std::string> expressions {
+    "x >> sh", "x >>> sh", "$signed(x) >>> sh", "x / d", "x % d",
+    "(x >> sh) + 12'd0", "sh[0] ? (x >> sh) : (x >> (sh + 1'b1))",
+    "x[11:0] >> sh", "x >> 5'd12", "$signed(x) >>> 5'd15",
+    "x / (12'd1 << sh)", "small_t'(x) >> sh"
+  };
+  std::ostringstream source;
+  source << "module sink(input logic [4:0] p, output logic [4:0] q);"
+         << "assign q = p; endmodule\n"
+         << "module top(input logic [23:0] a";
+  for (size_t e = 0; e < expressions.size(); ++e)
+    for (unsigned cast = 0; cast < 3; ++cast)
+      for (unsigned context = 0; context < 6; ++context)
+        source << ", output wire [4:0] y" << e << "_" << cast << "_" << context;
+  source << ", output logic [8:0] carry_assign, carry_net, carry_comb, carry_port);\n"
+         << "typedef logic [4:0] small_t; wire [11:0] x = a[11:0];"
+         << "wire [11:0] d = a[23:12]; wire [3:0] sh = a[15:12];\n"
+         << "function automatic [4:0] identity(input logic [4:0] v); return v; endfunction\n";
+  for (size_t e = 0; e < expressions.size(); ++e) {
+    for (unsigned cast = 0; cast < 3; ++cast) {
+      const auto expr = cast == 0 ? expressions[e] :
+        (cast == 1 ? "small_t'(" : "5'(") + expressions[e] + ")";
+      for (unsigned context = 0; context < 6; ++context) {
+        const auto name = "y" + std::to_string(e) + "_" + std::to_string(cast) +
+          "_" + std::to_string(context);
+        if (context == 0) source << "assign " << name << " = " << expr << ";\n";
+        if (context == 1) source << "wire [4:0] n" << name << " = " << expr
+          << "; assign " << name << " = n" << name << ";\n";
+        if (context == 2) source << "sink u" << name << "(.p(" << expr
+          << "), .q(" << name << "));\n";
+        if (context == 3) source << "logic [4:0] r" << name << "; always_comb r"
+          << name << " = " << expr << "; assign " << name << " = r" << name << ";\n";
+        if (context == 4) source << "assign " << name << " = identity(" << expr << ");\n";
+        if (context == 5) source << "function automatic [4:0] f" << name
+          << "(input logic [11:0] x, d, input logic [3:0] sh); return " << expr
+          << "; endfunction assign " << name << " = f" << name << "(x,d,sh);\n";
+      }
+    }
+  }
+  source << "assign carry_assign = a[7:0] + a[15:8];\n"
+         << "wire [8:0] sum = a[7:0] + a[15:8]; assign carry_net = sum;\n"
+         << "always_comb carry_comb = a[7:0] + a[15:8];\n"
+         << "wide_sink wide(.p(a[7:0] + a[15:8]), .q(carry_port)); endmodule\n"
+         << "module wide_sink(input logic [8:0] p, output logic [8:0] q);"
+         << "assign q=p; endmodule\n";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("narrowed_expression_width", source.str()));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  // Include both signs, all shift amounts (also beyond the operand width),
+  // non-power-of-two divisors, and deterministic pseudo-random operands.
+  uint32_t state = 0x42b7u;
+  for (unsigned sample = 0; sample < 256; ++sample) {
+    state = state * 1664525u + 1013904223u;
+    const unsigned x = sample < 16 ? (1u << (sample % 12)) : state & 4095u;
+    const unsigned d = ((state >> 12) & 4080u) | (sample % 16);
+    if (!d) continue;
+    const unsigned sh = d & 15u;
+    const unsigned input = x | (d << 12);
+    const int signedX = x & 2048u ? int(x) - 4096 : int(x);
+    const std::vector<unsigned> expected {
+      x >> sh, x >> sh, unsigned(signedX >> sh), x / d, x % d,
+      x >> sh, sh & 1u ? x >> sh : x >> ((sh + 1) & 15u),
+      x >> sh, 0, unsigned(signedX >> 15), sh < 12 ? x / (1u << sh) : 0,
+      (x & 31u) >> sh
+    };
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](SNLBusTerm* term, SNLInstance* instance, unsigned value) {
+      ASSERT_NE(term, nullptr);
+      for (auto* bit : term->getBusBits()) {
+        auto* net = instance ? instance->getInstTerm(bit)->getNet() : bit->getNet();
+        EXPECT_EQ(bool((value >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, net, input, 0, &memo))
+          << term->getName().getString() << " sample=" << sample << " input=" << input;
+      }
+    };
+    for (size_t e = 0; e < expressions.size(); ++e)
+      for (unsigned cast = 0; cast < 3; ++cast)
+        for (unsigned context = 0; context < 6; ++context) {
+          // Avoid zero divisors for the power-of-two expression.
+          if (e == 10 && sh >= 12) continue;
+          const auto name = "y" + std::to_string(e) + "_" + std::to_string(cast) +
+            "_" + std::to_string(context);
+          SCOPED_TRACE(name);
+          auto* instance = context == 2 ? top->getInstance(NLName("u" + name)) : nullptr;
+          check(instance ? instance->getModel()->getBusTerm(NLName("p")) :
+            top->getBusTerm(NLName(name)), instance, expected[e]);
+        }
+    const unsigned carry = (input & 255u) + ((input >> 8) & 255u);
+    for (const auto* name : {"carry_assign", "carry_net", "carry_comb"})
+      check(top->getBusTerm(NLName(name)), nullptr, carry);
+    auto* wide = top->getInstance(NLName("wide"));
+    ASSERT_NE(wide, nullptr);
+    check(wide->getModel()->getBusTerm(NLName("p")), wide, carry);
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, expressionWidthConstantAndConversionBoundaries) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("expression_width_boundaries", R"(
+module top(input logic [23:0] a, output logic [11:0] y, z,
+            output logic [4:0] p, q, r, s, c);
+  parameter logic [4:0] P = 12'hb60 >> 4;
+  localparam logic [4:0] Q = 12'hb60 / 12'd13;
+  localparam logic [4:0] R = 12'hb60 % 12'd47;
+  function automatic [4:0] f(input logic [11:0] v); return v >> 4; endfunction
+  localparam logic [4:0] S = f(12'hb60);
+  localparam logic [8:0] C = 8'd217 + 8'd153;
+  assign p = P; assign q = Q; assign r = R; assign s = S; assign c = C[4:0];
+  // Truncate inside the expression, then extend the converted value.
+  assign y = 5'(a[11:0] >> a[15:12]);
+  assign z = 5'(a[11:0]) >> a[15:12];
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  for (unsigned input : {0x12b60u, 0x37a95u, 0x5ffffu, 0x81234u, 0xfaf01u}) {
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const std::vector<std::pair<const char*, unsigned>> expected {
+      {"p", 0xb60u >> 4}, {"q", 0xb60u / 13}, {"r", 0xb60u % 47},
+      {"s", 0xb60u >> 4}, {"c", 217 + 153},
+      {"y", ((input & 4095u) >> ((input >> 12) & 15u)) & 31u},
+      {"z", (input & 31u) >> ((input >> 12) & 15u)}
+    };
+    for (const auto& [name, value] : expected) {
+      auto* term = top->getBusTerm(NLName(name));
+      ASSERT_NE(term, nullptr);
+      for (auto* bit : term->getBusBits())
+        EXPECT_EQ(bool((value >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << name;
+    }
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, dynamicProceduralWritesDriveStorage) {
