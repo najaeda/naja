@@ -1092,8 +1092,9 @@ class RTLConstructor {
         if (port->getDirection() == SNLTerm::Direction::Output && !bound.contains(port)) continue;
         const auto* defaultValue = declaration.defaultValue.get();
         if (!defaultValue) fail("incomplete port association: " + port->getName().getString());
-        if (port->getDirection() != SNLTerm::Direction::Input)
+        if (port->getDirection() != SNLTerm::Direction::Input) // LCOV_EXCL_START: run() rejects non-input defaults while building the child.
           fail("port defaults are supported only for input ports");
+        // LCOV_EXCL_STOP
         const auto expected = formalShapes.at(id);
         const auto value = expression(*defaultValue, State{}, &expected);
         if (value.bits.size() != port->getWidth() || !compatible(value.shape, expected))
@@ -1720,7 +1721,7 @@ class RTLConstructor {
       frame.context(binding.first->context);
       for (const auto& function : binding.first->functions)
         if (!frame.functions_.emplace(key(function.name), FunctionBinding{binding.first, &function}).second)
-          fail("ambiguous package function: " + key(function.name));
+          fail("ambiguous package function: " + key(function.name)); // LCOV_EXCL_LINE: context() rejects duplicate package functions before calls can reach this frame.
       if (const auto* package = packageBody(*binding.first)) {
         frame.context(package->context);
         std::set<std::string> defined;
@@ -2133,7 +2134,7 @@ class RTLConstructor {
     if (range.attribute) {
       const auto* attribute = arrayAttribute(*range.attribute);
       if (!attribute || (key(*attribute) != "range" && key(*attribute) != "reverse_range"))
-        fail("expected range or reverse_range array attribute");
+        fail("expected range or reverse_range array attribute"); // LCOV_EXCL_LINE: Parser::parseDiscreteRange stores only these two attributes.
       auto bounds = attributeRange(*range.attribute);
       if (bounds.indexEnumeration) fail("enumeration-valued array range attributes are not supported");
       if (key(*attribute) == "reverse_range") {

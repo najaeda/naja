@@ -5708,3 +5708,184 @@ TEST_F(VHDLConstructorTest, FileParseDiagnosticIncludesPath) {
   std::filesystem::remove(path);
   EXPECT_TRUE(library_->getSNLDesigns().empty());
 }
+
+TEST_F(VHDLConstructorTest, RTLFunctionAndTypeDiagnosticsRollBackDesigns) {
+  const std::vector<std::pair<std::string, std::string>> cases{
+    {"type items is array(real range <>) of bit;", "unsupported unconstrained array index subtype"},
+    {"type items is array(integer range <>) of integer; constant n : integer := items'length;", "array attribute requires a constrained type or object"},
+    {"function f(x : bit) return integer is begin return 1; end; constant n : bit := f(a);", "runtime functions require binary scalar/vector or boolean values"},
+    {"function f(x : bit_vector) return bit is begin return x(0); end; constant n : bit := f(a);", "unconstrained function vector requires a vector actual"},
+    {"function f(x : bit) return bit is begin x := '0'; return x; end; constant n : bit := f(a);", "runtime function assignments require local variables"},
+    {"function f(x : bit) return bit is begin for x in 0 to 1 loop null; end loop; return x; end; constant n : bit := f(a);", "shadowed runtime function loop parameters are unsupported"},
+    {"function f(x : bit) return bit is variable x : bit; begin return x; end; constant n : bit := f(a);", "shadowed runtime function locals are unsupported"},
+    {"function f(x, x : bit) return bit is begin return x; end; constant n : bit := f(a);", "duplicate function parameter"},
+    {"type items is array(0 to 1) of integer; constant data : items := (1, 2); constant n : boolean := false and boolean(data(0));", "boolean conversion requires a boolean operand"},
+    {"constant n : boolean := false and boolean(-1);", "boolean conversion requires a boolean operand"},
+    {"constant n : boolean := false and boolean(not 1);", "static unary operand type mismatch"},
+    {"constant n : boolean := false and boolean(1 + true);", "static operand type mismatch"},
+    {"constant n : boolean := false and boolean(1 and 2);", "static logical operands must be boolean"},
+    {"constant n : boolean := false and boolean(true + false);", "unsupported static scalar expression type"},
+    {"constant n : boolean := false and boolean('1');", "unsupported static scalar expression type"},
+    {"type indices is (first, last); type flags is array(indices) of boolean; constant data : flags := (others => true); constant n : boolean := false and data(0);", "array index enumeration type mismatch"}
+  };
+  for (const auto& [declarations, diagnostic] : cases) {
+    SCOPED_TRACE(declarations);
+    const auto source = "entity checked is port(a : in bit; y : out bit); end; "
+        "architecture rtl of checked is constant marker : integer := 0; " + declarations + " begin y <= a; end;";
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "invalid source accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, RuntimeFunctionLocalConstantsPreserveDeclarationOrder) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity local_values is port(a : in bit; y : out bit); end;
+architecture rtl of local_values is
+  function invert(x : bit) return bit is
+    constant bias : bit := '1';
+    variable result : bit := x xor bias;
+    constant mask : bit := bias;
+  begin return result and mask; end;
+begin y <= invert(a); end;
+)");
+  for (const bool input : {false, true}) {
+    std::unordered_map<SNLBitNet*, bool> values{{design->getScalarTerm(NLName("a"))->getNet(), input}};
+    std::unordered_set<SNLBitNet*> visiting;
+    EXPECT_EQ(evaluateRTL(design->getScalarTerm(NLName("y"))->getNet(), values, visiting), !input);
+  }
+}
+
+TEST_F(VHDLConstructorTest, StaticTypeInspectionPreservesArraysAndCapturedValues) {
+  auto* design = VHDLConstructor(library_).construct(R"(
+entity inspected is port(y : out bit); end;
+architecture rtl of inspected is
+  type numbers is array(0 to 2) of integer;
+  type flags is array(0 to 1) of boolean;
+  constant data : numbers := (others => 3);
+  constant enabled : flags := (others => true);
+  constant bias : integer := 2;
+  function positive_value(n : integer) return boolean is begin return n > 0; end;
+  function selected(n : integer; b : boolean) return boolean is
+  begin return boolean(bias + n > 0) and boolean(b) and boolean(positive_value(n)); end;
+  function add(a, b : integer) return integer is begin return a + b; end;
+  constant chosen : integer := sel_natural_f(false, 1 / 0, 3);
+begin
+  y <= '1' when boolean(enabled(0)) and boolean(data(1) = 3) and
+    selected(1, true) and boolean(abs(-bias) = 2) and boolean(not false) and
+    boolean((true xor false) and true) and boolean((3 * 2) = 6) and
+    add(a => chosen, b => 2) = 5 else '0';
+end;
+)");
+  EXPECT_TRUE(design->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+}
+
+TEST_F(VHDLConstructorTest, RTLPortModesAreRejectedBeforePublishing) {
+  for (const auto* mode : {"inout", "buffer", "linkage"}) {
+    SCOPED_TRACE(mode);
+    try {
+      VHDLConstructor(library_).construct(std::string("entity modes is port(a : ") + mode +
+          " bit_vector(1 downto 0)); end; architecture rtl of modes is constant marker : integer := 0; begin end;");
+      FAIL() << "unsupported port mode accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find("RTL ports must be in or out"), std::string::npos);
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
+
+TEST_F(VHDLConstructorTest, RTLPackageAndExpressionDiagnosticsRollBackDesigns) {
+  const std::vector<std::pair<std::string, std::string>> cases{
+    {R"(
+package helpers is
+  function f(x : bit) return bit is
+    constant n : integer := items'length;
+  begin return x; end;
+  type items is array(0 to 1) of integer;
+end;
+use work.helpers.all;
+entity checked is port(a : in bit; y : out bit); end;
+architecture rtl of checked is begin y <= f(a); end;
+)", "array type is used before its declaration"},
+    {R"(
+package helpers is
+  constant preset : bit := f('0');
+  function f(x : bit) return bit is begin return x; end;
+end;
+use work.helpers.all;
+entity checked is port(y : out bit); end;
+architecture rtl of checked is begin y <= preset; end;
+)", "function is used before its declaration"},
+    {R"(
+library ieee; use ieee.std_logic_unsigned.all;
+entity checked is port(a : in bit_vector(1 downto 0); y : out bit); end;
+architecture rtl of checked is constant marker : integer := 0;
+begin y <= '1' when a < a else '0'; end;
+)", "ordering requires numeric vectors or hardware integers"},
+    {R"(
+package helpers is
+  type data_t is array(integer range <>) of bit;
+  function f(data : data_t) return integer;
+end;
+package body helpers is function f(data : data_t) return integer is begin return 0; end; end;
+use work.helpers.all;
+entity checked is port(y : out bit); end;
+architecture rtl of checked is constant data : data_t(0 to 1) := (others => '0');
+  constant n : integer := f(data); begin y <= '0'; end;
+)", "static array parameters require a one-dimensional integer array type"},
+    {R"(
+package helpers is
+  function f(data : data_t) return integer;
+  type data_t is array(integer range <>) of integer;
+end;
+package body helpers is function f(data : data_t) return integer is begin return 0; end; end;
+use work.helpers.all;
+entity checked is port(y : out bit); end;
+architecture rtl of checked is constant data : data_t(0 to 1) := (others => 0);
+  constant n : integer := f(data); begin y <= '0'; end;
+)", "array type is used before its declaration"},
+    {R"(
+entity checked is port(y : out bit); end;
+architecture rtl of checked is
+  type data_t is array(natural range <>) of integer;
+  constant data : data_t(0 to 1) := (others => 0);
+  function f(data : data_t(-1 to 0)) return integer is begin return 0; end;
+  constant n : integer := f(data); begin y <= '0'; end;
+)", "array bounds violate the index subtype"},
+    {R"(
+package helpers is
+  constant marker : bit := '1';
+  function f return boolean;
+end;
+package body helpers is function f return boolean is
+  begin return false and boolean(marker); end; end;
+use work.helpers.all;
+entity checked is port(y : out bit); end;
+architecture rtl of checked is constant n : boolean := f; begin y <= '0'; end;
+)", "unsupported static scalar type"},
+    {R"(
+package helpers is
+  function f(x : bit) return bit;
+  function f(x : bit_vector) return bit;
+end;
+package body helpers is function f(x : bit) return bit is begin return x; end; end;
+use work.helpers.all;
+entity checked is port(a : in bit; y : out bit); end;
+architecture rtl of checked is begin y <= f(a); end;
+)", "ambiguous or overloaded package function"}
+  };
+  for (const auto& [source, diagnostic] : cases) {
+    SCOPED_TRACE(source);
+    try {
+      VHDLConstructor(library_).construct(source);
+      FAIL() << "invalid source accepted";
+    } catch (const NLException& error) {
+      EXPECT_NE(std::string(error.what()).find(diagnostic), std::string::npos) << error.what();
+    }
+    EXPECT_TRUE(library_->getSNLDesigns().empty());
+  }
+}
